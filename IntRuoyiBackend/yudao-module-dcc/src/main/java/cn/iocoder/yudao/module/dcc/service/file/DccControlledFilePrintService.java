@@ -12,10 +12,10 @@ import java.util.List;
 public interface DccControlledFilePrintService {
 
     DccControlledFilePrintRecordRespVO createPrintRecord(Long userId, Long controlledFileId,
-                                                         DccControlledFilePrintCreateReqVO reqVO);
+                                                         DccControlledFilePrintCreateReqVO reqVO, DccRequestAuditContext auditContext);
 
-    List<DccControlledFilePrintRecordRespVO> getPrintRecords(Long userId, Long controlledFileId);
+    List<DccControlledFilePrintRecordRespVO> getPrintRecords(Long userId, Long controlledFileId, DccRequestAuditContext auditContext);
 
-    DccControlledFilePrintHtmlRespVO getPrintHtml(Long userId, Long controlledFileId, Long printRecordId);
+    DccControlledFilePrintHtmlRespVO getPrintHtml(Long userId, Long controlledFileId, Long printRecordId, DccRequestAuditContext auditContext);
 
 }

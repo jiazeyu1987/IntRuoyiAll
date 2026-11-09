@@ -23,6 +23,10 @@ class ApprovalFlowableTaskQueryContractTest {
                 assertTrue(count.contains("searched.tenant_id=?"));
                 assertTrue(count.contains("CAST(searched.id AS CHAR)=o.authority_id"));
                 assertTrue(count.contains("LOWER(searched.file_number) LIKE ?"));
+                assertTrue(count.contains("JSON_EXTRACT(rr.detail_json,'$.certificateNo')"));
+                assertTrue(count.contains("JSON_EXTRACT(rr.detail_json,'$.productName')"));
+                assertFalse(count.contains("current_version_id"));
+                assertFalse(count.contains("current_snapshot_id"));
                 assertEquals(!done && projection.equals("DCC_TASK"),
                         count.contains("completed.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')"));
                 if(done) assertTrue(count.contains("t.TASK_DEF_KEY_ != ?"));

@@ -29,6 +29,9 @@ public interface BpmMessageService {
      */
     void sendMessageWhenProcessInstanceReject(@Valid BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO);
 
+    /** 仅通知支持重新发起的受控文件原申请人。 */
+    void sendMessageWhenProcessInstanceCancel(@Valid BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO);
+
     /**
      * 发送任务被分配的消息
      *

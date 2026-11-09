@@ -176,7 +176,8 @@ public class DccOfflineTrainingRecordService {
     private boolean isEligibleActor(Long actor, DccControlledFileDO file) {
         if (file == null || !Objects.equals(actor,file.getRequesterId()) || !hasEnabledAccount(actor)
                 || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                || !categories.hasCategoryPermission(file.getCategoryId(), actor, DccFileCategoryPermissionActionEnum.TRAINING_RECORD)
+                || !(categories.hasWorkflowTrainingPermission(file.getCategoryId(), actor)
+                    || categories.hasFilePermission(file, actor, DccFileCategoryPermissionActionEnum.EDIT))
                 || !fileScope.isWithinAssignedFileScope(actor, file.getId())) return false;
         if (permissions.hasAnyPermissions(actor, "dcc:project-code:scope:all")
                 || !permissions.hasAnyPermissions(actor, "dcc:project-code-assignment:execute")) return true;

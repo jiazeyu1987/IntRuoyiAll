@@ -19,12 +19,16 @@ public class DccRegistrationCertificateChangeApplyReqVO {
     @NotNull
     private LocalDate approvalDate;
     private List<@Size(max = 64) String> changeTypes;
-    private Map<@Size(max = 64) String, @Size(max = 4096) String> structuredValues;
+    private Map<@Size(max = 64) String, @Size(max = 65535) String> structuredValues;
     @Size(max = 4096)
     private String otherDescription;
     private Boolean entrustedProduction;
     private Boolean selfProduction;
     private String entrustedEnterprisesJson;
-    @NotNull
     private MultipartFile file;
+    @Positive
+    private Long sourceRequestId;
+    private List<@Positive Long> retainedFileIds;
+    private List<MultipartFile> attachments;
+    private List<MultipartFile> productDescriptionFiles;
 }

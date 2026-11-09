@@ -23,7 +23,7 @@ public class DccProjectFolderStorageService {
     || !Objects.equals(project.getTenantId(),tenant) || !Objects.equals(folder.getTenantId(),tenant)
     || !Objects.equals(folder.getProjectCodeId(),project.getId()) || !Boolean.TRUE.equals(folder.getActive())
     || !"ENABLE".equals(project.getStatus()) || !Objects.equals(category,taxonomy.resolveActiveCategoryId(type))
-    || !permissions.hasCategoryPermission(category,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD)) throw fail(FOLDER_INVALID);
+    || !permissions.hasEditableProjectCategory(actor,project.getId(),category)) throw fail(FOLDER_INVALID);
   var currentCategory=mappings.lockCurrentCategory(tenant,category);
   if(currentCategory==null || !Boolean.TRUE.equals(currentCategory.getActive())
      || !Objects.equals(type,currentCategory.getFileTypeTaxonomyId())) throw fail(FOLDER_INVALID);

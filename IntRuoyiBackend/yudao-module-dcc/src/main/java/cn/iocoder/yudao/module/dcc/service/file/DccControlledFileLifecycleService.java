@@ -32,6 +32,7 @@ public class DccControlledFileLifecycleService {
     @Resource private DccControlledFileObsoleteAuditMapper obsoleteAuditMapper;
     @Resource private ApplicationEventPublisher eventPublisher;
     @Resource private DccWorkflowDatePolicy datePolicy;
+    @Resource private DccControlledFileHistoricalImportService historicalImports;
     @Resource private DccControlledFileVersionPolicy versionPolicy;
     @Resource private JdbcTemplate jdbcTemplate;
     @Resource private DccObsoleteRetentionService obsoleteRetentionService;
@@ -152,15 +153,31 @@ public class DccControlledFileLifecycleService {
                 || owner.getSignedAt()==null || owner.getEvidenceHash()==null || owner.getEvidenceHash().isBlank()
                 || !"v4-workflow".equals(owner.getEvidencePayloadVersion()) || Boolean.TRUE.equals(owner.getDeleted()))
             throw new IllegalStateException("文件负责人缺少同轮次真实批准证据");
-        String suffix="；批准文件负责人事实："+cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
-                List.of(file.getFileOwnerUserId(),file.getFileOwnerUsernameSnapshot(),file.getFileOwnerNicknameSnapshot()));
-        if(owner.getComment()==null || !owner.getComment().endsWith(suffix) || owner.getComment().length()<=suffix.length())
-            throw new IllegalStateException("文件负责人投影与原签名载荷不一致");
+        requireSignedFileOwner(file, owner.getComment());
         var verified=signatureManagementService.verifySignatureEvidence(owner.getId());
         if(verified==null || !Objects.equals(owner.getId(),verified.getSignatureId()) || !"VALID".equals(verified.getVerificationStatus()))
             throw new IllegalStateException("文件负责人批准签名验签失败");
         requireCompletedPublicTask(file,bound,owner,"MATRIX_APPROVAL");
         return doc;
+    }
+
+    private void requireSignedFileOwner(DccControlledFileDO file, String comment) {
+        String marker="；批准文件负责人事实：";
+        int start=comment==null ? -1 : comment.indexOf(marker);
+        if(start<0 || start!=comment.lastIndexOf(marker))
+            throw new IllegalStateException("文件负责人投影与原签名载荷不一致");
+        try {
+            var facts=new com.fasterxml.jackson.databind.ObjectMapper().readerFor(com.fasterxml.jackson.databind.JsonNode.class)
+                    .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .<com.fasterxml.jackson.databind.JsonNode>readValue(comment.substring(start+marker.length()));
+            if(facts==null || !facts.isArray() || facts.size()!=3 || !(facts.get(0).isIntegralNumber() || facts.get(0).isTextual())
+                    || !String.valueOf(file.getFileOwnerUserId()).equals(facts.get(0).asText())
+                    || !facts.get(1).isTextual() || !file.getFileOwnerUsernameSnapshot().equals(facts.get(1).textValue())
+                    || !facts.get(2).isTextual() || !file.getFileOwnerNicknameSnapshot().equals(facts.get(2).textValue()))
+                throw new IllegalStateException("文件负责人投影与原签名载荷不一致");
+        } catch (java.io.IOException invalid) {
+            throw new IllegalStateException("文件负责人原签名载荷格式无效",invalid);
+        }
     }
 
     private void requireCompletedPublicTask(DccControlledFileDO file,DccBoundWorkflowContractResolver.BoundExecution bound,
@@ -313,6 +330,8 @@ public class DccControlledFileLifecycleService {
         if (file.getControlledTime() == null
                 || !"CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus()))
             throw new IllegalStateException("文件未受控或不在待生效状态");
+        if (DccControlledFileHistoricalImportService.SOURCE.equals(file.getImportSource()))
+            return historicalImports.activateLocked(file,master,now);
         boolean legacyDateContract=requireEffectiveContract(file,false);
         if(DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) {
             var confirmation=requireControlledConfirmation(file);
@@ -439,6 +458,8 @@ public class DccControlledFileLifecycleService {
         var query = new LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getTenantId, tenantId)
                 .eq(DccControlledFileDO::getStatus, "ACTIVE")
+                .and(source->source.isNull(DccControlledFileDO::getImportSource)
+                        .or().ne(DccControlledFileDO::getImportSource,DccControlledFileHistoricalImportService.SOURCE))
                 .isNotNull(DccControlledFileDO::getControlledTime)
                 .isNotNull(DccControlledFileDO::getActivatedTime)
                 .isNull(DccControlledFileDO::getDistributedTime);
@@ -455,7 +476,10 @@ public class DccControlledFileLifecycleService {
                         .le(DccControlledFileDO::getDelayedEffectiveTime,now))
                     .or(dated->dated.and(mode->mode.isNull(DccControlledFileDO::getEffectiveMode)
                             .or().eq(DccControlledFileDO::getEffectiveMode,DccWorkflowDatePolicy.PRESET_DATE))
-                        .le(DccControlledFileDO::getEffectiveDate,now.toLocalDate())))
+                        .le(DccControlledFileDO::getEffectiveDate,now.toLocalDate()))
+                    .or(imported->imported.eq(DccControlledFileDO::getImportSource,DccControlledFileHistoricalImportService.SOURCE)
+                        .eq(DccControlledFileDO::getEffectiveMode,DccControlledFileHistoricalImportService.SOURCE)
+                        .le(DccControlledFileDO::getEffectiveTime,now)))
                 .orderByAsc(DccControlledFileDO::getEffectiveDate).orderByAsc(DccControlledFileDO::getId));
     }
 

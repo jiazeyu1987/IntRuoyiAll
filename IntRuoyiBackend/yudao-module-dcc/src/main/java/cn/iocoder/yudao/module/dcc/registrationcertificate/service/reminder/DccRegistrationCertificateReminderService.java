@@ -130,7 +130,7 @@ public class DccRegistrationCertificateReminderService {
                        c.owner_company_id,
                        c.current_version_id,
                        c.pending_version_id,
-                       v.expiry_date
+                       CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) AS expiry_date
                   FROM dcc_registration_certificate c
                   JOIN dcc_registration_certificate_version v
                     ON v.id = c.current_version_id
@@ -138,10 +138,11 @@ public class DccRegistrationCertificateReminderService {
                    AND v.certificate_id = c.id
                    AND v.status = 'CURRENT'
                    AND v.deleted = 0
+                  JOIN dcc_registration_certificate_snapshot s ON s.id=c.current_snapshot_id AND s.tenant_id=c.tenant_id AND s.deleted=0
                  WHERE c.tenant_id = ?
                    AND c.status = 'ACTIVE'
                    AND c.deleted = 0
-                   AND v.expiry_date IS NOT NULL
+                   AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')), 'null') IS NOT NULL
                  ORDER BY c.id
                 """, (rs, rowNum) -> new CertificateExpiry(
                 rs.getLong("certificate_id"),

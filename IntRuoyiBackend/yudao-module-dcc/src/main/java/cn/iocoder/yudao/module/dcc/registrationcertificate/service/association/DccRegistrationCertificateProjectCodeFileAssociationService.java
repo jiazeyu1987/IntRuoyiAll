@@ -53,6 +53,9 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
     private static final String REGISTRATION_CERTIFICATE_CODE = "REGISTRATION_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_NAME = "注册证";
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService accessPolicy;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateMapper certificateMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
@@ -127,10 +130,39 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                 FILE_KIND_CHANGE_APPROVAL, actualProjectCodeId, path);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public void bindAdditionalVersionMaterials(Long tenantId,Long versionId,Long actorId) {
+        var binding=resolveVersionProjectBinding(tenantId,versionId);
+        if(binding.projectCodeId()==null)return;
+        bindAdditionalMaterials(tenantId,FILE_OWNER_VERSION,versionId,binding.projectCodeId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void bindAdditionalChangeMaterials(Long tenantId,Long changeId,Long actorId) {
+        Long projectId=resolveChangeProjectCodeId(tenantId,changeId);
+        if(projectId==null)return;
+        bindAdditionalMaterials(tenantId,FILE_OWNER_CHANGE,changeId,projectId);
+    }
+
+    private void bindAdditionalMaterials(Long tenantId,String ownerType,Long ownerId,Long projectId) {
+        var files=fileMapper.selectList(new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
+                .eq(DccRegistrationCertificateFileDO::getTenantId,tenantId)
+                .eq(DccRegistrationCertificateFileDO::getOwnerType,ownerType)
+                .eq(DccRegistrationCertificateFileDO::getOwnerId,ownerId)
+                .in(DccRegistrationCertificateFileDO::getFileKind,java.util.List.of("CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION"))
+                .eq(DccRegistrationCertificateFileDO::getStatus,FILE_STATUS_BOUND));
+        if(files.isEmpty())return;
+        var path=ensureRegistrationCertificateTaxonomyPath();
+        files.forEach(f->bindBusinessFile(tenantId,f.getId(),ownerType,ownerId,f.getFileKind(),projectId,path));
+    }
+
     public List<DccControlledFileRespVO> listAssociatedRows(Long projectCodeId, String keyword, String status) {
         if (projectCodeId == null || projectCodeId <= 0) {
             return List.of();
         }
+        Long tenantId=cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        Long actorId=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId();
+        if(actorId==null) return List.of();
         String normalizedKeyword = StrUtil.trimToNull(keyword);
         String normalizedStatus = StrUtil.trimToNull(status);
         List<RegistrationAssociatedRow> rows = jdbcTemplate.query("""
@@ -150,8 +182,8 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                                c.product_master_id,
                                v.id AS version_id,
                                v.version_no,
-                               v.certificate_no,
-                               v.effective_date,
+                               NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.certificateNo')),'null') AS certificate_no,
+                               CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.effectiveDate')) END AS DATE) AS effective_date,
                                s.product_name
                           FROM dcc_registration_certificate_file f
                           JOIN dcc_registration_certificate_version v
@@ -163,9 +195,10 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                           LEFT JOIN dcc_registration_certificate_snapshot s
                             ON s.tenant_id = f.tenant_id
                            AND s.version_id = v.id
-                         WHERE f.deleted = 0
+                           AND s.id = (SELECT MAX(s2.id) FROM dcc_registration_certificate_snapshot s2 WHERE s2.tenant_id=v.tenant_id AND s2.version_id=v.id AND s2.deleted=0)
+                         WHERE f.deleted = 0 AND f.tenant_id = ?
                            AND f.owner_type = 'VERSION'
-                           AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                           AND f.file_kind IN ('REGISTRATION_CERTIFICATE','CERTIFICATE_ATTACHMENT','FDA_PRODUCT_DESCRIPTION')
                            AND f.status = 'BOUND'
                            AND f.dcc_project_code_id = ?
                         UNION ALL
@@ -185,8 +218,8 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                                c.product_master_id,
                                v.id AS version_id,
                                v.version_no,
-                               v.certificate_no,
-                               v.effective_date,
+                               NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.certificateNo')),'null') AS certificate_no,
+                               CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.effectiveDate')) END AS DATE) AS effective_date,
                                s.product_name
                           FROM dcc_registration_certificate_file f
                           JOIN dcc_registration_certificate_change ch
@@ -202,9 +235,9 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                           LEFT JOIN dcc_registration_certificate_snapshot s
                             ON s.tenant_id = ch.tenant_id
                            AND s.id = ch.resulting_snapshot_id
-                         WHERE f.deleted = 0
+                         WHERE f.deleted = 0 AND f.tenant_id = ?
                            AND f.owner_type = 'CHANGE'
-                           AND f.file_kind = 'CHANGE_APPROVAL'
+                           AND f.file_kind IN ('CHANGE_APPROVAL','CERTIFICATE_ATTACHMENT','FDA_PRODUCT_DESCRIPTION') AND ch.status='APPLIED'
                            AND f.status = 'BOUND'
                            AND f.dcc_project_code_id = ?
                          ORDER BY business_file_id
@@ -229,8 +262,9 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
                         rs.getString("certificate_no"),
                         rs.getObject("effective_date", LocalDate.class),
                         rs.getString("product_name")),
-                projectCodeId, projectCodeId);
+                tenantId, projectCodeId, tenantId, projectCodeId);
         return rows.stream()
+                .filter(row -> canPreview(tenantId,actorId,row) || accessPolicy.canDownloadFile(tenantId,actorId,row.businessFileId(),businessClock.now()))
                 .filter(row -> normalizedStatus == null || Objects.equals(normalizedStatus, row.fileStatus()))
                 .filter(row -> matchesKeyword(row, normalizedKeyword))
                 .map(this::toRespVO)
@@ -389,10 +423,23 @@ public class DccRegistrationCertificateProjectCodeFileAssociationService {
         respVO.setEffectiveDate(row.effectiveDate());
         respVO.setStatus(row.fileStatus());
         respVO.setPublishedTime(row.boundAt());
-        respVO.setCanPreview(true);
-        respVO.setCanDownload(true);
+        Long tenantId=cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        Long actorId=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId();
+        respVO.setCanPreview(canPreview(tenantId,actorId,row));
+        respVO.setCanDownload(accessPolicy.canDownloadFile(tenantId,actorId,row.businessFileId(),businessClock.now()));
         respVO.setCanPrint(false);
         return respVO;
+    }
+
+    private boolean canPreview(Long tenantId,Long actorId,RegistrationAssociatedRow row) {
+        if(!permissionApi.hasAnyPermissions(actorId,"dcc:registration-certificate:query-current"))return false;
+        try {accessPolicy.assertFilePreviewAllowed(tenantId,actorId,row.certificateId(),row.versionId(),businessClock.now());return true;}
+        catch(ServiceException error) {
+            if(java.util.Set.of(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(),
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode(),
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED.getCode()).contains(error.getCode()))return false;
+            throw error;
+        }
     }
 
     private boolean matchesKeyword(RegistrationAssociatedRow row, String keyword) {

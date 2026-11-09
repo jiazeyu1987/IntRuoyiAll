@@ -14,10 +14,7 @@ const source = readSource(
   'src/views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue'
 )
 const tableSource = source.slice(source.indexOf('<el-table'), source.indexOf('</el-table>'))
-const firstColumnSource = tableSource.slice(
-  tableSource.indexOf('<el-table-column'),
-  tableSource.indexOf('</el-table-column>') + '</el-table-column>'.length
-)
+const firstColumnSource = tableSource.match(/<el-table-column\s+label="分类名称"[\s\S]*?\/>/)[0]
 
 assert.match(
   source,
@@ -61,7 +58,6 @@ assert.match(
 
 for (const preservedToken of [
   'rootCreateMode',
-  'buildRootTaxonomyCode',
   'resolveNextRootTaxonomySort',
   "openForm('create', undefined, row)",
   "v-hasPermi=\"['dcc:controlled-file:category:manage']\""

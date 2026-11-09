@@ -16,8 +16,8 @@ export interface DccFileTypeTaxonomyVO {
 
 export type DccFileTypeTaxonomySaveReqVO = Pick<
   DccFileTypeTaxonomyVO,
-  'id' | 'parentId' | 'code' | 'name' | 'active' | 'sort' | 'remark'
->
+  'id' | 'parentId' | 'name' | 'active' | 'sort' | 'remark'
+> & { code?: string; pathNodeOnly?: boolean; approvalSourceMode?: DccApprovalSourceMode; matrixSourceCategoryId?: number; approvalMatrix?: import('./fileCategories').ControlledFileCategoryApprovalMatrixSaveReqVO; directoryBinding?: { directoryId: number; active: boolean } }
 
 export const getFileTypeTaxonomyList = async (): Promise<DccFileTypeTaxonomyVO[]> => {
   return await request.get({ url: '/dcc/file-type-taxonomies' })

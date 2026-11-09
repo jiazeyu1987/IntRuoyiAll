@@ -27,6 +27,7 @@ final class DccRegistrationCertificateCommandFingerprint {
         add(canonical, draft.approvalDate());
         add(canonical, draft.effectiveDate());
         add(canonical, draft.expiryDate());
+        add(canonical, canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(draft.factsJson(), java.util.Map.class)));
         add(canonical, normalizeText(draft.classification()));
         add(canonical, normalizeText(draft.registrantName()));
         add(canonical, normalizeText(draft.modelSpecification()));
@@ -92,6 +93,20 @@ final class DccRegistrationCertificateCommandFingerprint {
             target.append(text.length()).append(':').append(text);
         }
         target.append('|');
+    }
+
+    private static String canonicalJson(Object value) {
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(normalizeJson(value));
+    }
+    private static Object normalizeJson(Object value) {
+        if(value instanceof String text)return text.trim();
+        if(value instanceof java.util.Map<?,?> map) {
+            var result=new java.util.TreeMap<String,Object>();
+            map.forEach((key,item)->result.put(String.valueOf(key),normalizeJson(item)));
+            return result;
+        }
+        if(value instanceof java.util.List<?> list)return list.stream().map(DccRegistrationCertificateCommandFingerprint::normalizeJson).toList();
+        return value;
     }
 
     private static String normalizeText(String value) {

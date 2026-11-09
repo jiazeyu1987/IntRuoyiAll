@@ -39,14 +39,16 @@ class DccControlledFileVersionPolicyTest {
     }
 
     @Test
-    void initialVersionRequiresFirstMinorIterationForConfiguredPolicy() {
+    void initialVersionAcceptsAnyValidMinorIterationForConfiguredPolicy() {
         DccControlledFileVersionPolicyProperties properties = new DccControlledFileVersionPolicyProperties();
         properties.setMajorIdentitySegmentCount(2);
         DccControlledFileVersionPolicy policy = new DccControlledFileVersionPolicy(properties);
 
         assertEquals("A/1/1", policy.initialForNewFile(null));
         assertEquals("B/1/1", policy.initialForNewFile("b/1/1"));
-        assertThrows(IllegalArgumentException.class, () -> policy.initialForNewFile("A/1/2"));
+        assertEquals("A/1/2", policy.initialForNewFile("A/1/2"));
+        assertEquals("B/9/9", policy.initialForNewFile("B/9/9"));
+        assertThrows(IllegalArgumentException.class, () -> policy.initialForNewFile("A/1/10"));
         assertThrows(IllegalArgumentException.class, () -> policy.initialForNewFile("A/1"));
     }
 

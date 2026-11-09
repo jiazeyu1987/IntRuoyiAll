@@ -36,9 +36,37 @@ class DccDataRelationServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper projectProductRelationMapper;
+    @Mock
     private DccRegistrationCertificateMapper registrationCertificateMapper;
     @Mock
     private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
+
+    @ParameterizedTest
+    @CsvSource({"22,false", "23,true"})
+    void approvedProductCannotBeReboundOrRequireAnotherProjectOnlyBinding(long approvedProjectId, boolean withCertificate) {
+        prepareCatalogAndProject();
+        var approved = cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                .productCatalogId(11L).projectCodeId(approvedProjectId).relationStatus("ACTIVE").build();
+        when(projectProductRelationMapper.selectByProductCatalogId(11L)).thenReturn(approved);
+        var req = request();
+        if (!withCertificate) req.setRegistrationCertificateId(null);
+        assertThrows(RuntimeException.class, () -> service.createRelation(99L, req));
+        verifyNoInteractions(registrationCertificateMapper, relationMapper, productCatalogRegistrationSyncService);
+    }
+
+    @Test
+    void approvedProductCanAddCertificateForItsExistingProject() {
+        prepareCatalogAndProject();
+        var approved = cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                .productCatalogId(11L).projectCodeId(22L).relationStatus("ACTIVE").build();
+        when(projectProductRelationMapper.selectByProductCatalogId(11L)).thenReturn(approved);
+        var certificate = new DccRegistrationCertificateDO();
+        certificate.setId(33L); certificate.setProjectCodeId(22L);
+        when(registrationCertificateMapper.selectById(33L)).thenReturn(certificate);
+        service.createRelation(99L, request());
+        verify(productCatalogRegistrationSyncService).syncRelation(org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void createRelationShouldSyncCatalogFromRegistrationCertificate() {

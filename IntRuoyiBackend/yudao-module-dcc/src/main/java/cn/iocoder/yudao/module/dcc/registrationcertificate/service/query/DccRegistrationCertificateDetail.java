@@ -22,6 +22,7 @@ public class DccRegistrationCertificateDetail {
     private Long ownerCompanyId;
     private String ownerCompanyName;
     private Long productMasterId;
+    private String factsJson;
     private String productName;
     private Long projectCodeId;
     private String projectCode;

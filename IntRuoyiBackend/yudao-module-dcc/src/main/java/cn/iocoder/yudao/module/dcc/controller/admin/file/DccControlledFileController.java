@@ -956,28 +956,28 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/controlled-print")
     @Operation(summary = "Create one controlled print record")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<DccControlledFilePrintRecordRespVO> createControlledPrint(
             @PathVariable("id") Long id,
-            @Valid @RequestBody DccControlledFilePrintCreateReqVO reqVO) {
-        return success(controlledFilePrintService.createPrintRecord(getLoginUserId(), id, reqVO));
+            @Valid @RequestBody DccControlledFilePrintCreateReqVO reqVO, HttpServletRequest request) {
+        return success(controlledFilePrintService.createPrintRecord(getLoginUserId(), id, reqVO, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/controlled-print/records")
     @Operation(summary = "List controlled print records")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<List<DccControlledFilePrintRecordRespVO>> getControlledPrintRecords(
-            @PathVariable("id") Long id) {
-        return success(controlledFilePrintService.getPrintRecords(getLoginUserId(), id));
+            @PathVariable("id") Long id, HttpServletRequest request) {
+        return success(controlledFilePrintService.getPrintRecords(getLoginUserId(), id, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/controlled-print/print-html")
     @Operation(summary = "Build controlled print HTML with traceable metadata")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<DccControlledFilePrintHtmlRespVO> getControlledPrintHtml(
             @PathVariable("id") Long id,
-            @RequestParam("printRecordId") Long printRecordId) {
-        return success(controlledFilePrintService.getPrintHtml(getLoginUserId(), id, printRecordId));
+            @RequestParam("printRecordId") Long printRecordId, HttpServletRequest request) {
+        return success(controlledFilePrintService.getPrintHtml(getLoginUserId(), id, printRecordId, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/preview")

@@ -10,7 +10,7 @@ const facts = () => ({ fileId: '20', fileBpmRound: 'R', effectiveMode: 'DELAYED'
 const task = (status = 1) => ({ id: 'T', processInstanceId: 'R', taskDefinitionKey: 'DELAYED_EFFECTIVE_CONFIRM', status })
 test('exact V2 shows supervisor document then training and actual compiler confirmation in order', () => {
   const stages = c.exports.buildNativeApprovalProgress(scope(), facts(), [task()])
-  assert.deepEqual(Array.from(stages, x => x.stageCode), ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_REVIEW', 'APPLICANT_TRAINING_RECORD', 'DELAYED_EFFECTIVE_CONFIRM', 'CONTROLLED', 'DISTRIBUTED'])
+  assert.deepEqual(Array.from(stages, x => x.stageCode), ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW_ASSIGN', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_REVIEW', 'APPLICANT_TRAINING_RECORD', 'DELAYED_EFFECTIVE_CONFIRM', 'CONTROLLED', 'DISTRIBUTED'])
   const confirm = stages.find(x => x.stageCode === 'DELAYED_EFFECTIVE_CONFIRM')
   assert.equal(confirm.isCurrent, true); assert.equal(confirm.isCompleted, false)
   assert.equal(stages.find(x => x.stageCode === 'APPLICANT_TRAINING_RECORD').isCompleted, true)

@@ -52,9 +52,13 @@ assert.match(
 )
 assert.match(
   currentPreviewResolver,
-  /DccControlledFileUploadTypePolicy\.isDrawingSourceName\(source\.getName\(\)\)[\s\S]{0,240}file\.getDrawingPdfFileId\(\) == null[\s\S]{0,160}CONTROLLED_FILE_DRAWING_PDF_REQUIRED/,
-  'drawing source preview must explicitly reject a missing paired PDF'
+  /DccControlledFileUploadTypePolicy\.isDrawingSourceName\(source\.getName\(\)\)[\s\S]{0,120}file\.getDrawingPdfFileId\(\) != null[\s\S]{0,120}return file\.getDrawingPdfFileId\(\);/,
+  'drawing preview must use a paired PDF only when explicitly provided'
 )
+assert.doesNotMatch(currentPreviewResolver, /CONTROLLED_FILE_DRAWING_PDF_REQUIRED/,
+  'a missing optional PDF must not block CAD detail projection')
+assert.match(queryServiceTest, /getControlledFile_workingDrawingWithoutExtraPdfReturnsRealSourceKind/,
+  'JUnit regression must cover CAD detail without an additional PDF')
 
 const checkinFlow = extract(
   queryService,
@@ -97,8 +101,8 @@ assert.match(
 )
 assert.match(
   queryServiceTest,
-  /checkinDrawingSourceWithoutCurrentPdfRejectsBeforeCopyingOldPdf/,
-  'JUnit regression must cover replacement drawing source without current PDF rejection'
+  /checkinDrawingSourceWithoutExtraPdfCreatesVersionWithoutCopyingOldPdf/,
+  'JUnit regression must cover replacement CAD without an additional PDF and without reusing the old PDF'
 )
 
 console.log('DCC-STATIC-021 drawing preview PDF contract passed')

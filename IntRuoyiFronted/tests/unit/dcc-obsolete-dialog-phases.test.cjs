@@ -30,6 +30,7 @@ function mount(options = {}) {
     return c.exports
   }
   const deps = { vue,
+    './DetailObsoleteImpact.vue': { default: { setup: () => () => vue.h('aside') } },
     'element-plus': { ElMessageBox: { confirm: async message => {
       calls.push(['confirm', message]); if (options.confirm) await options.confirm(message);if (options.cancel) throw 'cancel'
     } } },

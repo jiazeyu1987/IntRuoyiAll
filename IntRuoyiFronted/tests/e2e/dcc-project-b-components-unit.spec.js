@@ -44,6 +44,7 @@ function setup(relative, mocks = {}, props = {}) {
     require: id => {
       if (Object.hasOwn(mocks, id)) return mocks[id]
       if (id === 'vue') return vue
+      if (id === '@/utils/permission') return { checkPermi: () => true }
       if (id.endsWith('/state') || id === './state') return loadState()
       if (id.endsWith('.vue')) return {}
       throw new Error('Unconfigured component test dependency: ' + id)
@@ -291,7 +292,7 @@ async function run() {
     const calls = []
     const instance = setup(projectFolderEditor, {
       [apiPath]: { getProjectFolders: async id => folderRows(id), saveProjectFolder: async (id, payload) => {
-        calls.push({ id, payload }); return { id: '11', projectCodeId: String(id), ...payload, active: true }
+        calls.push({ id, payload }); return { ...payload, id: '11', projectCodeId: String(id), active: true }
       } },
       './project-folder-tree': loadFolderTree(),
       'element-plus': { ElMessageBox: { confirm: async () => undefined } }
@@ -321,7 +322,7 @@ async function run() {
     instance.bindings.form.changeReason = '编辑A'
     const pending = instance.bindings.save()
     await instance.exposed.open('2')
-    writing.resolve({ ...folderRows('1')[0], name: '已保存A' })
+    writing.resolve(folderRows('1')[0])
     await pending
     assert.equal(instance.bindings.visible.value, true)
     assert.equal(instance.bindings.projectId.value, '2')

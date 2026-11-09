@@ -35,6 +35,8 @@ import static org.mockito.Mockito.*;
 @org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
 @org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccApprovedProjectLeaderOwnerTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
  @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods=false)
  static class Beans {@Bean JdbcTemplate jdbcTemplate(javax.sql.DataSource source){return new JdbcTemplate(source);}}
  @Resource DccProjectProductCreateWriteService writer;
@@ -51,6 +53,8 @@ class DccApprovedProjectLeaderOwnerTest extends BaseDbUnitTest {
  @MockitoSpyBean GxpAuditServiceImpl actualAuditKernel;
  @Resource GxpAuditPolicyOperationMapper policies;
  @Resource GxpAuditEventMapper events;
+ @Resource GxpAuditLedgerSequenceMapper sequences;
+ @Resource GxpAuditPolicyActivationMapper activations;
  @Resource JdbcTemplate jdbc;
  @MockitoBean AdminUserApi users;
  @MockitoBean PermissionApi permissions;
@@ -59,13 +63,19 @@ class DccApprovedProjectLeaderOwnerTest extends BaseDbUnitTest {
  @MockitoBean RoleApi roles;
  AdminUserRespDTO leader;
  @BeforeEach void fixture(){
+  jdbc.execute("ALTER TABLE dcc_project_access_rule ADD CONSTRAINT IF NOT EXISTS chk_dcc_project_access_reason CHECK (CHAR_LENGTH(TRIM(change_reason)) > 0)");
+  jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id BIGINT PRIMARY KEY,tenant_id BIGINT,username VARCHAR(64),nickname VARCHAR(64),status INT,deleted BIT DEFAULT FALSE)");
+  jdbc.update("DELETE FROM system_users");
+  for(long id:new long[]{1,7,8,9})jdbc.update("INSERT INTO system_users(id,tenant_id,username,nickname,status,deleted) VALUES(?,1,?,?,0,FALSE)",id,"actual-"+id,"实际账号"+id);
+  var watermark=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();watermark.setTenantId(1L);watermark.setNextLedgerSequence(1L);sequences.insert(watermark);
+  var activation=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();activation.setTenantId(1L);activation.setPolicyVersion("isolated-owner-test");activation.setPolicyHash("a".repeat(64));activation.setPreviousActivationHash("0".repeat(64));activation.setRequestId("isolated-owner-policy");activation.setActorId(1L);activation.setApprovalReference("isolated-test");activation.setActivatedAtUtc(java.time.LocalDateTime.now());activation.setEffectiveAfterSequence(0L);activation.setCanonicalActivationJson("{}");activation.setActivationHash("b".repeat(64));activations.insert(activation);
   TenantContextHolder.setTenantId(1L);leader=new AdminUserRespDTO().setId(7L).setTenantId(1L).setStatus(0).setUsername("actual-leader").setNickname("项目负责人");when(users.getUser(7L)).thenReturn(leader);
   for(long id:new long[]{1,8,9})when(users.getUser(id)).thenReturn(new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setUsername("other-"+id).setNickname("其它账号"));
   for(long id:new long[]{1,7,8,9})when(permissions.getUserRoleIdListByUserId(id)).thenReturn(Set.of());
   var login=new LoginUser().setId(1L).setTenantId(1L).setUserType(2).setInfo(Map.of("username","actual-approver","nickname","批准人"));SecurityFrameworkUtils.setLoginUser(login,new org.springframework.mock.web.MockHttpServletRequest());
-  var policy=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO();policy.setTenantId(1L);policy.setPolicyVersion("isolated-owner-test");policy.setOperationId("dcc.project-product.complete");policy.setSourceType("SERVICE_METHOD");policy.setSourceLocator("DccProjectProductCreateWriteService.writeApprovedRequest");policy.setDomain("DCC");policy.setSubjectType("DCC_PROJECT_PRODUCT_REQUEST");policy.setActionType("COMPLETE");policy.setReasonPolicy("REQUIRED");policy.setSignaturePolicy("NOT_REQUIRED");policy.setStatePolicy("BEFORE_AFTER");policy.setRetentionClass("ISOLATED_TEST");policy.setTestIds("OWNER-CREATE");policy.setOwner("dcc");policy.setApplicability("GXP");policy.setActive(true);policies.insert(policy);
+  var policy=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO();policy.setTenantId(1L);policy.setPolicyVersion("isolated-owner-test");policy.setOperationId("dcc.project-product.complete");policy.setSourceType("SERVICE_METHOD");policy.setSourceLocator("DccProjectProductCreateWriteService.writeApprovedRequest");policy.setDomain("DCC");policy.setSubjectType("DCC_PROJECT_PRODUCT_REQUEST");policy.setActionType("COMPLETE");policy.setReasonPolicy("APPROVAL_DECISION");policy.setSignaturePolicy("NOT_REQUIRED");policy.setStatePolicy("BEFORE_AFTER");policy.setRetentionClass("ISOLATED_TEST");policy.setTestIds("OWNER-CREATE");policy.setOwner("dcc");policy.setApplicability("GXP");policy.setActive(true);policies.insert(policy);
  }
- @AfterEach void clear(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
+ @AfterEach void clear(){jdbc.execute("ALTER TABLE dcc_project_access_rule DROP CONSTRAINT IF EXISTS chk_dcc_project_access_reason");org.springframework.security.core.context.SecurityContextHolder.clearContext();}
  Long approvedRequest(){
   var structure=new DccFolderTemplateStructure(List.of(new DccFolderTemplateStructure.Node("root",null,"正式目录",0)));
   var template=new DccFolderTemplateDO();template.setTenantId(1L);template.setName("正式模板");template.setActive(true);template.setEverUsed(true);template.setEditedByUserId(7L);template.setStructureJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(structure));templates.insert(template);
@@ -80,12 +90,24 @@ class DccApprovedProjectLeaderOwnerTest extends BaseDbUnitTest {
   assertTrue(events.selectList().get(0).getAfterStateJson().contains("projectAccessRules"));
   assertTrue(events.selectList().get(0).getAfterStateJson().contains("OWNER"));
  }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.NullAndEmptySource
+ @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})
+ void emptyApprovalOpinionWritesActualOwnerReasonWithoutInventingApprovalOpinion(String opinion){
+  Long id=approvedRequest();var request=requests.selectById(id);request.setWriteReason(cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason.normalize(opinion));request.setReviewReason("");request.setApprovalReason("");requests.updateById(request);
+  var completed=writer.writeApprovedRequest(id);
+  var rule=accessRules.selectListByProjectCodeId(completed.getGeneratedProjectCodeId()).get(0);
+  assertEquals("项目申请审批通过（申请ID："+id+"），初始化项目负责人OWNER权限",rule.getChangeReason());
+  assertEquals("",completed.getReviewReason());assertEquals("",completed.getApprovalReason());
+  assertEquals("",events.selectList().get(0).getReason());assertEquals("COMPLETED",completed.getStatus());
+  assertTrue(events.selectList().get(0).getAfterStateJson().contains(rule.getChangeReason()));
+ }
  void noGeneratedAssets(Long requestId){
   assertTrue(projects.selectList().isEmpty());assertTrue(products.selectList().isEmpty());assertTrue(relations.selectList().isEmpty());assertTrue(folderRows.selectList().isEmpty());assertTrue(accessRules.selectList().isEmpty());assertTrue(events.selectList().isEmpty());
   var request=requests.selectById(requestId);assertEquals("WRITING",request.getStatus());assertNull(request.getGeneratedProjectCodeId());assertNull(request.getCompletedTime());
  }
  @Test void actualAuditAppendFailureRollsBackProjectOwnerAndEveryGeneratedAsset(){
-  Long id=approvedRequest();doThrow(new IllegalStateException("isolated actual append failure")).when(actualAuditKernel).append(any());
+  Long id=approvedRequest();doThrow(new IllegalStateException("isolated actual append failure")).when(org.springframework.test.util.AopTestUtils.<GxpAuditServiceImpl>getUltimateTargetObject(actualAuditKernel)).append(any());
   assertThrows(RuntimeException.class,()->writer.writeApprovedRequest(id));noGeneratedAssets(id);
  }
  @Test void folderFailureAfterOwnerInsertRollsBackOwnerAndProjectInTheSameTransaction(){

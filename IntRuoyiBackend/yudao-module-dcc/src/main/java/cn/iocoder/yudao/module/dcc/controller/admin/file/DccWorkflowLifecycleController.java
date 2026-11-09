@@ -38,23 +38,22 @@ public class DccWorkflowLifecycleController {
         workflow.assignSignoff(getLoginUserId(),id,request);return success(true);
     }
     @PostMapping("/{id}/distribute")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:distribute')")
     public CommonResult<Boolean> distribute(@PathVariable Long id,@Valid @RequestBody DccWorkflowDistributionReqVO request) {
         distribution.distribute(getLoginUserId(),id,request);return success(true);
     }
     @GetMapping("/{id}/distribution-recipient-options")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:distribute')")
     public CommonResult<List<DccWorkflowDistributionRecipientRespVO>> recipients(@PathVariable Long id,@RequestParam Long departmentId) {
         return success(distribution.recipientOptions(getLoginUserId(),id,departmentId));
     }
     @GetMapping("/pending-distribution")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:distribute')")
     public CommonResult<List<DccControlledFileRespVO>> pending(@RequestParam(defaultValue="false") boolean remindersOnly) {
         Long user=getLoginUserId();
-        if(!permissions.hasAnyRoles(user,"doc_control")) throw new IllegalArgumentException("待下发列表仅文控角色可办理");
         if(remindersOnly) throw new IllegalArgumentException("自动下发提醒策略尚未确定，不能按预设日期生成提醒");
         return success(lifecycle.pendingDistribution(false).stream()
-                .filter(file -> categoryPermissions.hasCategoryPermission(file.getCategoryId(),user,
+                .filter(file -> categoryPermissions.hasFilePermission(file,user,
                         cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DISTRIBUTE))
                 .map(file -> {
                     var response=cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(file,DccControlledFileRespVO.class);

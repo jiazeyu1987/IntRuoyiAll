@@ -114,7 +114,21 @@ class DccObsoleteFormOpenDraftDatabaseTest extends BaseDbUnitTest {
     FormInstanceRespVO open(DccControlledFileObsoleteReqVO r){return tx().execute(s->obsolete.obsoleteControlledFile(99L,20L,r));}
     int ownRound(FormInstanceRespVO form){return tx().execute(s->rounds.requireObsoleteFormDraft(99L,20L,form.getId(),form.getInstanceCode()));}
     DccControlledFileObsoleteReqVO phaseRequest(FormInstanceRespVO form,String phase){var r=request("OPEN-SAVE");r.setPhase(phase);r.setFormInstanceId(form.getId());r.setFormInstanceCode(form.getInstanceCode());r.setAttributeRound(ownRound(form));r.setApplicationContextKey("DCC_OBSOLETE:"+form.getId()+":"+form.getInstanceCode());return r;}
-    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO getDraft(){return tx().execute(s->obsolete.getObsoleteApplicationDraft(99L,20L));}
+    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO getDraft(){
+        var proxy=new org.springframework.aop.framework.ProxyFactory(obsolete);
+        proxy.setProxyTargetClass(true);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        return ((DccControlledFileObsoleteServiceImpl)proxy.getProxy()).getObsoleteApplicationDraft(99L,20L);
+    }
+    @Test void reopeningDraftUsesWritableTransactionForIdentityLocks(){
+        var opened=open(request("OPEN-SAVE"));
+        when(permissions.hasCategoryPermission(anyLong(),anyLong(),any())).thenAnswer(call->{
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly(),"MySQL forbids draft FOR UPDATE locks in a read-only transaction");
+            return true;
+        });
+        assertEquals(opened.getId(),getDraft().getId());
+    }
     cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO phase(DccControlledFileObsoleteReqVO r){return (cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO)tx().execute(s->obsolete.obsoleteControlledFile(99L,20L,r));}
     void currentMatrix(int version)throws Exception{
         if(version==1){var category=cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX").id(2L).code("IC29").name("真实作废类别").active(true).source("LOCAL").lifecycleStage("DEVELOPMENT").fileTypeTaxonomyId(6L).build();sql.getMapper(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper.class).insert(category);jdbc.update("UPDATE dcc_file_category SET tenant_id=1 WHERE id=2");}

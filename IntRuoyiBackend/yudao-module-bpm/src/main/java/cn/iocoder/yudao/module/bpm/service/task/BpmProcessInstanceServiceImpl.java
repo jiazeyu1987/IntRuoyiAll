@@ -1160,6 +1160,9 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         } else if (Objects.equals(status, BpmProcessInstanceStatusEnum.REJECT.getStatus())) {
             messageService.sendMessageWhenProcessInstanceReject(
                     BpmProcessInstanceConvert.INSTANCE.buildProcessInstanceRejectMessage(instance, reason));
+        } else if (Objects.equals(status, BpmProcessInstanceStatusEnum.CANCEL.getStatus())) {
+            messageService.sendMessageWhenProcessInstanceCancel(
+                    BpmProcessInstanceConvert.INSTANCE.buildProcessInstanceRejectMessage(instance, reason));
         }
 
         // 3. 发送流程实例的状态事件

@@ -1,6 +1,7 @@
 <template>
-  <ContentWrap data-testid="registration-certificate-detail-page">
-    <el-alert v-if="invalidRoute" type="error" show-icon :closable="false" title="注册证编号无效，无法加载详情" />
+  <ContentWrap class="registration-detail-page" data-testid="registration-certificate-detail-page">
+    <RequestDetailPanel v-if="approvalRequestId && approvalProcessInstanceId" :request-id="Number(approvalRequestId)" :process-instance-id="approvalProcessInstanceId"/>
+    <el-alert v-else-if="invalidRoute" type="error" show-icon :closable="false" title="注册证编号无效，无法加载详情" />
     <el-alert
       v-else-if="routeIdentityError"
       type="error"
@@ -17,13 +18,15 @@
           <p>{{ detail.ownerCompanyName }} / {{ detail.productName }}</p>
         </div>
         <el-tag :type="getRegistrationCertificateStatusTagType(detail.status)" effect="dark">
-          {{ detail.status === 'OLD' ? '已失效，失效日期 ' + formatRegistrationCertificateDate(detail.expiryDate) : formatRegistrationCertificateStatus(detail.status) }}
+          {{ formatRegistrationCertificateStatus(detail.status) }}
         </el-tag>
         <el-tag :type="getRegistrationCertificateReminderTagType(detail.reminderColor)">
           提醒：{{ formatRegistrationCertificateReminder(detail.visualState) }}
         </el-tag>
       </div>
 
+      <el-form label-width="140px"><FactsFields :model-value="parseFacts(detail.factsJson)" readonly/></el-form>
+      <EvidencePanel :certificate-id="detail.certificateId" :version-id="detail.versionId" @preview="openAttachmentPreview" @download="downloadAttachment" @request-download="openDownloadRequest"/>
       <el-descriptions :column="detailDescriptionColumns" border>
         <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>
         <el-descriptions-item label="分类">{{ displayText(detail.classification) }}</el-descriptions-item>
@@ -261,6 +264,7 @@
         </div>
       </el-card>
 
+      <ChangeConfirmationsPanel :certificate-id="detail.certificateId" />
       <el-card class="detail-card" data-testid="registration-certificate-change-history" shadow="never">
         <template #header>
           <div class="detail-card__header">
@@ -376,6 +380,11 @@
 </template>
 
 <script setup lang="ts">
+import FactsFields from '../shared/FactsFields.vue'
+import EvidencePanel from '../history/EvidencePanel.vue'
+import { parseFacts } from '../shared/facts'
+import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'
+import RequestDetailPanel from '../approval/RequestDetailPanel.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -395,7 +404,6 @@ import {
 } from '@/api/common/filePreview'
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
-import { checkPermi, checkRole } from '@/utils/permission'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
@@ -419,6 +427,8 @@ const props = defineProps<{
 const route = useRoute()
 const message = useMessage()
 const REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX = 'DCC_REG_CERT_ACCESS:'
+const approvalRequestId=computed(()=>parsePositiveRouteQueryId(route.query.requestId))
+const approvalProcessInstanceId=computed(()=>normalizeRouteQueryValue(route.query.processInstanceId))
 const routeCertificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
 const accessRequestId = computed(() => {
   const businessKey = normalizeRouteQueryValue(props.id)
@@ -450,9 +460,7 @@ const requestingDownloadFileId = ref('')
 const downloadAuthorizedFileIds = ref<Set<string>>(new Set())
 const requestPendingFileIds = ref<Set<string>>(new Set())
 const canDirectDownload = (businessFileId: number | string) =>
-  checkPermi(['dcc:registration-certificate:access-request:approve'])
-  || checkRole(['dcc_registration_certificate_approver'])
-  || downloadAuthorizedFileIds.value.has(String(businessFileId))
+  downloadAuthorizedFileIds.value.has(String(businessFileId))
 const isDownloadRequestPending = (businessFileId: number | string) =>
   requestPendingFileIds.value.has(String(businessFileId))
 const isDownloadRequesting = (businessFileId: number | string) =>
@@ -636,7 +644,7 @@ const downloadAttachment = async (businessFileId: number | string) => {
   try {
     const result = await downloadRegistrationCertificateFile(businessFileId)
     const expired = isExpiredRegistrationCertificateDownload(businessFileId)
-    const savedFileName = resolveRegistrationCertificateDownloadFileName(result.fileName, expired)
+    const savedFileName = result.fileName
     console.info('[registration-certificate-download]', {
       businessFileId: String(businessFileId),
       viewMode: viewMode.value,
@@ -777,6 +785,7 @@ const resolveCertificateIdForDetail = async () => {
 }
 
 const loadDetail = async () => {
+  if(approvalRequestId.value && approvalProcessInstanceId.value)return
   routeIdentityError.value = ''
   accessRequestCertificateId.value = ''
   if (invalidRoute.value) return
@@ -785,7 +794,7 @@ const loadDetail = async () => {
     const resolvedCertificateId = await resolveCertificateIdForDetail()
     if (!resolvedCertificateId) return
     detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
-    history.value = await getRegistrationCertificateHistory(resolvedCertificateId)
+    history.value = await getRegistrationCertificateHistory(resolvedCertificateId, detail.value.versionId)
     await loadDownloadGrantStatuses()
   } finally {
     loading.value = false
@@ -807,17 +816,112 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.registration-detail-page {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.registration-detail-page :deep(.el-card__body) {
+  padding: 12px;
+}
+
+.registration-certificate-detail {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.detail-card :deep(.el-card__header) {
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.detail-title {
+  flex-wrap: wrap;
+}
+
+.detail-title > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.detail-title h2 {
+  font-size: 16px;
+}
+
+.detail-title h2,
+.detail-title p {
+  overflow-wrap: anywhere;
+}
+
+.detail-title :deep(.el-tag) {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.registration-certificate-detail :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
+.registration-certificate-detail :deep(.el-descriptions__cell) {
+  padding: 6px 10px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.registration-certificate-detail :deep(.el-descriptions__label) {
+  width: 112px;
+}
+
+.detail-card :deep(.el-table) {
+  width: 100%;
+  --el-table-header-bg-color: var(--el-fill-color-light);
+}
+
+.detail-card :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+
+.detail-card :deep(.el-empty) {
+  padding: 16px 0;
+}
+
+.detail-attachment,
+.renewal-history__file,
+.renewal-history__version,
+.change-history__heading > div,
+.change-history__file-actions,
+.renewal-history__file-actions,
+.detail-attachment__actions {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.registration-certificate-detail :deep(.el-button) {
+  min-height: 32px;
+}
+
 .registration-certificate-detail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .detail-title {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
 }
 
 .detail-title h2 {
@@ -830,7 +934,8 @@ onBeforeUnmount(() => {
 }
 
 .detail-card {
-  margin-top: 4px;
+  margin-top: 0;
+  min-width: 0;
 }
 
 .detail-card__header,
@@ -843,7 +948,7 @@ onBeforeUnmount(() => {
 .detail-card__header,
 .renewal-history__heading {
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .detail-card__header {
@@ -851,12 +956,12 @@ onBeforeUnmount(() => {
 }
 
 .renewal-history__item {
-  padding: 4px 0 20px;
+  padding: 4px 0 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .renewal-history__item + .renewal-history__item {
-  padding-top: 20px;
+  padding-top: 8px;
 }
 
 .renewal-history__item:last-child {
@@ -867,7 +972,7 @@ onBeforeUnmount(() => {
 .renewal-history__version {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 8px;
 }
 
 .renewal-history__version strong {
@@ -889,14 +994,14 @@ onBeforeUnmount(() => {
 }
 
 .renewal-history__section-label {
-  margin: 18px 0 8px;
+  margin: 8px 0;
 }
 
 .renewal-history__parameters,
 .renewal-history__audit {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
   margin: 0;
 }
 
@@ -923,8 +1028,8 @@ onBeforeUnmount(() => {
 .renewal-history__file {
   min-height: 36px;
   gap: 8px;
-  padding: 10px 12px;
-  margin-top: 16px;
+  padding: 8px 12px;
+  margin-top: 8px;
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
@@ -939,11 +1044,11 @@ onBeforeUnmount(() => {
 .change-history {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 8px;
 }
 
 .change-history__item {
-  padding-bottom: 18px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
@@ -956,7 +1061,7 @@ onBeforeUnmount(() => {
 .change-history__heading > div {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .change-history__heading {
@@ -972,9 +1077,9 @@ onBeforeUnmount(() => {
 
 .change-history__facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px 24px;
-  margin: 16px 0 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 8px 0 0;
 }
 
 .change-history__facts div,
@@ -990,7 +1095,7 @@ onBeforeUnmount(() => {
 }
 
 .change-history__section-label {
-  margin: 18px 0 8px;
+  margin: 8px 0;
 }
 
 .change-history__items {
@@ -1003,7 +1108,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
@@ -1020,8 +1125,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 8px;
   min-height: 36px;
-  padding: 10px 12px;
-  margin-top: 16px;
+  padding: 8px 12px;
+  margin-top: 8px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
 }
@@ -1078,6 +1183,14 @@ onBeforeUnmount(() => {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@media (min-width: 721px) and (max-width: 1000px) {
+  .renewal-history__parameters,
+  .renewal-history__audit,
+  .change-history__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {

@@ -29,6 +29,10 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 
 @Service
 public class DccProjectProductCreateWriteService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
+
 
     private static final String DATA_SOURCE = "瑛泰产品";
     private static final String RELATION_ACTIVE = "ACTIVE";
@@ -64,7 +68,9 @@ public class DccProjectProductCreateWriteService {
         }
         validateUnique(request.getProjectCode(), request.getProductCode(), request.getProductName(), request.getId());
         leaderService.requireEnabledAccount(request.getProjectLeaderUserId());
-        attributesService.readValue(request.getDefaultAttributesJson());
+        if (attributesService.readValue(request.getDefaultAttributesJson()).libraryScope() != null)
+            throw cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.fail(
+                    cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.INVALID);
         folderTemplateService.parse(request.getFolderTemplateSnapshotJson());
         int originalRowNo = rowNumbers.allocate(DATA_SOURCE);
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
@@ -79,10 +85,11 @@ public class DccProjectProductCreateWriteService {
         if (projectCodeMapper.insert(projectCode) != 1 || projectCode.getId() == null) {
             throw exception(WRITE_INCOMPLETE, "项目代码");
         }
+        registrationHandlingTasks.createProjectTask(projectCode.getId());
         projectAccessService.initializeApprovedProjectLeaderOwner(projectCode.getId(),
-                request.getProjectLeaderUserId(), request.getWriteReason());
+                request.getProjectLeaderUserId(), "项目申请审批通过（申请ID：" + requestId + "），初始化项目负责人OWNER权限");
         String version=productAudit.attemptVersion(request.getWriteAttemptNo());
-        productAudit.validateReason(request.getWriteReason());
+        productAudit.validateDecisionReason(request.getWriteReason(),true);
         var before=productAudit.snapshot(requestId);
         folderTemplateService.generate(projectCode.getId(), request.getFolderTemplateId(), request.getFolderTemplateSnapshotJson());
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
@@ -117,7 +124,7 @@ public class DccProjectProductCreateWriteService {
         request.setWriteErrorCode(null);
         request.setWriteErrorMessage(null);
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "申请完成状态");
-        productAudit.append("dcc.project-product.complete",requestId,version,request.getWriteReason(),before);
+        productAudit.append("dcc.project-product.complete",requestId,version,request.getWriteReason(),before,"APPROVE");
         return request;
     }
 

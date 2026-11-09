@@ -49,14 +49,15 @@ test('submit payload refuses missing, expired or conflicting upload identities b
   for (const bad of [{ ...ticket, uploadTicket: '' }, { ...ticket, sessionId: '' }, { ...ticket, fileName: '' }, { ...ticket, expireTime: 1 }]) {
     assert.throws(() => helpers.buildSubmitPayload(draft, bad), /上传|票据|过期/)
   }
-  assert.throws(() => helpers.buildSubmitPayload(draft, ticket, { ...ticket, uploadTicket: 'UT2', sessionId: 'OTHER' }), /会话/)
+  assert.doesNotThrow(() => helpers.validateUploadTickets(ticket, { ...ticket, uploadTicket: 'UT2', sessionId: 'OTHER' }))
   assert.throws(() => helpers.buildSubmitPayload(draft, ticket, undefined, [{ ...ticket, sessionId: 'ATT' }]), /重复/)
   let calls = 0
   const service = helpers.createUploadSubmitterService({ submit: async () => { calls++ } })
   await assert.rejects(service.submit(draft, { ...ticket, uploadTicket: '' }))
   assert.equal(calls, 0)
-  const payload = helpers.buildSubmitPayload(draft, ticket, { ...ticket, uploadTicket: 'UT2', fileName: 'drawing.pdf' }, [{ ...ticket, sessionId: 'ATT', uploadTicket: 'UT3', fileName: 'evidence.pdf' }])
+  const payload = helpers.buildSubmitPayload(draft, ticket, { ...ticket, uploadTicket: 'UT2', sessionId: 'DRAWING', fileName: 'drawing.pdf' }, [{ ...ticket, sessionId: 'ATT', uploadTicket: 'UT3', fileName: 'evidence.pdf' }])
   assert.equal(payload.idempotencyKey, 'S1')
+  assert.equal(payload.drawingPdfSessionId, 'DRAWING')
   assert.equal(payload.attachmentUploadTickets[0].sessionId, 'ATT')
 })
 
@@ -95,21 +96,20 @@ test('cleanup uses the captured old tickets across asynchronous context changes'
   const c = evaluate(declaration('cleanupCurrentUploadSession') + '\nexports.run=cleanupCurrentUploadSession', {
     uploadSubmitted: ref(false), hasTemporaryUploadState: () => true, resolveCurrentUploadCleanupRequestId: () => 'REQ',
     previewUpload: ref({ ...ticket, requestId: 'REQ' }), drawingPdfUpload: ref(undefined), attachmentUploads: ref([{ sessionId: 'OLD-ATT', uploadTicket: 'OLD-T' }]),
-    cleanupControlledFileUploadSession: async () => wait.promise,
-    cleanupControlledFileUploadTicket: async (session, ticket) => { cleaned.push([session, ticket]); return { cleanedCount: 1 } },
+    cleanupControlledFileUploadTicket: async (session, ticket) => { cleaned.push([session, ticket]); if (session === 'S1') await wait.promise; return { cleanedCount: 1 } },
     message: { success() {}, error() {} }, resolveUploadErrorMessage: error => error.message
   })
   const pending = c.exports.run()
   c.attachmentUploads.value = [{ sessionId: 'NEW-ATT', uploadTicket: 'NEW-T' }]
   wait.resolve({ cleanedCount: 1 })
   assert.equal(await pending, true)
-  assert.deepEqual(cleaned, [['OLD-ATT', 'OLD-T']])
+  assert.deepEqual(cleaned, [['S1', 'UT1'], ['OLD-ATT', 'OLD-T']])
 })
 test('stale body upload does not proceed after its asynchronous cleanup finishes', async () => {
   const wait = deferred(), uploaded = []
   const c = evaluate(declaration('handleFileChange') + '\nexports.run=handleFileChange', {
-    sourceUploadRequestSeq: 0, validateSingleUploadFileSelection: () => ({ valid: true }),
-    cleanupCurrentUploadSession: () => wait.promise, uploadRef: ref({ clearFiles() {} }),
+    sourceUploadRequestSeq: 0, validateControlledFileSelection: () => ({ valid: true }),
+    cleanupTemporaryUploadTicket: () => wait.promise, uploadRef: ref({ clearFiles() {} }),
     resetSelectedPreview() {}, resetDrawingPdfUpload() {}, resetAttachmentUploads() {},
     clearSubmitFieldErrors() {}, submitFieldErrors: {}, uploadPreviewError: ref(''), fileList: ref([]), previewUpload: ref(), previewFileBlob: ref(), uploadPreviewLoading: ref(false),
     formData: { categoryId: 2, fileName: 'old.pdf' }, isExternalReview: ref(false), projectAttributesLoading: ref(false), uploadSubmitted: ref(false), uploadSessionId: 'OLD',
@@ -134,9 +134,10 @@ test('resetting attachments releases busy attempts while invalidating old genera
   assert.equal(c.attachmentUploadAttempts.value.length, 0)
 })
 
-test('confirmation enumerates the frozen drawing, attachments and remark actually submitted', () => {
-  const facts = { projectName: '甲', folderName: '目录', fileTypeName: 'SOP', relatedFiles: [], signoffDepartments: [{ id: '8', name: '质量' }], distributionDepartments: [{ id: '8', name: '质量' }], approvers: [{ id: '9', name: '批准' }], approvalRule: '全部批准', compiler:{id:'71',name:'编制甲',deptId:'8',deptName:'质量'},supervisor:{id:'72',name:'主管乙',deptId:'10',deptName:'研发'}, drawingPdf: { fileName: 'drawing.pdf' }, attachments: [{ fileName: 'evidence.pdf' }] }
+test('confirmation enumerates the original, attachments and remark without a removed drawing slot', () => {
+  const facts = { projectName: '甲', folderName: '目录', fileTypeName: 'SOP', relatedFiles: [], signoffDepartments: [{ id: '8', name: '质量' }], distributionDepartments: [{ id: '8', name: '质量' }], approvers: [{ id: '9', name: '批准' }], approvalRule: '全部批准', compiler:{id:'71',name:'编制甲',deptId:'8',deptName:'质量'},supervisor:{id:'72',name:'主管乙',deptId:'10',deptName:'研发'}, attachments: [{ fileName: 'evidence.pdf' }] }
   const completeDraft = { ...draft, remark: '备注甲', projectAttributes: { targetMarkets: ['CE'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' } }
   const summary = helpers.buildUploadConfirmationSummary(completeDraft, ticket, facts).map(row => `${row.label}:${row.value}`).join('\n')
-  for (const expected of ['drawing.pdf', 'evidence.pdf', '备注甲']) assert.ok(summary.includes(expected), expected)
+  for (const expected of ['a.pdf', 'evidence.pdf', '备注甲']) assert.ok(summary.includes(expected), expected)
+  assert.doesNotMatch(summary, /图纸文件/)
 })

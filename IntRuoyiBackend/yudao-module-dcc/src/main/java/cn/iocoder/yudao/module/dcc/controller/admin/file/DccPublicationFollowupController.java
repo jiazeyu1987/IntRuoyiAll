@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
@@ -40,8 +41,13 @@ public class DccPublicationFollowupController {
     @GetMapping("/files/{controlledFileId}")
     @Operation(summary = "查询受控文件发布后续")
     @PreAuthorize("isAuthenticated()")
-    public CommonResult<DccPublicationFollowupRespVO> getFileFollowup(@PathVariable Long controlledFileId) {
-        return success(queryService.getFileFollowup(SecurityFrameworkUtils.getLoginUserId(), controlledFileId));
+    public CommonResult<DccPublicationFollowupRespVO> getFileFollowup(@PathVariable Long controlledFileId,
+            @RequestParam(required = false) String bodyReadContext,
+            @RequestParam(required = false) String processInstanceId,
+            @RequestParam(required = false) String taskId,
+            @RequestParam(required = false) String applicationType) {
+        return success(queryService.getFileFollowup(SecurityFrameworkUtils.getLoginUserId(), controlledFileId,
+                bodyReadContext, processInstanceId, taskId, applicationType));
     }
 
     @GetMapping("/management-page")

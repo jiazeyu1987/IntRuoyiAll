@@ -9,7 +9,7 @@ public class DccSignoffAssignmentReqVO {
     @NotBlank private String taskId;
     @NotNull private Long assigneeUserId;
     @NotBlank private String password;
-    @NotBlank private String reason;
+    private String reason;
     /** Selected related-file responsibilities, persisted inside this signed assignment transaction. */
     private java.util.List<cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.Arrangement> relationArrangements;
     /** New fixed versions appended in this signed assignment; never replaces an earlier stage's snapshot. */

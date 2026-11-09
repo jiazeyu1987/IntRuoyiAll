@@ -90,14 +90,16 @@ public class DccProjectReferenceService {
         store.audit("dcc.project-reference.cancel", "REFERENCE:"+existing.id(), reason, existing, null);
         return store.referenceProjectCountForUpdate(tenant,masterId,existing.selectedControlledFileId());
     }
-    public List<ReferenceView> list(Long actorId, Long projectId, Long folderId) {
-        require(actorId, projectId, folderId); authority.assertFolderBelongsToProject(projectId,folderId);
+    public List<ReferenceListView> list(Long actorId, Long projectId, Long folderId) {
+        require(actorId, projectId, folderId);
+        projectAccessService.assertProjectViewerOrAbove(actorId,projectId);
+        authority.assertFolderBelongsToProject(projectId,folderId);
         Long tenant = TenantContextHolder.getRequiredTenantId();
         return store.references(tenant,projectId,folderId).stream().map(ref -> {
             FileVersion file=selected(tenant,ref.selectedControlledFileId());
-            access.assertNameVisible(actorId,file.controlledFileId());
             if(!Objects.equals(ref.masterId(),file.masterId())) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_IDENTITY_MISMATCH");
-            return view(tenant,ref,file);
+            var permission=queryService.getProjectReferencePermissions(actorId,projectId,folderId,file.controlledFileId());
+            return new ReferenceListView(ref,file,store.referenceProjectCount(tenant,ref.masterId(),ref.selectedControlledFileId()),permission);
         }).toList();
     }
     public ReferenceUsage getUsage(Long actorId,Long selectedFileId){
@@ -128,9 +130,6 @@ public class DccProjectReferenceService {
         }).toList();
         if(visible.projects()>global)throw new IllegalStateException("authorized reference count exceeds global count");
         return new ReferenceUsagePage(tenant,selectedFileId,source.masterId(),global,visible.projects(),visible.rows(),rows,visible.projects()<global);
-    }
-    private ReferenceView view(Long tenant, Reference ref, FileVersion selected) {
-        return new ReferenceView(ref,selected,store.referenceProjectCount(tenant,ref.masterId(),ref.selectedControlledFileId()));
     }
     private FileVersion selected(Long tenant,Long fileId) {
         FileVersion file=files.resolveSelected(fileId);

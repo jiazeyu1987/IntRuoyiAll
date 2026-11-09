@@ -12,7 +12,7 @@
           :controlled-file-id="identity.controlledFileId"
           :distribution-id="identity.distributionId" :recipient-id="identity.recipientId"
           :version-no="identity.versionNo" :context-key="contextKey" :can-acknowledge="authorized"
-          :save="saveReceipt" />
+          :save="saveReceipt" @saved="returnToTodo" />
       </template>
     </section>
   </ContentWrap>
@@ -28,6 +28,8 @@ import DistributionReceiptConfirm from '../workflow/DistributionReceiptConfirm.v
 import type { DistributionReceiptCommand } from '../workflow/distribution-facts'
 
 const props = defineProps<{ fileId: string; query: Record<string, unknown>; contextKey: string }>()
+const router = useRouter()
+const returnToTodo = () => router.push({ name: 'ApprovalCenterTodo' })
 const identity = ref<DccDistributionReadIdentity>(), error = ref(''), fileName = ref(''), authorized = ref(false)
 const openedError = ref(''), openedRecorded = ref(false), opening = ref(false)
 let generation = 0

@@ -73,6 +73,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 @Import({
         DccRegistrationCertificateFileDeliveryServiceImpl.class,
@@ -144,77 +145,57 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void registrationManagerDownloadsCurrentFileWithoutGrantOrProjectCode() throws Exception {
+    void registrationManagerWithoutDownloadGrantIsRejectedBeforeStorageRead() throws Exception {
         FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
                 "manager-registration.pdf", 20L, null);
         when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
-        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "manager-registration.pdf"));
-        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
-                .thenReturn("MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
-
-        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
-                1L, 99L, fixture.businessFileId(), "attempt-manager-direct", context("REQ-MANAGER-DIRECT"));
-
-        assertEquals("_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
-        assertArrayEquals("MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        assertThrows(ServiceException.class,()->deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-manager-direct", context("REQ-MANAGER-DIRECT")));
+        verify(fileService,never()).getFileContent(any(),any());
         assertNull(consumptionMapper.selectByAttemptKey(1L, "attempt-manager-direct"));
-        DccRegistrationCertificateAccessAuditDO audit =
-                accessAuditMapper.selectByEventKey(1L, "attempt-manager-direct:DOWNLOAD:SUCCESS");
-        assertNotNull(audit);
-        assertNull(audit.getGrantId());
-        assertTrue(audit.getDetailJson().contains("REGISTRATION_MANAGER_ROLE"));
         verify(projectCodeService, never()).getProjectCode(40L);
     }
 
     @Test
-    void registrationManagerDownloadUsesFirstObtainedDateWhenUploadedCertificateHasNoApprovalDate() throws Exception {
-        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
-                "uploaded-manager-registration.pdf", null, null);
+    void domesticDownloadWithNoApprovalDateFailsWithoutSubstitutingFirstObtainedDate() throws Exception {
+        FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
+                "uploaded-manager-registration.pdf", 20L, 40L);
         jdbcTemplate.update("""
                 UPDATE dcc_registration_certificate_version
                    SET approval_date = NULL
                  WHERE id = ?
                 """, fixture.versionId());
-        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,fixture.versionId()),fixture.snapshotId());
         when(fileService.getFile(fixture.infraFileId())).thenReturn(
                 infraFile(fixture, "uploaded-manager-registration.pdf"));
-        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
-                .thenReturn("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
-
-        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
+        assertThrows(ServiceException.class,()->deliveryService.download(
                 1L, 99L, fixture.businessFileId(), "attempt-manager-uploaded-no-approval",
-                context("REQ-MANAGER-UPLOADED-NO-APPROVAL"));
-
-        assertEquals("_20200101_ProductA_CERT-DL-001.pdf", result.fileName());
-        assertArrayEquals("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
-        assertNotNull(accessAuditMapper.selectByEventKey(
-                1L, "attempt-manager-uploaded-no-approval:DOWNLOAD:SUCCESS"));
+                context("REQ-MANAGER-UPLOADED-NO-APPROVAL")));
+        verify(fileService,never()).getFileContent(any(),any());
     }
 
     @Test
-    void grantedDownloadWithoutProjectCodeKeepsEmptyProjectSegmentInFileName() throws Exception {
+    void grantedDomesticDownloadWithoutProjectCodeFailsWithMissingBusinessIdentity() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
                 "registration.pdf", 20L, null);
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
-                .thenReturn("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8));
-
-        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
-                1L, 99L, fixture.businessFileId(), "attempt-no-project-name", context("REQ-NO-PROJECT-NAME"));
-
-        assertEquals("_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
-        assertArrayEquals("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        assertThrows(ServiceException.class,()->deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-no-project-name", context("REQ-NO-PROJECT-NAME")));
+        verify(fileService,never()).getFileContent(any(),any());
         verify(projectCodeService, never()).getProjectCode(40L);
     }
 
     @Test
     void registrationManagerDownloadSerializesControlCharactersInAuditUserAgent() throws Exception {
-        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
-                "manager-registration.pdf", 20L, null);
+        FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
+                "manager-registration.pdf", 20L, 40L);
         when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "manager-registration.pdf"));
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenReturn("MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
 
         deliveryService.download(1L, 99L, fixture.businessFileId(), "attempt-manager-audit-user-agent",
                 context("REQ-MANAGER-AUDIT-USER-AGENT", "Chrome\tBrowser\nAudit"));
@@ -242,7 +223,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void changeAndExpiredFilesUseTheRequiredDownloadNameSuffixes() throws Exception {
+    void changeUsesItsApprovalDateAndHistoricalUnexpiredFileDoesNotClaimExpiration() throws Exception {
         FormalFixture changeFixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "change.pdf");
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_change
@@ -264,7 +245,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
         DccRegistrationCertificateFileDownloadResult changeResult = deliveryService.download(
                 1L, 99L, changeFixture.businessFileId(), "attempt-change-name", context("REQ-CHANGE-NAME"));
-        assertEquals("PRJ-001_20200201_ProductA_变更文件_CERT-DL-001.pdf", changeResult.fileName());
+        assertEquals("PRJ-001_20260817_ProductA变更文件_CERT-DL-001.pdf", changeResult.fileName());
 
         FormalFixture oldFixture = seedGrantedDownload("ACTIVE", "OLD", "BOUND", "old.pdf");
         when(fileService.getFile(oldFixture.infraFileId())).thenReturn(infraFile(oldFixture, "old.pdf"));
@@ -272,7 +253,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 .thenReturn("OLD".getBytes(StandardCharsets.UTF_8));
         DccRegistrationCertificateFileDownloadResult oldResult = deliveryService.download(
                 1L, 99L, oldFixture.businessFileId(), "attempt-old-name", context("REQ-OLD-NAME"));
-        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001_已失效.pdf", oldResult.fileName());
+        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001.pdf", oldResult.fileName());
     }
 
     @Test
@@ -319,9 +300,11 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     @Test
     void downloadAllowsUploadedCertificateWithoutProductMasterBinding() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
-                "uploaded-registration.pdf", null);
+                "uploaded-registration.pdf", null, null);
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "uploaded-registration.pdf"));
-        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 21L));
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshotMapper.selectById(fixture.snapshotId()).getFactsJson());
+        facts.setProjectCode("PRJ-001");
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenReturn("UPLOADED-CERT".getBytes(StandardCharsets.UTF_8));
 
@@ -329,6 +312,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 1L, 99L, fixture.businessFileId(), "attempt-uploaded-download", context("REQ-UPLOADED-DOWNLOAD"));
 
         assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
+        verify(projectCodeService,never()).getProjectCode(any());
         assertArrayEquals("UPLOADED-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
         assertEquals(1L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
     }
@@ -365,7 +349,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
                         "attempt-revoked-grant", context("REQ-DOWNLOAD-REVOKED-GRANT")));
 
-        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED.getCode(), failure.getCode());
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), failure.getCode());
         assertEquals(0L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-revoked-grant:DOWNLOAD:FAILURE"));
         verify(fileService, never()).getFileContent(fixture.infraConfigId(), fixture.infraPath());
@@ -466,6 +450,35 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         } catch (ServiceException ex) {
             return ex;
         }
+    }
+
+    @Test
+    void ceDownloadUsesActualApprovalDateRatherThanRevisionIssueDate() throws Exception {
+        var fixture=seedGrantedDownload("ACTIVE","CURRENT","BOUND","certificate.pdf");
+        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("CE");facts.setCertificateStatus("VALID");facts.setOwnProduct(true);facts.setClassification("IIa");
+        facts.setApprovalDate(LocalDate.of(2026,3,4));facts.setExpiryDate(LocalDate.of(2030,1,1));facts.setProductCode("CODE-CE");
+        var revision=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate();
+        revision.setRevision("Rev.2");revision.setCertificateNo("CE002");revision.setIssueDate(LocalDate.of(2026,4,5));facts.setCeCertificates(java.util.List.of(revision));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture,"certificate.pdf"));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE,20L));
+        when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn("CERT-BYTES".getBytes(StandardCharsets.UTF_8));
+        var result=deliveryService.download(1L,99L,fixture.businessFileId(),"ce-dates",context("REQ-CE-DATES"));
+        assertEquals("ProductA_CODE-CE_20260304_CE002.pdf",result.fileName());
+    }
+
+    @Test
+    void otherDomesticDownloadUsesStatedProjectCodeWithoutAnySystemAssociation() throws Exception {
+        var fixture=seedGrantedDownload("ACTIVE","CURRENT","BOUND","certificate.pdf",null,null);
+        var snapshot=snapshotMapper.selectById(fixture.snapshotId());
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        facts.setOwnProduct(false);facts.setProjectCode("CUSTOMER-PRJ-01");snapshot.setFactsJson(facts.toJson());jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture,"certificate.pdf"));
+        when(fileService.getFileContent(fixture.infraConfigId(),fixture.infraPath())).thenReturn("CERT-BYTES".getBytes(StandardCharsets.UTF_8));
+        var result=deliveryService.download(1L,99L,fixture.businessFileId(),"other-code",context("REQ-OTHER-CODE"));
+        assertEquals("CUSTOMER-PRJ-01_20200201_ProductA_CERT-DL-001.pdf",result.fileName());
+        verify(projectCodeService,never()).getProjectCode(any());
     }
 
     private FormalFixture seedGrantedDownload(String masterStatus, String versionStatus, String fileStatus,
@@ -575,6 +588,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(LocalDateTime.of(2020, 3, 1, 0, 0))
                 .build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
 
         DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()

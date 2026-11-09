@@ -1,8 +1,8 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="directory-panel directory-filters">
     <el-form
       ref="queryFormRef"
-      class="-mb-15px"
+      class="directory-query-form"
       :inline="true"
       :model="queryParams"
       label-width="82px"
@@ -10,7 +10,7 @@
       <el-form-item label="目录名称" prop="name">
         <el-input
           v-model="queryParams.name"
-          class="!w-240px"
+          class="directory-name-filter"
           clearable
           placeholder="请输入目录名称"
           @keyup.enter="handleQuery"
@@ -19,7 +19,7 @@
       <el-form-item label="启用状态" prop="active">
         <el-select
           v-model="queryParams.active"
-          class="!w-180px"
+          class="directory-active-filter"
           clearable
           placeholder="请选择启用状态"
         >
@@ -31,7 +31,7 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item>
+      <el-form-item class="directory-query-actions">
         <el-button @click="handleQuery">
           <Icon icon="ep:search" class="mr-5px" />
           查询
@@ -69,7 +69,7 @@
     </el-form>
   </ContentWrap>
 
-  <ContentWrap>
+  <ContentWrap class="directory-panel directory-list">
     <el-alert
       v-if="loadErrorMessage"
       :closable="false"
@@ -181,6 +181,8 @@
   />
 
   <el-dialog
+    class="directory-delete-dialog"
+    style="max-width: calc(100vw - 24px)"
     v-model="deleteDialogVisible"
     destroy-on-close
     title="删除父文件夹"
@@ -516,6 +518,107 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.directory-panel,
+.directory-delete-dialog {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+}
+
+.directory-panel {
+  min-width: 0;
+  margin-bottom: 8px;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.directory-query-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.directory-query-form :deep(.el-form-item) {
+  min-width: 0;
+  margin: 0;
+}
+
+.directory-name-filter {
+  width: 240px;
+}
+
+.directory-active-filter {
+  width: 180px;
+}
+
+.directory-query-actions {
+  flex-basis: 100%;
+}
+
+.directory-query-actions :deep(.el-form-item__content) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.directory-query-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.directory-query-form :deep(.el-input__wrapper),
+.directory-query-form :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+.directory-query-actions :deep(.el-button) {
+  height: 32px;
+}
+
+.directory-list :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #dbe3e7;
+  font-size: 13px;
+}
+
+.directory-list :deep(.el-table__cell) {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.directory-list :deep(th.el-table__cell) {
+  height: 36px;
+  color: #52646e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .directory-list :deep(.el-table-fixed-column--right) {
+    position: static !important;
+  }
+
+  .directory-list :deep(.el-table-fixed-column--right::before) {
+    display: none;
+  }
+
+  .directory-query-form > :deep(.el-form-item) {
+    width: 100%;
+  }
+
+  .directory-query-form :deep(.el-form-item__content) {
+    min-width: 0;
+  }
+
+  .directory-name-filter,
+  .directory-active-filter {
+    width: 100%;
+  }
+}
+
 :deep(.dcc-directory-name-column .cell) {
   display: flex;
   min-width: 0;

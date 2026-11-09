@@ -27,8 +27,10 @@ public class GxpLocalDevelopmentPolicy {
     private final Map<String, JsonNode> operations;
 
     public GxpLocalDevelopmentPolicy(Environment environment, GxpAuditPolicyBundleLoader loader) {
-        if (!Arrays.equals(environment.getActiveProfiles(), new String[]{"local"})) {
-            throw new IllegalStateException(PROPERTY + " requires only the local Spring profile");
+        String[] profiles = environment.getActiveProfiles();
+        if (!Arrays.equals(profiles, new String[]{"local"})
+                && !Arrays.equals(profiles, new String[]{"dcc-local-development"})) {
+            throw new IllegalStateException(PROPERTY + " requires only local or dcc-local-development Spring profile");
         }
         requireLocalDatabase(environment, "master", true);
         requireLocalDatabase(environment, "slave", false);

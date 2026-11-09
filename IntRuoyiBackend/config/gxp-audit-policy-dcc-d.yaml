@@ -42,6 +42,14 @@ operations:
     statePolicy: ABSENT_TO_PRESENT
     owner: dcc-d
     testIds: [D-03, D-06, D-07]
+  - operationId: dcc.relation.controlled-import
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore#initializeControlledImportRelations
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [DccControlledImportRelationsDatabaseTest, DccControlledFileHistoricalImportTransactionTest]
   - operationId: dcc.relation.notification.retry
     sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationNotificationRecoveryService#requestRetry
     actionType: RETRY

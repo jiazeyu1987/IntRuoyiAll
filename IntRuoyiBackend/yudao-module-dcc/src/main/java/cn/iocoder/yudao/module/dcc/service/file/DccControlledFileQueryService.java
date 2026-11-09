@@ -26,6 +26,7 @@ public interface DccControlledFileQueryService {
     List<DccApplicationRoundSummary> listApplicationRounds(Long userId, Long controlledFileId,
                                                           DccControlledFileBodyReadContext context);
     DccFileRelationPermissions getRelationPermissions(Long userId, Long controlledFileId);
+    DccFileRelationPermissions getProjectReferencePermissions(Long userId, Long projectId, Long folderId, Long controlledFileId);
     DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,
                                                                String applicationType, String bpmRound);
     DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,

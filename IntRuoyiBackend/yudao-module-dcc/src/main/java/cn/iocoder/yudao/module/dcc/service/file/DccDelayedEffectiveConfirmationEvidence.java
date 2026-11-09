@@ -91,7 +91,7 @@ public class DccDelayedEffectiveConfirmationEvidence {
                 || !"APPROVE".equals(s.getActionType()) || !MEANING.equals(s.getMeaningCode()) || !PAYLOAD.equals(s.getEvidencePayloadVersion())
                 || !Boolean.TRUE.equals(s.getPasswordVerified()) || !"VALID".equals(s.getEvidenceStatus())
                 || s.getEvidenceHash() == null || !s.getEvidenceHash().matches("[a-f0-9]{64}") || s.getTaskId() == null || s.getTaskId().isBlank()
-                || s.getComment() == null || s.getComment().isBlank() || s.getSignedAt() == null || s.getSelectedEffectiveTime() == null
+                || s.getSignedAt() == null || s.getSelectedEffectiveTime() == null
                 || s.getSelectedEffectiveTime().getNano() != 0 || s.getSelectedEffectiveTime().isBefore(s.getSignedAt()))
             throw invalid("延迟确认缺少原编制人同版本同轮真实有效签名或所选时间早于签名");
         var checked = signatureManagement.verifySignatureEvidence(signatureId);

@@ -12,6 +12,6 @@ public class DccControlledFileDelayedEffectiveConfirmReqVO {
     @NotBlank @Pattern(regexp="[a-f0-9]{64}") private String expectedDefinitionDigest;
     @NotNull @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss",timezone="Asia/Shanghai") private LocalDateTime selectedEffectiveTime;
     @NotBlank private String password;
-    @NotBlank @Size(max=500) private String reason;
+    @Size(max=500) private String reason;
     @NotBlank @Size(max=128) private String idempotencyKey;
 }

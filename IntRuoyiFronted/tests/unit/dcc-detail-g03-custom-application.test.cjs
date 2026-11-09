@@ -10,9 +10,10 @@ function host({cancel=false,changedMode=false,publicVersion,revisionFlow=false}=
  let saved={controlledFileId:'20',projectId:'5',applicationType:revisionFlow?'REVISION':'UPLOAD',defaultSource:attrs,actual:attrs,effectiveMode:'DELAYED',effectiveDate:null,selectedSignoffDepartmentIds:['51'],selectedDistributionDepartmentIds:['52'],needTraining:false,changeDescription:'真实本次说明',canSubmit:!changedMode,unavailableReason:changedMode?'APPLICATION_APPROVAL_SOURCE_CHANGED：原自定义申请来源已变化':null,draftApprovalMatrix:null,approvalSourceMode:'APPLICATION_CUSTOM',applicationCustomMatrix:custom,applicationContextKey:'saved-context',attributeRound:1,applicationCustomMatrixDigest:'d'.repeat(64),executionContract:'PUBLIC_MATRIX_NATIVE_V2',preparedProcessDefinitionId:'exact-v2',preparedDefinitionDigest:'a'.repeat(64)}
  if(publicVersion){saved={...saved,approvalSourceMode:'PUBLIC_MATRIX',applicationCustomMatrix:null,applicationCustomMatrixDigest:null,draftApprovalMatrix:require('./dcc-upload-test-loader.cjs').matrixFixture({taxonomyId:'6',approvalIds:['77']}),executionContract:publicVersion,preparedProcessDefinitionId:'saved-exact-definition',effectiveMode:'AFTER_STANDARDIZATION_SIGNATURE'}}
  const c={exports:{},Error,JSON,Promise,structuredClone,...vue,...matrix,...people,...effects,...revision,validateAttributes:x=>x,
- props:{file:{id:'20',masterId:'10',dccProjectCodeId:'5',categoryId:'2',fileTypeTaxonomyId:'6',status:'WORKING',versionNo:'A/1',fileNumber:'N-1',fileName:'Source',requesterId:'99',ordinaryAttachmentManifestHash:'f'.repeat(64),attachments:[{attachmentId:'71',controlledFileId:'20',fileName:'One.pdf',attachmentPurpose:'ATTACHMENT',sortNo:0},{attachmentId:'72',controlledFileId:'20',fileName:'Training.pdf',attachmentPurpose:'TRAINING_RECORD',sortNo:1}]}},
- generation:0,selectionGeneration:0,working:ref(true),initial:ref(!revisionFlow),opened:ref(false),loading:ref(false),busy:ref(false),error:ref(''),snapshot:ref(),selectedApplicationFile:ref(),revisionOptions:ref(),approvalMatrixState:ref(),applicationCustomMatrix:ref(null),selectedDepartments:ref(null),selectedDistributionDepartments:ref(null),departments:ref([]),approvalAccounts:ref([]),approverNames:ref(''),approvalRule:ref(''),approvalGroups:ref([]),approvalCapabilityLimitations:ref([]),preparationBlockers:ref([]),effectiveMode:ref(null),effectiveDate:ref(null),needTraining:ref(false),description:ref(''),canSubmit:ref(false),idempotencyKey:ref(''),previewSource:ref(),selectedIterationId:ref(''),selectedIntent:ref(),snapshotIntent:ref(),submitted:ref(false),newActionPreparationEligible:ref(false),preparedNewActionBaseline:ref(false),newActionPreparationFacts:ref(),selectionLoading:ref(false),
+ props:{file:{canEditFile:true,id:'20',masterId:'10',dccProjectCodeId:'5',categoryId:'2',fileTypeTaxonomyId:'6',status:'WORKING',versionNo:'A/1',fileNumber:'N-1',fileName:'Source',requesterId:'99',ordinaryAttachmentManifestHash:'f'.repeat(64),attachments:[{attachmentId:'71',controlledFileId:'20',fileName:'One.pdf',attachmentPurpose:'ATTACHMENT',sortNo:0},{attachmentId:'72',controlledFileId:'20',fileName:'Training.pdf',attachmentPurpose:'TRAINING_RECORD',sortNo:1}]}},
+ generation:0,selectionGeneration:0,working:ref(true),initial:ref(!revisionFlow),opened:ref(false),loading:ref(false),busy:ref(false),error:ref(''),snapshot:ref(),selectedApplicationFile:ref(),revisionOptions:ref(),approvalMatrixState:ref(),applicationCustomMatrix:ref(null),selectedDepartments:ref(null),selectedDistributionDepartments:ref(null),departments:ref([]),approvalAccounts:ref([]),approverNames:ref(''),approvalRule:ref(''),approvalGroups:ref([]),approvalCapabilityLimitations:ref([]),preparationBlockers:ref([]),effectiveMode:ref(null),effectiveDate:ref(null),needTraining:ref(false),description:ref(''),canSubmit:ref(false),revisionSubmitKey:ref(''),revisionSubmitPayload:ref(''),idempotencyKey:ref(''),previewSource:ref(),selectedIterationId:ref(''),selectedIntent:ref(),snapshotIntent:ref(),submitted:ref(false),newActionPreparationEligible:ref(false),preparedNewActionBaseline:ref(false),newActionPreparationFacts:ref(),selectionLoading:ref(false),
  getVisitTenantId:()=>undefined,getTenantId:()=>1,generateUUID:()=> 'new-scope-should-not-replace-saved',getDccVersionDisplayText:x=>x,
+ listHistoricalRelations:async()=>[],listCurrentRelations:async id=>({sourceControlledFileId:id,files:[]}),
  getControlledFileRevisionOptions:async()=>({masterId:'10',controlledBaselineId:'10',baselineVersionNo:'A/1',partialTarget:{versionNo:'A/2'},replacementTarget:{versionNo:'B/1'},iterations:[{id:'20',versionNo:'A/2',canPartial:true,canReplacement:true}]}),getControlledFileReplacementAttributes:async()=>structuredClone(saved),getWorkingApplicationAttributes:async()=>structuredClone(saved),getProjectDefaults:()=>{throw Error('Custom saved draft must not reload project defaults')},getControlledFile:async()=>c.props.file,
  getSimpleDeptList:async()=>[{id:'51',name:'质量',status:0},{id:'52',name:'研发',status:0}],getSimpleUserList:async()=>[{id:'77',nickname:'批准甲',status:0},{id:'66',nickname:'文控乙',status:0}],
  checkControlledFileRouteReadiness:async request=>{calls.previews.push(request);return {ready:true,nodes:[{stageCode:'MATRIX_REVIEW',candidateSourceType:'DEPT',candidateSourceIds:request.selectedSignoffDepartmentIds},{stageCode:'MATRIX_APPROVAL',candidateSourceType:'USER',candidateSourceIds:[request.applicationCustomMatrix.approverUserId],resolvedUserIds:[request.applicationCustomMatrix.approverUserId],approveMethod:'ANY',requireAllApprovals:false,approveRatio:null}],blockers:[],approvalSourceMode:'APPLICATION_CUSTOM',applicationCustomMatrix:request.applicationCustomMatrix,applicationCustomMatrixDigest:'d'.repeat(64),applicationCustomMatrixToken:'signed-reserved-config',applicationCustomMatrixPhase:'RESERVED',applicationActionType:revisionFlow?'REVISION':'NEW',derivationVersion:'DCC_APPLICATION_CUSTOM_MATRIX_V1',executionContract:'PUBLIC_MATRIX_NATIVE_V2',preparedProcessDefinitionId:'exact-v2',preparedDefinitionDigest:'a'.repeat(64),supervisorSourceDigest:'c'.repeat(64),supervisorSourceToken:'signed-supervisor',runtimeRuleGroups:[],runtimeCapabilityLimitations:[]}},
@@ -74,4 +75,39 @@ test('saved custom revision keeps strict intent mismatch rejection and cancel se
  assert.equal(h.calls.confirmations.length,1);assert.equal(h.calls.submits.length,0)
  assert.equal(h.c.selectedIterationId.value,'20');assert.equal(h.c.applicationCustomMatrix.value.approverUserId,'77')
  assert.deepEqual(Array.from(h.c.selectedApplicationFile.value.attachments,row=>row.attachmentId),['71','72'])
+})
+
+test('revision command keys remain independent of saved context across new applications and retries',async()=>{
+ const h=host({revisionFlow:true});let nonce=0;h.c.generateUUID=()=>`command-${++nonce}`
+ await h.open();await h.selectIntent('PARTIAL')
+ const command=intent=>revision.buildRevisionCommand('10','20',intent,'本次变更','saved-context',h.applicationFacts.value)
+ await h.submitRevision(command('PARTIAL'))
+ assert.equal(h.calls.submits[0].payload.idempotencyKey,'command-1')
+ assert.equal(h.calls.submits[0].payload.applicationContextKey,'saved-context')
+ h.c.submitted.value=false;await h.open('REPLACEMENT');await h.selectIntent('REPLACEMENT')
+ assert.equal(h.c.idempotencyKey.value,'saved-context')
+ let fail=true;const sent=[];h.c.submitControlledFileWorkingIteration=async(id,payload)=>{sent.push({id,payload:structuredClone(payload)});if(fail)throw Error('network timeout');return '20'}
+ await assert.rejects(h.submitRevision(command('REPLACEMENT')),/network timeout/)
+ await assert.rejects(h.submitRevision(command('REPLACEMENT')),/network timeout/)
+ assert.equal(sent[0].payload.idempotencyKey,'command-2');assert.equal(sent[1].payload.idempotencyKey,'command-2')
+ assert.equal(sent[0].payload.applicationContextKey,'saved-context')
+ const changed={...command('REPLACEMENT'),changeDescription:'改过的本次说明'}
+ await assert.rejects(h.submitRevision(changed),/network timeout/)
+ assert.equal(sent[2].payload.idempotencyKey,'command-3')
+ fail=false;await h.submitRevision(changed)
+ assert.equal(sent[3].payload.idempotencyKey,'command-3');assert.equal(h.c.submitted.value,true)
+ h.c.submitted.value=false;await h.open('REPLACEMENT');await h.selectIntent('REPLACEMENT');await h.submitRevision(changed)
+ assert.equal(sent[4].payload.idempotencyKey,'command-4')
+})
+
+test('switching intent away and back retires a failed revision command key',async()=>{
+ const h=host({revisionFlow:true});let nonce=0;h.c.generateUUID=()=>`intent-${++nonce}`
+ await h.open();await h.selectIntent('PARTIAL')
+ const sent=[];h.c.submitControlledFileWorkingIteration=async(id,payload)=>{sent.push(structuredClone(payload));throw Error('network timeout')}
+ const command=()=>revision.buildRevisionCommand('10','20','PARTIAL','本次说明','saved-context',h.applicationFacts.value)
+ await assert.rejects(h.submitRevision(command()),/network timeout/)
+ await h.selectIntent('REPLACEMENT');await h.selectIntent('PARTIAL')
+ await assert.rejects(h.submitRevision(command()),/network timeout/)
+ assert.equal(sent[0].idempotencyKey,'intent-1');assert.equal(sent[1].idempotencyKey,'intent-2')
+ assert.equal(sent[1].applicationContextKey,'saved-context')
 })

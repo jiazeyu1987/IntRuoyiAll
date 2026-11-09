@@ -84,6 +84,8 @@ import static org.mockito.Mockito.lenient;
         DccRegistrationCertificateRenewalServiceTest.DbTestConfiguration.class
 })
 class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
 
     @Resource
     private DccRegistrationCertificateRenewalService service;
@@ -641,6 +643,7 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                 .effectiveAt(java.time.LocalDateTime.of(2021, 3, 1, 0, 0))
                 .build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
 
         DccRegistrationCertificateSnapshotEntrustedDO entrusted =

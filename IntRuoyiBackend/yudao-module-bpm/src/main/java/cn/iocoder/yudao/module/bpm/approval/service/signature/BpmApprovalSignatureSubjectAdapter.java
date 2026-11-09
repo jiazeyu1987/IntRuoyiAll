@@ -34,6 +34,11 @@ public class BpmApprovalSignatureSubjectAdapter implements ElectronicSignatureSu
     }
 
     @Override
+    public boolean isReasonRequired(String actionCode, String subjectType) {
+        return !("APPROVE".equals(actionCode) && SUBJECT_TYPE.equals(subjectType));
+    }
+
+    @Override
     public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
         DecodedSubject decoded = decodeSubjectId(command.subjectId());
         String canonicalJson = "{"

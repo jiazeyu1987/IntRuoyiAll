@@ -90,7 +90,7 @@ public class DccFolderTemplateService {
     public List<DccProjectFolderDO> generate(Long projectId, Long templateId, String snapshotJson) {
         var project = projectMapper.selectByIdForUpdate(projectId);
         if (project == null || !Objects.equals(project.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                || !"ENABLE".equals(project.getStatus()) || templateId == null) throw fail(FOLDER_INVALID);
+                || project.isLibrary() || !"ENABLE".equals(project.getStatus()) || templateId == null) throw fail(FOLDER_INVALID);
         var nodes = parse(snapshotJson).parentFirst();
         if (!folderMapper.listByProjectForUpdate(projectId).isEmpty()) throw fail(FOLDER_INVALID);
         Map<String, Long> generatedIds = new HashMap<>();

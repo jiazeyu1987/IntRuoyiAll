@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import qs from 'qs'
 import { generateUUID } from '@/utils'
 
 const REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER = 'X-DCC-Request-Id'
@@ -26,6 +27,8 @@ export type DccRegistrationCertificateReminderFilterState =
   | 'T_1'
 
 export type RegistrationCertificateSortField =
+  | 'certificateHolder' | 'registrationLink' | 'tradeName' | 'notifiedBodyCode' | 'regulationCode' | 'listingNumber' | 'customerHeld' | 'ownProduct' | 'changeDescription' | 'firstObtainedDate' | 'approvalDate' | 'effectiveDate' | 'expiryDate' | 'remark' | 'ceRevision' | 'ceCertificateNo' | 'ceIssueDate' | 'registrantName' | 'modelSpecification' | 'structureComposition' | 'intendedUse' | 'technicalRequirements' | 'residenceAddress' | 'productionAddress' | 'entrustedProduction' | 'selfProduction' | 'entrustedEnterpriseName'
+  | 'certificateType' | 'certificateStatus' | 'productNameEn' | 'productCode' | 'kpNumber' | 'submissionType' | 'approvalLetterStatus' | 'factoryRegistrationStatus' | 'listingDate'
   | 'certificateNo'
   | 'ownerCompanyName'
   | 'productName'
@@ -44,6 +47,14 @@ export type RegistrationCertificateSortField =
 export type DccRegistrationCertificateLocalDateValue = string | [number, number, number]
 
 export interface DccRegistrationCertificatePageReqVO extends PageParam {
+  certificateType?: string
+  fieldFilters?: Record<string,string>
+  ceCertificateNo?: string
+  ceRevision?: string
+  ceIssueStart?: string
+  ceIssueEnd?: string
+  listingStart?: string
+  listingEnd?: string
   ownerCompanyId?: number | string
   productMasterId?: number | string
   projectCodeId?: number | string
@@ -73,6 +84,7 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
 }
 
 export interface DccRegistrationCertificatePageItemVO {
+  factsJson?: string
   certificateId: number | string
   rowVersion: number
   versionId: number | string
@@ -101,6 +113,7 @@ export interface DccRegistrationCertificatePageItemVO {
 }
 
 export interface DccRegistrationCertificateOldIndexItemVO {
+  factsJson?: string
   certificateId: number | string
   versionId: number | string
   ownerCompanyId: number | string
@@ -117,6 +130,7 @@ export interface DccRegistrationCertificateOldIndexItemVO {
 }
 
 export interface DccRegistrationCertificateDetailVO {
+  factsJson?: string
   certificateId: number | string
   rowVersion: number
   versionId: number | string
@@ -362,7 +376,8 @@ export const getRegistrationCertificatePage = async (
 ) => {
   return await request.get<PageResult<DccRegistrationCertificatePageItemVO[]>>({
     url: '/dcc/registration-certificates/page',
-    params
+    params,
+    paramsSerializer: (query: DccRegistrationCertificatePageReqVO) => qs.stringify(query, { allowDots: false })
   })
 }
 
@@ -380,7 +395,8 @@ export const getRegistrationCertificateOldIndexPage = async (
 ) => {
   return await request.get<PageResult<DccRegistrationCertificateOldIndexItemVO[]>>({
     url: '/dcc/registration-certificates/old-index/page',
-    params
+    params,
+    paramsSerializer: (query: DccRegistrationCertificatePageReqVO) => qs.stringify(query, { allowDots: false })
   })
 }
 
@@ -394,9 +410,9 @@ export const getRegistrationCertificateDetail = async (
   })
 }
 
-export const getRegistrationCertificateHistory = async (id: number | string) => {
+export const getRegistrationCertificateHistory = async (id: number | string, versionId?: number | string) => {
   return await request.get<DccRegistrationCertificateHistoryItemVO[]>({
-    url: `/dcc/registration-certificates/${id}/history`
+    url: `/dcc/registration-certificates/${id}/history`, params: {versionId}
   })
 }
 
@@ -634,3 +650,7 @@ export const submitRegistrationCertificateRenewal = async (
     headers: { 'Idempotency-Key': idempotencyKey }
   })
 }
+
+export const getMyRegistrationCertificateUploads = () => request.get<any[]>({url:'/dcc/registration-certificates/uploads/my-requests'})
+export const getMyRegistrationCertificateUpload = (id:number|string) => request.get<any>({url:'/dcc/registration-certificates/uploads/my-request',params:{id}})
+export const getRegistrationCertificateEvidence = (id:number|string,versionId?:number|string) => request.get<any>({url:`/dcc/registration-certificates/${id}/evidence`,params:{versionId}})

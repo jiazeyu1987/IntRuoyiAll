@@ -315,8 +315,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         }
         if (DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
                 || !DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
             throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
         }
         DccFileCategoryDO category = categoryMapper.selectById(file.getCategoryId());
@@ -347,12 +346,14 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             if (!isThreeWorkflowUploadOrRevision(file)
                     || file.getControlledTime() == null
                     || file.getActivatedTime() == null
-                    || userId==null || !permissionApi.hasAnyRoles(userId,DOC_CONTROL_ROLE)
+                    || userId==null
                     || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
-                    || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                    DccFileCategoryPermissionActionEnum.DISTRIBUTE)
+                    || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE)
                     || Boolean.TRUE.equals(file.getNeedTraining()) && file.getTrainingRecordFileId() == null) {
                 throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
+            }
+            if (Boolean.TRUE.equals(file.getNeedTraining())) {
+                requirePublicTrainingRecord(file, boundContracts.resolve(file));
             }
             if (file.getDistributedTime() != null) return;
             if(file.getDistributionPayloadHash()==null || !file.getDistributionPayloadHash().matches("[a-fA-F0-9]{64}"))
@@ -577,10 +578,29 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
         if("MATRIX_REVIEW".equals(stage)) {
-            var assigned=taskAssigneeSnapshotMapper.selectListByControlledFileId(file.getId()).stream().filter(row->
-                    Objects.equals(row.getProcessInstanceId(),file.getProcessInstanceId()) && Objects.equals(row.getBpmTaskId(),task.getId())
-                        && Objects.equals(row.getAssigneeUserId(),signature.getActorId())).toList();
-            if(assigned.size()!=1) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            Object obligation=task.getTaskLocalVariables().get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID);
+            if(!(obligation instanceof String obligationId) || obligationId.isBlank())
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            var obligations=taskAssigneeSnapshotMapper.selectListByControlledFileId(file.getId()).stream().filter(row->
+                    Objects.equals(row.getTenantId(),file.getTenantId()) && Objects.equals(row.getControlledFileId(),file.getId())
+                        && stage.equals(row.getStageCode()) && Objects.equals(row.getObligationId(),obligation)
+                        && Objects.equals(row.getBpmTaskId(),task.getId()) && Objects.equals(row.getNodeInstanceId(),task.getExecutionId())
+                        && !Boolean.TRUE.equals(row.getDeleted())
+                        && (row.getProcessInstanceId()==null || Objects.equals(row.getProcessInstanceId(),file.getProcessInstanceId()))).toList();
+            if(obligations.size()!=1) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            var row=obligations.get(0);var route=candidates.get(0);
+            if(row.getDepartmentId()==null || !"DEPT".equals(route.getCandidateSourceType())
+                    || route.getCandidateSourceIds()==null || java.util.Arrays.stream(route.getCandidateSourceIds().split(",",-1))
+                        .noneMatch(id->id.equals(String.valueOf(row.getDepartmentId()))))
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            // Before assignment the frozen department leader may reject their actual task.
+            boolean leaderReject=row.getAssignmentSignatureId()==null && row.getAssignedTime()==null
+                    && Objects.equals(row.getLeaderUserId(),signature.getActorId());
+            boolean assigneeReject=row.getAssignmentSignatureId()!=null && row.getAssignedTime()!=null
+                    && Objects.equals(row.getProcessInstanceId(),file.getProcessInstanceId())
+                    && Objects.equals(row.getAssigneeUserId(),signature.getActorId());
+            if(!leaderReject && !assigneeReject) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         } else if(candidates.get(0).getResolvedUserIds()==null || java.util.Arrays.stream(candidates.get(0).getResolvedUserIds().split(",",-1))
                 .noneMatch(id->id.equals(String.valueOf(signature.getActorId())))) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         var verified=signatureManagementService.verifySignatureEvidence(signature.getId());
@@ -892,10 +912,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     }
 
     private void requirePublishPermission(Long userId, DccControlledFileDO file) {
-        if (userId == null || !permissionApi.hasAnyRoles(userId, DOC_CONTROL_ROLE)
-                || !permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION)
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.APPROVE)) {
+        if (userId == null || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT)) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
     }

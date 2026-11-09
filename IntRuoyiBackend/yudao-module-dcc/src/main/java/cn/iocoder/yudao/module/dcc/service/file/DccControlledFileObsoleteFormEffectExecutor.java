@@ -44,23 +44,20 @@ public class DccControlledFileObsoleteFormEffectExecutor
         if (!supports(instance)) {
             return FormBusinessEffectResult.failure("DCC_OBSOLETE executor only accepts DCC CONTROLLED_FILE OBSOLETE actions");
         }
-        try {
-            Long controlledFileId = requiredControlledFileId(instance);
-            if(instance.getBpmBinding()==null || instance.getBpmBinding().getProcessInstanceId()==null
-                    || instance.getBpmBinding().getProcessInstanceId().isBlank())
-                throw new IllegalArgumentException("DCC obsolete approval process binding is missing");
-            if(instance.getStatus()!=cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus.PENDING_EFFECT)
-                throw new IllegalArgumentException("DCC obsolete effect is not at the approved effect stage");
-            var request=toObsoleteReqVO(instance.getFormData(),controlledFileId);
-            request.setApprovalProcessInstanceId(instance.getBpmBinding().getProcessInstanceId());
-            request.setApprovedVersionNo(instance.getBusinessContext().getObjectVersion());
-            request.setIdempotencyKey(idempotencyKey);
-            obsoleteService.applyApprovedObsoleteControlledFile(instance.getApplicantUserId(), controlledFileId,
-                    request);
-            return FormBusinessEffectResult.success(String.valueOf(controlledFileId));
-        } catch (RuntimeException ex) {
-            return FormBusinessEffectResult.failure(ex.getMessage());
-        }
+        Long controlledFileId = requiredControlledFileId(instance);
+        if(instance.getBpmBinding()==null || instance.getBpmBinding().getProcessInstanceId()==null
+                || instance.getBpmBinding().getProcessInstanceId().isBlank())
+            throw new IllegalArgumentException("DCC obsolete approval process binding is missing");
+        if(instance.getStatus()!=cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus.PENDING_EFFECT)
+            throw new IllegalArgumentException("DCC obsolete effect is not at the approved effect stage");
+        var request=toObsoleteReqVO(instance.getFormData(),controlledFileId);
+        request.setApprovalProcessInstanceId(instance.getBpmBinding().getProcessInstanceId());
+        request.setApprovedVersionNo(instance.getBusinessContext().getObjectVersion());
+        request.setIdempotencyKey(idempotencyKey);
+        obsoleteService.applyApprovedObsoleteControlledFile(instance.getApplicantUserId(), controlledFileId,
+                request);
+        // The effect joins approval's transaction; propagate its cause so rollback cannot hide it.
+        return FormBusinessEffectResult.success(String.valueOf(controlledFileId));
     }
 
     @Override

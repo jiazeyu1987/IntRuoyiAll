@@ -102,6 +102,70 @@ public class DccRelationStageSnapshotServiceTest {
     static void check(boolean result,String message){if(!result)throw new AssertionError(message);}
     static void rejects(Runnable run,String name){try{run.run();}catch(RuntimeException expected){return;}throw new AssertionError("Expected rejection: "+name);}
     @org.junit.jupiter.api.Test
+    void assignmentFreezesExistingNamesWithoutTargetDailyAccess() {
+        var denied=new cn.iocoder.yudao.framework.common.exception.ServiceException(1_080_000_012,"target daily access denied");
+        doThrow(denied).when(access).assertNameVisible(7L,200L);
+        doThrow(denied).when(access).assertContentReadable(7L,200L);
+        var prepared=prepare("t1","dept-5",List.of(),"assignment-with-frozen-name",null,List.of());
+        var saved=freeze(prepared,1);
+        check(saved.members().size()==1 && saved.members().get(0).selectedControlledFileId()==200L,
+                "assignment retains the exact original target without granting its daily access");
+        check("原A".equals(saved.members().get(0).fileNameSnapshot()) && "A/1".equals(saved.members().get(0).versionNoSnapshot()),
+                "assignment signs the submitted frozen name and version");
+        var replay=prepare("t1","dept-5",List.of(),"assignment-with-frozen-name",prepared.expectedDigest(),List.of());
+        check(saved.equals(tx.execute(s->service.freeze(replay,new SignatureIdentity(1L,signedAt,"evidence-1")))),
+                "exact signed assignment replay returns its original evidence");
+        check(count("dcc_relation_stage_snapshot")==1 && count("dcc_relation_stage_member")==1 && count("dcc_controlled_file_signature")==1,
+                "assignment replay creates no extra signature or relation rows");
+        verify(access,atLeastOnce()).assertNameVisible(7L,100L);
+        verify(access,never()).assertNameVisible(7L,200L);
+        verify(access,never()).assertContentReadable(7L,200L);
+        verify(query,never()).getRelationPermissions(7L,200L);
+        verify(audit,times(1)).append(any());
+    }
+    @org.junit.jupiter.api.Test
+    void newSupplementStillRequiresItsOwnContentPermission() {
+        var denied=new cn.iocoder.yudao.framework.common.exception.ServiceException(1_080_000_012,"supplement body access denied");
+        doThrow(denied).when(access).assertContentReadable(7L,300L);
+        var failure=org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->prepare("t1","dept-5",List.of(300L),"new-supplement",null,List.of()));
+        check(failure.getCode()==1_080_000_012,"new target body denial propagates unchanged");
+        verify(access).assertNameVisible(7L,300L);
+        verify(access).assertContentReadable(7L,300L);
+        check(count("dcc_relation_stage_snapshot")==0 && count("dcc_relation_stage_member")==0 && count("dcc_controlled_file_signature")==0,
+                "unreadable new supplement cannot persist assignment evidence");
+        verifyNoInteractions(audit);
+    }
+    @org.junit.jupiter.api.Test
+    void frozenTargetIdentityBoundariesRemainMandatory() {
+        for(var invalid:List.of(
+                new FileVersion(2L,200L,20L,2L,"A","原A","A/1","ACTIVE",true,false,true),
+                file(200,20,3,"ACTIVE",true,false,true),
+                file(200,40,2,"ACTIVE",true,false,true),
+                file(300,20,2,"ACTIVE",true,false,true),
+                file(200,10,2,"ACTIVE",true,false,true))) {
+            when(files.resolveSelected(200L)).thenReturn(invalid);
+            var failure=org.junit.jupiter.api.Assertions.assertThrows(DccRelationFailure.class,
+                    ()->prepare("t1","dept-5",List.of(),"invalid-frozen-target",null,List.of()));
+            check("DCC_RELATION_STAGE_FROZEN_IDENTITY_INVALID".equals(failure.getMessage()),
+                    "frozen tenant/project/master/version identity must still be exact");
+        }
+        check(count("dcc_relation_stage_snapshot")==0 && count("dcc_relation_stage_member")==0 && count("dcc_controlled_file_signature")==0,
+                "invalid frozen identities persist no assignment evidence");
+        verifyNoInteractions(audit);
+    }
+    @org.junit.jupiter.api.Test
+    void assignmentStillRequiresSourceAuthority() {
+        var denied=new cn.iocoder.yudao.framework.common.exception.ServiceException(1_080_000_012,"source authority denied");
+        doThrow(denied).when(access).assertNameVisible(7L,100L);
+        var failure=org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->prepare("t1","dept-5",List.of(),"source-denied",null,List.of()));
+        check(failure.getCode()==1_080_000_012,"source lock authorization remains mandatory");
+        check(count("dcc_relation_stage_snapshot")==0 && count("dcc_controlled_file_signature")==0,
+                "source denial creates no assignment evidence");
+        verifyNoInteractions(audit);
+    }
+    @org.junit.jupiter.api.Test
     void completeAndImmutable() {
         var p=prepare("t1","dept-5",List.of(300L),"command-1",null,List.of(new Arrangement(30L,8L,signedAt.plusDays(2))));
         var saved=freeze(p,1);
@@ -289,9 +353,46 @@ public class DccRelationStageSnapshotServiceTest {
         rejects(()->tx.execute(s->rounds.bindRelationSource(2L,"REVISION",101L,1,"REVISION",100L,"round-1","0".repeat(64))),"digest conflict");
     }
     @org.junit.jupiter.api.Test
+    void controlledImportObsoleteRecordsOnlyItsRealNewSignatures() {
+        var obsolete=controlledImportObsoleteFixture();
+        check(!service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round").recorded(),"import has no invented historical signature");
+        var prepared=tx.execute(s->service.prepare(7L,100L,obsolete,List.of(),List.of(),"import-obsolete",null,"导入文件作废指派"));
+        check(prepared.complete().size()==1 && prepared.complete().get(0).selectedControlledFileId()==200L,"existing exact relation is preserved");
+        jdbc.update("INSERT INTO dcc_controlled_file_signature VALUES(2,100,'ot1','obsolete-round',7,?,'VALID','import-obsolete-evidence','ASSIGN',?,0)",signedAt,"导入文件作废指派；"+prepared.signedReasonMarker());
+        tx.execute(s->service.freeze(prepared,new SignatureIdentity(2L,signedAt,"import-obsolete-evidence")));
+        var evidence=service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round");
+        check(evidence.stages().size()==1 && evidence.stages().get(0).signatureIdentityMatches(),"only the actual obsolete signature is recorded");
+        check(evidence.completeSelections().size()==1 && evidence.originalUploadSelections().size()==1,"exact pre-existing relation survives the obsolete round");
+        check(jdbc.queryForObject("SELECT COUNT(*) FROM dcc_application_round_link WHERE application_type IN ('UPLOAD','REVISION')",Integer.class)==0,"no native mapping is fabricated");
+        rejects(()->service.readNativeVersionEvidence(7L,100L),"import is not reclassified as native upload");
+    }
+    @org.junit.jupiter.api.Test
+    void absentOrContradictoryImportProvenanceCannotReplaceNativeEvidence() {
+        var obsolete=controlledImportObsoleteFixture();
+        for(String mutation:List.of("import_source=NULL","import_source='OTHER'","imported_by=NULL","imported_by=0","imported_time=NULL","controlled_time=NULL","process_instance_id='missing-native'")) {
+            jdbc.update("UPDATE dcc_controlled_file SET "+mutation+" WHERE id=100");
+            rejects(()->service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round"),"invalid provenance "+mutation);
+            rejects(()->tx.execute(s->service.prepare(7L,100L,obsolete,List.of(),List.of(),"import-obsolete",null,"导入作废")),"invalid provenance cannot sign "+mutation);
+            jdbc.update("UPDATE dcc_controlled_file SET import_source='CONTROLLED_IMPORT',imported_by=7,imported_time=?,controlled_time=?,process_instance_id=NULL WHERE id=100",signedAt,signedAt);
+        }
+        jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'UPLOAD',100,NULL,1)");
+        rejects(()->service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round"),"conflicting native admission cannot be treated as import");
+        check(jdbc.queryForObject("SELECT COUNT(*) FROM dcc_relation_stage_snapshot",Integer.class)==0,"rejections leave no signatures or snapshots");
+    }
+    private ValidatedTaskIdentity controlledImportObsoleteFixture() {
+        for(String column:List.of("import_source VARCHAR(32)","imported_by BIGINT","imported_time DATETIME","controlled_time DATETIME"))
+            jdbc.execute("ALTER TABLE dcc_controlled_file ADD "+column);
+        jdbc.update("DELETE FROM dcc_application_round_link WHERE application_id=100");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=NULL,import_source='CONTROLLED_IMPORT',imported_by=7,imported_time=?,controlled_time=? WHERE id=100",signedAt,signedAt);
+        jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'OBSOLETE',100,'obsolete-round',2)");
+        jdbc.update("INSERT INTO bpm_form_action_instance VALUES(99,1,'DCC','CONTROLLED_FILE','OBSOLETE','100','A/1','IN_APPROVAL','obsolete-round',0)");
+        return new ValidatedTaskIdentity(1L,"obsolete-round","ot1","form-99:5","MATRIX_REVIEW","obsolete-node",5L,"ASSIGN","OBSOLETE",2,99L);
+    }
+    @org.junit.jupiter.api.Test
     void obsoleteTaskUsesFormCenterRoundWithoutReplacingUploadBpm() {
         jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'OBSOLETE',100,'obsolete-round',2)");
         jdbc.update("INSERT INTO bpm_form_action_instance VALUES(99,1,'DCC','CONTROLLED_FILE','OBSOLETE','100','A/1','IN_APPROVAL','obsolete-round',0)");
+        doThrow(new IllegalStateException("source has no daily name grant")).when(access).assertNameVisible(7L,100L);
         var obsolete=new ValidatedTaskIdentity(1L,"obsolete-round","ot1","form-99:5","MATRIX_REVIEW","obsolete-node",5L,"ASSIGN","OBSOLETE",2,99L);
         var prepared=tx.execute(s->service.prepare(7L,100L,obsolete,List.of(),List.of(),"oc1",null,"正式作废指派"));
         jdbc.update("INSERT INTO dcc_controlled_file_signature VALUES(2,100,'ot1','obsolete-round',7,?,'VALID','obsolete-evidence','ASSIGN',?,0)",signedAt,"正式作废指派；"+prepared.signedReasonMarker());
@@ -299,8 +400,33 @@ public class DccRelationStageSnapshotServiceTest {
         check("OBSOLETE".equals(saved.header().applicationType()) && saved.header().formActionInstanceId()==99L,"new header stores real form identity");
         check("obsolete-round".equals(saved.header().processInstanceId()),"head process independent obsolete");
         check("round-1".equals(jdbc.queryForObject("SELECT process_instance_id FROM dcc_controlled_file WHERE id=100",String.class)),"File original upload BPM unchanged");
-        check(service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round").recorded(),"mapped obsolete history readable");
+        clearInvocations(access);
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "100","A/1","OBSOLETE","obsolete-round","ot1");
+        check(service.readRoundEvidence(7L,100L,"OBSOLETE","obsolete-round",context).recorded(),"mapped obsolete history readable through actual task");
+        verify(query,atLeastOnce()).assertApplicationRoundReadable(7L,100L,"OBSOLETE","obsolete-round",context);
+        verify(access,never()).assertNameVisible(7L,100L);
+        verify(access,never()).assertNameVisible(7L,200L);
         rejects(()->tx.execute(s->service.prepare(7L,100L,obsolete,List.of(300L),List.of(),"oc1",null,"正式作废指派")),"obsolete no supplementation");
+    }
+
+    @org.junit.jupiter.api.Test
+    void exactTaskEvidenceReadsFrozenNamesWithoutGrantingTargetBodyAccess() {
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "100","A/1","REVISION","round-1","t1");
+        doThrow(new IllegalStateException("source has no daily name grant")).when(access).assertNameVisible(7L,100L);
+        check(service.readRoundEvidence(7L,100L,"REVISION","round-1",context).completeSelections().size()==1,"exact source task reads frozen relation");
+        verify(query).assertApplicationRoundReadable(7L,100L,"REVISION","round-1",context);
+        verify(access,never()).assertNameVisible(7L,100L);
+        doThrow(new IllegalStateException("related name denied")).when(access).assertNameVisible(7L,200L);
+        var frozen=service.readRoundEvidence(7L,100L,"REVISION","round-1",context);
+        check(frozen.completeSelections().get(0).fileName().equals("原A"),"authorized approver sees the frozen submitted name");
+        verify(access,never()).assertNameVisible(7L,200L);
+        doThrow(new IllegalStateException("related body denied")).when(access).assertContentReadable(7L,200L);
+        rejects(()->access.assertContentReadable(7L,200L),"source task does not grant target body access");
+        doThrow(new IllegalStateException("task revoked")).when(query).assertApplicationRoundReadable(7L,100L,"REVISION","round-1",context);
+        rejects(()->service.readRoundEvidence(7L,100L,"REVISION","round-1",context),"revoked source task cannot use daily name access");
+        verify(access,never()).assertNameVisible(7L,100L);
     }
     @org.junit.jupiter.api.Test
     void sourceBindingRequiresAllocatedTargetBoundSourceAndExactDigest() {
@@ -455,6 +581,64 @@ public class DccRelationStageSnapshotServiceTest {
         jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'REVISION',100,NULL,3)");
         rejects(()->rounds.resolveBoundBpm("REVISION",100L,3),"reserved but unbound source");
         rejects(()->rounds.resolveBoundBpm("UPLOAD",100L,1),"wrong source type cannot select another existing mapping");
+    }
+    @org.junit.jupiter.api.Test
+    void nativeVersionNamesIncludeSignedSupplementsAndKeepExactNativeRound() {
+        freeze(prepare("t1","dept-5",List.of(300L),"supplement",null,List.of()),1);
+        clearInvocations(access,query);
+        var evidence=service.readNativeVersionEvidence(7L,100L);
+        check(evidence.completeSelections().stream().map(row->row.selectedControlledFileId()).toList().containsAll(List.of(200L,300L)),"native version includes upload and signed supplement");
+        verify(access).assertNameVisible(7L,100L);verify(access).assertNameVisible(7L,200L);verify(access).assertNameVisible(7L,300L);
+        verifyNoInteractions(query);
+        jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'REVISION',100,'round-2',2)");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='round-2' WHERE id=100");
+        check(service.readNativeVersionEvidence(7L,100L).completeSelections().size()==1,"different native round excludes prior supplement");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='round-1' WHERE id=100");
+        jdbc.update("DELETE FROM dcc_controlled_file_signature WHERE id=1");
+        rejects(()->service.readNativeVersionEvidence(7L,100L),"unsigned supplement cannot be shown as a formal relation");
+    }
+    private void markCurrentActive(Long id) {
+        jdbc.execute("ALTER TABLE dcc_controlled_file_master ADD COLUMN IF NOT EXISTS current_active_controlled_file_id BIGINT");
+        jdbc.execute("ALTER TABLE dcc_controlled_file ADD COLUMN IF NOT EXISTS status VARCHAR(64) DEFAULT 'ACTIVE'");
+        jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=? WHERE id=10",id);
+    }
+    @org.junit.jupiter.api.Test
+    void effectiveReverseProjectionIncludesSignedSupplementWithoutDailyOrBodyAuthorization() {
+        freeze(prepare("t1","dept-5",List.of(300L),"supplement",null,List.of()),1);
+        markCurrentActive(100L);clearInvocations(access,query);
+        var selected=service.findEffectiveReverseSelections(1L,30L);
+        check(selected.size()==1 && selected.get(0).sourceFileId()==100L && selected.get(0).selection().selectedControlledFileId()==300L,"signed B contributes current A owner notification source");
+        verifyNoInteractions(access,query);
+        TenantContextHolder.setTenantId(2L);
+        rejects(()->service.findEffectiveReverseSelections(1L,30L),"foreign tenant cannot project internal evidence");
+    }
+    @org.junit.jupiter.api.Test
+    void effectiveReverseProjectionExcludesHistoricalRoundAndRejectsMissingSignature() {
+        freeze(prepare("t1","dept-5",List.of(300L),"supplement",null,List.of()),1);
+        markCurrentActive(100L);
+        jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'REVISION',100,'round-2',2)");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='round-2' WHERE id=100");
+        check(service.findEffectiveReverseSelections(1L,30L).isEmpty(),"old round supplemental B must not authorize current round notification");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='round-1' WHERE id=100");
+        jdbc.update("DELETE FROM dcc_controlled_file_signature WHERE id=1");
+        rejects(()->service.findEffectiveReverseSelections(1L,30L),"unsigned current supplement must fail before notification");
+    }
+    @org.junit.jupiter.api.Test
+    void effectiveReverseProjectionFollowsExplicitInheritedSignedRound() {
+        freeze(prepare("t1","dept-5",List.of(300L),"supplement",null,List.of()),1);
+        var original=service.readRoundEvidence(7L,100L,"REVISION","round-1");
+        jdbc.update("INSERT INTO dcc_controlled_file VALUES(101,1,10,2,NULL,0)");
+        when(files.resolveSelected(101L)).thenReturn(file(101,10,2,"WORKING",false,false,false));
+        jdbc.update("INSERT INTO dcc_application_round_link(tenant_id,project_id,application_type,application_id,bpm_round,attribute_round) VALUES(1,2,'REVISION',101,NULL,1)");
+        tx.execute(status->service.inheritRoundSelections(7L,100L,"REVISION","round-1",101L,"REVISION",1,original.relationDigest()));
+        jdbc.update("UPDATE dcc_application_round_link SET bpm_round='new-round' WHERE application_id=101");
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='new-round' WHERE id=101");
+        when(files.resolveSelected(101L)).thenReturn(file(101,10,2,"ACTIVE",true,false,true));
+        markCurrentActive(101L);
+        var selected=service.findEffectiveReverseSelections(1L,30L);
+        check(selected.size()==1 && selected.get(0).sourceFileId()==101L,"signed inherited B notifies the current A version owner");
+        jdbc.update("UPDATE dcc_controlled_file_signature SET evidence_status='VOID' WHERE id=1");
+        rejects(()->service.findEffectiveReverseSelections(1L,30L),"invalid inherited signature cannot authorize notification");
     }
     @org.junit.jupiter.api.AfterEach void clearTenant(){TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}
     public static void main(String[] args) throws Exception {

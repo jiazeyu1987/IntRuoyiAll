@@ -54,6 +54,10 @@ export interface ProjectFolderSave {
 }
 export const saveProjectFolder = (projectId: number | string, data: ProjectFolderSave): Promise<ProjectFolder> =>
   request.put({ url: `/dcc/project-codes/${projectId}/folders`, data, ignoreErrorMessage: true })
+export const saveLibraryFolder = (scope: 'QMS' | 'GENERAL', data: ProjectFolderSave): Promise<ProjectFolder> =>
+  request.put({ url: '/dcc/project-codes/library/folders', params: { scope }, data, ignoreErrorMessage: true })
+export const deleteLibraryFolder = (scope: 'QMS' | 'GENERAL', folderId: number | string, data: { confirmed: boolean; changeReason: string }): Promise<boolean> =>
+  request.delete({ url: `/dcc/project-codes/library/folders/${folderId}`, params: { scope }, data, ignoreErrorMessage: true })
 export const deleteProjectFolder = (projectId: number | string, folderId: number | string, data: { confirmed: boolean; changeReason: string }): Promise<boolean> =>
   request.delete({ url: `/dcc/project-codes/${projectId}/folders/${folderId}`, data, ignoreErrorMessage: true })
 export const getFolderTemplates = (): Promise<FolderTemplate[]> => request.get({ url: '/dcc/folder-templates', ignoreErrorMessage: true })

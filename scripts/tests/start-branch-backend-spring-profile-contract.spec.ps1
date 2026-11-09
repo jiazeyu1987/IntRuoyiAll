@@ -46,8 +46,10 @@ $result = & $actualLauncher
 Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--spring.profiles.active=*' }) -join '|') '--spring.profiles.active=local' 'Default local profile retained'
 Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--server.port=*' }) -join '|') '--server.port=48061' 'Current branch port retained'
 Write-Output 'PASS default local and current branch port'
+Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--yudao.gxp-audit.local-development-policy=*' }) -join '|') '--yudao.gxp-audit.local-development-policy=false' 'Development audit is explicitly disabled by default'
 
-$result = & $actualLauncher -SpringProfile 'dcc-local-development' -ExtraArgs @('--dcc.test-fixture=true') -Slot 3
+$result = & $actualLauncher -SpringProfile 'dcc-local-development' -LocalDevelopmentAuditPolicy -ExtraArgs @('--dcc.test-fixture=true') -Slot 3
+Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--yudao.gxp-audit.local-development-policy=*' }) -join '|') '--yudao.gxp-audit.local-development-policy=true' 'Development audit requires explicit opt-in'
 Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--spring.profiles.active=*' }) -join '|') '--spring.profiles.active=dcc-local-development' 'Explicit single Spring profile'
 Assert-TaskEqual (@($result.JavaArgs | Where-Object { $_ -like '--server.port=*' }) -join '|') '--server.port=48061' 'Spring profile does not replace runtime context port'
 Assert-TaskEqual $script:requestedSlot 3 'Slot forwarded unchanged to authority'

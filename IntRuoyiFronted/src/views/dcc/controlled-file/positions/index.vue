@@ -1,16 +1,16 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="positions-surface">
     <el-form
       ref="queryFormRef"
-      class="position-toolbar -mb-15px"
+      class="position-toolbar"
       :inline="true"
       :model="queryParams"
-      label-width="82px"
+      label-width="96px"
     >
       <el-form-item label="审批角色编码" prop="code">
         <el-input
           v-model="queryParams.code"
-          class="!w-220px"
+          class="position-filter-control"
           clearable
           placeholder="请输入审批角色编码"
           @keyup.enter="handleQuery"
@@ -19,7 +19,7 @@
       <el-form-item label="审批角色名称" prop="name">
         <el-input
           v-model="queryParams.name"
-          class="!w-220px"
+          class="position-filter-control"
           clearable
           placeholder="请输入审批角色名称"
           @keyup.enter="handleQuery"
@@ -28,7 +28,7 @@
       <el-form-item label="启用状态" prop="active">
         <el-select
           v-model="queryParams.active"
-          class="!w-180px"
+          class="position-filter-control position-filter-control--state"
           clearable
           placeholder="请选择启用状态"
         >
@@ -40,7 +40,7 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item>
+      <el-form-item class="position-actions">
         <el-button @click="handleQuery">
           <Icon icon="ep:search" class="mr-5px" />
           查询
@@ -92,10 +92,7 @@
     </el-form>
   </ContentWrap>
 
-  <ContentWrap>
-    <div class="mb-12px text-12px text-[var(--el-text-color-secondary)]">
-      审批角色：控制 DCC 审批语义与分配。
-    </div>
+  <ContentWrap class="positions-surface">
     <el-table v-loading="loading" :data="filteredPositions">
       <el-table-column label="审批角色编码" min-width="150" prop="code" show-overflow-tooltip />
       <el-table-column label="审批角色名称" min-width="180" prop="name" show-overflow-tooltip />
@@ -140,12 +137,17 @@
     </el-table>
   </ContentWrap>
 
-  <Dialog v-model="createDialogVisible" title="新增审批角色" width="520px">
+  <Dialog
+    v-model="createDialogVisible"
+    class="positions-dialog"
+    title="新增审批角色"
+    width="min(520px, calc(100vw - 24px))"
+  >
     <el-form
       ref="createFormRef"
       :model="createFormData"
       :rules="createFormRules"
-      label-width="88px"
+      label-width="108px"
     >
       <el-form-item label="审批角色名称" prop="name">
         <el-input
@@ -174,8 +176,13 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="dialogVisible" :title="dialogTitle" width="920px">
-    <div class="mb-12px flex items-center justify-between">
+  <Dialog
+    v-model="dialogVisible"
+    class="positions-dialog"
+    :title="dialogTitle"
+    width="min(920px, calc(100vw - 24px))"
+  >
+    <div class="position-assignment-toolbar">
       <div class="text-13px text-[var(--el-text-color-secondary)]">
         当前审批角色：{{ currentPosition?.name || '-' }}
       </div>
@@ -559,10 +566,95 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.positions-surface,
+.positions-dialog {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.positions-surface {
+  margin-bottom: 8px;
+}
+
+.positions-surface :deep(.el-card__body) {
+  padding: 12px !important;
+}
+
+.positions-surface :deep(.el-table),
+.positions-dialog :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #dbe3e7;
+  font-size: 13px;
+}
+
+.positions-surface :deep(.el-table__cell),
+.positions-dialog :deep(.el-table__cell) {
+  padding: 5px 0;
+}
+
+.positions-surface :deep(th.el-table__cell),
+.positions-dialog :deep(th.el-table__cell) {
+  height: 36px;
+  font-size: 12px;
+}
+
+.position-filter-control {
+  width: 190px;
+}
+
+.position-filter-control--state {
+  width: 160px;
+}
+
 .position-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
+  gap: 8px 16px;
+}
+
+.position-toolbar :deep(.el-form-item) {
+  margin: 0;
+  min-width: 0;
+}
+
+.position-toolbar :deep(.el-form-item__content) {
+  min-width: 0;
+}
+
+.position-actions {
+  flex-basis: 100%;
+}
+
+.position-actions :deep(.el-form-item__content) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.position-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.position-assignment-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.position-assignment-toolbar > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .position-toolbar-context-item {
@@ -589,11 +681,12 @@ onMounted(() => {
 
 .position-toolbar-context__filter {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .position-summary {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -612,6 +705,19 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .position-toolbar > :deep(.el-form-item) {
+    width: 100%;
+  }
+
+  .position-toolbar :deep(.el-form-item__content) {
+    flex: 1;
+  }
+
+  .position-filter-control {
+    width: 100%;
+    min-width: 0;
+  }
+
   .position-toolbar-context-item {
     margin-left: 0;
     width: 100%;

@@ -31,6 +31,10 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PRODUCT_ONBOA
 @Service
 @Validated
 public class DccProductOnboardingServiceImpl implements DccProductOnboardingService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
+
 
     @Resource
     private DccProductOnboardingRequestMapper requestMapper;
@@ -100,7 +104,8 @@ public class DccProductOnboardingServiceImpl implements DccProductOnboardingServ
                 .priority(request.getPriority())
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(projectCode);
+        if (projectCodeMapper.insert(projectCode) != 1 || projectCode.getId() == null) throw new IllegalStateException("项目保存失败");
+        registrationHandlingTasks.createProjectTask(projectCode.getId());
 
         request.setProductMasterId(product.productMasterId());
         request.setProductCode(product.productCode());

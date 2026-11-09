@@ -26,7 +26,6 @@ export const PROJECT_BROWSER_VERSION_VIEWS = [
   { value: 'FINALIZATION_FAILED', label: '审批中 · 受控处理失败', group: '审批中' },
   { value: 'SUPERSEDED', label: '历史版本 · 已替换', group: '历史版本' },
   { value: 'OBSOLETE', label: '历史版本 · 已作废', group: '历史版本' },
-  { value: 'REJECTED', label: '历史申请 · 已驳回', group: '历史版本' },
   { value: 'WITHDRAWN', label: '历史申请 · 已撤回', group: '历史版本' }
 ] as const
 export type ProjectBrowserVersionView = (typeof PROJECT_BROWSER_VERSION_VIEWS)[number]['value']
@@ -107,6 +106,16 @@ export class ProjectBrowserState {
     } catch (error) { if (token === this.projectSequence) this.folderError = errorText(error) }
     finally { if (token === this.projectSequence) this.folderLoading = false }
   }
+  async selectLibrary(project: DccDiscoveredProject) {
+    this.project = project; this.folder = undefined; this.directories = []; this.scope = 'project'; this.invalidateFiles()
+    this.folderLoading = true; this.folderError = ''
+    try {
+      const folders = await getProjectFolders(project.id)
+      this.directories = mapReferenceDirectoryNodes(this.tenantId, project.id, buildProjectFolderTree(project.id, folders))
+    } catch(error) { this.folderError = errorText(error) }
+    finally { this.folderLoading = false }
+    await this.loadFiles()
+  }
   async selectFolder(node: DirectoryNode) {
     if (!this.project || node.projectId !== this.project.id || !node.folderId) throw new Error('请选择当前项目的逻辑文件夹')
     this.folder = node; this.scope = 'directory'; this.pageNo = 1
@@ -153,16 +162,9 @@ export class ProjectBrowserState {
   }
   private async mapReferences(result: unknown, projectId: string, folderId: string) {
     if (!Array.isArray(result)) throw new Error('引用列表响应缺失')
-    const permissions = await Promise.all(result.map(row => {
-      const selectedId = referenceIdentity(row?.reference?.selectedControlledFileId)
-      if (referenceIdentity(row?.selectedVersion?.controlledFileId) !== selectedId
-        || referenceIdentity(row?.selectedVersion?.tenantId) !== this.tenantId)
-        throw new Error('引用列表固定文件或租户身份不一致')
-      return getControlledFileRelationPermissions(selectedId)
-    }))
-    const names = Object.fromEntries(permissions.map(projection => [projection.projectId, projection.projectName]))
+    const names = Object.fromEntries(result.map(row => [referenceIdentity(row.selectedVersion?.projectId), row.permissions?.projectName]))
     return mapReferenceRows(result, { tenantId: this.tenantId, projectId, folderId }, names)
-      .map((row, index) => bindReferencePermissions(row, permissions[index]))
+      .map((row, index) => bindReferencePermissions(row, result[index].permissions))
   }
   async readReferenceForAction(row: ReferenceRow) {
     const context = this.contextKey
@@ -193,7 +195,11 @@ export class ProjectBrowserState {
       || new Set(saved.map(row => referenceIdentity(row?.reference?.selectedControlledFileId))).size !== selectedIds.length
       || saved.some(row => !selectedIds.includes(referenceIdentity(row?.reference?.selectedControlledFileId))))
       throw new Error('引用保存响应没有确认完整的所选版本，请核对正式保存结果')
-    try { return await this.mapReferences(saved, projectId, folderId) }
+    try {
+      const rows = (await this.loadReferences(projectId, folderId)).filter(row => selectedIds.includes(row.reference.selectedControlledFileId))
+      if (rows.length !== selectedIds.length) throw new Error('引用列表未确认完整的已保存版本')
+      return rows
+    }
     catch (cause) { throw Object.assign(new Error(`引用已保存，但权限与名称读取失败：${errorText(cause)}。请刷新此文件夹引用。`), { referenceSaved: true }) }
   }
   async cancelReference(projectId: string, folderId: string, masterId: string, referenceId: string, reason: string) {

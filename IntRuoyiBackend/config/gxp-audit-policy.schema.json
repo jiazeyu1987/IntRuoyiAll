@@ -25,7 +25,7 @@
           "domain": { "type": "string", "minLength": 1, "maxLength": 64 },
           "subjectType": { "type": "string", "minLength": 1, "maxLength": 64 },
           "actionType": { "type": "string", "minLength": 1, "maxLength": 64 },
-          "reasonPolicy": { "enum": ["SYSTEM", "SYSTEM_WITH_OPTIONAL_TEXT", "USER_REQUIRED", "SYSTEM_ERROR", "APPROVAL_REFERENCE"] },
+          "reasonPolicy": { "enum": ["SYSTEM", "SYSTEM_WITH_OPTIONAL_TEXT", "USER_REQUIRED", "APPROVAL_DECISION", "SYSTEM_ERROR", "APPROVAL_REFERENCE"] },
           "signaturePolicy": { "enum": ["REQUIRED", "PARENT", "NONE"] },
           "statePolicy": { "enum": ["ABSENT_TO_PRESENT", "PRESENT_TO_PRESENT", "PRESENT_TO_ABSENT", "ABSENT_OR_PRESENT_TO_PRESENT"] },
           "snapshotProfile": { "enum": ["ORDER", "PRODUCTION", "ALLOCATION", "PRODUCTION_REVIEW", "PQC", "PQC_REVIEW", "COMPLETION", "APPLICATION", "PQC_RELEASE", "MARKET_RELEASE", "ATTACHMENT", "NCR", "ATTEMPT", "POLICY", "EXECUTION_FIELD", "CONTROLLED_FILE", "SIGNATURE", "SECURITY", "CONFIGURATION", "MIGRATION"] },

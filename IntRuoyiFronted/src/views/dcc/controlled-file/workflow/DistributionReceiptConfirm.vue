@@ -1,8 +1,9 @@
 <template>
-  <section data-testid="dcc-exact-distribution-receipt">
-    <p>本次下发版本：{{ versionNo }}。电子签名确认收到此版本。</p>
-    <p>打开正文、签名收到分别记录；下载、打印和文件维护仍按各自权限办理。</p>
-    <el-input v-model="password" type="password" show-password autocomplete="off" placeholder="当前账号密码" :disabled="busy || !canAcknowledge" />
+  <section class="distribution-receipt" data-testid="dcc-exact-distribution-receipt">
+    <div class="distribution-receipt__instructions">
+      <p>本次下发版本：{{ versionNo }}。电子签名确认收到此版本。</p>
+    </div>
+    <el-input v-model="password" name="dcc-distribution-signature-password" type="password" show-password autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" placeholder="当前账号密码" :disabled="busy || !canAcknowledge" />
     <el-input v-model="comment" type="textarea" maxlength="1000" placeholder="签收意见（选填）" :disabled="busy || !canAcknowledge" />
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="saved">电子签名已保存，请刷新读取正式签名时间。</p>
@@ -19,9 +20,10 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [request: { controlledFileId: WorkflowId; distributionId: WorkflowId; recipientId: WorkflowId }] }>()
 const password = ref(''), comment = ref(''), error = ref(''), busy = ref(false), saved = ref(false)
+const passwordFocused = ref(false)
 let generation = 0, mounted = true
 watch(() => [props.contextKey, String(props.controlledFileId), String(props.distributionId), String(props.recipientId), props.versionNo], () => {
-  generation++; password.value = ''; comment.value = ''; error.value = ''; busy.value = false; saved.value = false
+  generation++; password.value = ''; passwordFocused.value = false; comment.value = ''; error.value = ''; busy.value = false; saved.value = false
 }, { flush: 'sync' })
 onBeforeUnmount(() => { mounted = false; generation++; password.value = '' })
 const confirmReceipt = async () => {
@@ -40,3 +42,17 @@ const confirmReceipt = async () => {
   } finally { if (mounted && current === generation) busy.value = false }
 }
 </script>
+<style scoped>
+.distribution-receipt {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.distribution-receipt__instructions p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+</style>

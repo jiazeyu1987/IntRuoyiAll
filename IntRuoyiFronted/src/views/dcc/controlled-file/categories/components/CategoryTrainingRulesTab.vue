@@ -1,5 +1,5 @@
 <template>
-  <div data-testid="dcc-training-rules-tab">
+  <div class="training-rules" data-testid="dcc-training-rules-tab">
     <el-alert
       v-if="errorMessage"
       class="mb-12px"
@@ -118,7 +118,13 @@
       </template>
     </UnifiedListTemplate>
 
-    <el-drawer v-model="drawerVisible" :title="drawerTitle" size="680px">
+    <el-drawer
+      v-model="drawerVisible"
+      class="training-rules-drawer"
+      :title="drawerTitle"
+      size="680px"
+      style="max-width: 100vw"
+    >
       <CategoryDepartmentRulesSection
         v-if="drawerMode === 'edit' && selectedCategory"
         title="培训部门规则"
@@ -527,7 +533,104 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.training-rules {
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+}
+
 .category-rule-list-template {
-  display: block;
+  min-width: 0;
+}
+
+.training-rules :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.training-rules :deep(.unified-list-template__toolbar-actions) {
+  margin-left: auto;
+}
+
+.training-rules :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.training-rules :deep(.el-button:not(.is-link)) {
+  min-height: 32px;
+  border-radius: 5px;
+}
+
+.training-rules :deep(.el-input__wrapper),
+.training-rules :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+.training-rules :deep(.table-multi-filter__tabs-empty) {
+  height: 34px;
+  border-color: #dbe3e7;
+  line-height: 32px;
+}
+
+.training-rules :deep(.unified-list-template__table-shell),
+.training-rules :deep(.el-table) {
+  border-radius: 5px;
+}
+
+.training-rules :deep(.el-table) {
+  --el-table-border-color: #e4ebee;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-fill-color-lighter: #fafcfc;
+  --el-table-row-hover-bg-color: #edf7f5;
+  font-size: 13px;
+}
+
+.training-rules :deep(.el-table th.el-table__cell) {
+  height: 38px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.training-rules :deep(.el-table td.el-table__cell) {
+  height: 42px;
+  padding: 6px 0;
+}
+
+.training-rules :deep(.el-pagination) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.training-rules-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 16px;
+  border-bottom: 1px solid #dbe3e7;
+}
+
+.training-rules-drawer :deep(.el-drawer__body) {
+  padding: 16px;
+}
+
+@media (max-width: 700px) {
+  .training-rules :deep(.el-pagination > *) {
+    margin-left: 0;
+  }
+
+  .training-rules-drawer :deep(.section-header) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .training-rules-drawer :deep(.section-actions) {
+    flex-wrap: wrap;
+  }
 }
 </style>

@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_MATRIX_PUBLIC_SOURCE_MISSING;
+
 /** Explicit public LEGACY source. Never queries NEW first or inserts a derived route. */
 @Service
 public class DccApprovalMatrixSourceService {
@@ -45,7 +48,7 @@ public class DccApprovalMatrixSourceService {
         if(exactId==null)query.eq("active",true).and(q->q.isNull("effective_time").or().le("effective_time",selectionTime)).orderByDesc("version_no","id");
         else query.eq("id",exactId);
         query.last(lock?"LIMIT 1 FOR UPDATE":"LIMIT 1");
-        var roots=routes.selectList(query);if(roots==null || roots.size()!=1)throw new IllegalStateException("APPROVAL_MATRIX_PUBLIC_SOURCE_MISSING");
+        var roots=routes.selectList(query);if(roots==null || roots.size()!=1)throw exception(APPROVAL_MATRIX_PUBLIC_SOURCE_MISSING,categoryId);
         var route=roots.get(0);
         var nodeQuery=new QueryWrapper<DccCategoryApprovalRouteNodeDO>().eq("tenant_id",tenant).eq("route_id",route.getId()).eq("deleted",false);
         if(lock)nodeQuery.last("FOR UPDATE");

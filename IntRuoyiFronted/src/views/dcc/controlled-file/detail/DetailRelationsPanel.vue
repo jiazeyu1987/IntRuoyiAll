@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap v-loading="loading" data-testid="dcc-detail-relations">
+  <ContentWrap class="dcc-detail-surface" v-loading="loading" data-testid="dcc-detail-relations">
     <p class="font-600">所选版本关联</p>
     <p data-testid="dcc-detail-frozen-relation-scope">历史关联按所选版本或申请冻结记录展示。</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -36,7 +36,7 @@
         ><template #default="{ row }"
           ><el-button
             link
-            :disabled="!row.canPreview || Boolean(readingId)"
+            :disabled="row.canPreview === false || Boolean(readingId)"
             :loading="readingId === row.controlledFileId"
             @click="openPreview(row)"
             >查看固定版本</el-button
@@ -83,6 +83,7 @@ import type {
 } from '@/api/dcc/controlledFile/applicationRead'
 import { listHistoricalRelations } from '@/api/dcc/controlledFile/relations'
 import type { SelectorSource } from '../relations/DccFileSelector.vue'
+import { serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import ProtectedPdfViewer from '../view/index.vue'
 import DetailRelationStageEvidence from './DetailRelationStageEvidence.vue'
 import { getDccVersionDisplayText } from '../shared/version-display'
@@ -107,11 +108,13 @@ const props = defineProps<{
   autoOpenEditor?: boolean
   applicationSelection?: DetailRelationApplicationSelection | null
   readAuthority?: () => string
+  bodyReadContext?: DccBodyReadContext
 }>()
 const loading = ref(false),
   error = ref(''),
   unavailableReason = ref('')
-const selectedSource = ref<SelectorSource>(),
+type RelationSource = Pick<SelectorSource, 'contextKey' | 'tenantId' | 'controlledFileId' | 'masterId' | 'projectId' | 'fileName' | 'fileNumber' | 'versionNo'>
+const selectedSource = ref<RelationSource>(),
   files = ref<DetailRelationRow[]>([])
 const applicationEvidence = ref<ControlledFileApplicationEvidence>(),
   relationEvidence = ref<RelationRoundEvidence>()
@@ -138,11 +141,10 @@ const assertMetadata = (metadata: ControlledFileRelationPermissions, tenantId: s
   if (metadata.tenantId !== tenantId) throw new Error('关联名称投影租户不一致')
   return metadata
 }
-const identityFile = (metadata: ControlledFileRelationPermissions): DetailRelationFile => ({
+const identityFile = (metadata: Pick<ControlledFileRelationPermissions, 'controlledFileId' | 'masterId' | 'projectId' | 'versionNo' | 'fileName' | 'fileNumber'>): DetailRelationFile => ({
   id: metadata.controlledFileId,
   masterId: metadata.masterId,
   dccProjectCodeId: metadata.projectId,
-  projectFolderId: metadata.projectFolderId,
   versionNo: metadata.versionNo,
   title: metadata.fileName,
   fileNumber: metadata.fileNumber
@@ -210,27 +212,34 @@ const load = async () => {
   previewSource.value = undefined
   readingId.value = ''
   try {
-    if (props.applicationSelection === null) throw new Error('请先选择并核验正式申请轮次')
+    if (props.applicationSelection === null) {
+      unavailableReason.value = '尚未核验正式申请轮次，请先查看上方申请轮次加载结果'
+      return
+    }
     const file = { ...props.file },
       selectedId = detailIdentity(file.id),
       tenantId = tenant()
     const selection = props.applicationSelection ? { ...props.applicationSelection } : null
     if (selection) assertRelationApplicationSelection(file, selection)
-    const selected = assertMetadata(
+    if (selection && props.bodyReadContext && !file.fileNumber?.trim()) {
+      throw new Error('正式申请文件编号缺失，不能读取关联证据')
+    }
+    const selected = selection && props.bodyReadContext ? {
+      controlledFileId: selectedId, masterId: detailIdentity(file.masterId),
+      projectId: detailIdentity(file.dccProjectCodeId), versionNo: file.versionNo,
+      fileName: file.title, fileNumber: file.fileNumber!
+    } : assertMetadata(
       await getControlledFileRelationPermissions(selectedId),
       tenantId
     )
     if (!isCurrent()) return
     assertRelationSource(file, identityFile(selected), selectedId)
-    const context: SelectorSource = {
+    const context: RelationSource = {
       contextKey: JSON.stringify([tenantId, file.masterId, selectedId, selection, token]),
       tenantId,
       controlledFileId: selectedId,
       masterId: selected.masterId,
       projectId: selected.projectId,
-      folderId: selected.projectFolderId ?? undefined,
-      projectName: selected.projectName,
-      folderName: selected.projectFolderName || '未记录',
       fileName: selected.fileName,
       fileNumber: selected.fileNumber,
       versionNo: selected.versionNo
@@ -240,7 +249,8 @@ const load = async () => {
       const evidence = await getControlledFileApplicationEvidence(
         selectedId,
         selection.applicationType,
-        selection.bpmRound
+        selection.bpmRound,
+        props.bodyReadContext ? serializeDccBodyReadContext(selectedId, props.bodyReadContext) : undefined
       )
       if (!isCurrent()) return
       const relations = assertRelationApplicationEvidence(file, selection, tenantId, evidence)
@@ -259,7 +269,14 @@ const load = async () => {
           project: row.projectId
         }))
       )
-      rows = await Promise.all(
+      // An exact application grants its frozen evidence; target body authority is checked when opened.
+      rows = props.bodyReadContext ? relations.completeSelections.map(row => ({
+        tenantId, controlledFileId: detailIdentity(row.selectedControlledFileId),
+        masterId: detailIdentity(row.relatedMasterId), projectId: detailIdentity(row.projectId),
+        projectCodeId: detailIdentity(row.projectId), fileName: row.fileName,
+        fileNumber: row.fileNumber, versionNo: row.versionNo, origin: row.origin,
+        supplemental: row.supplemental
+      })) : await Promise.all(
         relations.completeSelections.map(async (row) =>
           applicationRelationCandidate(
             row,
@@ -368,7 +385,7 @@ const openPreview = async (row: DetailRelationRow) => {
     if (isCurrent()) readingId.value = ''
   }
 }
-watch(() => [props.file, props.applicationSelection, readRelationAuthority()], load, {
+watch(() => [props.file, props.applicationSelection, props.bodyReadContext, readRelationAuthority()], load, {
   immediate: true,
   deep: true,
   flush: 'sync'

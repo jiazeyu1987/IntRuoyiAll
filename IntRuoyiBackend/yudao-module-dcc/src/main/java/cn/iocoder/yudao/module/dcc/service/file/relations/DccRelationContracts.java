@@ -21,6 +21,8 @@ public final class DccRelationContracts {
                             @JsonFormat(shape=JsonFormat.Shape.STRING) Long selectedControlledFileId,
                             @JsonFormat(shape=JsonFormat.Shape.STRING) Long createdBy) {}
     public record ReferenceView(Reference reference, FileVersion selectedVersion, long referenceProjectCount) {}
+    public record ReferenceListView(Reference reference, FileVersion selectedVersion, long referenceProjectCount,
+            cn.iocoder.yudao.module.dcc.service.file.DccFileRelationPermissions permissions) {}
     public record ReferenceUsage(@JsonFormat(shape=JsonFormat.Shape.STRING) Long tenantId,
                                  @JsonFormat(shape=JsonFormat.Shape.STRING) Long sourceControlledFileId,
                                  @JsonFormat(shape=JsonFormat.Shape.STRING) Long masterId,

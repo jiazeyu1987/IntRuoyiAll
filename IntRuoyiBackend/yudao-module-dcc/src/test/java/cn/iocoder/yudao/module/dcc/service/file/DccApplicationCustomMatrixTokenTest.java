@@ -13,6 +13,17 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Actual TokenService, existing signing properties/mac and current JsonUtils. No mock signer or fake authorization. */
 class DccApplicationCustomMatrixTokenTest {
     private static final String KEY="g03-explicit-isolated-test-key-32-bytes-long";
+    @Test void retiredCustomKeyIsRestrictedToFrozenEvidence()throws Exception {
+        var old=service();clock(old,issued);
+        var proof=old.issueCustomSupervisorReserved(reserved(),r(),evidence());
+        var rotated=service();clock(rotated,issued.plusSeconds(1000));
+        var properties=new DccApprovalMatrixTokenProperties();
+        properties.setSigningSecret("rotated-custom-current-key-at-least-32-bytes");
+        properties.setRecordedVerificationSecrets(List.of(KEY));
+        var field=rotated.getClass().getDeclaredField("properties");field.setAccessible(true);field.set(rotated,properties);
+        rotated.requireRecordedCustomSupervisorReserved(reserved(),r(),evidence(),proof.sourceDigest(),proof.sourceToken());
+        assertThrows(IllegalArgumentException.class,()->rotated.requireCustomSupervisorReserved(reserved(),r(),evidence(),proof.sourceDigest(),proof.sourceToken()));
+    }
     private DccApprovalMatrixTokenService service()throws Exception {
         var properties=new DccApprovalMatrixTokenProperties();properties.setSigningSecret(KEY);
         var service=new DccApprovalMatrixTokenService();Field field=service.getClass().getDeclaredField("properties");field.setAccessible(true);field.set(service,properties);return service;
@@ -81,6 +92,40 @@ class DccApplicationCustomMatrixTokenTest {
         clock(service,issued.minusSeconds(1));assertThrows(IllegalArgumentException.class,()->service.requireCustomPreview(preview(),p(),token));
         var missing=new DccApprovalMatrixTokenService();var props=new DccApprovalMatrixTokenProperties();var f=missing.getClass().getDeclaredField("properties");f.setAccessible(true);f.set(missing,props);
         assertThrows(IllegalStateException.class,()->missing.issueCustomPreview(preview(),p()));
+    }
+    @Test void replayIdentityKeepsSignedSupervisorFactsButNotProofLifetimeAndDoesNotAuthorizeExpiredSubmission()throws Exception{
+        var service=service();clock(service,issued);var original=service.issueCustomSupervisorPreview(preview(),p(),evidence());
+        var identity=service.customSupervisorIdempotencyIdentity(original.sourceDigest(),original.sourceToken());
+        clock(service,issued.plusSeconds(901));var fresh=service.issueCustomSupervisorPreview(preview(),p(),evidence());
+        assertNotEquals(original.sourceDigest(),fresh.sourceDigest());assertNotEquals(original.sourceToken(),fresh.sourceToken());
+        assertEquals(identity,service.customSupervisorIdempotencyIdentity(fresh.sourceDigest(),fresh.sourceToken()));
+        assertEquals(identity,service.customSupervisorIdempotencyIdentity(original.sourceDigest(),original.sourceToken()));
+        assertThrows(IllegalArgumentException.class,()->service.requireCustomSupervisorPreview(preview(),p(),evidence(),original.sourceDigest(),original.sourceToken()));
+        for(var changed:List.of(new DccDirectSupervisorSource.Evidence(1L,99L,101L,"USER_MANAGEMENT","relation-99","v3"),
+                new DccDirectSupervisorSource.Evidence(1L,99L,100L,"USER_MANAGEMENT","relation-99","v4"),
+                new DccDirectSupervisorSource.Evidence(1L,99L,100L,"USER_MANAGEMENT","changed-relation","v3"))){
+            var proof=service.issueCustomSupervisorPreview(preview(),p(),changed);
+            assertNotEquals(identity,service.customSupervisorIdempotencyIdentity(proof.sourceDigest(),proof.sourceToken()));
+        }
+        assertThrows(IllegalArgumentException.class,()->service.customSupervisorIdempotencyIdentity("0".repeat(64),fresh.sourceToken()));
+        assertThrows(IllegalArgumentException.class,()->service.customSupervisorIdempotencyIdentity(fresh.sourceDigest(),service.issueCustomPreview(preview(),p())));
+        assertThrows(IllegalArgumentException.class,()->service.customSupervisorIdempotencyIdentity(fresh.sourceDigest(),fresh.sourceToken()+"tampered"));
+        var raw=new String(Base64.getUrlDecoder().decode(fresh.sourceToken().split("\\.")[0]),java.nio.charset.StandardCharsets.UTF_8);
+        assertThrows(IllegalArgumentException.class,()->service.customSupervisorIdempotencyIdentity(fresh.sourceDigest(),signTestPayload(raw.replace("\"phase\":","\"unknown\":true,\"phase\":"))));
+    }
+    @Test void publicMatrixIdempotencyJsonAndHashesStayExactlyEqualIncludingLargeLongIdentity(){
+        var workflow=new DccControlledFileWorkflowServiceImpl();
+        var iteration=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO();
+        iteration.setIdempotencyKey("public-command");iteration.setExpectedApprovalRouteId(9007199254740993L);
+        iteration.setApprovalMatrixBaselineToken("unchanged-public-baseline");iteration.setExpectedSupervisorSourceDigest("a".repeat(64));iteration.setSupervisorSourceToken("unchanged-public-supervisor");
+        for(Long id:List.of(20L,9007199254740993L)){
+            String original=JsonUtils.toJsonString(Arrays.asList(id,iteration));
+            String actual=org.springframework.test.util.ReflectionTestUtils.invokeMethod(workflow,"iterationIdempotencyPayload",id,iteration);
+            assertEquals(original,actual);assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(original),cn.hutool.crypto.digest.DigestUtil.sha256Hex(actual));
+        }
+        var direct=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO();
+        direct.setDccProjectCodeId(9007199254740993L);direct.setApprovalMatrixBaselineToken("unchanged-public-baseline");
+        assertEquals(JsonUtils.toJsonString(direct),org.springframework.test.util.ReflectionTestUtils.invokeMethod(workflow,"idempotencyPayload",direct));
     }
     @Test void taggedSupervisorHmacBindsRealSourceAndDoesNotAuthorizeConfigurationPurpose()throws Exception{
         var service=service();clock(service,issued);var previewProof=service.issueCustomSupervisorPreview(preview(),p(),evidence());

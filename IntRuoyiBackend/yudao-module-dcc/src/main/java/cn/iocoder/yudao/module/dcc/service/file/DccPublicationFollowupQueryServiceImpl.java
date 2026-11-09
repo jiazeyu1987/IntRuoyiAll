@@ -25,6 +25,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_F
 @Service
 public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFollowupQueryService {
     @Resource private DccControlledFileQueryService controlledFileQueryService;
+    @Resource private DccSelectedDetailReadService selectedDetailReader;
     @Resource private DccPublicationFollowupBatchMapper batchMapper;
     @Resource private DccPublicationNotificationDeliveryMapper deliveryMapper;
     @Resource private DccPublicationNotificationCandidateMapper candidateMapper;
@@ -40,7 +41,22 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
 
     @Override
     public DccPublicationFollowupRespVO getFileFollowup(Long userId, Long controlledFileId) {
-        controlledFileQueryService.getControlledFile(userId, controlledFileId);
+        return getFileFollowup(userId, controlledFileId, null, null, null, null);
+    }
+
+    @Override
+    public DccPublicationFollowupRespVO getFileFollowup(Long userId, Long controlledFileId,
+            String bodyReadContext, String bpmRound, String taskId, String applicationType) {
+        if (bodyReadContext != null) {
+            if (bpmRound != null || taskId != null || applicationType != null)
+                throw new IllegalArgumentException("详情申请身份与正文上下文不能混用");
+            selectedDetailReader.read(userId, controlledFileId,
+                    DccControlledFileBodyReadContext.fromWire(controlledFileId, bodyReadContext));
+        } else if (bpmRound != null || taskId != null || applicationType != null) {
+            selectedDetailReader.readApplication(userId, controlledFileId, bpmRound, taskId, applicationType);
+        } else {
+            controlledFileQueryService.getControlledFile(userId, controlledFileId);
+        }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         DccPublicationFollowupBatchDO batch = batchMapper.selectLatestByPublishedControlledFileId(
                 tenantId, controlledFileId);

@@ -35,6 +35,7 @@ export interface UploadFormDraft {
   effectiveMode: DccEffectiveMode | null
   effectiveDate: string | null
   remark?: string
+  libraryScope?: 'PROJECT' | 'QMS' | 'GENERAL'
   projectAttributes?: ProjectAttributes
   selectedSignoffDepartmentIds?: Array<number | string>
   selectedDistributionDepartmentIds?: Array<number | string>
@@ -80,8 +81,6 @@ export interface UploadConfirmationFacts {
   approvalRule: string
   approvalGroups?: UploadApprovalGroup[]
   runtimeCapabilityLimitations?: string[]
-  editable?: Pick<ControlledFileUploadRespVO, 'fileName'>
-  drawingPdf?: Pick<ControlledFileUploadRespVO, 'fileName'>
   attachments?: Array<Pick<ControlledFileUploadRespVO, 'fileName'>>
 }
 
@@ -117,12 +116,14 @@ export const buildUploadConfirmationSummary = (
     if (effect.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE') rows.push({ label: '生效时间', value: '文控标准化审核完成时记录本轮真实电子签名时间；日常可用和下发须同时满足受控且已生效。' })
   }
   if (draft.processType === 'CONTROLLED_FILE') {
+    if (!draft.libraryScope || draft.libraryScope === 'PROJECT') {
     const actual = validateAttributes(draft.projectAttributes as ProjectAttributes)
     const choices: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
     rows.push({ label: '目标市场', value: actual.targetMarkets.map(market =>
       market === 'OTHER' ? `其他：${actual.otherMarket}` : market === 'NA' ? '不适用' : market).join('、') },
     { label: '注册／生产身份', value: `注册人：${choices[actual.licenseHolder!]}；生产方：${choices[actual.actualManufacturer!]}` },
     { label: '文件转移', value: `文件转移：${choices[actual.documentTransfer!]}${actual.documentTransfer === 'Y' ? `；转移至：${actual.transferTo}` : ''}` })
+    }
     if (!Array.isArray(facts.relatedFiles)) throw new Error('提交确认缺少关联选择')
     rows.push({ label: '关联文件', value: facts.relatedFiles.length ? facts.relatedFiles.map(file =>
       `${confirmedText(file.fileName, '关联文件名称')} · ${confirmedText(file.versionNo, '关联受控版本')}${file.pendingEffect ? ' · 待生效' : ''}`).join('；') : '未关联' })
@@ -151,15 +152,13 @@ export const buildUploadConfirmationSummary = (
     if (!control || uploadIdentity(control.id) !== config.documentControlUserId) throw new Error('提交确认缺少本次正式文控审核人')
     rows.push({ label: '审批来源', value: '本次自定义审批配置，仅用于本申请，不修改公共矩阵' },
       { label: '文控审核人', value: `${confirmedText(control.name, '文控审核人名称')}${control.deptName ? `（${control.deptName}）` : ''} · 账号ID ${control.id}` },
-      { label: '本次自定义矩阵', value: '直属主管独立审核；各选定部门负责人签名指派后逐部门完成会签，全部通过；由本次所选批准人批准并确认负责人，最后由本次所选文控审核人审核。' })
+      { label: '本次自定义矩阵', value: '直属主管独立审核；各选定部门负责人签名指派后逐部门完成会签，全部通过；由本次所选批准人批准，最后由本次所选文控审核人审核。' })
   }
   if (facts.approvalGroups) for (const group of facts.approvalGroups)
     rows.push({ label: `原批准组 ${group.sourceNodeId}`, value: confirmedText(group.summary, '原批准组规则') })
   if (facts.runtimeCapabilityLimitations?.length) rows.push({ label: '运行能力说明', value: facts.runtimeCapabilityLimitations.join('；') })
   if (draft.processType === 'CONTROLLED_FILE') rows.push({ label: '培训', value: draft.needTraining ? '需要培训' : '不需要培训' })
-  rows.push({ label: '可编辑版本', value: facts.editable ? confirmedText(facts.editable.fileName, '可编辑版本名称') : '未上传' })
-  rows.push({ label: '图纸 PDF', value: facts.drawingPdf ? confirmedText(facts.drawingPdf.fileName, '图纸 PDF 名称') : '未上传' },
-    { label: '普通附件', value: facts.attachments?.length
+  rows.push({ label: '附件', value: facts.attachments?.length
       ? facts.attachments.map(file => confirmedText(file.fileName, '附件名称')).join('；') : '未上传' },
     { label: '提交备注', value: draft.remark?.trim() || '未填写' })
   return rows
@@ -178,13 +177,13 @@ interface UploadSubmitterServiceDeps {
 const trimText = (value: string | null | undefined) => value?.trim() ?? ''
 const FILE_VERSION_FIELD_ERROR_PATTERN = /(版本|version|文件编号|file\s*number|编号|logical\s*document\s*chain)/i
 const FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE =
-  'Controlled file number conflicts with the existing logical document chain'
+  '文件编号已重复：当前项目、文件类型下已存在该编号'
 const FILE_NUMBER_CHAIN_CONFLICT_MESSAGE =
-  '该文件编号存在版本链冲突，当前不可提交，请选择正确历史文件或联系管理员处理。'
+  '文件编号已重复：当前项目、文件类型下已存在该编号'
 const VERSION_INVALID_ERROR_CODE = 'CONTROLLED_FILE_VERSION_INVALID'
 const VERSION_INVALID_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
 const CONTROLLED_INITIAL_VERSION_INVALID_MESSAGE =
-  '初始版本号格式不正确，请使用 A/1、B/1 等“修订版/1”格式。'
+  '初始版本号格式不正确，请使用 A/1、B/9 等格式，修订字母不能包含 I、O，斜杠后的数字须为 1～9。'
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9]{14}$/
 const DRAWING_SOURCE_EXT_PATTERN = /\.(dwg|sldprt|sldasm|slddrw)$/i
 const PRODUCT_BOUND_CATEGORY_PREFIXES = ['DCC_FVM_DHF_', 'DCC_FVM_DMR_']
@@ -522,10 +521,10 @@ const placementReason = (value?: string): string | undefined => {
 export const validateUploadTickets = (
   preview: ControlledFileUploadRespVO,
   drawingPdf?: ControlledFileUploadRespVO,
-  attachments: ControlledFileUploadRespVO[] = [], editableFile?: ControlledFileUploadRespVO
+  attachments: ControlledFileUploadRespVO[] = []
 ) => {
   const identities = new Set<string>()
-  for (const upload of [preview, ...(editableFile ? [editableFile] : []), ...(drawingPdf ? [drawingPdf] : []), ...attachments]) {
+  for (const upload of [preview, ...(drawingPdf ? [drawingPdf] : []), ...attachments]) {
     if (!upload || !trimText(upload.uploadTicket) || !trimText(upload.sessionId) || !trimText(upload.fileName))
       throw new Error('上传票据或文件身份不完整，请重新上传')
     if (upload.expireTime != null && (!Number.isFinite(upload.expireTime) || upload.expireTime <= Date.now()))
@@ -533,10 +532,6 @@ export const validateUploadTickets = (
     if (identities.has(upload.uploadTicket)) throw new Error('上传票据不能重复绑定正文或附件')
     identities.add(upload.uploadTicket)
   }
-  if (editableFile && editableFile.sessionId !== preview.sessionId)
-    throw new Error('可编辑版本与只读版本上传会话不一致，请重新上传')
-  if (drawingPdf && drawingPdf.sessionId !== preview.sessionId)
-    throw new Error('图纸 PDF 与正文上传会话不一致，请重新上传')
 }
 
 export const validateUploadPreviewResponse = (upload: ControlledFileUploadRespVO, selectedFileName: string, requirePreviewKind: boolean) => {
@@ -551,10 +546,9 @@ const buildUploadPayload = (
   previewFile: ControlledFileUploadRespVO,
   drawingPdfUpload: ControlledFileUploadRespVO | undefined,
   attachmentUploads: ControlledFileUploadRespVO[],
-  creatingDraft: boolean,
-  editableFile?: ControlledFileUploadRespVO
+  creatingDraft: boolean
 ): ControlledFileSubmitReqVO => {
-  validateUploadTickets(previewFile, drawingPdfUpload, attachmentUploads, editableFile)
+  validateUploadTickets(previewFile, drawingPdfUpload, attachmentUploads)
   const matrix = draft.processType === 'EXTERNAL_REVIEW' ? undefined : requireApprovalMatrixSelection(draft.approvalMatrixSelection,
     { phase: creatingDraft ? 'SAVE' : 'SUBMIT', actionType: draft.changeType }, {
       applicationCustomMatrix: draft.applicationCustomMatrix ?? null, selectedSignoffDepartmentIds: draft.selectedSignoffDepartmentIds ?? null
@@ -576,12 +570,11 @@ const buildUploadPayload = (
     ? {} : { directoryId: draft.directoryId as number }),
   sessionId: previewFile.sessionId,
   idempotencyKey: previewFile.sessionId,
-  originalUploadTicket: draft.processType === 'EXTERNAL_REVIEW' ? previewFile.uploadTicket : undefined,
-  sourceUploadTicket: draft.processType === 'EXTERNAL_REVIEW' ? previewFile.uploadTicket : undefined,
-  readOnlyUploadTicket: draft.processType === 'CONTROLLED_FILE' ? previewFile.uploadTicket : undefined,
-  editableUploadTicket: editableFile?.uploadTicket,
-  sourceFileName: editableFile?.fileName ?? previewFile.fileName,
+  originalUploadTicket: previewFile.uploadTicket,
+  sourceUploadTicket: previewFile.uploadTicket,
+  sourceFileName: previewFile.fileName,
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
+  drawingPdfSessionId: drawingPdfUpload?.sessionId,
   attachmentUploadTickets: attachmentUploads.map((upload) => ({
     uploadTicket: upload.uploadTicket,
     sessionId: upload.sessionId
@@ -612,12 +605,12 @@ const buildUploadPayload = (
 }
 
 export const buildSubmitPayload = (draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
-  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = [], editableFile?: ControlledFileUploadRespVO): ControlledFileSubmitReqVO =>
-  buildUploadPayload(draft, preview, drawingPdf, attachments, false, editableFile)
+  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []): ControlledFileSubmitReqVO =>
+  buildUploadPayload(draft, preview, drawingPdf, attachments, false)
 
 export const buildWorkingDraftPayload = (draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
-  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = [], editableFile?: ControlledFileUploadRespVO): ControlledFileSubmitReqVO =>
-  buildUploadPayload(draft, preview, drawingPdf, attachments, true, editableFile)
+  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []): ControlledFileSubmitReqVO =>
+  buildUploadPayload(draft, preview, drawingPdf, attachments, true)
 
 export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) => {
   return {
@@ -628,15 +621,14 @@ export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) =
       draft: UploadFormDraft,
       previewFile: ControlledFileUploadRespVO,
       drawingPdfUpload?: ControlledFileUploadRespVO,
-      attachmentUploads: ControlledFileUploadRespVO[] = [],
-      editableFile?: ControlledFileUploadRespVO
+      attachmentUploads: ControlledFileUploadRespVO[] = []
     ) {
-      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload, attachmentUploads, editableFile))
+      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload, attachmentUploads))
     },
     async saveDraft(draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
-      drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = [], editableFile?: ControlledFileUploadRespVO) {
+      drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []) {
       if (!deps.createWorking) throw new Error('正式工作申请保存服务未接入')
-      return await deps.createWorking(buildWorkingDraftPayload(draft, preview, drawingPdf, attachments, editableFile))
+      return await deps.createWorking(buildWorkingDraftPayload(draft, preview, drawingPdf, attachments))
     }
   }
 }

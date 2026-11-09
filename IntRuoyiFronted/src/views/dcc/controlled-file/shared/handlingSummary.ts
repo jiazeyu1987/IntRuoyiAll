@@ -86,7 +86,7 @@ const getPendingStageSummary = (
     case 'PENDING_APPLICANT_TRAINING_RECORD':
       return {
         nextStep: '等待上传培训记录',
-        responsibilityHint: '责任：文控上传线下培训记录'
+        responsibilityHint: '责任：文件编制人（本次上传人）上传线下培训记录'
       }
     case 'READY_TO_PUBLISH':
       return {

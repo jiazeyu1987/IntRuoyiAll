@@ -51,6 +51,7 @@ class DccTrainingOwnerProjectionRegressionTest extends BaseMockitoUnitTest {
     private static final long ORDINARY = 999002L; // Isolated test subject, not a runtime account.
     private static final String BPM = "fb0c1653-ca6f-11f1-9342-b082e25ec548";
     @InjectMocks private DccControlledFileQueryServiceImpl query;
+    @Mock private DccProjectReferenceReadAccess projectReferenceReadAccess;
     @InjectMocks private DccControlledFileDetailAuthorizationGuard guard;
     @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private DccControlledFileMasterMapper controlledFileMasterMapper;
@@ -71,6 +72,7 @@ class DccTrainingOwnerProjectionRegressionTest extends BaseMockitoUnitTest {
     private FileDO source;
 
     @BeforeEach void setup() {
+        ReflectionTestUtils.setField(query, "detailAuthorizationGuard", guard);
         TenantContextHolder.setTenantId(1L);
         file = DccControlledFileDO.builder().id(FILE).tenantId(1L).masterId(700L).dccProjectCodeId(5L)
                 .categoryId(1L).directoryId(99L).requesterId(910457L).fileNumber("DCC241016C13R18ADJUST")

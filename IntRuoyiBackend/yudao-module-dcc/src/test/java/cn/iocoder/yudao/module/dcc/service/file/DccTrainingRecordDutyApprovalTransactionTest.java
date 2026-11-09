@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,14 +19,16 @@ class DccTrainingRecordDutyApprovalTransactionTest extends DccOfflineTrainingApp
     private DccControlledFileCategoryPermissionSupport actualCategories;
 
     @BeforeEach
-    void realCategoryDutyRules() {
+    void realCategoryDutyRules(TestInfo testInfo) {
+        // Inherited methods retain their own fixture, including its mock category boundary.
+        if (testInfo.getTestMethod().orElseThrow().getDeclaringClass() != DccTrainingRecordDutyApprovalTransactionTest.class) return;
         var training=(DccOfflineTrainingRecordService)ReflectionTestUtils.getField(this,"training");
         var permissions=(PermissionApi)ReflectionTestUtils.getField(training,"permissions");
         actualCategories=new DccControlledFileCategoryPermissionSupport();
         wire(actualCategories,"permissionRuleMapper",rules,"adminUserApi",accounts,"permissionApi",permissions,
                 "deptApi",mock(cn.iocoder.yudao.module.system.api.dept.DeptApi.class));
         rules.insert(DccFileCategoryPermissionRuleDO.builder().categoryId(2L).actionType("TRAINING_RECORD")
-                .subjectType("USER").subjectId(88L).scopeType("GLOBAL").active(true).build());
+                .subjectType("USER").subjectId(OWNER).scopeType("GLOBAL").active(true).build());
         rules.insert(DccFileCategoryPermissionRuleDO.builder().categoryId(2L).actionType("APPROVE")
                 .subjectType("USER").subjectId(99L).scopeType("GLOBAL").active(true).build());
         wire(training,"categories",actualCategories);
@@ -33,8 +36,8 @@ class DccTrainingRecordDutyApprovalTransactionTest extends DccOfflineTrainingApp
 
     @Test
     void independentTrainingDutyCommitsAuthenticApprovalAndOfficialMessage() {
-        assertFalse(actualCategories.hasCategoryPermission(2L,88L,DccFileCategoryPermissionActionEnum.APPROVE));
-        signedApprovalCommitsWaitingExecutionAndOneMessageToIndependentDocumentControl();
+        assertFalse(actualCategories.hasCategoryPermission(2L,OWNER,DccFileCategoryPermissionActionEnum.APPROVE));
+        signedApprovalCommitsWaitingExecutionAndOneMessageToUploaderCompiler();
     }
 
     @Test

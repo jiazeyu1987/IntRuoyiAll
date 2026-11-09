@@ -33,3 +33,29 @@ test('old statuses and explicitly recorded historical task names keep their labe
   assert.equal(stages.resolveDccStageDisplayName('DOC_CONTROL_APPROVAL', null), '文控批准')
   assert.equal(stages.resolveDccStageDisplayName('DELAYED_EFFECTIVE_CONFIRM', '历史正式任务原名'), '历史正式任务原名')
 })
+
+test('approval task, route and timeline labels omit the removed owner confirmation duty', () => {
+  for (const resolve of [stages.resolveDccStageDisplayName, stages.resolveDccTimelineActivityName]) {
+    assert.equal(resolve('MATRIX_APPROVAL', '批准并确认文件负责人'), '会签批准')
+    assert.equal(resolve('MATRIX_APPROVAL', '质量批准'), '质量批准')
+    assert.equal(resolve('OTHER_TASK', '批准并确认文件负责人'), '批准并确认文件负责人')
+  }
+})
+
+test('both actual current-task templates render approval without asking to confirm an owner', async () => {
+  const { createSSRApp } = require('vue')
+  const { renderToString } = require('vue/server-renderer')
+  const source = fs.readFileSync(root + '/src/views/dcc/controlled-file/detail/index.vue', 'utf8')
+  const templates = source.match(/<div[^>]*>\s*当前任务：[\s\S]*?<\/div>/g)
+  assert.equal(templates.length, 2)
+  const task = { taskDefinitionKey: 'MATRIX_APPROVAL', name: '批准并确认文件负责人' }
+  for (const template of templates) {
+    const html = await renderToString(createSSRApp({
+      template,
+      setup: () => ({ approvalTodoTask: task, resolveDccStageDisplayName: stages.resolveDccStageDisplayName })
+    }))
+    assert.match(html, /当前任务：会签批准/)
+    assert.doesNotMatch(html, /确认文件负责人/)
+  }
+  assert.equal(task.name, '批准并确认文件负责人')
+})

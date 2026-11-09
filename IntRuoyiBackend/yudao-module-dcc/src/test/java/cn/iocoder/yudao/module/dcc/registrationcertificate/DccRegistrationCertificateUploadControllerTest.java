@@ -89,12 +89,12 @@ class DccRegistrationCertificateUploadControllerTest {
     }
 
     @Test
-    void submitRequestRequiresProjectCodeCompanyAndProductName() throws Exception {
+    void submitRequestRequiresCompanyNameAndUsesFactsToRequireSystemProjectCode() throws Exception {
         Field projectCodeId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("projectCodeId");
         Field companyId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("companyId");
         Field productName = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("productName");
 
-        assertTrue(hasAnnotation(projectCodeId, "jakarta.validation.constraints.NotNull"));
+        org.junit.jupiter.api.Assertions.assertFalse(hasAnnotation(projectCodeId, "jakarta.validation.constraints.NotNull"));
         assertTrue(hasAnnotation(projectCodeId, "jakarta.validation.constraints.Positive"));
         assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.NotNull"));
         assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.Positive"));

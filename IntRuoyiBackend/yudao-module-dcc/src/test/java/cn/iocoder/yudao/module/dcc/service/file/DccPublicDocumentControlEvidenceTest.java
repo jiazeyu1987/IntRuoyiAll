@@ -55,6 +55,37 @@ class DccPublicDocumentControlEvidenceTest {
     @Test void unfinishedDocHistoricTaskCannotAuthorizeTraining(){when(tasks.getHistoricTask("doc-task").getEndTime()).thenReturn(null);assertThrows(RuntimeException.class,this::evidence);}
     @Test void invalidDomainEvidenceCannotAuthorizeTraining(){var invalid=new DccSignatureVerifyRespVO();invalid.setSignatureId(700L);invalid.setVerificationStatus("INVALID");
         when(verifier.verifySignatureEvidence(700L)).thenReturn(invalid);assertThrows(RuntimeException.class,this::evidence);}
+    @Test void optionalApprovalReasonMayBeEmptyWithExactSignedOwnerFacts(){
+        owner.setComment(new DccApprovalFileOwnerSelectionService().signedReason(null,
+                new DccApprovalFileOwnerSelectionService.Selection(77L,"owner","Owner")));
+        assertSame(doc,evidence());
+        verify(verifier).verifySignatureEvidence(owner.getId());
+    }
+    @Test void emptyApprovalReasonStillRejectsChangedOwnerFacts(){
+        owner.setComment(new DccApprovalFileOwnerSelectionService().signedReason("",
+                new DccApprovalFileOwnerSelectionService.Selection(78L,"owner","Owner")));
+        assertThrows(IllegalStateException.class,this::evidence);
+    }
+    @Test void emptyApprovalReasonStillRequiresValidOwnerSignature(){
+        owner.setComment(new DccApprovalFileOwnerSelectionService().signedReason("",
+                new DccApprovalFileOwnerSelectionService.Selection(77L,"owner","Owner")));
+        var invalid=new DccSignatureVerifyRespVO();invalid.setSignatureId(owner.getId());invalid.setVerificationStatus("INVALID");
+        when(verifier.verifySignatureEvidence(owner.getId())).thenReturn(invalid);
+        assertThrows(IllegalStateException.class,this::evidence);
+    }
+    @Test void signedOwnerFactsUseTheirOriginalJsonValuesRatherThanCurrentSerializerBytes(){
+        file.setFileOwnerNicknameSnapshot("原编制人");
+        owner.setComment("approved；批准文件负责人事实：[\"77\", \"owner\", \"\\u539f\\u7f16\\u5236\\u4eba\"]");
+        assertSame(doc,evidence());
+        verify(verifier).verifySignatureEvidence(owner.getId());
+    }
+    @Test void malformedDuplicateOrExtraSignedOwnerFactsCannotAuthorizeDocumentControl(){
+        for(String payload:List.of("null","[77,\"owner\",\"Owner\",\"extra\"]","[77,\"owner\",\"Owner\"] {}",
+                "[77,\"owner\",\"Owner\"]；批准文件负责人事实：[77,\"owner\",\"Owner\"]","[77.0,\"owner\",\"Owner\"]")){
+            owner.setComment("approved；批准文件负责人事实："+payload);
+            assertThrows(IllegalStateException.class,this::evidence,payload);
+        }
+    }
     private DccControlledFileSignatureDO evidence(){return ReflectionTestUtils.invokeMethod(service,"requirePublicDocumentControlEvidence",file,bound);}
     private DccControlledFileSignatureDO signature(Long id,String task,String stage){return DccControlledFileSignatureDO.builder().id(id)
             .controlledFileId(20L).revisionId(20L).versionNo("B/1").processInstanceId("real-round").taskId(task).actorId(88L)

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.bpm.service.task;
 
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnership;
 import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy;
 
@@ -593,11 +594,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
         if (signEnable && StrUtil.isEmpty(reqVO.getSignPicUrl())) {
             throw exception(TASK_SIGNATURE_NOT_EXISTS);
         }
-        // 1.4 校验审批意见
-        Boolean reasonRequire = parseReasonRequire(bpmnModel, task.getTaskDefinitionKey());
-        if (reasonRequire && StrUtil.isEmpty(reqVO.getReason())) {
-            throw exception(TASK_REASON_REQUIRE);
-        }
+        reqVO.setReason(ApprovalReviewReason.normalize(reqVO.getReason()));
 
         // 情况一：被委派的任务，不调用 complete 去完成任务
         if (DelegationState.PENDING.equals(task.getDelegationState())) {
@@ -696,8 +693,11 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                 }
 
                 // 设置 PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES
-                if (startUserSelectAssignees == null) {
-                    startUserSelectAssignees = new HashMap<>();
+                startUserSelectAssignees = startUserSelectAssignees == null
+                        ? new HashMap<>() : new HashMap<>(startUserSelectAssignees);
+                Map<String, List<Long>> existingStartUserSelectAssignees = FlowableUtils.getStartUserSelectAssignees(variables);
+                if (existingStartUserSelectAssignees != null) {
+                    startUserSelectAssignees.putAll(existingStartUserSelectAssignees);
                 }
                 startUserSelectAssignees.put(nextFlowNode.getId(), assignees);
                 variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES, startUserSelectAssignees);
@@ -714,15 +714,15 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                 }
 
                 // 设置 PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES
-                if (approveUserSelectAssignees == null) {
-                    approveUserSelectAssignees = new HashMap<>();
-                }
-                approveUserSelectAssignees.put(nextFlowNode.getId(), assignees);
+                // 已冻结的流程变量可能是只读集合，合并时使用独立的运行时副本。
+                approveUserSelectAssignees = approveUserSelectAssignees == null
+                        ? new HashMap<>() : new HashMap<>(approveUserSelectAssignees);
                 Map<String, List<Long>> existingApproveUserSelectAssignees = (Map<String, List<Long>>) variables.get(
                         BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES);
                 if (CollUtil.isNotEmpty(existingApproveUserSelectAssignees)) {
                     approveUserSelectAssignees.putAll(existingApproveUserSelectAssignees);
                 }
+                approveUserSelectAssignees.put(nextFlowNode.getId(), assignees);
                 variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES, approveUserSelectAssignees);
             }
         }
@@ -828,6 +828,9 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     @Transactional(rollbackFor = Exception.class)
     @DataPermission(enable = false) // 关闭数据权限，避免查询不到用户数据。相关案例：https://gitee.com/zhijiantianya/yudao-cloud/issues/ID1UYA
     public void rejectTask(Long userId, @Valid BpmTaskRejectReqVO reqVO) {
+        if (ApprovalReviewReason.normalize(reqVO.getReason()).isEmpty()) {
+            throw exception(TASK_REASON_REQUIRE);
+        }
         // 1.1 校验任务存在
         Task task = validateTask(userId, reqVO.getId());
         DccSignedTaskActionGuard.require(task,userId,"REJECT");

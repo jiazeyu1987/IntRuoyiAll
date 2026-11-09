@@ -27,7 +27,7 @@ const pageHeader = extractBetween(
 const pageBody = extractBetween(
   printTemplatePage,
   '<div class="dcc-print-template-page__body">',
-  '<el-form class="mt-18px"'
+  '<el-alert'
 )
 
 assert.match(

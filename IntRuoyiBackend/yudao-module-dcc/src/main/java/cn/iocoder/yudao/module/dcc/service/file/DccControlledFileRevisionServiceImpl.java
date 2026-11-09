@@ -196,6 +196,9 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         if (!permissionSupport.hasFilePermission(baseline, userId, DccFileCategoryPermissionActionEnum.EDIT)) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
+        if (!fileMapper.selectProjectReferenceIdsForUpdate(tenant, master.getId()).isEmpty()) {
+            throw exception(CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+        }
         var baselineRead = sourceIdentityProjection(baseline);
         var selectedRead = sourceIdentityProjection(selected);
         if(!Objects.equals(baselineRead.getSourceOriginalFileName(),selectedRead.getSourceOriginalFileName()))
@@ -308,7 +311,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         DccControlledFilePreparedSource frozen = null;
         DccControlledFilePreparedSource frozenPdf = null;
         try {
-            int sourceAttributeRound = requirePreparedSourceAttributeRound(selected);
+            Integer sourceAttributeRound = requirePreparedSourceAttributeRound(selected);
             frozen = sourceOwnershipService.createVerifiedCopy(selected.getSourceFileId());
             if (!frozen.isolatedCopy() || selected.getSourceSha256() == null || !selected.getSourceSha256().equals(frozen.sourceSha256())) {
                 throw new IllegalStateException("selected working iteration source hash changed");
@@ -401,7 +404,8 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         }
     }
 
-    private int requirePreparedSourceAttributeRound(DccControlledFileDO source) {
+    private Integer requirePreparedSourceAttributeRound(DccControlledFileDO source) {
+        if (DccApplicationExecutionContractService.isControlledImport(source)) return null;
         String type = "NEW".equals(source.getChangeType()) ? "UPLOAD"
                 : "REVISION".equals(source.getChangeType()) ? "REVISION" : null;
         if (type == null) throw new IllegalArgumentException("EXECUTION_CONTRACT_SOURCE_ACTION_REQUIRED");

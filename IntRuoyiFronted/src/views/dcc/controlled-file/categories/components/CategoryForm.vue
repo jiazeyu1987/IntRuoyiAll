@@ -29,9 +29,14 @@
       <el-form-item label="审批来源" prop="approvalSourceMode">
         <el-select v-model="formData.approvalSourceMode" data-testid="dcc-category-approval-source" class="!w-100%" :disabled="formLoading">
           <el-option label="公共审批矩阵" value="PUBLIC_MATRIX" />
-          <el-option label="本次申请自定义（其他）" value="APPLICATION_CUSTOM" />
+          <el-option :disabled="selectedTaxonomyName !== '其他'" label="本次申请自定义（其他）" value="APPLICATION_CUSTOM" />
         </el-select>
         <div class="mt-1 text-12px text-gray-500">审批来源由此类别明确配置；本次自定义沿用既定主管、会签、批准及文控流程。</div>
+      </el-form-item>
+      <el-form-item v-if="formData.approvalSourceMode === 'PUBLIC_MATRIX'" label="审批矩阵">
+        <el-button @click="matrixDraftRef?.openDraft(formData.name, matrixDraft)">配置审批矩阵</el-button>
+        <el-tag v-if="matrixDraft" type="success">已配置 {{ matrixDraft.rules.length }} 条规则</el-tag>
+        <p>新增类别须配置矩阵后一起保存；编辑时可保留已有生效矩阵。</p>
       </el-form-item>
       <el-form-item label="阶段">
         <el-input
@@ -104,9 +109,15 @@
       <el-button @click="dialogVisible = false">取消</el-button>
     </template>
   </Dialog>
+  <CategoryMatrixDialog ref="matrixDraftRef" @draft="matrixDraft = $event" />
 </template>
 
 <script lang="ts" setup>
+import CategoryMatrixDialog from './CategoryMatrixDialog.vue'
+import type { ControlledFileCategoryApprovalMatrixSaveReqVO } from '@/api/dcc/controlledFile/fileCategories'
+const matrixDraftRef = ref<InstanceType<typeof CategoryMatrixDialog>>()
+const matrixDraft = ref<ControlledFileCategoryApprovalMatrixSaveReqVO>()
+
 import type { FormRules } from 'element-plus'
 import { defaultProps, handleTree } from '@/utils/tree'
 import {
@@ -200,6 +211,7 @@ const taxonomyCascaderProps = {
 const categoryTaxonomyStageNameMap = computed(() =>
   buildDccFileTypeTaxonomyStageNameMap(fileTypeTaxonomies.value)
 )
+const selectedTaxonomyName = computed(() => fileTypeTaxonomies.value.find(row => row.id === formData.value.fileTypeTaxonomyId)?.name)
 const categoryTaxonomyStageName = computed(
   () =>
     resolveDccFileTypeTaxonomyStageName(
@@ -252,6 +264,7 @@ const open = (
 defineExpose({ open })
 
 const resetForm = () => {
+  matrixDraft.value = undefined
   formError.value = ''
   formData.value = {
     parentId: undefined,
@@ -277,6 +290,14 @@ const submitForm = async () => {
   let approvalSourceMode: DccApprovalSourceMode
   try { approvalSourceMode = requireCategoryApprovalSourceMode(formData.value.approvalSourceMode) }
   catch (cause) { formError.value = cause instanceof Error ? cause.message : String(cause); return }
+  if (approvalSourceMode === 'APPLICATION_CUSTOM' && selectedTaxonomyName.value !== '其他') {
+    formError.value = '只有“其他”文件类型可使用本次申请自定义矩阵'
+    return
+  }
+  if (formType.value === 'create' && approvalSourceMode === 'PUBLIC_MATRIX' && !matrixDraft.value) {
+    formError.value = '请先配置审批矩阵，类别与规则将一起保存'
+    return
+  }
   let valid = false
   try {
     valid = await formRef.value?.validate()
@@ -293,6 +314,7 @@ const submitForm = async () => {
     code: formData.value.code.trim(),
     name: formData.value.name.trim(),
     approvalSourceMode,
+    ...(approvalSourceMode === 'PUBLIC_MATRIX' && matrixDraft.value ? { approvalMatrix: matrixDraft.value } : {}),
     lifecycleStage: '' as ControlledFileCategoryVO['lifecycleStage'],
     fileTypeTaxonomyId: formData.value.fileTypeTaxonomyId ?? null,
     active: formData.value.active,

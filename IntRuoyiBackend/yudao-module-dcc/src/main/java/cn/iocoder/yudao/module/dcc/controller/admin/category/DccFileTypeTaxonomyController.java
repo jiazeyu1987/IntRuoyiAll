@@ -34,6 +34,9 @@ public class DccFileTypeTaxonomyController {
     @Resource
     private DccFileTypeTaxonomyAdminService taxonomyAdminService;
 
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.category.DccFileTypeConfigurationService configurationService;
+
     @GetMapping("/{id:\\d+}/active-category")
     @Operation(summary = "解析文件类型唯一启用的分类/审批矩阵身份")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:category:manage')")
@@ -60,7 +63,7 @@ public class DccFileTypeTaxonomyController {
     @Operation(summary = "创建文件类型分类节点")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<Long> createTaxonomy(@Valid @RequestBody DccFileTypeTaxonomySaveReqVO reqVO) {
-        return success(taxonomyAdminService.createTaxonomy(reqVO));
+        return success(configurationService.create(reqVO));
     }
 
     @PutMapping("/{id:\\d+}")

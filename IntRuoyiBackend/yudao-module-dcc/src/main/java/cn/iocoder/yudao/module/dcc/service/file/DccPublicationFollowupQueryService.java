@@ -8,6 +8,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 
 public interface DccPublicationFollowupQueryService {
     DccPublicationFollowupRespVO getFileFollowup(Long userId, Long controlledFileId);
+    DccPublicationFollowupRespVO getFileFollowup(Long userId, Long controlledFileId,
+            String bodyReadContext, String bpmRound, String taskId, String applicationType);
     PageResult<DccPublicationFollowupRespVO> getManagementPage(Long userId, DccPublicationFollowupPageReqVO reqVO);
     PageResult<DccPublicationImpactTaskRespVO> getMyImpactTasks(Long userId, DccPublicationImpactTaskPageReqVO reqVO);
 }

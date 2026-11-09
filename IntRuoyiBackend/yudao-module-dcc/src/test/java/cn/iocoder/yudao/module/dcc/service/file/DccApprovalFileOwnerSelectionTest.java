@@ -27,7 +27,7 @@ class DccApprovalFileOwnerSelectionTest {
         TenantContextHolder.setTenantId(1L);
         users=mock(AdminUserApi.class); files=mock(DccControlledFileMapper.class); signatures=mock(DccControlledFileSignatureMapper.class);
         file=DccControlledFileDO.builder().id(10L).tenantId(1L).processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD)
-                .processInstanceId("upload-10").versionNo("A/1").status("PENDING_MATRIX_APPROVAL").build();
+                .requesterId(9007199254740993L).processInstanceId("upload-10").versionNo("A/1").status("PENDING_MATRIX_APPROVAL").build();
         when(users.getUser(9007199254740993L)).thenReturn(new AdminUserRespDTO().setId(9007199254740993L)
                 .setTenantId(1L).setStatus(0).setUsername("file-owner").setNickname("文件负责人"));
         when(files.updateById(any(DccControlledFileDO.class))).thenReturn(1);
@@ -43,12 +43,13 @@ class DccApprovalFileOwnerSelectionTest {
         return ReflectionTestUtils.invokeMethod(selection,"prepare",file,stage,ownerId);
     }
     @Test void ownerIsMandatoryOnlyAtActualNativeMatrixApprovalAndMustBeAnEnabledSameTenantAccount() {
-        assertThrows(IllegalArgumentException.class,()->prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
-        assertNotNull(prepare(9007199254740993L,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
+        assertNotNull(prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
+        assertThrows(IllegalArgumentException.class,()->prepare(7L,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
+        assertNotNull(prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
         when(users.getUser(9007199254740993L)).thenReturn(new AdminUserRespDTO().setId(9007199254740993L).setTenantId(2L).setStatus(0).setUsername("foreign").setNickname("外租户"));
-        assertThrows(IllegalArgumentException.class,()->prepare(9007199254740993L,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
+        assertThrows(IllegalArgumentException.class,()->prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
         when(users.getUser(9007199254740993L)).thenReturn(new AdminUserRespDTO().setId(9007199254740993L).setTenantId(1L).setStatus(1).setUsername("disabled").setNickname("停用"));
-        assertThrows(IllegalArgumentException.class,()->prepare(9007199254740993L,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
+        assertThrows(IllegalArgumentException.class,()->prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL));
         verifyNoInteractions(files,signatures);
     }
     @Test void reviewDocControlAndObsoleteCannotBorrowOwnerSelectionOrWriteAnySnapshot() {
@@ -61,7 +62,7 @@ class DccApprovalFileOwnerSelectionTest {
         verifyNoInteractions(files,signatures);
     }
     @Test void bindingRequiresTheActualSameFileBpmTaskVersionActorAndSignedOwnerFacts() {
-        Object selected=prepare(9007199254740993L,DccControlledFileStageCodeEnum.MATRIX_APPROVAL);
+        Object selected=prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL);
         String reason=ReflectionTestUtils.invokeMethod(selection,"signedReason","同意",selected);
         assertTrue(reason.contains("9007199254740993")); assertTrue(reason.contains("file-owner"));
         var signed=DccControlledFileSignatureDO.builder().id(100L).controlledFileId(10L).taskId("approve-task")
@@ -75,6 +76,24 @@ class DccApprovalFileOwnerSelectionTest {
         assertEquals("文件负责人",ReflectionTestUtils.getField(capture.getValue(),"fileOwnerNicknameSnapshot"));
         assertEquals(100L,ReflectionTestUtils.getField(capture.getValue(),"fileOwnerSignatureId"));
         signed.setProcessInstanceId("another-round");
+        assertThrows(IllegalStateException.class,()->ReflectionTestUtils.invokeMethod(selection,"bind",file,"approve-task",99L,100L,selected,reason));
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\t\n","\u00A0\uFEFF\u3000"})
+    void emptyOpinionBindsOnlyActualCompilerFactsAndStillRejectsTampering(String opinion) {
+        Object selected=prepare(null,DccControlledFileStageCodeEnum.MATRIX_APPROVAL);
+        String reason=ReflectionTestUtils.invokeMethod(selection,"signedReason",opinion,selected);
+        assertEquals("；批准文件负责人事实：[9007199254740993,\"file-owner\",\"文件负责人\"]",reason);
+        var signed=DccControlledFileSignatureDO.builder().id(100L).controlledFileId(10L).taskId("approve-task")
+                .actorId(99L).actionType("APPROVE").processInstanceId("upload-10").versionNo("A/1")
+                .comment(reason).meaningCode("MATRIX_APPROVAL_APPROVE").evidenceHash("signed-owner-facts")
+                .evidenceStatus("VALID").signedAt(LocalDateTime.of(2026,10,3,9,0)).build();
+        when(signatures.selectActionSignature(10L,"approve-task",99L,"APPROVE")).thenReturn(signed);
+        ReflectionTestUtils.invokeMethod(selection,"bind",file,"approve-task",99L,100L,selected,reason);
+        assertEquals(100L,file.getFileOwnerSignatureId());
+        assertThrows(IllegalStateException.class,()->ReflectionTestUtils.invokeMethod(selection,"bind",file,"approve-task",99L,100L,selected,""));
+        signed.setComment("同意"+reason);
         assertThrows(IllegalStateException.class,()->ReflectionTestUtils.invokeMethod(selection,"bind",file,"approve-task",99L,100L,selected,reason));
     }
 }

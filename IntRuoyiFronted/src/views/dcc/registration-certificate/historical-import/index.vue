@@ -3,9 +3,6 @@
     class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-registration-certificate-historical-import"
     data-testid="dcc-registration-certificate-historical-import-page"
   >
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 注册证历史导入</span>
-    </div>
     <el-alert
       v-if="loadError"
       class="historical-import-load-error"
@@ -273,8 +270,106 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.scheme-d-basic-data-page--dcc-registration-certificate-historical-import {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+
+  min-width: 0;
+}
+
+.scheme-d-basic-data-page--dcc-registration-certificate-historical-import :deep(.el-card__body) {
+  padding: 12px !important;
+}
+
 .historical-import-load-error {
-  margin: 12px;
+  margin: 0 0 8px;
   width: auto;
+}
+
+:deep(.unified-list-template__query-form) {
+  align-items: flex-end;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+:deep(.unified-list-template__multi-filter) {
+  flex: 1 1 640px;
+  min-width: 0;
+}
+
+:deep(.unified-list-template__toolbar-actions) {
+  margin-left: auto;
+}
+
+:deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 4px;
+}
+
+:deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #dbe3e7;
+
+  width: 100%;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+:deep(.el-table th.el-table__cell) {
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:deep(.el-table td.el-table__cell) {
+  padding: 6px 0;
+}
+
+:deep(.el-button) {
+  height: 32px;
+}
+
+:deep(.el-input__wrapper),
+:deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+:deep(.el-pagination) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+@media (max-width: 700px) {
+  .scheme-d-basic-data-page--dcc-registration-certificate-historical-import
+    :deep(.table-multi-filter__tabs-row) {
+    flex-wrap: wrap;
+  }
+
+  .scheme-d-basic-data-page--dcc-registration-certificate-historical-import
+    :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scheme-d-basic-data-page--dcc-registration-certificate-historical-import
+    :deep(.table-multi-filter-field__value) {
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scheme-d-basic-data-page--dcc-registration-certificate-historical-import :deep(.el-pagination) {
+    justify-content: flex-start;
+  }
 }
 </style>

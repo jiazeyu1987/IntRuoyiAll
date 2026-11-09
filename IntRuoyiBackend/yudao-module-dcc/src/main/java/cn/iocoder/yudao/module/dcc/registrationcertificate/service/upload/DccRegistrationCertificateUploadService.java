@@ -64,6 +64,14 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 
 @Service
 public class DccRegistrationCertificateUploadService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificatePrerequisiteValidator prerequisiteValidator;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper handlingProjectMapper;
+
+
 
     private static final String REQUEST_TYPE_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String REQUEST_OPERATION_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
@@ -82,6 +90,9 @@ public class DccRegistrationCertificateUploadService {
     private static final Set<String> ENTRUSTED_PARTY = Set.of(MdmEnterpriseTypeEnum.ENTRUSTED_PARTY.getType());
     private static final int OWNER_COMPANY_CANDIDATE_LIMIT = 20;
     private static final int ENTRUSTED_ENTERPRISE_CANDIDATE_LIMIT = 20;
+
+    @jakarta.annotation.Resource
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     private final DccRegistrationCertificateCommandMutex commandMutex;
     private final DccRegistrationCertificateCommandService commandService;
@@ -199,6 +210,8 @@ public class DccRegistrationCertificateUploadService {
         requireUpdated(requestFileMapper.updateById(requestFile));
         DccRegistrationCertificateVersionDO version = requireFormalizedVersion(
                 tenantId, request.getCertificateId(), requestFile.getBusinessFileId());
+        bindAdditionalFiles(tenantId, approverId, version.getId(), requestId);
+        projectCodeFileAssociationService.bindAdditionalVersionMaterials(tenantId,version.getId(),approverId);
         projectCodeFileAssociationService.bindVersionRegistrationFile(
                 tenantId, version.getId(), requestFile.getBusinessFileId(), approverId);
         DccRegistrationCertificateSnapshotDO snapshot = requireFormalizedSnapshot(tenantId, version);
@@ -206,31 +219,44 @@ public class DccRegistrationCertificateUploadService {
                 tenantId, request.getOwnerCompanyId(), request.getCertificateId(), version.getId(),
                 approverId, approvalKey, snapshot.getProductName(), version.getCertificateNo(),
                 version.getEffectiveDate(), version.getExpiryDate());
+        registrationHandlingTasks.recordDecision(tenantId, approverId, requestId, true, "上传审批通过，正式注册证已入库");
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void rejectUploadRequest(
             Long tenantId, Long actorId, Long requestId, String approvalKey, String reason) {
         DccRegistrationCertificateAccessRequestDO request = requireUploadRequest(tenantId, requestId);
-        UploadRequestDetail detail = parseUploadRequestDetail(request);
-        DccRegistrationCertificateAccessRequestFileDO requestFile = requireSingleRequestFile(tenantId, requestId);
-        commandService.deleteDraft(tenantId, actorId, approvalKey, approvalKey, request.getCertificateId(),
-                detail.draftRowVersion(), detail.draftSnapshotRevision());
-        requestFile.setStatus(REQUEST_FILE_STATUS_REJECTED);
-        requireUpdated(requestFileMapper.updateById(requestFile));
+        for (var requestFile : requestFileMapper.selectByRequestId(tenantId, requestId)) {
+            requestFile.setStatus(REQUEST_FILE_STATUS_REJECTED);
+            requireUpdated(requestFileMapper.updateById(requestFile));
+        }
+        registrationHandlingTasks.recordDecision(tenantId, actorId, requestId, false, reason);
     }
 
     private DccRegistrationCertificateUploadSubmitResult submitInternal(
             Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
             DccRegistrationCertificateUploadCommand command) {
         List<Long> entrustedEnterpriseIds = requireUploadProductionRelation(command);
-        UploadFile uploadFile = requireUploadFile(command.file());
+        var source = command.sourceRequestId() == null ? null : requireRejectedSource(tenantId, actorId, command.sourceRequestId());
+        var retained = retainedFiles(tenantId, source, command.retainedFileIds());
+        var retainedPrimary = retained.stream().filter(f -> FILE_KIND_REGISTRATION_CERTIFICATE.equals(f.getFileKind())).findFirst().orElse(null);
+        UploadFile uploadFile = command.file() != null ? requireUploadFile(command.file()) : retainedPrimary == null ? null
+                : new UploadFile(retainedPrimary.getOriginalName(), retainedPrimary.getMimeType(), retainedPrimary.getFileSize(), null, retainedPrimary.getSha256());
+        if (uploadFile == null) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
         MdmEnterpriseRespDTO ownerCompany = resolveOwnerCompany(tenantId, actorId, command.companyId());
         Long ownerCompanyId = ownerCompany.getId();
         DccProjectCodeDO projectCode = requireProjectCode(tenantId, actorId, command.projectCodeId());
         Long projectCodeId = projectCode == null ? null : projectCode.getId();
         String productName = requireProductName(command.productName());
-        Long productMasterId = null;
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
+        facts.validate();
+        Long productMasterId = Boolean.TRUE.equals(facts.getOwnProduct()) && projectCode != null ? projectCode.getProductMasterId() : null;
+        if (Boolean.TRUE.equals(facts.getOwnProduct()) && productMasterId == null) {
+            prerequisiteValidator.validateCatalogProduct(projectCode, productName);
+        }
+        List<UploadFile> attachments = command.attachments() == null ? List.of() : command.attachments().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();
+        List<UploadFile> descriptions = command.productDescriptionFiles() == null ? List.of() : command.productDescriptionFiles().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();
+        if (facts.isFda() && descriptions.isEmpty() && retained.stream().noneMatch(f -> "FDA_PRODUCT_DESCRIPTION".equals(f.getFileKind()))) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
         String payloadHash = submitPayloadHash(
                 command, ownerCompany, productMasterId, projectCodeId, entrustedEnterpriseIds, uploadFile);
 
@@ -242,17 +268,31 @@ public class DccRegistrationCertificateUploadService {
 
         DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
                 ownerCompanyId, productMasterId, productName, projectCodeId,
-                command.firstObtainedDate(), trim(command.certificateNo()),
-                null, command.effectiveDate(), command.expiryDate(), trim(command.classification()),
+                facts.getFirstObtainedDate(), trim(facts.getCertificateNo()),
+                facts.getApprovalDate(), facts.getEffectiveDate(), facts.getExpiryDate(), trim(facts.getClassification()),
                 null, null, null, null, null, null, null,
-                command.entrustedProduction(), command.selfProduction(), entrustedEnterpriseIds, trim(command.remark()));
-        Long certificateId = commandService.createDraft(
-                tenantId, actorId, idempotencyKey, requestTraceId, draft);
+                command.entrustedProduction(), command.selfProduction(), entrustedEnterpriseIds, trim(facts.getRemark()), facts.toJson());
+        Long certificateId;
+        int rowVersion = 1, snapshotRevision = 1;
+        if (source == null) {
+            certificateId = commandService.createDraft(tenantId, actorId, idempotencyKey, requestTraceId, draft);
+        } else {
+            var oldDetail = parseUploadRequestDetail(source);
+            certificateId = source.getCertificateId();
+            commandService.updateDraft(tenantId, actorId, idempotencyKey, requestTraceId, certificateId,
+                    oldDetail.draftRowVersion(), oldDetail.draftSnapshotRevision(), draft);
+            rowVersion = oldDetail.draftRowVersion() + 1;
+            snapshotRevision = oldDetail.draftSnapshotRevision() + 1;
+        }
         DccRegistrationCertificateVersionDO draftVersion = requireDraftVersion(tenantId, certificateId);
 
+        DccRegistrationCertificateFileDO businessFile;
+        if (command.file() == null) {
+            businessFile = retainedPrimary;
+        } else {
         Long infraFileId = fileService.createFileAndReturnId(uploadFile.content(), uploadFile.originalName(),
                 "dcc/registration-certificate/upload/" + certificateId, uploadFile.mimeType());
-        DccRegistrationCertificateFileDO businessFile = DccRegistrationCertificateFileDO.builder()
+        businessFile = DccRegistrationCertificateFileDO.builder()
                 .ownerType(FILE_OWNER_VERSION)
                 .ownerId(draftVersion.getId())
                 .fileKind(FILE_KIND_REGISTRATION_CERTIFICATE)
@@ -266,6 +306,15 @@ public class DccRegistrationCertificateUploadService {
         businessFile.setTenantId(tenantId);
         requireUpdated(fileMapper.insert(businessFile));
 
+        }
+        Map<String,Object> frozenDetail = submitDetail(payloadHash, ownerCompanyId, ownerCompany.getName(), productName,
+                productMasterId, projectCodeId, facts.getCertificateNo(), facts.getClassification());
+        frozenDetail.put("draftRowVersion", rowVersion);
+        frozenDetail.put("draftSnapshotRevision", snapshotRevision);
+        frozenDetail.put("draft", draft);
+        frozenDetail.put("factsJson", facts.toJson());
+        frozenDetail.put("sourceRequestId", command.sourceRequestId());
+
         DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
                 .ownerCompanyId(ownerCompanyId)
                 .certificateId(certificateId)
@@ -276,9 +325,7 @@ public class DccRegistrationCertificateUploadService {
                 .projectCodeId(projectCodeId)
                 .status(STATUS_SUBMITTED)
                 .requestedAt(businessClock.now())
-                .detailJson(JsonUtils.toJsonString(submitDetail(
-                        payloadHash, ownerCompanyId, ownerCompany.getName(), productName,
-                        productMasterId, projectCodeId, command.certificateNo(), command.classification())))
+                .detailJson(JsonUtils.toJsonString(frozenDetail))
                 .build();
         request.setTenantId(tenantId);
         requireUpdated(requestMapper.insert(request));
@@ -293,7 +340,96 @@ public class DccRegistrationCertificateUploadService {
                 .build();
         requestFile.setTenantId(tenantId);
         requireUpdated(requestFileMapper.insert(requestFile));
+        for (var retainedFile : retained) {
+            if (FILE_KIND_REGISTRATION_CERTIFICATE.equals(retainedFile.getFileKind())) continue;
+            var linked = DccRegistrationCertificateAccessRequestFileDO.builder().requestId(request.getId())
+                    .businessFileId(retainedFile.getId()).fileKind(retainedFile.getFileKind()).downloadRequested(false)
+                    .status(REQUEST_FILE_STATUS_REQUESTED).detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash))).build();
+            linked.setTenantId(tenantId); requireUpdated(requestFileMapper.insert(linked));
+        }
+        for (UploadFile attachment : attachments) insertAdditionalFile(tenantId, draftVersion.getId(), request.getId(), attachment, "CERTIFICATE_ATTACHMENT", payloadHash);
+        for (UploadFile description : descriptions) insertAdditionalFile(tenantId, draftVersion.getId(), request.getId(), description, "FDA_PRODUCT_DESCRIPTION", payloadHash);
+        registrationHandlingTasks.bindRequest(tenantId, actorId, projectCodeId, certificateId, request.getId(), "UPLOAD");
         return new DccRegistrationCertificateUploadSubmitResult(request.getId(), certificateId, businessFile.getId());
+    }
+
+    public List<Map<String,Object>> listMyRequests(Long tenantId, Long actorId) {
+        return jdbcTemplate.queryForList("""
+                SELECT id, certificate_id AS certificateId, status, requested_at AS requestedAt,
+                       completed_at AS completedAt, reject_reason AS rejectReason, detail_json AS detailJson
+                  FROM dcc_registration_certificate_access_request
+                 WHERE tenant_id=? AND requester_user_id=? AND request_type='UPLOAD_CERTIFICATE' AND deleted=0
+                 ORDER BY requested_at DESC,id DESC
+                """, tenantId, actorId);
+    }
+
+    public Map<String,Object> getMyRequest(Long tenantId, Long actorId, Long requestId) {
+        var request = requestMapper.selectById(requestId);
+        if (request == null || !Objects.equals(request.getTenantId(),tenantId)
+                || !Objects.equals(request.getRequesterUserId(),actorId) || !REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType()))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        var files = requestFileMapper.selectByRequestId(tenantId,requestId).stream().map(link -> {
+            var f=fileMapper.selectById(link.getBusinessFileId());
+            if(f==null || !Objects.equals(f.getTenantId(),tenantId)) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            Map<String,Object> info=new LinkedHashMap<>(); info.put("id",f.getId());info.put("fileKind",f.getFileKind());info.put("originalName",f.getOriginalName());info.put("status",link.getStatus());
+            return info;
+        }).toList();
+        Map<String,Object> result=new LinkedHashMap<>();result.put("request",request);result.put("files",files);return result;
+    }
+
+    private DccRegistrationCertificateAccessRequestDO requireRejectedSource(Long tenantId,Long actorId,Long requestId) {
+        var source=requireUploadRequest(tenantId,requestId);
+        if(!STATUS_REJECTED.equals(source.getStatus()) || !Objects.equals(source.getRequesterUserId(),actorId))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        Integer later = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM dcc_registration_certificate_access_request
+                 WHERE tenant_id=? AND certificate_id=? AND request_type='UPLOAD_CERTIFICATE' AND id>? AND deleted=0
+                """,Integer.class,tenantId,source.getCertificateId(),requestId);
+        if(later==null || later>0) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        return source;
+    }
+
+    private List<DccRegistrationCertificateFileDO> retainedFiles(Long tenantId,DccRegistrationCertificateAccessRequestDO source,List<Long> ids) {
+        if(ids==null || ids.isEmpty()) return List.of();
+        if(source==null || new LinkedHashSet<>(ids).size()!=ids.size()) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        var links=requestFileMapper.selectByRequestId(tenantId,source.getId());
+        return ids.stream().map(id -> {
+            if(links.stream().noneMatch(link -> Objects.equals(link.getBusinessFileId(),id))) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            var file=fileMapper.selectById(id);
+            if(file==null || !Objects.equals(file.getTenantId(),tenantId) || !FILE_STATUS_STAGED.equals(file.getStatus())) throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            return file;
+        }).toList();
+    }
+
+    private static List<String> attachmentHashes(List<MultipartFile> files) {
+        return files == null ? List.of() : files.stream().map(file -> { UploadFile checked = requireUploadFile(file); return checked.originalName() + ":" + checked.sha256(); }).toList();
+    }
+
+    private void insertAdditionalFile(Long tenantId, Long versionId, Long requestId, UploadFile upload,
+                                      String kind, String payloadHash) {
+        Long infraId = fileService.createFileAndReturnId(upload.content(), upload.originalName(),
+                "dcc/registration-certificate/upload/" + versionId, upload.mimeType());
+        var file = DccRegistrationCertificateFileDO.builder().ownerType(FILE_OWNER_VERSION).ownerId(versionId)
+                .fileKind(kind).infraFileId(infraId).originalName(upload.originalName()).mimeType(upload.mimeType())
+                .fileSize(upload.fileSize()).sha256(upload.sha256()).status(FILE_STATUS_STAGED).build();
+        file.setTenantId(tenantId); requireUpdated(fileMapper.insert(file));
+        var requestFile = DccRegistrationCertificateAccessRequestFileDO.builder().requestId(requestId)
+                .businessFileId(file.getId()).fileKind(kind).downloadRequested(false).status(REQUEST_FILE_STATUS_REQUESTED)
+                .detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash))).build();
+        requestFile.setTenantId(tenantId); requireUpdated(requestFileMapper.insert(requestFile));
+    }
+
+    private void bindAdditionalFiles(Long tenantId, Long actorId, Long versionId, Long requestId) {
+        for (var requestFile : requestFileMapper.selectByRequestId(tenantId, requestId)) {
+            if (FILE_KIND_REGISTRATION_CERTIFICATE.equals(requestFile.getFileKind())) continue;
+            var file = fileMapper.selectById(requestFile.getBusinessFileId());
+            if (file == null || !Objects.equals(tenantId, file.getTenantId()) || !Objects.equals(versionId, file.getOwnerId())
+                    || !FILE_OWNER_VERSION.equals(file.getOwnerType()) || !FILE_STATUS_STAGED.equals(file.getStatus()))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            file.setStatus(FILE_STATUS_BOUND); file.setBoundAt(businessClock.now()); file.setBoundBy(actorId);
+            requireUpdated(fileMapper.updateById(file));
+            requestFile.setStatus(REQUEST_FILE_STATUS_APPROVED); requireUpdated(requestFileMapper.updateById(requestFile));
+        }
     }
 
     private DccRegistrationCertificateUploadSubmitResult replaySubmit(
@@ -336,7 +472,9 @@ public class DccRegistrationCertificateUploadService {
     private DccRegistrationCertificateAccessRequestFileDO requireSingleRequestFile(Long tenantId, Long requestId) {
         List<DccRegistrationCertificateAccessRequestFileDO> requestFiles =
                 requestFileMapper.selectByRequestId(tenantId, requestId);
-        if (requestFiles == null || requestFiles.size() != 1) {
+        requestFiles = requestFiles == null ? List.of() : requestFiles.stream()
+                .filter(file -> FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())).toList();
+        if (requestFiles.size() != 1) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
         }
         return requestFiles.get(0);
@@ -391,8 +529,9 @@ public class DccRegistrationCertificateUploadService {
         if (projectCodeId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
-        DccProjectCodeDO projectCode = projectCodeService.getProjectCode(actorId, projectCodeId);
-        if (projectCode == null || !Objects.equals(projectCode.getId(), projectCodeId)) {
+        DccProjectCodeDO projectCode = registrationHandlingTasks.authorizesProjectUpload(actorId, projectCodeId)
+                ? handlingProjectMapper.selectById(projectCodeId) : projectCodeService.getProjectCode(actorId, projectCodeId);
+        if (projectCode == null || projectCode.isLibrary() || !Objects.equals(projectCode.getId(), projectCodeId)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
         if (!Objects.equals(tenantId, projectCode.getTenantId())) {
@@ -482,6 +621,11 @@ public class DccRegistrationCertificateUploadService {
             DccRegistrationCertificateUploadCommand command, MdmEnterpriseRespDTO ownerCompany,
             Long productMasterId, Long projectCodeId, List<Long> entrustedEnterpriseIds, UploadFile uploadFile) {
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("sourceRequestId", command.sourceRequestId());
+        payload.put("retainedFileIds", command.retainedFileIds());
+        payload.put("factsJson", command.factsJson());
+        payload.put("attachments", attachmentHashes(command.attachments()));
+        payload.put("productDescriptionFiles", attachmentHashes(command.productDescriptionFiles()));
         payload.put("ownerCompanyId", ownerCompany.getId());
         payload.put("ownerCompanyName", trim(ownerCompany.getName()));
         payload.put("productName", trim(command.productName()));
@@ -504,6 +648,7 @@ public class DccRegistrationCertificateUploadService {
     }
 
     private static List<Long> requireUploadProductionRelation(DccRegistrationCertificateUploadCommand command) {
+        if (command != null && cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson()).isFda()) return List.of();
         if (command == null || command.entrustedProduction() == null || command.selfProduction() == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
         }

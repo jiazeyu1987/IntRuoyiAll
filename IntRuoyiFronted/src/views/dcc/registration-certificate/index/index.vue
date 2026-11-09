@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap data-testid="registration-certificate-read-page">
+  <ContentWrap class="registration-certificate-page" data-testid="registration-certificate-read-page">
     <el-tabs
       v-model="activeTab"
       data-testid="registration-certificate-tabs"
@@ -7,6 +7,7 @@
     >
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
+          <CategoryFilters v-model:query="queryParams" @search="loadPage"/>
           <UnifiedListTemplate
             class="registration-certificate-current-list"
             :table-key="CURRENT_TABLE_KEY"
@@ -39,7 +40,7 @@
               >
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
-              <el-button v-if="canUploadRegistrationCertificate" type="success" @click="openUploadDialog">
+              <el-button v-if="canUploadRegistrationCertificate" type="primary" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
             </template>
@@ -404,6 +405,7 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane v-if="canUploadRegistrationCertificate" name="applications" label="我的上传申请"><MyApplications v-if="activeTab==='applications'"/></el-tab-pane>
     </el-tabs>
   </ContentWrap>
 
@@ -426,6 +428,8 @@
 </template>
 
 <script setup lang="ts">
+import CategoryFilters from '../shared/CategoryFilters.vue'
+import MyApplications from '../upload/MyApplications.vue'
 const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -474,7 +478,7 @@ const REGISTRATION_CERTIFICATE_MANAGER_ROLE = 'dcc_registration_certificate_appr
 
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
-const activeTab = ref<'current' | 'old' | 'test'>('current')
+const activeTab = ref<'current' | 'old' | 'test' | 'applications'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
@@ -924,6 +928,7 @@ const oldQuickFilter = useTableQuickFilter(
 )
 
 const handleTabChange = (tabName: string | number) => {
+  if(tabName==='applications'){activeTab.value='applications';return}
   activeTab.value = tabName === 'old' ? 'old' : (tabName === 'test' ? 'test' : 'current')
   if (activeTab.value === 'old') {
     void loadOldIndexPage()
@@ -1047,6 +1052,60 @@ watch(
 </script>
 
 <style scoped>
+.registration-certificate-page {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.registration-certificate-page :deep(.el-tabs__header) {
+  margin-bottom: 8px;
+}
+
+.registration-certificate-page :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.registration-certificate-page :deep(.unified-list-template__toolbar) {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.registration-certificate-page :deep(.unified-list-template__toolbar .el-button) {
+  margin-left: 0;
+  min-height: 32px;
+}
+
+.registration-certificate-page :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-border-color: #dbe3e7;
+  font-size: 13px;
+}
+
+.registration-certificate-page :deep(.el-table th.el-table__cell) {
+  height: 40px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.registration-certificate-page :deep(.el-table td.el-table__cell) {
+  padding: 8px 0;
+}
+
+.registration-certificate-page :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
 .registration-certificate-current-list {
   height: calc(100vh - 180px);
   min-height: 520px;
@@ -1133,9 +1192,9 @@ watch(
   gap: 4px;
 }
 
-.registration-certificate-test-tab { padding: 16px 0; }
-.registration-certificate-business-time-controls { display: flex; align-items: center; gap: 12px; }
-.registration-certificate-business-time-result { margin-top: 12px; color: var(--el-color-success); }
+.registration-certificate-test-tab { padding: 8px 0; }
+.registration-certificate-business-time-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.registration-certificate-business-time-result { margin-top: 8px; color: var(--el-color-success); }
 
 .registration-certificate-row-actions--old-manager-view {
   grid-template-columns: minmax(0, 1fr);
@@ -1145,5 +1204,53 @@ watch(
 .registration-certificate-row-actions :deep(.el-button) {
   margin-left: 0;
   white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .registration-certificate-current-list {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .registration-certificate-current-table-scroll-region {
+    height: 480px;
+    flex: none;
+    min-width: 0;
+  }
+
+  .registration-certificate-page :deep(.unified-list-template__multi-filter) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .registration-certificate-page :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .registration-certificate-page :deep(.table-multi-filter-field__value) {
+    flex: 1 1 180px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .registration-certificate-page :deep(.table-multi-filter-field__label) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .registration-certificate-page :deep(.el-pagination__jump) {
+    margin-left: 0;
+  }
+
+  .registration-certificate-page :deep(.unified-list-template__toolbar-actions),
+  .registration-certificate-page :deep(.unified-list-template__toolbar) {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
 }
 </style>

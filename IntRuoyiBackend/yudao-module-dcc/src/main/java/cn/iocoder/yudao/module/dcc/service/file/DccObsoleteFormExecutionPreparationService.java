@@ -329,7 +329,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var route=routeResolver.resolvePublicMatrix(raw,actor,"OBSOLETE",departments);var nodes=new ArrayList<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode>();
         nodes.add(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(0,"SUPERVISOR_REVIEW","直接主管审核",0,"USER",supervisor.supervisorUserId(),List.of(supervisor.supervisorUserId()),"ANY",null,false,List.of(supervisor.supervisorUserId())));nodes.addAll(route.nodes());
         if(!nodes.stream().map(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode::stageCode).toList().equals(List.of("SUPERVISOR_REVIEW","MATRIX_REVIEW","MATRIX_APPROVAL")))throw invalid("OBSOLETE_STAGE_CONTRACT_INVALID");
-        var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(route.route(),List.copyOf(nodes),route.sourceApprovalMatrix(),route.derivationVersion(),route.runtimeGroups());readiness.requireReadyResolvedRoute(resolved);return resolved;
+        var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(route.route(),List.copyOf(nodes),route.sourceApprovalMatrix(),route.derivationVersion(),route.runtimeGroups());readiness.requireReadyObsoleteRoute(resolved);return resolved;
     }
     private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute restoreServerCandidates(DccApprovalMatrixSourceService.Source source,List<Long> departments,DccDirectSupervisorSource.Evidence supervisor,String runtime){
         var document=JsonUtils.parseObject(runtime,Map.class);
@@ -351,7 +351,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(source.route(),nodes,source.baseline(),cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.VERSION,groups);
         // Freeze leaders selected at preparation. Recheck current enabled account/post/signature eligibility,
         // not current department leader or mutable matrix configuration.
-        readiness.requireReadyResolvedRoute(resolved);return resolved;
+        readiness.requireReadyObsoleteRoute(resolved);return resolved;
     }
     private Map<String,List<Long>> serverStart(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){var result=new TreeMap<String,List<Long>>();for(var node:route.nodes())if(Set.of("SUPERVISOR_REVIEW","MATRIX_REVIEW").contains(node.stageCode()))result.put(node.stageCode(),List.copyOf(node.resolvedUserIds()));return Collections.unmodifiableMap(result);}
     private Map<String,List<Long>> serverApprove(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){var result=new TreeMap<String,List<Long>>();for(var node:route.nodes())if("MATRIX_APPROVAL".equals(node.stageCode()))result.put(node.stageCode(),List.copyOf(node.resolvedUserIds()));return Collections.unmodifiableMap(result);}

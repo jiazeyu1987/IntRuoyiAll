@@ -36,7 +36,7 @@ class DccRegistrationCertificateDomainTest {
                 Set.of("VERSION", "CHANGE", "SUPPORTING_DOCUMENT"));
         assertEnum("DccRegistrationCertificateFileKind",
                 Set.of("REGISTRATION_CERTIFICATE", "CHANGE_APPROVAL", "RENEWAL_ACCEPTANCE_RECEIPT",
-                        "RENEWAL_SUPPLEMENT_NOTICE"));
+                        "RENEWAL_SUPPLEMENT_NOTICE", "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION"));
         assertEnum("DccRegistrationCertificateFileStatus",
                 Set.of("STAGED", "BOUND", "CLEANUP_REQUIRED", "VOIDED"));
         assertEnum("DccRegistrationCertificateAuditResult",

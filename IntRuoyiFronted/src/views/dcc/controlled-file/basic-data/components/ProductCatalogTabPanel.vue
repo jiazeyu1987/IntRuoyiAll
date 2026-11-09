@@ -1,10 +1,8 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-product-catalog">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC产品目录</span>
-    </div>
     <UnifiedListTemplate
       class="dcc-product-catalog-list-template"
+      column-popover-class="dcc-product-catalog-columns-popover"
       table-key="dcc.productCatalog.main"
       :query-model="queryParams"
       label-width="76px"
@@ -28,7 +26,7 @@
     >
       <template #actions>
         <el-button
-          class="scheme-d-btn scheme-d-btn--success"
+          class="scheme-d-btn"
           type="primary"
           plain
           data-testid="dcc-project-product-create-open"
@@ -318,6 +316,7 @@
                 v-if="isProductCatalogColumnVisible('actions')"
                 label="操作"
                 prop="actions"
+                class-name="dcc-product-catalog-actions"
                 fixed="right"
                 :width="getProductCatalogActionColumnWidthString()"
               >
@@ -330,7 +329,7 @@
                     @click="openBinding(row)"
                     v-hasPermi="['dcc:project-code:update']"
                   >
-                    绑定
+                    {{ row.registrationCertificateId ? '查看关联' : row.projectCodeId ? '关联注册证' : '绑定' }}
                   </el-button>
                   <el-button
                     link
@@ -362,7 +361,7 @@
 
   <Dialog
     v-model="projectProductDialogVisible"
-    class="scheme-d-form-control"
+    class="scheme-d-form-control dcc-product-catalog-dialog"
     :title="projectProductMode === 'records' ? '项目申请与审批' : projectProductResubmitRequestId ? '修改驳回申请后重提' : '新建项目代码及产品'"
     width="980px"
   >
@@ -539,7 +538,7 @@
   </Dialog>
 
   <FolderTemplateLibraryEditor ref="folderLibraryRef" @saved="reloadFolderTemplates" />
-  <Dialog v-model="formVisible" class="scheme-d-form-control" title="产品目录维护" width="820px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control dcc-product-catalog-dialog" title="产品目录维护" width="820px">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -624,7 +623,7 @@
     <template #footer>
       <div class="scheme-d-dialog-footer">
         <el-button
-          class="scheme-d-btn scheme-d-btn--success"
+          class="scheme-d-btn"
           type="primary"
           :disabled="formLoading"
           @click="submitForm"
@@ -636,28 +635,30 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="bindingVisible" class="scheme-d-form-control" title="绑定项目代码和注册证" width="620px">
+  <Dialog v-model="bindingVisible" class="scheme-d-form-control dcc-product-catalog-dialog" :title="bindingRow?.registrationCertificateId ? '查看关联' : bindingRow?.projectCodeId ? '关联注册证' : '绑定项目代码和注册证'" width="620px">
     <el-form ref="bindingFormRef" v-loading="bindingLoading" :model="bindingFormData" :rules="bindingFormRules" label-width="126px">
       <el-form-item label="产品目录">
         <el-input :model-value="bindingRow?.product || bindingRow?.productCode || '-'" disabled />
       </el-form-item>
       <el-form-item label="DCC项目代码" prop="projectCodeId">
-        <el-select v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入DCC项目代码搜索" @change="handleBindingProjectCodeChange">
+        <el-input v-if="bindingRow?.projectCodeId" :model-value="[bindingRow.projectCode, bindingRow.projectName].filter(Boolean).join(' - ')" disabled />
+        <el-select v-else v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入DCC项目代码搜索" @change="handleBindingProjectCodeChange">
           <el-option v-for="item in bindingProjectCodeOptions" :key="item.id" :label="`${item.projectCode} / ${item.projectName}`" :value="item.id" />
         </el-select>
       </el-form-item>
       <el-form-item label="注册证" prop="registrationCertificateId">
-        <el-select v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '可选，可在注册证建立后绑定' : '请先选择DCC项目代码'">
+        <el-select v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!!bindingRow?.registrationCertificateId || !bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '选择已建立的注册证' : '请先选择DCC项目代码'">
           <el-option v-for="item in bindingCertificateOptions" :key="item.certificateId" :label="`${item.certificateNo} / ${item.productName}`" :value="item.certificateId" />
         </el-select>
       </el-form-item>
-      <el-form-item label="绑定备注" prop="relationRemark">
+      <el-alert v-if="bindingRow?.projectCodeId" title="产品已关联此项目，无需再次绑定。注册证建立后可在此关联。" type="info" :closable="false" />
+      <el-form-item v-if="!bindingRow?.registrationCertificateId" label="绑定备注" prop="relationRemark">
         <el-input v-model="bindingFormData.relationRemark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="请输入绑定备注" />
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="scheme-d-dialog-footer">
-        <el-button class="scheme-d-btn scheme-d-btn--success" type="primary" :loading="bindingLoading" @click="submitBinding">确定绑定</el-button>
+        <el-button v-if="!bindingRow?.registrationCertificateId" class="scheme-d-btn" type="primary" :loading="bindingLoading" :disabled="bindingCertificateLoading || (!!bindingRow?.projectCodeId && !bindingFormData.registrationCertificateId)" @click="submitBinding">{{ bindingRow?.projectCodeId ? '确认关联注册证' : '确定绑定' }}</el-button>
         <el-button class="scheme-d-btn scheme-d-btn--neutral" :disabled="bindingLoading" @click="bindingVisible = false">取消</el-button>
       </div>
     </template>
@@ -967,7 +968,7 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 188
+const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 248
 
 const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'categoryLevel1', label: '产品类别 I', minWidth: 180 },
@@ -1315,10 +1316,11 @@ const handleProjectProductAction = async (row: DccProjectProductCreateRespVO, no
   const sequence = projectProductDialogSequence
   const actor = projectProductActorScope()
   const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope() && projectProductDialogVisible.value
-  const reason = window.prompt(approve ? '请输入通过意见' : '请输入驳回原因', projectProductActionReason.value)
+  const reason = window.prompt(approve ? '可填写通过意见（选填）' : '请输入驳回原因', projectProductActionReason.value)
   if (reason === null) return
   projectProductActionReason.value = reason.trim()
-  if (!reason.trim() || reason.length > 500) { projectProductError.value = '请填写500字以内的审批意见'; return }
+  if (!approve && !reason.trim()) { projectProductError.value = '请输入驳回原因'; return }
+  if (reason.length > 500) { projectProductError.value = '审批意见不能超过500字'; return }
   if (!current() || !canPerformProjectAction(row, node)) return
   projectProductRequestsLoading.value = true
   projectProductError.value = ''
@@ -1620,7 +1622,13 @@ const openBinding = async (row: DccProductCatalogRespVO) => {
   bindingRow.value = row
   resetBindingForm()
   bindingVisible.value = true
-  await searchBindingProjectCodes(row.projectCode || '')
+  if (row.projectCodeId) {
+    bindingFormData.projectCodeId = row.projectCodeId
+    await handleBindingProjectCodeChange(row.projectCodeId)
+    bindingFormData.registrationCertificateId = row.registrationCertificateId || undefined
+  } else {
+    await searchBindingProjectCodes(row.projectCode || '')
+  }
 }
 
 const searchBindingProjectCodes = async (projectCode = '') => {
@@ -1812,6 +1820,92 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+:deep(.dcc-product-catalog-actions .cell) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+:deep(.dcc-product-catalog-actions .el-button) {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+.scheme-d-basic-data-page--dcc-product-catalog,
+:global(.dcc-product-catalog-dialog) {
+  --scheme-d-primary: #008f86;
+  --scheme-d-primary-soft: #e6f5f2;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.scheme-d-basic-data-page--dcc-product-catalog :deep(.el-card__body) {
+  padding: 12px !important;
+}
+
+.dcc-product-catalog-list-template :deep(.unified-list-template__query-form),
+.dcc-product-catalog-list-template :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.dcc-product-catalog-list-template :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+
+.dcc-product-catalog-list-template :deep(.el-table__cell) {
+  padding: 5px 0;
+}
+
+.dcc-product-catalog-list-template :deep(th.el-table__cell) {
+  height: 36px;
+  background: #f5f8f9;
+  font-size: 12px;
+}
+
+.dcc-product-catalog-list-template :deep(td.el-table__cell) {
+  height: 38px;
+}
+
+.dcc-product-catalog-list-template :deep(.el-tree-node__content) {
+  height: 31px;
+}
+
+:global(.dcc-product-catalog-dialog) {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 48px);
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+:global(.dcc-product-catalog-dialog .el-dialog__body) {
+  overflow: auto;
+  min-height: 0;
+}
+
+:global(.dcc-product-catalog-dialog .el-form-item) {
+  margin-bottom: 12px;
+}
+
+:global(.dcc-product-catalog-dialog .el-input__wrapper),
+:global(.dcc-product-catalog-dialog .el-select__wrapper) {
+  min-height: 32px;
+}
+
+:global(.dcc-product-catalog-dialog .el-form-item__label) {
+  height: auto;
+  min-height: 32px;
+  line-height: 20px;
+  align-items: center;
+}
+
 @media (min-width: 1181px) {
   .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
     :deep(.unified-list-template__query-form) {
@@ -1833,13 +1927,15 @@ onMounted(async () => {
 
 .dcc-product-catalog-split-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 12px;
-  height: clamp(420px, calc(100vh - 258px), 680px);
+  grid-template-columns: 238px minmax(0, 1fr);
+  gap: 8px;
+  height: clamp(420px, calc(100vh - 210px), 720px);
   min-height: 0;
 }
 
 .dcc-product-catalog-tree-panel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: 10px;
   overflow: hidden;
@@ -1855,7 +1951,8 @@ onMounted(async () => {
 }
 
 .dcc-product-catalog-tree {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -1870,6 +1967,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   min-height: 32px;
   margin-bottom: 8px;
 }
@@ -1914,13 +2013,82 @@ onMounted(async () => {
   border-radius: 999px;
 }
 
-@media (max-width: 1180px) {
-  .dcc-product-catalog-split-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 700px) {
+  .dcc-product-catalog-list-template :deep(.el-table__cell.el-table-fixed-column--right) {
+    position: static !important;
   }
 
-  .dcc-product-catalog-tree {
-    max-height: 260px;
+  .dcc-product-catalog-list-template :deep(.unified-list-template__toolbar .el-button) {
+    margin-left: 0;
+  }
+
+  .dcc-product-catalog-split-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 194px minmax(360px, 1fr);
+    height: 620px;
+  }
+
+  .dcc-product-catalog-list-template :deep(.unified-list-template__query-form) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dcc-product-catalog-list-template :deep(.unified-list-template__toolbar),
+  .dcc-product-catalog-list-template :deep(.table-multi-filter__condition-row),
+  .dcc-product-catalog-list-template :deep(.el-pagination) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    height: auto;
+    gap: 8px;
+  }
+
+  .dcc-product-catalog-list-template :deep(.el-form-item__content) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :global(.dcc-product-catalog-dialog .el-col-12) {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+
+  .dcc-product-catalog-list-template :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dcc-product-catalog-list-template :deep(.table-multi-filter-field__value) {
+    flex: 1 1 180px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dcc-product-catalog-list-template :deep(.table-multi-filter-field__operator),
+  .dcc-product-catalog-list-template :deep(.table-multi-filter__field-select) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dcc-product-catalog-list-template :deep(.el-pager) {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .dcc-product-catalog-detail-summary__title,
+  :global(.dcc-product-catalog-dialog .el-form-item__content),
+  :global(.dcc-product-catalog-dialog .el-descriptions__content) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.dcc-product-catalog-dialog .el-select) {
+    max-width: 100%;
   }
 }
 
@@ -1941,7 +2109,7 @@ onMounted(async () => {
 }
 
 :deep(.dcc-product-catalog-resizable-table .el-table__header-wrapper th.el-table__cell:hover::after) {
-  border-right-color: #1677ff;
+  border-right-color: var(--el-color-primary);
 }
 
 </style>

@@ -47,6 +47,36 @@ class DccW08ApplicationRelationEvidenceTest {
     @SuppressWarnings("unchecked")private <T>T port(String name){return (T)ReflectionTestUtils.getField(query,name);}
     private DccControlledFileApplicationEvidence read(){return query.getApplicationEvidence(99L,23L,"REVISION","actual-bpm");}
 
+    @Test void exactApplicationTaskContextReachesRelationEvidenceReaderWithoutBareRetry() {
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "23","A/1","REVISION","actual-bpm","real-task");
+        var relations=new DccRelationRoundEvidence(1L,23L,12L,5L,"REVISION",7,"actual-bpm",false,
+                "本轮没有签名节点",List.of(),List.of(),List.of(),"a".repeat(64));
+        when(stages.readRoundEvidence(99L,23L,"REVISION","actual-bpm",context)).thenReturn(relations);
+        assertSame(relations,query.getApplicationEvidence(99L,23L,"REVISION","actual-bpm",context).relationEvidence());
+        verify(detail).requireBodyRead(99L,file,context);
+        verify(stages,never()).readRoundEvidence(any(),any(),any(),any());
+        doThrow(new IllegalStateException("exact relation task revoked")).when(stages)
+                .readRoundEvidence(99L,23L,"REVISION","actual-bpm",context);
+        assertEquals("exact relation task revoked",assertThrows(IllegalStateException.class,
+                ()->query.getApplicationEvidence(99L,23L,"REVISION","actual-bpm",context)).getMessage());
+        verify(stages,never()).readRoundEvidence(any(),any(),any(),any());
+    }
+
+    @Test void sourceRoundReadRequiresSameTypeRoundAndFormalBodyAuthorization() {
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "23","A/1","OBSOLETE","actual-obsolete","actual-task");
+        query.assertApplicationRoundReadable(99L,23L,"OBSOLETE","actual-obsolete",context);
+        verify(detail).requireBodyRead(99L,file,context);
+        for(var mismatch:List.of(new String[]{"REVISION","actual-obsolete"},new String[]{"OBSOLETE","other-round"}))
+            assertThrows(RuntimeException.class,()->query.assertApplicationRoundReadable(99L,23L,mismatch[0],mismatch[1],context));
+        assertThrows(RuntimeException.class,()->query.assertApplicationRoundReadable(99L,23L,"OBSOLETE","actual-obsolete",null));
+        doThrow(new IllegalStateException("actual task no longer assigned")).when(detail).requireBodyRead(99L,file,context);
+        assertEquals("actual task no longer assigned",assertThrows(IllegalStateException.class,
+                ()->query.assertApplicationRoundReadable(99L,23L,"OBSOLETE","actual-obsolete",context)).getMessage());
+        verify(detail,never()).isAllowed(any(),any(),anyBoolean(),any());
+    }
+
     @Test void authorizedBoundFrozenReadReturnsExactPayloadAfterHistoryAndSnapshotValidation() {
         var relations=new DccRelationRoundEvidence(1L,23L,12L,5L,"REVISION",7,"actual-bpm",false,
                 "本轮没有签名节点",List.of(),List.of(),List.of(),"a".repeat(64));

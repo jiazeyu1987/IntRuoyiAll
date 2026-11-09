@@ -592,10 +592,6 @@ const validateActionForm = () => {
     changeError.value = '提交原因不能为空。'
     return undefined
   }
-  if (changeMode.value === 'APPROVE' && !changeForm.approvalOpinion.trim()) {
-    changeError.value = '审批意见不能为空。'
-    return undefined
-  }
   if (!changeForm.signoffEvidenceHash.trim()) {
     changeError.value = '签核证据不能为空。'
     return undefined

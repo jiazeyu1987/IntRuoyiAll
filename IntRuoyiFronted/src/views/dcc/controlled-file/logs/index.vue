@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="dcc-logs" :body-style="{ padding: '12px' }">
     <UnifiedListTemplate
       table-key="dcc.controlledFile.logs"
       :query-model="queryParams"
@@ -165,10 +165,11 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <Dialog v-model="detailVisible" title="文控日志详情" width="760px">
+  <Dialog v-model="detailVisible" title="文控日志详情" width="min(760px, calc(100vw - 24px))">
     <el-descriptions
       v-if="currentLog"
       data-testid="dcc-controlled-file-log-detail"
+      class="dcc-log-detail"
       :column="2"
       border
     >
@@ -439,6 +440,85 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.dcc-logs {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.dcc-logs :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.dcc-logs :deep(.unified-list-template__toolbar-actions) {
+  margin-left: auto;
+}
+
+.dcc-logs :deep(.unified-list-template__table-shell),
+.dcc-logs :deep(.el-table) {
+  min-width: 0;
+  border-radius: 5px;
+}
+
+.dcc-logs :deep(.unified-list-template__table-shell) {
+  border-color: #dbe3e7;
+}
+
+.dcc-logs :deep(.el-table) {
+  --el-table-border-color: #e4ebee;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #e6f5f2;
+
+  font-size: 13px;
+}
+
+.dcc-logs :deep(.el-table__cell) {
+  padding: 5px 0;
+}
+
+.dcc-logs :deep(.el-table .cell) {
+  padding: 0 8px;
+  line-height: 23px;
+}
+
+.dcc-logs :deep(th.el-table__cell) {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dcc-logs :deep(.el-tag) {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.dcc-logs :deep(.el-button.is-link) {
+  padding: 2px 0;
+  color: #1677b9;
+}
+
+.dcc-logs :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+@media (max-width: 700px) {
+  .dcc-logs :deep(.el-pagination) {
+    justify-content: flex-start;
+  }
+}
+
 .logs-load-error {
   margin: 12px;
   width: auto;
@@ -450,5 +530,13 @@ onMounted(() => {
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.dcc-log-detail :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
+.dcc-log-detail :deep(.el-descriptions__cell) {
+  overflow-wrap: anywhere;
 }
 </style>

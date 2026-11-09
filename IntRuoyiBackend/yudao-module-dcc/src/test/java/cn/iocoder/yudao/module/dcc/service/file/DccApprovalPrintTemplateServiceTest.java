@@ -56,6 +56,8 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileQueryService queryService;
     @Mock
+    private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Mock
     private FileMapper fileMapper;
     @Mock
     private FileService fileService;
@@ -163,6 +165,8 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
                         .signedAt(LocalDateTime.of(2026, 5, 27, 10, 0))
                         .build()));
 
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(901L),99L,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
         DccApprovalPrintRenderedWord result = templateService.exportApprovalWord(99L, 901L);
 
         assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", result.contentType());
@@ -210,6 +214,8 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
                         .signedAt(LocalDateTime.of(2026, 5, 27, 10, 0))
                         .build()));
 
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(901L),99L,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.PRINT)).thenReturn(true);
         var result = templateService.getApprovalPrintHtml(99L, 901L);
 
         assertEquals(1L, result.getTemplateId());
@@ -225,7 +231,7 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void exportApprovalWord_requesterCanExportWithoutCategoryViewPermission() throws Exception {
+    void exportApprovalWord_requesterWithIndependentEditCanExport() throws Exception {
         when(templateMapper.selectActive()).thenReturn(activeTemplate());
         when(queryService.getControlledFile(99L, 901L)).thenReturn(new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO());
         when(fileMapper.selectById(501L)).thenReturn(templateFile());
@@ -242,6 +248,8 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
         when(routeSnapshotMapper.selectListByControlledFileId(901L)).thenReturn(List.of());
         when(signatureMapper.selectListByControlledFileId(901L)).thenReturn(List.of());
 
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(901L),99L,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
         DccApprovalPrintRenderedWord result = templateService.exportApprovalWord(99L, 901L);
 
         String documentXml = readDocumentXml(result.bytes());
@@ -282,9 +290,27 @@ class DccApprovalPrintTemplateServiceTest extends BaseMockitoUnitTest {
         when(routeSnapshotMapper.selectListByControlledFileId(901L)).thenReturn(List.of());
         when(signatureMapper.selectListByControlledFileId(901L)).thenReturn(List.of());
 
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(901L),99L,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
         DccApprovalPrintRenderedWord result = templateService.exportApprovalWord(99L, 901L);
 
         assertArrayEquals(new byte[]{1, 2, 3}, readZipEntry(result.bytes(), "word/media/image1.bin"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void metadataOrApprovalAccessDoesNotGrantPrintOrWordExport(boolean print) {
+        when(queryService.getControlledFile(99L,901L)).thenReturn(new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO());
+        var file=DccControlledFileDO.builder().id(901L).tenantId(1L).dccProjectCodeId(300L).categoryId(10L)
+                .requesterId(99L).status("PENDING_MATRIX_APPROVAL").build();
+        when(controlledFileMapper.selectById(901L)).thenReturn(file);
+        assertServiceException(() -> {
+            if(print) templateService.getApprovalPrintHtml(99L,901L); else templateService.exportApprovalWord(99L,901L);
+        },CONTROLLED_FILE_ACCESS_DENIED);
+        verify(permissionSupport).hasFilePermission(file,99L,print
+                ?cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.PRINT
+                :cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DOWNLOAD);
+        org.mockito.Mockito.verifyNoInteractions(templateMapper,fileMapper,fileService);
     }
 
     private DccApprovalPrintTemplateSaveReqVO saveReq(Long fileId) {

@@ -40,6 +40,8 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper projectProductRelationMapper;
+    @Resource
     private DccRegistrationCertificateMapper registrationCertificateMapper;
     @Resource
     private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
@@ -55,6 +57,15 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
         String catalogProjectCode = StrUtil.trimToNull(catalog.getProjectCode());
+        var approvedRelation = projectProductRelationMapper.selectByProductCatalogId(catalog.getId());
+        if (approvedRelation != null && (!"ACTIVE".equals(approvedRelation.getRelationStatus())
+                || !Objects.equals(approvedRelation.getTenantId(), projectCode.getTenantId())
+                || !Objects.equals(approvedRelation.getProjectCodeId(), projectCode.getId()))) {
+            throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+        }
+        if (approvedRelation != null && reqVO.getRegistrationCertificateId() == null) {
+            throw exception(DCC_DATA_RELATION_CONFLICT);
+        }
         if (catalogProjectCode != null && !StrUtil.equals(catalogProjectCode, StrUtil.trim(projectCode.getProjectCode()))) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }

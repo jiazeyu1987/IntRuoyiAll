@@ -1,6 +1,6 @@
 <template>
-  <el-row :gutter="16">
-    <el-col :span="7">
+  <el-row :gutter="8" class="directory-authorization">
+    <el-col :xs="24" :md="7">
       <ContentWrap>
         <div class="mb-12px flex items-center gap-8px">
           <el-input
@@ -48,7 +48,7 @@
       </ContentWrap>
     </el-col>
 
-    <el-col :span="17">
+    <el-col :xs="24" :md="17">
       <ContentWrap>
         <div v-if="showDirectoryPicker" class="access-rule-directory-picker">
           <el-tree-select
@@ -761,32 +761,92 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.directory-authorization {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c3;
+  --el-color-primary-light-7: #b3ddda;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+}
+
+.directory-authorization > .el-col {
+  min-width: 0;
+}
+
+.directory-authorization :deep(.el-card) {
+  margin-bottom: 8px;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.directory-authorization :deep(.el-button) {
+  min-height: 32px;
+}
+
+.directory-authorization :deep(.el-input__wrapper),
+.directory-authorization :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+.directory-authorization :deep(.el-table) {
+  --el-table-border-color: #dbe3e7;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-row-hover-bg-color: #f0f8f7;
+  font-size: 13px;
+}
+
+.directory-authorization :deep(.el-table th.el-table__cell) {
+  padding: 8px 0;
+  color: #52646e;
+  font-size: 12px;
+}
+
+.directory-authorization :deep(.el-table td.el-table__cell) {
+  padding: 5px 0;
+}
+
+.directory-authorization :deep(.unified-list-template__query-form) {
+  margin-bottom: 8px;
+}
+
+.directory-authorization :deep(.el-switch) {
+  --el-switch-on-color: #008f86;
+  height: 22px;
+}
+
 .access-rule-bound-directory-list {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .access-rule-bound-directory-list__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #e5ebf3;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid #dbe3e7;
+  border-radius: 4px;
   background: #fff;
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .access-rule-bound-directory-list__item:hover {
-  border-color: #bfd2ff;
-  background: #fafcff;
+  border-color: #b9e4df;
+  background: #f0f8f7;
 }
 
 .access-rule-bound-directory-list__item.is-active {
-  border-color: #1677ff;
-  background: #f5f9ff;
+  border-color: #b9e4df;
+  background: #e6f5f2;
+}
+
+.access-rule-bound-directory-list__item.is-active .access-rule-bound-directory-list__path {
+  color: #008f86;
+  font-weight: 600;
 }
 
 .access-rule-bound-directory-list__content {
@@ -817,11 +877,11 @@ onMounted(async () => {
 .access-rule-directory-picker {
   display: grid;
   gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #fafcff;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid #dbe3e7;
+  border-radius: 6px;
+  background: #f5f8f9;
 }
 
 .access-rule-directory-picker__hint {
@@ -836,9 +896,9 @@ onMounted(async () => {
 
 .access-rule-permission-summary--spread {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   width: 100%;
 }
 
@@ -851,10 +911,10 @@ onMounted(async () => {
 
 .access-rule-permission-summary__toggles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  column-gap: 18px;
-  row-gap: 8px;
+  column-gap: 8px;
+  row-gap: 4px;
   flex: 1;
   min-width: 0;
 }
@@ -875,14 +935,30 @@ onMounted(async () => {
   color: #4b5563;
 }
 
-@media (max-width: 1366px) {
-  .access-rule-permission-summary--spread {
-    align-items: flex-start;
-    gap: 10px;
+@media (max-width: 767px) {
+  .directory-authorization :deep(.unified-list-template__toolbar-actions) {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
-  .access-rule-permission-summary__toggles {
-    column-gap: 12px;
+  .directory-authorization :deep(.unified-list-template__toolbar-actions .el-form-item__content) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .directory-authorization :deep(.unified-list-template__toolbar .el-button + .el-button) {
+    margin-left: 0;
+  }
+
+  .access-rule-bound-directory-list {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .directory-authorization :deep(.el-pagination) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
   }
 }
 </style>

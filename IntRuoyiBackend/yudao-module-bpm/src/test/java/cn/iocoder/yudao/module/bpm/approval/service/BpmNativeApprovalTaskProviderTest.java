@@ -788,6 +788,18 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void reviewRejectsBlankRejectionBeforeAnyClaimOrTaskWrite() {
+        for (String reason : java.util.Arrays.asList(null, "", " \t\r\n\u2003\u00a0\u202f\u2007\uFEFF\000")) {
+            var context = ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                    "BPM_TASK_TODO", "task-reject-100", "pi-reject-100", "pi-reject-100",
+                    ApprovalTaskReviewResult.REJECT, reason, "secret", false);
+            var ex = assertThrows(IllegalArgumentException.class, () -> provider.review(context));
+            assertEquals("APPROVAL_REVIEW_REASON_REQUIRED", ex.getMessage());
+        }
+        org.mockito.Mockito.verifyNoInteractions(taskService, flowableTaskService, processInstanceService, centerQuery);
+    }
+
+    @Test
     void pageDoneMapsNativeBpmDoneTasksToUnifiedSummary() {
         HistoricTaskInstance task = mock(HistoricTaskInstance.class);
         when(task.getId()).thenReturn("task-done-100");
@@ -855,6 +867,38 @@ class BpmNativeApprovalTaskProviderTest {
         assertNull(summary.getApprovalResult());
         assertNull(summary.getApprovalRemark());
         assertEquals("pi-done-legacy", summary.getDetailQuery().get("id"));
+    }
+
+    @Test
+    void pageDoneDisplaysUnownedHistoryWithoutInventingBusinessOwnershipOrRejection() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("cancelled-task");
+        when(task.getProcessInstanceId()).thenReturn("old-process");
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 4, "TASK_REASON", "管理员取消旧流程"));
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("old-process");
+        when(instance.getName()).thenReturn("历史文件审批");
+        when(instance.getBusinessKey()).thenReturn("original-file-id");
+        when(instance.getProcessVariables()).thenReturn(Map.of("fileCode", "FILE-OLD"));
+        when(centerQuery.done(any(), eq("BPM"))).thenReturn(new PageResult<>(List.of(task), 1L));
+        when(centerQuery.unownedHistoricProcesses(Set.of("old-process"))).thenReturn(Set.of("old-process"));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("old-process"))).thenReturn(List.of(instance));
+        var enricher = mock(ApprovalTaskSummaryEnricher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "summaryEnrichers", List.of(enricher));
+
+        var summary = provider.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.DONE,
+                ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("BPM_TASK_HISTORY", summary.getSourceTaskType());
+        assertEquals("original-file-id", summary.getBusinessKey());
+        assertTrue(summary.getBusinessContextTags().contains("历史归属证据缺失"));
+        assertTrue(summary.getBusinessContextTags().contains("任务状态：已取消"));
+        assertEquals("CANCEL", summary.getTaskOutcome());
+        assertNull(summary.getApprovalResult());
+        assertNull(summary.getDecisionDetailRoute());
+        assertEquals(Set.of("OPEN_DETAIL"), summary.getAvailableActions());
+        assertEquals("old-process", summary.getDetailQuery().get("id"));
+        org.mockito.Mockito.verifyNoInteractions(enricher);
     }
 
     private static RoleRespDTO registrationManagerRole() {
@@ -1036,4 +1080,24 @@ class BpmNativeApprovalTaskProviderTest {
         verify(centerQuery).copied(captor.capture());
         assertEquals("抄送",captor.getValue().getKeyword());
     }
+    @Test
+    void pageCcEnrichesOnlyExistingFormalHistoryAndKeepsIndependentCopyAfterHistoryRetention() {
+        var copy = new BpmProcessInstanceCopyDO();
+        copy.setId(10L); copy.setProcessInstanceId("pi-copy"); copy.setProcessInstanceName("抄送流程");
+        copy.setActivityName("知会");
+        when(centerQuery.copied(any())).thenReturn(new PageResult<>(List.of(copy), 1L));
+        var enricher = mock(ApprovalTaskSummaryEnricher.class);
+        provider.setSummaryEnrichers(List.of(enricher));
+        when(processInstanceService.getHistoricProcessInstanceMap(Set.of("pi-copy"))).thenReturn(Map.of());
+        var context = ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.CC, ApprovalModuleCode.BPM, null, 1, 10);
+        assertEquals("抄送流程", provider.page(context).getList().get(0).getBusinessTitle());
+        org.mockito.Mockito.verifyNoInteractions(enricher);
+        var history = mock(HistoricProcessInstance.class);
+        when(history.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-obsolete");
+        when(processInstanceService.getHistoricProcessInstanceMap(Set.of("pi-copy"))).thenReturn(Map.of("pi-copy", history));
+        var summary = provider.page(context).getList().get(0);
+        verify(enricher).enrich(summary, "dcc-controlled-file-obsolete");
+        assertEquals("BPM_PROCESS_INSTANCE_COPY", summary.getSourceTaskType());
+    }
+
 }

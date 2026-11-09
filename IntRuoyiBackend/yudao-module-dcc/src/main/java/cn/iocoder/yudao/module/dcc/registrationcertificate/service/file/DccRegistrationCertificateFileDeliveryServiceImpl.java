@@ -114,33 +114,11 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         DccRegistrationCertificateGrantDO grant = null;
         DccRegistrationCertificateFileDO businessFile = null;
         try {
+            accessPolicyService.assertDownloadAllowed(tenantId, userId, businessFileId, now);
             businessFile = requireBusinessFile(tenantId, businessFileId);
             DccRegistrationCertificateVersionDO version = requireVersion(tenantId, businessFile);
             DccRegistrationCertificateDO certificate = requireCertificate(tenantId, version.getCertificateId());
-            DccRegistrationCertificateSnapshotDO snapshot = requireSnapshot(version.getId());
-            if (accessPolicyService.authorizeRegistrationManagerDownloadIfRole(tenantId, userId,
-                    certificate.getId())) {
-                DccProjectCodeDO projectCode = resolveLiveProjectCode(certificate.getProjectCodeId(),
-                        certificate.getProductMasterId());
-                String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
-                FileDO infraFile = requireInfraFile(businessFile);
-                byte[] content;
-                try {
-                    content = fileService.getFileContent(infraFile.getConfigId(), infraFile.getPath());
-                } catch (Exception ex) {
-                    recordAudit(tenantId, userId, null, businessFileId, normalizedAttemptKey, RESULT_FAILURE,
-                            checkedAuditContext, failureMessage(ex));
-                    throw propagate(ex);
-                }
-                recordSuccessfulRegistrationManagerDelivery(tenantId, userId, businessFileId,
-                        normalizedAttemptKey, checkedAuditContext);
-                return new DccRegistrationCertificateFileDownloadResult(
-                        fileName,
-                        firstNotBlank(businessFile.getMimeType(), infraFile.getType()),
-                        content,
-                        null,
-                        businessFileId);
-            }
+            DccRegistrationCertificateSnapshotDO snapshot = requireFileSnapshot(tenantId, version.getId(), businessFile);
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
             DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(),
@@ -195,8 +173,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         DccRegistrationCertificateFileDO file = registrationFileMapper.selectById(businessFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)
                 || !"BOUND".equals(file.getStatus())
-                || !("VERSION".equals(file.getOwnerType()) && "REGISTRATION_CERTIFICATE".equals(file.getFileKind())
-                || "CHANGE".equals(file.getOwnerType()) && "CHANGE_APPROVAL".equals(file.getFileKind()))) {
+                || !("VERSION".equals(file.getOwnerType()) && java.util.Set.of("REGISTRATION_CERTIFICATE", "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
+                || "CHANGE".equals(file.getOwnerType()) && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
         return file;
@@ -224,6 +202,23 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
         return certificate;
+    }
+
+    private DccRegistrationCertificateSnapshotDO requireFileSnapshot(Long tenantId, Long versionId, DccRegistrationCertificateFileDO file) {
+        Long snapshotId;
+        if ("CHANGE".equals(file.getOwnerType())) {
+            snapshotId = jdbcTemplate.query("SELECT resulting_snapshot_id FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND status='APPLIED' AND deleted=0",
+                    rs -> rs.next() ? rs.getLong(1) : null, tenantId, file.getOwnerId());
+        } else {
+            // Original certificate evidence keeps its original approved facts after later changes.
+            var snapshots = snapshotMapper.selectListByVersionId(versionId);
+            snapshotId = snapshots == null || snapshots.isEmpty() ? null : snapshots.get(0).getId();
+        }
+        if (snapshotId == null) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        var snapshot = snapshotMapper.selectById(snapshotId);
+        if (snapshot == null || !Objects.equals(tenantId, snapshot.getTenantId()) || !Objects.equals(versionId,snapshot.getVersionId()))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        return snapshot;
     }
 
     private DccRegistrationCertificateSnapshotDO requireSnapshot(Long versionId) {
@@ -347,24 +342,40 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                                  DccRegistrationCertificateSnapshotDO snapshot,
                                  DccRegistrationCertificateFileDO businessFile) {
         String extension = extensionOf(businessFile.getOriginalName());
-        String changeSuffix = "CHANGE".equals(businessFile.getOwnerType()) ? "_变更文件" : "";
-        String expiredSuffix = "OLD".equals(version.getStatus()) ? "_已失效" : "";
-        String projectSegment = projectCode == null ? "" : safeSegment(projectCode.getProjectCode());
-        return projectSegment + "_"
-                + resolveFileNameDate(certificate, version).format(APPROVAL_DATE_FORMAT) + "_"
-                + safeSegment(snapshot.getProductName()) + changeSuffix + "_"
-                + safeSegment(version.getCertificateNo()) + expiredSuffix + extension;
-    }
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        boolean changed = "CHANGE".equals(businessFile.getOwnerType());
+        boolean expired = facts.isExpired(businessClock.businessDate());
+        LocalDate date = facts.getApprovalDate();
+        String number = facts.getCertificateNo();
+        if (changed) date = jdbcTemplate.query("SELECT approval_date FROM dcc_registration_certificate_change WHERE tenant_id=? AND id=? AND status='APPLIED' AND deleted=0",
+                rs -> rs.next() ? rs.getObject(1, LocalDate.class) : null, businessFile.getTenantId(), businessFile.getOwnerId());
+        if ("CE".equals(facts.getCertificateType())) {
+            var records = facts.getCeCertificates();
+            if (records != null && !records.isEmpty()) {
+                var latest = records.get(records.size()-1); number = latest.getCertificateNo();
 
-    private LocalDate resolveFileNameDate(DccRegistrationCertificateDO certificate,
-                                          DccRegistrationCertificateVersionDO version) {
-        if (version.getApprovalDate() != null) {
-            return version.getApprovalDate();
+            }
+            if (date == null) throw invalidParamException("对应CE证件或批件批准日期缺失，无法生成下载文件名");
+            java.util.List<String> parts=new java.util.ArrayList<>();parts.add(safeSegment(snapshot.getProductName()));
+            if(facts.getProductCode()!=null&&!facts.getProductCode().isBlank())parts.add(safeSegment(facts.getProductCode()));
+            if(date!=null)parts.add(date.format(APPROVAL_DATE_FORMAT));
+            if(number!=null&&!number.isBlank())parts.add(safeSegment(number));
+            if(changed)parts.add("变更文件");if(expired)parts.add("已失效");
+            return String.join("_",parts)+extension;
         }
-        if (certificate.getFirstObtainedDate() != null) {
-            return certificate.getFirstObtainedDate();
+        if ("FDA".equals(facts.getCertificateType())) return safeSegment(snapshot.getProductName()) + "_"
+                + safeSegment(businessFile.getOriginalName().substring(0, businessFile.getOriginalName().lastIndexOf('.'))) + extension;
+        if (date == null) throw invalidParamException("对应国内证件或批件批准日期缺失，无法生成下载文件名");
+        String actualProjectCode;
+        if (Boolean.TRUE.equals(facts.getOwnProduct())) {
+            if (projectCode == null) throw invalidParamException("国内瑛泰注册证缺少系统项目代码，无法生成下载文件名");
+            actualProjectCode=projectCode.getProjectCode();
+        } else {
+            actualProjectCode=requireText(facts.getProjectCode(),"国内其他注册证实际项目代码");
         }
-        throw invalidParamException("注册证下载文件名日期不能为空");
+        return safeSegment(actualProjectCode) + "_" + date.format(APPROVAL_DATE_FORMAT) + "_"
+                + safeSegment(snapshot.getProductName()) + (changed ? "变更文件" : "") + "_"
+                + safeSegment(number) + (expired ? "已失效" : "") + extension;
     }
 
     private static String extensionOf(String originalName) {

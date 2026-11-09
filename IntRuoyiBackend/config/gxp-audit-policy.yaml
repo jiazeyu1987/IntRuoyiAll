@@ -1,7 +1,7 @@
 schemaVersion: gxp-audit-policy.v2
-policyVersion: 20261022-int-main-qms-integration
+policyVersion: 20261027-approval-opinion-optional
 status: DRAFT
-approvalReference: PENDING-REVIEW-20261022-INTEGRATION
+approvalReference: PENDING-REVIEW-20261027-APPROVAL-OPINION
 operations:
 - operationId: APPROVAL_CENTER_REVIEW_COMMIT
   sourceType: SERVICE_METHOD
@@ -10,7 +10,7 @@ operations:
   domain: BPM
   subjectType: APPROVAL_CENTER_REVIEW_RECEIPT
   actionType: CREATE
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: REQUIRED
   statePolicy: ABSENT_TO_PRESENT
   snapshotProfile: SIGNATURE
@@ -474,7 +474,7 @@ operations:
   domain: SIGNATURE
   subjectType: SIGNATURE_RECORD
   actionType: CREATE
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: REQUIRED
   statePolicy: PRESENT_TO_PRESENT
   snapshotProfile: SIGNATURE
@@ -1127,7 +1127,7 @@ operations:
   domain: DCC
   subjectType: DCC_CONTROLLED_FILE
   actionType: CONFIRM
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: REQUIRED
   statePolicy: PRESENT_TO_PRESENT
   retentionClass: GXP_DCC_SIGNATURE
@@ -1527,6 +1527,23 @@ operations:
   - cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService#recordControlled
   ownerRole: dcc-integration
   snapshotProfile: CONTROLLED_FILE
+- operationId: dcc.relation.controlled-import
+  sourceType: SERVICE_METHOD
+  domain: DCC
+  subjectType: DCC_RELATION_SET
+  actionType: CREATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: ABSENT_TO_PRESENT
+  retentionClass: GXP_CONTROLLED_DOCUMENT
+  testIds:
+  - DccControlledImportRelationsDatabaseTest
+  - DccControlledFileHistoricalImportTransactionTest
+  applicability: GXP
+  sourceLocators:
+  - cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore#initializeControlledImportRelations
+  ownerRole: dcc-integration
+  snapshotProfile: CONTROLLED_FILE
 - operationId: dcc.relation.notification.retry
   sourceType: SERVICE_METHOD
   domain: DCC
@@ -1665,7 +1682,7 @@ operations:
   domain: DCC
   subjectType: DCC_PROJECT_PRODUCT_REQUEST
   actionType: REVIEW
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: NONE
   statePolicy: PRESENT_TO_PRESENT
   retentionClass: GXP_CONTROLLED_DOCUMENT
@@ -1682,7 +1699,7 @@ operations:
   domain: DCC
   subjectType: DCC_PROJECT_PRODUCT_REQUEST
   actionType: APPROVE
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: NONE
   statePolicy: PRESENT_TO_PRESENT
   retentionClass: GXP_CONTROLLED_DOCUMENT
@@ -1699,7 +1716,7 @@ operations:
   domain: DCC
   subjectType: DCC_PROJECT_PRODUCT_REQUEST
   actionType: CREATE
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: NONE
   statePolicy: PRESENT_TO_PRESENT
   retentionClass: GXP_CONTROLLED_DOCUMENT
@@ -1716,7 +1733,7 @@ operations:
   domain: DCC
   subjectType: DCC_PROJECT_PRODUCT_REQUEST
   actionType: UPDATE
-  reasonPolicy: USER_REQUIRED
+  reasonPolicy: APPROVAL_DECISION
   signaturePolicy: NONE
   statePolicy: PRESENT_TO_PRESENT
   retentionClass: GXP_CONTROLLED_DOCUMENT

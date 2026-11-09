@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest {
+    @Mock private DccProjectReferenceReadAccess projectReferenceReadAccess;
     @Mock private DccArchiveAccessService archiveAccess;
     @Test void archivedHistoryIntentDoesNotGrantFormerApproverBodyRead() {
         g07Actor();var file=g07File("OBSOLETE");
@@ -142,6 +143,59 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
                 .id(700L).tenantId(31L).dccProjectCodeId(300L).categoryId(10L).fileTypeTaxonomyLeafId(66L)
                 .normalizedFileNumber("SOP-001").build();
         when(masterMapper.selectById(700L)).thenReturn(master);
+    }
+
+    private DccControlledFileDO pendingImport() {
+        var file=g07File("CONTROLLED_PENDING_EFFECTIVE");
+        file.setActivatedTime(null); file.setImportSource(DccControlledFileHistoricalImportService.SOURCE);
+        file.setEffectiveMode(DccControlledFileHistoricalImportService.SOURCE); file.setImportedBy(99L);
+        file.setImportedTime(java.time.LocalDateTime.of(2026,11,2,12,0));
+        file.setControlledTime(java.time.LocalDateTime.of(2026,10,1,12,0));
+        file.setEffectiveTime(java.time.LocalDateTime.of(2099,1,1,0,0));
+        file.setReadOnlyFileId(901L); file.setPublishedFileId(901L);
+        return file;
+    }
+
+    private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO pendingImportMaster() {
+        var master=cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO.builder()
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).categoryId(10L).fileTypeTaxonomyLeafId(66L)
+                .normalizedFileNumber("SOP-001").latestControlledFileId(910L).build();
+        org.mockito.Mockito.lenient().when(masterMapper.selectById(700L)).thenReturn(master); return master;
+    }
+
+    @Test void futureImportCanBeInspectedWithViewGrantButNeverAsDailyBody() {
+        g07Actor(); var file=pendingImport(); pendingImportMaster();
+        when(permissionSupport.hasFilePermission(file,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW)).thenReturn(true);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> guard.requireBodyRead(99L,file,
+                g07Context(DccControlledFileBodyReadContext.Intent.VERSION_HISTORY,null,null)));
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireBodyRead(99L,file,DccControlledFileBodyReadContext.daily(910L)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"native","noView","wrongLatest","hasActive","assignment","project","tenant","masterIdentity"})
+    void pendingImportHistoryRejectsOtherOriginsAndScopes(String reason) {
+        g07Actor(); var file=pendingImport();
+        var master=pendingImportMaster();
+        org.mockito.Mockito.lenient().when(permissionSupport.hasFilePermission(file,99L,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW)).thenReturn(!reason.equals("noView"));
+        switch(reason) {
+            case "native" -> file.setImportSource(null);
+            case "wrongLatest" -> master.setLatestControlledFileId(911L);
+            case "hasActive" -> master.setCurrentActiveControlledFileId(911L);
+            case "assignment" -> when(assignmentScopeService.isWithinAssignedFileScope(99L,910L)).thenReturn(false);
+            case "project" -> when(projectAccessService.listReadableProjectIds(99L)).thenReturn(java.util.List.of());
+            case "tenant" -> TenantContextHolder.setTenantId(32L);
+            case "masterIdentity" -> master.setFileTypeTaxonomyLeafId(67L);
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> guard.requireBodyRead(99L,file,g07Context(DccControlledFileBodyReadContext.Intent.VERSION_HISTORY,null,null)));
+    }
+
+    @Test void importMarkerWithoutStoredProvenanceIsAnExplicitDataError() {
+        g07Actor(); var file=pendingImport(); file.setImportedBy(null);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> guard.requireBodyRead(99L,file,g07Context(DccControlledFileBodyReadContext.Intent.VERSION_HISTORY,null,null)));
     }
 
     private void g07Round(DccControlledFileDO file, boolean active) {

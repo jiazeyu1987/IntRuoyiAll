@@ -113,8 +113,7 @@ public class DccPaperDistributionAckServiceImpl implements DccPaperDistributionA
         }
         adminUserApi.validateUserList(normalizedRecipientUserIds);
         if (!ACK_ALLOWED_FILE_STATUSES.contains(file.getStatus())
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
             throw exception(CONTROLLED_FILE_DISTRIBUTION_ACK_NOT_ALLOWED);
         }
         DccControlledFileDistributionDO distribution = distributionMapper.selectById(distributionId);
@@ -192,8 +191,7 @@ public class DccPaperDistributionAckServiceImpl implements DccPaperDistributionA
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
         if (!ACK_ALLOWED_FILE_STATUSES.contains(file.getStatus())
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
             throw exception(CONTROLLED_FILE_DISTRIBUTION_ACK_NOT_ALLOWED);
         }
         DccControlledFileDistributionDO distribution = distributionMapper.selectById(distributionId);

@@ -1,5 +1,6 @@
 <template>
   <div class="dcc-project-references">
+    <el-alert title="引用文件需要升版时，请先取消当前文件夹中的引用，再上传一份新文件；源文件需要升版时，须先取消指向该文件的全部引用关系，再按源文件升版流程办理。" type="info" :closable="false" show-icon />
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <div class="dcc-project-references__toolbar">
     <el-button v-if="isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>

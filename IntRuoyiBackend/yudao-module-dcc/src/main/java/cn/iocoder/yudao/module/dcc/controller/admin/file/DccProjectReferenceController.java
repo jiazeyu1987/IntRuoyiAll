@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService;
 import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceView;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceListView;
 import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceUsage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -18,7 +19,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class DccProjectReferenceController extends DccRelationsExceptionHandler {
     private final DccProjectReferenceService service;
     public DccProjectReferenceController(DccProjectReferenceService service){this.service=service;}
-    @GetMapping public CommonResult<List<ReferenceView>> list(@RequestParam Long projectId,@RequestParam Long folderId){
+    @GetMapping public CommonResult<List<ReferenceListView>> list(@RequestParam Long projectId,@RequestParam Long folderId){
         return success(service.list(SecurityFrameworkUtils.getLoginUserId(),projectId,folderId));
     }
     @GetMapping("/usage") public CommonResult<ReferenceUsage> usage(@RequestParam Long selectedFileId){

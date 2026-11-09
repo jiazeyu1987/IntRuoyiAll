@@ -61,6 +61,8 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
     @BeforeEach void fixture() throws Exception {
         TenantContextHolder.setTenantId(1L);jdbc=new JdbcTemplate(source);try(var connection=source.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_electronic_signature(id BIGINT PRIMARY KEY,module_code VARCHAR(64),action_code VARCHAR(64),subject_type VARCHAR(128),subject_id CLOB,subject_version VARCHAR(128),actor_id BIGINT,meaning_code VARCHAR(128),meaning_label VARCHAR(128),reason CLOB,signed_at TIMESTAMP,time_evidence_id VARCHAR(128),authentication_method VARCHAR(128),content_hash VARCHAR(128),before_content_hash VARCHAR(128),after_content_hash VARCHAR(128),canonical_content_json CLOB,before_content_json CLOB,after_content_json CLOB,field_diff_json CLOB,evidence_hash VARCHAR(128),algorithm VARCHAR(64),key_version VARCHAR(128),policy_version VARCHAR(128),verification_status VARCHAR(64),idempotency_key VARCHAR(1024),command_hash VARCHAR(128),process_instance_id VARCHAR(128),task_id VARCHAR(128),node_code VARCHAR(128),node_order INT,tenant_id BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted BIT DEFAULT 0)");jdbc.update("DELETE FROM system_electronic_signature");
+        jdbc.execute("ALTER TABLE system_electronic_signature ADD COLUMN IF NOT EXISTS evidence_format_version VARCHAR(128)");
+        jdbc.execute("ALTER TABLE system_electronic_signature ADD COLUMN IF NOT EXISTS command_hash_version VARCHAR(128)");
         var cfg=new SpringProcessEngineConfiguration();cfg.setDataSource(source);cfg.setTransactionManager(tx);cfg.setDatabaseSchemaUpdate("true");cfg.setDatabaseType("mysql");cfg.setAsyncExecutorActivate(false);cfg.setDisableIdmEngine(true);engine=cfg.buildProcessEngine();
         modelXml="""
          <?xml version="1.0" encoding="UTF-8"?>
@@ -74,7 +76,7 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
         engine.getIdentityService().setAuthenticatedUserId("99");try{bpm=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId(DccControlledFileProcessDefinitionKeys.UPLOAD,FILE+"",Map.of("actor","99"),"1").getId();}finally{engine.getIdentityService().setAuthenticatedUserId(null);}
         task=engine.getTaskService().createTaskQuery().processInstanceId(bpm).singleResult().getId();
         masters.insert(DccControlledFileMasterDO.builder().id(10L).tenantId(1L).categoryId(2L).directoryId(3L).fileName("SOP").fileNumber("N-1").dccProjectCodeId(5L).fileTypeTaxonomyLeafId(6L).normalizedFileNumber("N-1").status("ACTIVE_CHAIN").build());
-        files.insert(DccControlledFileDO.builder().id(FILE).tenantId(1L).masterId(10L).categoryId(2L).directoryId(3L).sourceFileId(100L).originalFileId(100L).fileName("SOP").title("SOP").sourceOriginalFileName("SOP.pdf").fileNumber("N-1").versionNo("A/1").status("PENDING_MATRIX_APPROVAL").requesterId(99L).submitterId(99L).dccProjectCodeId(5L).fileTypeTaxonomyId(6L).processInstanceId(bpm).processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD).build());
+        files.insert(DccControlledFileDO.builder().id(FILE).tenantId(1L).masterId(10L).categoryId(2L).directoryId(3L).sourceFileId(100L).originalFileId(100L).fileName("SOP").title("SOP").sourceOriginalFileName("SOP.pdf").fileNumber("N-1").versionNo("A/1").status("PENDING_MATRIX_APPROVAL").requesterId(OWNER).submitterId(OWNER).dccProjectCodeId(5L).fileTypeTaxonomyId(6L).processInstanceId(bpm).processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD).build());
         for(int i=1;i<=3;i++)routes.insert(DccControlledFileRouteSnapshotDO.builder().controlledFileId(FILE).routeVersionNo(1).stageNo(i).stageOrder(i).stageName("正式签核阶段").candidateSourceType("USER").approveMethod("SEQUENTIAL").requireAllApprovals(false).stageCode(i==1?"MATRIX_REVIEW":i==2?"MATRIX_APPROVAL":"DOC_CONTROL_REVIEW").resolvedUserIds("99,100").build());
         accounts=mock(AdminUserApi.class);when(accounts.getUser(OWNER)).thenReturn(new AdminUserRespDTO().setId(OWNER).setTenantId(1L).setStatus(0).setUsername("old-owner-account").setNickname("首次负责人"));when(accounts.getUser(8L)).thenReturn(new AdminUserRespDTO().setId(8L).setTenantId(1L).setStatus(0).setUsername("next-owner").setNickname("返工负责人"));
         audit=mock(GxpAuditService.class);var unified=new ElectronicSignatureServiceImpl();wire(unified,"adminUserApi",accounts,"signatureRecordMapper",unifiedRows,"gxpAuditService",audit,"subjectAdapters",List.of(new DccControlledFileSignatureSubjectAdapter()));
@@ -99,10 +101,10 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
     }
     @AfterEach void cleanup(){try{if(engine!=null){for(var p:engine.getRuntimeService().createProcessInstanceQuery().list())engine.getRuntimeService().deleteProcessInstance(p.getId(),"isolated owner cleanup");engine.close();}}finally{jdbc.update("DELETE FROM system_electronic_signature");SecurityContextHolder.clearContext();TenantContextHolder.clear();}}
     void login(long actor){var user=new LoginUser();user.setId(actor);user.setTenantId(1L);user.setUserType(2);user.setInfo(Map.of("username","approver"+actor,"nickname","批准人"));SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user,null,List.of()));}
-    DccControlledFileApproveTaskReqVO request(String id,long selected){var req=new DccControlledFileApproveTaskReqVO();req.setTaskId(id);req.setPassword("isolated-credential");req.setReason("本次真实批准意见");req.setFileOwnerUserId(selected);return req;}
+    DccControlledFileApproveTaskReqVO request(String id){var req=new DccControlledFileApproveTaskReqVO();req.setTaskId(id);req.setPassword("isolated-credential");req.setReason("本次真实批准意见");return req;}
     @Test void actualHttpApprovalCommitsRealOwnerHmacUnifiedSignatureAndBpmTaskTogether() throws Exception {
         login(99L);var controller=new DccControlledFileController();wire(controller,"workflowService",workflow);
-        var response=MockMvcBuilders.standaloneSetup(controller).build().perform(post("/dcc/controlled-files/"+FILE+"/approve-task").contentType("application/json").content("{\"taskId\":\""+task+"\",\"password\":\"isolated-credential\",\"reason\":\"本次真实批准意见\",\"fileOwnerUserId\":\""+OWNER+"\"}")).andReturn();
+        var response=MockMvcBuilders.standaloneSetup(controller).build().perform(post("/dcc/controlled-files/"+FILE+"/approve-task").contentType("application/json").content("{\"taskId\":\""+task+"\",\"password\":\"isolated-credential\",\"reason\":\"本次真实批准意见\"}")).andReturn();
         assertEquals(200,response.getResponse().getStatus());var json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(response.getResponse().getContentAsString(StandardCharsets.UTF_8),com.fasterxml.jackson.databind.JsonNode.class);assertEquals(0,json.get("code").intValue());
         var saved=files.selectById(FILE);assertEquals(OWNER,saved.getFileOwnerUserId());assertEquals("首次负责人",saved.getFileOwnerNicknameSnapshot());assertEquals(bpm,saved.getFileOwnerProcessInstanceId());
         var signed=signatures.selectById(saved.getFileOwnerSignatureId());assertTrue(signed.getComment().contains(OWNER+""));assertTrue(signed.getComment().contains("old-owner-account"));assertEquals("v4-workflow",signed.getEvidencePayloadVersion());assertEquals(task,signed.getTaskId());assertEquals(1,unifiedRows.selectList().size());
@@ -112,46 +114,48 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
         assertEquals(signed.getEvidenceHash(),cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(unifiedRows.selectList().get(0).getCanonicalContentJson(),com.fasterxml.jackson.databind.JsonNode.class).get("legacyEvidenceHash").asText());assertNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
     }
     @Test void bindCannotAttachDifferentSelectionToAnAuthenticSignedOwnerReason() {
-        login(99L);var file=files.selectById(FILE);var selected=owner.prepare(file,cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum.MATRIX_APPROVAL,OWNER);String reason=owner.signedReason("批准",selected);
+        login(99L);var file=files.selectById(FILE);var selected=owner.prepare(file,cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum.MATRIX_APPROVAL,null);String reason=owner.signedReason("批准",selected);
         new org.springframework.transaction.support.TransactionTemplate(tx).executeWithoutResult(s->{var signature=signing.verifyPasswordAndCreateWorkflowSignature(99L,FILE,task,bpm,"MATRIX_APPROVAL","APPROVE","isolated",reason);
             assertThrows(IllegalStateException.class,()->owner.bind(file,task,99L,signature.getSignatureId(),new DccApprovalFileOwnerSelectionService.Selection(8L,"next-owner","返工负责人"),reason));
         });
         assertNull(files.selectById(FILE).getFileOwnerUserId());
     }
-    @Test void realSameBpmReturnAndReapprovalKeepsBothSignedOwnersAndProjectsTheNewChoice() {
-        login(99L);workflow.approveTask(99L,FILE,request(task,OWNER));var first=signatures.selectById(files.selectById(FILE).getFileOwnerSignatureId());
+    @Test void realSameBpmReturnAndReapprovalKeepsBothSignedFactsForTheSameCompiler() {
+        login(99L);workflow.approveTask(99L,FILE,request(task));var first=signatures.selectById(files.selectById(FILE).getFileOwnerSignatureId());
         // Real generic BPM return uses its formal model guard, comments/history and Flowable state change.
         returnToApproval();
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_APPROVAL' WHERE id=?",FILE);String again=engine.getTaskService().createTaskQuery().processInstanceId(bpm).singleResult().getId();
-        workflow.approveTask(99L,FILE,request(again,8L));assertEquals(8L,files.selectById(FILE).getFileOwnerUserId());assertEquals(2,signatures.selectListByControlledFileId(FILE).size());assertEquals(first.getComment(),signatures.selectById(first.getId()).getComment());assertTrue(first.getComment().contains("首次负责人"));
+        workflow.approveTask(99L,FILE,request(again));assertEquals(OWNER,files.selectById(FILE).getFileOwnerUserId());assertEquals(2,signatures.selectListByControlledFileId(FILE).size());assertEquals(first.getComment(),signatures.selectById(first.getId()).getComment());assertTrue(first.getComment().contains("首次负责人"));
     }
     @Test void realLateFlowableFailureRollsBackOwnerBothSignaturesAndTaskCompletion() {
         login(99L);
         doAnswer(c->{c.callRealMethod();throw new IllegalStateException("isolated late Flowable failure after complete");})
                 .when(actualTasks).complete(eq(task),anyMap(),eq(true));
-        assertThrows(IllegalStateException.class,()->workflow.approveTask(99L,FILE,request(task,OWNER)));
+        assertThrows(IllegalStateException.class,()->workflow.approveTask(99L,FILE,request(task)));
         assertNull(files.selectById(FILE).getFileOwnerUserId());assertEquals(0,signatures.selectListByControlledFileId(FILE).size());assertEquals(0,unifiedRows.selectList().size());
         assertNotNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
         assertEquals(0,engine.getHistoryService().createHistoricTaskInstanceQuery().taskId(task).finished().count());
     }
     @Test void unifiedAuditFailureRollsBackOwnerAndBothSignatureRowsBeforeAdvancingBpm() {
         login(99L);doThrow(new IllegalStateException("isolated unified audit failure")).when(audit).append(any());
-        assertThrows(IllegalStateException.class,()->workflow.approveTask(99L,FILE,request(task,OWNER)));
+        assertThrows(IllegalStateException.class,()->workflow.approveTask(99L,FILE,request(task)));
         assertNull(files.selectById(FILE).getFileOwnerUserId());assertEquals(0,signatures.selectListByControlledFileId(FILE).size());assertEquals(0,unifiedRows.selectList().size());
         assertNotNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
     }
     @Test void actualCompletedTaskReplayCannotReplaceOwnerOrCreateAnotherSignature() {
-        login(99L);workflow.approveTask(99L,FILE,request(task,OWNER));var saved=files.selectById(FILE);
-        assertThrows(RuntimeException.class,()->workflow.approveTask(99L,FILE,request(task,8L)));
+        login(99L);workflow.approveTask(99L,FILE,request(task));var saved=files.selectById(FILE);
+        assertThrows(RuntimeException.class,()->workflow.approveTask(99L,FILE,request(task)));
         assertEquals(saved.getFileOwnerSignatureId(),files.selectById(FILE).getFileOwnerSignatureId());assertEquals(OWNER,files.selectById(FILE).getFileOwnerUserId());
         assertEquals(1,signatures.selectListByControlledFileId(FILE).size());assertEquals(1,unifiedRows.selectList().size());
     }
-    @ParameterizedTest @ValueSource(ints={1,2,3,4})
-    void actualPublicApprovalRejectsWrongActorTenantInactiveOwnerAndMissingOwnerWithZeroFacts(int invalid) {
+    @ParameterizedTest @ValueSource(ints={1,2,3,4,5})
+    void actualPublicApprovalRejectsWrongActorForeignInactiveMissingCompilerAndCallerSelectionWithZeroFacts(int invalid) {
         login(invalid==1?100L:99L);
         if(invalid==2)when(accounts.getUser(OWNER)).thenReturn(new AdminUserRespDTO().setId(OWNER).setTenantId(2L).setStatus(0).setUsername("foreign").setNickname("外租户"));
         if(invalid==3)when(accounts.getUser(OWNER)).thenReturn(new AdminUserRespDTO().setId(OWNER).setTenantId(1L).setStatus(1).setUsername("inactive").setNickname("停用"));
-        var req=request(task,OWNER);if(invalid==4)req.setFileOwnerUserId(null);
+        var req=request(task);
+        if(invalid==4)when(accounts.getUser(OWNER)).thenReturn(null);
+        if(invalid==5)req.setFileOwnerUserId(OWNER);
         assertThrows(RuntimeException.class,()->workflow.approveTask(invalid==1?100L:99L,FILE,req));
         assertNull(files.selectById(FILE).getFileOwnerUserId());assertEquals(0,signatures.selectListByControlledFileId(FILE).size());assertEquals(0,unifiedRows.selectList().size());
         assertNotNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
@@ -169,7 +173,7 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
     }
     @Test void actualRevisionApprovalUsesTheSameOwnerHmacAndBpmContract() {
         startOtherNativeProcess(DccControlledFileProcessDefinitionKeys.REVISION,false);login(99L);
-        workflow.approveTask(99L,FILE,request(task,OWNER));var saved=files.selectById(FILE);var signed=signatures.selectById(saved.getFileOwnerSignatureId());
+        workflow.approveTask(99L,FILE,request(task));var saved=files.selectById(FILE);var signed=signatures.selectById(saved.getFileOwnerSignatureId());
         assertEquals(OWNER,saved.getFileOwnerUserId());assertEquals(bpm,signed.getProcessInstanceId());assertEquals("v4-workflow",signed.getEvidencePayloadVersion());
         assertEquals(1,unifiedRows.selectList().size());assertNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
     }
@@ -178,29 +182,29 @@ class DccFileOwnerPublicApprovalTest extends BaseDbUnitTest {
         String second=engine.getTaskService().createTaskQuery().processInstanceId(bpm).taskAssignee("100").singleResult().getId();
         var ready=new CountDownLatch(2);var go=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
         try {
-            var firstFuture=pool.submit(()->concurrentApprove(99L,task,OWNER,ready,go));
-            var secondFuture=pool.submit(()->concurrentApprove(100L,second,8L,ready,go));
+            var firstFuture=pool.submit(()->concurrentApprove(99L,task,ready,go));
+            var secondFuture=pool.submit(()->concurrentApprove(100L,second,ready,go));
             assertTrue(ready.await(10,TimeUnit.SECONDS));go.countDown();firstFuture.get(20,TimeUnit.SECONDS);secondFuture.get(20,TimeUnit.SECONDS);
             var saved=files.selectById(FILE);var records=signatures.selectListByControlledFileId(FILE);assertEquals(2,records.size());assertEquals(2,unifiedRows.selectList().size());
             var current=signatures.selectById(saved.getFileOwnerSignatureId());assertEquals(saved.getFileOwnerApprovalTaskId(),current.getTaskId());assertTrue(current.getComment().contains(saved.getFileOwnerNicknameSnapshot()));
             assertTrue(records.stream().anyMatch(r->r.getActorId()==99L && r.getComment().contains("首次负责人")));
-            assertTrue(records.stream().anyMatch(r->r.getActorId()==100L && r.getComment().contains("返工负责人")));
+            assertTrue(records.stream().anyMatch(r->r.getActorId()==100L && r.getComment().contains("首次负责人")));
             assertEquals(1,engine.getTaskService().createTaskQuery().processInstanceId(bpm).taskDefinitionKey("DOC_CONTROL_REVIEW").count());
         } finally {go.countDown();pool.shutdownNow();assertTrue(pool.awaitTermination(10,TimeUnit.SECONDS));}
     }
-    void concurrentApprove(long actor,String actualTask,long chosen,CountDownLatch ready,CountDownLatch go) {
+    void concurrentApprove(long actor,String actualTask,CountDownLatch ready,CountDownLatch go) {
         TenantContextHolder.setTenantId(1L);login(actor);ready.countDown();
-        try {if(!go.await(10,TimeUnit.SECONDS))throw new IllegalStateException("isolated concurrency start timeout");workflow.approveTask(actor,FILE,request(actualTask,chosen));}
+        try {if(!go.await(10,TimeUnit.SECONDS))throw new IllegalStateException("isolated concurrency start timeout");workflow.approveTask(actor,FILE,request(actualTask));}
         catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}
         finally {SecurityContextHolder.clearContext();TenantContextHolder.clear();}
     }
     @Test void renamedAccountDoesNotRewritePriorHmacButFreshApprovalSnapshotsItsCurrentName() {
-        login(99L);workflow.approveTask(99L,FILE,request(task,OWNER));var prior=signatures.selectById(files.selectById(FILE).getFileOwnerSignatureId());
+        login(99L);workflow.approveTask(99L,FILE,request(task));var prior=signatures.selectById(files.selectById(FILE).getFileOwnerSignatureId());
         when(accounts.getUser(OWNER)).thenReturn(new AdminUserRespDTO().setId(OWNER).setTenantId(1L).setStatus(0).setUsername("renamed-owner").setNickname("新的账号名字"));
         assertEquals("首次负责人",files.selectById(FILE).getFileOwnerNicknameSnapshot());assertEquals(prior.getComment(),signatures.selectById(prior.getId()).getComment());
         returnToApproval();
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_APPROVAL' WHERE id=?",FILE);
-        String next=engine.getTaskService().createTaskQuery().processInstanceId(bpm).singleResult().getId();workflow.approveTask(99L,FILE,request(next,OWNER));
+        String next=engine.getTaskService().createTaskQuery().processInstanceId(bpm).singleResult().getId();workflow.approveTask(99L,FILE,request(next));
         assertEquals("新的账号名字",files.selectById(FILE).getFileOwnerNicknameSnapshot());assertEquals(prior.getComment(),signatures.selectById(prior.getId()).getComment());
         assertEquals(2,signatures.selectListByControlledFileId(FILE).size());
     }

@@ -71,6 +71,20 @@ public class DccControlledContentAdapter {
     }
 
     public void recordNativeObsoleted(DccControlledFileDO before,DccControlledFileDO successor,Long actorId,String eventKey) {
+        if(DccControlledFileHistoricalImportService.SOURCE.equals(before.getImportSource())) {
+            DccControlledFileHistoricalImportService.requireImportFacts(before);
+            requireNativeControlledFile(successor);
+            if(!java.util.Objects.equals(before.getMasterId(),successor.getMasterId()))
+                throw new IllegalStateException("导入原件与新版必须属于同一逻辑文件");
+            var from=ControlledContentCanonicalStatus.valueOf(before.getStatus());
+            if(from!=ControlledContentCanonicalStatus.ACTIVE && from!=ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE)
+                throw new IllegalStateException("导入原件不是受控状态");
+            lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(before),before.getId(),from,
+                    ControlledContentCanonicalStatus.OBSOLETE,"OBSOLETE",from==ControlledContentCanonicalStatus.ACTIVE
+                            ?ControlledContentTransitionAction.OBSOLETE_ACTIVE:ControlledContentTransitionAction.OBSOLETE_CONTROLLED,
+                    actorId,"新版生效自动作废",null,requireEventKey(eventKey,"import-obsolete"));
+            return;
+        }
         requireNativeControlledFile(before);requireNativeControlledFile(successor);
         if(!java.util.Objects.equals(before.getMasterId(),successor.getMasterId()))
             throw new IllegalStateException("DCC obsolete successor must belong to the same Master");
@@ -271,6 +285,15 @@ public class DccControlledContentAdapter {
 
     public void recordObsoleted(DccControlledFileDO file, Long actorId, String reason, String eventKey) {
         requireFile(file);
+        if(DccControlledFileHistoricalImportService.SOURCE.equals(file.getImportSource())) {
+            DccControlledFileHistoricalImportService.requireImportFacts(file);
+            var from=ControlledContentCanonicalStatus.valueOf(file.getStatus());
+            lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file),file.getId(),from,
+                    ControlledContentCanonicalStatus.OBSOLETE,"OBSOLETE",from==ControlledContentCanonicalStatus.ACTIVE
+                        ?ControlledContentTransitionAction.OBSOLETE_ACTIVE:ControlledContentTransitionAction.OBSOLETE_CONTROLLED,
+                    actorId,reason,null,requireEventKey(eventKey,"import-obsolete"));
+            return;
+        }
         if("CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())
                 || DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
                 || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())) {

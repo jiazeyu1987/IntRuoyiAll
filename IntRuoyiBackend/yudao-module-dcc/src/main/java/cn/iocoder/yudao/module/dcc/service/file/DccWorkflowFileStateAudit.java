@@ -229,8 +229,8 @@ public class DccWorkflowFileStateAudit {
         if(before==null || signature==null || login==null || !Objects.equals(login.getId(),signature.getActorId())
                 || !Objects.equals(login.getTenantId(),before.tenantId()) || !Objects.equals(signature.getControlledFileId(),before.fileId())
                 || !Objects.equals(signature.getProcessInstanceId(),round) || signature.getSelectedEffectiveTime()==null || signature.getSignedAt()==null
-                || !DccDelayedEffectiveConfirmationEvidence.MEANING.equals(signature.getMeaningCode()) || signature.getComment()==null || signature.getComment().isBlank())
-            throw new IllegalStateException("延迟确认审计必须绑定本次原编制人的真实签名与原因");
+                || !DccDelayedEffectiveConfirmationEvidence.MEANING.equals(signature.getMeaningCode()) || !"APPROVE".equals(signature.getActionType()))
+            throw new IllegalStateException("延迟确认审计必须绑定本次原编制人的真实签名");
         var saved=jdbcTemplate.queryForObject("""
             SELECT f.delayed_effective_time,f.delayed_effective_confirmed_at,f.delayed_effective_signature_id,f.delayed_effective_process_instance_id,
               s.selected_effective_time,s.attribute_round,s.signed_at,s.evidence_hash,s.actor_id,s.comment
@@ -259,6 +259,7 @@ public class DccWorkflowFileStateAudit {
         }
         afterFacts.put("delayedEffectiveTime",signature.getSelectedEffectiveTime().toString());afterFacts.put("delayedEffectiveConfirmedAt",signature.getSignedAt().toString());
         afterFacts.put("delayedEffectiveSignatureId",signature.getId());afterFacts.put("delayedEffectiveProcessInstanceId",round);
+        afterFacts.put("approvalResult",signature.getActionType());
         var enrichedBefore=new Snapshot(before.tenantId(),before.fileId(),before.masterId(),before.version(),before.status(),JsonUtils.toJsonString(beforeFacts));
         var enrichedAfter=new Snapshot(after.tenantId(),after.fileId(),after.masterId(),after.version(),after.status(),JsonUtils.toJsonString(afterFacts));
         append("dcc.controlled-file.delayed-effective-confirm",enrichedBefore,round,signature.getComment(),false,
@@ -269,7 +270,8 @@ public class DccWorkflowFileStateAudit {
                         String signatureRecordId,String signatureContentHash,Snapshot lockedAfter) {
         requireTransaction();
         if (before == null || !Objects.equals(before.tenantId(), TenantContextHolder.getRequiredTenantId())
-                || round == null || round.isBlank() || reason == null || reason.isBlank())
+                || round == null || round.isBlank()
+                || !"dcc.controlled-file.delayed-effective-confirm".equals(operation) && (reason == null || reason.isBlank()))
             throw new IllegalStateException("文件状态审计真实轮次、原因或租户缺失");
         var login = SecurityFrameworkUtils.getLoginUser();
         if (login != null && !Objects.equals(login.getTenantId(), before.tenantId()))

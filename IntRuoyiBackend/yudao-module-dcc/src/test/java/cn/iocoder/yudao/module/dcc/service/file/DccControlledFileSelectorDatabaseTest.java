@@ -156,6 +156,7 @@ class DccControlledFileSelectorDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"controlledFileMapper",controlledFileMapper);
         ReflectionTestUtils.setField(query,"applicationEvidenceMapper",evidenceMapper);
         var guard=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService","offlineTraining"})
             ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         var view=(DccControlledFileViewMatrixAccessService)ReflectionTestUtils.getField(query,"viewMatrixAccessService");
@@ -194,6 +195,7 @@ class DccControlledFileSelectorDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"controlledFileMapper",controlledFileMapper);
         ReflectionTestUtils.setField(query,"applicationEvidenceMapper",evidenceMapper);
         var guard=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService",
                 "distributionRecipientMapper","routeSnapshotMapper","bpmTaskService","offlineTraining"})
             ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
@@ -276,6 +278,7 @@ class DccControlledFileSelectorDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"controlledFileMapper",controlledFileMapper);
         ReflectionTestUtils.setField(query,"applicationEvidenceMapper",evidenceMapper);
         var guard=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService","offlineTraining"})
             ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         var view=(DccControlledFileViewMatrixAccessService)ReflectionTestUtils.getField(query,"viewMatrixAccessService");

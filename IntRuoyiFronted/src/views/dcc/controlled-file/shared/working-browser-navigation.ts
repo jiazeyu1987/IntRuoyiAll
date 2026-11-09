@@ -28,7 +28,7 @@ export const buildWorkingBrowserRoute = (file: {
   }
   if (typeof file.fileNumber !== 'string' || !file.fileNumber.trim()) throw new Error('文件缺少正式编号，无法定位检出/检入入口')
   return { name: 'DccControlledFileBrowser', query: {
-    browserMode: 'storage', ...directoryQuery, scope: projectFolderLocation ? 'global' : 'current',
+    browserMode: 'working', ...directoryQuery, scope: projectFolderLocation ? 'global' : 'current',
     keyword: file.fileNumber.trim(), workingFileId: id, workingMasterId: master
   } }
 }
@@ -48,6 +48,6 @@ export const resolveWorkingBrowserSelection = (
 
 export const workingBrowserIdentityQuery = (query: { workingFileId?: unknown; workingMasterId?: unknown }): Record<string, string> => {
   if (query.workingFileId === undefined && query.workingMasterId === undefined) return {}
-  return { browserMode: 'storage', workingFileId: exactId(query.workingFileId, '所选文件'),
+  return { browserMode: 'working', workingFileId: exactId(query.workingFileId, '所选文件'),
     workingMasterId: exactId(query.workingMasterId, '所选逻辑文件') }
 }

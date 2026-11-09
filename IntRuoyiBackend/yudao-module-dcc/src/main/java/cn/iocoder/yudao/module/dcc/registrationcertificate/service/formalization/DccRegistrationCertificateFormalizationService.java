@@ -57,7 +57,8 @@ public class DccRegistrationCertificateFormalizationService {
         assertResolvedProjection(state, resolved);
         DccRegistrationCertificateFileDO file = requireStagedFile(
                 tenantId, state.version().getId(), businessFileId);
-        boolean immediate = !state.version().getEffectiveDate().isAfter(businessClock.businessDate());
+        boolean immediate = state.version().getEffectiveDate() == null
+                || !state.version().getEffectiveDate().isAfter(businessClock.businessDate());
         String versionStatus = immediate ? "CURRENT" : "PENDING_EFFECTIVE";
         String masterStatus = immediate ? "ACTIVE" : "PENDING_FIRST_EFFECTIVE";
 

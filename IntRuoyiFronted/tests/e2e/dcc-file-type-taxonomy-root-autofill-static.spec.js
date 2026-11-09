@@ -20,20 +20,12 @@ assert.ok(
   '新增一级必须有独立模式，避免随弹框内上级分类变更影响自动生成逻辑'
 )
 assert.ok(
-  source.includes('buildRootTaxonomyCode'),
-  '新增一级必须自动生成分类编码，不能要求用户手填'
-)
-assert.ok(
   source.includes('resolveNextRootTaxonomySort'),
   '新增一级必须自动生成排序，不能要求用户手填'
 )
 assert.ok(
   source.includes('applyRootCreateDefaults'),
-  '打开新增一级弹框时必须集中写入自动生成的编码和排序'
-)
-assert.ok(
-  source.includes('ensureRootCreateDefaults'),
-  '保存新增一级前必须确认自动生成值仍然有效'
+  '打开新增一级弹框时必须集中写入自动排序'
 )
 assert.match(
   source,
@@ -43,7 +35,7 @@ assert.match(
 assert.match(
   source,
   /if\s*\(rootCreateMode\.value\)\s*\{[\s\S]*applyRootCreateDefaults\(\)[\s\S]*\}\s*else\s+if\s*\(parent\?\.id\)/,
-  '新增一级应自动填充默认值，新增下级仍按父级带入原行为'
+  '新增一级应自动填充排序，新增下级仍按父级带入原行为'
 )
 assert.match(
   source,
@@ -52,8 +44,8 @@ assert.match(
 )
 assert.match(
   source,
-  /<el-input\s+v-model="formData\.code"[\s\S]*:disabled="rootCreateMode"/,
-  '新增一级弹框的分类编码必须只读显示，不能手填'
+  /<el-form-item v-if="formType === 'update'" label="分类编码"[\s\S]*?<el-input v-model="formData.code" readonly/,
+  '新增不要求输入编码，编辑只读显示正式编码'
 )
 assert.match(
   source,
@@ -62,8 +54,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if\s*\(rootCreateMode\.value\)\s*\{[\s\S]*ensureRootCreateDefaults\(\)[\s\S]*\}[\s\S]*const payload =/,
-  '保存前必须再次确保新增一级 payload 使用自动生成的编码和排序'
+  /formType\.value === 'update' \? \{ code: formData\.code \} : \{\}/,
+  '只有编辑发送已有编码，新增编码由服务端生成'
 )
 assert.ok(
   source.includes("parentId: formData.parentId || null"),

@@ -11,6 +11,7 @@ export interface DccRegistrationCertificateReminderConfigRespVO {
 }
 
 export interface RegistrationCertificateThresholdRecipientUserIds {
+  CHANGE_CONFIRMATION?: number[]
   T_30: number[]
   T_8: number[]
   T_2: number[]

@@ -27,6 +27,18 @@ public class DccRegistrationCertificateBusinessEventNotificationConfigService {
     }
 
     public List<Long> resolveRecipientUserIds(Long tenantId) {
+        return resolveConfiguredRecipients(tenantId, null);
+    }
+
+    public List<Long> resolveChangeConfirmationRecipientUserIds(Long tenantId) {
+        List<Long> recipients=resolveConfiguredRecipients(tenantId,
+                DccRegistrationCertificateConfigService.CHANGE_CONFIRMATION_RECIPIENTS);
+        if (recipients.isEmpty()) throw new ServiceException(
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED);
+        return recipients;
+    }
+
+    private List<Long> resolveConfiguredRecipients(Long tenantId, String selectedKey) {
         if (tenantId == null || tenantId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT);
         }
@@ -43,7 +55,9 @@ public class DccRegistrationCertificateBusinessEventNotificationConfigService {
         Map<String, List<Long>> configuredRecipients =
                 DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(recipientJsons.get(0));
         Set<Long> recipientUserIds = new LinkedHashSet<>();
-        configuredRecipients.values().forEach(recipients -> {
+        configuredRecipients.forEach((key, recipients) -> {
+            if (selectedKey != null && !selectedKey.equals(key)
+                    || selectedKey == null && DccRegistrationCertificateConfigService.CHANGE_CONFIRMATION_RECIPIENTS.equals(key)) return;
             if (recipients != null) {
                 recipientUserIds.addAll(recipients);
             }

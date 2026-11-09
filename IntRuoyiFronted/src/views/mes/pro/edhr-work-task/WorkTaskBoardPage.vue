@@ -715,7 +715,7 @@ const pqcDecisionRules: FormRules<typeof pqcDecisionForm> = {
   ],
   signaturePassword: [{ required: true, message: '请输入电子签名密码', trigger: 'blur' }],
   rejectReason: [
-    { required: true, message: '请输入拒绝原因', trigger: 'blur' },
+    { required: true, whitespace: true, message: '请输入拒绝原因', trigger: 'blur' },
     { max: 500, message: '拒绝原因不能超过500个字符', trigger: 'blur' }
   ],
   approvalOpinion: [{ max: 500, message: '审批意见不能超过500个字符', trigger: 'blur' }]

@@ -159,6 +159,8 @@ function mount(options = {}) {
       options.getMetadata ||
       (async (id) => ({ ...metadata(id), ...(id === '41' ? { masterId: '400' } : {}) }))
   const deps = {
+    '@/api/dcc/controlledFile/bodyReadContext': moduleOf(fs.readFileSync(path.join(root,
+      'src/api/dcc/controlledFile/bodyReadContext.ts'), 'utf8')),
     '@/api/common/filePreview': preview.common,
     '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => null },
     '@/api/dcc/controlledFile/applicationRead': {
@@ -167,6 +169,7 @@ function mount(options = {}) {
         return getMetadata(id)
       },
       getControlledFileApplicationEvidence: async (...args) => {
+        if (args.at(-1) === undefined) args.pop()
         calls.push(['evidence', ...args])
         return options.getEvidence ? options.getEvidence(...args) : evidence()
       },
@@ -277,6 +280,24 @@ function mount(options = {}) {
     visible: () => text(tree)
   }
 }
+test('exact approval evidence shows frozen names without everyday target rights; body still rejects', async () => {
+  const context={intent:'APPROVAL_TASK',controlledFileId:file.id,expectedVersionNo:'A/1',
+    applicationType:'REVISION',bpmRound:selection.bpmRound,taskId:'task-1'}
+  const c=mount({props:{applicationSelection:selection,bodyReadContext:context},
+    getMetadata:async()=>{throw Error('关联文件正文无权访问')}})
+  try {
+    await drain()
+    assert.equal(c.state.error,'')
+    assert.deepEqual(c.state.files.map(row=>row.fileName),['上传X','后补Z'])
+    assert.equal(c.calls.length,1)
+    assert.deepEqual(c.calls[0].slice(0,4),['evidence',file.id,'REVISION',selection.bpmRound])
+    assert.deepEqual(JSON.parse(Buffer.from(c.calls[0][4],'base64url').toString('utf8')),context)
+    await c.state.openPreview(c.state.files[0])
+    assert.match(c.state.error,/正文无权访问/)
+    assert.equal(c.state.previewSource,undefined)
+    assert.deepEqual(c.calls.at(-1),['metadata','31'])
+  } finally {c.app.unmount()}
+})
 test('A33 actual relation handler keeps target history context identical for metadata and binary', async () => {
   const c = mount()
   try {
@@ -707,7 +728,8 @@ test('explicit unresolved application context never falls back to the version sn
   try {
     await drain()
     assert.deepEqual(c.calls, [])
-    assert.match(c.state.error, /申请轮次/)
+    assert.equal(c.state.error, '')
+    assert.match(c.state.unavailableReason, /申请轮次/)
     assert.equal(c.state.files.length, 0)
   } finally {
     c.app.unmount()

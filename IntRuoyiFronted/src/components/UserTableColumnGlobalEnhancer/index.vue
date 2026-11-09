@@ -1,10 +1,12 @@
 <template>
-  <Teleport to="body">
+  <Teleport
+    v-for="panel in panels"
+    :key="panel.tableKey"
+    :to="referenceColumnControls(panel) || (isTabLocalPanel(panel) ? panel.tableEl : 'body')"
+  >
     <div
-      v-for="panel in panels"
-      :key="panel.tableKey"
       class="user-table-column-global-settings"
-      :class="{ 'is-open': panel.open }"
+      :class="{ 'is-open': panel.open, 'is-dcc-tab-local': isTabLocalPanel(panel) }"
       :style="panel.style"
       data-user-table-column-global-enhancer
     >
@@ -17,23 +19,30 @@
         <Icon icon="ep:setting" class="mr-5px" />
         显示字段
       </button>
-      <div v-if="panel.open" class="user-table-column-global-settings__popover">
-        <div class="user-table-column-global-settings__title">显示字段</div>
-        <div class="user-table-column-global-settings__hint">至少保留 1 个业务字段</div>
-        <label
-          v-for="column in panel.columns"
-          :key="column.key"
-          class="user-table-column-global-settings__check"
+      <Teleport to="body" :disabled="!isTabLocalPanel(panel)">
+        <div
+          v-if="panel.open"
+          class="user-table-column-global-settings__popover"
+          :class="{ 'is-dcc-tab-local-popover': isTabLocalPanel(panel) }"
+          :style="tabLocalPopoverStyle(panel)"
         >
-          <input
-            type="checkbox"
-            :checked="column.visible"
-            :disabled="!column.hideable"
-            @change="toggleColumn(panel.tableKey, column.key, ($event.target as HTMLInputElement).checked)"
-          />
-          <span>{{ column.label }}</span>
-        </label>
-      </div>
+          <div class="user-table-column-global-settings__title">显示字段</div>
+          <div class="user-table-column-global-settings__hint">至少保留 1 个业务字段</div>
+          <label
+            v-for="column in panel.columns"
+            :key="column.key"
+            class="user-table-column-global-settings__check"
+          >
+            <input
+              type="checkbox"
+              :checked="column.visible"
+              :disabled="!column.hideable"
+              @change="toggleColumn(panel.tableKey, column.key, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>{{ column.label }}</span>
+          </label>
+        </div>
+      </Teleport>
       <button
         class="user-table-column-global-settings__button"
         type="button"
@@ -79,6 +88,7 @@ type EnhancedTable = {
   style: Record<string, string>
   dragWidthSnapshot?: Map<string, number>
   observer?: MutationObserver
+  sizeObserver?: ResizeObserver
 }
 
 const TARGET_ROUTE_PREFIXES = [
@@ -180,6 +190,7 @@ const normalizeWidth = (width?: number | string | null) => {
 
 const readColumns = (tableEl: HTMLElement): EnhancedColumn[] => {
   const headerCells = Array.from(tableEl.querySelectorAll<HTMLElement>('.el-table__header-wrapper th'))
+    .filter((cell) => cell.closest('.el-table') === tableEl)
     .filter((cell) => !cell.classList.contains('gutter') && !cell.classList.contains('is-hidden'))
   const seen = new Set<string>()
   return headerCells
@@ -211,6 +222,7 @@ const readColumnWidthSnapshot = (tableEl: HTMLElement) => {
 
 const findColumnCells = (tableEl: HTMLElement, columnKey: string, columnIndex: number) => {
   const headerCells = Array.from(tableEl.querySelectorAll<HTMLElement>('.el-table__header-wrapper th'))
+    .filter((cell) => cell.closest('.el-table') === tableEl)
     .filter((cell) => !cell.classList.contains('gutter') && !cell.classList.contains('is-hidden'))
   const targetHeader = headerCells[columnIndex]
   const className = targetHeader ? Array.from(targetHeader.classList).find((item) => item.includes('column_')) : undefined
@@ -263,11 +275,63 @@ const loadPanel = async (table: EnhancedTable) => {
   }
 }
 
+const isTabLocalPanel = (table: EnhancedTable) => Boolean(table.tableEl.closest(
+  '.el-dialog, .el-drawer, .dcc-detail-surface, [data-testid="dcc-detail-attachments"], .followup-management, .dcc-workbench-panel, .training-rules-drawer, .distribution-rules-drawer, .route-form, .positions-surface, .positions-dialog, .dcc-print-template-wrap, .project-browser, .dcc-detail-distribution-dialog'
+))
+
+const referenceColumnControls = (table: EnhancedTable) => table.tableEl.matches('.project-folder-file-table')
+  ? table.tableEl.closest('.dcc-project-references')?.querySelector<HTMLElement>('[data-dcc-reference-column-controls]')
+  : undefined
+
+const tabLocalPopoverStyle = (table: EnhancedTable): Record<string, string> | undefined => {
+  if (!isTabLocalPanel(table)) return undefined
+  const rect = table.tableEl.getBoundingClientRect()
+  const overlay = table.tableEl.closest<HTMLElement>('.el-overlay')
+  const controls = referenceColumnControls(table)
+  if (controls) {
+    const anchor = controls.getBoundingClientRect()
+    return {
+      display: rect.width && rect.height ? 'flex' : 'none',
+      position: 'fixed',
+      left: `clamp(8px, ${anchor.right - 240}px, calc(100vw - 248px))`,
+      top: 'auto',
+      bottom: `${window.innerHeight - anchor.top + 8}px`,
+      maxHeight: `${Math.max(0, Math.min(360, anchor.top - 16))}px`,
+      boxSizing: 'border-box',
+      zIndex: overlay ? getComputedStyle(overlay).zIndex : '3000'
+    }
+  }
+  const menuTop = rect.top + 48 + 360 > window.innerHeight ? rect.top - 360 : rect.top + 48
+  return {
+    display: rect.width && rect.height ? 'flex' : 'none',
+    position: 'fixed',
+    left: `clamp(8px, ${rect.left + 8}px, calc(100vw - 264px))`,
+    top: `clamp(8px, ${menuTop}px, calc(100vh - 384px))`,
+    zIndex: overlay ? getComputedStyle(overlay).zIndex : '3000'
+  }
+}
+
 const updatePanelPosition = (table: EnhancedTable) => {
   const rect = table.tableEl.getBoundingClientRect()
-  if (!rect.width || !rect.height) return
+  if (referenceColumnControls(table)) {
+    if (!rect.width || !rect.height) table.open = false
+    table.style = { display: rect.width && rect.height ? 'inline-flex' : 'none', position: 'static', zIndex: '3' }
+    return
+  }
+  // Keep these tab-local controls in their table's reserved toolbar row while scrolling.
+  if (isTabLocalPanel(table)) {
+    if (!rect.width || !rect.height) table.open = false
+    table.style = { display: rect.width && rect.height ? 'inline-flex' : 'none', zIndex: '3', top: '8px', left: '8px' }
+    return
+  }
+  if (!rect.width || !rect.height) {
+    table.open = false
+    table.style = { display: 'none' }
+    return
+  }
   const overlay = table.tableEl.closest<HTMLElement>('.el-overlay')
   table.style = {
+    display: 'inline-flex',
     // Body-teleported controls must stay in their table's modal layer.
     zIndex: overlay ? getComputedStyle(overlay).zIndex : '1',
     top: `${Math.max(rect.top + window.scrollY + 8, 8)}px`,
@@ -349,6 +413,13 @@ const registerTable = (tableEl: HTMLElement, index: number) => {
   if (isExplicitlyConfigured(tableEl)) return
   if (tableEl.closest('[data-user-table-column-global-enhancer]')) return
   const wrapperEl = tableEl.closest<HTMLElement>('.el-table') || tableEl
+  const existing = Array.from(tableMap.values()).find((table) => table.tableEl === wrapperEl)
+  if (existing) {
+    if (isTabLocalPanel(existing) && !wrapperEl.classList.contains('user-table-column-global-managed')) {
+      wrapperEl.classList.add('user-table-column-global-managed')
+    }
+    return
+  }
   const columns = readColumns(wrapperEl)
   if (columns.length === 0) return
   const tableKey = resolveTableIdentity(wrapperEl, index)
@@ -365,6 +436,13 @@ const registerTable = (tableEl: HTMLElement, index: number) => {
     dragWidthSnapshot: undefined
   }
   tableMap.set(tableKey, table)
+  if (isTabLocalPanel(table)) {
+    table.sizeObserver = new ResizeObserver(() => {
+      const current = tableMap.get(tableKey)
+      if (current) updatePanelPosition(current)
+    })
+    table.sizeObserver.observe(wrapperEl)
+  }
   wrapperEl.dataset.userTableColumnGlobalKey = tableKey
   wrapperEl.classList.add('user-table-column-global-managed')
   wrapperEl.addEventListener('mousedown', handleManagedHeaderPointerDown, true)
@@ -380,6 +458,7 @@ const pruneDisconnectedTables = () => {
       table.wrapperEl.removeEventListener('mousedown', handleManagedHeaderPointerDown, true)
       table.wrapperEl.removeEventListener('pointerdown', handleManagedHeaderPointerDown, true)
       table.observer?.disconnect()
+      table.sizeObserver?.disconnect()
       tableMap.delete(key)
     }
   }
@@ -391,6 +470,7 @@ const scanTables = () => {
       table.wrapperEl.removeEventListener('mousedown', handleManagedHeaderPointerDown, true)
       table.wrapperEl.removeEventListener('pointerdown', handleManagedHeaderPointerDown, true)
       table.observer?.disconnect()
+      table.sizeObserver?.disconnect()
     }
     tableMap.clear()
     return
@@ -510,6 +590,7 @@ onBeforeUnmount(() => {
     table.wrapperEl.removeEventListener('mousedown', handleManagedHeaderPointerDown, true)
     table.wrapperEl.removeEventListener('pointerdown', handleManagedHeaderPointerDown, true)
     table.observer?.disconnect()
+    table.sizeObserver?.disconnect()
   }
   tableMap.clear()
   window.removeEventListener('resize', updateAllPanelPositions)

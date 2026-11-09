@@ -66,8 +66,7 @@ public class DccProjectProductTaskDelegate {
     private ApprovalTaskSummary summary(DccProjectProductCreateRequestDO request, String type, boolean done) {
         boolean role=roleRequest(request);
         boolean review = REVIEW.equals(type);
-        boolean rejected = review ? request.getReviewReason() == null && "REJECTED".equals(request.getStatus())
-                && request.getApproverUserId() == null : request.getApprovalReason() == null && "REJECTED".equals(request.getStatus());
+        boolean rejected = rejectedAt(request,type);
         String id = taskId(request, type);
         return ApprovalTaskSummary.builder().id("DCC:" + type + ":" + id).moduleCode(ApprovalModuleCode.DCC)
                 .sourceTaskType(type).sourceTaskId(id).businessKey(request.getId().toString())
@@ -87,7 +86,8 @@ public class DccProjectProductTaskDelegate {
     }
 
     public List<ApprovalTaskTimelineEntry> timeline(ApprovalTaskTimelineQueryContext context) {
-        if (!supports(context.getSourceTaskType()) || context.getProcessInstanceId() != null) {
+        if (!supports(context.getSourceTaskType()) || context.getProcessInstanceId() != null
+                && !context.getProcessInstanceId().isBlank()) {
             throw new IllegalArgumentException("PROJECT_TASK_SOURCE_INVALID");
         }
         Long id;
@@ -104,9 +104,9 @@ public class DccProjectProductTaskDelegate {
         List<ApprovalTaskTimelineEntry> entries = new ArrayList<>();
         add(entries, request, "SUBMIT", "提交申请", request.getApplicantUserId(), request.getSubmittedTime(), request.getCreationReason());
         if (request.getReviewedTime() != null) add(entries, request, REVIEW, role ? "项目审核员" : "项目产品审核", request.getReviewerUserId(), request.getReviewedTime(),
-                request.getReviewReason() == null ? request.getRejectReason() : request.getReviewReason());
+                rejectedAt(request,REVIEW) ? request.getRejectReason() : request.getReviewReason());
         if (!role && request.getApprovedTime() != null) add(entries, request, APPROVAL, "项目产品批准", request.getApproverUserId(), request.getApprovedTime(),
-                request.getApprovalReason() == null ? request.getRejectReason() : request.getApprovalReason());
+                rejectedAt(request,APPROVAL) ? request.getRejectReason() : request.getApprovalReason());
         return entries;
     }
 
@@ -114,8 +114,8 @@ public class DccProjectProductTaskDelegate {
                      String stage, String label, Long actor, LocalDateTime time, String reason) {
         if (actor == null || time == null) throw new IllegalStateException("PROJECT_TASK_HISTORY_INCOMPLETE");
         String status = "SUBMIT".equals(stage) ? "PENDING_REVIEW"
-                : REVIEW.equals(stage) ? request.getReviewReason() == null ? "REJECTED" : roleRequest(request) ? "COMPLETED" : "PENDING_APPROVAL"
-                : request.getApprovalReason() == null ? "REJECTED" : "WRITING";
+                : rejectedAt(request,stage) ? "REJECTED"
+                : REVIEW.equals(stage) ? roleRequest(request) ? "COMPLETED" : "PENDING_APPROVAL" : "WRITING";
         String action = "SUBMIT".equals(stage) ? "SUBMIT" : "REJECTED".equals(status) ? "REJECT" : "APPROVE";
         String actionLabel = "SUBMIT".equals(stage) ? label : label + ("REJECT".equals(action) ? "驳回" : "通过");
         entries.add(ApprovalTaskTimelineEntry.builder().id(taskId(request, stage)).moduleCode(ApprovalModuleCode.DCC)
@@ -127,6 +127,10 @@ public class DccProjectProductTaskDelegate {
 
     private static String taskId(DccProjectProductCreateRequestDO request, String type) {
         return "DCC_PROJECT_PRODUCT:" + request.getTenantId() + ":" + request.getId() + ":" + type;
+    }
+    private static boolean rejectedAt(DccProjectProductCreateRequestDO request,String type) {
+        return "REJECTED".equals(request.getStatus())
+                && (APPROVAL.equals(type) || REVIEW.equals(type) && request.getApprovedTime()==null);
     }
     private boolean roleRequest(DccProjectProductCreateRequestDO request){
         if(request.getReviewContract()==null && request.getReviewerRoleId()==null && request.getReviewerRoleCode()==null)return false;

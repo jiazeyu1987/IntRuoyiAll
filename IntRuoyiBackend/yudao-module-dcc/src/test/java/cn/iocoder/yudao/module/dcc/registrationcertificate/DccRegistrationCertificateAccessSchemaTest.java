@@ -73,7 +73,7 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_access_request_type` check",
                 "('view_old_certificate', 'download_file', 'upload_certificate')",
                 "constraint `chk_dcc_reg_cert_access_request_status` check",
-                "constraint `chk_dcc_reg_cert_access_request_project` check",
+                "`project_code_id` bigint default null comment 'optional project code for download requests'",
                 "constraint `chk_dcc_reg_cert_request_file_download` check",
                 "constraint `chk_dcc_reg_cert_bpm_binding_status` check",
                 "constraint `chk_dcc_reg_cert_grant_type` check",

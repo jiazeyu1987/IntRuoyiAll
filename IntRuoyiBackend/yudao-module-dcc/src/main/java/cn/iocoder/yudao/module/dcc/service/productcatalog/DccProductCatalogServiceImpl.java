@@ -67,6 +67,12 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private DccDataRelationMapper relationMapper;
 
     @Resource
+    private DccProductCatalogRegistrationSyncService registrationProjection;
+
+    @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper projectProductRelationMapper;
+
+    @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
 
     @Override
@@ -74,6 +80,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
         PageResult<DccProductCatalogRespVO> page =
                 BeanUtils.toBean(productCatalogMapper.selectPage(reqVO), DccProductCatalogRespVO.class);
         enrichBoundRelationIds(page.getList());
+        page.getList().forEach(registrationProjection::enrichCurrentCertificate);
         enrichBatchRecordTotalRecognitionJson(page.getList());
         return page;
     }
@@ -206,15 +213,27 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             return;
         }
         Map<Long, DccDataRelationDO> latestRelationByCatalogId = new HashMap<>();
+        Map<Long, Long> approvedProjects = new HashMap<>();
+        for (var relation : projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
+            Long previous = approvedProjects.putIfAbsent(relation.getProductCatalogId(), relation.getProjectCodeId());
+            if (previous != null && !previous.equals(relation.getProjectCodeId())) {
+                throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT);
+            }
+        }
         for (DccDataRelationDO relation : relationMapper.selectByProductCatalogIds(productCatalogIds)) {
             if (relation.getProductCatalogId() != null) {
                 latestRelationByCatalogId.putIfAbsent(relation.getProductCatalogId(), relation);
             }
         }
         for (DccProductCatalogRespVO row : rows) {
+            Long approvedProjectId = approvedProjects.get(row.getId());
+            row.setProjectCodeId(approvedProjectId);
             DccDataRelationDO relation = latestRelationByCatalogId.get(row.getId());
             if (relation == null) {
                 continue;
+            }
+            if (approvedProjectId != null && !approvedProjectId.equals(relation.getProjectCodeId())) {
+                throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT);
             }
             row.setProjectCodeId(relation.getProjectCodeId());
             row.setRegistrationCertificateId(relation.getRegistrationCertificateId());

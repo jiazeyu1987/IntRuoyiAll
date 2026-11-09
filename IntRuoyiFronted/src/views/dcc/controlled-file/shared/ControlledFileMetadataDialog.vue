@@ -15,7 +15,9 @@
     />
     <el-form label-width="96px">
       <el-form-item label="DCC 项目" :error="metadataDialog.fieldErrors.dccProjectCodeId">
+        <el-input v-if="hasRegisteredStorage" :model-value="targetProjectCodeImpactText" disabled />
         <el-select
+          v-else
           v-model="metadataForm.dccProjectCodeId"
           class="!w-full"
           clearable
@@ -80,7 +82,7 @@
           class="!w-full"
           :options="fileTypeTaxonomyOptions"
           :props="taxonomyCascaderProps"
-          :disabled="taxonomyLoading"
+          :disabled="taxonomyLoading || hasRegisteredStorage"
           clearable
           filterable
           placeholder="请选择五级文件分类路径"
@@ -102,6 +104,7 @@
       <el-form-item label="文件类别" :error="metadataDialog.fieldErrors.categoryId">
         <el-select
           v-model="metadataForm.categoryId"
+          :disabled="hasRegisteredStorage"
           class="!w-full"
           filterable
           placeholder="请选择文件类别"
@@ -116,8 +119,9 @@
         </el-select>
       </el-form-item>
       <el-form-item label="受控目录" :error="metadataDialog.fieldErrors.directoryId">
+        <el-input v-if="hasRegisteredStorage" :model-value="props.file?.directoryPath || ''" disabled />
         <el-select
-          v-if="selectedCategory?.directoryId"
+          v-else-if="selectedCategory?.directoryId"
           v-model="metadataForm.directoryId"
           class="!w-full"
           filterable
@@ -289,6 +293,8 @@ const categoryOptions = computed(() =>
   )
 )
 
+const hasRegisteredStorage = computed(() => props.file?.hasProjectStorageMapping === true)
+
 const taxonomyCascaderProps = {
   value: 'id',
   label: 'name',
@@ -397,7 +403,7 @@ const selectedCategory = computed(() =>
 )
 
 const selectedProjectCode = computed(() =>
-  projectCodeOptions.value.find((projectCode) => projectCode.id === metadataForm.dccProjectCodeId)
+  projectCodeOptions.value.find((projectCode) => String(projectCode.id) === String(metadataForm.dccProjectCodeId))
 )
 
 const directoryOptions = computed(() => {
@@ -409,7 +415,7 @@ const directoryOptions = computed(() => {
 })
 
 const selectedCategoryUsesUnclassifiedDirectory = computed(() =>
-  Boolean(metadataForm.categoryId && selectedCategory.value && !selectedCategory.value.directoryId)
+  !hasRegisteredStorage.value && Boolean(metadataForm.categoryId && selectedCategory.value && !selectedCategory.value.directoryId)
 )
 
 const trimToUndefined = (value: string) => {
@@ -483,9 +489,12 @@ const selectedDirectoryOption = computed(() =>
   directoryOptions.value.find((item) => item.value === metadataForm.directoryId)
 )
 
-const currentDirectoryImpactText = computed(() => resolveDirectoryPathById(props.file?.directoryId))
+const currentDirectoryImpactText = computed(() => hasRegisteredStorage.value
+  ? props.file?.directoryPath || '-'
+  : resolveDirectoryPathById(props.file?.directoryId))
 const targetDirectoryImpactText = computed(() =>
-  selectedCategoryUsesUnclassifiedDirectory.value
+  hasRegisteredStorage.value ? props.file?.directoryPath || '-'
+    : selectedCategoryUsesUnclassifiedDirectory.value
     ? UNCLASSIFIED_DIRECTORY_AUTO_TEXT
     : selectedDirectoryOption.value?.label || resolveDirectoryPathById(metadataForm.directoryId)
 )
@@ -567,9 +576,10 @@ const loadProjectCodeOptions = async (keyword = '') => {
     })
     projectCodeOptions.value = data.list
     const currentId = props.file?.dccProjectCodeId
-    if (currentId && !projectCodeOptions.value.some((projectCode) => projectCode.id === currentId)) {
+    if (currentId && !projectCodeOptions.value.some((projectCode) => String(projectCode.id) === String(currentId))) {
       metadataForm.dccProjectCodeId = currentId
     }
+    applyDccProjectCodeProductNumber()
   } catch (error) {
     projectCodeOptions.value = []
     metadataDialog.inlineError = resolveReadSideErrorMessage(
@@ -647,7 +657,12 @@ const validateMetadataDialog = () => {
   if (!metadataForm.categoryId) {
     errors.categoryId = '请选择文件类别'
   }
-  if (!selectedCategoryUsesUnclassifiedDirectory.value && !metadataForm.directoryId) {
+  if (hasRegisteredStorage.value) {
+    if (!props.file?.directoryId || !props.file?.directoryPath
+      || String(metadataForm.directoryId) !== String(props.file.directoryId)) {
+      errors.directoryId = '当前登记目录身份不完整或已改变，请重新读取文件'
+    }
+  } else if (!selectedCategoryUsesUnclassifiedDirectory.value && !metadataForm.directoryId) {
     errors.directoryId = '请选择受控目录'
   } else if (
     !selectedCategoryUsesUnclassifiedDirectory.value &&

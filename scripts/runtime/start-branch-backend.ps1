@@ -1,6 +1,7 @@
 param(
     [Nullable[int]]$Slot = $null,
     [switch]$Build,
+    [switch]$LocalDevelopmentAuditPolicy,
     [string[]]$ExtraArgs = @(),
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
     [string]$SpringProfile = 'local'
@@ -45,7 +46,8 @@ $javaArgs = @(
     '-jar',
     $jarPath,
     "--server.port=$($ports.BackendPort)",
-    "--spring.profiles.active=$SpringProfile"
+    "--spring.profiles.active=$SpringProfile",
+    "--yudao.gxp-audit.local-development-policy=$($LocalDevelopmentAuditPolicy.IsPresent.ToString().ToLowerInvariant())"
 ) + $ExtraArgs
 
 Write-Host "Starting $($profile.Name) backend on $($ports.BackendPort)."

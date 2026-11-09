@@ -80,7 +80,7 @@ test('actual detail responsibility computed assigns native training upload to th
  const st=ast.statements.find(n=>ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>ts.isIdentifier(d.name)&&d.name.text==='detailHandlingSummary'));assert.ok(st)
  const c={exports:{},computed:vue.computed,fileDetail:vue.ref({id:'10',status:'PENDING_APPLICANT_TRAINING_RECORD'}),approvalProgressScope:vue.ref({applicationType:'UPLOAD',bpmRound:'round'}),currentStage:vue.ref({stageCode:'APPLICANT_TRAINING_RECORD',stageName:'培训（本次上传人上传线下记录）'}),getControlledFileHandlingSummary:()=>({responsibilityHint:'责任：申请人'})}
  vm.runInNewContext(ts.transpileModule(st.getText(ast)+'\nexports.result=detailHandlingSummary.value',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
- assert.equal(c.exports.result.responsibilityHint,'责任：本次上传人上传线下培训记录')
+ assert.equal(c.exports.result.responsibilityHint,'责任：文件编制人（本次上传人）上传线下培训记录')
 })
 test('actual stage-grid template renders the native ordered stages without the obsolete legacy fourth stage',()=>{
  const h=helper(),{descriptor}=parse(read('src/views/dcc/controlled-file/detail/index.vue'))

@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper;
+import cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateEntrustedEnterprise;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProductionRelation;
@@ -37,6 +39,9 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 @Component
 public class DccRegistrationCertificatePrerequisiteValidator {
 
+    @jakarta.annotation.Resource
+    private DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+
     private static final Set<String> OWNED_COMPANY = Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
     private static final Set<String> ENTRUSTED_TYPES = Set.of(
             MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseTypeEnum.ENTRUSTED_PARTY.getType());
@@ -69,6 +74,19 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         requirePositive(tenantId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         requirePositive(actorId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         requirePositive(draft.ownerCompanyId(), REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.factsJson());
+        facts.validate();
+        if (Boolean.TRUE.equals(facts.getOwnProduct()) != (draft.productMasterId() != null || draft.projectCodeId() != null)
+                || Boolean.FALSE.equals(facts.getOwnProduct()) && draft.projectCodeId() != null
+                || !Objects.equals(trim(facts.getCertificateNo()), trim(draft.certificateNo()))
+                || !Objects.equals(trim(facts.getClassification()), trim(draft.classification()))
+                || !Objects.equals(facts.getApprovalDate(), draft.approvalDate())
+                || !Objects.equals(facts.getFirstObtainedDate(), draft.firstObtainedDate())
+                || !Objects.equals(facts.getEffectiveDate(), draft.effectiveDate())
+                || !Objects.equals(facts.getExpiryDate(), draft.expiryDate())
+                || !Objects.equals(trim(facts.getRemark()), trim(draft.remark()))) throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        if (!facts.isFda() && (draft.entrustedProduction() == null || draft.selfProduction() == null
+                || (!draft.entrustedProduction() && !draft.selfProduction()))) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
         validateRequiredText(draft);
         validateDates(draft);
         String productName = resolveProductName(draft);
@@ -82,7 +100,10 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         }
         requireExactEnterprises(owners, List.of(draft.ownerCompanyId()), tenantId,
                 REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
-        validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
+        DccProjectCodeDO project = validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
+        if (Boolean.TRUE.equals(facts.getOwnProduct()) && draft.productMasterId() == null) {
+            validateCatalogProduct(project, productName);
+        }
         return new DccRegistrationCertificateResolvedDraft(productName,
                 resolveProductionRelation(tenantId, draft));
     }
@@ -117,9 +138,32 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         requirePositive(ownerCompanyId, REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
     }
 
-    private void validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {
-        if (projectCodeId == null) {
+    public void validateCatalogProduct(DccProjectCodeDO project, String productName) {
+        if (project == null || project.isLibrary() || project.getProductMasterId() != null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
+        }
+        DccProjectProductIdentityResolver.Product product;
+        try {
+            product = DccProjectProductIdentityResolver.resolve(project, productApi, approvedProductIdentityMapper);
+        } catch (RuntimeException failure) {
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH, failure);
+        }
+        // An existing project may have no declared product; the certificate then keeps its explicit product name.
+        if (DccProjectProductIdentityResolver.UNBOUND.equals(product.source())) {
+            if (isBlank(productName)) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
             return;
+        }
+        if (!DccProjectProductIdentityResolver.DCC_CATALOG.equals(product.source())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
+        }
+        if (!Objects.equals(trim(productName), product.name())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+        }
+    }
+
+    private DccProjectCodeDO validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {
+        if (projectCodeId == null) {
+            return null;
         }
         requirePositive(projectCodeId, REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         DccProjectCodeDO projectCode;
@@ -128,7 +172,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         } catch (RuntimeException exception) {
             throw dependencyFailure(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID, exception);
         }
-        if (projectCode == null || !projectCodeId.equals(projectCode.getId())) {
+        if (projectCode == null || projectCode.isLibrary() || !projectCodeId.equals(projectCode.getId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
         if (!tenantId.equals(projectCode.getTenantId())) {
@@ -141,9 +185,11 @@ public class DccRegistrationCertificatePrerequisiteValidator {
                 && !Objects.equals(productMasterId, projectCode.getProductMasterId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
+        return projectCode;
     }
 
     private void validateDates(DccRegistrationCertificateDraftData draft) {
+        if (!"DOMESTIC".equals(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.factsJson()).getCertificateType())) return;
         LocalDate first = draft.firstObtainedDate();
         LocalDate approval = draft.approvalDate();
         LocalDate effective = draft.effectiveDate();
@@ -165,7 +211,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     }
 
     private void validateRequiredText(DccRegistrationCertificateDraftData draft) {
-        if (isBlank(draft.certificateNo()) || isBlank(draft.classification())
+        if (isBlank(draft.classification())
                 || normalizedLengthExceeds(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.productName(), PRODUCT_NAME_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.classification(), CLASSIFICATION_MAX_LENGTH)

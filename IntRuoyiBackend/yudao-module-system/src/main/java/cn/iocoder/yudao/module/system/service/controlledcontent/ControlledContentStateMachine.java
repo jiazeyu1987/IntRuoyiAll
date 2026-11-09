@@ -47,6 +47,9 @@ public class ControlledContentStateMachine {
 
     private static final Set<TransitionRule> ALLOWED_TRANSITIONS = Set.of(
             new TransitionRule(null, ACTIVE, REGISTER_ACTIVE),
+            new TransitionRule(null, ACTIVE, ControlledContentTransitionAction.REGISTER_CONTROLLED_IMPORT),
+            new TransitionRule(null, ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE,
+                    ControlledContentTransitionAction.REGISTER_CONTROLLED_IMPORT),
             new TransitionRule(null, READY_TO_PUBLISH, REGISTER_READY_CANDIDATE),
             new TransitionRule(DRAFT, IN_REVIEW, SUBMIT),
             new TransitionRule(REWORK, IN_REVIEW, SUBMIT),

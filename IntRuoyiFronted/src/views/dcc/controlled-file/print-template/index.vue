@@ -1,12 +1,8 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="dcc-print-template-wrap">
     <div class="dcc-print-template-page">
       <div class="dcc-print-template-page__header">
         <div>
-          <div class="text-20px font-700">模板配置</div>
-          <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
-            配置 DCC 流程打印与 Word 导出的 .docx 模板
-          </div>
           <div
             class="dcc-print-template-page__required-context"
             data-testid="dcc-print-template-required-context"
@@ -22,7 +18,7 @@
 
       <el-descriptions
         v-if="activeTemplate"
-        class="mt-18px"
+        class="dcc-print-template-page__summary"
         :column="2"
         border
       >
@@ -64,6 +60,18 @@
               </div>
             </template>
           </el-upload>
+          <el-form class="dcc-print-template-page__remark" label-width="72px">
+            <el-form-item label="备注">
+              <el-input
+                v-model="remark"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                placeholder="记录模板适用范围或版本说明"
+              />
+            </el-form-item>
+          </el-form>
         </div>
 
         <div class="dcc-print-template-page__panel">
@@ -100,22 +108,9 @@
         </div>
       </div>
 
-      <el-form class="mt-18px" label-width="72px">
-        <el-form-item label="备注">
-          <el-input
-            v-model="remark"
-            type="textarea"
-            :rows="3"
-            maxlength="500"
-            show-word-limit
-            placeholder="记录模板适用范围或版本说明"
-          />
-        </el-form-item>
-      </el-form>
-
       <el-alert
         v-if="inlineError"
-        class="mt-12px"
+        class="dcc-print-template-page__error"
         type="error"
         :closable="false"
         show-icon
@@ -277,12 +272,29 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.dcc-print-template-wrap {
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+}
+
+.dcc-print-template-page {
+  min-width: 0;
+  font-size: 13px;
+}
+
 .dcc-print-template-page__header,
 .dcc-print-template-page__actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .dcc-print-template-page__header {
@@ -290,18 +302,39 @@ onMounted(() => {
 }
 
 .dcc-print-template-page__required-context {
-  margin-top: 8px;
   max-width: 780px;
   color: #4b5563;
   font-size: 13px;
   line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.dcc-print-template-page__summary,
+.dcc-print-template-page__remark,
+.dcc-print-template-page__error {
+  margin-top: 8px;
+}
+
+.dcc-print-template-page__summary {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.dcc-print-template-page__summary :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
+.dcc-print-template-page__summary :deep(.el-descriptions__cell) {
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
 }
 
 .dcc-print-template-page__body {
   display: grid;
-  grid-template-columns: minmax(280px, 420px) minmax(420px, 1fr);
-  gap: 16px;
-  margin-top: 18px;
+  grid-template-columns: minmax(0, 350px) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .dcc-print-template-page__panel {
@@ -312,40 +345,80 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .dcc-print-template-page__panel-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 32px;
 }
 
 .dcc-print-template-page__placeholder-summary {
-  margin-top: 4px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
 }
 
 .dcc-print-template-page__view-mode {
-  flex-shrink: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .dcc-print-template-page__upload-icon {
   display: block;
   margin: 0 auto 8px;
-  font-size: 34px;
+  font-size: 28px;
   color: var(--el-color-primary);
 }
 
 .dcc-print-template-page__actions {
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.dcc-print-template-page :deep(.el-button) {
+  min-height: 32px;
+}
+
+.dcc-print-template-page :deep(.el-upload),
+.dcc-print-template-page :deep(.el-upload-dragger) {
+  width: 100%;
+}
+
+.dcc-print-template-page :deep(.el-upload-dragger) {
+  padding: 24px 12px;
+}
+
+.dcc-print-template-page :deep(.el-upload__tip) {
+  margin-top: 8px;
+  line-height: 18px;
+}
+
+.dcc-print-template-page :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.dcc-print-template-page :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  font-size: 13px;
+  width: 100%;
+}
+
+.dcc-print-template-page :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+
+.dcc-print-template-page :deep(.el-table th.el-table__cell) {
+  font-size: 12px;
 }
 
 @media (max-width: 960px) {
   .dcc-print-template-page__body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .dcc-print-template-page__panel-heading {

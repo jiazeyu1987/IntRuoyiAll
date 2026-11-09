@@ -20,7 +20,6 @@ import static org.springframework.format.annotation.DateTimeFormat.ISO.DATE;
 public class DccRegistrationCertificateUploadSubmitReqVO {
 
     @Schema(description = "实际项目代码编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "请选择实际项目代码")
     @Positive(message = "请选择实际项目代码")
     private Long projectCodeId;
 
@@ -35,22 +34,18 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     private String productName;
 
     @Schema(description = "注册证号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "注册证号不能为空")
     @Size(max = 128, message = "注册证号长度不能超过128个字符")
     private String certificateNo;
 
     @Schema(description = "首次获证日期", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "首次获证日期不能为空")
     @DateTimeFormat(iso = DATE)
     private LocalDate firstObtainedDate;
 
     @Schema(description = "生效日期", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "生效日期不能为空")
     @DateTimeFormat(iso = DATE)
     private LocalDate effectiveDate;
 
     @Schema(description = "有效期至", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "有效期至不能为空")
     @DateTimeFormat(iso = DATE)
     private LocalDate expiryDate;
 
@@ -60,11 +55,9 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     private String classification;
 
     @Schema(description = "是否委托生产", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "是否委托生产不能为空")
     private Boolean entrustedProduction;
 
     @Schema(description = "是否自行生产", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "是否自行生产不能为空")
     private Boolean selfProduction;
 
     @Schema(description = "受托企业编号列表")
@@ -75,12 +68,19 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     private String remark;
 
     @Schema(description = "注册证文件", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "注册证文件不能为空")
     private MultipartFile file;
+    @NotBlank(message = "请选择注册证类型并填写完整证件信息")
+    @Size(max = 65535)
+    private String factsJson;
+    private List<MultipartFile> attachments;
+    private List<MultipartFile> productDescriptionFiles;
+    @Positive private Long sourceRequestId;
+    private List<@Positive Long> retainedFileIds;
 
     @jakarta.validation.constraints.AssertTrue(message = "是否委托生产和是否自行生产不能同时为否")
     public boolean isProductionModeValid() {
-        return entrustedProduction == null || selfProduction == null || entrustedProduction || selfProduction;
+        return factsJson != null && cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(factsJson).isFda()
+                || entrustedProduction == null || selfProduction == null || entrustedProduction || selfProduction;
     }
 
     @jakarta.validation.constraints.AssertTrue(message = "请选择受托企业")
@@ -96,6 +96,6 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
         return new DccRegistrationCertificateUploadCommand(
                 projectCodeId, companyId, productName, certificateNo, firstObtainedDate,
                 effectiveDate, expiryDate, classification, entrustedProduction, selfProduction,
-                entrustedEnterpriseIds, remark, file);
+                entrustedEnterpriseIds, remark, file, factsJson, attachments, productDescriptionFiles, sourceRequestId, retainedFileIds);
     }
 }

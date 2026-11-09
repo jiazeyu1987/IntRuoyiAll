@@ -57,6 +57,8 @@ import static org.mockito.Mockito.*;
         executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts="/sql/dcc_b_gxp_audit_clean.sql",executionPhase=Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class DccProjectApplicationNotificationTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
     @Resource javax.sql.DataSource source;
     @Resource DccProjectProductCreateServiceImpl service;
     @Resource DccProjectProductCreateRequestMapper requests;

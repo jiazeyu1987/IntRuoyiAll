@@ -42,6 +42,10 @@ public class DccFileCategorySaveReqVO {
     private Boolean distributionRequired;
     private Boolean trainingRequired;
 
+    private Long matrixSourceCategoryId;
+    @Valid
+    private DccCategoryApprovalMatrixSaveReqVO approvalMatrix;
+
     @Valid
     private DccCategoryDirectoryBindingSaveReqVO directoryBinding;
 }

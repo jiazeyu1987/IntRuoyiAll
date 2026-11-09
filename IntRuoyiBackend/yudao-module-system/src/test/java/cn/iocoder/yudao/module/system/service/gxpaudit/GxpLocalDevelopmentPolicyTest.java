@@ -22,7 +22,8 @@ class GxpLocalDevelopmentPolicyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "prod", "dev", "test", "local,prod", "local,test"})
+    @ValueSource(strings = {"", "prod", "dev", "test", "local,prod", "local,test",
+            "dcc-local-development,prod", "local,dcc-local-development"})
     void explicitFlagCannotEnableOutsideExclusiveLocalProfile(String profiles) {
         new ApplicationContextRunner()
                 .withUserConfiguration(GxpLocalDevelopmentPolicy.class, GxpAuditPolicyBundleLoader.class)
@@ -47,11 +48,13 @@ class GxpLocalDevelopmentPolicyTest {
         assertThrows(IllegalStateException.class, () -> new GxpLocalDevelopmentPolicy(env, loader));
     }
 
-    @Test
-    void explicitLocalModeUsesValidatedPackagedOperationsAndDistinctVersion() {
+    @ParameterizedTest
+    @ValueSource(strings = {"local", "dcc-local-development"})
+    void explicitLocalModeUsesValidatedPackagedOperationsAndDistinctVersion(String profile) {
+        assertEquals("20261027-approval-opinion-optional", loader.load().policyVersion());
         new ApplicationContextRunner()
                 .withUserConfiguration(GxpLocalDevelopmentPolicy.class, GxpAuditPolicyBundleLoader.class)
-                .withPropertyValues(GxpLocalDevelopmentPolicy.PROPERTY + "=true", "spring.profiles.active=local",
+                .withPropertyValues(GxpLocalDevelopmentPolicy.PROPERTY + "=true", "spring.profiles.active=" + profile,
                         "spring.datasource.dynamic.datasource.master.url=jdbc:mysql://127.0.0.2:23306/local")
                 .run(c -> {
                     assertNull(c.getStartupFailure());
@@ -65,6 +68,13 @@ class GxpLocalDevelopmentPolicyTest {
                     operation.setActive(false);
                     assertTrue(policy.findOperation(2L, operation.getOperationId()).getActive());
                     assertEquals(2L, policy.findOperation(2L, operation.getOperationId()).getTenantId());
+                    assertNotNull(policy.findOperation(1L, "dcc.project-file-placement.bind"));
+                    for (String operationId : java.util.List.of("signature.record.create", "APPROVAL_CENTER_REVIEW_COMMIT",
+                            "dcc.project-product.review", "dcc.project-product.approve", "dcc.project-product.complete",
+                            "dcc.project-product.write-failed", "dcc.controlled-file.delayed-effective-confirm")) {
+                        assertEquals("APPROVAL_DECISION", policy.findOperation(1L, operationId).getReasonPolicy());
+                    }
+                    assertEquals("USER_REQUIRED", policy.findOperation(1L, "dcc.project-product.retry").getReasonPolicy());
                 });
     }
 

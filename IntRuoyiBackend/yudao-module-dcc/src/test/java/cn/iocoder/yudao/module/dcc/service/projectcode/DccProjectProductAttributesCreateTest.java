@@ -22,8 +22,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class, DccProjectProductCreateWriteService.class,
+        DccProjectReviewerRoleService.class,cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,DccW01ProjectProductJdbcFixture.class,
         DccProjectAttributesService.class, DccProjectLeaderService.class, DccFolderTemplateService.class, DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class})
 class DccProjectProductAttributesCreateTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -52,12 +55,14 @@ class DccProjectProductAttributesCreateTest extends BaseDbUnitTest {
     @MockitoBean private DccProjectProductCreateStateService state;
     private DccProjectAttributes defaults() { return new DccProjectAttributes(List.of("NMPA", "CE"), null, "Y", "N", "Y", "甲方"); }
     @BeforeEach void setupAccounts() {
+        DccProjectProductRegressionFixture.roles(reviewerDataSource,permissions);
         var user = new AdminUserRespDTO(); user.setId(7L); user.setStatus(0); user.setNickname("正式负责人");
         when(users.getUser(7L)).thenReturn(user);
         var reviewer = new AdminUserRespDTO(); reviewer.setId(1L); reviewer.setStatus(0); reviewer.setUsername("admin"); reviewer.setTenantId(1L);reviewer.setNickname("显式配置测试审核人");
         when(users.getUser(1L)).thenReturn(reviewer);
         when(permissions.hasAnyPermissions(7L, "dcc:project-code:update")).thenReturn(true);
     }
+    @AfterEach void clearRoleFacts(){DccProjectProductRegressionFixture.cleanup(reviewerDataSource);}
     private DccProjectProductCreateReqVO request() {
         var template = new DccFolderTemplateStructure(List.of(new DccFolderTemplateStructure.Node("root", null, "申请时目录", 0)));
         Long templateId = folders.save(7L, new DccFolderTemplateService.Save(null, "模板", null, true, template, "创建测试模板"));
@@ -66,6 +71,17 @@ class DccProjectProductAttributesCreateTest extends BaseDbUnitTest {
         input.setProjectLeaderUserId(7L); input.setDefaultAttributes(defaults()); input.setFolderTemplateId(templateId);
         input.setResubmissionReason("按驳回意见补齐后重提"); input.setProductCode("PR-B"); input.setProductName("产品B"); input.setClassification("一类");input.setCreationReason("正式新建申请原因");
         return input;
+    }
+    @Test void projectCreationAndApprovedWriteBothRejectLibraryScopeMarkers() {
+        var input=request();input.setDefaultAttributes(DccProjectAttributes.forLibrary("QMS"));
+        assertThrows(RuntimeException.class,()->service.createRequest(9L,input));
+        assertTrue(requests.selectList().isEmpty());
+        input.setDefaultAttributes(defaults());Long id=service.createRequest(9L,input);
+        var saved=requests.selectById(id);saved.setStatus("WRITING");saved.setWriteAttemptNo(1);
+        saved.setWriteReason("拒绝受污染的属性");saved.setWriteOperatorUserId(1L);
+        saved.setDefaultAttributesJson(attributes.encode(DccProjectAttributes.forLibrary("GENERAL")));requests.updateById(saved);
+        assertThrows(RuntimeException.class,()->writer.writeApprovedRequest(id));
+        assertTrue(projects.selectList().isEmpty());assertTrue(products.selectList().isEmpty());assertTrue(relations.selectList().isEmpty());
     }
     @Test void requestAndApprovedProjectPersistAccountDefaultsAndFrozenFolderSnapshot() {
         var input = request();
@@ -166,7 +182,9 @@ class DccProjectProductAttributesCreateTest extends BaseDbUnitTest {
     }
     private Long rejected(DccProjectProductCreateReqVO input) {
         Long id = service.createRequest(9L, input);
+        DccProjectProductRegressionFixture.login(1L);
         service.review(1L, id, "共同基线驳回测试", false);
+        DccProjectProductRegressionFixture.login(9L);
         return id;
     }
     private Long resubmit(Long applicant, Long rejectedId, DccProjectProductCreateReqVO input) throws Exception {

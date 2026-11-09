@@ -75,3 +75,17 @@ test('late result after exact task changes cannot confirm the new task', async (
     complete(result(sent)); await pending; assert.equal(p.events.length, 0); assert.equal(p.state.saved, false)
   } finally { p.app.unmount() }
 })
+
+test('signature password starts empty and task changes clear it and restore the autofill guard', async () => {
+  const p = mount(async req => result(req))
+  try {
+    assert.equal(p.state.password, '')
+    assert.equal(p.state.passwordFocused, false)
+    p.state.passwordFocused = true
+    p.state.password = 'manually-entered'
+    p.props.context = { ...context(), taskId: 'another-confirmation' }
+    await vue.nextTick()
+    assert.equal(p.state.password, '')
+    assert.equal(p.state.passwordFocused, false)
+  } finally { p.app.unmount() }
+})

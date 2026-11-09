@@ -39,7 +39,7 @@ public class ApprovalFlowableTaskQueryService {
         long count=mapper.count(p); List<String> ids=mapper.window(p);
         if(ids.isEmpty()) return new PageResult<>(List.of(),count);
         var rows=tasks.createTaskQuery().taskIds(new HashSet<>(ids)).taskTenantId((String)p.get("tenantText"))
-                .active().includeProcessVariables().list();
+                .active().includeProcessVariables().includeTaskLocalVariables().list();
         return new PageResult<>(exactOrder(ids,rows,Task::getId),count);
     }
 
@@ -57,6 +57,14 @@ public class ApprovalFlowableTaskQueryService {
         if(mapper.countBrokenProvenance(p)!=0) throw new IllegalStateException("APPROVAL_OWNERSHIP_PROVENANCE_INCOMPLETE");
         Objects.requireNonNull(mapper.ownerships(p),"APPROVAL_OWNERSHIP_ROWS_REQUIRED")
                 .forEach(row->{ApprovalProcessOwnershipService.verify(row);ownership.verifyRegistrationSnapshot(row);});
+    }
+
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public Set<String> unownedHistoricProcesses(Set<String> processIds) {
+        if (processIds.isEmpty()) return Set.of();
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        return Set.copyOf(mapper.unownedHistoricProcesses(Map.of("tenant",tenant,
+                "tenantText",tenant.toString(),"processIds",processIds)));
     }
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)

@@ -50,11 +50,11 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         public static String countPage() {
-            return script("SELECT COUNT(*) " + from(), currentWhere() + filters(), "");
+            return pageScript("SELECT COUNT(*) " + from(), currentWhere() + filters(), "");
         }
 
         public static String selectPage() {
-            return script(select(), currentWhere() + filters(),
+            return pageScript(select(), currentWhere() + filters(),
                     currentOrderBy()
                             + " LIMIT #{limit} OFFSET #{offset}");
         }
@@ -89,12 +89,12 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         public static String countOldIndex() {
-            return script("SELECT COUNT(*) " + from(),
+            return pageScript("SELECT COUNT(*) " + from(),
                     commonWhere() + " AND v.status = 'OLD' AND s.id = " + latestSnapshotId() + oldIndexFilters(), "");
         }
 
         public static String selectOldIndexPage() {
-            return script(select(), commonWhere() + " AND v.status = 'OLD' AND s.id = " + latestSnapshotId() + oldIndexFilters(),
+            return pageScript(select(), commonWhere() + " AND v.status = 'OLD' AND s.id = " + latestSnapshotId() + oldIndexFilters(),
                     oldIndexOrderBy()
                             + " LIMIT #{limit} OFFSET #{offset}");
         }
@@ -123,7 +123,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         + " AND e.deleted = 0"
                         + " AND e.type = 'OWNED_COMPANY')";
         private static final String PROJECT_CODE_EXISTS_SORT_EXPRESSION =
-                "CASE WHEN c.project_code_id IS NULL THEN 0 ELSE 1 END";
+                "CASE WHEN (" + "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END" + ") IS NULL THEN 0 ELSE 1 END";
         private static final String REGISTRATION_FILE_EXISTS_SORT_EXPRESSION =
                 "CASE WHEN EXISTS ("
                         + "SELECT 1 FROM dcc_registration_certificate_file f"
@@ -145,12 +145,12 @@ public interface DccRegistrationCertificateQueryMapper {
         private static final String REMINDER_PRIORITY_SORT_EXPRESSION = reminderPrioritySortExpression();
 
         private static String currentOrderBy() {
-            String stableOrder = ", c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC";
-            return "<choose>"
-                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "v.certificate_no",
-                    textBlankLast("v.certificate_no"), stableOrder)
-                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "v.certificate_no",
-                    textBlankLast("v.certificate_no"), stableOrder)
+            String stableOrder = ", c.owner_company_id ASC, CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) ASC, c.id ASC, v.version_no ASC";
+            return "<choose>" + factsSorts(stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')"), stableOrder)
                     + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_ASC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
                     textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
                     + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_DESC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
@@ -159,14 +159,14 @@ public interface DccRegistrationCertificateQueryMapper {
                     textBlankLast("s.product_name"), stableOrder)
                     + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_DESC, "s.product_name",
                     textBlankLast("s.product_name"), stableOrder)
-                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "v.classification",
-                    textBlankLast("v.classification"), stableOrder)
-                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "v.classification",
-                    textBlankLast("v.classification"), stableOrder)
-                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_ASC, "pc.project_code",
-                    textBlankLast("pc.project_code"), stableOrder)
-                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_DESC, "pc.project_code",
-                    textBlankLast("pc.project_code"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_ASC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",
+                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_DESC, "CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",
+                    textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_ASC, "v.version_no",
                     nullLast("v.version_no"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_DESC, "v.version_no",
@@ -185,37 +185,37 @@ public interface DccRegistrationCertificateQueryMapper {
                     + sortWhen(SORT_FIELD_HAS_REGISTRATION_FILE, SORT_ORDER_DESC,
                     REGISTRATION_FILE_EXISTS_SORT_EXPRESSION,
                     nullLast(REGISTRATION_FILE_EXISTS_SORT_EXPRESSION), stableOrder)
-                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_ASC, "v.approval_date",
-                    nullLast("v.approval_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_DESC, "v.approval_date",
-                    nullLast("v.approval_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_ASC, "v.effective_date",
-                    nullLast("v.effective_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_DESC, "v.effective_date",
-                    nullLast("v.effective_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "v.expiry_date",
-                    nullLast("v.expiry_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "v.expiry_date",
-                    nullLast("v.expiry_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_ASC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_DESC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_ASC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_DESC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)"), stableOrder)
                     + sortWhen(SORT_FIELD_REMINDER, SORT_ORDER_ASC, REMINDER_PRIORITY_SORT_EXPRESSION,
                     NO_EMPTY_RANK, stableOrder)
                     + sortWhen(SORT_FIELD_REMINDER, SORT_ORDER_DESC, REMINDER_PRIORITY_SORT_EXPRESSION,
                     NO_EMPTY_RANK, stableOrder)
-                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_ASC, "v.remark",
-                    textBlankLast("v.remark"), stableOrder)
-                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_DESC, "v.remark",
-                    textBlankLast("v.remark"), stableOrder)
-                    + "<otherwise> ORDER BY c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC</otherwise>"
+                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_ASC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.remark')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.remark')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.remark')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.remark')), 'null')"), stableOrder)
+                    + "<otherwise> ORDER BY c.owner_company_id ASC, CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) ASC, c.id ASC, v.version_no ASC</otherwise>"
                     + "</choose>";
         }
 
         private static String oldIndexOrderBy() {
-            String stableOrder = ", v.expiry_date DESC, c.id ASC, v.version_no DESC";
-            return "<choose>"
-                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "v.certificate_no",
-                    textBlankLast("v.certificate_no"), stableOrder)
-                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "v.certificate_no",
-                    textBlankLast("v.certificate_no"), stableOrder)
+            String stableOrder = ", CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) DESC, c.id ASC, v.version_no DESC";
+            return "<choose>" + factsSorts(stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null')"), stableOrder)
                     + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_ASC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
                     textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
                     + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_DESC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
@@ -224,10 +224,10 @@ public interface DccRegistrationCertificateQueryMapper {
                     textBlankLast("s.product_name"), stableOrder)
                     + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_DESC, "s.product_name",
                     textBlankLast("s.product_name"), stableOrder)
-                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "v.classification",
-                    textBlankLast("v.classification"), stableOrder)
-                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "v.classification",
-                    textBlankLast("v.classification"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')",
+                    textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null')"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_ASC, "v.version_no",
                     nullLast("v.version_no"), stableOrder)
                     + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_DESC, "v.version_no",
@@ -236,12 +236,50 @@ public interface DccRegistrationCertificateQueryMapper {
                     textBlankLast("v.status"), stableOrder)
                     + sortWhen(SORT_FIELD_STATUS, SORT_ORDER_DESC, "v.status",
                     textBlankLast("v.status"), stableOrder)
-                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "v.expiry_date",
-                    nullLast("v.expiry_date"), stableOrder)
-                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "v.expiry_date",
-                    nullLast("v.expiry_date"), stableOrder)
-                    + "<otherwise> ORDER BY v.expiry_date DESC, c.id ASC, v.version_no DESC</otherwise>"
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)",
+                    nullLast("CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE)"), stableOrder)
+                    + "<otherwise> ORDER BY CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) DESC, c.id ASC, v.version_no DESC</otherwise>"
                     + "</choose>";
+        }
+
+        private static String factsSorts(String stableOrder) {
+            String result = "";
+            for (String field : List.of("certificateType", "certificateStatus", "productNameEn", "productCode", "kpNumber", "submissionType", "approvalLetterStatus", "factoryRegistrationStatus", "listingDate", "certificateHolder", "registrationLink", "tradeName", "notifiedBodyCode", "regulationCode", "listingNumber", "customerHeld", "ownProduct", "changeDescription", "firstObtainedDate", "approvalDate", "effectiveDate", "expiryDate", "remark")) {
+                String expression = "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$." + field + "')), 'null')";
+                result += sortWhen(field, SORT_ORDER_ASC, expression, textBlankLast(expression), stableOrder);
+                result += sortWhen(field, SORT_ORDER_DESC, expression, textBlankLast(expression), stableOrder);
+            }
+            result += sortWhen("registrantName",SORT_ORDER_ASC,"s.registrant_name",textBlankLast("s.registrant_name"),stableOrder);
+            result += sortWhen("registrantName",SORT_ORDER_DESC,"s.registrant_name",textBlankLast("s.registrant_name"),stableOrder);
+            result += sortWhen("modelSpecification",SORT_ORDER_ASC,"s.model_specification",textBlankLast("s.model_specification"),stableOrder);
+            result += sortWhen("modelSpecification",SORT_ORDER_DESC,"s.model_specification",textBlankLast("s.model_specification"),stableOrder);
+            result += sortWhen("structureComposition",SORT_ORDER_ASC,"s.structure_composition",textBlankLast("s.structure_composition"),stableOrder);
+            result += sortWhen("structureComposition",SORT_ORDER_DESC,"s.structure_composition",textBlankLast("s.structure_composition"),stableOrder);
+            result += sortWhen("intendedUse",SORT_ORDER_ASC,"s.intended_use",textBlankLast("s.intended_use"),stableOrder);
+            result += sortWhen("intendedUse",SORT_ORDER_DESC,"s.intended_use",textBlankLast("s.intended_use"),stableOrder);
+            result += sortWhen("technicalRequirements",SORT_ORDER_ASC,"s.technical_requirements",textBlankLast("s.technical_requirements"),stableOrder);
+            result += sortWhen("technicalRequirements",SORT_ORDER_DESC,"s.technical_requirements",textBlankLast("s.technical_requirements"),stableOrder);
+            result += sortWhen("residenceAddress",SORT_ORDER_ASC,"s.residence_address",textBlankLast("s.residence_address"),stableOrder);
+            result += sortWhen("residenceAddress",SORT_ORDER_DESC,"s.residence_address",textBlankLast("s.residence_address"),stableOrder);
+            result += sortWhen("productionAddress",SORT_ORDER_ASC,"s.production_address",textBlankLast("s.production_address"),stableOrder);
+            result += sortWhen("productionAddress",SORT_ORDER_DESC,"s.production_address",textBlankLast("s.production_address"),stableOrder);
+            result += sortWhen("entrustedProduction",SORT_ORDER_ASC,"s.entrusted_production",textBlankLast("s.entrusted_production"),stableOrder);
+            result += sortWhen("entrustedProduction",SORT_ORDER_DESC,"s.entrusted_production",textBlankLast("s.entrusted_production"),stableOrder);
+            result += sortWhen("selfProduction",SORT_ORDER_ASC,"s.self_production",textBlankLast("s.self_production"),stableOrder);
+            result += sortWhen("selfProduction",SORT_ORDER_DESC,"s.self_production",textBlankLast("s.self_production"),stableOrder);
+            result += sortWhen("entrustedEnterpriseName",SORT_ORDER_ASC,"CAST(s.entrusted_enterprises_json AS CHAR)",textBlankLast("CAST(s.entrusted_enterprises_json AS CHAR)"),stableOrder);
+            result += sortWhen("entrustedEnterpriseName",SORT_ORDER_DESC,"CAST(s.entrusted_enterprises_json AS CHAR)",textBlankLast("CAST(s.entrusted_enterprises_json AS CHAR)"),stableOrder);
+            result += sortWhen("ceRevision",SORT_ORDER_ASC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].revision')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].revision')), 'null')"),stableOrder);
+            result += sortWhen("ceRevision",SORT_ORDER_DESC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].revision')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].revision')), 'null')"),stableOrder);
+            result += sortWhen("ceCertificateNo",SORT_ORDER_ASC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')"),stableOrder);
+            result += sortWhen("ceCertificateNo",SORT_ORDER_DESC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].certificateNo')), 'null')"),stableOrder);
+            result += sortWhen("ceIssueDate",SORT_ORDER_ASC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')"),stableOrder);
+            result += sortWhen("ceIssueDate",SORT_ORDER_DESC,"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')",textBlankLast("NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ceCertificates[0].issueDate')), 'null')"),stableOrder);
+            result += sortWhen("projectCode",SORT_ORDER_ASC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"),stableOrder);
+            result += sortWhen("projectCode",SORT_ORDER_DESC,"CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END",textBlankLast("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END"),stableOrder);
+            return result;
         }
 
         private static String sortWhen(
@@ -284,14 +322,22 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         private static String reminderDateCrossed(int months) {
-            return "#{query.businessDate} >= TIMESTAMPADD(MONTH, -" + months + ", v.expiry_date)";
+            return "#{query.businessDate} >= TIMESTAMPADD(MONTH, -" + months + ", CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE))";
         }
 
         private static String script(String select, String where, String suffix) {
             return "<script>" + select + where + suffix + "</script>";
         }
 
+        private static String pageScript(String select, String where, String suffix) {
+            // Only CE array searches need more than MySQL's default 1000 recursive rows.
+            String ceHint = "<if test=\"query != null and ((query.ceCertificateNo != null and query.ceCertificateNo != '') or (query.ceRevision != null and query.ceRevision != '') or query.ceIssueStart != null or query.ceIssueEnd != null)\">"
+                    + " /*+ SET_VAR(cte_max_recursion_depth=4294967295) */ </if>";
+            return script(select.replaceFirst("SELECT", "SELECT" + ceHint), where, suffix);
+        }
+
         private static String select() {
+            // MySQL 8 can turn valid JSON ISO dates into NULL when CAST receives NULLIF; CASE preserves them.
             return """
                     SELECT c.id AS certificate_id,
                            c.row_version,
@@ -301,7 +347,7 @@ public interface DccRegistrationCertificateQueryMapper {
                            c.owner_company_id,
                            c.product_master_id,
                            c.project_code_id,
-                           pc.project_code,
+                           CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END AS project_code,
                            CASE
                              WHEN c.pending_version_id IS NOT NULL
                                OR EXISTS (
@@ -315,16 +361,17 @@ public interface DccRegistrationCertificateQueryMapper {
                                )
                              THEN TRUE ELSE FALSE
                            END AS has_pending_renewal,
-                           c.first_obtained_date,
+                           CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) AS first_obtained_date,
+                           s.facts_json,
                            s.product_name,
-                           v.certificate_no,
+                           NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null') AS certificate_no,
                            v.version_no,
                            v.status,
-                           v.approval_date,
-                           v.effective_date,
-                           v.expiry_date,
-                           v.classification,
-                           v.remark,
+                           CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE) AS approval_date,
+                           CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE) AS effective_date,
+                           CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) AS expiry_date,
+                           NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null') AS classification,
+                           NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.remark')), 'null') AS remark,
                            CASE WHEN pending_change.certificate_id IS NULL THEN FALSE ELSE TRUE END AS has_pending_change,
                            s.registrant_name,
                            s.model_specification,
@@ -413,8 +460,48 @@ public interface DccRegistrationCertificateQueryMapper {
                     + " ORDER BY s2.revision_no DESC, s2.id DESC LIMIT 1)";
         }
 
-        private static String filters() {
+        private static String factsFilters() {
             return """
+                    <if test="query != null">
+                      <if test="query.certificateType != null and query.certificateType != ''">
+                        AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateType')) = #{query.certificateType}
+                      </if>
+                      <if test="query.fieldFilters != null">
+                        <foreach collection="query.fieldFilters" index="field" item="value">
+                          <choose>
+                            <when test="field == 'structureComposition'">AND s.structure_composition LIKE CONCAT('%', #{value}, '%')</when>
+                            <when test="field == 'intendedUse'">AND s.intended_use LIKE CONCAT('%', #{value}, '%')</when>
+                            <when test="field == 'technicalRequirements'">AND s.technical_requirements LIKE CONCAT('%', #{value}, '%')</when>
+                            <when test="field == 'residenceAddress'">AND s.residence_address LIKE CONCAT('%', #{value}, '%')</when>
+                            <when test="field == 'entrustedProduction'">AND CASE WHEN s.entrusted_production THEN 'true' ELSE 'false' END = #{value}</when>
+                            <when test="field == 'selfProduction'">AND CASE WHEN s.self_production THEN 'true' ELSE 'false' END = #{value}</when>
+                            <when test="field == 'projectCode'">AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%',#{value},'%')</when>
+                            <when test="field == 'entrustedEnterpriseName'">AND EXISTS(SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id=s.tenant_id AND se.snapshot_id=s.id AND se.enterprise_name_snapshot LIKE CONCAT('%',#{value},'%') AND se.deleted=0)</when>
+                            <otherwise>AND JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.', #{field}))) LIKE CONCAT('%', #{value}, '%')</otherwise>
+                          </choose>
+                        </foreach>
+                      </if>
+                      <if test="(query.ceCertificateNo != null and query.ceCertificateNo != '') or (query.ceRevision != null and query.ceRevision != '') or query.ceIssueStart != null or query.ceIssueEnd != null">
+                        AND EXISTS (
+                          WITH RECURSIVE ce (idx) AS (
+                            SELECT 0 WHERE JSON_LENGTH(JSON_EXTRACT(s.facts_json, '$.ceCertificates')) &gt; 0
+                            UNION ALL
+                            SELECT idx + 1 FROM ce WHERE idx + 1 &lt; JSON_LENGTH(JSON_EXTRACT(s.facts_json, '$.ceCertificates'))
+                          )
+                          SELECT 1 FROM ce WHERE 1=1
+                          <if test="query.ceRevision != null and query.ceRevision != ''">AND CASE WHEN JSON_TYPE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].revision'))) = 'NULL' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].revision'))) END LIKE CONCAT('%', #{query.ceRevision}, '%')</if>
+                          <if test="query.ceCertificateNo != null and query.ceCertificateNo != ''">AND CASE WHEN JSON_TYPE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].certificateNo'))) = 'NULL' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].certificateNo'))) END LIKE CONCAT('%', #{query.ceCertificateNo}, '%')</if>
+                          <if test="query.ceIssueStart != null">AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].issueDate'))) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].issueDate'))) END AS DATE) &gt;= #{query.ceIssueStart}</if>
+                          <if test="query.ceIssueEnd != null">AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].issueDate'))) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, CONCAT('$.ceCertificates[', ce.idx, '].issueDate'))) END AS DATE) &lt;= #{query.ceIssueEnd}</if>)
+                      </if>
+                      <if test="query.listingStart != null">AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.listingDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.listingDate')) END AS DATE) &gt;= #{query.listingStart}</if>
+                      <if test="query.listingEnd != null">AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.listingDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json,'$.listingDate')) END AS DATE) &lt;= #{query.listingEnd}</if>
+                    </if>
+                    """;
+        }
+
+        private static String filters() {
+            return factsFilters() + """
                     <if test="query != null">
                       <if test="query.ownerCompanyId != null">
                         AND c.owner_company_id = #{query.ownerCompanyId}
@@ -439,7 +526,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         = #{query.reminderState}
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
-                        AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                        AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null') LIKE CONCAT('%', #{query.certificateNo}, '%')
                       </if>
                       <if test="query.ownerCompanyName != null and query.ownerCompanyName != ''">
                         AND EXISTS (SELECT 1 FROM mdm_enterprise e WHERE e.tenant_id = c.tenant_id AND e.id = c.owner_company_id AND e.deleted = 0 AND e.type = 'OWNED_COMPANY' AND e.name LIKE CONCAT('%', #{query.ownerCompanyName}, '%'))
@@ -448,7 +535,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND s.product_name LIKE CONCAT('%', #{query.productName}, '%')
                       </if>
                       <if test="query.classification != null and query.classification != ''">
-                        AND v.classification LIKE CONCAT('%', #{query.classification}, '%')
+                        AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null') LIKE CONCAT('%', #{query.classification}, '%')
                       </if>
                       <if test="query.registrantName != null and query.registrantName != ''">
                         AND s.registrant_name LIKE CONCAT('%', #{query.registrantName}, '%')
@@ -463,13 +550,13 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
-                        AND pc.project_code LIKE CONCAT('%', #{query.projectCode}, '%')
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.missingProjectCode != null and query.missingProjectCode">
-                        AND c.project_code_id IS NULL
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) IS NULL
                       </if>
                       <if test="query.missingProjectCode != null and !query.missingProjectCode">
-                        AND c.project_code_id IS NOT NULL
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) IS NOT NULL
                       </if>
                       <if test="query.missingFile != null and query.missingFile">
                         AND NOT EXISTS (
@@ -492,35 +579,35 @@ public interface DccRegistrationCertificateQueryMapper {
                              AND f.deleted = 0)
                       </if>
                       <if test="query.firstObtainedStart != null">
-                        AND c.first_obtained_date &gt;= #{query.firstObtainedStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) &gt;= #{query.firstObtainedStart}
                       </if>
                       <if test="query.firstObtainedEnd != null">
-                        AND c.first_obtained_date &lt;= #{query.firstObtainedEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) &lt;= #{query.firstObtainedEnd}
                       </if>
                       <if test="query.approvalStart != null">
-                        AND v.approval_date &gt;= #{query.approvalStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE) &gt;= #{query.approvalStart}
                       </if>
                       <if test="query.approvalEnd != null">
-                        AND v.approval_date &lt;= #{query.approvalEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE) &lt;= #{query.approvalEnd}
                       </if>
                       <if test="query.effectiveStart != null">
-                        AND v.effective_date &gt;= #{query.effectiveStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE) &gt;= #{query.effectiveStart}
                       </if>
                       <if test="query.effectiveEnd != null">
-                        AND v.effective_date &lt;= #{query.effectiveEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE) &lt;= #{query.effectiveEnd}
                       </if>
                       <if test="query.expiryStart != null">
-                        AND v.expiry_date &gt;= #{query.expiryStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) &gt;= #{query.expiryStart}
                       </if>
                       <if test="query.expiryEnd != null">
-                        AND v.expiry_date &lt;= #{query.expiryEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) &lt;= #{query.expiryEnd}
                       </if>
                     </if>
                     """;
         }
 
         private static String oldIndexFilters() {
-            return """
+            return factsFilters() + """
                     <if test="query != null">
                       <if test="query.ownerCompanyId != null">
                         AND c.owner_company_id = #{query.ownerCompanyId}
@@ -532,7 +619,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND c.project_code_id = #{query.projectCodeId}
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
-                        AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                        AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.certificateNo')), 'null') LIKE CONCAT('%', #{query.certificateNo}, '%')
                       </if>
                       <if test="query.ownerCompanyName != null and query.ownerCompanyName != ''">
                         AND EXISTS (SELECT 1 FROM mdm_enterprise e WHERE e.tenant_id = c.tenant_id AND e.id = c.owner_company_id AND e.deleted = 0 AND e.type = 'OWNED_COMPANY' AND e.name LIKE CONCAT('%', #{query.ownerCompanyName}, '%'))
@@ -541,7 +628,7 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND s.product_name LIKE CONCAT('%', #{query.productName}, '%')
                       </if>
                       <if test="query.classification != null and query.classification != ''">
-                        AND v.classification LIKE CONCAT('%', #{query.classification}, '%')
+                        AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.classification')), 'null') LIKE CONCAT('%', #{query.classification}, '%')
                       </if>
                       <if test="query.registrantName != null and query.registrantName != ''">
                         AND s.registrant_name LIKE CONCAT('%', #{query.registrantName}, '%')
@@ -556,31 +643,31 @@ public interface DccRegistrationCertificateQueryMapper {
                         AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
-                        AND pc.project_code LIKE CONCAT('%', #{query.projectCode}, '%')
+                        AND (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.projectCode')), 'null') ELSE pc.project_code END) LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.firstObtainedStart != null">
-                        AND c.first_obtained_date &gt;= #{query.firstObtainedStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) &gt;= #{query.firstObtainedStart}
                       </if>
                       <if test="query.firstObtainedEnd != null">
-                        AND c.first_obtained_date &lt;= #{query.firstObtainedEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.firstObtainedDate')) END AS DATE) &lt;= #{query.firstObtainedEnd}
                       </if>
                       <if test="query.approvalStart != null">
-                        AND v.approval_date &gt;= #{query.approvalStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE) &gt;= #{query.approvalStart}
                       </if>
                       <if test="query.approvalEnd != null">
-                        AND v.approval_date &lt;= #{query.approvalEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.approvalDate')) END AS DATE) &lt;= #{query.approvalEnd}
                       </if>
                       <if test="query.effectiveStart != null">
-                        AND v.effective_date &gt;= #{query.effectiveStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE) &gt;= #{query.effectiveStart}
                       </if>
                       <if test="query.effectiveEnd != null">
-                        AND v.effective_date &lt;= #{query.effectiveEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.effectiveDate')) END AS DATE) &lt;= #{query.effectiveEnd}
                       </if>
                       <if test="query.expiryStart != null">
-                        AND v.expiry_date &gt;= #{query.expiryStart}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) &gt;= #{query.expiryStart}
                       </if>
                       <if test="query.expiryEnd != null">
-                        AND v.expiry_date &lt;= #{query.expiryEnd}
+                        AND CAST(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) = 'null' THEN NULL ELSE JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.expiryDate')) END AS DATE) &lt;= #{query.expiryEnd}
                       </if>
                     </if>
                     """;

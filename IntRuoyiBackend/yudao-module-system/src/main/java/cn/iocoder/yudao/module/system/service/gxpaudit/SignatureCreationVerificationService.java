@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.service.gxpaudit;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
@@ -28,6 +29,8 @@ public class SignatureCreationVerificationService {
         if (events.size() != 1) return result("MISMATCH", "AUDIT_LINK_DUPLICATE", null);
         GxpAuditEventDO audit = events.get(0);
         if (!integrity(audit, expected.tenantId())) return result("MISMATCH", "AUDIT_INTEGRITY_FAILED", audit == null ? null : audit.getId());
+        String reasonSource = "APPROVE".equals(expected.afterState().get("actionCode")) && StrUtil.isBlank(expected.reason())
+                ? "SYSTEM" : "USER";
         if (!Objects.equals(protocol.operationId(), audit.getOperationId())
                 || !"SIGNATURE".equals(audit.getDomain()) || !"SIGNATURE_RECORD".equals(audit.getSubjectType())
                 || !"CREATE".equals(audit.getAction())
@@ -44,7 +47,7 @@ public class SignatureCreationVerificationService {
                 || !Objects.equals(expected.idempotencyKey(), audit.getIdempotencyKey())
                 || !"NO_SIGNATURE_RECORD".equals(audit.getBeforeState())
                 || !"ELECTRONIC_SIGNATURE_RECORDED".equals(audit.getAfterState())
-                || !"SIGNATURE_RECORD_CREATE".equals(audit.getReasonCode()) || !"USER".equals(audit.getReasonSource())
+                || !"SIGNATURE_RECORD_CREATE".equals(audit.getReasonCode()) || !reasonSource.equals(audit.getReasonSource())
                 || !Objects.equals(tree("{}"), tree(audit.getBeforeStateJson()))
                 || !Objects.equals(tree(JsonUtils.toJsonString(expected.afterState())), tree(audit.getAfterStateJson()))
                 || !Objects.equals(tree("[]"), tree(audit.getRelationManifestJson()))

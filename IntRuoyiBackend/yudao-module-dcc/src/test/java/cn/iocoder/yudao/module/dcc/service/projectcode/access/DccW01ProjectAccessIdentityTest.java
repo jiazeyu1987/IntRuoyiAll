@@ -131,7 +131,7 @@ class DccW01ProjectAccessIdentityTest {
         added.setTenantId(1L);
         when(projects.selectById(101L)).thenReturn(added);
         var existing = projects.selectById(100L);
-        when(projects.selectEnabledList()).thenReturn(List.of(existing, added));
+        when(projects.selectList()).thenReturn(List.of(existing, added));
 
         for (Long projectId : List.of(100L, 101L)) {
             assertTrue(service.hasProjectOwner(99L, projectId));
@@ -151,7 +151,7 @@ class DccW01ProjectAccessIdentityTest {
         foreign.setTenantId(2L);
         when(projects.selectById(101L)).thenReturn(foreign);
         var existing = projects.selectById(100L);
-        when(projects.selectEnabledList()).thenReturn(List.of(existing, foreign));
+        when(projects.selectList()).thenReturn(List.of(existing, foreign));
 
         for (Long projectId : List.of(101L, 999L)) {
             assertFalse(service.hasProjectOwner(99L, projectId));

@@ -20,6 +20,7 @@ test('actual chosen file name is the source context before preview even without 
  const s={sourceUploadRequestSeq:0,isExternalReview:ref(false),formData:{fileName:'old-template',fileTypeTaxonomyId:'11',categoryId:2},validateControlledFileSelection:()=>({valid:true}),uploadRef:ref(),resetSelectedPreview:()=>{},cleanupCurrentUploadSession:async()=>true,resetDrawingPdfUpload:()=>{},resetAttachmentUploads:()=>{},clearSubmitFieldErrors:()=>{},submitFieldErrors:{},uploadPreviewError:ref(''),fileList:ref([]),previewUpload:ref(),previewFileBlob:ref(),uploadPreviewLoading:ref(false),uploadSessionBinding:ref(),uploadSessionId:'session-client',buildUploadPreviewContext:()=>{},uploadSubmitterService:{uploadPreview:async(raw,purpose,context)=>{calls.push({raw,purpose,context});return{fileName:raw.name,sessionId:'real-scoped-session',uploadTicket:'ticket'}}},cleanupStaleUploadResponse:async()=>{},message:{error:()=>{}},resolveUploadPreviewErrorMessage:e=>e.message,resetUploadNameLinkage:()=>{},clearCurrentVersionInfo:()=>{}}
  const {c,handler}=execute(block("const handleFileChange: UploadProps['onChange']",'const handleBeforeFileRemove:'),s,'handleFileChange')
  c.submitLoading=ref(false);c.projectAttributesLoading=ref(false);c.uploadSubmitted=ref(false)
+ c.cleanupTemporaryUploadTicket=async()=>true
  c.captureUploadSelectionContext=()=>JSON.stringify([c.formData.categoryId,c.formData.fileTypeTaxonomyId])
  c.createControlledFileUploadSessionId=()=> 'new-independent-session'
  const helpers={exports:{},Error,require:()=>({validateAttributes:value=>value})}
@@ -78,13 +79,21 @@ test('optional template failure stays auxiliary and preserves independently load
 test('actual single type form renders complete enabled path even without a project template',()=>{
  const {descriptor}=parse(page)
  const find=n=>{if(n.type===1 && n.tag==='el-form-item' && n.props.some(p=>p.type===6&&p.name==='label'&&p.value?.content==='文件类型'))return n;for(const c of n.children||[]){const found=find(c);if(found)return found}}
- const node=find(descriptor.template.ast),values={isExternalReview:false,formData:{dccProjectCodeId:'5',fileTypeTaxonomyId:'9007199254740993'},submitLoading:false,fileTypeOptionsLoading:false,fileTypeOptionsError:'',fileTypeCategoryError:'',uploadFileTypeOptions:[{id:'9007199254740993',names:['设计','报告','任意报告']}],handleFileTypeTaxonomyChange:()=>{}}
+ const node=find(descriptor.template.ast),values={isExternalReview:false,formData:{dccProjectCodeId:'5',fileTypeTaxonomyId:'9007199254740993'},submitLoading:false,fileTypeOptionsLoading:false,fileTypeOptionsError:'',fileTypeCategoryError:'',uploadFileTypeOptions:[{id:'9007199254740993',names:['设计','报告','任意报告']},{id:'15',names:['通用文件','其他类型','其他'],approvalSourceMode:'APPLICATION_CUSTOM',uploadBlocker:null}],handleFileTypeTaxonomyChange:()=>{}}
  const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const values=__values;'+Object.keys(values).map(k=>'const '+k+'=values.'+k).join('\n')+'</script>').descriptor,{id:'actual-single-type',inlineTemplate:true})
  const env={exports:{},require:()=>vue,__values:values};vm.runInNewContext(ts.transpileModule(compiled.content,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,env)
  const renderer=vue.createRenderer({createElement:type=>({type,children:[],props:{}}),createText:text=>({text}),createComment:()=>({}),insert:(c,p)=>p.children.push(c),remove(){},setText:(n,t)=>{n.text=t},setElementText:(n,t)=>{n.text=t},patchProp:(n,k,_old,v)=>{n.props[k]=v},parentNode:()=>null,nextSibling:()=>null})
  const app=renderer.createApp(env.exports.default)
  for(const tag of ['el-form-item','el-select','el-alert'])app.component(tag,{setup:(_p,c)=>()=>vue.h(tag,c.attrs,c.slots.default?.())})
- app.component('el-option',{props:['label','value'],setup:p=>()=>vue.h('option',{'value':p.value},p.label)})
+ app.component('el-option',{props:['label','value','disabled'],setup:p=>()=>vue.h('option',{'value':p.value,disabled:p.disabled},p.label)})
  const root={children:[]};app.mount(root);const text=n=>(n.text||'')+(n.children||[]).map(text).join('')
- try{assert.match(text(root),/设计 \/ 报告 \/ 任意报告/)}finally{app.unmount()}
+ try{
+  assert.match(text(root),/设计 \/ 报告 \/ 任意报告/)
+  assert.match(text(root),/通用文件 \/ 其他类型 \/ 其他/)
+  const options=[];const visit=n=>{if(n.type==='option')options.push(n);for(const c of n.children||[])visit(c)};visit(root)
+  assert.equal(Boolean(options.find(n=>n.props.value==='15').props.disabled),false)
+  const context={exports:{},computed:fn=>({get value(){return fn()}}),selectedFileTypeTaxonomyPath:{value:values.uploadFileTypeOptions[1]}}
+  vm.runInNewContext(ts.transpileModule(block('const isCustomApprovalSource =','const handleCustomMatrixChange =')+'\nexports.custom=isCustomApprovalSource',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
+  assert.equal(context.exports.custom.value,true)
+ }finally{app.unmount()}
 })

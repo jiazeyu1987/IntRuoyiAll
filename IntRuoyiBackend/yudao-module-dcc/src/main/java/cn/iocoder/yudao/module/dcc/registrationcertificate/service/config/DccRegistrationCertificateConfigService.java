@@ -28,6 +28,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 @Service
 public class DccRegistrationCertificateConfigService {
 
+    public static final String CHANGE_CONFIRMATION_RECIPIENTS = "CHANGE_CONFIRMATION";
+
     private static final String DEFAULT_DAILY_RUN_TIME = "09:00";
     private static final String DEFAULT_TIMEZONE = "Asia/Shanghai";
     private static final String DEFAULT_THRESHOLDS = "[30,8,2,1]";
@@ -85,8 +87,10 @@ public class DccRegistrationCertificateConfigService {
         Map<String, List<Long>> thresholdRecipientUserIds = normalizeThresholdRecipientUserIds(
                 command.thresholdRecipientUserIds());
         Set<Long> allRecipientUserIds = new LinkedHashSet<>();
-        thresholdRecipientUserIds.values().forEach(allRecipientUserIds::addAll);
-        adminUserApi.validateUserList(allRecipientUserIds);
+        REQUIRED_THRESHOLD_LEVELS.forEach(level -> allRecipientUserIds.addAll(thresholdRecipientUserIds.get(level)));
+        Set<Long> validatedUserIds = new LinkedHashSet<>(allRecipientUserIds);
+        validatedUserIds.addAll(thresholdRecipientUserIds.getOrDefault(CHANGE_CONFIRMATION_RECIPIENTS, List.of()));
+        adminUserApi.validateUserList(validatedUserIds);
         String recipientJson = JsonUtils.toJsonString(thresholdRecipientUserIds);
         getOrCreate(tenantId);
         int affected = jdbcTemplate.update("""
@@ -191,7 +195,9 @@ public class DccRegistrationCertificateConfigService {
 
     private static Map<String, List<Long>> normalizeThresholdRecipientUserIds(
             Map<String, List<Long>> rawRecipients) {
-        if (rawRecipients == null || !rawRecipients.keySet().equals(new LinkedHashSet<>(REQUIRED_THRESHOLD_LEVELS))) {
+        if (rawRecipients == null || !rawRecipients.keySet().containsAll(REQUIRED_THRESHOLD_LEVELS)
+                || rawRecipients.keySet().stream().anyMatch(key -> !REQUIRED_THRESHOLD_LEVELS.contains(key)
+                    && !CHANGE_CONFIRMATION_RECIPIENTS.equals(key))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID);
         }
         LinkedHashMap<String, List<Long>> normalized = new LinkedHashMap<>();
@@ -208,6 +214,12 @@ public class DccRegistrationCertificateConfigService {
                 userIds.add(userId);
             }
             normalized.put(thresholdLevel, List.copyOf(new ArrayList<>(userIds)));
+        }
+        if (rawRecipients.containsKey(CHANGE_CONFIRMATION_RECIPIENTS)) {
+            List<Long> userIds=rawRecipients.get(CHANGE_CONFIRMATION_RECIPIENTS);
+            if (userIds == null || userIds.size()>100 || userIds.stream().anyMatch(id -> id == null || id<=0))
+                throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED);
+            normalized.put(CHANGE_CONFIRMATION_RECIPIENTS, List.copyOf(new LinkedHashSet<>(userIds)));
         }
         return Map.copyOf(normalized);
     }

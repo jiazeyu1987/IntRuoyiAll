@@ -103,6 +103,10 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         when(assignments.isWithinAssignedFileScope(99L,910L)).thenReturn(true);
 
         var guard = new DccControlledFileDetailAuthorizationGuard();
+        for (var field : guard.getClass().getDeclaredFields())
+            if (field.isAnnotationPresent(jakarta.annotation.Resource.class))
+                ReflectionTestUtils.setField(guard, field.getName(), mock(field.getType()));
+        ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", mock(DccProjectReferenceReadAccess.class));
         ReflectionTestUtils.setField(guard,"assignmentScopeService",assignments);
         ReflectionTestUtils.setField(guard,"adminUserApi",users);
         ReflectionTestUtils.setField(guard,"bpmTaskService",tasks);
@@ -114,6 +118,11 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(query,"directoryAccessPermissionService",directories);
         ReflectionTestUtils.setField(query,"assignmentScopeService",assignments);
         ReflectionTestUtils.setField(query,"projectAccessService",projectAccess);
+        var categoryPermissions = mock(DccControlledFileCategoryPermissionSupport.class);
+        when(categoryPermissions.hasFilePermission(any(DccControlledFileDO.class), eq(99L),
+                eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW))).thenReturn(true);
+        ReflectionTestUtils.setField(guard, "permissionSupport", categoryPermissions);
+        ReflectionTestUtils.setField(query, "permissionSupport", categoryPermissions);
         when(projectAccess.listReadableProjectIds(99L)).thenReturn(List.of(300L));
         when(directories.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of(20L));
         provider = new DccBusinessFileAccessProvider(query, files, null, null);
@@ -176,6 +185,66 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(query,"onlyOfficePreviewTokenService",officeTokens);
         ReflectionTestUtils.setField(query,"onlyOfficePreviewProperties",properties);
     }
+    @Test void supervisorAttachmentUsesExactTaskForMetadataAndBytesAndRejectsChangedIdentity() throws Exception {
+        selected.setStatus("PENDING_SUPERVISOR_REVIEW");selected.setRequesterId(123L);
+        when(exactTask.getTaskDefinitionKey()).thenReturn("SUPERVISOR_REVIEW");
+        var attachments=mock(DccControlledFileAttachmentService.class);
+        ReflectionTestUtils.setField(query,"attachmentService",attachments);
+        when(attachments.getAttachment(910L,77L)).thenReturn(new DccControlledFileAttachmentBinary(77L,101L,"attachment.txt","text/plain",7L));
+        when(attachments.listControlledFileIdsByStorageFileId(101L)).thenReturn(List.of(910L));
+        when(binaries.selectById(101L)).thenReturn(binary(101L,"attachment.txt","text/plain",7L));
+        when(storage.getFileContent(1L,"g07-source/attachment.txt")).thenReturn("content".getBytes(StandardCharsets.UTF_8));
+        var metadata=query.getAttachmentPreviewMetadata(99L,910L,77L,context,audit);
+        assertEquals("attachment.txt",metadata.getFileName());
+        var request=org.mockito.ArgumentCaptor.forClass(DccPreviewAccessRequest.class);
+        verify(previews).prepareAccess(request.capture());
+        assertEquals(context.purpose(),request.getValue().purpose());
+        assertEquals("round-delayed",request.getValue().processInstanceId());
+        var result=query.readAttachmentPreviewFile(99L,910L,77L,context,"viewer","event-source","trace-source","viewer-id","viewer-nonce",audit);
+        assertArrayEquals("content".getBytes(StandardCharsets.UTF_8),result.bytes());
+        assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"attachmentReadContext")).get());
+        clearInvocations(storage);
+        when(exactTask.getAssignee()).thenReturn("123");
+        assertServiceException(()->query.getAttachmentPreviewMetadata(99L,910L,77L,context,audit),CONTROLLED_FILE_ACCESS_DENIED);
+        assertServiceException(()->query.readAttachmentPreviewFile(99L,910L,77L,context,"viewer","event-source","trace-source","viewer-id","viewer-nonce",audit),CONTROLLED_FILE_ACCESS_DENIED);
+        verifyNoInteractions(storage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"version","round","task","tenant","actor"})
+    void attachmentContextCannotBorrowAnotherIdentity(String mismatch) {
+        selected.setStatus("PENDING_SUPERVISOR_REVIEW");
+        var wrong = new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "910", "version".equals(mismatch)?"A/1":"A/2", "REVISION",
+                "round".equals(mismatch)?"other-round":"round-delayed",
+                "task".equals(mismatch)?"other-task":"task-delayed");
+        if("tenant".equals(mismatch))selected.setTenantId(32L);
+        if("actor".equals(mismatch))when(exactTask.getAssignee()).thenReturn("123");
+        assertThrows(RuntimeException.class,()->query.getAttachmentPreviewMetadata(99L,910L,77L,wrong,audit));
+        assertThrows(RuntimeException.class,()->query.readAttachmentPreviewFile(99L,910L,77L,wrong,
+                "viewer","event-source","trace-source","viewer-id","viewer-nonce",audit));
+        verifyNoInteractions(storage,previews);
+        assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"attachmentReadContext")).get());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ACTIVE,101,101", "ACTIVE,,400", "READY_TO_PUBLISH,,300"})
+    void previewKeepsAlreadyStampedPdfBytesFromTheExactSelectedArtifact(String status,Long readOnlyId,Long expectedId) throws Exception {
+        selected.setStatus(status);selected.setReadOnlyFileId(readOnlyId);
+        byte[] source;
+        try(var pdf=new org.apache.pdfbox.pdmodel.PDDocument();var output=new java.io.ByteArrayOutputStream()) {
+            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage());pdf.save(output);source=output.toByteArray();
+        }
+        byte[] stamped=new DccPdfStampService().stamp(source);
+        when(binaries.selectById(expectedId)).thenReturn(binary(expectedId,"stamped.pdf","application/pdf",stamped.length));
+        when(storage.getFileContent(1L,"g07-source/stamped.pdf")).thenReturn(stamped);
+        var metadata=query.getPreviewMetadata(99L,910L,context,audit);
+        assertEquals("stamped.pdf",metadata.getFileName());
+        var result=query.readPreviewFile(99L,910L,context,"viewer","event-source","trace-source","viewer-id","viewer-nonce",audit);
+        assertArrayEquals(stamped,result.bytes(),"preview must preserve the existing formal stamp without stamping again");
+        assertNotNull(result.watermark(),"tracking watermark must remain available");
+    }
+
     @AfterEach void clearSubject() { SecurityContextHolder.clearContext(); TenantContextHolder.clear(); }
     private FileDO binary(Long id,String name,String type,long size) { return FileDO.builder().id(id).configId(1L).name(name).type(type).path("g07-source/"+name).size(size).build(); }
     private long utf8Size(String content) { return content.getBytes(StandardCharsets.UTF_8).length; }
@@ -391,8 +460,8 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         assertNull(SecurityFrameworkUtils.getLoginUser());
     }
 
-    @Test void historicalTaskReadsItsExactRetainedBodyInsteadOfCurrentSourceAndRechecksTheActualHistoricActor() throws Exception {
-        selected.setStatus("SUPERSEDED");selected.setRequesterId(88L);selected.setProcessInstanceId("new-current-round");
+    @Test void historicalTaskReadsItsExactActiveBodyInsteadOfCurrentSourceAndRechecksTheActualHistoricActor() throws Exception {
+        selected.setStatus("ACTIVE");selected.setRequesterId(88L);selected.setProcessInstanceId("new-current-round");
         when(processes.getProcessInstance("round-delayed")).thenReturn(null);
         var historicTask=mock(HistoricTaskInstance.class);
         when(tasks.getHistoricTask("task-delayed")).thenReturn(historicTask);
@@ -413,6 +482,29 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         assertServiceException(this::readBinary,CONTROLLED_FILE_ACCESS_DENIED);
         verifyNoInteractions(storage,previews);
         assertEquals("new-current-round",selected.getProcessInstanceId());
+    }
+
+    @Test void archivedHistoricalTaskRequiresDocumentControlAndReadsOnlyTheExactRetainedBody() throws Exception {
+        selected.setStatus("SUPERSEDED");selected.setRequesterId(88L);selected.setProcessInstanceId("new-current-round");
+        context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                "910","A/2","REVISION","round-delayed","task-delayed");
+        events.selectById(800L).setPurpose(context.purpose());
+        var archive=mock(DccArchiveAccessService.class);
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(query,"detailAuthorizationGuard"),"archiveAccess",archive);
+        ReflectionTestUtils.setField(query,"archiveAccess",archive);
+        assertServiceException(()->query.getPreviewMetadata(99L,910L,context,audit),CONTROLLED_FILE_ACCESS_DENIED);
+        verifyNoInteractions(storage,previews);
+        // Archive authorization is independent of former approval-task ownership.
+        when(archive.canRead(99L,selected)).thenReturn(true);
+        when(binaries.selectById(400L)).thenReturn(binary(400L,"retained-A2.pdf","application/pdf",utf8Size("retained-selected-version")));
+        assertEquals("retained-A2.pdf",query.getPreviewMetadata(99L,910L,context,audit).getFileName());
+        when(storage.getFileContent(1L,"g07-source/retained-A2.pdf")).thenReturn("retained-selected-version".getBytes(StandardCharsets.UTF_8));
+        assertArrayEquals("retained-selected-version".getBytes(StandardCharsets.UTF_8),readBinary().bytes());
+        verify(storage,never()).getFileContent(1L,"g07-source/exact-source.pdf");
+        when(archive.canRead(99L,selected)).thenReturn(false);
+        clearInvocations(storage,previews);
+        assertServiceException(this::readBinary,CONTROLLED_FILE_ACCESS_DENIED);
+        verifyNoInteractions(storage,previews);
     }
 
     @Test void signedOfficeTokenCannotReadAnotherSelectedFileEvenForTheSameAuthenticatedActor() {

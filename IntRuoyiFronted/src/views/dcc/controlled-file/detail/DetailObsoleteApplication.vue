@@ -1,10 +1,12 @@
 <template>
   <el-dialog :model-value="modelValue" title="作废申请" width="920px" :close-on-click-modal="false"
     :before-close="beforeClose" @update:model-value="close">
-    <section v-loading="loading">
+    <section v-loading="loading" data-user-table-column-explicit-scope>
       <el-alert v-if="error || session.error" :title="error || session.error" type="error" :closable="false" />
       <p>{{ file.sourceOriginalFileName || file.fileName || file.title }} · 文件编号 {{ file.fileNumber }} · 版本 {{ file.versionNo }}</p>
-      <p>直属主管审核 → 部门负责人指派及会签 → 批准，批准后作废并结束。</p>
+      <DetailObsoleteImpact :file-id="String(file.id)" :project-name="file.projectName || file.projectCode || ''"
+        :active="modelValue" />
+      <p>直属主管审核 → 部门负责人签名指派 → 实际会签人会签 → 批准，批准后作废并结束。</p>
       <p v-if="session.draft">草稿 {{ session.draft.instanceCode }} · 本次属性第 {{ session.draft.attributeRound }} 轮</p>
       <template v-if="session.sourceSelectionRequired">
         <p>存在多份已终止的作废申请，请明确选择本次重办来源。</p>
@@ -23,7 +25,8 @@
       </template>
       <el-button v-if="session.sourceRefreshRequired" :disabled="busy || loading" @click="reloadEntry">重新读取申请来源</el-button>
       <el-alert v-if="session.draft && !session.draft.preparationReady"
-        :title="session.draft.unavailableReason || '本次审批准备未完成，请核对后准备审批'"
+        :title="!session.draft.unavailableReason || session.draft.unavailableReason === 'DCC_OBSOLETE_EXECUTION_PREPARATION_REQUIRED'
+          ? '本次申请尚未准备审批，请先核对审批规则，再点击“准备审批”。' : session.draft.unavailableReason"
         type="warning" :closable="false" />
       <el-form label-width="110px" :disabled="loading || busy || session.sourceSelectionRequired || session.sourceRefreshRequired">
         <el-form-item label="作废原因"><el-input v-model="reason" type="textarea" /></el-form-item>
@@ -123,9 +126,23 @@ import { generateUUID } from '@/utils'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import ProjectAttributesFields from '../project-attributes/ProjectAttributesFields.vue'
+import DetailObsoleteImpact from './DetailObsoleteImpact.vue'
 import { validateAttributes, type ProjectAttributes, type AttributeSnapshot } from '../project-attributes/state'
 import { ObsoleteApplicationSession, type ObsoleteApplicationInput, type ObsoleteMatrixSelection } from './obsolete-application'
 const props = defineProps<{ modelValue: boolean; file: ControlledFileVO; allowed: boolean }>()
+const route = useRoute()
+const notificationSource = () => {
+  const keys = ['reworkSourceFormInstanceId', 'reworkSourceFormInstanceCode', 'reworkSourceBpmProcessInstanceId', 'reworkSourceAttributeRound'] as const
+  if (!keys.some(key => route.query[key] !== undefined)) return undefined
+  if (keys.some(key => typeof route.query[key] !== 'string' || !String(route.query[key]).trim())
+    || !/^[1-9][0-9]*$/.test(String(route.query.reworkSourceFormInstanceId))
+    || !/^[1-9][0-9]*$/.test(String(route.query.reworkSourceAttributeRound))) throw new Error('原作废任务的精确申请身份不完整')
+  const round = Number(route.query.reworkSourceAttributeRound)
+  if (!Number.isSafeInteger(round)) throw new Error('原作废任务属性轮次不精确')
+  return { reworkSourceFormInstanceId: String(route.query.reworkSourceFormInstanceId),
+    reworkSourceFormInstanceCode: String(route.query.reworkSourceFormInstanceCode),
+    reworkSourceBpmProcessInstanceId: String(route.query.reworkSourceBpmProcessInstanceId), reworkSourceAttributeRound: round }
+}
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; submitted: [] }>()
 const userStore = useUserStore()
 const snapshot = ref<AttributeSnapshot>()
@@ -134,11 +151,11 @@ const selectedDepartments = ref<string[]>([])
 const reason = ref(''), error = ref(''), loading = ref(false), pending = ref(false)
 let generation = 0
 const scopeKey = () => JSON.stringify([generation, props.modelValue, String(props.file.id), props.file.versionNo, String(props.file.dccProjectCodeId || ''),
-  String(userStore.getUser?.id || ''), String(getVisitTenantId() || getTenantId() || '')])
+  String(userStore.getUser?.id || ''), String(getVisitTenantId() || getTenantId() || ''), route.query.reworkSourceFormInstanceId, route.query.reworkSourceBpmProcessInstanceId])
 const session = reactive(new ObsoleteApplicationSession(
   () => ({ key: scopeKey(), fileId: String(props.file.id), projectId: String(props.file.dccProjectCodeId || ''), versionNo: props.file.versionNo,
     actorId: String(userStore.getUser?.id || ''), tenantId: String(getVisitTenantId() || getTenantId() || '') }),
-  getControlledFileObsoleteApplicationDraft, obsoleteControlledFile, generateUUID,
+  (id, source) => getControlledFileObsoleteApplicationDraft(id, source || notificationSource()), obsoleteControlledFile, generateUUID,
   () => ({ reason: reason.value.trim(), selectedSignoffDepartmentIds: [...selectedDepartments.value], projectAttributes: snapshot.value?.actual })))
 const busy = computed(() => pending.value || session.busy)
 const sourceStatus = (status: 'REJECTED' | 'ABANDONED') => status === 'REJECTED' ? '已拒绝' : '已放弃'
@@ -173,7 +190,7 @@ const requireEligible = () => {
     throw new Error('本次会签部门包含失效条目，请重新选择')
 }
 watch(() => [props.modelValue, String(props.file.id), props.file.versionNo, String(props.file.dccProjectCodeId || ''), props.allowed,
-  String(userStore.getUser?.id || ''), String(getVisitTenantId() || getTenantId() || '')], async ([visible]) => {
+  String(userStore.getUser?.id || ''), String(getVisitTenantId() || getTenantId() || ''), route.query.reworkSourceFormInstanceId, route.query.reworkSourceBpmProcessInstanceId], async ([visible]) => {
   const token = ++generation
   session.clear(); snapshot.value = undefined; selectedDepartments.value = []; reason.value = ''; error.value = ''; pending.value = false
   if (!visible) return
@@ -289,7 +306,7 @@ const submit = async () => {
       throw new Error('本次实际属性包含无效选项，请重新核对')
     }
     const attributeSummary = `目标市场：${actual.targetMarkets.join('、')}${actual.otherMarket ? `（其他市场说明：${actual.otherMarket}）` : ''}；是否为注册人：${choice(actual.licenseHolder)}；是否为生产方：${choice(actual.actualManufacturer)}；文件转移：${choice(actual.documentTransfer)}${actual.transferTo ? `，转移至：${actual.transferTo}` : ''}`
-    await ElMessageBox.confirm(`确认提交作废申请：${props.file.fileNumber} / ${props.file.versionNo}；原因：${reason.value}；会签部门：${selectedDepartments.value.map(id => departments.value.find(row => String(row.id) === id)?.name || id).join('、')}；${attributeSummary}。直属主管、会签及批准完成后作废。`,
+    await ElMessageBox.confirm(`确认提交作废申请：${props.file.fileNumber} / ${props.file.versionNo}；原因：${reason.value}；会签部门：${selectedDepartments.value.map(id => departments.value.find(row => String(row.id) === id)?.name || id).join('、')}；${attributeSummary}。请核对以上关联文件、引用及受影响项目，确认后提交。直属主管、会签及批准完成后作废。`,
       '确认提交作废申请', { type: 'warning' })
     if (key !== scopeKey() || original !== fingerprint()) throw new Error('申请内容已改变，请重新保存并确认')
     if (await perform('SUBMIT')) { emit('submitted'); emit('update:modelValue', false) }

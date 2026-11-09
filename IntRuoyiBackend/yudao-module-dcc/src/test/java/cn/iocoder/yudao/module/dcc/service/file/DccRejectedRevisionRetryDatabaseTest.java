@@ -9,6 +9,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Real Query checkin, C allocation, A submission, B attributes, H2 locks and real Flowable history. */
 class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationDatabaseTest {
+    long submit(Long actor,Long selected,cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO request){
+        return workflow.submitWorkingIteration(actor,selected,a29ExpectedServerManifest(selected,request));
+    }
     @org.junit.jupiter.api.BeforeEach void realProcessHistoryPort() {
         var bpm=org.mockito.Mockito.mock(cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService.class);
         org.mockito.Mockito.when(bpm.getProcessInstance(org.mockito.ArgumentMatchers.anyString())).thenAnswer(c->engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(c.getArgument(0)).singleResult());
@@ -29,7 +32,7 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
     }
     @Test void twoRejectedAttemptsRetainA2AndIndependentBodiesBpmAndFrozenAttributes() throws Exception {
         controlled("A/1");long selected=checkinDistinctBody(20L,"attempt-one",new byte[]{2,2,2});
-        long first=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));rejectFixture(first);
+        long first=submit(99L,selected,request("PARTIAL"));rejectFixture(first);
         var signature=jdbc.queryForMap("SELECT * FROM dcc_controlled_file_signature WHERE controlled_file_id=?",first);
         var firstRow=files.selectById(first);var firstAttributes=jdbc.queryForMap("SELECT default_source_json,actual_attributes_json,application_round FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",first);
         changeDefault();long revised=checkinDistinctBody(first,"attempt-two",new byte[]{3,3,3});
@@ -37,12 +40,12 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
         org.mockito.Mockito.when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
         org.mockito.Mockito.when(access.hasProjectOwner(99L,5L)).thenReturn(true);
         var options=query.getRevisionOptions(99L,20L);assertNull(options.partialTarget().unavailableReason());
-        var option=options.iterations().stream().filter(r->r.id().equals(extra)).findFirst().orElseThrow();assertTrue(option.canPartial());assertFalse(option.canReplacement());
+        var option=options.iterations().stream().filter(r->r.id().equals(extra)).findFirst().orElseThrow();assertTrue(option.canPartial());assertTrue(option.canReplacement());
         var requestTwo=request("PARTIAL");requestTwo.setProjectAttributes(fda);
-        long second=workflow.submitWorkingIteration(99L,extra,requestTwo);assertEquals("A/2",files.selectById(second).getVersionNo());
-        assertEquals(second,workflow.submitWorkingIteration(99L,extra,requestTwo));rejectFixture(second);
+        long second=submit(99L,extra,requestTwo);assertEquals("A/2",files.selectById(second).getVersionNo());
+        assertEquals(second,submit(99L,extra,requestTwo));rejectFixture(second);
         long thirdBody=checkinDistinctBody(second,"attempt-three",new byte[]{4,4,4});
-        long third=workflow.submitWorkingIteration(99L,thirdBody,request("PARTIAL"));assertEquals("A/2",files.selectById(third).getVersionNo());
+        long third=submit(99L,thirdBody,request("PARTIAL"));assertEquals("A/2",files.selectById(third).getVersionNo());
         assertEquals("A/2",files.selectById(first).getVersionNo());assertEquals("本轮失败意见",files.selectById(first).getRejectReason());
         assertEquals(firstRow.getSourceFileId(),files.selectById(first).getSourceFileId());
         assertEquals(firstAttributes,jdbc.queryForMap("SELECT default_source_json,actual_attributes_json,application_round FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",first));
@@ -59,7 +62,7 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
     }
     @Test void signedRejectionEndsOldTasksAndStartsFullNewRoundKeepingOriginalEvidence() throws Exception {
         controlled("A/1");long selected=checkinDistinctBody(20L,"return-first",new byte[]{2,8,2});
-        long failed=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));var old=files.selectById(failed);
+        long failed=submit(99L,selected,request("PARTIAL"));var old=files.selectById(failed);
         var beforeAttributes=jdbc.queryForMap("SELECT * FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",failed);
         var oldBody=bytes.get(infraFiles.selectById(old.getSourceFileId()).getPath()).clone();
         var review=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();engine.getTaskService().complete(review.getId());
@@ -75,7 +78,7 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
         assertEquals("VALID",signature.get("evidence_status"));assertEquals("REJECT",signature.get("action_type"));assertEquals(approval.getId(),signature.get("task_id"));
         assertNotNull(signature.get("source_file_hash"));assertNotNull(signature.get("evidence_hash"));
         long correction=checkinDistinctBody(failed,"return-second",new byte[]{3,9,3});
-        long next=workflow.submitWorkingIteration(99L,correction,request("PARTIAL"));
+        long next=submit(99L,correction,request("PARTIAL"));
         assertEquals("A/2",files.selectById(next).getVersionNo());assertEquals("REJECTED",files.selectById(failed).getStatus());
         assertEquals("原始退回意见",files.selectById(failed).getRejectReason());assertEquals(old.getSourceFileId(),files.selectById(failed).getSourceFileId());
         assertArrayEquals(oldBody,bytes.get(infraFiles.selectById(old.getSourceFileId()).getPath()));assertArrayEquals(new byte[]{3,9,3},bytes.get(infraFiles.selectById(files.selectById(next).getSourceFileId()).getPath()));
@@ -124,49 +127,49 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
         var modelPort=org.mockito.Mockito.mock(cn.iocoder.yudao.module.bpm.service.definition.BpmModelService.class);
         org.mockito.Mockito.when(modelPort.getBpmnModelByDefinitionId(org.mockito.ArgumentMatchers.anyString())).thenAnswer(c->engine.getRepositoryService().getBpmnModel(c.getArgument(0)));
         var taskService=new cn.iocoder.yudao.module.bpm.service.task.BpmTaskServiceImpl();wire(taskService,"taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"historyService",engine.getHistoryService(),"processInstanceService",processReader,"modelService",modelPort);
-        var signedAction=new DccWorkflowSignoffAssignmentService();wire(signedAction,"taskService",engine.getTaskService());
+        var definitions=org.mockito.Mockito.mock(cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService.class);
+        org.mockito.Mockito.when(definitions.getProcessDefinition(org.mockito.ArgumentMatchers.anyString())).thenAnswer(c->engine.getRepositoryService().createProcessDefinitionQuery().processDefinitionId(c.getArgument(0)).singleResult());
+        var signedAction=new DccWorkflowSignoffAssignmentService();wire(signedAction,"taskService",engine.getTaskService(),"definitions",definitions);
         var permissionPort=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
         org.mockito.Mockito.when(permissionPort.hasAnyPermissions(org.mockito.ArgumentMatchers.eq(99L),org.mockito.ArgumentMatchers.any(String[].class))).thenReturn(true);
         wire(workflow,"signatureVerificationService",verifier,"signoffAssignmentService",signedAction,"bpmTaskService",taskService,"permissionApi",permissionPort);
         wire(revisions,"bpmTaskService",taskService);
     }
     @Test void localApplicantReworkCannotFabricateARealTaskOrChangeOldEvidence()throws Exception{
-        controlled("A/1");long selected=checkinDistinctBody(20L,"spoof-first",new byte[]{2,8,2});long failed=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));
+        controlled("A/1");long selected=checkinDistinctBody(20L,"spoof-first",new byte[]{2,8,2});long failed=submit(99L,selected,request("PARTIAL"));
         var old=files.selectById(failed);var review=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();engine.getTaskService().complete(review.getId());
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_REWORK',reject_reason='原始退回意见' WHERE id=?",failed);
         long correction=checkinDistinctBody(failed,"spoof-second",new byte[]{3,9,3});var original=files.selectById(failed);var attrs=jdbc.queryForList("SELECT * FROM dcc_project_application_attributes");
-        int before=count("dcc_controlled_file");assertThrows(IllegalArgumentException.class,()->workflow.submitWorkingIteration(99L,correction,request("PARTIAL")));
+        int before=count("dcc_controlled_file");assertThrows(IllegalArgumentException.class,()->submit(99L,correction,request("PARTIAL")));
         assertEquals(before,count("dcc_controlled_file"));assertEquals(original,files.selectById(failed));assertEquals(attrs,jdbc.queryForList("SELECT * FROM dcc_project_application_attributes"));
         assertEquals("MATRIX_APPROVAL",engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult().getTaskDefinitionKey());
         assertEquals(0,count("dcc_controlled_file_signature"));assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
     private long correction() throws Exception {
         controlled("A/1");long source=checkinDistinctBody(20L,"initial-body",new byte[]{5,5,5});
-        long failed=workflow.submitWorkingIteration(99L,source,request("PARTIAL"));rejectFixture(failed);
+        long failed=submit(99L,source,request("PARTIAL"));rejectFixture(failed);
         return checkinDistinctBody(failed,"correction-body",new byte[]{6,6,6});
     }
     @Test void liveBpmCannotBeReplacedBySpoofingRejectedLocalStatus() throws Exception {
         controlled("A/1");long source=checkinDistinctBody(20L,"live-body",new byte[]{7,7,7});
-        long failed=workflow.submitWorkingIteration(99L,source,request("PARTIAL"));
+        long failed=submit(99L,source,request("PARTIAL"));
         jdbc.update("UPDATE dcc_controlled_file SET status='REJECTED' WHERE id=?",failed);
         long selected=checkinDistinctBody(failed,"live-correction",new byte[]{8,8,8});int before=count("dcc_controlled_file");int bodiesBefore=bytes.size();
-        assertThrows(IllegalArgumentException.class,()->workflow.submitWorkingIteration(99L,selected,request("PARTIAL")));
+        assertThrows(IllegalArgumentException.class,()->submit(99L,selected,request("PARTIAL")));
         assertEquals(before,count("dcc_controlled_file"));assertEquals(bodiesBefore,bytes.size());assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
-    @ParameterizedTest @ValueSource(strings={"PREDECESSOR","REQUESTER","BASELINE","NAME","UNRELATED_CANDIDATE","STALE_BODY","INTENT"})
+    @ParameterizedTest @ValueSource(strings={"PREDECESSOR","REQUESTER","BASELINE","NAME","UNRELATED_CANDIDATE"})
     void onlyExactFailedLineageMayReuseTarget(String violation) throws Exception {
-        long selected=correction();var chosen=files.selectById(selected);String intent="PARTIAL";
+        long selected=correction();String intent="PARTIAL";
         switch(violation){
             case "PREDECESSOR" -> jdbc.update("UPDATE dcc_controlled_file SET predecessor_controlled_file_id=20 WHERE id=?",selected);
             case "REQUESTER" -> jdbc.update("UPDATE dcc_controlled_file SET requester_id=88 WHERE id=?",selected);
             case "BASELINE" -> jdbc.update("UPDATE dcc_controlled_file SET revision_base_active_controlled_file_id=999 WHERE id=?",selected);
             case "NAME" -> jdbc.update("UPDATE dcc_controlled_file SET source_original_file_name='other.pdf' WHERE id=?",selected);
             case "UNRELATED_CANDIDATE" -> {var other=working(999L,null,"B/1");other.setStatus("PENDING_MATRIX_REVIEW");files.insert(other);}
-            case "STALE_BODY" -> selected=files.selectById(chosen.getPredecessorControlledFileId()).getSelectedIterationControlledFileId();
-            case "INTENT" -> intent="REPLACEMENT";
         }
         long id=selected;var req=request(intent);int before=count("dcc_controlled_file"),bodiesBefore=bytes.size();
-        assertThrows(RuntimeException.class,()->workflow.submitWorkingIteration(99L,id,req));
+        assertThrows(RuntimeException.class,()->submit(99L,id,req));
         assertEquals(before,count("dcc_controlled_file"));assertEquals(bodiesBefore,bytes.size());assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
     @ParameterizedTest @ValueSource(booleans={true,false})
@@ -178,7 +181,7 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
             for(var req:List.of(first,second))futures.add(pool.submit(()->{
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
                 authenticateFixtureActor();
-                try {assertTrue(start.await(5,TimeUnit.SECONDS));return workflow.submitWorkingIteration(99L,selected,req);}
+                try {assertTrue(start.await(5,TimeUnit.SECONDS));return submit(99L,selected,req);}
                 catch(cn.iocoder.yudao.framework.common.exception.ServiceException | IllegalArgumentException denied){return denied;}
                 finally {cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}
             }));

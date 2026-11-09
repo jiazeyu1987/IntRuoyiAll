@@ -49,6 +49,67 @@ public class ControlledContentLifecycleCoreService {
         this.stateMachine = stateMachine;
     }
 
+    @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    /** Only the already-persisted, guarded DCC import may establish a controlled projection without BPM. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY, rollbackFor=Exception.class)
+    public ControlledContentVersionRefDO projectDccControlledImport(ControlledContentKey key, Long masterId,
+            Long versionId, Long actorId, LocalDateTime businessTime) {
+        requireDccKey(key);
+        if (!Objects.equals(key.getTenantId(), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                || masterId==null || !masterId.toString().equals(key.getContentKey()) || versionId==null
+                || actorId==null || businessTime==null)
+            throw new IllegalArgumentException("DCC import projection identity is required");
+        var rows=jdbcTemplate.query("""
+                SELECT f.version_no,f.status,f.imported_by,f.imported_time,f.controlled_time,f.effective_time,
+                       f.activated_time,m.current_active_controlled_file_id
+                FROM dcc_controlled_file f JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id
+                WHERE f.tenant_id=? AND f.id=? AND f.master_id=? AND f.deleted=0 AND m.deleted=0
+                  AND f.import_source='CONTROLLED_IMPORT' AND f.effective_mode='CONTROLLED_IMPORT'
+                  AND f.dcc_project_code_id=m.dcc_project_code_id AND f.category_id=m.category_id
+                  AND f.file_type_taxonomy_id=m.file_type_taxonomy_leaf_id
+                  AND f.published_file_id IS NOT NULL AND f.read_only_file_id IS NOT NULL
+                  AND f.process_instance_id IS NULL AND f.effective_signature_id IS NULL
+                  AND f.imported_by>0 AND f.imported_time IS NOT NULL
+                """, (rs,n)->new Object[]{rs.getString(1),rs.getString(2),rs.getLong(3),rs.getTimestamp(4).toLocalDateTime(),
+                    rs.getTimestamp(5)==null?null:rs.getTimestamp(5).toLocalDateTime(),
+                    rs.getTimestamp(6)==null?null:rs.getTimestamp(6).toLocalDateTime(),
+                    rs.getTimestamp(7)==null?null:rs.getTimestamp(7).toLocalDateTime(),rs.getObject(8)},
+                    key.getTenantId(),versionId,masterId);
+        if(rows.size()!=1) throw new IllegalStateException("DCC import projection requires its actual persisted provenance and artifact");
+        var row=rows.get(0); String version=(String)row[0], domain=(String)row[1];
+        var controlled=(LocalDateTime)row[4];var effective=(LocalDateTime)row[5];
+        if(controlled==null || effective==null || controlled.isAfter(effective) || controlled.isAfter((LocalDateTime)row[3])
+                || !("ACTIVE".equals(domain)||"CONTROLLED_PENDING_EFFECTIVE".equals(domain)))
+            throw new IllegalStateException("DCC import original controlled/effect facts are invalid");
+        var target=ControlledContentCanonicalStatus.valueOf(domain);
+        if(target==ACTIVE && (effective.isAfter(businessTime) || row[6]==null || row[7]==null || !Objects.equals(((Number)row[7]).longValue(),versionId))
+                || target!=ACTIVE && (row[6]!=null || row[7]!=null))
+            throw new IllegalStateException("DCC import execution pointer does not match its saved state");
+        var chain=versionRefMapper.selectChainForUpdate(key.getTenantId(),key.getContentType().name(),key.getContentKey());
+        if(chain.isEmpty()) {
+            if(!Objects.equals(actorId,row[2])) throw new IllegalArgumentException("DCC import actor differs from its uploader");
+            var action=ControlledContentTransitionAction.REGISTER_CONTROLLED_IMPORT;
+            validateSupportedAction(key,action);stateMachine.validateTransition(null,target,action);
+            var ref=ControlledContentVersionRefDO.builder().tenantId(key.getTenantId()).contentType(key.getContentType().name())
+                    .contentKey(key.getContentKey()).nativeMasterId(masterId).nativeVersionId(versionId).versionNo(version)
+                    .canonicalStatus(domain).domainStatus(domain).activeUniqueFlag(target==ACTIVE?1:null)
+                    .lastTransitionTime(businessTime).build();
+            versionRefMapper.insert(ref);
+            insertAudit(key,ref.getId(),null,target,null,domain,action,actorId,"已受控文件导入；保留原受控及生效时间",null,businessTime);
+            return ref;
+        }
+        var ref=chain.stream().filter(r->Objects.equals(versionId,r.getNativeVersionId())).findFirst()
+                .orElseThrow(()->new IllegalStateException("DCC imported version projection is missing"));
+        if(!Objects.equals(masterId,ref.getNativeMasterId()) || !Objects.equals(version,ref.getVersionNo())
+                || ref.getApprovalProcessInstanceId()!=null) throw new IllegalStateException("DCC imported projection identity drift");
+        if(Objects.equals(domain,ref.getCanonicalStatus())) return ref;
+        if(target!=ACTIVE || !"CONTROLLED_PENDING_EFFECTIVE".equals(ref.getCanonicalStatus()) || actorId!=-1L)
+            throw new IllegalStateException("Only the activation job may activate an imported pending version");
+        return transitionVersionRef(key,ref,ACTIVE,domain,ControlledContentTransitionAction.ACTIVATE_CONTROLLED,
+                actorId,"导入文件原生效时间已到；系统启用",null,"dcc-import-activate:"+versionId);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public ControlledContentVersionRefDO registerActiveRef(ControlledContentKey key, Long nativeMasterId,
                                                            Long nativeVersionId, String versionNo,

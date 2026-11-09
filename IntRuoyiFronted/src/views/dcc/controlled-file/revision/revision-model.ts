@@ -37,6 +37,22 @@ export interface RevisionFacts {
   changeDescription?: string | null
 }
 
+export const revisionLockLabel = (reason?: string | null): string => {
+  if (reason === 'REFERENCES_MUST_BE_CANCELLED') return '源文件仍被引用，请先在引用文件夹中取消指向该文件的全部引用关系，再按源文件升版流程办理。'
+  if (reason === 'FORMAL_REVISION_IN_PROGRESS') return '已有正式变更正在办理，请查看本次变更申请及审批进度，勿重复发起。'
+  if (reason === 'CHECKED_OUT') return '文件已检出，请先由检出人检入或撤销检出，再发起正式变更。'
+  return reason || ''
+}
+
+export const pendingRevisionApplications = <T extends {
+  revisionSourceControlledFileId?: string | number | null
+  revisionChangeType?: string | null
+  status: string
+}>(baselineId: RevisionId, versions: T[]): T[] => versions.filter(version =>
+  String(version.revisionSourceControlledFileId) === String(baselineId)
+  && ['PARTIAL', 'REPLACEMENT'].includes(version.revisionChangeType || '')
+  && !['ACTIVE', 'SUPERSEDED', 'OBSOLETE', 'REJECTED', 'WITHDRAWN'].includes(version.status))
+
 export const revisionChangeLabel = (type?: string | null): string => {
   switch (type) {
     case 'INITIAL': return '初始上传'
@@ -53,6 +69,20 @@ export const requireRevisionId = (id: RevisionId): string => {
     throw new Error('文件版本身份无效')
   }
   return text
+}
+
+export const requireRevisionReworkSource = (baselineId: RevisionId, targetVersion: string, intent: RevisionIntent,
+  versions: NonNullable<ControlledFileVO['versionHistory']>) => {
+  const attempts = versions.filter(row => row.versionNo === targetVersion && row.revisionChangeType === intent
+    && String(row.revisionSourceControlledFileId) === requireRevisionId(baselineId))
+    .sort((a, b) => (b.revisionAttemptNo ?? 1) - (a.revisionAttemptNo ?? 1))
+  const latest = attempts[0]
+  if (!latest || attempts[1] && (attempts[1].revisionAttemptNo ?? 1) === (latest.revisionAttemptNo ?? 1))
+    throw new Error('未能唯一定位目标版本的最新变更申请，请重新读取版本历史')
+  if (!['REJECTED', 'WITHDRAWN', 'PENDING_APPLICANT_REWORK'].includes(latest.status) || !latest.processInstanceId)
+    throw new Error('目标版本当前不是可修正的原申请，请先查看该版本的审批状态')
+  requireRevisionId(latest.id)
+  return latest
 }
 
 export const revisionEffectiveModeLabel = (mode?: string | null): string => {

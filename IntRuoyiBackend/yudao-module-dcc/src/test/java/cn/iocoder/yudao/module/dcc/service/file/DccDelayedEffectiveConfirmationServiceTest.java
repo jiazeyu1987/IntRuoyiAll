@@ -44,10 +44,10 @@ class DccDelayedEffectiveConfirmationServiceTest {
         for(var entry:Map.of("taskId","T","processInstanceId","R","attributeRound",2,"expectedProcessDefinitionId","revision:6:exact","expectedDefinitionDigest","a".repeat(64),"selectedEffectiveTime",LocalDateTime.parse(time),"password",password,"reason",reason,"idempotencyKey","K").entrySet())ReflectionTestUtils.setField(request,entry.getKey(),entry.getValue());
         return request;
     }
-    @Test void wrongActorEarlierTimeMissingPasswordOrReasonRejectBeforeSigningOrBpm() throws Exception {
+    @Test void wrongActorEarlierTimeOrMissingPasswordRejectBeforeSigningOrBpm() throws Exception {
         var valid=command("2026-10-16T12:00:00","credential","真实意见");
         assertThrows(RuntimeException.class,()->ReflectionTestUtils.invokeMethod(service,"confirm",88L,20L,valid));
-        for(var request:List.of(command("2026-10-15T12:00:00","credential","真实意见"),command("2026-10-16T12:00:00","","真实意见"),command("2026-10-16T12:00:00","credential","  ")))
+        for(var request:List.of(command("2026-10-15T12:00:00","credential","真实意见"),command("2026-10-16T12:00:00","","真实意见")))
             assertThrows(RuntimeException.class,()->ReflectionTestUtils.invokeMethod(service,"confirm",99L,20L,request));
         verifyNoInteractions(signing);verify(tasks,never()).approveTask(any(),any());verify(files,never()).update(any(),any());
     }
@@ -85,6 +85,21 @@ class DccDelayedEffectiveConfirmationServiceTest {
         assertEquals("CONFIRMED",ReflectionTestUtils.invokeMethod(first,"getStatus"));assertEquals(LocalDateTime.of(2026,10,15,12,0,0,123456000),file.getDelayedEffectiveConfirmedAt());
         assertNotNull(ReflectionTestUtils.invokeMethod(service,"confirm",99L,20L,request));verify(signing,times(1)).verifyPasswordAndCreateDelayedConfirmationSignature(any(),any(),any(),any(),any(),any(),any(),any());verify(tasks,times(1)).approveTask(any(),any());
         var changed=command("2026-10-16T12:00:01","credential","真实意见");assertThrows(RuntimeException.class,()->ReflectionTestUtils.invokeMethod(service,"confirm",99L,20L,changed));verify(tasks,times(1)).approveTask(any(),any());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   "})
+    void optionalOpinionStillSignsAuditsApprovesAndReplaysOriginalConfirmation(String reason) throws Exception {
+        positivePorts();var request=command("2026-10-16T12:00:00","credential","placeholder");
+        ReflectionTestUtils.setField(request,"reason",reason);
+        var signatureMapper=(DccControlledFileSignatureMapper)ReflectionTestUtils.getField(service,"signatures");
+        signatureMapper.selectById(700L).setComment("");
+        assertNotNull(ReflectionTestUtils.invokeMethod(service,"confirm",99L,20L,request));
+        assertNotNull(ReflectionTestUtils.invokeMethod(service,"confirm",99L,20L,request));
+        verify(signing).verifyPasswordAndCreateDelayedConfirmationSignature(eq(99L),eq(20L),eq("T"),eq("R"),eq(2),any(),eq("credential"),eq(""));
+        var approve=org.mockito.ArgumentCaptor.forClass(cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO.class);
+        verify(tasks).approveTask(eq(99L),approve.capture());assertEquals("",approve.getValue().getReason());
+        verify((DccWorkflowFileStateAudit)ReflectionTestUtils.getField(service,"audit")).recordDelayedConfirmation(any(),eq("R"),any());
     }
     @Test void failedCasOrAuditNeverAdvancesBpm() throws Exception {
         positivePorts();when(files.update(isNull(),any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(0);var request=command("2026-10-16T12:00:00","credential","真实意见");

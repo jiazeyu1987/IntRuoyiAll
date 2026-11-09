@@ -20,7 +20,6 @@ import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentAuthorization;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
-import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +66,9 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @Mock
     private cn.iocoder.yudao.module.mdm.api.product.MdmProductApi mdmProductApi;
     @Mock
-    private PermissionApi permissionApi;
+    private DccControlledFileEditPermissionSupport editPermissions;
+    @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper placementMapper;
     @Mock
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock
@@ -94,7 +95,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void updateMetadataUsesTheSameApprovedProductInsteadOfProjectCodeAndName() {
-        var file=activeFile();mockDocControl();mockTargetCategoryAndDirectory();mockMasterIdentityUpdateSuccess();
+        var file=activeFile();mockProject();mockTargetCategoryAndDirectory();mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
@@ -116,7 +117,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_docControlUpdatesFieldsMaintainsMasterAndDoesNotTouchWorkflow() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
@@ -158,7 +159,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setFileTypeTaxonomyId(8801L);
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         mockMasterIdentityUpdateSuccess();
         when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
@@ -180,7 +181,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setFileTypeTaxonomyId(8801L);
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
                 8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
@@ -214,7 +215,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         reqVO.setFileTypeLevel4("手工四级");
         reqVO.setFileTypeLevel5("手工五级");
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         mockMasterIdentityUpdateSuccess();
         when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
@@ -241,8 +242,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         reqVO.setAssignmentId(9100L);
         reqVO.setChangeReason("修正 AI 分类和产品参数");
         DccControlledFileDO file = activeFile();
-        when(permissionApi.hasAnyRoles(123L, "doc_control"))
-                .thenReturn(false);
         when(projectCodeAssignmentService.assertMetadataUpdateAllowed(123L, 900L, 9100L))
                 .thenReturn(DccProjectCodeAssignmentAuthorization.assignedUser(9100L, 3000L));
         when(projectCodeMapper.selectById(3000L)).thenReturn(
@@ -271,8 +270,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setAssignmentId(9100L);
         reqVO.setDccProjectCodeId(3001L);
-        when(permissionApi.hasAnyRoles(123L, "doc_control"))
-                .thenReturn(false);
         when(projectCodeAssignmentService.assertMetadataUpdateAllowed(123L, 900L, 9100L))
                 .thenReturn(DccProjectCodeAssignmentAuthorization.assignedUser(9100L, 3000L));
         when(projectCodeMapper.selectById(3001L)).thenReturn(
@@ -296,7 +293,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_pendingObsoleteActionFailsBeforeWritingMetadata() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         doThrow(new IllegalStateException("controlled file is locked by active form action"))
                 .when(pendingActionGuard).assertNoPendingBusinessAction(file);
@@ -315,8 +312,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @Test
     void updateMetadata_invalidProjectCodeFailsBeforeUpdatingFile() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
-        when(permissionApi.hasAnyRoles(99L, "doc_control"))
-                .thenReturn(true);
         when(projectCodeMapper.selectById(3000L)).thenReturn(null);
 
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
@@ -333,8 +328,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         reqVO.setProductName(null);
         reqVO.setProductCode(null);
         reqVO.setDccProjectCodeId(null);
-        when(permissionApi.hasAnyRoles(99L, "doc_control"))
-                .thenReturn(true);
 
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
                 CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
@@ -348,7 +341,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setFileNumber("   ");
         DccControlledFileDO file = activeFile();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
@@ -370,7 +363,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_pendingApprovalFileFailsFastWithoutUpdatingMasterOrFile() {
         DccControlledFileDO file = activeFile();
         file.setStatus(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus());
-        mockDocControl();
+        mockProject();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
 
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
@@ -386,7 +379,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_terminalWithdrawnFileFailsFastWithoutUpdatingMasterOrFile() {
         DccControlledFileDO file = activeFile();
         file.setStatus(DccControlledFileStatusEnum.WITHDRAWN.getStatus());
-        mockDocControl();
+        mockProject();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
 
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
@@ -399,35 +392,75 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void updateMetadata_superAdminWithoutDocControlFailsBeforeReadingFile() {
-        when(permissionApi.hasAnyRoles(99L, "doc_control"))
-                .thenReturn(false);
-
+    void updateMetadata_missingTargetEditGrantFailsBeforeReadingFile() {
+        mockProject();
+        doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED))
+                .when(editPermissions).assertEditableProjectCategory(99L, 3000L, 11L);
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
-                CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
-
-        verify(projectCodeAssignmentService, never()).assertMetadataUpdateAllowed(any(), any(), any());
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED);
         verify(controlledFileMapper, never()).selectById(900L);
+    }
+
+    @Test
+    void updateMetadata_missingOriginalTypeEditGrantFailsBeforeWriting() {
+        mockProject(); var file=activeFile();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        org.mockito.Mockito.doNothing().when(editPermissions).assertEditableProjectCategory(99L, 3000L, 11L);
+        doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED))
+                .when(editPermissions).assertEditableProjectCategory(99L, 3000L, 10L);
+        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED);
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
     }
 
     @Test
-    void updateMetadata_nonDocControlRoleFailsBeforeReadingFile() {
-        when(permissionApi.hasAnyRoles(99L, "doc_control"))
-                .thenReturn(false);
+    void registeredPlacementAllowsNameAndNumberEditAndPreservesOmittedDirectory() {
+        mockProject(); var file=activeFile(); var req=updateReq();
+        req.setCategoryId(10L); req.setDirectoryId(null);
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder().id(10L).active(true).build());
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        mockPlacement(); mockMasterIdentityUpdateSuccess();
+        metadataUpdateService.updateMetadata(99L,900L,req);
+        verify(controlledFileMasterMapper).updateMetadataIdentity(eq(700L),eq(10L),eq(21L),eq("NEW-SOP"),eq("DOC-NEW"),
+                eq(3000L),isNull(),eq("DOC-NEW"),eq(900L),eq("99"));
+        verify(categoryDirectoryBindingMapper,never()).selectActiveByCategoryId(any());
+        verify(editPermissions,org.mockito.Mockito.times(2)).assertEditableProjectCategory(99L,3000L,10L);
+    }
 
-        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
-                CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"project","category","taxonomy","directory"})
+    void registeredPlacementRejectsIdentityMigrationBeforeWriting(String changed) {
+        mockProject(); var file=activeFile(); var req=updateReq();
+        req.setCategoryId(10L); req.setDirectoryId(21L);
+        switch(changed) {
+            case "project" -> file.setDccProjectCodeId(2999L);
+            case "category" -> req.setCategoryId(11L);
+            case "taxonomy" -> file.setFileTypeTaxonomyId(66L);
+            case "directory" -> req.setDirectoryId(22L);
+        }
+        when(categoryMapper.selectById(req.getCategoryId())).thenReturn(DccFileCategoryDO.builder().id(req.getCategoryId()).active(true).build());
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        mockPlacement();
+        assertServiceException(() -> metadataUpdateService.updateMetadata(99L,900L,req),CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
+        verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
+        verify(metadataChangeAuditService,never()).recordMetadataChange(any());
+    }
 
-        verify(projectCodeAssignmentService, never()).assertMetadataUpdateAllowed(any(), any(), any());
-        verify(controlledFileMapper, never()).selectById(900L);
-        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    private void mockPlacement() {
+        var placement=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectFilePlacementDO();
+        placement.setTenantId(1L); placement.setProjectCodeId(3000L); placement.setControlledFileId(900L);
+        placement.setProjectFolderId(400L); placement.setStorageDirectoryId(21L);
+        when(placementMapper.findFile(900L)).thenReturn(placement);
     }
 
     @Test
     void updateMetadata_productCodeMustKeepExistingFourteenAlnumRule() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
-        mockDocControl();
+        mockProject();
         reqVO.setProductMasterId(5000L);
         reqVO.setProductCode("client-value-is-ignored");
         reqVO.setProductName("client-name-is-ignored");
@@ -450,7 +483,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_directoryMustStayInsideCategoryBindingScope() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setDirectoryId(99L);
-        mockDocControl();
+        mockProject();
         when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
         when(categoryMapper.selectById(11L)).thenReturn(DccFileCategoryDO.builder().id(11L).active(Boolean.TRUE).build());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(11L)).thenReturn(
@@ -470,7 +503,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_unboundCategoryUsesUnclassifiedDirectory() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setDirectoryId(null);
-        mockDocControl();
+        mockProject();
         when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(activeFile()));
@@ -494,7 +527,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @Test
     void updateMetadata_conflictingTargetMasterFailsInsteadOfMergingChains() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
-        mockDocControl();
+        mockProject();
         mockTargetCategoryAndDirectory();
         when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
@@ -515,9 +548,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
     }
 
-    private void mockDocControl() {
-        when(permissionApi.hasAnyRoles(99L, "doc_control"))
-                .thenReturn(true);
+    private void mockProject() {
         when(projectCodeMapper.selectById(3000L)).thenReturn(
                 cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
                         .id(3000L)
@@ -546,6 +577,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileDO activeFile() {
         return DccControlledFileDO.builder()
                 .id(900L)
+                .tenantId(1L).dccProjectCodeId(3000L)
                 .masterId(700L)
                 .categoryId(10L)
                 .directoryId(21L)

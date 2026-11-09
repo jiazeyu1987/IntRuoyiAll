@@ -50,9 +50,48 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
     }
     @org.junit.jupiter.api.AfterEach void clearAuthenticatedRelationActor(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
 
+    @Test
+    void withdrawnUploadResubmitsWithOriginalVersionAndFrozenAttributes() {
+        initial();
+        wire(workflow,"sourceOwnershipService",bodies,"relatedFileService",related);
+        long source=tx().execute(s->workflow.submitWorkingIteration(99L,20L,
+                a29ExpectedServerManifest(20L,request("INITIAL"))));
+        var old=files.selectById(source);
+        var before=jdbc.queryForMap("SELECT default_source_json,actual_attributes_json FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",source);
+        var reason=new DccControlledFileWithdrawReqVO();reason.setReason("撤回后重新提交");
+        workflow.withdrawControlledFile(99L,source,reason);
+        changeDefault();
+        long next=workflow.resubmitWithdrawnControlledFile(99L,source);
+        var resubmitted=files.selectById(next);
+        assertNotEquals(source,next);
+        assertEquals(old.getVersionNo(),resubmitted.getVersionNo());
+        assertEquals(old.getPreparedProcessDefinitionId(),resubmitted.getPreparedProcessDefinitionId());
+        assertNotEquals(old.getProcessInstanceId(),resubmitted.getProcessInstanceId());
+        assertNotEquals(old.getSourceFileId(),resubmitted.getSourceFileId());
+        assertEquals(old.getSourceSha256(),resubmitted.getSourceSha256());
+        assertEquals(before,jdbc.queryForMap("SELECT default_source_json,actual_attributes_json FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",next));
+        assertEquals("WITHDRAWN",files.selectById(source).getStatus());
+        assertEquals(old.getProcessInstanceId(),files.selectById(source).getProcessInstanceId());
+        assertEquals(next,files.selectById(source).getSupersededByFileId());
+        assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
+        assertThrows(RuntimeException.class,()->workflow.resubmitWithdrawnControlledFile(99L,source));
+    }
+
+    @Test
+    void withdrawnUploadCannotResubmitWhileItsProcessIsStillRunning() {
+        initial();
+        long source=tx().execute(s->workflow.submitWorkingIteration(99L,20L,
+                a29ExpectedServerManifest(20L,request("INITIAL"))));
+        jdbc.update("UPDATE dcc_controlled_file SET status='WITHDRAWN' WHERE id=?",source);
+        int before=count("dcc_controlled_file");
+        assertThrows(RuntimeException.class,()->workflow.resubmitWithdrawnControlledFile(99L,source));
+        assertEquals(before,count("dcc_controlled_file"));
+        assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
+    }
+
     long cancelledRevision() {
         controlled("A/3");changeDefault();long selected=checkin(20L,"saved selected body");
-        long candidate=workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT"));
+        long candidate=workflow.submitWorkingIteration(99L,selected,a29ExpectedServerManifest(selected,request("REPLACEMENT")));
         var reason=new DccControlledFileWithdrawReqVO();reason.setReason("真实撤回保留申请历史");
         workflow.withdrawControlledFile(99L,candidate,reason);
         assertEquals("WITHDRAWN",files.selectById(candidate).getStatus());
@@ -67,7 +106,7 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
         var before=jdbc.queryForMap("SELECT default_source_json,actual_attributes_json FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",withdrawn);
         long corrected=checkinDistinctBody(withdrawn,"withdrawn exact correction",new byte[]{1,9,4});
         assertEquals("B/1-1",files.selectById(corrected).getVersionNo());
-        long next=workflow.submitWorkingIteration(99L,corrected,request("REPLACEMENT"));
+        long next=workflow.submitWorkingIteration(99L,corrected,a29ExpectedServerManifest(corrected,request("REPLACEMENT")));
         assertEquals("B/1",files.selectById(next).getVersionNo());assertEquals(2,files.selectById(next).getRevisionAttemptNo());
         assertEquals(withdrawn,files.selectById(next).getReworkPredecessorControlledFileId());
         assertNotEquals(oldRound,files.selectById(next).getProcessInstanceId());
@@ -82,7 +121,7 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
 
     @Test
     void localWithdrawnStatusCannotEditAnActuallyRunningProcessAndOtherActorCannotAcquireItsLock() {
-        controlled("A/3");long selected=checkin(20L,"selected");long candidate=workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT"));
+        controlled("A/3");long selected=checkin(20L,"selected");long candidate=workflow.submitWorkingIteration(99L,selected,a29ExpectedServerManifest(selected,request("REPLACEMENT")));
         jdbc.update("UPDATE dcc_controlled_file SET status='WITHDRAWN' WHERE id=?",candidate);
         assertThrows(RuntimeException.class,()->checkout(candidate));assertNull(checkouts.selectActiveByMasterIdForRead(1L,10L));
         engine.getRuntimeService().setVariable(files.selectById(candidate).getProcessInstanceId(),"PROCESS_STATUS",4);

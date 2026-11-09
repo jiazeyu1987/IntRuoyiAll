@@ -28,6 +28,7 @@
             </el-badge>
           </template>
           <MyNotifyMessageList
+            v-if="activeName === 'notifyMessage'"
             class="profile-notify-message-tab"
             embedded
             @read-status-change="handleUnreadNotifyMessageRefresh"

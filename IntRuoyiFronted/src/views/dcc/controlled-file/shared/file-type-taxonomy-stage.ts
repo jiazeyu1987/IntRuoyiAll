@@ -88,6 +88,13 @@ const collectTaxonomyNodes = (
   return result
 }
 
+export const getDccRegistrationCertificateTaxonomyIds = (rows: DccFileTypeTaxonomyVO[]) =>
+  new Set(
+    collectTaxonomyNodes(rows)
+      .filter(({ row }) => row.code === 'REGISTRATION_CERTIFICATE')
+      .map(({ row }) => Number(row.id))
+  )
+
 const getTaxonomyNodeId = (node: TaxonomyNodeRef) => normalizeTaxonomyId(node.row.id)
 
 const getSortedTaxonomyNodes = (nodes: TaxonomyNodeRef[]) =>

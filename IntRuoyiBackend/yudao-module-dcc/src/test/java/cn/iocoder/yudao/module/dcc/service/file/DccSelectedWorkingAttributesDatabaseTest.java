@@ -14,6 +14,10 @@ import java.util.*;
 
 /** Actual earlier working body -> HTTP saved read -> formal candidate attributes on H2 and Flowable. */
 class DccSelectedWorkingAttributesDatabaseTest extends DccWorkflowSelectedIterationDatabaseTest {
+    @org.junit.jupiter.api.BeforeEach void declareFileEditPorts(){
+        when(permissions.hasFilePermission(any(),any(),any())).thenReturn(true);
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+    }
     long selected() {
         controlled("A/1");long earlier=checkin(20L,"earlier selection");
         workflow.saveWorkingApplicationAttributes(99L,earlier,ce);
@@ -58,22 +62,22 @@ class DccSelectedWorkingAttributesDatabaseTest extends DccWorkflowSelectedIterat
         int before=count("dcc_project_application_attributes");assertThrows(RuntimeException.class,()->workflow.readWorkingApplicationAttributes(99L,earlier));
         assertEquals(before,count("dcc_project_application_attributes"));
     }
-    @Test void explicitOwnerReplacementOfAnotherRequesterBodyHasIndependentCandidateAndExactSavedProvenance() {
+    @ParameterizedTest @ValueSource(strings={"PARTIAL","REPLACEMENT"})
+    void editorRevisionOfAnotherRequesterBodyHasIndependentCandidateAndExactSavedProvenance(String intent) {
         long earlier=selected();int round=rounds.requireDraft("REVISION",earlier);var source=attributeRows.find("REVISION",earlier,round);
         jdbc.update("UPDATE dcc_controlled_file SET requester_id=88,submitter_id=88 WHERE id=?",earlier);
-        assertThrows(RuntimeException.class,()->workflow.readWorkingApplicationAttributes(99L,earlier));
-        when(access.hasProjectOwner(99L,5L)).thenReturn(true);
-        var req=request("REPLACEMENT");req.setProjectAttributes(ce);
+        var read=workflow.readWorkingApplicationAttributes(99L,earlier);assertEquals(ce,read.actual());
+        var req=request(intent);req.setProjectAttributes(read.actual());
         a29ExpectedServerManifest(earlier,req);
         long candidate=workflow.submitWorkingIteration(99L,earlier,req);
-        assertEquals("B/1",files.selectById(candidate).getVersionNo());assertEquals(99L,files.selectById(candidate).getRequesterId());
+        assertEquals("PARTIAL".equals(intent)?"A/2":"B/1",files.selectById(candidate).getVersionNo());assertEquals(99L,files.selectById(candidate).getRequesterId());
         assertEquals(88L,files.selectById(earlier).getRequesterId());assertEquals("WORKING",files.selectById(earlier).getStatus());assertNull(files.selectById(earlier).getProcessInstanceId());
         var frozen=attributeRows.find("REVISION",candidate,rounds.require("REVISION",candidate,files.selectById(candidate).getProcessInstanceId()));
         assertEquals(source.getDefaultSourceJson(),frozen.getDefaultSourceJson());assertEquals(source.getActualAttributesJson(),frozen.getActualAttributesJson());
         assertEquals(earlier,frozen.getSourceApplicationId());assertEquals(source.getDefaultSourceJson(),attributeRows.find("REVISION",earlier,round).getDefaultSourceJson());
     }
-    @Test void ownerReplacementHttpReadsExactSavedBodyWhileOrdinaryDraftWritesStayForbidden() throws Exception {
-        long earlier=selected();jdbc.update("UPDATE dcc_controlled_file SET requester_id=88,submitter_id=88 WHERE id=?",earlier);when(access.hasProjectOwner(99L,5L)).thenReturn(true);
+    @Test void editorReadsAndPreparesAnotherWorkingBodyButLossOfEditStopsBothIntents() throws Exception {
+        long earlier=selected();jdbc.update("UPDATE dcc_controlled_file SET requester_id=88,submitter_id=88 WHERE id=?",earlier);
         var controller=new DccControlledFileController();wire(controller,"workflowService",workflow);
         try(var login=mockStatic(SecurityFrameworkUtils.class)){
             login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -81,13 +85,17 @@ class DccSelectedWorkingAttributesDatabaseTest extends DccWorkflowSelectedIterat
             var value=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(response.getResponse().getContentAsString(),com.fasterxml.jackson.databind.JsonNode.class);
             assertEquals(0,value.get("code").intValue());assertEquals("NMPA",value.get("data").get("defaultSource").get("targetMarkets").get(0).textValue());assertEquals("CE",value.get("data").get("actual").get("targetMarkets").get(0).textValue());
         }
-        assertThrows(RuntimeException.class,()->workflow.saveWorkingApplicationAttributes(99L,earlier,fda));
-        assertThrows(RuntimeException.class,()->workflow.restoreWorkingApplicationAttributes(99L,earlier));
-        assertThrows(RuntimeException.class,()->workflow.submitWorkingIteration(99L,earlier,request("PARTIAL")));
+        workflow.saveWorkingApplicationAttributes(99L,earlier,fda);
+        assertEquals(fda,workflow.readWorkingApplicationAttributes(99L,earlier).actual());
+        workflow.restoreWorkingApplicationAttributes(99L,earlier);
         assertThrows(RuntimeException.class,()->workflow.readReplacementApplicationAttributes(99L,earlier,999L));
-        when(access.hasProjectOwner(99L,5L)).thenReturn(false);
+        when(permissions.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(false);
+        assertThrows(RuntimeException.class,()->workflow.readWorkingApplicationAttributes(99L,earlier));
+        assertThrows(RuntimeException.class,()->workflow.saveWorkingApplicationAttributes(99L,earlier,fda));
         assertThrows(RuntimeException.class,()->workflow.readReplacementApplicationAttributes(99L,earlier,20L));
+        assertThrows(RuntimeException.class,()->workflow.submitWorkingIteration(99L,earlier,request("PARTIAL")));
         assertThrows(RuntimeException.class,()->workflow.submitWorkingIteration(99L,earlier,request("REPLACEMENT")));
         assertNull(files.selectById(earlier).getProcessInstanceId());
+        assertEquals(88L,files.selectById(earlier).getRequesterId());
     }
 }

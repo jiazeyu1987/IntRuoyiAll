@@ -64,6 +64,8 @@ import static org.mockito.Mockito.when;
         DccRegistrationCertificateReminderJobRuntimeTest.DbTestConfiguration.class
 })
 class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final LocalDate BUSINESS_DATE = LocalDate.of(2026, 8, 18);
@@ -306,6 +308,13 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
                 "PENDING_EFFECTIVE".equals(status) ? 2 : 1,
                 "CERT-" + certificateId + "-" + versionId,
                 effectiveDate, expiryDate, status, currentFlag, pendingFlag);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot
+                  (id,tenant_id,version_id,revision_no,product_name,registrant_name,model_specification,
+                   structure_composition,intended_use,technical_requirements,residence_address,production_address,
+                   entrusted_production,self_production,entrusted_enterprises_json,effective_at,facts_json)
+                VALUES (?,?,?,1,'产品','注册人','型号','结构','用途','要求','住所','生产地址',FALSE,TRUE,'[]',CURRENT_TIMESTAMP,?)
+                """,versionId+3000,tenantId,versionId,DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,versionId));
     }
 
     private void activateTenantOneCandidate(DccRegistrationCertificateActivationCommand command) {
@@ -314,7 +323,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
                    SET current_version_id = ?, pending_version_id = NULL, current_snapshot_id = ?,
                        row_version = row_version + 1
                  WHERE tenant_id = ? AND id = ?
-                """, command.pendingVersionId(), 5102L, command.tenantId(), command.certificateId());
+                """, command.pendingVersionId(), command.pendingVersionId()+3000, command.tenantId(), command.certificateId());
         jdbcTemplate.update("""
                 UPDATE dcc_registration_certificate_version
                    SET status = 'OLD', current_unique_flag = NULL

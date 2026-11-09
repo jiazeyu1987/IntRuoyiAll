@@ -62,7 +62,7 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
         assertEquals(null, objectValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_EFFECTIVE'", fixture.certificateId()));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type IN ('SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED')", fixture.certificateId()));
-        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
     }
 
     @Test
@@ -94,17 +94,11 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
     }
 
     @Test
-    void crossCompanyUploadFailureDoesNotCreateAnEffectiveDocument() {
+    void uploadWithinTenantDoesNotRequireDataOwnerCompanyMembership() {
         Fixture fixture = seedCurrentCertificate();
-        ServiceException denied = new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        doThrow(denied).when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
-
-        ServiceException error = assertServiceException(
-                () -> service.upload(uploadCommand(fixture)));
-
-        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), error.getCode());
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+        assertDoesNotThrow(() -> service.upload(uploadCommand(fixture)));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
     }
 
     @Test
@@ -144,10 +138,10 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
                   (id, tenant_id, version_id, revision_no, product_name, registrant_name,
                    model_specification, structure_composition, intended_use, technical_requirements,
                    residence_address, production_address, entrusted_production, self_production,
-                   entrusted_enterprises_json, effective_at)
+                   entrusted_enterprises_json, effective_at, facts_json)
                 VALUES (3001, 1, 2001, 1, 'Product A', 'Registrant', 'Model', 'Structure',
-                        'Use', 'Requirements', 'Residence', 'Production', FALSE, TRUE, '[]', ?)
-                """, LocalDateTime.of(2026, 8, 10, 9, 0));
+                        'Use', 'Requirements', 'Residence', 'Production', FALSE, TRUE, '[]', ?, ?)
+                """, LocalDateTime.of(2026, 8, 10, 9, 0),DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,2001L));
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_file
                   (id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,

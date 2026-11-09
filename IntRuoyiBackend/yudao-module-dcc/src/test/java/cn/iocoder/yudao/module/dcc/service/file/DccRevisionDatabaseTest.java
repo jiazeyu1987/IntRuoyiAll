@@ -56,6 +56,7 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
     @Resource private PlatformTransactionManager transactionManager;
     @Resource private DataSource dataSource;
     @MockBean private DccProjectAccessService projectAccessService;
+    @MockBean private DccApprovalFileOwnerSelectionService fileOwnerSelection;
     @MockBean private DccControlledFileCategoryPermissionSupport permissionSupport;
     @MockBean private DccControlledFileSourceOwnershipService sourceOwnershipService;
     @MockBean private DccControlledFileAttachmentService attachmentService;
@@ -96,6 +97,13 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
     @AfterAll static void closeDefinitions(){if(preparedEngine!=null)preparedEngine.close();}
 
     @BeforeEach void fixtures() throws Exception {
+        doAnswer(call -> {
+            var file = call.<DccControlledFileDO>getArgument(0);
+            file.setFileOwnerUserId(file.getRequesterId());
+            file.setFileOwnerUsernameSnapshot("compiler99");
+            file.setFileOwnerNicknameSnapshot("当前编制人");
+            return null;
+        }).when(fileOwnerSelection).initializeCompiler(any(DccControlledFileDO.class));
         when(attachmentService.readOrdinaryAttachmentManifest(anyLong(),anyLong())).thenAnswer(call -> {
             Long selected=call.getArgument(1);
             var facts=java.util.List.<DccControlledFileAttachmentService.OrdinaryAttachmentFact>of();
@@ -114,6 +122,8 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
         fileMapper.insert(file(20L,"A/1","ACTIVE"));
         fileMapper.insert(file(21L,"A/1-1","WORKING"));
         when(permissionSupport.hasCategoryPermission(2L,99L,DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        when(permissionSupport.hasFilePermission(any(DccControlledFileDO.class), eq(99L),
+                any(DccFileCategoryPermissionActionEnum.class))).thenReturn(true);
         when(sourceOwnershipService.createVerifiedCopy(100L)).thenReturn(frozen);
         when(sourceOwnershipService.rollbackCleanup(any())).thenAnswer(c->{var source=c.<DccControlledFilePreparedSource>getArgument(0);return (Runnable)()->sourceOwnershipService.cleanupPreparedSource(source);});
         when(definitions.getProcessDefinition(anyString())).thenAnswer(call->preparedEngine.getRepositoryService().createProcessDefinitionQuery().processDefinitionId(call.getArgument(0)).singleResult());
@@ -158,6 +168,19 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_name_claim",Integer.class));
         verify(sourceOwnershipService).cleanupPreparedSource(frozen);
     }
+    @Test void sourceRevisionRequiresCancellationOfEveryReferenceAcrossFolders() {
+        jdbc.update("INSERT INTO dcc_project_file_reference(tenant_id,project_id,folder_id,master_id,selected_controlled_file_id,created_by) VALUES(1,51,61,10,20,99),(1,52,62,10,20,99)");
+        for (Long project : java.util.List.of(51L, 52L)) {
+            cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException(
+                    () -> revisionService.createRevision(99L,20L,21L,request("PARTIAL","cancel-first")),
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+            assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file WHERE master_id=10 AND deleted=0", Integer.class));
+            jdbc.update("DELETE FROM dcc_project_file_reference WHERE tenant_id=1 AND project_id=?", project);
+        }
+        var candidate = revisionService.createRevision(99L,20L,21L,request("PARTIAL","cancel-first"));
+        assertEquals("A/2", candidate.getVersionNo());
+    }
+
     @Test void formalFactsPersistAndReplayWithoutNewSource() {
         var result=revisionService.createRevision(99L,20L,21L,request("PARTIAL","replay"));
         var stored=fileMapper.selectById(result.getId());

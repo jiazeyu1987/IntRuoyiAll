@@ -36,7 +36,7 @@ const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
 const formData = ref<BrokerageWithdrawRejectFormData>(createDefaultFormData())
 const formRules = reactive({
-  auditReason: [{ required: true, message: '驳回原因不能为空', trigger: 'blur' }]
+  auditReason: [{ required: true, whitespace: true, message: '驳回原因不能为空', trigger: 'blur' }]
 })
 const formRef = ref() // 表单 Ref
 

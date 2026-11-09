@@ -45,10 +45,54 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
         var permissions=mock(DccDirectoryAccessPermissionService.class);when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(3L));when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
         var guard=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService"})ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_controlled_file_related_file");jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
+
+    @Test void existingDestinationReferenceExposesMetadataWithoutGrantingSourceBodyOrEditing() throws Exception {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_project_file_reference(id BIGINT,tenant_id BIGINT,project_id BIGINT,folder_id BIGINT,master_id BIGINT,selected_controlled_file_id BIGINT,created_by BIGINT)");
+        jdbc.update("INSERT INTO dcc_project_folder(id,tenant_id,project_code_id,parent_id,name,sort_order,active) VALUES(600,1,6,0,'目标目录',0,1)");
+        jdbc.update("INSERT INTO dcc_project_file_reference(id,tenant_id,project_id,folder_id,master_id,selected_controlled_file_id,created_by) VALUES(1,1,6,600,10,9007199254740993,88)");
+        ReflectionTestUtils.setField(query,"referenceJdbc",jdbc);
+        var projects=(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService)ReflectionTestUtils.getField(query,"projectAccessService");
+        var directories=(DccDirectoryAccessPermissionService)ReflectionTestUtils.getField(query,"directoryAccessPermissionService");
+        when(directories.getAuthorizedDirectoryIds(anyLong(),any())).thenReturn(Set.of());
+        try {
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getRelationPermissions(99L,9007199254740993L));
+            var projection=query.getProjectReferencePermissions(99L,6L,600L,9007199254740993L);
+            assertEquals("真实来源项目",projection.projectName());assertEquals("正式逻辑目录",projection.projectFolderName());
+            assertFalse(projection.canPreview());assertFalse(projection.canEdit());
+            var resolver=new cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolverImpl();
+            ReflectionTestUtils.setField(resolver,"fileMapper",files);
+            var references=new cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService(
+                    new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore(jdbc,mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)),
+                    mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceAuthority.class),
+                    mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicy.class),resolver);
+            ReflectionTestUtils.setField(references,"projectAccessService",projects);ReflectionTestUtils.setField(references,"queryService",query);
+            try(var login=mockStatic(SecurityFrameworkUtils.class)) {
+                login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+                var response=MockMvcBuilders.standaloneSetup(new cn.iocoder.yudao.module.dcc.controller.admin.file.DccProjectReferenceController(references))
+                        .build().perform(get("/dcc/project-file-references").param("projectId","6").param("folderId","600")).andReturn();
+                assertEquals(200,response.getResponse().getStatus());
+                var json=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                assertEquals(0,json.get("code").asInt());var row=json.get("data").get(0);
+                assertEquals("9007199254740993",row.get("selectedVersion").get("controlledFileId").asText());
+                assertEquals("真实来源项目",row.get("permissions").get("projectName").asText());
+                assertFalse(row.get("permissions").get("canPreview").asBoolean());
+            }
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.assertRelationContentReadable(99L,9007199254740993L));
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getProjectReferencePermissions(99L,6L,601L,9007199254740993L));
+            TenantContextHolder.setTenantId(2L);
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getProjectReferencePermissions(99L,6L,600L,9007199254740993L));
+            TenantContextHolder.setTenantId(1L);
+            doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"TARGET_DENIED")).when(projects).assertProjectViewerOrAbove(98L,6L);
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getProjectReferencePermissions(98L,6L,600L,9007199254740993L));
+            jdbc.update("UPDATE dcc_project_file_reference SET master_id=11 WHERE id=1");
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getProjectReferencePermissions(99L,6L,600L,9007199254740993L));
+        } finally { TenantContextHolder.setTenantId(1L);jdbc.update("DELETE FROM dcc_project_file_reference"); }
+    }
 
     @Test void authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict() throws Exception {
         jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2' WHERE id=9007199254740993");
@@ -150,12 +194,18 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         var form=new cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO();
         form.setId(9007199254740997L);form.setApplicantUserId(99L);form.setTenantId(1L);form.setObjectId("9007199254740993");
         form.setObjectVersion("A/1");form.setStatus("IN_APPROVAL");form.setActionCode("OBSOLETE");
+        form.setInstanceCode("FCI-PENDING");form.setBpmProcessInstanceId("actual-obsolete-process");
+        form.setBusinessContextJson("{\"tenantId\":1,\"systemCode\":\"DCC\",\"objectType\":\"CONTROLLED_FILE\",\"objectId\":\"9007199254740993\",\"objectVersion\":\"A/1\",\"actionCode\":\"OBSOLETE\"}");
         var pending=(DccControlledFileFormActionPendingService)ReflectionTestUtils.getField(query,"formActionPendingService");
         when(pending.findOpenObsoleteAction(9007199254740993L)).thenReturn(form);
         var response=query.getControlledFile(99L,9007199254740993L);
         assertTrue(response.getCanObsolete());assertFalse(response.getActionProjection().getAllowedActions().contains("OBSOLETE"));
         assertEquals("OBSOLETE_APPROVAL_PENDING",response.getActionProjection().getActionLockReason());
         assertEquals(9007199254740997L,response.getActionProjection().getPendingRequestId());assertTrue(response.getActionProjection().getCanWithdraw());
+        var action=response.getActionProjection().getActiveObsoleteAction();
+        assertEquals(form.getId(),action.getId());assertEquals("FCI-PENDING",action.getInstanceCode());
+        assertEquals("IN_APPROVAL",action.getStatus());assertEquals("actual-obsolete-process",action.getBpmProcessInstanceId());
+        assertEquals("9007199254740993",action.getContext().getObjectId());
     }
 
     @Test void pendingPermissionAndMetadataOnlyReadsDoNotGrantObsoletePrintOrMajorRevision() {

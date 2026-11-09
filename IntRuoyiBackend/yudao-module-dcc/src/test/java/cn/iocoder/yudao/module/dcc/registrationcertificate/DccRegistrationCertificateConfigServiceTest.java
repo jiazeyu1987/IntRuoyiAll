@@ -1,8 +1,10 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.config.DccRegistrationCertificateReminderConfigController;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.config.vo.DccRegistrationCertificateReminderConfigRespVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateConfigService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateReminderConfig;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateReminderConfigUpdateCommand;
@@ -53,6 +55,47 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
     private static Map<String, List<Long>> recipients() {
         return Map.of("T_30", List.of(101L, 102L), "T_8", List.of(102L),
                 "T_2", List.of(103L), "T_1", List.of(104L));
+    }
+
+    @Test
+    void changeConfirmationRecipientsPersistWithoutReceivingReminderVisibilityEntitlements() {
+        var current=service.getOrCreate(1L);
+        var configured=new java.util.LinkedHashMap<>(recipients());
+        configured.put("CHANGE_CONFIRMATION",List.of(901L,902L,901L));
+        var result=service.update(1L,99L,new DccRegistrationCertificateReminderConfigUpdateCommand(
+                true,"09:00",configured,current.rowVersion()));
+        assertEquals(List.of(901L,902L),DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(
+                result.thresholdRecipientUserIdsJson()).get("CHANGE_CONFIRMATION"));
+        var claim=ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
+        verify(permissionApi).syncEntitlementClaims(claim.capture());
+        assertEquals(java.util.Set.of(101L,102L,103L,104L),claim.getValue().getResolvedUserIds());
+        verify(adminUserApi).validateUserList(java.util.Set.of(101L,102L,103L,104L,901L,902L));
+    }
+
+    @Test
+    void defaultRecipientsAreExplicitEmptyListsForConfigurationWithoutChangingStoredDefault() {
+        var config = service.getOrCreate(1L);
+        var response = DccRegistrationCertificateReminderConfigRespVO.of(config);
+        assertEquals(Map.of("T_30", List.of(), "T_8", List.of(), "T_2", List.of(), "T_1", List.of()),
+                response.getThresholdRecipientUserIds());
+        var serialized = JsonUtils.parseTree(JsonUtils.toJsonString(response)).get("thresholdRecipientUserIds");
+        for (String threshold : List.of("T_30", "T_8", "T_2", "T_1")) {
+            assertEquals(true, serialized.get(threshold).isArray());
+            assertEquals(0, serialized.get(threshold).size());
+        }
+        assertEquals("{}", service.getOrCreate(1L).thresholdRecipientUserIdsJson());
+    }
+
+    @Test
+    void malformedRecipientShapeIsNotTreatedAsUnconfigured() {
+        var config = service.getOrCreate(1L);
+        var invalid = new DccRegistrationCertificateReminderConfig(config.id(), config.tenantId(), config.enabled(),
+                config.dailyRunTime(), config.timezone(), config.thresholdDaysJson(), "{\"T_30\":true}", config.rowVersion());
+        assertThrows(ServiceException.class, () -> DccRegistrationCertificateReminderConfigRespVO.of(invalid));
+        var partial = new DccRegistrationCertificateReminderConfig(config.id(), config.tenantId(), config.enabled(),
+                config.dailyRunTime(), config.timezone(), config.thresholdDaysJson(), "{\"T_30\":[101]}", config.rowVersion());
+        assertEquals(Map.of("T_30", List.of(101L)),
+                DccRegistrationCertificateReminderConfigRespVO.of(partial).getThresholdRecipientUserIds());
     }
 
     @Test

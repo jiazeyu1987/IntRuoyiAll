@@ -3,6 +3,7 @@
 @use './theme.scss';
 @use './scheme-d-controls.scss';
 @use './test-buttons.scss';
+@use './dcc-tab-responsive.scss';
 
 .reset-margin [class*='el-icon'] + span {
   margin-left: 2px !important;
@@ -135,4 +136,9 @@
 
 .user-table-column-global-managed {
   position: relative;
+}
+
+// Modal and file-detail controls occupy their own row above the header and scroll with the table.
+:is(.el-dialog, .el-drawer, .dcc-detail-surface, [data-testid='dcc-detail-attachments']) .user-table-column-global-managed {
+  padding-top: 54px;
 }

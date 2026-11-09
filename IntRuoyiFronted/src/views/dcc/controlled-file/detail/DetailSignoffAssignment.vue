@@ -2,7 +2,7 @@
   <ContentWrap v-loading="loading">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <SignoffAssignmentPanel
-      v-if="context"
+      v-if="context && !context.assigned && context.canAssign"
       :key="contextKey"
       :file-id="context.controlledFileId"
       :process-instance-id="context.processInstanceId"
@@ -14,6 +14,9 @@
       :save="saveAssignment"
       @saved="onSaved"
     >
+      <template #actions>
+        <slot name="actions"></slot>
+      </template>
       <template #relation-arrangements="{ disabled }">
         <div v-if="canSupplement">
           <el-button :disabled="disabled || supplementLoading" :loading="supplementLoading" @click="openSupplement">
@@ -77,7 +80,7 @@ import {
 const props = defineProps<{ fileId: number | string; processInstanceId: string; taskId: string }>()
 const emit = defineEmits<{
   saved: []
-  state: [value: { fileId: string; taskId: string; assigned: boolean }]
+  state: [value: { fileId: string; taskId: string; assigned: boolean | undefined }]
 }>()
 const context = ref<SignoffAssignmentContext>(),
   error = ref(''),
@@ -117,7 +120,7 @@ watch(
     supplementVisible.value = false
     supplementLoading.value = false
     supplementError.value = ''
-    emit('state', { fileId: String(props.fileId), taskId: props.taskId, assigned: false })
+    emit('state', { fileId: String(props.fileId), taskId: props.taskId, assigned: undefined })
     try {
       const result = await getSignoffAssignmentContext(props.fileId, props.taskId)
       if (token !== generation) return
@@ -133,6 +136,7 @@ watch(
         taskId: result.taskId,
         assigned: result.assigned
       })
+      if (result.assigned) return
       if (!result.assigned && !result.canAssign) throw new Error('当前任务不允许本账号指派')
       if (result.processDefinitionKey !== 'dcc-controlled-file-revision') {
         ready.value = true

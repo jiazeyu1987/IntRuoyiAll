@@ -8,7 +8,7 @@ const relationApi = readFileSync(join(root, 'src/api/dcc/dataRelations.ts'), 'ut
 const productCatalogApi = readFileSync(join(root, 'src/api/dcc/controlledFile/productCatalog.ts'), 'utf8')
 
 assert.match(page, /data-testid="dcc-product-catalog-bind-registration"/)
-assert.match(page, /const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 188/)
+assert.match(page, /const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 248/)
 assert.match(page, /getProductCatalogActionColumnWidthString/)
 assert.doesNotMatch(page, /Math\.max\(configuredWidth, PRODUCT_CATALOG_ACTION_PANEL_WIDTH\)/)
 assert.match(page, /return String\(PRODUCT_CATALOG_ACTION_PANEL_WIDTH\)/)
@@ -16,7 +16,9 @@ assert.match(
   page,
   /\{\s*key: 'actions',\s*label: '操作',\s*width: PRODUCT_CATALOG_ACTION_PANEL_WIDTH,\s*hideable: false,\s*business: false\s*\}/
 )
-assert.match(page, /title="绑定项目代码和注册证"/)
+assert.match(page, /关联注册证/)
+assert.match(page, /bindingFormData.projectCodeId = row.projectCodeId/)
+assert.match(page, /v-if="bindingRow\?\.projectCodeId"[^>]*disabled/)
 assert.match(page, /getProjectCodePage/)
 assert.match(page, /getRegistrationCertificatePage/)
 assert.match(page, /projectCodeId/)

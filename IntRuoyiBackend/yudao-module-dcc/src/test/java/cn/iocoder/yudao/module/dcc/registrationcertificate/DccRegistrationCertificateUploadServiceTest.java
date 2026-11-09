@@ -2,7 +2,9 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestFileDO;
@@ -19,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandMutex;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateDraftData;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificatePrerequisiteValidator;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
@@ -28,9 +31,13 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -96,22 +103,52 @@ class DccRegistrationCertificateUploadServiceTest {
 
     private DccRegistrationCertificateUploadService uploadService;
 
+    @Mock
+    private DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+    @Mock
+    private MdmProductApi productApi;
+
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(TENANT_ID);
         uploadService = new DccRegistrationCertificateUploadService(
                 commandMutex, commandService, requestMapper, requestFileMapper, fileMapper, snapshotMapper, versionMapper,
                 projectCodeFileAssociationService, fileService, projectCodeService, companyScopeApi, enterpriseApi, businessClock,
                 businessEventNotifier);
+        org.springframework.test.util.ReflectionTestUtils.setField(uploadService, "registrationHandlingTasks", registrationHandlingTasks);
+        var validator = new DccRegistrationCertificatePrerequisiteValidator(
+                companyScopeApi, enterpriseApi, productApi, projectCodeService, businessClock);
+        org.springframework.test.util.ReflectionTestUtils.setField(validator, "approvedProductIdentityMapper", approvedProductIdentityMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(uploadService, "prerequisiteValidator", validator);
         lenient().doAnswer(invocation -> {
             Supplier<?> action = invocation.getArgument(1);
             return action.get();
         }).when(commandMutex).execute(anyString(), any());
     }
 
-    @Test
-    void submitUploadForApprovalKeepsManualProductNameWhenProjectCodeHasProductBinding() {
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MDM", "CATALOG", "UNBOUND"})
+    void submitUploadForApprovalKeepsProductIdentityForAllProjectProductStates(String productSource) {
         mockOwnedCompany();
-        mockProjectCode();
+        if (!"MDM".equals(productSource)) {
+            mockProjectCodeWithoutProductBinding();
+            if ("CATALOG".equals(productSource)) {
+                when(approvedProductIdentityMapper.selectApprovedProduct(TENANT_ID, 1001L)).thenReturn(List.of(
+                        new DccApprovedProductIdentityMapper.ApprovedProduct(1001L, 663L, 56L, 61L,
+                                "PRODUCT-001", "一次性使用无菌导管", "PRODUCT-001", "一次性使用无菌导管")));
+                when(approvedProductIdentityMapper.countDeclaredProductEvidence(TENANT_ID, 1001L)).thenReturn(2L);
+            }
+        } else {
+            mockProjectCode();
+        }
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-1")).thenReturn(null);
         ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
                 ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
@@ -146,7 +183,9 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(9401L, result.requestId());
         assertEquals(9001L, result.certificateId());
         assertEquals(9301L, result.businessFileId());
-        assertNull(draft.getValue().productMasterId());
+        assertEquals("MDM".equals(productSource) ? 2001L : null, draft.getValue().productMasterId());
+        assertEquals(Boolean.TRUE, cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(draft.getValue().factsJson()).getOwnProduct());
         assertEquals(501L, draft.getValue().ownerCompanyId());
         assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertEquals(1001L, draft.getValue().projectCodeId());
@@ -245,47 +284,56 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(9304L, result.businessFileId());
         assertNull(draft.getValue().productMasterId());
         assertEquals("手填注册证产品", draft.getValue().productName());
+        assertEquals("CUSTOMER-PRJ-01",cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(draft.getValue().factsJson()).getProjectCode());
         assertNull(draft.getValue().projectCodeId());
         verify(projectCodeService, never()).getProjectCode(any(), any());
     }
 
-    @Test
-    void submitUploadForApprovalAllowsSelectedProjectCodeWithoutProductBinding() {
+    @ParameterizedTest
+    @ValueSource(strings = {"QMS", "GENERAL"})
+    void submitUploadRejectsLibraryInsteadOfFormalProject(String scope) {
         mockOwnedCompany();
         mockProjectCodeWithoutProductBinding();
-        when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-UNBOUND-PROJECT")).thenReturn(null);
-        ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
-                ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
-        when(commandService.createDraft(eq(TENANT_ID), eq(ACTOR_ID), eq("UPLOAD-KEY-UNBOUND-PROJECT"),
-                eq("TRACE-UNBOUND-PROJECT"), draft.capture())).thenReturn(9003L);
-        DccRegistrationCertificateVersionDO draftVersion = DccRegistrationCertificateVersionDO.builder()
-                .id(9103L)
-                .certificateId(9003L)
-                .status("DRAFT")
-                .build();
-        draftVersion.setTenantId(TENANT_ID);
-        when(versionMapper.selectList(any())).thenReturn(List.of(draftVersion));
-        when(fileService.createFileAndReturnId(any(byte[].class), eq("registration.pdf"),
-                eq("dcc/registration-certificate/upload/9003"), eq("application/pdf"))).thenReturn(9203L);
-        doAnswer(invocation -> {
-            DccRegistrationCertificateFileDO file = invocation.getArgument(0);
-            file.setId(9303L);
-            return 1;
-        }).when(fileMapper).insert(any(DccRegistrationCertificateFileDO.class));
-        doAnswer(invocation -> {
-            DccRegistrationCertificateAccessRequestDO request = invocation.getArgument(0);
-            request.setId(9403L);
-            return 1;
-        }).when(requestMapper).insert(any(DccRegistrationCertificateAccessRequestDO.class));
-        when(requestFileMapper.insert(any(DccRegistrationCertificateAccessRequestFileDO.class))).thenReturn(1);
-        when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 8, 29, 10, 0));
+        projectCodeService.getProjectCode(ACTOR_ID, 1001L).setLibraryScope(scope);
+        ServiceException error = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
+                TENANT_ID, ACTOR_ID, "UPLOAD-LIBRARY", "TRACE-LIBRARY",
+                uploadCommand(false, true, List.of())));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID.getCode(), error.getCode());
+        verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verifyNoInteractions(fileService);
+    }
 
-        uploadService.submitUploadForApproval(TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNBOUND-PROJECT",
-                "TRACE-UNBOUND-PROJECT", uploadCommand(1001L, "一次性使用无菌导管", false, true, List.of()));
-
-        assertNull(draft.getValue().productMasterId());
-        assertEquals("一次性使用无菌导管", draft.getValue().productName());
-        assertEquals(1001L, draft.getValue().projectCodeId());
+    @ParameterizedTest
+    @ValueSource(strings = {"incomplete", "duplicate", "name-mismatch", "outage"})
+    void submitUploadRejectsInvalidCatalogIdentityBeforeCreatingDraftOrFile(String failure) {
+        mockOwnedCompany();
+        mockProjectCodeWithoutProductBinding();
+        var product = new DccApprovedProductIdentityMapper.ApprovedProduct(1001L, 663L, 56L, 61L,
+                "PRODUCT-001", "一次性使用无菌导管", "PRODUCT-001", "一次性使用无菌导管");
+        if ("outage".equals(failure)) {
+            var outage = new IllegalStateException("catalog unavailable");
+            when(approvedProductIdentityMapper.selectApprovedProduct(TENANT_ID, 1001L)).thenThrow(outage);
+            assertEquals(outage, assertThrows(IllegalStateException.class, () -> uploadService.submitUploadForApproval(
+                    TENANT_ID, ACTOR_ID, "CATALOG-INVALID", "TRACE-INVALID",
+                    uploadCommand(false, true, List.of()))));
+        } else {
+            when(approvedProductIdentityMapper.selectApprovedProduct(TENANT_ID, 1001L))
+                    .thenReturn("duplicate".equals(failure) ? List.of(product, product) : List.of(product));
+            if (!"duplicate".equals(failure)) {
+                when(approvedProductIdentityMapper.countDeclaredProductEvidence(TENANT_ID, 1001L))
+                        .thenReturn("incomplete".equals(failure) ? 1L : 2L);
+            }
+            var error = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
+                    TENANT_ID, ACTOR_ID, "CATALOG-INVALID", "TRACE-INVALID",
+                    uploadCommand(1001L, "name-mismatch".equals(failure) ? "其他产品" : "一次性使用无菌导管",
+                            false, true, List.of())));
+            assertEquals(("name-mismatch".equals(failure)
+                    ? cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID
+                    : cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH)
+                    .getCode(), error.getCode());
+        }
+        verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verifyNoInteractions(fileService);
     }
 
     @Test
@@ -345,9 +393,6 @@ class DccRegistrationCertificateUploadServiceTest {
 
     @Test
     void submitUploadForApprovalRejectsUnauthorizedOwnerCompanyIdWithChineseMessage() {
-        org.mockito.Mockito.doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
-                .when(companyScopeApi).validateUserCompanyAccess(ACTOR_ID, 999L);
-
         ServiceException exception = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
                 TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNAUTHORIZED-COMPANY", "TRACE-UNAUTHORIZED-COMPANY",
                 uploadCommand(1001L, 999L, "一次性使用无菌导管", false, true, List.of())));
@@ -391,6 +436,7 @@ class DccRegistrationCertificateUploadServiceTest {
                         .id(9501L)
                         .requestId(9401L)
                         .businessFileId(9301L)
+                        .fileKind("REGISTRATION_CERTIFICATE")
                         .status("REQUESTED")
                         .build();
         requestFile.setTenantId(TENANT_ID);
@@ -423,6 +469,7 @@ class DccRegistrationCertificateUploadServiceTest {
                 .productName("一次性使用无菌导管")
                 .build();
         snapshot.setTenantId(TENANT_ID);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(version,LocalDate.of(2025,1,1)));
         when(snapshotMapper.selectListByVersionId(9101L)).thenReturn(List.of(snapshot));
         uploadService.approveUploadRequest(TENANT_ID, 88L, 9401L, "APPROVAL-KEY-1");
 
@@ -469,6 +516,7 @@ class DccRegistrationCertificateUploadServiceTest {
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .id(1001L)
                 .projectCode("DCC-PROJ-001")
+                .projectName("Catalog project")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
         projectCode.setTenantId(TENANT_ID);
@@ -505,6 +553,16 @@ class DccRegistrationCertificateUploadServiceTest {
                 entrustedEnterpriseIds,
                 "上传注册证审批",
                 new MockMultipartFile("file", "registration.pdf", "application/pdf",
-                        "%PDF-1.4".getBytes(StandardCharsets.UTF_8)));
+                        "%PDF-1.4".getBytes(StandardCharsets.UTF_8)),
+                uploadFacts(projectCodeId!=null),List.of(),List.of(),null,List.of());
+    }
+
+    private String uploadFacts(boolean ownProduct) {
+        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("DOMESTIC");facts.setCertificateStatus("VALID");facts.setOwnProduct(ownProduct);
+        facts.setCertificateNo("REG-CERT-UPLOAD-1");facts.setClassification("A类");
+        facts.setFirstObtainedDate(LocalDate.of(2025,1,1));facts.setEffectiveDate(LocalDate.of(2025,1,2));
+        if(!ownProduct)facts.setProjectCode("CUSTOMER-PRJ-01");facts.setExpiryDate(LocalDate.of(2026,1,1));facts.setRemark("上传注册证审批");
+        return facts.toJson();
     }
 }

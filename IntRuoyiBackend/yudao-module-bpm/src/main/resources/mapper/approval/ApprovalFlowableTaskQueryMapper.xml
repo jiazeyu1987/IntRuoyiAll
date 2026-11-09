@@ -10,9 +10,6 @@
       AND rb.bpm_process_instance_id=t.PROC_INST_ID_ AND rb.deleted=0
     LEFT JOIN dcc_registration_certificate_access_request rr ON rr.tenant_id=#{tenant}
       AND rr.id=rb.request_id AND rr.bpm_process_instance_id=t.PROC_INST_ID_ AND rr.deleted=0
-    LEFT JOIN dcc_registration_certificate c ON c.tenant_id=#{tenant} AND c.id=rr.certificate_id AND c.deleted=0
-    LEFT JOIN dcc_registration_certificate_version cv ON cv.tenant_id=#{tenant} AND cv.id=c.current_version_id AND cv.certificate_id=c.id AND cv.deleted=0
-    LEFT JOIN dcc_registration_certificate_snapshot cs ON cs.tenant_id=#{tenant} AND cs.id=c.current_snapshot_id AND cs.version_id=cv.id AND cs.deleted=0
   </sql>
   <sql id="registrationCandidate">
     rr.id IS NOT NULL AND rb.business_key=p.BUSINESS_KEY_ AND rb.status='RUNNING' AND rr.status='BPM_BOUND'
@@ -49,7 +46,16 @@
         OR LOWER(CAST(rr.id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(CAST(rr.certificate_id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(rr.request_key) LIKE #{keyword} ESCAPE '!'
-        OR LOWER(cv.certificate_no) LIKE #{keyword} ESCAPE '!' OR LOWER(cs.product_name) LIKE #{keyword} ESCAPE '!'
+        OR (rr.request_type='UPLOAD_CERTIFICATE'
+          AND JSON_UNQUOTE(JSON_EXTRACT(rr.detail_json,'$.operation'))='UPLOAD_CERTIFICATE'
+          AND ((JSON_TYPE(JSON_EXTRACT(rr.detail_json,'$.certificateNo'))='STRING'
+              AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(rr.detail_json,'$.certificateNo'))) LIKE #{keyword} ESCAPE '!')
+            OR (JSON_TYPE(JSON_EXTRACT(rr.detail_json,'$.productName'))='STRING'
+              AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(rr.detail_json,'$.productName'))) LIKE #{keyword} ESCAPE '!')))
+        OR (rr.request_type='DOWNLOAD_FILE'
+          AND JSON_UNQUOTE(JSON_EXTRACT(rr.detail_json,'$.requestType'))='DOWNLOAD_FILE'
+          AND JSON_TYPE(JSON_EXTRACT(rr.detail_json,'$.certificateNo'))='STRING'
+          AND LOWER(JSON_UNQUOTE(JSON_EXTRACT(rr.detail_json,'$.certificateNo'))) LIKE #{keyword} ESCAPE '!')
         OR (o.authority_type='CONTROLLED_FILE' AND EXISTS (
           SELECT 1 FROM dcc_controlled_file searched WHERE searched.tenant_id=#{tenant}
             AND CAST(searched.id AS CHAR)=o.authority_id
@@ -67,15 +73,17 @@
               AND completed.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')))
       </if>
     </when>
-      <otherwise>AND o.projection_code IN ('NATIVE_BPM','NATIVE_FORM','NATIVE_BUSINESS','NATIVE_EXTERNAL_EDHR')</otherwise>
+      <otherwise>AND (o.projection_code IN ('NATIVE_BPM','NATIVE_FORM','NATIVE_BUSINESS','NATIVE_EXTERNAL_EDHR')
+        <if test="done">OR o.id IS NULL</if>)</otherwise>
     </choose>
   </sql>
   <select id="countBrokenProvenance" resultType="long">
     SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/>
-    AND (o.id IS NULL OR p.PROC_INST_ID_ IS NULL OR d.ID_ IS NULL
+    AND (<if test="!done">o.id IS NULL OR </if>p.PROC_INST_ID_ IS NULL OR d.ID_ IS NULL
       OR CAST(o.process_definition_id AS BINARY) != CAST(t.PROC_DEF_ID_ AS BINARY)
       OR CAST(o.process_definition_key AS BINARY) != CAST(d.KEY_ AS BINARY)
-      OR NOT (CAST(o.business_key AS BINARY) &lt;=&gt; CAST(p.BUSINESS_KEY_ AS BINARY)) OR d.TENANT_ID_ != #{tenantText}
+      OR (o.id IS NOT NULL AND NOT (CAST(o.business_key AS BINARY) &lt;=&gt; CAST(p.BUSINESS_KEY_ AS BINARY)))
+      OR d.TENANT_ID_ != #{tenantText}
       OR (o.authority_type='REGISTRATION_REQUEST' AND (rr.id IS NULL OR o.authority_id != CAST(rr.id AS CHAR)))
       OR (o.authority_type='BUSINESS_REQUEST' AND NOT EXISTS (SELECT 1 FROM bpm_business_approval_request br
         WHERE br.tenant_id=#{tenant} AND br.process_instance_id=t.PROC_INST_ID_ AND CAST(br.id AS CHAR)=o.authority_id
@@ -102,6 +110,14 @@
   </select>
   <select id="ownerships" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalProcessOwnershipDO">
     SELECT DISTINCT o.* FROM <include refid="source"/> WHERE <include refid="authorized"/>
+    AND o.id IS NOT NULL
+  </select>
+  <select id="unownedHistoricProcesses" resultType="string">
+    SELECT p.PROC_INST_ID_ FROM ACT_HI_PROCINST p
+    LEFT JOIN bpm_approval_process_ownership o ON o.tenant_id=#{tenant}
+      AND CAST(o.process_instance_id AS BINARY)=CAST(p.PROC_INST_ID_ AS BINARY)
+    WHERE p.TENANT_ID_=#{tenantText} AND o.id IS NULL AND p.PROC_INST_ID_ IN
+    <foreach collection="processIds" item="processId" open="(" close=")" separator=",">#{processId}</foreach>
   </select>
   <select id="count" resultType="long">
     SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/> <include refid="partition"/>

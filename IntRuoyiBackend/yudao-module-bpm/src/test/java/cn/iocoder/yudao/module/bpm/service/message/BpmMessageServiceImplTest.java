@@ -49,6 +49,29 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void cancellationOnlyNotifiesRestartableDccApplications() {
+        for (String key : java.util.List.of("dcc-controlled-file-upload", "dcc-controlled-file-revision", "dcc-controlled-file-obsolete")) {
+            org.mockito.Mockito.clearInvocations(notifyMessageSendApi, smsSendApi);
+            var req = new BpmMessageSendWhenProcessInstanceRejectReqDTO();
+            req.setStartUserId(99L); req.setProcessInstanceId("failed-exact-round");
+            req.setProcessInstanceName("原申请"); req.setProcessDefinitionKey(key); req.setReason("主动撤回");
+            messageService.sendMessageWhenProcessInstanceCancel(req);
+            var captured = ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+            verify(notifyMessageSendApi).sendSingleMessageToAdmin(captured.capture());
+            assertEquals(99L, captured.getValue().getUserId());
+            assertEquals("dcc_controlled_file_withdrawn", captured.getValue().getTemplateCode());
+            assertTrue(captured.getValue().getTemplateParams().get("detailUrl").toString().endsWith("id=failed-exact-round"));
+            org.mockito.Mockito.verifyNoInteractions(smsSendApi);
+        }
+        org.mockito.Mockito.clearInvocations(notifyMessageSendApi, smsSendApi);
+        for (String key : java.util.List.of("dcc-registration-certificate-access", "mes-edhr-approval-v1", "dcc-controlled-file-approval", "other")) {
+            var req = new BpmMessageSendWhenProcessInstanceRejectReqDTO(); req.setProcessDefinitionKey(key);
+            messageService.sendMessageWhenProcessInstanceCancel(req);
+        }
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi, smsSendApi);
+    }
+
+    @Test
     void sendMessageWhenTaskAssigned_dccProcess_usesNotifyInbox() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-1");

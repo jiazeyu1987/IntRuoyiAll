@@ -1,6 +1,7 @@
 <template>
-  <Dialog v-model="dialogVisible" :title="dialogTitle" width="1100px">
+  <Dialog v-model="dialogVisible" :title="dialogTitle" width="min(1100px, calc(100vw - 24px))">
     <el-form
+      class="route-form"
       ref="formRef"
       v-loading="formLoading"
       :model="formData"
@@ -52,7 +53,7 @@
       <el-form-item label="备注" prop="remark">
         <el-input v-model="formData.remark" type="textarea" :rows="2" placeholder="请输入路线说明" />
       </el-form-item>
-      <div class="mb-12px flex items-center justify-between">
+      <div class="route-form__nodes-heading mb-12px flex items-center justify-between">
         <div>
           <div class="text-13px font-600">审批节点</div>
           <div class="mt-2px text-12px text-gray-500">
@@ -538,3 +539,39 @@ const submitForm = async () => {
   }
 }
 </script>
+
+<style scoped>
+.route-form {
+  min-width: 0;
+}
+
+.route-form :deep(.el-form-item__content) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-form :deep(.el-form-item__content > .el-select),
+.route-form :deep(.el-form-item__content > .el-date-editor) {
+  max-width: 100%;
+}
+
+.route-form__nodes-heading {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .route-form :deep(.el-form-item) {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .route-form :deep(.el-form-item__label) {
+    justify-content: flex-start;
+  }
+
+  .route-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+}
+</style>

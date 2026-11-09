@@ -65,7 +65,7 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
                     .filter(userId -> userId != null && userId > 0)
                     .forEach(recipientUserIds::add);
         }
-        recipientUserIds.add(validated.actorId());
+        if (!"CHANGE_APPROVAL_RECORDED".equals(validated.eventType())) recipientUserIds.add(validated.actorId());
         LinkedHashMap<Long, Long> messageIds = new LinkedHashMap<>();
         for (Long userId : recipientUserIds) {
             sendToRecipient(validated, userId, messageIds);

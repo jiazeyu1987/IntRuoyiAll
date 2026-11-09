@@ -1,4 +1,5 @@
 package cn.iocoder.yudao.module.dcc.service.file;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED;
 
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
@@ -768,8 +769,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         } catch (cn.iocoder.yudao.framework.common.exception.ServiceException denied) {
             unavailable=denied.getMessage(); // Explicit business ineligibility; unexpected failures propagate.
         }
-        if(unavailable==null) unavailable=workingSelectionUnavailable(file);
         if("APPLICATION_CUSTOM".equals(file.getDraftApprovalSourceMode())){
+            if(unavailable==null) unavailable=workingSelectionUnavailable(file);
             var context=customReservedContext(file,file.getDraftApplicationContextKey());
             var encoded=customMatrices.canonicalize(context,readCustomDraft(file,context).applicationCustomMatrix(),readDistributionDepartments(file.getSelectedSignoffDepartmentIdsJson()));
             var selection=customMatrices.readCanonical(file.getDraftApplicationCustomMatrixJson(),encoded.digest(),context);
@@ -777,6 +778,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             return new DccWorkingApplicationAttributes(fileId,file.getDccProjectCodeId(),type,projectAttributesService.readValue(saved.getDefaultSourceJson()),projectAttributesService.readValue(saved.getActualAttributesJson()),unavailable==null,unavailable,file.getEffectiveDate(),file.getNeedTraining(),distributionDepartmentStrings(file.getSelectedSignoffDepartmentIdsJson()),file.getChangeDescription(),file.getEffectiveMode(),distributionDepartmentStrings(file.getDistributionDepartmentIdsJson()),null,false,false,file.getPreparedWorkflowContract(),file.getPreparedProcessDefinitionId(),file.getPreparedDefinitionDigest(),"APPLICATION_CUSTOM",selection.applicationCustomMatrix(),file.getDraftApplicationContextKey(),context.attributeRound(),encoded.digest());
         }
         var eligibility=newActionBaselineEligibility(userId,file);
+        var freshCustom=readFreshCustomApplication(file,saved,eligibility,unavailable);
+        if(freshCustom!=null)return freshCustom;
+        if(unavailable==null) unavailable=workingSelectionUnavailable(file);
         if(eligibility.required())unavailable="新业务申请的公共矩阵原基线尚未正式准备";
         return new DccWorkingApplicationAttributes(fileId,file.getDccProjectCodeId(),type,
                 projectAttributesService.readValue(saved.getDefaultSourceJson()),
@@ -810,8 +814,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             DccRevisionReworkPolicy.requireAttempt(baseline,file,"REPLACEMENT",chain,versionPolicy);
         }catch(cn.iocoder.yudao.framework.common.exception.ServiceException denied){unavailable=denied.getMessage();}
         catch(IllegalArgumentException denied){unavailable=denied.getMessage();}
-        if(unavailable==null) unavailable=workingSelectionUnavailable(file);
         if("APPLICATION_CUSTOM".equals(file.getDraftApprovalSourceMode())){
+            if(unavailable==null) unavailable=workingSelectionUnavailable(file);
             var context=customReservedContext(file,file.getDraftApplicationContextKey());
             var encoded=customMatrices.canonicalize(context,readCustomDraft(file,context).applicationCustomMatrix(),readDistributionDepartments(file.getSelectedSignoffDepartmentIdsJson()));
             var selection=customMatrices.readCanonical(file.getDraftApplicationCustomMatrixJson(),encoded.digest(),context);
@@ -825,6 +829,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                     "APPLICATION_CUSTOM",selection.applicationCustomMatrix(),file.getDraftApplicationContextKey(),context.attributeRound(),encoded.digest());
         }
         var eligibility=newActionBaselineEligibility(userId,file);
+        var freshCustom=readFreshCustomApplication(file,saved,eligibility,unavailable);
+        if(freshCustom!=null)return freshCustom;
+        if(unavailable==null) unavailable=workingSelectionUnavailable(file);
         if(eligibility.required())unavailable="新业务申请的公共矩阵原基线尚未正式准备";
         return new DccWorkingApplicationAttributes(selectedId,file.getDccProjectCodeId(),"REVISION",
                 projectAttributesService.readValue(saved.getDefaultSourceJson()),projectAttributesService.readValue(saved.getActualAttributesJson()),
@@ -832,6 +839,28 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 file.getEffectiveMode(),distributionDepartmentStrings(file.getDistributionDepartmentIdsJson()),
                 DccApprovalMatrixSourceService.readCanonical(file.getDraftApprovalMatrixJson()),eligibility.required(),eligibility.allowed(),
                 file.getPreparedWorkflowContract(),file.getPreparedProcessDefinitionId(),file.getPreparedDefinitionDigest());
+    }
+
+    private DccWorkingApplicationAttributes readFreshCustomApplication(DccControlledFileDO file,
+            cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO saved,
+            DccApplicationExecutionContractService.BaselinePreparationEligibility eligibility,String unavailable) {
+        if(!eligibility.required() || file.getDraftApprovalSourceMode()!=null)return null;
+        if(!"APPLICATION_CUSTOM".equals(applicationSourceMode(file,file.getCategoryId())))return null;
+        if(file.getDraftApplicationCustomMatrixJson()!=null || file.getDraftApplicationContextKey()!=null)
+            throw new IllegalArgumentException("CUSTOM_APPLICATION_CONTEXT_CHANGED：新申请存在未正式保存的自定义配置身份");
+        // The verified new application owns this empty selection; GET never persists a draft or borrows the source's configuration.
+        String type=workingApplicationType(file);
+        int round=applicationRoundService.requireDraft(type,file.getId());
+        String key="dcc-custom-v1:"+file.getTenantId()+":"+type+":"+file.getId()+":"+round;
+        var context=customReservedContext(file,key);
+        var selection=customMatrices.canonicalize(context,null,readDistributionDepartments(file.getSelectedSignoffDepartmentIdsJson()));
+        return new DccWorkingApplicationAttributes(file.getId(),file.getDccProjectCodeId(),type,
+                projectAttributesService.readValue(saved.getDefaultSourceJson()),projectAttributesService.readValue(saved.getActualAttributesJson()),
+                false,unavailable==null?"本次自定义审批配置尚未保存":unavailable,file.getEffectiveDate(),file.getNeedTraining(),
+                distributionDepartmentStrings(file.getSelectedSignoffDepartmentIdsJson()),file.getChangeDescription(),file.getEffectiveMode(),
+                distributionDepartmentStrings(file.getDistributionDepartmentIdsJson()),null,false,false,
+                file.getPreparedWorkflowContract(),file.getPreparedProcessDefinitionId(),file.getPreparedDefinitionDigest(),
+                "APPLICATION_CUSTOM",null,key,round,selection.digest());
     }
 
     @Override
@@ -879,6 +908,10 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 "REVISION".equals(file.getChangeType()) ? DccFileCategoryPermissionActionEnum.EDIT : DccFileCategoryPermissionActionEnum.UPLOAD))
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         workingApplicationType(file);
+        if ("REVISION".equals(file.getChangeType())
+                && !controlledFileMapper.selectProjectReferenceIdsForUpdate(tenant, master.getId()).isEmpty()) {
+            throw exception(CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+        }
         return file;
     }
 

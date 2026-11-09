@@ -127,7 +127,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void distributedReadEndpoints_requireLoginAndDelegateFileScopeToService() throws NoSuchMethodException {
-        Method detailMethod = DccControlledFileController.class.getMethod("getControlledFile", Long.class);
+        Method detailMethod = DccControlledFileController.class.getMethod("readControlledFileDetail", Long.class, HttpServletRequest.class);
         Method previewMethod = DccControlledFileController.class.getMethod("previewControlledFile",
                 Long.class, String.class, String.class, String.class, String.class, String.class,
                 HttpServletRequest.class);
@@ -139,7 +139,8 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
         assertUsesAuthenticatedRowScope(detailMethod);
         assertUsesAuthenticatedRowScope(previewMethod);
         assertUsesAuthenticatedRowScope(previewMetadataMethod);
-        assertUsesAuthenticatedRowScope(downloadMethod);
+        assertEquals("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:download-read-only')",
+                downloadMethod.getAnnotation(PreAuthorize.class).value());
     }
 
     @Test
@@ -195,12 +196,12 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
         assertServiceException(() -> controller.downloadControlledFile(901L, true, " ", auditRequest()),
                 DCC_DOWNLOAD_REQUEST_ID_REQUIRED);
 
-        verify(queryService, never()).readDownloadFile(any(), any(), any(), any(), any());
+        verify(queryService, never()).readReadOnlyDownloadFile(any(), any(), any(), any(), any());
     }
 
     @Test
     void downloadControlledFile_delegatesDownloadRequestIdToQueryServiceAndExposesEvidenceHeaders() {
-        when(queryService.readDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260528-0001"),
+        when(queryService.readReadOnlyDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260528-0001"),
                 any(DccRequestAuditContext.class)))
                 .thenReturn(new DccDownloadFileBinary(
                         "sample.pdf",
@@ -228,14 +229,14 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
                     .contains(HttpHeaders.CONTENT_DISPOSITION));
             assertTrue(response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS)
                     .contains("X-DCC-Plain-SHA256"));
-            verify(queryService).readDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260528-0001"),
+            verify(queryService).readReadOnlyDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260528-0001"),
                     any(DccRequestAuditContext.class));
         }
     }
 
     @Test
     void downloadControlledFile_encodesLocalizedFileNameForBrowserReadableDisposition() {
-        when(queryService.readDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260603-0001"),
+        when(queryService.readReadOnlyDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260603-0001"),
                 any(DccRequestAuditContext.class)))
                 .thenReturn(new DccDownloadFileBinary(
                         "PD可编辑.pdf",
@@ -286,7 +287,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void downloadControlledFile_returnsOpenablePdfAndExposesDirectDownloadHeaders() {
-        when(queryService.readDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260603-0002"),
+        when(queryService.readReadOnlyDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260603-0002"),
                 any(DccRequestAuditContext.class)))
                 .thenReturn(new DccDownloadFileBinary(
                         "PD可编辑.pdf",

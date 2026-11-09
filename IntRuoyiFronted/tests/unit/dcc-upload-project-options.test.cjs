@@ -15,7 +15,7 @@ test('all candidates use authoritative server readiness and stale searches canno
   const end = source.indexOf('const handleProjectCodeOptionsVisibleChange', start)
   const body = ts.transpileModule(source.slice(start, end) + '\nexports.load = loadProjectCodeOptions', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const pending = []
-  const context = { exports: {}, projectOptionsRequestSequence: 0,
+  const context = { exports: {}, projectOptionsRequestSequence: 0, isLibraryUpload: { value: false }, libraryScope: { value: 'PROJECT' },
     projectCodeOptionsLoading: { value: false }, projectCodeOptionsError: { value: '' }, projectCodeOptions: { value: [] },
     acceptedProjectCodeOption: { value: undefined },
     getProjectUploadOptions: keyword => new Promise(resolve => pending.push({ keyword, resolve })),
@@ -47,4 +47,18 @@ test('option API retains all rows and red incomplete projects without inventing 
   response[0].uploadSelectable = true
   response[0].uploadIssues = []
   await assert.rejects(context.exports.getProjectUploadOptions(), /不合法/)
+})
+
+test('ordinary QMS upload uses the real library identity and permission response', async () => {
+  const start = source.indexOf('const loadProjectCodeOptions =')
+  const end = source.indexOf('const handleLibraryScopeChange', start)
+  const context = { exports: {}, projectOptionsRequestSequence: 0, isLibraryUpload: { value: true }, libraryScope: { value: 'QMS' },
+    projectCodeOptionsLoading: { value: false }, projectCodeOptionsError: { value: '' }, projectCodeOptions: { value: [] },
+    getControlledImportLibrary: async scope => { assert.equal(scope, 'QMS'); return { id: '9007199254740993', projectName: 'QMS文件', projectCode: 'QMS', status: 'ENABLE' } },
+    getProjectUploadOptions: () => { throw Error('library must not call project readiness/product lookup') },
+    resolveUploadErrorMessage: e => e.message, message: { error: () => {} } }
+  vm.runInNewContext(ts.transpileModule(source.slice(start, end) + '\nexports.load = loadProjectCodeOptions', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  await context.exports.load()
+  assert.equal(context.projectCodeOptions.value[0].id, '9007199254740993')
+  assert.equal(context.projectCodeOptions.value[0].uploadSelectable, true)
 })

@@ -33,6 +33,9 @@ export const resolveDccStageDisplayName = (
   rawStageName: string | number | null | undefined
 ) => {
   const normalizedStageName = toTrimmedText(rawStageName)
+  if (toTrimmedText(stageCode) === 'MATRIX_APPROVAL' && normalizedStageName === '批准并确认文件负责人') {
+    return getDccStageLabel(stageCode)
+  }
   if (!isPlaceholderStageName(normalizedStageName)) {
     return normalizedStageName
   }
@@ -43,9 +46,5 @@ export const resolveDccTimelineActivityName = (
   activityId: string | number | null | undefined,
   rawActivityName: string | number | null | undefined
 ) => {
-  const normalizedActivityName = toTrimmedText(rawActivityName)
-  if (!isPlaceholderStageName(normalizedActivityName)) {
-    return normalizedActivityName
-  }
-  return getDccStageLabel(activityId) || normalizedActivityName || toTrimmedText(activityId) || '-'
+  return resolveDccStageDisplayName(activityId, rawActivityName)
 }

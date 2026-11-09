@@ -30,7 +30,7 @@ function state(loader) {
   const context = { exports: {}, Error, JSON, String, Number, Promise,
     formData: vue.reactive({ dccProjectCodeId: PROJECT, productMasterId: null, productCode: '' }),
     selectedProjectCode: ref({ id: PROJECT, projectCode: 'PROJECT-CODE-IS-NOT-PRODUCT' }),
-    isExternalReview: ref(false), projectProduct: ref(undefined), projectProductLoading: ref(false), projectProductError: ref(''),
+    isLibraryUpload: ref(false), isExternalReview: ref(false), projectProduct: ref(undefined), projectProductLoading: ref(false), projectProductError: ref(''),
     projectProductResolvedId: ref(null), projectProductRequestSequence: 0, projectProductMounted: true,
     previewControlledFileProjectProduct: async id => { calls.push(id); return loader(id) },
     readProjectProductIdentity: (value, id) => helpers().readProjectProductIdentity(value, id),
@@ -155,4 +155,13 @@ test('actual product form shows server name and source provenance', () => {
   const text = n => (n.text || '') + (n.children || []).map(text).join('')
   try { assert.match(text(root), /已批准真实产品/); assert.match(text(root), /已批准项目产品目录/); assert.match(text(root), new RegExp(CATALOG)) }
   finally { app.unmount() }
+})
+
+test('ordinary library upload never reads or fabricates a project product', async () => {
+  const s = state(() => { throw Error('product lookup must not run') })
+  s.context.isLibraryUpload.value = true
+  await s.load()
+  assert.equal(s.calls.length, 0)
+  assert.equal(s.context.formData.productCode, '')
+  assert.equal(s.context.projectProduct.value, undefined)
 })

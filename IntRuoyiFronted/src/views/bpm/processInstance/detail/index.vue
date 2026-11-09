@@ -48,8 +48,9 @@
                   v-loading="processInstanceLoading"
                   class="form-box flex flex-col mb-30px flex-1"
                 >
+                  <RegistrationRequestDetailPanel v-if="registrationRequestId" :request-id="registrationRequestId" :process-instance-id="props.id" />
                   <!-- 情况一：流程表单 -->
-                  <el-col v-if="processDefinition?.formType === BpmModelFormType.NORMAL">
+                  <el-col v-if="!registrationRequestId && processDefinition?.formType === BpmModelFormType.NORMAL">
                     <form-create
                       v-model="detailForm.value"
                       v-model:api="fApi"
@@ -58,7 +59,7 @@
                     />
                   </el-col>
                   <!-- 情况二：业务表单 -->
-                  <div v-if="processDefinition?.formType === BpmModelFormType.CUSTOM">
+                  <div v-if="!registrationRequestId && processDefinition?.formType === BpmModelFormType.CUSTOM">
                     <div
                       v-if="isDccControlledFileCustomForm"
                       class="bpm-dcc-approval-summary"
@@ -180,6 +181,7 @@ import approveSvg from '@/assets/svgs/bpm/approve.svg'
 import rejectSvg from '@/assets/svgs/bpm/reject.svg'
 import cancelSvg from '@/assets/svgs/bpm/cancel.svg'
 import PrintDialog from './PrintDialog.vue'
+import RegistrationRequestDetailPanel from '@/views/dcc/registration-certificate/approval/RequestDetailPanel.vue'
 import { resolveProcessInstanceDisplayName, resolveProcessNodeDisplayName } from './display-name'
 import { resolveDccControlledFileBusinessId, resolveDccTaskHandlingLocation, resolveDccApprovalBodyReadContext } from './dcc-business-identity'
 import { buildDccControlledFilePreviewSource, type OnlineFilePreviewSource } from '@/api/common/filePreview'
@@ -195,6 +197,13 @@ const router = useRouter()
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
+const registrationRequestId = computed(() => {
+  if (processDefinition.value?.key !== 'dcc-registration-certificate-access') return undefined
+  const matched = /^DCC_REG_CERT_ACCESS:([1-9]\d*)$/.exec(String(processInstance.value?.businessKey || ''))
+  if (!matched) return undefined
+  const value = Number(matched[1])
+  return Number.isSafeInteger(value) ? value : undefined
+})
 const operationButtonRef = ref() // 操作按钮组件 ref
 const auditIconsMap = {
   [TaskStatusEnum.RUNNING]: runningSvg,
@@ -341,7 +350,16 @@ const loadDccApprovalFileSummary = async () => {
   const selectedTodoTask = dccApprovalTodoTask.value
   const selectedFileId = dccControlledFileBusinessId.value
   try {
-    const file = await getControlledFile(selectedFileId)
+    if (!selectedInstance?.id) throw new Error('审批详情缺少精确流程轮次')
+    let summaryTaskId = selectedTaskId
+    if (summaryTaskId === undefined && selectedTodoTask) {
+      if (typeof selectedTodoTask.id !== 'string') throw new Error('审批详情任务身份无效')
+      summaryTaskId = selectedTodoTask.id
+    }
+    const file = await getControlledFile(selectedFileId, {
+      bpmRound: selectedInstance.id,
+      taskId: summaryTaskId
+    })
     if (sequence !== dccApprovalReadSequence) return
     const context = resolveDccApprovalBodyReadContext(selectedInstance, selectedDefinitionKey, file, selectedTaskId, selectedTodoTask)
     dccApprovalPreviewSource.value = buildDccControlledFilePreviewSource(selectedFileId, context)

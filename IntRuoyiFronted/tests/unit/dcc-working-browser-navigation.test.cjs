@@ -25,10 +25,18 @@ function declaration(source, name, context) {
   return state.exports.value
 }
 const file = (patch = {}) => ({ id: FILE, masterId: MASTER, directoryId: 7, hasProjectStorageMapping: false, fileNumber: 'TASK-NUMBER', title: 'task.docx', status: 'PENDING_APPLICANT_REWORK', ...patch })
+function workingBrowserHandler(context) {
+  const ensureCurrentDetailContext = declaration(detail, 'ensureCurrentDetailContext', {
+    ...context, detailLoadSequence: 1, route: { fullPath: '/dcc/controlled-file/detail/' + FILE },
+    isCurrentDetailLoad: () => context.isWorkingBrowserDetailCurrent.value,
+    message: { ...context.message, warning: context.message.error }
+  })
+  return declaration(detail, 'openWorkingFileInBrowser', { ...context, ensureCurrentDetailContext })
+}
 test('working navigation preserves the actual selected file/Master and formal storage directory', () => {
   const helper = loadHelper(), route = helper.buildWorkingBrowserRoute(file())
   assert.equal(route.name, 'DccControlledFileBrowser')
-  assert.equal(route.query.browserMode, 'storage')
+  assert.equal(route.query.browserMode, 'working')
   assert.equal(route.query.workingFileId, FILE)
   assert.equal(route.query.workingMasterId, MASTER)
   assert.equal(route.query.directoryId, '7')
@@ -40,7 +48,7 @@ test('project-folder navigation never uses internal placement as physical tree d
   const route = loadHelper().buildWorkingBrowserRoute(file({ hasProjectStorageMapping: true, dccProjectCodeId: '271', projectFolderId: '2', directoryId: 913876 }))
   assert.equal(route.query.directoryId, undefined)
   assert.equal(route.query.scope, 'global', 'a logical project selection must not require a physical directory before reading the exact version')
-  assert.equal(route.query.browserMode, 'storage')
+  assert.equal(route.query.browserMode, 'working')
   assert.equal(route.query.workingFileId, FILE)
   assert.equal(route.query.workingMasterId, MASTER)
   assert.equal(route.query.keyword, 'TASK-NUMBER')
@@ -77,12 +85,12 @@ test('returned-applicant public handler routes to the original exact version in 
     message: { error: e => errors.push(e) }, buildWorkingBrowserRoute: loadHelper().buildWorkingBrowserRoute
   }
   const handler = declaration(detail, 'openReturnedApplicantReworkInBrowser', {
-    openWorkingFileInBrowser: declaration(detail, 'openWorkingFileInBrowser', context)
+    openWorkingFileInBrowser: workingBrowserHandler(context)
   })
   handler()
   assert.equal(routes.length, 1)
   assert.equal(routes[0].query.workingFileId, FILE)
-  assert.equal(routes[0].query.browserMode, 'storage')
+  assert.equal(routes[0].query.browserMode, 'working')
   assert.equal(routes[0].query.directoryId, '7')
   assert.equal(errors.length, 0)
 })
@@ -93,7 +101,7 @@ test('storage initialization accepts the explicit operation mode, without requir
 test('actual initial selector preserves requested older WORKING rather than defaulting to ACTIVE', () => {
   const options = [{ id: '41', status: 'ACTIVE', versionNo: 'A/1' }, { id: FILE, status: 'WORKING', versionNo: 'A/1-2' }]
   const resolve = declaration(browser, 'resolveInitialSelectedVersionId', {
-    route: { query: { workingFileId: FILE, workingMasterId: MASTER } },
+    browserMode: { value: 'working' }, route: { query: { workingFileId: FILE, workingMasterId: MASTER } },
     getVersionOptions: () => options, resolveWorkingBrowserSelection: (row, options, query) => {
       assert.equal(String(row.masterId), query.workingMasterId); return options.find(o => o.id === query.workingFileId)?.id
     }
@@ -112,7 +120,7 @@ test('normal management detail provides a real checkout/checkin navigation butto
   const template = parse(detail).descriptor.template.content
   assert.ok(template.includes('data-testid="dcc-detail-working-browser"'), 'ordinary management detail must expose checkout/checkin entry')
   const calls = [], errors = []
-  const handler = declaration(detail, 'openWorkingFileInBrowser', {
+  const handler = workingBrowserHandler({
     fileDetail: { value: file() }, router: { push: r => calls.push(r) },
     controlledFileId: { value: FILE }, isWorkingBrowserDetailCurrent: { value: true },
     buildWorkingBrowserRoute: loadHelper().buildWorkingBrowserRoute, message: { error: m => errors.push(m) }
@@ -135,7 +143,7 @@ test('kept-alive browser changes from project to storage mode when a selected-fi
 })
 test('browser route synchronization retains the selected version until explicit navigation leaves it', () => {
   const build = declaration(browser, 'buildBrowserRouteQueryFromRememberedState', {
-    route: { query: { browserMode: 'storage', workingFileId: FILE, workingMasterId: MASTER } },
+    browserMode: { value: 'working' }, route: { query: { browserMode: 'working', workingFileId: FILE, workingMasterId: MASTER } },
     BROWSER_SEARCH_SCOPE_CURRENT: 'current', resolveBrowserPageSize: () => 20, normalizeKeyword: s => s,
     workingBrowserIdentityQuery: loadHelper().workingBrowserIdentityQuery
   })
@@ -146,7 +154,7 @@ test('browser route synchronization retains the selected version until explicit 
 test('detail navigation refuses stale old projection or a current file whose new read has not succeeded', () => {
   for (const context of [{ id: '31', ready: true }, { id: FILE, ready: false }]) {
     const calls = [], errors = []
-    const handler = declaration(detail, 'openWorkingFileInBrowser', {
+    const handler = workingBrowserHandler({
       fileDetail: { value: file() }, controlledFileId: { value: context.id },
       isWorkingBrowserDetailCurrent: { value: context.ready },
       router: { push: r => calls.push(r) }, buildWorkingBrowserRoute: loadHelper().buildWorkingBrowserRoute,
@@ -178,4 +186,49 @@ test('same HTTP parameters do not allow an old list response to select the new r
   release(data); await pending
   assert.equal(state.list.value.length, 0, 'old response cannot populate the new version context')
   assert.equal(state.marks.length, 0)
+})
+
+
+test('storage ignores a stale working selection and keeps the effective B/7', () => {
+  const row = { id: '71', masterId: MASTER, currentActiveVersionNo: 'B/7', versionHistory: [{ id: '71', status: 'ACTIVE', versionNo: 'B/7' }] }
+  const select = declaration(browser, 'resolveInitialSelectedVersionId', {
+    browserMode: { value: 'storage' }, route: { query: { workingFileId: FILE, workingMasterId: MASTER } },
+    getVersionOptions: row => row.versionHistory, resolveWorkingBrowserSelection: loadHelper().resolveWorkingBrowserSelection
+  })
+  assert.equal(select(row), '71')
+})
+
+test('storage route synchronization removes stale work identity parameters', () => {
+  const build = declaration(browser, 'buildBrowserRouteQueryFromRememberedState', {
+    browserMode: { value: 'storage' }, route: { query: { workingFileId: FILE, workingMasterId: MASTER } },
+    BROWSER_SEARCH_SCOPE_CURRENT: 'current', resolveBrowserPageSize: () => 20, normalizeKeyword: s => s,
+    workingBrowserIdentityQuery: loadHelper().workingBrowserIdentityQuery
+  })
+  const query = build({ keyword: 'TASK-NUMBER' })
+  assert.equal(query.browserMode, 'storage'); assert.equal(query.workingFileId, undefined); assert.equal(query.workingMasterId, undefined)
+})
+
+test('returning from working view explicitly clears working version parameters', async () => {
+  let destination
+  const go = declaration(browser, 'handleBrowserModeChange', {
+    browserMode: { value: 'storage' },
+    route: { path: '/dcc/controlled-file/browser', query: { browserMode: 'working', workingFileId: FILE, workingMasterId: MASTER, keyword: '67' } },
+    router: { replace: target => { destination = target } }
+  })
+  await go()
+  assert.equal(destination.query.browserMode, 'storage'); assert.equal(destination.query.keyword, '67')
+  assert.equal(destination.query.workingFileId, undefined); assert.equal(destination.query.workingMasterId, undefined)
+})
+
+for (const query of [
+  { browserMode: 'working', keyword: '67', scope: 'global' },
+  { browserMode: 'working', pageNo: '1', pageSize: '20' }
+]) test('working mode without a selected file opens the storage list', () => {
+  const mode = declaration(browser, 'browserMode', { ref: value => ({ value }), route: { query } })
+  assert.equal(mode.value, 'storage')
+})
+test('browser preserves the original project and storage tabs', () => {
+  assert.ok(browser.includes('项目文件与引用'))
+  assert.ok(browser.includes('存储目录'))
+  assert.ok(!browser.includes('工作版本处理'))
 })

@@ -58,3 +58,21 @@ test('new management contexts require known source, management marker and local 
     { management: '1', from: 'project-browser', returnTo: '//example.com' }
   ]) assert.equal((await navigate(query)).name, 'DccControlledFileBrowser')
 })
+
+test('actual router accepts the independent controlled-import result source and preserves its first-read context', async () => {
+  for (const bodyReadContext of ['exact-daily-context', 'exact-version-history-context']) {
+    const route = await navigate({ from: 'controlled-import', management: '1', returnTo: '/dcc/controlled-file/controlled-upload', bodyReadContext })
+    assert.equal(route.name, 'DccControlledFileDetail')
+    assert.equal(route.query.from, 'controlled-import')
+    assert.equal(route.query.bodyReadContext, bodyReadContext)
+  }
+})
+
+test('controlled-import result rejects missing management, wrong return path or an unknown source', async () => {
+  for (const query of [
+    { from: 'controlled-import', returnTo: '/dcc/controlled-file/controlled-upload' },
+    { from: 'controlled-import', management: '1', returnTo: '/dcc/controlled-file/browser' },
+    { from: 'controlled-import', management: '1', returnTo: 'https://example.com' },
+    { from: 'unknown-import', management: '1', returnTo: '/dcc/controlled-file/controlled-upload' }
+  ]) assert.equal((await navigate(query)).name, 'DccControlledFileBrowser')
+})

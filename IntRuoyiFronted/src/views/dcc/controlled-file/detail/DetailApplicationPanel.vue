@@ -213,7 +213,7 @@ import { buildUploadEffectiveChoice, resolveUploadTodayDate } from '../upload/su
 import { getDccVersionDisplayText } from '../shared/version-display'
 import CustomApplicationMatrixEditor from '../upload/CustomApplicationMatrixEditor.vue'
 import type { ApplicationCustomMatrix } from '@/api/dcc/controlledFile/workflow'
-import { readApplicationOrdinaryAttachmentExpectation } from '../revision/revision-model'
+import { readApplicationOrdinaryAttachmentExpectation, revisionLockLabel } from '../revision/revision-model'
 import { signoffIdentity, normalizeSignoffDepartments, normalizeDraftSignoffDepartments, normalizeDistributionDepartments, initialUploadDepartmentSelection,
   signoffDepartmentOptions, approvalUserOptions, resolvedUploadApprovers } from '../upload/signoff-departments'
 import type { UploadApprovalAccount, UploadApprovalGroup } from '../upload/signoff-departments'
@@ -601,6 +601,12 @@ const open = async (intent?: RevisionIntent) => {
       departments.value = signoffDepartmentOptions(deptRows)
       approvalAccounts.value = approvalUserOptions(users)
       return
+    }
+    if (file.revisionBaseActiveControlledFileId) {
+      const options = await getControlledFileRevisionOptions(file.revisionBaseActiveControlledFileId)
+      if (token !== generation) return
+      if (String(options.masterId) !== String(file.masterId)) throw new Error('升版准备与当前逻辑文件不一致')
+      if (options.lockedReason === 'REFERENCES_MUST_BE_CANCELLED') throw new Error(revisionLockLabel(options.lockedReason))
     }
     const saved = working.value ? await getWorkingApplicationAttributes(file.id) : undefined
     if (token !== generation) return

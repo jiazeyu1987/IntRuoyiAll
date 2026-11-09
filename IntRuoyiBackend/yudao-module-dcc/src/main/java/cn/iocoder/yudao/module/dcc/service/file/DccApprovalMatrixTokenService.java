@@ -99,7 +99,7 @@ public class DccApprovalMatrixTokenService {
             encoded=Base64.getUrlDecoder().decode(parts[0]);var signature=Base64.getUrlDecoder().decode(parts[1]);
             if(!Objects.equals(parts[0],Base64.getUrlEncoder().withoutPadding().encodeToString(encoded))
                     ||!Objects.equals(parts[1],Base64.getUrlEncoder().withoutPadding().encodeToString(signature))
-                    ||!MessageDigest.isEqual(mac(parts[0]),signature))throw customInvalid();
+                    ||!signatureMatches(parts[0],signature,!current))throw customInvalid();
             raw=StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
                     .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(encoded)).toString();
         }catch(IllegalArgumentException|java.nio.charset.CharacterCodingException malformed){throw customInvalid();}
@@ -146,7 +146,7 @@ public class DccApprovalMatrixTokenService {
                 ||!Objects.equals(JsonUtils.toJsonString(actual.payload()),JsonUtils.toJsonString(new TreeMap<>(saved))))throw nativeInvalid();
     }
     public Map<String,Object> verifyRecordedNativeSupervisor(String expectedDigest,String token){
-        var saved=verify(token);if(!"NATIVE_SUPERVISOR_SOURCE".equals(saved.get("purpose"))||expectedDigest==null||!Objects.equals(expectedDigest,nativeDigest(saved)))throw nativeInvalid();return saved;
+        var saved=verify(token,true);if(!"NATIVE_SUPERVISOR_SOURCE".equals(saved.get("purpose"))||expectedDigest==null||!Objects.equals(expectedDigest,nativeDigest(saved)))throw nativeInvalid();return saved;
     }
     public void requireRecordedNativeSupervisor(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file,cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccApprovalMatrixBaselineVO baseline,List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> nodes,Map<String,Object> frozen){
         if(file==null||baseline==null||frozen==null||!(frozen.get("sourceDigest") instanceof String digest)||!(frozen.get("sourceToken") instanceof String token)||!(frozen.get("payload") instanceof Map<?,?>))throw nativeInvalid();
@@ -166,8 +166,15 @@ public class DccApprovalMatrixTokenService {
     public void requireConfirmation(Context context,String token,String canonical,Long id,Integer version,String digest){requireExpected(id,version,digest);var payload=verify(token);requireContext(payload,"CONFIRMATION",context);if(!(payload.get("afterVersion") instanceof Number actualVersion)||!Objects.equals(canonical,payload.get("baseline"))||!Objects.equals(String.valueOf(id),payload.get("afterId"))||version!=actualVersion.intValue()||!Objects.equals(digest,payload.get("afterDigest")))throw invalid();}
     private Map<String,Object> payload(String purpose,Context context,String canonical){validate(context);if(!Objects.equals(canonical,DccApprovalMatrixCanonicalizer.canonicalize(JsonUtils.parseObject(canonical,Map.class))))throw invalid();var payload=new TreeMap<String,Object>();payload.put("version","DCC_MATRIX_TOKEN_V1");payload.put("purpose",purpose);payload.put("context",contextValue(context));payload.put("baseline",canonical);return payload;}
     private String sign(Map<String,Object> payload){String encoded=Base64.getUrlEncoder().withoutPadding().encodeToString(JsonUtils.toJsonString(payload).getBytes(StandardCharsets.UTF_8));return encoded+"."+Base64.getUrlEncoder().withoutPadding().encodeToString(mac(encoded));}
-    private Map<String,Object> verify(String token){properties.requireSigningKey();if(token==null||token.isBlank()||token.length()>131072)throw invalid();String[] parts=token.split("\\.",-1);if(parts.length!=2)throw invalid();try{if(!MessageDigest.isEqual(mac(parts[0]),Base64.getUrlDecoder().decode(parts[1])))throw invalid();var payload=JsonUtils.parseObject(new String(Base64.getUrlDecoder().decode(parts[0]),StandardCharsets.UTF_8),Map.class);if(payload==null||!"DCC_MATRIX_TOKEN_V1".equals(payload.get("version")))throw invalid();return payload;}catch(IllegalArgumentException malformed){throw invalid();}}
-    private byte[] mac(String input){try{var mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(properties.requireSigningKey(),"HmacSHA256"));return mac.doFinal(input.getBytes(StandardCharsets.UTF_8));}catch(java.security.GeneralSecurityException unavailable){throw new IllegalStateException("matrix confirmation signing dependency unavailable",unavailable);}}
+    private Map<String,Object> verify(String token){return verify(token,false);}
+    private Map<String,Object> verify(String token,boolean recorded){properties.requireSigningKey();if(token==null||token.isBlank()||token.length()>131072)throw invalid();String[] parts=token.split("\\.",-1);if(parts.length!=2)throw invalid();try{if(!signatureMatches(parts[0],Base64.getUrlDecoder().decode(parts[1]),recorded))throw invalid();var payload=JsonUtils.parseObject(new String(Base64.getUrlDecoder().decode(parts[0]),StandardCharsets.UTF_8),Map.class);if(payload==null||!"DCC_MATRIX_TOKEN_V1".equals(payload.get("version")))throw invalid();return payload;}catch(IllegalArgumentException malformed){throw invalid();}}
+    private boolean signatureMatches(String input,byte[] signature,boolean recorded){
+        var keys=new ArrayList<byte[]>();keys.add(properties.requireSigningKey());
+        if(recorded)keys.addAll(properties.recordedVerificationKeys());
+        return keys.stream().anyMatch(key->MessageDigest.isEqual(mac(input,key),signature));
+    }
+    private byte[] mac(String input){return mac(input,properties.requireSigningKey());}
+    private byte[] mac(String input,byte[] key){try{var mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(key,"HmacSHA256"));return mac.doFinal(input.getBytes(StandardCharsets.UTF_8));}catch(java.security.GeneralSecurityException unavailable){throw new IllegalStateException("matrix confirmation signing dependency unavailable",unavailable);}}
     private void requireContext(Map<String,Object> payload,String purpose,Context context){validate(context);if(!purpose.equals(payload.get("purpose"))||!Objects.equals(contextValue(context),payload.get("context")))throw invalid();}
     private List<Object> contextValue(Context c){return Arrays.asList(String.valueOf(c.tenantId()),String.valueOf(c.actorId()),String.valueOf(c.projectId()),String.valueOf(c.categoryId()),String.valueOf(c.taxonomyId()),c.actionType(),c.fileId()==null?null:String.valueOf(c.fileId()),c.applicationContextKey());}
     private void validate(Context c){if(c==null||c.tenantId()==null||c.tenantId()<=0||c.actorId()==null||c.actorId()<=0||c.projectId()==null||c.projectId()<=0||c.categoryId()==null||c.categoryId()<=0||c.taxonomyId()==null||c.taxonomyId()<=0||c.fileId()!=null&&c.fileId()<=0||!Set.of("NEW","REVISION","OBSOLETE").contains(c.actionType()==null?"":c.actionType())||c.applicationContextKey()==null||c.applicationContextKey().isBlank()||c.applicationContextKey().length()>128)throw invalid();}

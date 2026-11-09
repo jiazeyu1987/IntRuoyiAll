@@ -28,6 +28,7 @@ public class DccRegistrationCertificateSnapshotDO extends TenantBaseDO {
     private Long versionId;
     private Integer revisionNo;
     private Long sourceChangeId;
+    private String factsJson;
     private String productName;
     private String registrantName;
     private String modelSpecification;

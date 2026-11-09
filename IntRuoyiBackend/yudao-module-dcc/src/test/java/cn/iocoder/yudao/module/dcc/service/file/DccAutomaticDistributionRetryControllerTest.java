@@ -22,7 +22,7 @@ class DccAutomaticDistributionRetryControllerTest extends BaseMockitoUnitTest {
         verify(distributionTaskService).retryAutomaticDistribution(99L,request);
         var method=DccDistributionTaskController.class.getMethod("retryAutomaticDistribution",DccAutomaticDistributionRetryReqVO.class);
         assertEquals("/automatic-retry",method.getAnnotation(PostMapping.class).value()[0]);
-        assertEquals("@ss.hasPermission('dcc:controlled-file:distribute')",method.getAnnotation(PreAuthorize.class).value());
+        assertEquals("@ss.hasAnyPermissions('dcc:controlled-file:distribute', 'dcc:controlled-file:edit')",method.getAnnotation(PreAuthorize.class).value());
         assertEquals("FAILED",result.getStatus());
     }
 }

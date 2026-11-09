@@ -63,6 +63,32 @@ class DccCustomRejectedCheckinResubmitTest extends DccWorkflowSelectedIterationD
         var p=new DccControlledFileRoutePreviewReqVO();p.setControlledFileId(file);p.setCategoryId(2L);p.setDccProjectCodeId(5L);p.setActionType("NEW");p.setApplicationContextKey(saved.applicationContextKey());p.setApplicationCustomMatrix(config);p.setSelectedSignoffDepartmentIds(List.of(51L));p.setExecutionContract(DccApplicationExecutionContractService.PUBLIC_V2);p.setExpectedProcessDefinitionId(exact);p.setExpectedDefinitionDigest(digest);
         var response=tx().execute(s->workflow.previewRoute(99L,p));assertTrue(response.getReady());var r=super.request("INITIAL");r.setIdempotencyKey(key);r.setApplicationCustomMatrix(config);r.setApplicationContextKey(saved.applicationContextKey());r.setApplicationCustomMatrixPhase("RESERVED");r.setExpectedApplicationCustomMatrixDigest(response.getApplicationCustomMatrixDigest());r.setApplicationCustomMatrixToken(response.getApplicationCustomMatrixToken());r.setExpectedSupervisorSourceDigest(response.getSupervisorSourceDigest());r.setSupervisorSourceToken(response.getSupervisorSourceToken());r.setExecutionContract(DccApplicationExecutionContractService.PUBLIC_V2);r.setExpectedProcessDefinitionId(exact);r.setExpectedDefinitionDigest(digest);r.setEffectiveMode("DELAYED");r.setEffectiveDate(null);r.setSelectedSignoffDepartmentIds(List.of(51L));var manifest=tx().execute(s->actualAttachments.readOrdinaryAttachmentManifest(99L,file));r.setExpectedOrdinaryAttachmentIds(manifest.attachmentIds());r.setExpectedOrdinaryAttachmentManifestHash(manifest.payloadHash());return r;
     }
+    @Test void withdrawnCustomUploadResubmitsWithItsOwnReservedContext() throws Exception {
+        wire(target(workflow),"sourceOwnershipService",bodies,"relatedFileService",related);
+        long source=workflow.submitWorkingIteration(99L,20L,a29ExpectedServerManifest(20L,request(20L,"withdrawn-custom-upload")));
+        String oldBpm=files.selectById(source).getProcessInstanceId();ownedProcesses.add(oldBpm);
+        var processes=mock(cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService.class);
+        doAnswer(call->{
+            var cancel=call.<cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCancelReqVO>getArgument(1);
+            engine.getRuntimeService().setVariable(cancel.getId(),"PROCESS_STATUS",4);
+            engine.getRuntimeService().deleteProcessInstance(cancel.getId(),cancel.getReason());return null;
+        }).when(processes).cancelProcessInstanceByStartUser(eq(99L),any());
+        wire(target(workflow),"bpmProcessInstanceService",processes);
+        var reason=new DccControlledFileWithdrawReqVO();reason.setReason("原申请主动撤回");
+        workflow.withdrawControlledFile(99L,source,reason);
+        long next=workflow.resubmitWithdrawnControlledFile(99L,source);ownedFiles.add(next);
+        var result=files.selectById(next);ownedProcesses.add(result.getProcessInstanceId());
+        assertEquals("A/1",result.getVersionNo());assertEquals(2,result.getRevisionAttemptNo());
+        assertEquals("PENDING_SUPERVISOR_REVIEW",result.getStatus());
+        assertNotEquals(oldBpm,result.getProcessInstanceId());assertNotEquals(contextKey,result.getDraftApplicationContextKey());
+        var restored=customResolver.restoreFrozenRoute(result,routes.selectListByControlledFileId(next));
+        assertEquals(next,restored.applicationCustomSource().reservedContext().controlledFileId());
+        assertEquals(config,new DccApplicationCustomMatrixService().readCanonical(result.getDraftApplicationCustomMatrixJson(),
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(result.getDraftApplicationCustomMatrixJson()),
+                restored.applicationCustomSource().reservedContext()).applicationCustomMatrix());
+        assertEquals("WITHDRAWN",files.selectById(source).getStatus());
+    }
+
     @Test void submittedCustomInitialThenCheckedInWorkingSubmitsWithItsActuallySavedContextKey() throws Exception {
         Long source = submittedControlledCustomSource();
         var sourceBefore = customSourceHistory(source);

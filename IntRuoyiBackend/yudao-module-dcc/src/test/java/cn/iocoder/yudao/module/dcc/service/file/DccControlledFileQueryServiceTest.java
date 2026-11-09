@@ -140,6 +140,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ALREADY_CHECKED_OUT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
@@ -365,6 +366,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(queryService, "assignmentScopeService", assignmentScopeService);
         DccControlledFileDetailAuthorizationGuard detailAuthorizationGuard =
                 new DccControlledFileDetailAuthorizationGuard();
+        ReflectionTestUtils.setField(detailAuthorizationGuard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         ReflectionTestUtils.setField(detailAuthorizationGuard, "assignmentScopeService", assignmentScopeService);
         ReflectionTestUtils.setField(detailAuthorizationGuard, "directoryAccessPermissionService",
                 directoryAccessPermissionService);
@@ -647,6 +649,24 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertFalse(response.getActionProjection().getAllowedActions().contains("PREVIEW"));
         assertTrue(response.getActionProjection().getAllowedActions().contains("DETAIL"));
     }
+    @Test void checkoutReferencedSourceIsRejectedBeforeCreatingLock() {
+        var active = lifecycleFile(900L, "A/1", "ACTIVE");
+        grantFixtureEditor(active, 99L);
+        var master = DccControlledFileMasterDO.builder().id(700L).tenantId(31L)
+                .dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001")
+                .currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active));
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectProjectReferenceIdsForUpdate(31L, 700L)).thenReturn(List.of(71L));
+        var request = new DccControlledFileCheckoutReqVO(); request.setReason("修改源文件正文");
+        assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"PARTIAL", "REPLACEMENT"})
     void withdrawnFormalRevisionIsAbsentFromVersionHistoryWhileItsWorkingBodyRemains(String intent) {
@@ -1050,6 +1070,22 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
         verify(controlledFileMapper, never()).checkoutByIdAndTenantWhenAvailable(anyLong(), anyLong(),
                 anyLong(), anyString());
+    }
+
+    @Test
+    void checkinRejectsReferenceCreatedAfterCheckoutBeforeWritingAnyWorkingBody() {
+        var active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        grantFixtureEditor(active, 99L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMapper.selectProjectReferenceIdsForUpdate(31L, 700L)).thenReturn(List.of(5501L));
+        var request = a21ExplicitCheckinRequest();
+        request.setChangeDescription("检出后新建引用必须先解除");
+        request.setRemark("取消引用之前不得写入工作正文");
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(uploadTicketService, never()).resolveForBinding(any());
     }
 
     @Test
@@ -1825,6 +1861,26 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(List.of(from+"-10",from+"-2"),options.iterations().stream().map(DccControlledFileRevisionOptions.Iteration::versionNo).toList());
         verifyNoRevisionPreparationWrites();
     }
+    @Test void revisionOptionsRequireAllReferencesCancelledAndRecoverWhenLastReferenceIsRemoved() {
+        var baseline = prepareRevisionOptions("A/1");
+        var selected = lifecycleFile(901L, "A/1-1", "WORKING");
+        grantFixtureEditor(baseline, 99L); selected.setRevisionBaseActiveControlledFileId(900L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, selected));
+        when(projectAccessService.hasProjectEditorOrOwner(99L, 300L)).thenReturn(true);
+        when(controlledFileMapper.countProjectReferences(31L, 700L)).thenReturn(2L, 1L, 0L);
+        for (int remaining : List.of(2, 1)) {
+            var options = queryService.getRevisionOptions(99L, 900L);
+            assertEquals("REFERENCES_MUST_BE_CANCELLED", options.lockedReason(), "remaining references: " + remaining);
+            assertFalse(options.iterations().get(0).canPartial());
+            assertFalse(options.iterations().get(0).canReplacement());
+        }
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertNull(options.lockedReason());
+        assertTrue(options.iterations().get(0).canPartial());
+        assertTrue(options.iterations().get(0).canReplacement());
+        verifyNoRevisionPreparationWrites();
+    }
+
     @Test void revisionOptionsKeepNameAndBodySeparateWithoutGrantingEditorOrOwner() {
         var baseline = prepareRevisionOptions("A/1");
         var selected = lifecycleFile(901L, "A/1-1", "WORKING"); selected.setRevisionBaseActiveControlledFileId(900L);

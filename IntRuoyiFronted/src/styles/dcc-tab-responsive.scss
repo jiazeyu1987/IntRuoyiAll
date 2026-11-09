@@ -1,0 +1,68 @@
+// Only the DCC tabs redesigned in this task opt in through their existing roots.
+:is(.followup-management, .dcc-workbench-panel, .training-rules-drawer, .distribution-rules-drawer, .route-form, .positions-surface, .positions-dialog, .dcc-print-template-wrap, .project-browser, .dcc-detail-distribution-dialog) .user-table-column-global-managed {
+  padding-top: 54px;
+}
+
+.user-table-column-global-settings.is-dcc-tab-local {
+  box-shadow: none;
+  padding: 3px;
+}
+
+.project-browser .dcc-project-references .project-folder-file-table.user-table-column-global-managed {
+  padding-top: 0;
+}
+
+.user-table-column-global-settings__popover.is-dcc-tab-local-popover {
+  left: 0;
+  right: auto;
+  min-width: 0;
+  width: 240px;
+  max-width: calc(100vw - 80px);
+  max-height: min(360px, calc(100vh - 16px));
+}
+
+:is(.dcc-product-catalog-columns-popover, .dcc-project-code-columns-popover).el-popover .user-table-column-settings__panel {
+  max-height: min(360px, calc(100dvh - 80px));
+  overflow-y: auto;
+}
+
+// A date-range condition otherwise keeps 92px + 260px on a 390px viewport.
+@media (max-width: 700px) {
+  :is(
+    .category-list-template,
+    .training-rules,
+    .training-mine,
+    .dcc-logs,
+    .dcc-signature-authorizations,
+    .route-panel
+  ) {
+    .unified-list-template__multi-filter.el-form-item,
+    .unified-list-template__toolbar-actions.el-form-item {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .table-multi-filter .table-multi-filter-field,
+    .table-multi-filter .table-multi-filter__tabs-row {
+      flex-wrap: wrap;
+    }
+
+    .table-multi-filter .table-multi-filter-field {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .table-multi-filter .table-multi-filter-field__value {
+      flex: 1 1 180px;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .table-multi-filter .table-multi-filter-field__range {
+      flex-wrap: wrap;
+      max-width: 100%;
+    }
+  }
+}

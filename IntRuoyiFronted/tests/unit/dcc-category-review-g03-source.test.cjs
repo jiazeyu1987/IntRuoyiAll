@@ -3,7 +3,7 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const { parse, compileScript } = require('vue/compiler-sfc')
 const file = path.resolve(__dirname, '../../src/views/dcc/controlled-file/categories/components/CategoryReviewMatrixTable.vue')
 const plain = value => JSON.parse(JSON.stringify(value))
-const saved = (id = 8, mode = 'APPLICATION_CUSTOM') => ({ id, code: 'CATEGORY-' + id, name: '已保存类别' + id,
+const saved = (id = 8, mode = 'PUBLIC_MATRIX') => ({ id, code: 'CATEGORY-' + id, name: '已保存类别' + id,
   approvalSourceMode: mode, lifecycleStage: 'OUTPUT', active: true, sort: 17,
   fileTypeTaxonomyId: 6, directoryId: 7, distributionRequired: false, trainingRequired: false })
 const review = id => ({ categoryId: id, code: 'OLD-' + id, name: '旧矩阵摘要' + id, lifecycleStage: 'OUTPUT',
@@ -113,4 +113,10 @@ test('late old category error cannot overwrite the new selection or reopen a suc
     assert.deepEqual(h.opens, [[saved(9, 'PUBLIC_MATRIX'), 'edit']])
     assert.doesNotMatch(h.text(), /旧类别目录错误/)
   } finally { h.app.unmount() }
+})
+
+ test('application custom categories cannot open a public matrix editor', async () => {
+  const h = await mount(async () => [saved(8, 'APPLICATION_CUSTOM')])
+  try { await h.click(8); await vue.nextTick(); assert.equal(h.opens.length, 0); assert.match(h.text(), /本次申请自定义矩阵.*不能新增公共/) }
+  finally { h.app.unmount() }
 })

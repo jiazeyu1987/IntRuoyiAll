@@ -42,6 +42,20 @@ class DccProjectAttributesControllerTest extends BaseDbUnitTest {
         return new DccProjectAttributesController.Configuration(leader, value, reason,
                 mapper.selectById(id) == null ? "a".repeat(64) : controller.configuration(id).getData().configurationToken());
     }
+    @Test void projectConfigurationCannotSetScopeMarkerOrConfigureIndependentLibraries() {
+        Long id = project();
+        assertThrows(RuntimeException.class,()->controller.configure(id,configuration(id,7L,DccProjectAttributes.forLibrary("QMS"),"不能伪造scope")));
+        assertEquals(defaults("NMPA"),attributes.defaults(mapper.selectById(id)));
+        var library=DccProjectCodeDO.builder().projectName("QMS").projectCode("LIB-QMS").libraryScope("QMS").status("ENABLE").build();
+        library.setTenantId(1L);mapper.insert(library);
+        assertThrows(RuntimeException.class,()->controller.configuration(library.getId()));
+        assertThrows(RuntimeException.class,()->controller.configure(library.getId(),
+                new DccProjectAttributesController.Configuration(7L,defaults("FDA"),"不能修改库负责人","a".repeat(64))));
+        assertNull(mapper.selectById(library.getId()).getDefaultAttributesJson());
+        assertNull(mapper.selectById(library.getId()).getProjectLeaderUserId());
+        assertEquals(DccProjectAttributes.forLibrary("QMS"),controller.defaults(library.getId(),"UPLOAD").getData());
+        verifyNoInteractions(audit);
+    }
     @Test void configurePersistsFormalAccountAndDefaultsButKeepsSavedApplication() {
         Long id = project();
         attributes.saveDraft(7L, id, "OBSOLETE", 81L, 1, defaults("CE"));

@@ -1,5 +1,6 @@
 <template>
   <el-table
+    class="project-folder-file-table"
     :data="rows"
     :row-key="(row) => row.key"
     v-loading="loading"
@@ -42,7 +43,7 @@
     <el-table-column label="状态" min-width="120"
       ><template #default="{ row }">{{ statusLabel(row.file.status) }}</template></el-table-column
     >
-    <el-table-column label="引用情况" min-width="180"
+    <el-table-column v-if="!readOnly" label="引用情况" min-width="180"
       ><template #default="{ row }">
         <DccReferenceBadge
           v-if="row.projectCount != null"
@@ -65,6 +66,7 @@
     >
     <el-table-column label="操作" min-width="205"
       ><template #default="{ row }">
+        <ArchiveDownloadEntry :file-id="row.file.controlledFileId" :version-no="row.file.versionNo" :file-name="row.file.fileName" :file-number="row.file.fileNumber" :status="row.file.status" :reference-project-id="row.reference?.reference.projectId" :reference-folder-id="row.reference?.reference.folderId" />
         <template v-if="row.reference">
           <el-button
             link
@@ -82,6 +84,7 @@
           >
         </template>
         <template v-else>
+          <el-button v-if="canDownload" link @click="emit('download',row.file)">下载原件</el-button>
           <el-button
             link
             :disabled="loading || !row.file.canPreview"
@@ -89,13 +92,14 @@
             >浏览</el-button
           >
           <el-button
+            v-if="!readOnly"
             link
             data-testid="dcc-project-file-relations"
             :disabled="loading"
             @click="emit('relations', row.file)"
             >关联</el-button
           >
-          <el-button link :disabled="loading" @click="emit('operation', row.file)"
+          <el-button v-if="!readOnly" link :disabled="loading" @click="emit('operation', row.file)"
             >操作面板</el-button
           >
         </template>
@@ -104,6 +108,7 @@
   </el-table>
 </template>
 <script setup lang="ts">
+import ArchiveDownloadEntry from '../shared/ArchiveDownloadEntry.vue'
 import { computed } from 'vue'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import DccReferenceBadge from '../relations/DccReferenceBadge.vue'
@@ -112,6 +117,8 @@ import type { ReferenceRow } from '../relations/project-reference-contract'
 import { buildFolderFileRows, type FolderFileRow } from './folder-file-list'
 import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '../shared/lifecycle'
 const props = defineProps<{
+  canDownload?: boolean
+  readOnly?: boolean
   files: FileCandidate[]
   references: ReferenceRow[]
   usage: Record<string, { referenceProjectCount: number; referenced: boolean }>
@@ -127,6 +134,7 @@ const emit = defineEmits<{
   'read-reference': [row: ReferenceRow, action: 'preview' | 'trace']
   preview: [row: FileCandidate]
   relations: [row: FileCandidate]
+  download: [row: FileCandidate]
   operation: [row: FileCandidate]
   usage: [file: FileCandidate | ReferenceRow['selectedVersion']]
 }>()
@@ -138,6 +146,20 @@ const statusLabel = (status: string) =>
 const selectRow = (row?: FolderFileRow | null) => emit('select-reference', row?.reference)
 </script>
 <style scoped>
+.project-folder-file-table {
+  width: 100%;
+  --el-table-header-bg-color: #f5f8f9;
+  font-size: 13px;
+}
+.project-folder-file-table :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+.project-folder-file-table :deep(.el-button.is-link) {
+  margin: 2px 8px 2px 0;
+}
+.project-file-name {
+  overflow-wrap: anywhere;
+}
 .project-file-name.is-referenced {
   color: #b85a00;
 }

@@ -26,8 +26,9 @@ export const buildFolderFileRows = (
       (row) =>
         versionView === 'ALL' ||
         (versionView === 'LATEST_CONTROLLED'
-          ? row.selectedVersion.status === 'ACTIVE' && row.selectedVersion.controlled
-            && row.selectedVersion.executable && !row.selectedVersion.pendingEffect
+          ? ['OBSOLETE', 'SUPERSEDED'].includes(row.selectedVersion.status)
+            || row.selectedVersion.status === 'ACTIVE' && row.selectedVersion.controlled
+              && row.selectedVersion.executable && !row.selectedVersion.pendingEffect
           : row.selectedVersion.status === versionView)
     )
     .filter(

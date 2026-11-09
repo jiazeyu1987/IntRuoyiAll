@@ -138,7 +138,7 @@ public class ElectronicSignatureVerifiedFactService {
         if (!"VALID".equals(record.verificationStatus())
                 || StrUtil.hasBlank(record.moduleCode(), record.actionCode(), record.subjectType(),
                         record.subjectId(), record.subjectVersion(), record.meaningCode(), record.meaningLabel(),
-                        record.reason(), record.policyVersion(), record.idempotencyKey())) {
+                        record.policyVersion(), record.idempotencyKey()) || invalidReason(record.actionCode(), record.reason())) {
             digest = "MISMATCH"; reasons.add("SIGNATURE_FACT_INVALID");
         }
         Long operator = operator(record, content, reasons);
@@ -161,8 +161,7 @@ public class ElectronicSignatureVerifiedFactService {
         if (frozenName(content) == null) reasons.add("IDENTITY_SNAPSHOT_MISSING");
         var verification = new ElectronicSignatureVerificationDTO(record.id(), status, record.contentHash(), calculatedContent,
                 record.evidenceHash(), calculatedEvidence, record.algorithm(), record.keyVersion(), SCOPE,
-                digest, time, record.timeEvidenceId() != null && record.timeEvidenceId().startsWith("SERVER_CLOCK:")
-                    ? "SERVER_CLOCK" : "UNKNOWN", "NOT_BOUND", audit, reasons.stream().distinct().toList(),
+                digest, time, timeSource(record.timeEvidenceId()), "NOT_BOUND", audit, reasons.stream().distinct().toList(),
                 LocalDateTime.now(ZoneId.of("Asia/Shanghai")), format);
         return new Evaluation(verification, auditEventId);
     }
@@ -171,18 +170,27 @@ public class ElectronicSignatureVerifiedFactService {
         if (record.signedAt() == null || StrUtil.isBlank(record.timeEvidenceId())) {
             reasons.add("TIME_EVIDENCE_MISSING"); return "MISSING";
         }
-        if (!record.timeEvidenceId().startsWith("SERVER_CLOCK:")) {
+        String source = timeSource(record.timeEvidenceId());
+        if ("UNKNOWN".equals(source)) {
             reasons.add("TIME_EVIDENCE_INVALID"); return "MISSING";
         }
         try {
-            LocalDateTime original = LocalDateTime.parse(record.timeEvidenceId().substring("SERVER_CLOCK:".length()));
-            if (original.getNano() != 0 || record.signedAt().getNano() != 0 || !original.equals(record.signedAt())) {
+            LocalDateTime original = LocalDateTime.parse(record.timeEvidenceId().substring(source.length() + 1));
+            int precision = "SERVER_MICROS_CLOCK".equals(source) ? 1000 : 1_000_000_000;
+            if (original.getNano() % precision != 0 || record.signedAt().getNano() % precision != 0
+                    || !original.equals(record.signedAt())) {
                 reasons.add("TIME_VALUE_MISMATCH"); return "MISMATCH";
             }
             return "CONSISTENT";
         } catch (DateTimeParseException ex) {
             reasons.add("TIME_EVIDENCE_INVALID"); return "MISSING";
         }
+    }
+
+    private static String timeSource(String evidence) {
+        if (evidence != null && evidence.startsWith("SERVER_CLOCK:")) return "SERVER_CLOCK";
+        if (evidence != null && evidence.startsWith("SERVER_MICROS_CLOCK:")) return "SERVER_MICROS_CLOCK";
+        return "UNKNOWN";
     }
 
     private static Long operator(FrozenFact record, JsonNode content, List<String> reasons) {
@@ -203,6 +211,10 @@ public class ElectronicSignatureVerifiedFactService {
         return node != null && node.isIntegralNumber() && node.canConvertToLong() && node.longValue() > 0 ? node.longValue() : null;
     }
     private static boolean positive(Long id) { return id != null && id > 0; }
+    private static boolean invalidReason(String action, String reason) {
+        return reason == null || (!"APPROVE".equals(action) && reason.codePoints().allMatch(codePoint -> codePoint <= 0x20
+                || Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == 0xFEFF));
+    }
     private static void positiveId(Long id) { if (!positive(id)) throw exception(ESIGN_COMMAND_INVALID, "签名编号必须为正整数"); }
     private static String text(JsonNode node, String field) { var value = node.get(field); return value != null && value.isTextual() ? value.textValue() : null; }
     private static JsonNode readFact(String json) {
@@ -218,9 +230,10 @@ public class ElectronicSignatureVerifiedFactService {
     }
 
     private static String evidencePayload(FrozenFact r, String contentHash) {
-        // Preserve the V1 byte protocol, including its original minute/second textual representation.
-        String originalTime = r.timeEvidenceId() != null && r.timeEvidenceId().startsWith("SERVER_CLOCK:")
-                ? r.timeEvidenceId().substring("SERVER_CLOCK:".length()) : String.valueOf(r.signedAt());
+        // Preserve the V1 byte protocol, including its original time precision and textual representation.
+        String source = timeSource(r.timeEvidenceId());
+        String originalTime = !"UNKNOWN".equals(source)
+                ? r.timeEvidenceId().substring(source.length() + 1) : String.valueOf(r.signedAt());
         return String.join("|", String.valueOf(r.tenantId()), String.valueOf(r.actorId()), r.moduleCode(),
                 r.actionCode(), r.subjectType(), r.subjectId(), r.subjectVersion(), r.meaningCode(),
                 r.meaningLabel(), r.reason(), originalTime, r.timeEvidenceId(), r.authenticationMethod(), contentHash,
@@ -285,7 +298,8 @@ public class ElectronicSignatureVerifiedFactService {
         JsonNode content = readFact(r.getCanonicalContentJson());
         boolean format = content != null && content.isObject() && "V2".equals(r.getCommandHashVersion())
                 && "V2".equals(text(content, "evidenceFormatVersion")) && "V2".equals(text(content, "commandHashVersion"))
-                && "SHA-256".equals(r.getAlgorithm()) && "digest-format-v2".equals(r.getKeyVersion());
+                && "SHA-256".equals(r.getAlgorithm()) && "digest-format-v2".equals(r.getKeyVersion())
+                && !invalidReason(r.getActionCode(), r.getReason());
         Long operator = null;
         try {
             if (!format) throw new IllegalArgumentException();

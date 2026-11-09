@@ -230,7 +230,9 @@ BEGIN
        UNION ALL SELECT 'system_workbench_auth_version_identity','ck_wb_history_auth_window','((`observed_at_millis` is null) or ((`closed_version_to` > `entity_version`) and (`observed_at_millis` >= 0) and (`purge_not_before_millis` > `observed_at_millis`) and (`retention_seconds` > 0) and (`rollback_seconds` > 0) and (`clock_skew_seconds` >= 0)))'
      ) expected ON CAST(tc.TABLE_NAME AS BINARY)=CAST(expected.table_name AS BINARY)
        AND CAST(tc.CONSTRAINT_NAME AS BINARY)=CAST(expected.constraint_name AS BINARY)
-       AND CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+       -- MySQL 8.0.40 escapes quotes in CHECK_CLAUSE; compare both exact renderings.
+       AND (CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+         OR CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(REPLACE(expected.check_clause,CHAR(39),CONCAT(CHAR(92),CHAR(39))) AS BINARY))
      WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_SCHEMA=DATABASE()
        AND tc.CONSTRAINT_TYPE='CHECK' AND tc.ENFORCED='YES')!=14 THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='S4 history exact enforced CHECK contract mismatch';

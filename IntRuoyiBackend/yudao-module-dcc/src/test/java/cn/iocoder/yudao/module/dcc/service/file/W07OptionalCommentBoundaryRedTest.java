@@ -21,6 +21,14 @@ public class W07OptionalCommentBoundaryRedTest {
     @Test void dccNullReceiptCommentMustReachActualSignatureAuthorizationBoundary() { probeDcc(null); }
     @Test void dccEmptyReceiptCommentMustReachActualSignatureAuthorizationBoundary() { probeDcc(""); }
     @Test void dccWhitespaceReceiptCommentMustReachActualSignatureAuthorizationBoundary() { probeDcc("  "); }
+    @Test void dccOptionalApprovalOpinionReachesSignatureAuthorization() {
+        var authorization=mock(DccElectronicSignatureAuthorizationService.class);
+        doThrow(new AuthenticationReached()).when(authorization).validateElectronicSignatureEnabled(99L);
+        var actual=new DccSignatureVerificationServiceImpl();
+        ReflectionTestUtils.setField(actual,"electronicSignatureAuthorizationService",authorization);
+        for(String reason:new String[]{null,"","   "})
+            assertThrows(AuthenticationReached.class,()->actual.verifyPasswordAndCreateSignature(99L,42L,"task-42","MATRIX_REVIEW","APPROVE","credential",reason));
+    }
     private void probeDcc(String comment) {
         var authorization=mock(DccElectronicSignatureAuthorizationService.class);
         doThrow(new AuthenticationReached()).when(authorization).validateElectronicSignatureEnabled(99L);
@@ -31,11 +39,11 @@ public class W07OptionalCommentBoundaryRedTest {
                 "Optional comment must not be rejected before actual signature authorization");
         verify(authorization).validateElectronicSignatureEnabled(99L);
     }
-    @Test void dccApprovalAndAssignmentReasonsRemainRequired() {
+    @Test void dccRejectAndAssignmentReasonsRemainRequired() {
         var authorization=mock(DccElectronicSignatureAuthorizationService.class);
         var actual=new DccSignatureVerificationServiceImpl();
         ReflectionTestUtils.setField(actual,"electronicSignatureAuthorizationService",authorization);
-        for(var action:List.of("APPROVE","ASSIGN"))
+        for(var action:List.of("REJECT","ASSIGN"))
             assertThrows(ServiceException.class,()->actual.verifyPasswordAndCreateSignature(99L,42L,"task-42","MATRIX_REVIEW",action,"nonempty-test-credential",null));
         verifyNoInteractions(authorization);
     }
@@ -50,6 +58,7 @@ public class W07OptionalCommentBoundaryRedTest {
         doThrow(new AuthenticationReached()).when(users).reauthenticateForSignature(99L,"nonempty-test-credential");
         ReflectionTestUtils.setField(actual,"adminUserApi",users);
         ReflectionTestUtils.setField(actual,"signatureRecordMapper",mock(ElectronicSignatureRecordMapper.class));
+        ReflectionTestUtils.setField(actual,"gxpAuditService",mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
         ReflectionTestUtils.setField(actual,"subjectAdapters",List.of(new DccControlledFileSignatureSubjectAdapter()));
         var command=new ElectronicSignatureCommand("DCC","DISTRIBUTION_ACK","DCC_CONTROLLED_FILE",
                 "exact-receipt-subject","exact-version","nonempty-test-credential",comment,"receipt-idempotency",null,null);
@@ -61,9 +70,12 @@ public class W07OptionalCommentBoundaryRedTest {
         verify(users).reauthenticateForSignature(99L,"nonempty-test-credential");
     }
     @Test void kernelOtherActionReasonRemainsRequired() {
+        TenantContextHolder.setTenantId(1L);
         var actual=new ElectronicSignatureServiceImpl();var users=mock(AdminUserApi.class);
         ReflectionTestUtils.setField(actual,"adminUserApi",users);
-        var command=new ElectronicSignatureCommand("DCC","APPROVE","DCC_CONTROLLED_FILE","exact-subject","exact-version",
+        ReflectionTestUtils.setField(actual,"gxpAuditService",mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        ReflectionTestUtils.setField(actual,"subjectAdapters",List.of(new DccControlledFileSignatureSubjectAdapter()));
+        var command=new ElectronicSignatureCommand("DCC","REJECT","DCC_CONTROLLED_FILE","exact-subject","exact-version",
                 "nonempty-test-credential",null,"approval-idempotency",null,null);
         assertThrows(ServiceException.class,()->actual.sign(command));verifyNoInteractions(users);
     }

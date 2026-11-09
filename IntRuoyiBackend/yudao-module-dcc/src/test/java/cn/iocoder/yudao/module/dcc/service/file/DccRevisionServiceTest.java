@@ -33,6 +33,8 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileSourceOwnershipService sourceOwnershipService;
     @Mock private DccControlledFileRelatedFileService relatedFileService;
     @Mock private DccControlledFileNameClaimService nameClaimService;
+    @Mock private DccApprovalFileOwnerSelectionService fileOwnerSelection;
+    @Mock private DccControlledFileAttachmentService attachmentService;
     @Mock private cn.iocoder.yudao.module.system.api.permission.PermissionApi scopePermissionApi;
     @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper scopeAssignmentMapper;
     @Mock private DccControlledFileDistributionRecipientMapper scopeDistributionMapper;
@@ -44,6 +46,18 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileSubmitIterationReqVO request;
     private DccW08PreparedUnitFixture preparedFixture;
     private final DccControlledFilePreparedSource frozen = new DccControlledFilePreparedSource(300L, 100L, "selected-hash", true);
+
+    @ParameterizedTest
+    @CsvSource({"PARTIAL", "REPLACEMENT"})
+    void referencedSourceRequiresCancellationBeforeEitherRevision(String intent) {
+        request.setRevisionChangeType(intent);
+        when(fileMapper.selectProjectReferenceIdsForUpdate(1L, 10L)).thenReturn(List.of(71L));
+        cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException(
+                () -> service.createRevision(99L, 20L, 21L, request),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
+        verify(fileMapper, never()).insert(any(DccControlledFileDO.class));
+        verifyNoInteractions(sourceOwnershipService);
+    }
 
     @BeforeEach void setup() {
         datePolicy.setZoneId("Asia/Singapore");
@@ -65,6 +79,19 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         request.setProjectAttributes(new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
                 List.of("CE"), null, "Y", "N", "N", null));
         request.setSelectedSignoffDepartmentIds(List.of(101L, 102L));
+        var ordinaryManifest = new DccControlledFileAttachmentService.OrdinaryAttachmentManifest(List.of(),
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                        java.util.Arrays.asList("DCC_ORDINARY_ATTACHMENT_MANIFEST_V1", 1L, 21L, List.of()))));
+        lenient().when(attachmentService.readOrdinaryAttachmentManifest(99L, 21L)).thenReturn(ordinaryManifest);
+        request.setExpectedOrdinaryAttachmentIds(ordinaryManifest.attachmentIds());
+        request.setExpectedOrdinaryAttachmentManifestHash(ordinaryManifest.payloadHash());
+        lenient().doAnswer(invocation -> {
+            DccControlledFileDO compilerFile = invocation.getArgument(0);
+            compilerFile.setFileOwnerUserId(compilerFile.getRequesterId());
+            compilerFile.setFileOwnerUsernameSnapshot("compiler99");
+            compilerFile.setFileOwnerNicknameSnapshot("当前编制人");
+            return null;
+        }).when(fileOwnerSelection).initializeCompiler(any(DccControlledFileDO.class));
         lenient().when(fileMapper.selectById(20L)).thenAnswer(i -> baseline);
         lenient().when(fileMapper.selectById(21L)).thenAnswer(i -> selected);
         lenient().when(masterMapper.selectByIdForUpdate(10L)).thenReturn(DccControlledFileMasterDO.builder().id(10L).tenantId(1L).latestControlledFileId(20L)
@@ -72,7 +99,13 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         lenient().when(fileMapper.selectByIdAndTenantForUpdate(1L, 20L)).thenAnswer(i -> baseline);
         lenient().when(fileMapper.selectByIdAndTenantForUpdate(1L, 21L)).thenAnswer(i -> selected);
         lenient().when(fileMapper.selectListByMasterIdForUpdate(10L)).thenAnswer(i -> List.of(baseline, selected, file(22L, baseline.getVersionNo()+"-2", "WORKING")));
-        lenient().when(permissionSupport.hasCategoryPermission(2L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        lenient().when(permissionSupport.hasFilePermission(selected, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        lenient().when(permissionSupport.hasFilePermission(baseline, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        lenient().when(permissionSupport.hasFilePermission(baseline, 99L, DccFileCategoryPermissionActionEnum.EDIT)).thenReturn(true);
+        lenient().when(permissionSupport.hasFilePermission(argThat(file -> file != null
+                && Long.valueOf(30L).equals(file.getId()) && Long.valueOf(1L).equals(file.getTenantId())
+                && Long.valueOf(5L).equals(file.getDccProjectCodeId()) && Long.valueOf(2L).equals(file.getCategoryId())),
+                eq(99L),eq(DccFileCategoryPermissionActionEnum.UPLOAD))).thenReturn(true);
         lenient().when(sourceOwnershipService.createVerifiedCopy(100L)).thenReturn(frozen);
         lenient().when(fileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(i -> { i.<DccControlledFileDO>getArgument(0).setId(30L); return 1; });
         lenient().when(fileMapper.update(isNull(),any())).thenReturn(1); // Declared single target facts write; real SQL is covered by H2 consumer tests.
@@ -86,7 +119,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         request.setExpectedProcessDefinitionId(selected.getPreparedProcessDefinitionId());request.setExpectedDefinitionDigest(selected.getPreparedDefinitionDigest());
     }
     @AfterEach void clear() { TransactionSynchronizationManager.clear(); TenantContextHolder.clear(); }
-    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"active", "latest", "foreignTenant", "foreignProject", "wrongRequester", "missingPredecessor", "cycle", "formalSelected", "sourceHash"})
+    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"active", "latest", "foreignTenant", "foreignProject", "wrongRequester", "missingPredecessor", "cycle", "formalSelected", "controlled", "sourceHash"})
     void initialCandidateRejectsInvalidChainOrBodyWithoutCreatingSuccess(String invalid) {
         initialWorkingChain("A/1");
         switch(invalid) {
@@ -98,6 +131,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
             case "missingPredecessor" -> selected.setPredecessorControlledFileId(19L);
             case "cycle" -> selected.setPredecessorControlledFileId(21L);
             case "formalSelected" -> selected.setVersionNo("A/1");
+            case "controlled" -> selected.setControlledTime(java.time.LocalDateTime.of(2026,9,30,12,0));
             case "sourceHash" -> selected.setSourceSha256("changed-hash");
         }
         assertThrows(RuntimeException.class,() -> service.createInitialCandidate(99L,21L,request));
@@ -107,6 +141,29 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         }
         else verify(sourceOwnershipService).cleanupPreparedSource(frozen);
     }
+    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"PARTIAL", "REPLACEMENT"})
+    void formalRevisionUsesEditPermissionWithoutAnUploadGrant(String intent) {
+        request.setRevisionChangeType(intent);
+        selected.setRequesterId(88L);
+        lenient().when(permissionSupport.hasFilePermission(baseline,99L,DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(false);
+        var candidate=service.createRevision(99L,20L,21L,request);
+        assertEquals(99L,candidate.getRequesterId());
+        assertEquals(88L,selected.getRequesterId());
+        assertNull(selected.getProcessInstanceId());
+        verify(permissionSupport).hasFilePermission(baseline,99L,DccFileCategoryPermissionActionEnum.EDIT);
+        verify(permissionSupport,never()).hasFilePermission(baseline,99L,DccFileCategoryPermissionActionEnum.UPLOAD);
+    }
+
+    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"PARTIAL", "REPLACEMENT"})
+    void anotherRequestersWorkingBodyStillRequiresActualEditGrant(String intent) {
+        request.setRevisionChangeType(intent);selected.setRequesterId(88L);
+        when(permissionSupport.hasFilePermission(baseline,99L,DccFileCategoryPermissionActionEnum.EDIT)).thenReturn(false);
+        assertThrows(RuntimeException.class,()->service.createRevision(99L,20L,21L,request));
+        verify(fileMapper,never()).insert(any(DccControlledFileDO.class));
+        verify(sourceOwnershipService,never()).createVerifiedCopy(anyLong());
+        assertEquals(88L,selected.getRequesterId());
+    }
+
     @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"date", "attributes", "departments", "body"})
     void initialCandidateRejectsChangedActualFactsOnSameKey(String changed) {
         initialWorkingChain("A/1");var result=service.createInitialCandidate(99L,21L,request);
@@ -150,8 +207,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         initialWorkingChain(initialVersion);
         selected.setProcessInstanceId(null); selected.setProcessDefinitionKey(null); // Source remains the declared open draft.
         selected.setSubmittedTime(java.time.LocalDateTime.of(2026,9,30,12,0));
-        selected.setControlledTime(selected.getSubmittedTime()); selected.setActivatedTime(selected.getSubmittedTime());
-        selected.setDistributedTime(selected.getSubmittedTime()); selected.setDistributionPayloadHash("old-success");
+        // An initial working chain must never contain a formally controlled version.
         selected.setFileOwnerUserId(99L);selected.setFileOwnerUsernameSnapshot("old-owner");selected.setFileOwnerNicknameSnapshot("旧负责人");
         selected.setFileOwnerSignatureId(50L);selected.setFileOwnerApprovalTaskId("old-owner-task");selected.setFileOwnerProcessInstanceId("old-working-process");selected.setFileOwnerSelectedTime(selected.getSubmittedTime());
         var result = service.createInitialCandidate(99L, 21L, request);
@@ -165,7 +221,8 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         assertNull(result.getProcessInstanceId()); assertNull(result.getProcessDefinitionKey());
         assertNull(result.getSubmittedTime()); assertNull(result.getControlledTime()); assertNull(result.getActivatedTime());
         assertNull(result.getDistributedTime()); assertNull(result.getDistributionPayloadHash());
-        assertNull(result.getFileOwnerUserId());assertNull(result.getFileOwnerSignatureId());assertNull(result.getFileOwnerUsernameSnapshot());assertNull(result.getFileOwnerNicknameSnapshot());
+        assertEquals(99L,result.getFileOwnerUserId());assertNull(result.getFileOwnerSignatureId());
+        assertEquals("compiler99",result.getFileOwnerUsernameSnapshot());assertEquals("当前编制人",result.getFileOwnerNicknameSnapshot());
         assertNull(result.getFileOwnerApprovalTaskId());assertNull(result.getFileOwnerProcessInstanceId());assertNull(result.getFileOwnerSelectedTime());
         assertEquals(50L,selected.getFileOwnerSignatureId());
         assertEquals(initialVersion,baseline.getVersionNo()); assertEquals(initialVersion+"-1",selected.getVersionNo());
@@ -254,13 +311,18 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
     @ParameterizedTest @CsvSource({"PARTIAL,A/1,A/2", "PARTIAL,A/9,B/1", "REPLACEMENT,A/3,B/1"})
     void freezesSelectedBodyAndPersistsActualIntent(String type, String base, String target) {
         baseline.setVersionNo(base); selected.setVersionNo(base+"-1"); request.setRevisionChangeType(type);
+        lenient().doThrow(new IllegalStateException("not OWNER")).when(projectAccessService).assertProjectOwner(99L,5L);
         var result = service.createRevision(99L, 20L, 21L, request);
+        verify(projectAccessService,never()).assertProjectOwner(anyLong(),anyLong());
+        verify(projectAccessService,atLeastOnce()).assertProjectEditorOrOwner(99L,5L);
         assertEquals(target, result.getVersionNo());
         assertEquals(type, result.getRevisionChangeType());
         assertEquals(20L, result.getRevisionSourceControlledFileId()); assertEquals(base, result.getRevisionSourceVersionNo());
         assertEquals(21L, result.getSelectedIterationControlledFileId()); assertEquals(base+"-1", result.getSelectedIterationVersionNo());
         assertEquals(300L, result.getSourceFileId()); assertEquals("selected-hash", result.getSourceSha256());
         assertEquals("SOP.pdf", result.getSourceOriginalFileName());
+        verify(fileOwnerSelection).initializeCompiler(argThat(file -> Long.valueOf(99L).equals(file.getRequesterId())
+                && Long.valueOf(99L).equals(file.getSubmitterId())));
         verify(sourceOwnershipService).createVerifiedCopy(100L);
         verify(relatedFileService).freezeCurrentRelationsForRevision(99L,20L,30L);
         verify(masterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
@@ -340,9 +402,9 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         assertThrows(RuntimeException.class, () -> service.createRevision(99L,20L,21L,request));
         verify(sourceOwnershipService, never()).createVerifiedCopy(anyLong());
     }
-    @Test void replacementRequiresFormalOwner() {
+    @Test void replacementRequiresFormalEditor() {
         request.setRevisionChangeType("REPLACEMENT");
-        doThrow(new IllegalStateException("not OWNER")).when(projectAccessService).assertProjectOwner(99L,5L);
+        doThrow(new IllegalStateException("not EDIT")).when(projectAccessService).assertProjectEditorOrOwner(99L,5L);
         assertThrows(IllegalStateException.class, () -> service.createRevision(99L,20L,21L,request));
         verify(sourceOwnershipService, never()).createVerifiedCopy(anyLong());
     }
@@ -378,7 +440,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         var result = service.createRevision(99L,20L,21L,request);
         assertEquals(99L,result.getRequesterId()); assertEquals("REPLACEMENT",result.getRevisionChangeType());
         assertEquals(21L,result.getSelectedIterationControlledFileId());
-        verify(projectAccessService).assertProjectOwner(99L,5L);
+        verify(projectAccessService,atLeastOnce()).assertProjectEditorOrOwner(99L,5L);
     }
     @Test void changedSignoffPayloadIsNotAnIdempotentReplay() {
         var first=service.createRevision(99L,20L,21L,request);

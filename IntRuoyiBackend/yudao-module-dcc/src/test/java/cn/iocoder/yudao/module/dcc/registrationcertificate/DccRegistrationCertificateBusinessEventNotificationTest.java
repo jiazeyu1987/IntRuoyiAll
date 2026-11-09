@@ -136,6 +136,17 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
     }
 
     @Test
+    void changeConfirmationSendsOnlyExplicitlyConfiguredRecipientsWithoutAddingApprover() {
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(invocation -> {
+            NotifySendSingleToUserIdempotentReqDTO req=invocation.getArgument(0);
+            return 900000L+req.getUserId();
+        });
+        var result=service.sendToUsers(command("CHANGE_APPROVAL_RECORDED"),List.of(22L,22L,11L));
+        assertEquals(Map.of(22L,900022L,11L,900011L),result.recipientMessageIds());
+        verify(recipientResolver,never()).resolve(any(),any(),any());
+    }
+
+    @Test
     void unapprovedEventsNeverSendNotification() {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.send(command("THRESHOLD_REMINDER")));

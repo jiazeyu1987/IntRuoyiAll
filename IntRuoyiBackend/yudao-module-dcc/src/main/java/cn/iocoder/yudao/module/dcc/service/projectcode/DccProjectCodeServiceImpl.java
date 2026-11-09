@@ -82,10 +82,15 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 
 @Service
 @Validated
 public class DccProjectCodeServiceImpl implements DccProjectCodeService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
+
 
     private static final List<String> EXPECTED_HEADERS = List.of(
             "文控", "项目名称", "项目代码", "类别", "委托生产",
@@ -183,6 +188,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Transactional(rollbackFor = Exception.class)
     public void updateProjectCode(DccProjectCodeUpdateReqVO reqVO) {
         validateProjectCodeExists(reqVO.getId());
+        if (projectCodeMapper.selectById(reqVO.getId()).isLibrary()) throw exception(DCC_PROJECT_ACCESS_DENIED);
         DccProjectCodeUpdateReqVO normalizedReqVO = normalizeSaveReqVO(reqVO);
         validateProjectCodeStatus(normalizedReqVO.getStatus());
         validateProjectCodeUnique(normalizedReqVO.getProjectName(), normalizedReqVO.getProjectCode(),
@@ -194,6 +200,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectCode(Long id) {
         validateProjectCodeExists(id);
+        if (projectCodeMapper.selectById(id).isLibrary()) throw exception(DCC_PROJECT_ACCESS_DENIED);
         validateProjectCodeDeletable(id);
         if (!projectFolderMapper.listByProject(id).isEmpty() || projectAttributesMapper.selectCount(cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO::getProjectCodeId, id) > 0) {
             throw exception(PROJECT_CODE_DELETE_REFERENCED);
@@ -871,7 +878,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_EMPTY: 项目代码导入文件不能为空");
         }
 
-        List<DccProjectCodeDO> existingProjectCodes = projectCodeMapper.selectList();
+        List<DccProjectCodeDO> existingProjectCodes = projectCodeMapper.selectList().stream().filter(p -> !p.isLibrary()).toList();
         Map<ProjectCodeKey, DccProjectCodeDO> existingByKey = existingProjectCodes.stream()
                 .collect(Collectors.toMap(item -> key(item.getProjectName(), item.getProjectCode()),
                         Function.identity(), (left, right) -> left, LinkedHashMap::new));
@@ -1095,7 +1102,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private void applyImportRow(Long batchId, DccProjectCodeImportRowDO row) {
         switch (row.getImportAction()) {
-            case DccProjectCodeImportActionConstants.CREATE -> projectCodeMapper.insert(DccProjectCodeDO.builder()
+            case DccProjectCodeImportActionConstants.CREATE -> {
+                var project = DccProjectCodeDO.builder()
                     .docControlNo(row.getDocControlNo())
                     .projectName(row.getProjectName())
                     .projectCode(row.getProjectCode())
@@ -1107,7 +1115,10 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                     .priority(row.getPriority())
                     .status(DccProjectCodeStatusConstants.ENABLE)
                     .lastImportBatchId(batchId)
-                    .build());
+                    .build();
+                if (projectCodeMapper.insert(project) != 1 || project.getId() == null) throw new IllegalStateException("导入项目保存失败");
+                registrationHandlingTasks.createProjectTask(project.getId());
+            }
             case DccProjectCodeImportActionConstants.UPDATE -> {
                 DccProjectCodeDO existing = requireProjectCode(row.getProjectName(), row.getProjectCode());
                 updateProjectCodeFields(existing.getId(), buildImportSaveReqVO(row, DccProjectCodeStatusConstants.ENABLE),
@@ -1129,6 +1140,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private DccProjectCodeDO requireProjectCode(String projectName, String projectCode) {
         DccProjectCodeDO existing = projectCodeMapper.selectByProjectNameAndProjectCode(projectName, projectCode);
+        if (existing != null && existing.isLibrary()) throw exception(DCC_PROJECT_ACCESS_DENIED);
         if (existing == null) {
             throw new IllegalStateException("DCC_PROJECT_CODE_NOT_FOUND: projectName=" + projectName
                     + ", projectCode=" + projectCode);

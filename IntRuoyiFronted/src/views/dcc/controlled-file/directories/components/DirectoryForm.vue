@@ -1,5 +1,10 @@
 <template>
-  <Dialog v-model="dialogVisible" :title="dialogTitle" width="640px">
+  <Dialog
+    v-model="dialogVisible"
+    :title="dialogTitle"
+    width="640px"
+    style="max-width: calc(100vw - 24px)"
+  >
     <el-form
       ref="formRef"
       v-loading="formLoading"

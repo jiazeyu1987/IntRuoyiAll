@@ -39,6 +39,8 @@ class DccApprovalTaskTimelineAdapterTest {
     private DccControlledFileWorkflowService workflowService;
     @Mock
     private DccControlledFileMapper controlledFileMapper;
+    @Mock private DccProjectProductTaskDelegate projectApplications;
+    @Mock private DccOfflineTrainingTaskDelegate offlineTraining;
     @InjectMocks
     private DccApprovalTaskAdapter adapter;
 
@@ -46,6 +48,7 @@ class DccApprovalTaskTimelineAdapterTest {
     void listTimelineMapsHistoricTasksToUnifiedTimelineEntries() {
         HistoricTaskInstance start = mock(HistoricTaskInstance.class);
         when(start.getId()).thenReturn("historic-start");
+        when(start.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
         when(start.getName()).thenReturn("发起");
         when(start.getTaskDefinitionKey()).thenReturn("START_NODE");
         when(start.getAssignee()).thenReturn("100");
@@ -53,6 +56,7 @@ class DccApprovalTaskTimelineAdapterTest {
 
         HistoricTaskInstance review = mock(HistoricTaskInstance.class);
         when(review.getId()).thenReturn("historic-task-1");
+        when(review.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
         when(review.getName()).thenReturn("文控审核");
         when(review.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(review.getAssignee()).thenReturn("100");
@@ -81,7 +85,7 @@ class DccApprovalTaskTimelineAdapterTest {
 
         assertEquals(2, entries.size());
         assertEquals("historic-task-1", entries.get(1).getId());
-        assertEquals("审批通过", entries.get(1).getActionLabel());
+        assertEquals("审核通过", entries.get(1).getActionLabel());
         assertEquals("FLOWABLE_HISTORY", entries.get(1).getEvidenceType());
 
         verify(bpmTaskService).getTaskListByProcessInstanceId("pi-1", true);

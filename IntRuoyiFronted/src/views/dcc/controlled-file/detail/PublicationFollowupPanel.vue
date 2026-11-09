@@ -109,11 +109,14 @@ import {
   visibilitySourceLabel
 } from '../shared/publicationFollowupPresentation'
 import PublicationFollowupTimeline from '../shared/PublicationFollowupTimeline.vue'
+import { serializeDccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
+import type { DetailReadSelection } from './detail-read-context'
 
-const props = defineProps<{ controlledFileId: string }>()
+const props = defineProps<{ controlledFileId: string; readSelection?: DetailReadSelection }>()
 const followupLoading = ref(false)
 const followupLoadError = ref('')
 const followup = ref<DccPublicationFollowupVO | null>(null)
+let loadSequence = 0
 
 const batchStatusText = computed(() => batchStatusLabel(followup.value?.status))
 const batchTagType = computed(() => followup.value?.status === 'COMPLETED' ? 'success'
@@ -128,6 +131,9 @@ const userText = (user: DccPublicationVisibilityUserVO) =>
   `${user.userName || user.userId}${user.deptName ? `（${user.deptName}）` : ''}`
 
 const loadFollowup = async () => {
+  const sequence = ++loadSequence
+  followup.value = null
+  followupLoading.value = false
   if (!/^\d+$/.test(props.controlledFileId)) {
     followupLoadError.value = '受控文件 ID 无效'
     return
@@ -135,16 +141,22 @@ const loadFollowup = async () => {
   followupLoading.value = true
   followupLoadError.value = ''
   try {
-    followup.value = await getPublicationFollowupByFile(props.controlledFileId)
+    const selection = props.readSelection
+    const params = selection?.bodyReadContext
+      ? { bodyReadContext: serializeDccBodyReadContext(props.controlledFileId, selection.bodyReadContext) }
+      : { processInstanceId: selection?.bpmRound, taskId: selection?.taskId, applicationType: selection?.applicationType }
+    const result = await getPublicationFollowupByFile(props.controlledFileId, params)
+    if (sequence === loadSequence) followup.value = result
   } catch (error) {
+    if (sequence !== loadSequence) return
     followup.value = null
     followupLoadError.value = resolveError(error)
   } finally {
-    followupLoading.value = false
+    if (sequence === loadSequence) followupLoading.value = false
   }
 }
 
-watch(() => props.controlledFileId, loadFollowup, { immediate: true })
+watch(() => [props.controlledFileId, props.readSelection], loadFollowup, { immediate: true })
 </script>
 
 <style scoped>

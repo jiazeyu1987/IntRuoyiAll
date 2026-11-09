@@ -210,6 +210,7 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
                 .effectiveAt(LocalDateTime.of(2026, 8, 17, 9, 0))
                 .build();
         snapshot.setTenantId(tenantId);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.portableMapperFixture());
         assertEquals(1, snapshotMapper.insert(snapshot));
         return snapshot;
     }
@@ -248,6 +249,7 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
     private static DccRegistrationCertificateSnapshotDO snapshotChange(Long id, String productName) {
         return DccRegistrationCertificateSnapshotDO.builder()
                 .id(id)
+                .factsJson(DccRegistrationCertificateTestFacts.portableMapperFixture())
                 .productName(productName)
                 .registrantName("Registrant Updated")
                 .modelSpecification("Model")

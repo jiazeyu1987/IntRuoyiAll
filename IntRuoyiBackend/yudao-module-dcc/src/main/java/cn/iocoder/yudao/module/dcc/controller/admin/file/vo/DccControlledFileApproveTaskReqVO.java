@@ -19,10 +19,9 @@ public class DccControlledFileApproveTaskReqVO {
     @NotBlank(message = "密码不能为空")
     private String password;
 
-    @Schema(description = "审批意见", requiredMode = Schema.RequiredMode.REQUIRED, example = "同意发布")
-    @NotBlank(message = "审批意见不能为空")
+    @Schema(description = "审批意见（选填）", example = "同意发布")
     private String reason;
-    @Schema(description = "上传、升版批准节点选择的正式文件负责人账号")
+    @Schema(description = "禁止传入，文件编制人取当前版本上传账号", hidden = true)
     private Long fileOwnerUserId;
 
     @Schema(description = "上传会话编号", example = "dcc-approve-session-1")

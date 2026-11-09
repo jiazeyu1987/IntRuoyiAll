@@ -38,6 +38,7 @@ test('unknown source identity or missing saved training is visible and cannot op
     const h=run(row);assert.equal(h.context.checkinDialogVisible.value,false);assert.equal(h.errors.length,1)
   }
 })
+
 test('current option carries formal source facts and historical options never borrow the current row identity',()=>{
   const declaration=name=>ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>d.name.getText(ast)===name))
   const context={exports:{}}

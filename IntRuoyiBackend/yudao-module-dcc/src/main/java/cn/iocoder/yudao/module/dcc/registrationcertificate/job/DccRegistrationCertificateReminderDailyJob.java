@@ -35,6 +35,10 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 
 @Component("registrationCertificateReminderDailyJob")
 public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
+
 
     private static final String DELIVERY_CREATOR = "registration-certificate-reminder-job";
     private static final int MANUAL_BUSINESS_RUN_HOUR = 9;
@@ -126,6 +130,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
     }
 
     private TenantOutcome runTenant(Long tenantId, LocalDate businessDate, JobParam jobParam) {
+        registrationHandlingTasks.createExpiredTasks(tenantId, businessDate);
         DccRegistrationCertificateReminderConfig config = configService.getOrCreate(tenantId);
         if (!Boolean.TRUE.equals(config.enabled())) {
             return TenantOutcome.skipped(tenantId);

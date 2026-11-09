@@ -211,7 +211,7 @@ const auditAction = ref<'approve' | 'reject'>('approve')
 const auditFormRef = ref<FormInstance>()
 const auditFormData = reactive({ id: undefined as number | undefined, auditRemark: '' })
 const auditRules = computed<FormRules>(() => ({
-  auditRemark: auditAction.value === 'reject' ? [{ required: true, message: '请填写驳回意见', trigger: 'blur' }] : []
+  auditRemark: auditAction.value === 'reject' ? [{ required: true, whitespace: true, message: '请填写驳回意见', trigger: 'blur' }] : []
 }))
 
 const detailVisible = ref(false)

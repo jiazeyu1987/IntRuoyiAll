@@ -62,6 +62,20 @@ class DccProjectSingleRoleReviewTest extends DccApprovedProjectLeaderOwnerTest {
   assertEquals(1,projects.selectList().size());assertEquals(1,products.selectList().size());assertEquals(1,relations.selectList().size());assertEquals(1,folderRows.selectList().size());assertEquals("OWNER",accessRules.selectList().get(0).getAccessLevel());assertEquals(7L,accessRules.selectList().get(0).getSubjectId());
   assertEquals(3,events.selectList().size());verify(permissions,never()).hasAnyPermissions(8L,"dcc:project-code:update");
  }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.NullAndEmptySource
+ @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})
+ void optionalOpinionCompletesRealRoleApprovalOwnerAndLedgerWithoutInventingUserText(String reason){
+  Long id=create("EMPTY");actor(8L);var done=service.review(8L,id,reason,true);
+  assertEquals("COMPLETED",done.getStatus());assertEquals("",done.getReviewReason());assertEquals("",done.getWriteReason());
+  assertEquals("",accessRules.selectList().get(0).getChangeReason());assertEquals(3,events.selectList().size());
+  for(var event:events.selectList())if(!"dcc.project-product.create".equals(event.getOperationId())){
+   assertEquals("",event.getReason());assertEquals("APPROVE",cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getAfterStateJson(),Map.class).get("approvalResult"));
+  }
+  assertEquals(done.getGeneratedProjectCodeId(),service.review(8L,id,reason,true).getGeneratedProjectCodeId());assertEquals(3,events.selectList().size());
+  var context=new cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext().setLoginUserId(8L).setViewType(cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType.DONE);
+  assertEquals(cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,nativeTasks.list(context).get(0).getApprovalResult());
+ }
  @Test void oldSingleUserConfigCannotRescueMissingNewRoleAndRevokedMemberCannotApprove(){
   jdbc.update("DELETE FROM system_role");assertThrows(RuntimeException.class,()->create("NO-ROLE"));assertTrue(requests.selectList().isEmpty());
   jdbc.update("INSERT INTO system_role VALUES(10,1,'dcc_project_reviewer','项目审核员',0,0)");Long id=create("REVOKE");jdbc.update("DELETE FROM system_user_role WHERE user_id=8");actor(8L);assertThrows(RuntimeException.class,()->service.review(8L,id,"撤销后不能审核",true));assertEquals("PENDING_REVIEW",requests.selectById(id).getStatus());assertTrue(projects.selectList().isEmpty());
@@ -73,7 +87,7 @@ class DccProjectSingleRoleReviewTest extends DccApprovedProjectLeaderOwnerTest {
  }
  @Test void lateActualCompletionAuditFailureRollsBackReviewDecisionAndAllAssets(){
   Long id=create("ROLLBACK");int count=events.selectList().size();
-  doThrow(new IllegalStateException("完整建档审计故障")).when(actualAuditKernel).append(argThat(command->"dcc.project-product.complete".equals(command.getOperationId())));
+  doThrow(new IllegalStateException("完整建档审计故障")).when(org.springframework.test.util.AopTestUtils.<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl>getUltimateTargetObject(actualAuditKernel)).append(argThat(command->command!=null&&"dcc.project-product.complete".equals(command.getOperationId())));
   actor(8L);assertThrows(IllegalStateException.class,()->service.review(8L,id,"确认通过",true));var row=requests.selectById(id);assertEquals("PENDING_REVIEW",row.getStatus());assertNull(row.getReviewerUserId());assertNull(row.getReviewedTime());
   assertTrue(projects.selectList().isEmpty());assertTrue(products.selectList().isEmpty());assertTrue(folderRows.selectList().isEmpty());assertTrue(accessRules.selectList().isEmpty());assertTrue(relations.selectList().isEmpty());assertEquals(count,events.selectList().size());
  }

@@ -22,14 +22,20 @@ public class DccRegistrationCertificateReminderConfigRespVO {
 
     public static DccRegistrationCertificateReminderConfigRespVO of(
             DccRegistrationCertificateReminderConfig config) {
+        Map<String, List<Long>> recipients = DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(
+                config.thresholdRecipientUserIdsJson());
+        // The persisted default empty object means recipients have not been configured yet.
+        if (recipients.isEmpty() && config.thresholdRecipientUserIdsJson() != null
+                && config.thresholdRecipientUserIdsJson().strip().matches("\\{\\s*}")) {
+            recipients = Map.of("T_30", List.of(), "T_8", List.of(), "T_2", List.of(), "T_1", List.of());
+        }
         return DccRegistrationCertificateReminderConfigRespVO.builder()
                 .id(config.id())
                 .enabled(config.enabled())
                 .dailyRunTime(config.dailyRunTime())
                 .timezone(config.timezone())
                 .thresholdDaysJson(config.thresholdDaysJson())
-                .thresholdRecipientUserIds(DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(
-                        config.thresholdRecipientUserIdsJson()))
+                .thresholdRecipientUserIds(recipients)
                 .rowVersion(config.rowVersion())
                 .build();
     }

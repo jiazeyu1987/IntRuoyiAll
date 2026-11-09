@@ -199,6 +199,17 @@ class DccControlledFileLifecycleEffectiveModeTest {
         effect();assertNull(files.selectById(20L).getEffectiveTime());assertNull(files.selectById(20L).getEffectiveSignatureId());
         assertEquals(0,eventCount("EFFECTIVE"));assertNull(files.selectById(20L).getEffectiveMode());
     }
+    @Test void importedActualBodyDoesNotInventPendingDistributionAndExactDueTimeIsPreserved() {
+        jdbc.update("UPDATE dcc_controlled_file SET status='ACTIVE',controlled_time=?,activated_time=?,distributed_time=NULL WHERE id=10",now.minusDays(2),now.minusDays(1));
+        jdbc.update("UPDATE dcc_controlled_file SET status='ACTIVE',controlled_time=?,activated_time=?,distributed_time=NULL,import_source='CONTROLLED_IMPORT' WHERE id=20",now.minusYears(1),now);
+        assertEquals(List.of(10L),service.pendingDistribution(false).stream().map(DccControlledFileDO::getId).toList());
+        jdbc.update("UPDATE dcc_controlled_file SET status='CONTROLLED_PENDING_EFFECTIVE',activated_time=NULL,effective_mode='CONTROLLED_IMPORT',effective_time=?,effective_date=? WHERE id=20",now.plusSeconds(1),now.toLocalDate());
+        assertFalse(service.dueVersions().stream().anyMatch(f->f.getId().equals(20L)));
+        jdbc.update("UPDATE dcc_controlled_file SET effective_time=? WHERE id=20",now);
+        assertEquals(List.of(20L),service.dueVersions().stream().map(DccControlledFileDO::getId).toList());
+        jdbc.update("UPDATE dcc_controlled_file SET import_source=NULL WHERE id=20");
+        assertFalse(service.dueVersions().stream().anyMatch(f->f.getId().equals(20L)));
+    }
     private void legacyContract(){doAnswer(call->{var file=call.getArgument(0,DccControlledFileDO.class);
         return new DccLifecycleEffectiveContract(file.getTenantId(),file.getId(),file.getProcessInstanceId(),"frozen-real-v4-id","frozen-deployment",
                 file.getProcessDefinitionKey(),"a8222aa8aa09dba8aba4bc2ff3e2b296b1b824849e48dca3f9a4d1a5809d99c6",DccLifecycleEffectiveContract.Rule.LEGACY_V4_PRESET_DATE);}).when(effectiveContractResolver).resolve(any());}

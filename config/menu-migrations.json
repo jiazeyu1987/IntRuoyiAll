@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "3647e7241333c827e730383ae496b7d5fd992db0cdbe0cb78f54b33a07218fb7",
+      "reason": "修复站内信及详情已有重提入口与 shared/submitted-application-navigation.ts 成功导航：首次要求 management=1/restartApplication=1，成功来源明确为 application-restart 并精确返回受控浏览，清除重开表单及旧轮次命令；复用既有详情和 submit 权限，服务端继续校验租户、原申请人、失败轮次及项目编辑权限，不新增页面、菜单、权限、角色或租户套餐授权。 文档13独立受控上传成功结果使用真实controlled-import来源、management=1和精确returnTo=/dcc/controlled-file/controlled-upload进入既有详情；ACTIVE明确DAILY，待生效精确VERSION_HISTORY，后端三重授权不变，不冒充browser或审批来源。复用20261102_dcc_controlled_import_edit_permissions.sql中已授权import菜单，不新增权限、页面、角色或套餐。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
       "kind": "permission",
       "value": "bpm:task:query",
@@ -961,21 +967,131 @@
       "reason": "无管理员模型的显式认领服务复用既有 bpm:model:update 权限，仍校验模型状态及操作人；未新增权限标识、菜单或角色/套餐授权。"
     },
     {
-      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java",
-      "kind": "permission",
-      "value": "dcc:controlled-file:edit",
-      "reason": "文档14普通文件编辑读取既有类型分类列表、上传候选及启用category解析，复用已由20261102_dcc_controlled_import_edit_permissions.sql登记的独立edit权限；仅三个GET允许edit与原只读资格并列，create/update/delete仍要求category:manage；未新增权限、页面、菜单、角色或租户套餐授权，无新增迁移。"
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailObsoleteImpact.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/detail/DetailObsoleteImpact",
+      "reason": "作废申请内部影响提示组件，复用现有受控文件查看、作废权限及关联文件和项目引用只读接口；无独立菜单、路由或新增权限，不新增角色或租户套餐授权。"
     },
     {
-      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
       "kind": "permission",
-      "value": "dcc:controlled-file:archive:query",
+      "value": "dcc:controlled-file:query",
+      "reason": "失败申请从现有我的站内信及受控文件详情重新发起，复用既有 dcc:controlled-file:query 权限；服务另核对原申请人、租户、项目编辑和类别权限及精确终止流程，不新增菜单、页面路由或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:submit",
+      "reason": "失败申请从现有我的站内信及受控文件详情重新发起，复用既有 dcc:controlled-file:submit 权限；服务另核对原申请人、租户、项目编辑和类别权限及精确终止流程，不新增菜单、页面路由或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/config/DccRegistrationCertificateChangeConfirmationController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "注册证详情的变更通知履历复用既有 query-current 权限，调用原 getDetail 核验租户、主体及版本访问；站内信本人确认另按正式发送记录的租户及收件人身份授权，不增加菜单、路由、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/handling/DccRegistrationHandlingTaskController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/handling/DccRegistrationHandlingTaskController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:renewal:upload",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:upload:create",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/association/DccRegistrationCertificateProjectCodeFileAssociationService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "产品目录注册证文件夹按已有注册证查看、旧版查看及逐文件下载授权过滤，未获授权不返回分类文件；复用现有query-current权限，不新增菜单、路由、权限或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "page",
+      "value": "mdm/company-scope/index",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
       ]
     },
     {
-      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:delete",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mdm/src/main/java/cn/iocoder/yudao/module/mdm/controller/admin/companyscope/MdmCompanyScopeController.java",
+      "kind": "permission",
+      "value": "mdm:company-scope:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/controlled-upload/index.vue",
+      "value": "dcc/controlled-file/controlled-upload/index",
+      "kind": "page",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "value": "dcc:controlled-file:import",
+      "kind": "permission",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileHistoricalImportController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:import",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileHistoricalImportService.java",
       "kind": "permission",
       "value": "dcc:controlled-file:edit",
       "migrations": [
@@ -983,11 +1099,11 @@
       ]
     },
     {
-      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccArchiveAccessService.java",
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileHistoricalImportService.java",
       "kind": "permission",
-      "value": "dcc:controlled-file:archive:query",
+      "value": "dcc:controlled-file:import",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
       ]
     },
     {
@@ -999,17 +1115,142 @@
       ]
     },
     {
-      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
       "kind": "permission",
-      "value": "dcc:library:general:edit",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccExternalFileReviewController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "文档14普通文件编辑读取既有类型分类列表、上传候选及启用category解析，复用已由20261102_dcc_controlled_import_edit_permissions.sql登记的独立edit权限；仅三个GET允许edit与原只读资格并列，create/update/delete仍要求category:manage；未新增权限、页面、菜单、角色或租户套餐授权，无新增迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_project_reviewer_approval_center_access.sql",
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_registration_approver_task_update.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccArchiveDownloadController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccArchiveAccessService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ArchiveBrowserPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccLibraryController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
       ]
     },
     {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccLibraryController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:import",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/approval/ApprovalCenterController.java",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_registration_approver_task_update.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/DccDistributionTaskController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "既有发送与签收详情及失败批次重试已使用全局EDIT入口；本次Controller与前端一致复用现有编辑权限，服务继续按真实文件/库EDIT、租户、启用账号和精确批次轮次二次授权；不新增菜单、角色或套餐授权。"
+    },
+    {
       "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
       "kind": "permission",
-      "value": "dcc:library:general:view",
+      "value": "dcc:library:qms:view",
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
       ]
@@ -1025,26 +1266,30 @@
     {
       "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
       "kind": "permission",
-      "value": "dcc:library:qms:view",
+      "value": "dcc:library:general:view",
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
       ]
     },
     {
-      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
       "kind": "permission",
-      "value": "dcc:controlled-file:archive:query",
+      "value": "dcc:library:general:edit",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
       ]
     },
     {
-      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/LibraryRoleAccessHint.vue",
       "kind": "permission",
-      "value": "dcc:controlled-file:edit",
-      "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
-      ]
+      "value": "system:role:query",
+      "reason": "复用既有系统权限角色查询权限展示授权入口；不新增系统角色管理权限，仅新增四个文件夹权限，已关联20261105_dcc_library_role_permissions.sql。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/basic-data/file-type-taxonomy/index",
+      "reason": "既有五级文件分类页面新增原子保存审批矩阵，沿用现有菜单及dcc:controlled-file:category:manage文控维护权限，无新增菜单、权限或路由。"
     }
   ]
 }

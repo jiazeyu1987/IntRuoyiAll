@@ -82,6 +82,20 @@ class DccWorkingApplicationDraftInitializerTest extends BaseDbUnitTest {
     private void target(){files.insert(working(30L,20L,"A/1-1"));}
     private int count(String table){return jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class);}
 
+    @ParameterizedTest @ValueSource(strings={"QMS","GENERAL"})
+    void libraryInitialDraftAndSubmissionKeepMarkerWithoutProjectFields(String scope) {
+        jdbc.update("UPDATE dcc_project_code SET library_scope=?,default_attributes_json=NULL WHERE id=5",scope);
+        var marker=DccProjectAttributes.forLibrary(scope);
+        var draft=init(null,20L,null);
+        assertEquals(marker,attributes.readValue(draft.getDefaultSourceJson()));
+        assertEquals(marker,attributes.readValue(draft.getActualAttributesJson()));
+        tx().executeWithoutResult(s->bridge.submitReservedDraft(99L,5L,"UPLOAD",20L,draft.getApplicationRound(),"library-bpm",marker));
+        var frozen=bridge.read(99L,5L,"UPLOAD",20L,"library-bpm");
+        assertTrue(frozen.getSubmitted());
+        assertEquals(marker,attributes.readValue(frozen.getActualAttributesJson()));
+        assertEquals(1,count("dcc_application_round_link"));
+        assertNull(jdbc.queryForObject("SELECT default_attributes_json FROM dcc_project_code WHERE id=5",String.class));
+    }
     @Test void mandatoryProxyRejectsNoTransactionWithoutAnyRoundOrAttributeWrites(){
         assertThrows(IllegalTransactionStateException.class,()->initializer.initialize(99L,null,20L,ce));
         assertEquals(0,count("dcc_application_round_link"));assertEquals(0,count("dcc_project_application_attributes"));

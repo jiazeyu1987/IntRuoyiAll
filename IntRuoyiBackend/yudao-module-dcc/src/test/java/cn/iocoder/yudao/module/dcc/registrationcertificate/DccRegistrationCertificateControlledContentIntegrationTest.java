@@ -78,6 +78,8 @@ class DccRegistrationCertificateControlledContentIntegrationTest extends BaseDbU
     private DccRegistrationCertificateFileMapper dbFileMapper;
     @Resource
     private DccRegistrationCertificateAuditMapper auditMapper;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private DccOnlineFilePreviewService onlineFilePreviewService;
@@ -174,6 +176,7 @@ class DccRegistrationCertificateControlledContentIntegrationTest extends BaseDbU
                 .effectiveAt(LocalDateTime.of(2026, 8, 1, 0, 0))
                 .build();
         snapshot.setTenantId(tenantId);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
 
         DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()

@@ -18,7 +18,7 @@
         file.fileNumber || '未记录'
       }}</el-descriptions-item>
       <el-descriptions-item label="查看版本">{{ getDccVersionDisplayText(file.versionNo) }}</el-descriptions-item>
-      <el-descriptions-item label="文件负责人">{{
+      <el-descriptions-item label="文件编制人">{{
         file.fileOwnerNicknameSnapshot || file.fileOwnerUsernameSnapshot || '未记录'
       }}</el-descriptions-item>
       <el-descriptions-item label="项目">{{

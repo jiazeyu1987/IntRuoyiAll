@@ -47,6 +47,8 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
     @Mock private cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper forms;
     @Mock private DccBoundWorkflowContractResolver historicalContracts;
     @Mock private DccApplicationRoundService rounds;
+    @Mock private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService definitions;
+    @Mock private org.flowable.engine.repository.ProcessDefinition definition;
     private final DccControlledFileWorkflowServiceImpl workflow = new DccControlledFileWorkflowServiceImpl();
     private final DccWorkflowSignoffAssignmentService signoff = new DccWorkflowSignoffAssignmentService();
     private DccControlledFileDO file;
@@ -63,6 +65,7 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(signoff, "snapshotMapper", snapshots);
         ReflectionTestUtils.setField(signoff, "bpmTaskService", bpm);
         ReflectionTestUtils.setField(signoff, "runtimeService", runtime);
+        ReflectionTestUtils.setField(signoff, "definitions", definitions);
         ReflectionTestUtils.setField(signoff, "taskService", tasks);
         ReflectionTestUtils.setField(signoff, "readinessService", participants);
         ReflectionTestUtils.setField(signoff, "signatureService", signatures);
@@ -79,7 +82,11 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         when(task.getId()).thenReturn("obsolete-task");
         when(task.getTenantId()).thenReturn("1");
         when(task.getProcessInstanceId()).thenReturn("obsolete-round-2");
-        when(task.getProcessDefinitionId()).thenReturn("dcc-controlled-file-obsolete:4:definition");
+        when(task.getProcessDefinitionId()).thenReturn("0fe2b5cf-cebe-11f1-a7bc-b082e25ec548");
+        when(definitions.getProcessDefinition(task.getProcessDefinitionId())).thenReturn(definition);
+        when(definition.getId()).thenReturn("0fe2b5cf-cebe-11f1-a7bc-b082e25ec548");
+        when(definition.getTenantId()).thenReturn("1");
+        when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
         when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
         when(task.getExecutionId()).thenReturn("actual-history-execution");
         when(task.getTaskLocalVariables()).thenReturn(Map.of(
@@ -97,10 +104,26 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
                 .systemCode("DCC").objectType("CONTROLLED_FILE").actionCode("OBSOLETE").objectId("10").objectVersion("A/1").status("IN_APPROVAL").bpmProcessInstanceId("obsolete-round-2")
                 .formDataJson("{\"dccExecutionPreparation\":{\"formatVersion\":\"DCC_OBSOLETE_FORM_PREPARATION_V1\"}}").build()));
         when(rounds.require("OBSOLETE",10L,"obsolete-round-2")).thenReturn(3);
-        when(historicalContracts.resolveRoundFlowContract(eq(file),any())).thenReturn(new DccBoundWorkflowContractResolver.RoundFlowContract(1L,10L,"OBSOLETE",3,"obsolete-round-2",DccControlledFileProcessDefinitionKeys.OBSOLETE,"dcc-controlled-file-obsolete:4:definition","historical-deployment","historical-full-digest","historical-contract",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,null,501L,"HISTORICAL-V1",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));
+        when(historicalContracts.resolveRoundFlowContract(eq(file),any())).thenReturn(new DccBoundWorkflowContractResolver.RoundFlowContract(1L,10L,"OBSOLETE",3,"obsolete-round-2",DccControlledFileProcessDefinitionKeys.OBSOLETE,"0fe2b5cf-cebe-11f1-a7bc-b082e25ec548","historical-deployment","historical-full-digest","historical-contract",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,null,501L,"HISTORICAL-V1",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test void obsoleteIdentityUsesActualDefinitionKeyAndRejectsBorrowedDefinitionOrTenant() {
+        assertTrue(signoff.isObsoleteProcessForFile(task,10L));
+        when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.REVISION);
+        assertFalse(signoff.isObsoleteProcessForFile(task,10L));
+        when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(definition.getId()).thenReturn("borrowed-definition");
+        assertServiceException(()->signoff.isObsoleteProcessForFile(task,10L),CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        when(definition.getId()).thenReturn("0fe2b5cf-cebe-11f1-a7bc-b082e25ec548");
+        when(definition.getTenantId()).thenReturn("2");
+        assertServiceException(()->signoff.isObsoleteProcessForFile(task,10L),CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        when(definition.getTenantId()).thenReturn("1");
+        when(definitions.getProcessDefinition(task.getProcessDefinitionId())).thenReturn(null);
+        assertServiceException(()->signoff.isObsoleteProcessForFile(task,10L),CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        verifyNoInteractions(signatures,bindings,tasks,participants);
+    }
 
     @Test void signedAssigneeCanPreviewIndependentObsoleteReviewWithoutWrites() {
         var result = readiness();
@@ -108,7 +131,7 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         assertFalse(result.getFinalApproval(), "Obsolete has no doc-control artifact approval");
         assertEquals(List.of(), result.getBlockers());
         verify(bpm).validateTask(99L, "obsolete-task");
-        verify(participants).requireReadyParticipants("MATRIX_REVIEW", List.of(99L));
+        verify(participants).requireReadyObsoleteParticipants("MATRIX_REVIEW", List.of(99L));
         verifyNoInteractions(signatures, bindings, tasks);
         verify(bpm, never()).approveTask(any(), any());
         verify(bpm, never()).rejectTask(any(), any());
@@ -120,7 +143,7 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         var result = readiness();
         assertTrue(result.getReady());
         assertFalse(result.getFinalApproval());
-        verify(participants).requireReadyParticipants("MATRIX_APPROVAL", List.of(99L));
+        verify(participants).requireReadyObsoleteParticipants("MATRIX_APPROVAL", List.of(99L));
         verifyNoInteractions(snapshots, signatures, bindings, tasks);
     }
 
@@ -141,7 +164,7 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
 
     @Test void participantFailurePropagatesWithoutSuccessfulReadiness() {
         doThrow(new IllegalStateException("participant disabled")).when(participants)
-                .requireReadyParticipants("MATRIX_REVIEW", List.of(99L));
+                .requireReadyObsoleteParticipants("MATRIX_REVIEW", List.of(99L));
         var failure = assertThrows(IllegalStateException.class, this::readiness);
         assertEquals("participant disabled", failure.getMessage());
         verifyNoInteractions(signatures, bindings, tasks);

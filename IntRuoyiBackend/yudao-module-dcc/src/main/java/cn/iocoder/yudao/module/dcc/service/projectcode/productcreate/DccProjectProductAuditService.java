@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.service.projectcode.productcreate;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductIdentityClaimDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.*;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
@@ -32,6 +33,13 @@ public class DccProjectProductAuditService {
     @Resource private GxpAuditService ledger;
 
     public void validateReason(String reason) { reasons.validateReason(reason); }
+    public String validateDecisionReason(String reason, boolean approve) {
+        String normalized=ApprovalReviewReason.normalize(reason);
+        if (!approve) validateReason(normalized);
+        else if (reason != null && reason.length() > 500)
+            throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        return normalized;
+    }
     public Snapshot beforeCreate(Long templateId) {
         var template=templateId==null?null:templates.selectByIdForUpdate(templateId);
         if(template==null || !Objects.equals(template.getTenantId(),TenantContextHolder.getRequiredTenantId()))
@@ -66,14 +74,22 @@ public class DccProjectProductAuditService {
         return String.valueOf(attempt);
     }
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
-    public void append(String operation,Long requestId,String version,String reason,Snapshot before) {
-        reasons.validateReason(reason);
+    public void append(String operation,Long requestId,String version,String reason,Snapshot before,String approvalResult) {
         var after=snapshot(requestId);
+        if (("dcc.project-product.complete".equals(operation) || "dcc.project-product.write-failed".equals(operation))
+                && !"WRITING".equals(before.state())) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        String normalizedReason=validateDecisionReason(reason,"APPROVE".equals(approvalResult));
+        String afterJson=after.json();
+        if (approvalResult!=null) {
+            var payload=JsonUtils.parseObject(afterJson,LinkedHashMap.class);
+            payload.put("approvalResult",approvalResult);
+            afterJson=JsonUtils.toJsonString(payload);
+        }
         ledger.append(GxpAuditCommand.builder().operationId(operation)
-                .subjectId("DCC_PROJECT_PRODUCT_REQUEST:"+requestId).subjectVersion(version).reason(reason.trim())
+                .subjectId("DCC_PROJECT_PRODUCT_REQUEST:"+requestId).subjectVersion(version).reason(normalizedReason)
                 .idempotencyKey("DCC:PROJECT_PRODUCT:"+requestId+":"+operation.substring("dcc.project-product.".length())+":"+version)
                 .source("DccProjectProductAuditService.append")
                 .beforeState(GxpAuditStateEnvelope.builder().state(before.state()).objectVersion(version).canonicalJson(before.json()).build())
-                .afterState(GxpAuditStateEnvelope.builder().state(after.state()).objectVersion(version).canonicalJson(after.json()).build()).build());
+                .afterState(GxpAuditStateEnvelope.builder().state(after.state()).objectVersion(version).canonicalJson(afterJson).build()).build());
     }
 }

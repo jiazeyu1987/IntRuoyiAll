@@ -11,11 +11,13 @@ export const buildSubmittedApplicationRoute = (
   sourceQuery: Record<string, unknown>
 ) => {
   const id = requireSubmittedApplicationId(submittedId)
-  const from = sourceQuery.from
-  const returnTo = sourceQuery.returnTo
+  const isRestart = sourceQuery.management === '1' && sourceQuery.restartApplication === '1'
+  const from = isRestart ? 'application-restart' : sourceQuery.from
+  const returnTo = isRestart ? '/dcc/controlled-file/browser' : sourceQuery.returnTo
   const managed = sourceQuery.management === '1' || sourceQuery.mode === 'manage'
-  if (!managed || !['browser', 'project-browser', 'workbench'].includes(String(from))
+  if (!managed || !['browser', 'project-browser', 'workbench', 'application-restart'].includes(String(from))
     || typeof from !== 'string' || typeof returnTo !== 'string'
+    || (from === 'application-restart' && returnTo !== '/dcc/controlled-file/browser')
     || !returnTo.startsWith('/dcc/controlled-file/') || /[\x00-\x1f\\]/.test(returnTo)) {
     throw new Error('原文件管理入口或返回目录缺失，请从项目目录重新查看提交结果')
   }

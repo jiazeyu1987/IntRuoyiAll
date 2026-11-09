@@ -55,7 +55,8 @@ class DccObsoleteFormExecutionPreparationTest extends DccNewActionBaselinePrepar
         var readonly=new DccControlledFileRouteReadinessService();
         var auth=mock(DccElectronicSignatureAuthorizationService.class);when(auth.getAuthorizationMap(any())).thenAnswer(c->{var result=new HashMap<Long,Boolean>();for(Long id:c.<Collection<Long>>getArgument(0))result.put(id,true);return result;});
         var signatureImages=mock(DccElectronicSignatureImageService.class);when(signatureImages.requireActiveSnapshot(anyLong())).thenReturn(DccElectronicSignatureImageSnapshot.builder().imageId(10L).fileId(10L).verifiedStatus("VALID").build());
-        var actionPermissions=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);when(actionPermissions.hasAnyPermissions(anyLong(),any(String[].class))).thenReturn(true);
+        // Resolved obsolete approvers deliberately have no DCC review/approve menu permissions.
+        var actionPermissions=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
         wire(readonly,"adminUserApi",users,"permissionApi",actionPermissions,"signatureAuthorizationService",auth,"signatureImageService",signatureImages);
         Path root=Path.of("").toAbsolutePath();while(root!=null&&!Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
         obsoleteId=deploy(Files.readString(root.resolve("doc/tasks/20261011-dcc-w05-approval-signatures/bpmn-v5/obsolete.bpmn20.xml")));
@@ -86,6 +87,43 @@ class DccObsoleteFormExecutionPreparationTest extends DccNewActionBaselinePrepar
         assertEquals(obsoleteId,result.processDefinitionId());assertEquals(DccControlledFileProcessDefinitionKeys.OBSOLETE,result.processDefinitionKey());assertEquals(saved,result.formDataJson());
         assertEquals(List.of(99L),result.startUserSelectAssignees().get("SUPERVISOR_REVIEW"));assertEquals(List.of(99L),result.startUserSelectAssignees().get("MATRIX_REVIEW"));assertEquals(List.of(99L),result.approveUserSelectAssignees().get("MATRIX_APPROVAL"));
         assertFalse(result.startUserSelectAssignees().containsKey("DOC_CONTROL_REVIEW"));assertFalse(result.approveUserSelectAssignees().containsKey("TRAINING"));assertEquals(before,original(20L));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
+    }
+    @Test void registeredRetiredKeyReadsRecordedObsoleteProofButCannotSubmitItAsNew(){
+        String saved=prepare();draftJson=saved;request.setFormData(JsonUtils.parseObject(saved,Map.class));
+        var preparation=(Map<String,Object>)request.getFormData().get("dccExecutionPreparation");
+        var proof=(DccObsoleteFormPreparationProof)org.springframework.test.util.ReflectionTestUtils.getField(source,"proof");
+        var signing=(DccApprovalMatrixTokenProperties)org.springframework.test.util.ReflectionTestUtils.getField(proof,"signing");
+        byte[] originalKey=signing.requireSigningKey();
+        var form=new cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO();
+        form.setId(501L);form.setInstanceCode("ACTUAL-FORM-CODE");form.setApplicantUserId(99L);form.setFormDataJson(saved);
+        when(signing.requireSigningKey()).thenReturn("new-obsolete-preparation-signing-key-at-least-32-bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThrows(IllegalArgumentException.class,()->proof.verifyRecorded(files.selectById(20L),form,preparation,obsoleteId,(String)preparation.get("preparedDefinitionDigest")));
+        when(signing.recordedVerificationKeys()).thenReturn(List.of(originalKey));
+        assertNotNull(proof.verifyRecorded(files.selectById(20L),form,preparation,obsoleteId,(String)preparation.get("preparedDefinitionDigest")));
+        assertThrows(IllegalArgumentException.class,()->tx().execute(s->source.verifyExactSubmission(persisted(),request,99L)));
+        form.setInstanceCode("BORROWED-FORM-CODE");
+        assertThrows(IllegalArgumentException.class,()->proof.verifyRecorded(files.selectById(20L),form,preparation,obsoleteId,(String)preparation.get("preparedDefinitionDigest")));
+        form.setInstanceCode("ACTUAL-FORM-CODE");
+        var tampered=new TreeMap<String,Object>(preparation);tampered.put("businessPayloadDigest","a".repeat(64));
+        assertThrows(IllegalArgumentException.class,()->proof.verifyRecorded(files.selectById(20L),form,tampered,obsoleteId,(String)preparation.get("preparedDefinitionDigest")));
+    }
+    @Test void obsoleteSavedDepartmentRosterPreparesAndVerifiesAgainstLegacyPositionSourceWithoutChangingIt(){
+        jdbc.update("UPDATE dcc_category_approval_route_node SET subject_type='DCC_POSITION',candidate_source_type='POSITION',candidate_source_id=900302,candidate_source_ids='900302' WHERE tenant_id=1 AND stage_type='SIGNOFF'");
+        String originalMatrix=matrixSources.read(2L).canonical();var before=original(20L);
+        String saved=prepare();draftJson=saved;request.setFormData(JsonUtils.parseObject(saved,Map.class));
+        var result=tx().execute(s->source.verifyExactSubmission(persisted(),request,99L));
+        assertEquals(List.of(99L),result.startUserSelectAssignees().get("MATRIX_REVIEW"));
+        var preparation=(Map<String,Object>)request.getFormData().get("dccExecutionPreparation");
+        assertEquals(originalMatrix,preparation.get("sourceApprovalMatrixJson"));assertEquals(originalMatrix,matrixSources.read(2L).canonical());
+        var runtime=JsonUtils.parseObject((String)preparation.get("runtimeApprovalNodesJson"),Map.class);
+        var nodes=JsonUtils.parseArray(JsonUtils.toJsonString(runtime.get("nodes")),DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode.class);
+        assertEquals("DEPT",nodes.get(1).candidateSourceType());assertEquals(List.of(51L),nodes.get(1).candidateSourceIds());
+        assertEquals(List.of(99L),nodes.get(1).resolvedUserIds());assertEquals("ALL",nodes.get(1).approveMethod());
+        var groups=JsonUtils.parseArray(JsonUtils.toJsonString(runtime.get("groups")),cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.RuleGroup.class);
+        var signoff=groups.stream().filter(g->"SIGNOFF".equals(g.stageType())).findFirst().orElseThrow();
+        assertEquals("DCC_POSITION",signoff.subjectType());assertEquals(List.of(900302L),signoff.candidateSourceIds());assertFalse(signoff.applied());
+        assertEquals(before,original(20L));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
+        verify(departments).getDeptList(List.of(51L));
     }
     @ParameterizedTest @ValueSource(strings={"ACTOR","TENANT","FORM_CODE","OBJECT_VERSION","PREPARATION_ID","RAW","RUNTIME","SUPERVISOR","TOKEN","MISSING","NO_PROVIDER","INACTIVE_SOURCE","PERMISSION","AUTHENTICATED_ACTOR","MASTER_PROJECT","MASTER_TAXONOMY"})
     void malformedOrUnavailablePreparationCannotBeTrusted(String violation){

@@ -108,9 +108,17 @@ class DccApplicationCustomMatrixWorkflowTest extends DccPreparedExecutionInherit
         assertEquals(publicBefore,jdbc.queryForList("SELECT * FROM dcc_category_approval_route"));assertEquals(nodesBefore,jdbc.queryForList("SELECT * FROM dcc_category_approval_route_node"));
     }
     @Test void exactCommittedReplayReturnsOneInstanceButChangedCustomPayloadRejects()throws Exception{
+        var issued=java.time.Instant.parse("2026-10-31T10:00:00Z");wire(tokens,"customClock",java.time.Clock.fixed(issued,java.time.ZoneOffset.UTC));
         actualCustomPreviewSaveRestoreSubmitStartsSupervisorAndFreezesOwnSourceWithoutPublicMatrix();
         var before=jdbc.queryForList("SELECT * FROM dcc_controlled_file_route_snapshot");String processId=files.selectById(20L).getProcessInstanceId();
         var taskIds=engine.getTaskService().createTaskQuery().processInstanceId(processId).list().stream().map(org.flowable.task.api.Task::getId).toList();var filesBefore=stableRows("dcc_controlled_file");var attrsBefore=stableRows("dcc_project_application_attributes");
+        assertEquals(Long.valueOf(20L),tx().execute(s->workflow.submitWorkingIteration(99L,20L,savedRequest)));
+        wire(tokens,"customClock",java.time.Clock.fixed(issued.plusSeconds(60),java.time.ZoneOffset.UTC));
+        var context=new DccApplicationCustomMatrixService.SourceContext(DccApplicationCustomMatrix.ApprovalSourceMode.APPLICATION_CUSTOM,1L,5L,2L,6L,99L,20L,1,"UPLOAD",scope,definitionId,digest);
+        var selection=new DccApplicationCustomMatrixService().canonicalize(context,custom,List.of(51L,52L));
+        var proof=tokens.issueCustomSupervisorReserved(context,selection,new DccDirectSupervisorSource.Evidence(1L,99L,88L,"FORMAL_ORGANIZATION","relation-99","v1"));
+        assertNotEquals(savedRequest.getSupervisorSourceToken(),proof.sourceToken());
+        savedRequest.setApplicationCustomMatrixToken(tokens.issueCustomReserved(context,selection));savedRequest.setExpectedSupervisorSourceDigest(proof.sourceDigest());savedRequest.setSupervisorSourceToken(proof.sourceToken());
         assertEquals(Long.valueOf(20L),tx().execute(s->workflow.submitWorkingIteration(99L,20L,savedRequest)));
         assertEquals(1,caseProcessCount());assertEquals(processId,files.selectById(20L).getProcessInstanceId());assertEquals(taskIds,engine.getTaskService().createTaskQuery().processInstanceId(processId).list().stream().map(org.flowable.task.api.Task::getId).toList());assertEquals(before,jdbc.queryForList("SELECT * FROM dcc_controlled_file_route_snapshot"));assertEquals(filesBefore,stableRows("dcc_controlled_file"));assertEquals(attrsBefore,stableRows("dcc_project_application_attributes"));
         savedRequest.setApplicationCustomMatrix(new DccApplicationCustomMatrix(78L,66L));
@@ -175,6 +183,7 @@ class DccApplicationCustomMatrixWorkflowTest extends DccPreparedExecutionInherit
         assertEquals(Long.valueOf(20),tx().execute(s->workflow.submitWorkingIteration(99L,20L,r)));routeSnapshots.selectListByControlledFileId(20L).forEach(row->{assertEquals(1,row.getRouteVersionNo());assertEquals(31L,row.getSourceApprovalMatrixId());});
     }
     void newApplication(boolean direct)throws Exception{
+        var issued=java.time.Instant.parse("2026-10-31T10:00:00Z");wire(tokens,"customClock",java.time.Clock.fixed(issued,java.time.ZoneOffset.UTC));
         var p=previewRequest();p.setControlledFileId(null);var preview=tx().execute(s->workflow.previewRoute(99L,p));
         assertEquals("PREVIEW",preview.getApplicationCustomMatrixPhase());assertFalse(preview.getApplicationCustomMatrixCanonical().contains("controlledFileId"));
         var tax=mock(cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService.class);var path=new cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath(6L,"技术文档","输出","任意类型",null,null);
@@ -185,15 +194,43 @@ class DccApplicationCustomMatrixWorkflowTest extends DccPreparedExecutionInherit
         var directories=mock(cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper.class);var directory=cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO.builder().id(3L).active(true).name("SOP").build();when(directories.selectById(3L)).thenReturn(directory);when(directories.selectEnabledList()).thenReturn(List.of(directory));
         wire(workflow,"fileTypeTaxonomyAdminService",tax,"fileMapper",physical,"sourceOwnershipService",bodies,"uploadTicketService",tickets,"directoryMapper",directories,"revisionService",new DccControlledFileRevisionServiceImpl(),"submitMutex",new DccControlledFileSubmitMutex(),"nameClaimService",mock(DccControlledFileNameClaimService.class));
         var r=new DccControlledFileSubmitReqVO();r.setIdempotencyKey("g03-new-draft");r.setCategoryId(2L);r.setDccProjectCodeId(5L);r.setProjectFolderId(500L);r.setFileTypeTaxonomyId(6L);r.setFileName("Custom-new");r.setFileNumber("G03-NEW");r.setVersionNo("A/1");r.setChangeType("NEW");r.setProcessType("CONTROLLED_FILE");r.setNeedTraining(false);r.setEffectiveMode("DELAYED");r.setSelectedSignoffDepartmentIds(List.of(51L,52L));r.setSelectedDistributionDepartmentIds(List.of());r.setProjectAttributes(actual);r.setOriginalUploadTicket("g03-source-ticket");r.setSessionId(DccSourceUploadSession.scope(DccSourceUploadSession.newUploadPrefix(5L,6L,"Custom-new"),"g03-new"));r.setApplicationCustomMatrix(custom);r.setApplicationContextKey(scope);r.setApplicationCustomMatrixPhase("PREVIEW");r.setExpectedApplicationCustomMatrixDigest(preview.getApplicationCustomMatrixDigest());r.setApplicationCustomMatrixToken(preview.getApplicationCustomMatrixToken());r.setExpectedSupervisorSourceDigest(preview.getSupervisorSourceDigest());r.setSupervisorSourceToken(preview.getSupervisorSourceToken());r.setExecutionContract(preview.getExecutionContract());r.setExpectedProcessDefinitionId(definitionId);r.setExpectedDefinitionDigest(digest);
+        if(direct){
+            var before=stableRows("dcc_controlled_file");String originalToken=r.getApplicationCustomMatrixToken();
+            r.setApplicationCustomMatrixToken(originalToken+"tampered");
+            assertThrows(IllegalArgumentException.class,()->tx().execute(s->workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));
+            r.setApplicationCustomMatrixToken(originalToken);wire(tokens,"customClock",java.time.Clock.fixed(issued.plusSeconds(901),java.time.ZoneOffset.UTC));
+            assertThrows(IllegalArgumentException.class,()->tx().execute(s->workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));
+            wire(tokens,"customClock",java.time.Clock.fixed(issued,java.time.ZoneOffset.UTC));
+            doReturn(new DccDirectSupervisorSource.Evidence(1L,99L,88L,"FORMAL_ORGANIZATION","relation-99","v2")).when(organization).require(any());
+            assertThrows(IllegalArgumentException.class,()->tx().execute(s->workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));
+            doReturn(new DccDirectSupervisorSource.Evidence(1L,99L,88L,"FORMAL_ORGANIZATION","relation-99","v1")).when(organization).require(any());
+            assertEquals(before,stableRows("dcc_controlled_file"));assertEquals(0,caseProcessCount());assertEquals(0L,routeSnapshots.selectCount(null));
+        }
         Long id=tx().execute(s->direct?workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false)):workflow.createWorkingWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false)));
         assertNotEquals(20L,id);var file=files.selectById(id);assertEquals("APPLICATION_CUSTOM",file.getDraftApprovalSourceMode());assertNull(file.getDraftApprovalMatrixJson());assertTrue(file.getDraftApplicationCustomMatrixJson().contains("\"controlledFileId\":\""+id+"\""));
+        wire(tokens,"customClock",java.time.Clock.fixed(issued.plusSeconds(60),java.time.ZoneOffset.UTC));
+        var fresh=tx().execute(s->workflow.previewRoute(99L,p));
+        assertNotEquals(r.getApplicationCustomMatrixToken(),fresh.getApplicationCustomMatrixToken());assertNotEquals(r.getExpectedSupervisorSourceDigest(),fresh.getSupervisorSourceDigest());
+        r.setApplicationCustomMatrixToken(fresh.getApplicationCustomMatrixToken());r.setExpectedSupervisorSourceDigest(fresh.getSupervisorSourceDigest());r.setSupervisorSourceToken(fresh.getSupervisorSourceToken());
         if(direct){
             assertEquals("PENDING_SUPERVISOR_REVIEW",file.getStatus());assertNotNull(file.getProcessInstanceId());assertEquals(4,routeSnapshots.selectListByControlledFileId(id).size());assertEquals("SUPERVISOR_REVIEW",engine.getTaskService().createTaskQuery().processInstanceId(file.getProcessInstanceId()).singleResult().getTaskDefinitionKey());
             var before=stableRows("dcc_controlled_file");var frozen=stableRows("dcc_controlled_file_route_snapshot");String process=file.getProcessInstanceId();
             assertEquals(id,tx().execute(s->workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));
             assertEquals(process,files.selectById(id).getProcessInstanceId());assertEquals(before,stableRows("dcc_controlled_file"));assertEquals(frozen,stableRows("dcc_controlled_file_route_snapshot"));
-            r.setApplicationCustomMatrix(new DccApplicationCustomMatrix(78L,66L));assertThrows(RuntimeException.class,()->tx().execute(s->workflow.submitNewWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));assertEquals(before,stableRows("dcc_controlled_file"));assertEquals(frozen,stableRows("dcc_controlled_file_route_snapshot"));
+            r.setApplicationCustomMatrix(new DccApplicationCustomMatrix(78L,66L));assertDirectReplayConflict(r);r.setApplicationCustomMatrix(custom);
+            r.setOriginalUploadTicket("different-material");assertDirectReplayConflict(r);r.setOriginalUploadTicket("g03-source-ticket");
+            var attachment=new DccControlledFileAttachmentUploadTicketReqVO();attachment.setUploadTicket("new-attachment");attachment.setSessionId("new-attachment-session");r.setAttachmentUploadTickets(List.of(attachment));
+            assertDirectReplayConflict(r);r.setAttachmentUploadTickets(null);
+            doReturn(new DccDirectSupervisorSource.Evidence(1L,99L,88L,"FORMAL_ORGANIZATION","relation-99","v2")).when(organization).require(any());
+            var changedSource=tx().execute(s->workflow.previewRoute(99L,p));r.setExpectedSupervisorSourceDigest(changedSource.getSupervisorSourceDigest());r.setSupervisorSourceToken(changedSource.getSupervisorSourceToken());
+            assertDirectReplayConflict(r);
+            assertEquals(before,stableRows("dcc_controlled_file"));assertEquals(frozen,stableRows("dcc_controlled_file_route_snapshot"));assertEquals(1,caseProcessCount());
         }
-        else{var restored=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,id));assertEquals(custom,restored.applicationCustomMatrix());assertEquals(scope,restored.applicationContextKey());assertEquals(1,restored.attributeRound());assertEquals(0L,routeSnapshots.selectCount(null));}
+        else{assertEquals(id,tx().execute(s->workflow.createWorkingWithDerivedStorage(99L,r,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));var restored=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,id));assertEquals(custom,restored.applicationCustomMatrix());assertEquals(scope,restored.applicationContextKey());assertEquals(1,restored.attributeRound());assertEquals(0L,routeSnapshots.selectCount(null));}
+    }
+    private void assertDirectReplayConflict(DccControlledFileSubmitReqVO request){
+        var failure=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->tx().execute(s->workflow.submitNewWithDerivedStorage(99L,request,new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false))));
+        assertEquals(1_080_000_342,failure.getCode());
     }
 }

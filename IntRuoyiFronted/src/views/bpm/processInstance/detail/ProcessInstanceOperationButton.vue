@@ -8,7 +8,7 @@
       placement="top-end"
       :width="420"
       trigger="click"
-      v-if="runningTask && isHandleTaskStatus() && isShowButton(OperationButtonType.APPROVE)"
+      v-if="runningTask && !isDccControlledFileProcess && isHandleTaskStatus() && isShowButton(OperationButtonType.APPROVE)"
     >
       <template #reference>
         <el-button plain type="success" @click="openPopover('approve')">
@@ -41,7 +41,7 @@
           <el-form-item :label="`${nodeTypeName}意见`" prop="reason">
             <el-input
               v-model="approveReasonForm.reason"
-              :placeholder="`请输入${nodeTypeName}意见`"
+              :placeholder="`可填写${nodeTypeName}意见（选填）`"
               type="textarea"
               :rows="4"
             />
@@ -95,7 +95,7 @@
       placement="top-end"
       :width="420"
       trigger="click"
-      v-if="runningTask && isHandleTaskStatus() && isShowButton(OperationButtonType.REJECT)"
+      v-if="runningTask && !isDccControlledFileProcess && isHandleTaskStatus() && isShowButton(OperationButtonType.REJECT)"
     >
       <template #reference>
         <el-button class="mr-20px" plain type="danger" @click="openPopover('reject')">
@@ -112,10 +112,10 @@
           :rules="rejectReasonRule"
           label-width="100px"
         >
-          <el-form-item label="审批意见" prop="reason">
+          <el-form-item label="驳回原因" prop="reason">
             <el-input
               v-model="rejectReasonForm.reason"
-              placeholder="请输入审批意见"
+              placeholder="请输入驳回原因"
               type="textarea"
               :rows="4"
             />
@@ -492,9 +492,9 @@
       "
     >
       <template #reference>
-        <div @click="openPopover('cancel')" class="hover-bg-gray-100 rounded-xl p-6px">
-          <Icon :size="14" icon="fa:mail-reply" />&nbsp; 取消
-        </div>
+        <el-button type="danger" text class="font-bold" @click="openPopover('cancel')">
+          <Icon :size="14" icon="fa:mail-reply" />&nbsp; 撤回本次任务
+        </el-button>
       </template>
       <div class="flex flex-col flex-1 pt-20px px-20px" v-loading="formLoading">
         <el-form
@@ -505,12 +505,12 @@
           :rules="cancelFormRule"
           label-width="100px"
         >
-          <el-form-item label="取消理由" prop="cancelReason">
-            <span class="text-#878c93 text-12px">&nbsp; 取消后，该审批流程将自动结束</span>
+          <el-form-item label="撤回理由" prop="cancelReason">
+            <span class="text-#878c93 text-12px">&nbsp; 撤回后，该审批流程将自动结束</span>
             <el-input
               v-model="cancelForm.cancelReason"
               clearable
-              placeholder="请输入取消理由"
+              placeholder="请输入撤回理由"
               type="textarea"
               :rows="3"
             />
@@ -549,6 +549,7 @@ import * as TaskApi from '@/api/bpm/task'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import { CONTROLLED_FILE_PROCESS_DEFINITION_KEY } from '@/api/dcc/controlledFile/workflow'
 import { openControlledFileViewer } from '@/views/dcc/controlled-file/shared/viewer-navigation'
+import { resolveDccControlledFileBusinessId, resolveDccTaskHandlingLocation } from './dcc-business-identity'
 import * as UserApi from '@/api/system/user'
 import {
   NodeType,
@@ -603,19 +604,16 @@ const approveFormFApi = ref<any>({}) // approveForms 的 fAPi
 const nodeTypeName = ref('审批') // 节点类型名称
 
 // 审批通过意见表单
-const reasonRequire = ref()
 const approveFormRef = ref<FormInstance>()
 const signRef = ref()
 const approveSignFormRef = ref()
 const nextAssigneesActivityNode = ref<ProcessInstanceApi.ApprovalNodeInfo[]>([]) // 下一个审批节点信息
 const nextAssigneesTimelineRef = ref() // 下一个节点审批人时间线组件的引用
-const isFormCenterBusinessActionProcess = computed(() =>
-  String(props.processInstance?.businessKey || '').startsWith('FORM_ACTION:')
-)
+const manualNextAssignees = ref<Record<string, any[]>>({})
 const isDccControlledFileProcess = computed(
-  () =>
-    props.processInstance?.processDefinition?.key === CONTROLLED_FILE_PROCESS_DEFINITION_KEY &&
-    !isFormCenterBusinessActionProcess.value
+  () => ['dcc-controlled-file-upload', 'dcc-controlled-file-revision', 'dcc-controlled-file-obsolete',
+    'dcc-controlled-file-obsolete-approval', CONTROLLED_FILE_PROCESS_DEFINITION_KEY].includes(
+      props.processDefinition?.key || props.processInstance?.processDefinition?.key)
 )
 let nextApprovalRequestId = 0 // 请求序号；onChange 高频触发时，丢弃过期请求结果
 let pendingNextNodesTask: Promise<unknown> | null = null // 跟踪 onChange 触发的最新一轮重算，提交前需 await 等其完成
@@ -626,13 +624,6 @@ const approveReasonForm = reactive({
 })
 const approveReasonRule = computed(() => {
   return {
-    reason: [
-      {
-        required: reasonRequire.value,
-        message: nodeTypeName.value + '意见不能为空',
-        trigger: 'blur'
-      }
-    ],
     signPicUrl: [{ required: true, message: '签名不能为空', trigger: 'change' }],
     nextAssignees: [{ required: true, message: '审批人不能为空', trigger: 'blur' }]
   }
@@ -645,7 +636,7 @@ const rejectReasonForm = reactive({
 })
 const rejectReasonRule = computed(() => {
   return {
-    reason: [{ required: reasonRequire.value, message: '审批意见不能为空', trigger: 'blur' }]
+    reason: [{ required: true, whitespace: true, message: '驳回原因不能为空', trigger: 'blur' }]
   }
 })
 
@@ -720,7 +711,7 @@ const cancelForm = reactive({
   cancelReason: ''
 })
 const cancelFormRule = reactive<FormRules<typeof cancelForm>>({
-  cancelReason: [{ required: true, message: '取消理由不能为空', trigger: 'blur' }]
+  cancelReason: [{ required: true, message: '撤回理由不能为空', trigger: 'blur' }]
 })
 
 /** 监听 approveFormFApis，实现它对应的 form-create 初始化后，隐藏掉对应的表单提交按钮 */
@@ -779,7 +770,10 @@ const closePopover = (type: string, formRef: FormInstance | undefined) => {
     formRef.resetFields()
   }
   popOverVisible.value[type] = false
+  nextApprovalRequestId += 1
   nextAssigneesActivityNode.value = []
+  approveReasonForm.nextAssignees = {}
+  manualNextAssignees.value = {}
   // 清理 Timeline 组件中的自定义审批人数据
   if (nextAssigneesTimelineRef.value) {
     nextAssigneesTimelineRef.value.batchSetCustomApproveUsers({})
@@ -803,8 +797,9 @@ const initNextAssigneesFormField = async () => {
   }
   // 在最新结果到达时再清空，避免请求期间出现节点信息抖动
   nextAssigneesActivityNode.value = []
+  const nextAssignees: Record<string, any[]> = {}
+  const customApproveUsersData: Record<string, any[]> = {}
   if (data && data.length > 0) {
-    const customApproveUsersData: Record<string, any[]> = {} // 用于收集需要设置到 Timeline 组件的自定义审批人数据
     data.forEach((node: any) => {
       if (
         // 情况一：当前节点没有审批人，并且是发起人自选
@@ -815,19 +810,20 @@ const initNextAssigneesFormField = async () => {
         CandidateStrategy.APPROVE_USER_SELECT === node.candidateStrategy
       ) {
         nextAssigneesActivityNode.value.push(node)
-      }
-
-      // 如果节点有 candidateUsers，设置到 customApproveUsers 中
-      if (node.candidateUsers && node.candidateUsers.length > 0) {
-        customApproveUsersData[node.id] = node.candidateUsers
+        // 显示、校验和提交使用同一批人员；重算时保留当前节点的手动选择。
+        const users = manualNextAssignees.value[node.id] ?? node.candidateUsers ?? []
+        customApproveUsersData[node.id] = users
+        nextAssignees[node.id] = users.map((user: any) => user.id)
       }
     })
-
-    // 将 candidateUsers 设置到 Timeline 组件中
-    await nextTick() // 等待下一个 tick，确保 Timeline 组件已经渲染
-    if (nextAssigneesTimelineRef.value && Object.keys(customApproveUsersData).length > 0) {
-      nextAssigneesTimelineRef.value.batchSetCustomApproveUsers(customApproveUsersData)
-    }
+  }
+  approveReasonForm.nextAssignees = nextAssignees
+  manualNextAssignees.value = Object.fromEntries(
+    Object.entries(manualNextAssignees.value).filter(([id]) => id in nextAssignees)
+  )
+  await nextTick()
+  if (requestId === nextApprovalRequestId && nextAssigneesTimelineRef.value) {
+    nextAssigneesTimelineRef.value.batchSetCustomApproveUsers(customApproveUsersData)
   }
 }
 
@@ -836,7 +832,8 @@ const debouncedInitNextAssigneesFormField = useDebounceFn(initNextAssigneesFormF
 
 /** 选择下一个节点的审批人 */
 const selectNextAssigneesConfirm = (id: string, userList: any[]) => {
-  approveReasonForm.nextAssignees[id] = userList?.map((item: any) => item.id)
+  manualNextAssignees.value[id] = userList || []
+  approveReasonForm.nextAssignees[id] = manualNextAssignees.value[id].map((item: any) => item.id)
 }
 /** 审批通过时，校验每个自选审批人的节点是否都已配置了审批人 */
 const validateNextAssignees = () => {
@@ -858,9 +855,13 @@ const handleAudit = async (pass: boolean, formRef: FormInstance | undefined) => 
   formLoading.value = true
   try {
     if (isDccControlledFileProcess.value) {
-      const businessKey = String(props.processInstance?.businessKey || '')
+      const definitionKey = props.processDefinition?.key || props.processInstance?.processDefinition?.key
+      const location = resolveDccTaskHandlingLocation(props.processInstance, definitionKey, runningTask.value)
+      const businessKey = resolveDccControlledFileBusinessId(props.processInstance, definitionKey)
       message.warning('DCC受控文件审批请返回文控中心完成电子签名。')
-      if (/^\\d+$/.test(businessKey)) {
+      if (location) {
+        await router.push(location)
+      } else if (businessKey) {
         openControlledFileViewer(router, route, businessKey, 'bpm-dcc-approval')
       }
       return
@@ -886,7 +887,7 @@ const handleAudit = async (pass: boolean, formRef: FormInstance | undefined) => 
       // 审批通过数据
       const data = {
         id: runningTask.value.id,
-        reason: approveReasonForm.reason,
+        reason: approveReasonForm.reason.trim(),
         variables, // 审批通过, 把修改的字段值赋于流程实例变量
         nextAssignees: approveReasonForm.nextAssignees // 下个自选节点选择的审批人信息
       } as any
@@ -901,7 +902,9 @@ const handleAudit = async (pass: boolean, formRef: FormInstance | undefined) => 
       }
       await TaskApi.approveTask(data)
       popOverVisible.value.approve = false
+      nextApprovalRequestId += 1
       nextAssigneesActivityNode.value = []
+      manualNextAssignees.value = {}
       // 清理 Timeline 组件中的自定义审批人数据
       if (nextAssigneesTimelineRef.value) {
         nextAssigneesTimelineRef.value.batchSetCustomApproveUsers({})
@@ -911,7 +914,7 @@ const handleAudit = async (pass: boolean, formRef: FormInstance | undefined) => 
       // 审批不通过数据
       const data = {
         id: runningTask.value.id,
-        reason: rejectReasonForm.reason
+        reason: rejectReasonForm.reason.trim()
       }
       await TaskApi.rejectTask(data)
       popOverVisible.value.reject = false
@@ -1059,7 +1062,7 @@ const handleCancel = async () => {
       props.processInstance.id,
       cancelForm.cancelReason
     )
-    popOverVisible.value.return = false
+    popOverVisible.value.cancel = false
     message.success('操作成功')
     cancelFormRef.value.resetFields()
     // 2 重新加载数据
@@ -1165,7 +1168,9 @@ const loadTodoTask = (task: any) => {
   // 切换任务时重置请求序号与 pending 重算，避免旧任务飞行中的请求/Promise 串到新任务
   nextApprovalRequestId += 1
   pendingNextNodesTask = null
-  reasonRequire.value = task?.reasonRequire ?? false
+  nextAssigneesActivityNode.value = []
+  approveReasonForm.nextAssignees = {}
+  manualNextAssignees.value = {}
   nodeTypeName.value = task?.nodeType === NodeType.TRANSACTOR_NODE ? '办理' : '审批'
   // 处理 approve 表单
   if (task && task.formId && task.formConf) {

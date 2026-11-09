@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.bpm.approval.service;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalCenterReviewPreflight;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordResult;
@@ -117,12 +118,7 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         Objects.requireNonNull(command.getModuleCode(), "APPROVAL_MODULE_REQUIRED");
         requireText(command.getSourceTaskType(), "APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         Objects.requireNonNull(command.getResult(), "APPROVAL_REVIEW_RESULT_REQUIRED");
-        String reason = command.getReason() == null ? null
-                : command.getReason().replaceAll(
-                        "^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
-        if (reason == null || reason.isEmpty()) {
-            throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_REQUIRED");
-        }
+        String reason = ApprovalReviewReason.requireValid(command.getResult(), command.getReason());
         String signaturePassword = command.getSignaturePassword();
         if (signaturePassword == null || signaturePassword.isBlank()) {
             throw new IllegalArgumentException("APPROVAL_SIGNATURE_PASSWORD_REQUIRED");

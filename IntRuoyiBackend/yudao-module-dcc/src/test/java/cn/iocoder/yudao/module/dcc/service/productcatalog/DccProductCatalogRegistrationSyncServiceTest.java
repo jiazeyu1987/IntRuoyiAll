@@ -32,6 +32,42 @@ class DccProductCatalogRegistrationSyncServiceTest extends BaseMockitoUnitTest {
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
     private DccRegistrationCertificateMapper certificateMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper versionMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper snapshotMapper;
+
+    @Test
+    void approvedProjectReadsUniqueCurrentCertificateWithoutManualBinding() {
+        var row = new cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO();
+        row.setProjectCodeId(22L);
+        var certificate = cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO.builder()
+                .id(33L).projectCodeId(22L).status("ACTIVE").currentVersionId(44L).currentSnapshotId(55L).build();
+        when(certificateMapper.selectList(org.mockito.ArgumentMatchers.any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(java.util.List.of(certificate));
+        when(certificateMapper.selectById(33L)).thenReturn(certificate);
+        when(versionMapper.selectById(44L)).thenReturn(cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO.builder()
+                .id(44L).certificateId(33L).status("CURRENT").build());
+        when(snapshotMapper.selectById(55L)).thenReturn(cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO.builder()
+                .id(55L).versionId(44L).productName("已批准产品").residenceAddress("上海")
+                .factsJson("{\"certificateType\":\"CE\",\"certificateHolder\":\"持证公司\",\"ceCertificates\":[{\"certificateNo\":\"CE-001\",\"revision\":\"1\"}],\"registrationLink\":\"https://example.com/cert\",\"expiryDate\":\"2029-12-01\"}").build());
+        service.enrichCurrentCertificate(row);
+        org.junit.jupiter.api.Assertions.assertEquals(33L, row.getRegistrationCertificateId());
+        org.junit.jupiter.api.Assertions.assertEquals("CE-001", row.getRegistrationCertificateNumber());
+        org.junit.jupiter.api.Assertions.assertEquals("持证公司", row.getCertificateHolder());
+        org.junit.jupiter.api.Assertions.assertEquals("2029-12-01", row.getExpiryDate());
+        org.junit.jupiter.api.Assertions.assertEquals("https://example.com/cert", row.getRegistrationInfoLink());
+        verifyNoInteractions(productCatalogMapper);
+    }
+
+    @Test void multipleCertificatesRequireExplicitSelection() {
+        var row = new cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO();
+        row.setProjectCodeId(22L);
+        when(certificateMapper.selectList(org.mockito.ArgumentMatchers.any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(java.util.List.of(new cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO(),
+                        new cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO()));
+        service.enrichCurrentCertificate(row);
+        org.junit.jupiter.api.Assertions.assertNull(row.getRegistrationCertificateId());
+        verifyNoInteractions(versionMapper, snapshotMapper);
+    }
 
     @Test
     void projectOnlyBindingShouldSyncProjectWithoutReadingOrChangingCertificate() {

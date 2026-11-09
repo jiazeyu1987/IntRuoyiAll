@@ -1,33 +1,30 @@
 <template>
-  <ContentWrap>
-    <div class="external-review-header">
-      <div class="text-18px font-600">外来文件评审</div>
-    </div>
-    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="112px" v-loading="submitLoading">
+  <ContentWrap class="external-review">
+    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="98px" v-loading="submitLoading">
       <section
         class="external-review-section external-review-section--first"
         data-testid="dcc-external-review-section-review"
       >
         <div class="external-review-section__title">评审信息</div>
         <el-form-item label="外来来源" prop="externalSource">
-          <el-input v-model="formData.externalSource" class="!w-420px" placeholder="例如 客户来图、供应商资料" />
+          <el-input v-model="formData.externalSource" class="!w-full" placeholder="例如 客户来图、供应商资料" />
         </el-form-item>
         <el-form-item label="外来归属" prop="externalOwner">
-          <el-input v-model="formData.externalOwner" class="!w-420px" placeholder="请输入外来责任方" />
+          <el-input v-model="formData.externalOwner" class="!w-full" placeholder="请输入外来责任方" />
         </el-form-item>
-        <el-form-item label="评审原因" prop="reviewReason">
+        <el-form-item class="external-review-wide" label="评审原因" prop="reviewReason">
           <el-input
             v-model="formData.reviewReason"
-            class="!w-560px"
+            class="!w-full"
             type="textarea"
             :rows="3"
             placeholder="请输入本次外来文件评审原因"
           />
         </el-form-item>
-        <el-form-item label="参与人" prop="participantUserIds">
+        <el-form-item class="external-review-wide" label="参与人" prop="participantUserIds">
           <UserSelectV2
             v-model="formData.participantUserIds"
-            class="!w-560px"
+            class="!w-full"
             :multiple="true"
             placeholder="请选择外来文件评审参与人"
           />
@@ -39,7 +36,7 @@
         <el-form-item label="文件类别" prop="categoryId">
           <el-select
             v-model="formData.categoryId"
-            class="!w-360px"
+            class="!w-full"
             clearable
             filterable
             placeholder="请选择文件类别"
@@ -53,7 +50,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">
+        <el-form-item class="external-review-wide" v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">
           <template v-if="uploadDirectoryTree.leafBinding">
             <div class="rounded-6px border border-[#dbe3ef] bg-[#fafcff] px-12px py-9px text-13px">
               {{ uploadDirectoryTree.bindingDirectoryPath }}
@@ -62,7 +59,7 @@
           <el-cascader
             v-else
             v-model="formData.directoryId"
-            class="!w-560px"
+            class="!w-full"
             :options="uploadDirectoryTree.children"
             :props="directoryCascaderProps"
             clearable
@@ -71,15 +68,15 @@
           />
         </el-form-item>
         <el-form-item label="文件名称" prop="fileName">
-          <el-input v-model="formData.fileName" class="!w-420px" placeholder="请输入外来文件名称" />
+          <el-input v-model="formData.fileName" class="!w-full" placeholder="请输入外来文件名称" />
         </el-form-item>
         <el-form-item label="文件编号" prop="fileNumber">
-          <el-input v-model="formData.fileNumber" class="!w-280px" placeholder="例如 EXT-001" />
+          <el-input v-model="formData.fileNumber" class="!w-full" placeholder="例如 EXT-001" />
         </el-form-item>
         <el-form-item label="DCC 项目" prop="dccProjectCodeId">
           <el-select
             v-model="formData.dccProjectCodeId"
-            class="!w-420px"
+            class="!w-full"
             clearable
             filterable
             remote
@@ -100,7 +97,7 @@
         <el-form-item label="产品编号" prop="productCode">
           <el-input
             v-model="formData.productCode"
-            class="!w-420px"
+            class="!w-full"
             readonly
             placeholder="选择 DCC 项目后自动生成"
           />
@@ -109,19 +106,19 @@
           </div>
         </el-form-item>
         <el-form-item label="版本号" prop="versionNo">
-          <el-input v-model="formData.versionNo" class="!w-220px" placeholder="例如 V1.0" />
+          <el-input v-model="formData.versionNo" class="!w-full" placeholder="例如 V1.0" />
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
           <el-date-picker
             v-model="formData.effectiveDate"
-            class="!w-220px"
+            class="!w-full"
             type="date"
             value-format="YYYY-MM-DD"
             placeholder="请选择日期"
           />
         </el-form-item>
-        <el-form-item label="提交备注">
-          <el-input v-model="formData.remark" class="!w-560px" type="textarea" :rows="3" placeholder="请输入备注" />
+        <el-form-item class="external-review-wide" label="提交备注">
+          <el-input v-model="formData.remark" class="!w-full" type="textarea" :rows="3" placeholder="请输入备注" />
         </el-form-item>
       </section>
 
@@ -179,7 +176,6 @@
       </section>
 
       <section class="external-review-section" data-testid="dcc-external-review-section-submit">
-        <div class="external-review-section__title">提交操作</div>
         <el-form-item>
           <el-button type="primary" :loading="submitLoading" @click="submitForm">
             <Icon icon="ep:promotion" class="mr-5px" />
@@ -532,6 +528,7 @@ const submitForm = async () => {
       sourceUploadTicket: previewUpload.value.uploadTicket,
       sourceFileName: previewUpload.value.fileName,
       drawingPdfUploadTicket: drawingPdfUpload.value?.uploadTicket,
+      drawingPdfSessionId: drawingPdfUpload.value?.sessionId,
       fileName: formData.fileName.trim(),
       fileNumber: formData.fileNumber.trim(),
       productMasterId: null,
@@ -573,18 +570,27 @@ onBeforeRouteLeave(async () => {
 </script>
 
 <style scoped>
-.external-review-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+.external-review {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+}
+
+.external-review :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .external-review-section {
-  padding-top: 18px;
-  margin-top: 18px;
-  border-top: 1px solid #e5ebf3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--el-border-color-light);
 }
 
 .external-review-section--first {
@@ -594,10 +600,68 @@ onBeforeRouteLeave(async () => {
 }
 
 .external-review-section__title {
-  margin-bottom: 12px;
-  color: #172033;
+  grid-column: 1 / -1;
+  padding-left: 8px;
+  border-left: 3px solid var(--el-color-primary);
+  color: var(--el-text-color-primary);
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
+}
+
+.external-review-wide {
+  grid-column: 1 / -1;
+}
+
+.external-review-section :deep(.el-form-item) {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.external-review-section :deep(.el-form-item__content) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.external-review-section :deep(.el-input),
+.external-review-section :deep(.el-select),
+.external-review-section :deep(.el-cascader) {
+  min-width: 0;
+  width: 100%;
+}
+
+.external-review-section :deep(.el-input__wrapper),
+.external-review-section :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+.external-review-section :deep(.el-button) {
+  height: 32px;
+}
+
+.external-review-section :deep(.el-input__inner[readonly]) {
+  color: var(--el-text-color-regular);
+}
+
+.external-review-section[data-testid='dcc-external-review-section-submit'] {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
+.external-review-section[data-testid='dcc-external-review-section-submit'] :deep(.el-form-item__content) {
+  margin-left: 0 !important;
+}
+
+@media (max-width: 700px) {
+  .external-review-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .external-review-section :deep(.el-form-item__label) {
+    width: 82px !important;
+    padding-right: 8px;
+  }
 }
 </style>

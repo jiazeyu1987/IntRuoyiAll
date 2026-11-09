@@ -126,6 +126,10 @@ public class DccControlledFileDO extends BaseDO {
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
     private LocalDateTime controlledTime;
+    /** Original controlled import provenance, independent of historical control/effect dates. */
+    private String importSource;
+    private Long importedBy;
+    private LocalDateTime importedTime;
     private LocalDateTime activatedTime;
     private LocalDateTime distributedTime;
     private String distributionPayloadHash;

@@ -60,6 +60,9 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 public class DccFileCategoryController {
 
     @Resource
+    private cn.iocoder.yudao.module.dcc.service.category.DccFileTypeConfigurationService configurationService;
+
+    @Resource
     private DccFileCategoryAdminService categoryAdminService;
     @Resource
     private DccCategoryPermissionAdminService permissionAdminService;
@@ -167,7 +170,7 @@ public class DccFileCategoryController {
     @Operation(summary = "创建文件类别")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<Long> createCategory(@Valid @RequestBody DccFileCategorySaveReqVO reqVO) {
-        return success(categoryAdminService.createCategory(reqVO));
+        return success(configurationService.createCategory(reqVO));
     }
 
     @PutMapping("/{id:\\d+}")
@@ -176,7 +179,7 @@ public class DccFileCategoryController {
     public CommonResult<Boolean> updateCategory(@PathVariable("id") Long id,
                                                 @Valid @RequestBody DccFileCategorySaveReqVO reqVO) {
         reqVO.setId(id);
-        categoryAdminService.updateCategory(reqVO);
+        configurationService.updateCategory(reqVO);
         return success(true);
     }
 

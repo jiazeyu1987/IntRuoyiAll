@@ -84,7 +84,8 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
 
     @Override
     public boolean isReasonRequired(String actionCode, String subjectType) {
-        return !("DISTRIBUTION_ACK".equals(actionCode) && SUBJECT_TYPE.equals(subjectType));
+        return !(SUBJECT_TYPE.equals(subjectType)
+                && ("DISTRIBUTION_ACK".equals(actionCode) || "APPROVE".equals(actionCode)));
     }
 
     @Override

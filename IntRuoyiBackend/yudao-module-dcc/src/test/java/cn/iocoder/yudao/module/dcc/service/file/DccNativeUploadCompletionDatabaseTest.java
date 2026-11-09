@@ -135,7 +135,8 @@ class DccNativeUploadCompletionDatabaseTest extends DccNativeUploadSupervisorWor
     }
     void assertNativeDocumentSignatureRead(boolean signed){
         var query=new DccControlledFileQueryServiceImpl();var history=new DccApplicationHistoryGuard();wire(history,"processes",ReflectionTestUtils.getField(finalization,"processes"));
-        var detail=new DccControlledFileDetailAuthorizationGuard();var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(true);
+        var detail=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(detail, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(true);
         wire(detail,"assignmentScopeService",scope,"bpmTaskService",ReflectionTestUtils.getField(workflow,"bpmTaskService"),"offlineTraining",mock(DccOfflineTrainingRecordService.class));
         var directories=mock(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService.class);
         var actualTasks=new cn.iocoder.yudao.module.bpm.service.task.BpmTaskServiceImpl();

@@ -115,6 +115,15 @@ class DccPreviewSourceBindingTest {
                 DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
         var guard = new DccControlledFileDetailAuthorizationGuard();
+        for (var field : guard.getClass().getDeclaredFields())
+            if (field.isAnnotationPresent(jakarta.annotation.Resource.class))
+                ReflectionTestUtils.setField(guard, field.getName(), mock(field.getType()));
+        var categoryPermissions = mock(DccControlledFileCategoryPermissionSupport.class);
+        when(categoryPermissions.hasFilePermission(any(DccControlledFileDO.class), eq(ACTOR),
+                eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW))).thenReturn(true);
+        ReflectionTestUtils.setField(guard, "permissionSupport", categoryPermissions);
+        ReflectionTestUtils.setField(query, "permissionSupport", categoryPermissions);
+        ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", mock(DccProjectReferenceReadAccess.class));
         ReflectionTestUtils.setField(guard, "assignmentScopeService", assignments);
         ReflectionTestUtils.setField(guard, "adminUserApi", users);
         ReflectionTestUtils.setField(guard, "projectAccessService", projects);

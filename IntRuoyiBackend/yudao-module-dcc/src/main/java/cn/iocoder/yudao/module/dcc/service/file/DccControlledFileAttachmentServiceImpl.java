@@ -104,6 +104,26 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
         for (var input : tickets) uploadTicketService.markBound(new cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketMarkBoundCommand(
                 input.getUploadTicket(), actorId, source.getCategoryId(), input.getSessionId(), "ATTACHMENT", workingFileId));
         bindAttachments(workingFileId, resolved);
+        if (java.util.Set.of("REJECTED", "PENDING_APPLICANT_REWORK", "WITHDRAWN").contains(source.getStatus())) {
+            int sortNo=resolved.size();
+            for (var original : ordinaryRows(source)) {
+                requireOrdinaryFacts(original);
+                var copy=sourceOwnershipService.createVerifiedCopy(original.getStorageFileId());
+                DccControlledFileVersionSourceRollback.enlist(sourceOwnershipService,copy);
+                if (!copy.isolatedCopy() || Objects.equals(copy.sourceFileId(),original.getStorageFileId())
+                        || !Objects.equals(copy.sourceSha256(),original.getFileSha256()))
+                    throw new IllegalStateException("重提普通附件副本与原申请摘要不一致");
+                var row=DccControlledFileAttachmentDO.builder().controlledFileId(workingFileId)
+                        .storageFileId(copy.sourceFileId()).originalFileName(original.getOriginalFileName())
+                        .contentType(original.getContentType()).fileSize(original.getFileSize()).fileSha256(original.getFileSha256())
+                        .sortNo(sortNo++).attachmentPurpose("ATTACHMENT").uploadedBy(original.getUploadedBy())
+                        .uploadedUsernameSnapshot(original.getUploadedUsernameSnapshot()).uploadedNicknameSnapshot(original.getUploadedNicknameSnapshot())
+                        .uploadedAt(original.getUploadedAt()).build();
+                row.setTenantId(source.getTenantId());
+                if (attachmentMapper.insert(row)!=1 || row.getId()==null || row.getId()<=0)
+                    throw new IllegalStateException("重提普通附件未保存到本次工作版本");
+            }
+        }
     }
 
     @Override
@@ -128,7 +148,7 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
             throw new IllegalArgumentException("普通附件冻结需要精确所选工作稿和本次正式候选版本");
         requireFormalAttachmentTarget(source, target);
         if ("REPLACEMENT".equals(target.getRevisionChangeType())) {
-            projectAccessService.assertProjectOwner(actorId, source.getDccProjectCodeId());
+            projectAccessService.assertProjectEditorOrOwner(actorId, source.getDccProjectCodeId());
         } else if (!java.util.Set.of("PARTIAL", "INITIAL").contains(String.valueOf(target.getRevisionChangeType()))
                 || !Objects.equals(source.getRequesterId(), actorId)) {
             throw new IllegalArgumentException("仅工作稿申请人或合法换版OWNER可以冻结本次普通附件");
@@ -283,8 +303,7 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
         if (actor == null || !Objects.equals(actor.getId(), actorId)
                 || !Objects.equals(actor.getTenantId(), source.getTenantId()) || !Integer.valueOf(0).equals(actor.getStatus())
                 || !assignmentScopeService.isWithinAssignedFileScope(actorId, source.getId())
-                || !permissionSupport.hasCategoryPermission(source.getCategoryId(), actorId,
-                    cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD))
+                || !permissionSupport.hasFilePermission(source, actorId, cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD))
             throw new IllegalArgumentException("普通附件操作者没有本租户当前版本的有效上传权限");
         projectAccessService.assertProjectEditorOrOwner(actorId, source.getDccProjectCodeId());
     }

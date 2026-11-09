@@ -1,12 +1,14 @@
 package cn.iocoder.yudao.module.bpm.controller.admin.approval;
 
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewCommand;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -36,9 +38,7 @@ public class ApprovalTaskReviewReqVO {
     @NotNull(message = "审核结果不能为空")
     private ApprovalTaskReviewResult result;
 
-    @Schema(description = "审核意见或驳回原因", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "审核意见不能为空")
-    @Pattern(regexp = "(?s).*[^\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF].*", message = "审核意见不能为空")
+    @Schema(description = "审核意见或驳回原因；驳回时必填")
     private String reason;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -49,6 +49,13 @@ public class ApprovalTaskReviewReqVO {
     private String expectedSubjectVersion;
     private String expectedContentHash;
     private String contentPolicyVersion;
+
+    @Schema(hidden = true)
+    @JsonIgnore
+    @AssertTrue(message = "驳回原因不能为空")
+    public boolean isRejectReasonValid() {
+        return result != ApprovalTaskReviewResult.REJECT || !ApprovalReviewReason.normalize(reason).isEmpty();
+    }
 
     public ApprovalTaskReviewCommand toCommand() {
         return new ApprovalTaskReviewCommand()

@@ -28,6 +28,10 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 @Validated
 public class DccControlledFileRelatedFileServiceImpl implements DccControlledFileRelatedFileService {
 
+    @Resource
+    @org.springframework.context.annotation.Lazy
+    private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService relationStageSnapshotService;
+
     private static final String RELATION_SOURCE_UPLOAD = "UPLOAD";
     private static final String RELATION_SOURCE_CHECKIN_INHERITED = "CHECKIN_INHERITED";
 
@@ -69,6 +73,19 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
     @Override
     public List<DccControlledFileRelatedFileRespVO> listHistoricalRelatedFiles(Long actorId, Long sourceFileId) {
         requireSelected(sourceFileId); relationAccessPolicy.assertNameVisible(actorId,sourceFileId);
+        var source=controlledFileMapper.selectById(sourceFileId);
+        if(source==null || !Objects.equals(source.getTenantId(),TenantContextHolder.getRequiredTenantId()))
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        // Imported versions have no native application; their original fixed snapshot is authoritative.
+        if(source.getProcessInstanceId()!=null && !source.getProcessInstanceId().isBlank()) {
+            return relationStageSnapshotService.readNativeVersionEvidence(actorId,sourceFileId).completeSelections().stream().map(row->{
+                var result=new DccControlledFileRelatedFileRespVO();
+                result.setControlledFileId(row.selectedControlledFileId());result.setMasterId(row.relatedMasterId());
+                result.setProjectCodeId(row.projectId());result.setFileNumber(row.fileNumber());
+                result.setFileName(row.fileName());result.setVersionNo(row.versionNo());result.setOrigin(row.origin());
+                return result;
+            }).toList();
+        }
         var rows=relatedFileMapper.selectListByControlledFileId(sourceFileId);
         rows.forEach(row->relationAccessPolicy.assertNameVisible(actorId,row.getRelatedControlledFileId()));
         return rows.stream().map(this::toSnapshotRespVO).toList();

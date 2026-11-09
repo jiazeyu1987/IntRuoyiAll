@@ -70,7 +70,7 @@ class ElectronicSignatureVerifiedFactServiceTest {
         records = mock(ElectronicSignatureRecordMapper.class);
         audits = mock(GxpAuditEventMapper.class);
         users = mock(AdminUserApi.class);
-        adapter = mock(ElectronicSignatureSubjectAdapter.class);
+        adapter = mock(ElectronicSignatureSubjectAdapter.class, CALLS_REAL_METHODS);
         when(adapter.moduleCode()).thenReturn("MES");
         when(adapter.supportedActions()).thenReturn(Set.of(
                 new SignatureActionDefinition("MES", "APPROVE", "TYPE", "APPROVE", "批准", "p1")));
@@ -107,6 +107,12 @@ class ElectronicSignatureVerifiedFactServiceTest {
         ReflectionTestUtils.setField(auditWriter, "policyActivationMapper", activationMapper);
         ReflectionTestUtils.setField(auditWriter, "policyOperationMapper", policyMapper);
         ReflectionTestUtils.setField(auditWriter, "eventRelationMapper", mock(GxpAuditEventRelationMapper.class));
+        var directory = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var account = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO()
+                .setId(7L).setStatus(0).setUsername("operator").setNickname("设备操作员");
+        account.setTenantId(1L);
+        when(directory.selectGxpAuditActor(1L, 7L)).thenReturn(account);
+        ReflectionTestUtils.setField(auditWriter, "adminUserMapper", directory);
         writer = new ElectronicSignatureServiceImpl();
         ReflectionTestUtils.setField(writer, "signatureRecordMapper", records);
         ReflectionTestUtils.setField(writer, "adminUserApi", users);

@@ -35,6 +35,8 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 @Validated
 public class DccRegistrationCertificateQueryController {
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateEvidenceService evidenceService;
     private final DccRegistrationCertificateQueryService queryService;
     private final DccRegistrationCertificateHistoryService historyService;
 
@@ -79,15 +81,26 @@ public class DccRegistrationCertificateQueryController {
                 DccRequestAuditContext.from(request, null)));
     }
 
+    @GetMapping("/{id}/evidence")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:query-current')")
+    public CommonResult<java.util.Map<String,Object>> getEvidence(@PathVariable("id") @Positive Long id,
+            @RequestParam(value="versionId",required=false) @Positive Long versionId,HttpServletRequest request) {
+        Long tenantId=TenantContextHolder.getRequiredTenantId();
+        var detail=queryService.getDetail(tenantId,getLoginUserId(),id,versionId,DccRequestAuditContext.from(request,null));
+        return success(evidenceService.getEvidence(tenantId,id,detail.getVersionId()));
+    }
+
     @GetMapping("/{id}/history")
     @Operation(summary = "获取注册证履历")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:query-current')")
     public CommonResult<List<DccRegistrationCertificateHistoryItem>> getHistory(
             @PathVariable("id") @Positive Long id,
+            @RequestParam(value="versionId",required=false) @Positive Long versionId,
             HttpServletRequest request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Long actorId = getLoginUserId();
-        queryService.getDetail(tenantId, actorId, id, null, DccRequestAuditContext.from(request, null));
-        return success(historyService.listHistory(tenantId, id));
+        var detail=queryService.getDetail(tenantId, actorId, id, versionId, DccRequestAuditContext.from(request, null));
+        return success(historyService.listHistory(tenantId, id).stream()
+                .filter(item->java.util.Objects.equals(item.targetVersionId(),detail.getVersionId())).toList());
     }
 }

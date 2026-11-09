@@ -143,10 +143,10 @@ public class DccWorkflowDistributionService {
 
     public List<DccWorkflowDistributionRecipientRespVO> recipientOptions(Long userId, Long fileId, Long departmentId) {
         var file=controlledFileMapper.selectById(fileId);
-        if(userId==null || !permissionApi.hasAnyRoles(userId,"doc_control")
+        if(userId==null
                 || file==null || !Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
                 || file.getControlledTime()==null || !("ACTIVE".equals(file.getStatus()) || "CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus()))
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.DISTRIBUTE))
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE))
             throw new IllegalArgumentException("当前文件或办理资格不允许读取下发接收人");
         if(departmentId==null || departmentId<=0) throw new IllegalArgumentException("请选择有效接收部门");
         deptApi.validateDeptList(List.of(departmentId));
@@ -171,8 +171,8 @@ public class DccWorkflowDistributionService {
         var file=controlledFileMapper.selectByIdAndTenantForUpdate(TenantContextHolder.getRequiredTenantId(),fileId);
         if (file != null && file.getProcessInstanceId() != null && !file.getProcessInstanceId().isBlank())
             throw new IllegalArgumentException("本轮下发由生效事件按正式保存部门全员自动执行，不允许重新选择人员");
-        if(userId==null || !permissionApi.hasAnyRoles(userId,"doc_control") || file==null || file.getControlledTime()==null
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.DISTRIBUTE))
+        if(userId==null || file==null || file.getControlledTime()==null
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE))
             throw new IllegalArgumentException("文件尚未受控或无下发资格");
         List<Plan> plans=validate(request,false);
         String digest=DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(plans));

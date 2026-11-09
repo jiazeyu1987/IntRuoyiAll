@@ -12,6 +12,18 @@ import java.time.LocalDate;
 @EqualsAndHashCode(callSuper = true)
 public class DccRegistrationCertificatePageReqVO extends PageParam {
 
+    private String certificateType;
+    private java.util.Map<String,String> fieldFilters;
+    private String ceCertificateNo;
+    private String ceRevision;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private LocalDate ceIssueStart;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private LocalDate ceIssueEnd;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private LocalDate listingStart;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private LocalDate listingEnd;
     private Long ownerCompanyId;
     private Long productMasterId;
     private Long projectCodeId;
@@ -52,6 +64,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
         return DccRegistrationCertificatePageQuery.builder()
                 .pageNo(getPageNo())
                 .pageSize(getPageSize())
+                .certificateType(certificateType).fieldFilters(fieldFilters).ceCertificateNo(ceCertificateNo).ceRevision(ceRevision).ceIssueStart(ceIssueStart).ceIssueEnd(ceIssueEnd).listingStart(listingStart).listingEnd(listingEnd)
                 .ownerCompanyId(ownerCompanyId)
                 .productMasterId(productMasterId)
                 .projectCodeId(projectCodeId)

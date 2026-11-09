@@ -66,21 +66,25 @@ test('INITIAL command validates application facts without a fictitious controlle
   assert.throws(() => revision.buildInitialCommand('初始说明', 'key', { ...facts, selectedSignoffDepartmentIds: [9007199254740992] }), /身份/)
 })
 
-test('public status labels distinguish working, controlled and effective facts and the doc-control training role', () => {
+test('public status labels distinguish working, controlled and effective facts and the author training role', () => {
   assert.equal(lifecycle.getDccControlledFileStatusLabel('WORKING'), '工作版本')
   assert.equal(lifecycle.getDccControlledFileStatusLabel('CONTROLLED_PENDING_EFFECTIVE'), '受控（待生效）')
   assert.equal(lifecycle.getDccControlledFileStatusLabel('ACTIVE'), '受控（已生效）')
-  assert.equal(lifecycle.getDccControlledFileStatusLabel('PENDING_APPLICANT_TRAINING_RECORD'), '待文控上传培训记录')
+  assert.equal(lifecycle.getDccControlledFileStatusLabel('PENDING_APPLICANT_TRAINING_RECORD'), '待文件编制人上传培训记录')
   assert.equal(lifecycle.getDccControlledFileStatusLabel('READY_TO_PUBLISH'), '待受控')
 })
-function application({ file = baseline, confirm = async () => true, readDraft = async () => clone(draft), save = async () => '21', readBody = async id => ({ ...clone(baseline), id: String(id), relatedFiles: [{ controlledFileId: '91', fileName: '本次正文关联.pdf', versionNo: 'B/1' }] }) } = {}) {
-  let defaultsReads = 0; const requests = []
+function application({ file = baseline, confirm = async () => true, readDraft = async () => clone(draft), save = async () => '21', readBody = async id => ({ ...clone(baseline), id: String(id) }), readRelations = async () => [{ fileName: '正式冻结关联.pdf', versionNo: 'B/1' }] } = {}) {
+  let defaultsReads = 0; const requests = [], relationReads = []
   const panel = mount('DetailApplicationPanel', { file: clone(file) }, {
     'element-plus': { ElMessageBox: { confirm } }, '@/utils': { generateUUID: () => 'unique-application' },
     '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => undefined },
     '@/api/system/dept': { getSimpleDeptList: async () => [{ id: 50, name: '质量部' }] },
     '@/api/system/user': { getSimpleUserList: async () => [{ id: 60, nickname: '批准人' }] },
     '@/api/dcc/controlledFile/fileTypeTaxonomies': { getFileTypeTaxonomyUploadOptions: async () => [] },
+    '@/api/dcc/controlledFile/relations': {
+      listHistoricalRelations: async id => { relationReads.push({ mode: 'history', id }); return readRelations(id) },
+      listCurrentRelations: async id => { relationReads.push({ mode: 'current', id }); return { sourceControlledFileId: id, files: await readRelations(id) } }
+    },
     '@/api/common/filePreview': { buildDccControlledFilePreviewSource: () => { throw new Error('Preview is outside this application submission fixture') } },
     './presentation': { formatControlledFileDateTime: () => { throw new Error('Date rendering is outside this application submission fixture') } },
     '@/api/dcc/controlledFile/projectAttributes': { getProjectDefaults: async () => { defaultsReads++; return attrs('NMPA') } },
@@ -96,7 +100,7 @@ function application({ file = baseline, confirm = async () => true, readDraft = 
     '../workflow/workflow-actions': workflowActions,
     './presentation': { formatControlledFileDateTime: value => value }
   })
-  return { ...panel, requests, defaultsReads: () => defaultsReads }
+  return { ...panel, requests, relationReads, defaultsReads: () => defaultsReads }
 }
 test('INITIAL preparation reads original draft actual/default separately and never replaces unknown departments with current matrix', async () => {
   const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' } })
@@ -183,14 +187,51 @@ test('a stale revision command with different effective mode or distribution ref
   } finally { panel.app.unmount() }
 })
 
-test('revision confirmation reads exact selected body relations instead of showing baseline relations', async () => {
+test('revision confirmation reads the controlled baseline current relations actually frozen by submission', async () => {
   const shown = []
   const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(text) })
   try {
     await panel.state.open(); await panel.state.selectIteration('12')
     const command = revision.buildRevisionCommand('10', '12', 'PARTIAL', '修订', 'key', panel.state.applicationFacts)
     await panel.state.submitRevision(command)
-    assert.match(shown[0], /本次正文关联.pdf/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
+    assert.match(shown[0], /正式冻结关联.pdf · B\/1/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
+    assert.deepEqual(panel.relationReads, [{ mode: 'current', id: '10' }])
+  } finally { panel.app.unmount() }
+})
+
+test('initial rework confirmation reads saved draft relations even when its detail DTO omits them', async () => {
+  const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text) })
+  try {
+    await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
+    assert.match(shown[0], /正式冻结关联.pdf · B\/1/)
+    assert.deepEqual(panel.relationReads, [{ mode: 'history', id: '12' }])
+    assert.equal(panel.requests.length, 1)
+    assert.equal(panel.requests[0].payload.relatedFiles, undefined)
+  } finally { panel.app.unmount() }
+})
+
+test('unavailable or incomplete saved relations block confirmation instead of displaying an empty set', async () => {
+  for (const response of [undefined, [{ fileName: 'missing-version.pdf' }], new Error('relation access denied')]) {
+    const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+      readRelations: async () => { if (response instanceof Error) throw response; return response } })
+    try {
+      await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
+      assert.equal(shown.length, 0); assert.equal(panel.requests.length, 0)
+      assert.match(panel.state.error, /关联文件未完整读取|relation access denied/)
+    } finally { panel.app.unmount() }
+  }
+})
+
+test('a saved relation response for a former draft cannot open a confirmation in another file context', async () => {
+  const pending = deferred(), started = deferred(), shown = []
+  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+    readRelations: () => { started.resolve(); return pending.promise } })
+  try {
+    await panel.state.open(); panel.state.selectedDepartments = ['50']
+    const submitting = panel.state.submitInitial(); await started.promise
+    panel.props.file = { ...baseline, id: 99, status: 'WORKING' }; await vue.nextTick()
+    pending.resolve([]); await submitting
+    assert.equal(shown.length, 0); assert.equal(panel.requests.length, 0)
   } finally { panel.app.unmount() }
 })
 test('late preparation for the previous file cannot publish attributes into the new file', async () => {

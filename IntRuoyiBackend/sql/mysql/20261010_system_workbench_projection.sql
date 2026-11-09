@@ -237,7 +237,9 @@ BEGIN
      ) expected
        ON CAST(tc.TABLE_NAME AS BINARY)=CAST(expected.table_name AS BINARY)
       AND CAST(tc.CONSTRAINT_NAME AS BINARY)=CAST(expected.constraint_name AS BINARY)
-      AND CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+      -- MySQL 8.0.40 escapes quotes in CHECK_CLAUSE; SHOW CREATE retains the same literal.
+      AND (CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+        OR CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(REPLACE(expected.check_clause,CHAR(39),CONCAT(CHAR(92),CHAR(39))) AS BINARY))
      WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_SCHEMA=DATABASE()
        AND tc.CONSTRAINT_TYPE='CHECK' AND tc.ENFORCED='YES')!=8 THEN
   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='S4 exact enforced CHECK contract mismatch';

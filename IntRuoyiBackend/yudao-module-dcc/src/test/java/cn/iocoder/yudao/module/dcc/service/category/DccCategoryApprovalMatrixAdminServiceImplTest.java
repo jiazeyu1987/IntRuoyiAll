@@ -64,6 +64,51 @@ import static org.mockito.Mockito.when;
         DccControlledFileCategoryPermissionSupport.class
 })
 class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"USER", "ROLE", "POST", "DCC_POSITION", "POSITION"})
+    void unsupportedSignoffSubjectIsRejectedBeforePreviewSaveOrImport(String subjectType) {
+        var category = createCategory("W03-UNSUPPORTED", "非法会签主体");
+        var request = isolationMatrix();
+        request.getRules().get(0).setSubjectType(subjectType);
+        String reason = "会签规则必须选择正式部门，不能使用用户、角色或岗位代替部门";
+        assertServiceException(() -> matrixAdminService.previewApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, reason);
+        assertServiceException(() -> matrixAdminService.saveApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, reason);
+        assertServiceException(() -> matrixAdminService.importApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, reason);
+        assertEquals(0, routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, category.getId()).size());
+    }
+
+    @Test
+    void departmentSignoffAndUserApprovalSaveAndDeriveAllThreeRuntimeActions() {
+        var category = createCategory("W03-DEPT", "合法部门会签");
+        var request = isolationMatrix();
+        request.getRules().get(1).setSubjectType("USER").setSubjectId(903L).setSubjectName("批准人");
+        var route = matrixAdminService.saveApprovalMatrix(category.getId(), request);
+        var nodes = routeNodeMapper.selectListByRouteId(route.getId());
+        for (String action : List.of("NEW", "REVISION", "OBSOLETE")) {
+            var runtime = cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.derive(nodes, action, null);
+            assertEquals("DEPT", runtime.get(0).getCandidateSourceType());
+            assertEquals("USER", runtime.get(1).getCandidateSourceType());
+            assertEquals(903L, runtime.get(1).getCandidateSourceId());
+        }
+    }
+
+    @Test
+    void applicationCustomCategoryCannotCreateOrPreviewPublicMatrix() {
+        var category = createCategory("W03-CUSTOM", "其他");
+        category.setApprovalSourceMode("APPLICATION_CUSTOM");
+        categoryMapper.updateById(category);
+        var request = isolationMatrix();
+        assertServiceException(() -> matrixAdminService.previewApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
+        assertServiceException(() -> matrixAdminService.saveApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
+        assertServiceException(() -> matrixAdminService.importApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
+        assertEquals(0, routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, category.getId()).size());
+    }
     @Test
     void invalidActiveRuleFailsBeforeAnyRouteWrite() {
         var category = createCategory("W02-INVALID", "非法配置");
@@ -78,6 +123,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertServiceException(() -> matrixAdminService.previewApprovalMatrix(category.getId(), request),
                 DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, "启用规则缺少有效主体身份");
     }
+    @MockitoBean private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccessService;
     @Resource private javax.sql.DataSource testDataSource;
     @Resource private org.springframework.transaction.PlatformTransactionManager matrixTransactions;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
@@ -221,8 +267,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 5, 15, 20, 0));
         reqVO.setRemark("seed");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
-                dccPositionRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
                 dccPositionRule("APPROVAL", "编制部门负责人", deptOwner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
 
@@ -275,7 +321,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         DccCategoryApprovalMatrixSaveReqVO reqVO = new DccCategoryApprovalMatrixSaveReqVO();
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 5, 15, 20, 0));
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA")));
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA")));
 
         assertServiceException(() -> matrixAdminService.saveApprovalMatrix(category.getId(), reqVO),
                 DccCategoryApprovalMatrixAdminServiceImpl.CATEGORY_APPROVAL_MATRIX_APPROVAL_COUNT_INVALID);
@@ -443,8 +489,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 22, 9, 0));
         reqVO.setRemark("matrix");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
-                dccPositionRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
                 dccPositionRule("APPROVAL", "编制部门负责人", owner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
         matrixAdminService.saveApprovalMatrix(configured.getId(), reqVO);
@@ -582,8 +628,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 23, 9, 0));
         reqVO.setRemark("preview");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
-                dccPositionRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
                 dccPositionRule("APPROVAL", "编制部门负责人", owner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
 
@@ -667,8 +713,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 23, 10, 0));
         reqVO.setRemark("blocked");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
-                dccPositionRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
                 dccPositionRule("APPROVAL", "编制部门负责人", owner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
 
@@ -743,7 +789,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 30, 20, 0));
         reqVO.setRemark("import-uploader-derived");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
                 dccPositionRule("APPROVAL", "部门负责人", deptOwner.getId(), "部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
 
@@ -764,7 +810,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(5, nodes.size());
         assertEquals(List.of(docControl.getId(), qa.getId(), deptOwner.getId(), delegate.getId(), docControl.getId()),
                 nodes.stream().map(DccCategoryApprovalRouteNodeDO::getSubjectId).toList());
-        assertEquals(List.of("DCC_POSITION", "DCC_POSITION", "DCC_POSITION", "DCC_POSITION", "DCC_POSITION"),
+        assertEquals(List.of("DCC_POSITION", "DEPT", "DCC_POSITION", "DCC_POSITION", "DCC_POSITION"),
                 nodes.stream().map(DccCategoryApprovalRouteNodeDO::getSubjectType).toList());
         assertEquals(List.of("文控", "QA", "部门负责人", "授权代表", "文控"),
                 nodes.stream().map(DccCategoryApprovalRouteNodeDO::getSubjectName).toList());
@@ -809,11 +855,18 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 23, 11, 0));
         reqVO.setRemark("lookup");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
                 dccPositionRule("APPROVAL", "编制部门负责人", owner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
         matrixAdminService.saveApprovalMatrix(category.getId(), reqVO);
 
+        assertEquals("NO", matrixAdminService.getUserReviewMatrixAccess(201L).get(0).getDownloadStatus(),
+                "旧DOWNLOAD规则不能替代当前全局编辑与类别EDIT授权");
+        when(permissionApi.hasAnyPermissions(201L, DccControlledFileCategoryPermissionSupport.EDIT_PERMISSION))
+                .thenReturn(true);
+        permissionRuleMapper.insert(DccFileCategoryPermissionRuleDO.builder().id(randomLongId())
+                .categoryId(category.getId()).actionType("EDIT").subjectType("USER").subjectId(201L)
+                .active(true).remark("current-edit-qualification").build());
         List<DccCategoryReviewMatrixUserLookupRespVO> items = matrixAdminService.getUserReviewMatrixAccess(201L);
 
         assertEquals(1, items.size());
@@ -857,8 +910,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setEffectiveTime(LocalDateTime.of(2026, 6, 22, 10, 0));
         reqVO.setRemark("matrix");
         reqVO.setRules(List.of(
-                dccPositionRule("SIGNOFF", "QA", qa.getId(), "QA"),
-                dccPositionRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
+                departmentRule("SIGNOFF", "QA", qa.getId(), "QA"),
+                departmentRule("SIGNOFF", "QMS", qms.getId(), "QMS"),
                 dccPositionRule("APPROVAL", "编制部门负责人", owner.getId(), "编制部门负责人"),
                 dccPositionRule("APPROVAL", "授权代表", delegate.getId(), "授权代表")));
         DccCategoryApprovalRouteDO route = matrixAdminService.saveApprovalMatrix(category.getId(), reqVO);
@@ -904,7 +957,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         var doc=createPosition("G34-DOC","文控");var qa=createPosition("G34-QA","审核岗位");var approval=createPosition("G34-APPROVAL","批准岗位");
         positionAssignmentMapper.insert(createUserAssignment(doc.getId(),901L));positionAssignmentMapper.insert(createUserAssignment(qa.getId(),902L));positionAssignmentMapper.insert(createUserAssignment(approval.getId(),903L));
         stubNonUploaderPositions();stubUserNames(901L,902L,903L);
-        return new DccCategoryApprovalMatrixSaveReqVO().setEffectiveTime(LocalDateTime.now().minusMinutes(1)).setRemark("legacy-only").setRules(List.of(dccPositionRule("SIGNOFF","审核岗位",qa.getId(),"审核岗位"),dccPositionRule("APPROVAL","批准岗位",approval.getId(),"批准岗位")));
+        return new DccCategoryApprovalMatrixSaveReqVO().setEffectiveTime(LocalDateTime.now().minusMinutes(1)).setRemark("legacy-only").setRules(List.of(departmentRule("SIGNOFF","审核岗位",qa.getId(),"审核岗位"),dccPositionRule("APPROVAL","批准岗位",approval.getId(),"批准岗位")));
     }
 
     @Test void supervisorPreviewAndListReportFrozenDriftWithoutRewritingSnapshots() {
@@ -1023,6 +1076,28 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertFalse(routeNodeMapper.selectListByRouteId(current.getId()).isEmpty());
     }
 
+    @Test void boundFileTypeMatrixCannotBeDeleted() {
+        var category = createCategory("W03-BOUND", "正式类型矩阵");
+        category.setFileTypeTaxonomyId(9901L);
+        categoryMapper.updateById(category);
+        assertServiceException(() -> matrixAdminService.deleteApprovalMatrix(category.getId()),
+                DccCategoryApprovalMatrixAdminErrors.MATRIX_IN_USE);
+    }
+
+    @Test void matrixReferencedByHistoricalSnapshotCannotBeDeleted() {
+        var category = createCategory("W03-SNAPSHOT", "历史使用矩阵");
+        var route = DccCategoryApprovalRouteDO.builder().categoryId(category.getId()).actionType("LEGACY")
+                .versionNo(1).active(true).effectiveTime(LocalDateTime.now().minusMinutes(1)).build();
+        routeMapper.insert(route);
+        routeSnapshotMapper.insert(DccControlledFileRouteSnapshotDO.builder().controlledFileId(9902L)
+                .routeVersionNo(1).stageNo(1).stageName("历史会签").candidateSourceType("USER")
+                .candidateSourceId(9903L).resolvedUserIds("9903").approveMethod("ANY")
+                .sourceApprovalMatrixId(route.getId()).build());
+        assertServiceException(() -> matrixAdminService.deleteApprovalMatrix(category.getId()),
+                DccCategoryApprovalMatrixAdminErrors.MATRIX_IN_USE);
+        assertTrue(routeMapper.selectById(route.getId()).getActive());
+    }
+
     private DccFileCategoryDO createCategory(String code, String name) {
         DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .id(randomLongId())
@@ -1083,6 +1158,23 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 .versionNo("1.0")
                 .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
                 .build();
+    }
+
+    private DccCategoryApprovalMatrixSaveReqVO.Rule departmentRule(String stageType, String label,
+                                                                   Long departmentId, String departmentName) {
+        // Existing fixture identities retain their seeded person while the signoff source is a real department.
+        var assignments = positionAssignmentMapper.selectActiveListByPositionId(departmentId);
+        Long leaderId = assignments.isEmpty() ? null : assignments.get(0).getUserId();
+        when(deptApi.getDeptList(List.of(departmentId))).thenReturn(List.of(
+                new DeptRespDTO().setId(departmentId).setName(departmentName).setLeaderUserId(leaderId)));
+        if (leaderId != null) {
+            var leader = adminUserApi.getUserList(List.of(leaderId)).stream()
+                    .filter(user -> leaderId.equals(user.getId())).findFirst().orElseThrow();
+            when(adminUserApi.getUser(leaderId)).thenReturn(leader);
+        }
+        return new DccCategoryApprovalMatrixSaveReqVO.Rule().setStageType(stageType).setActive(true)
+                .setSubjectLabel(label).setMarker("●").setSubjectType("DEPT").setSubjectId(departmentId)
+                .setSubjectName(departmentName).setSubjectDepartmentPath(departmentName).setRemark(label);
     }
 
     private DccCategoryApprovalMatrixSaveReqVO.Rule dccPositionRule(String stageType, String label,

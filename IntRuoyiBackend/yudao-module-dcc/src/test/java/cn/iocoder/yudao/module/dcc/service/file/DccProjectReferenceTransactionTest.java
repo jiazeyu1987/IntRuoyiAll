@@ -43,9 +43,26 @@ class DccProjectReferenceTransactionTest {
         when(files.resolveSelected(100L)).thenReturn(new FileVersion(1L,100L,10L,9L,"N","源.pdf","A/1","ACTIVE",true,false,true));
         audit=mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
         service = new DccProjectReferenceService(new DccRelationStore(jdbc, audit),authority,access,files);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"projectAccessService",
+                mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"queryService",mock(DccControlledFileQueryService.class));
         TenantContextHolder.setTenantId(1L);
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
+    @Test void destinationViewerListsExistingReferenceWithoutSourceNameAccess() {
+        create(2,21);
+        clearInvocations(access);
+        doThrow(new IllegalStateException("SOURCE_NAME_DENIED")).when(access).assertNameVisible(8L,100L);
+        var listed=service.list(8L,2L,21L);
+        assertEquals(100L,listed.get(0).selectedVersion().controlledFileId());
+        verify(access,never()).assertNameVisible(any(),any());
+        var projects=(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService)
+                org.springframework.test.util.ReflectionTestUtils.getField(service,"projectAccessService");
+        verify(projects).assertProjectViewerOrAbove(8L,2L);
+        doThrow(new IllegalStateException("TARGET_PROJECT_DENIED")).when(projects).assertProjectViewerOrAbove(9L,2L);
+        assertThrows(IllegalStateException.class,()->service.list(9L,2L,21L));
+        assertThrows(IllegalStateException.class,()->service.list(9L,2L,22L));
+    }
     ReferenceView create(long project,long folder) { return tx.execute(s -> service.create(7L,project,folder,100L,"测试引用原因")); }
     long cancel(long project,long folder,boolean confirmed) { return tx.execute(s -> service.cancel(7L,project,folder,10L,jdbc.queryForObject("SELECT id FROM dcc_project_file_reference WHERE project_id=? AND folder_id=?",Long.class,project,folder),confirmed,"测试取消原因")); }
     @Test void countsDistinctProjectsAndLastCancellationRestoresSourceColorWithoutDeletingOtherRelations() {

@@ -15,7 +15,7 @@ for (const statement of node.statements) {
 const context = { exports: {}, Error, JSON, BigInt, Number, String, Object, Array }
 vm.runInNewContext(ts.transpileModule(declarations.join('\n') + '\nexports.validate=assertControlledFileSubmitRequest',
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
-const request = { sessionId: 'upload', readOnlyUploadTicket: 'ticket', changeType: 'NEW', processType: 'CONTROLLED_FILE',
+const request = { sessionId: 'upload', originalUploadTicket: 'ticket', changeType: 'NEW', processType: 'CONTROLLED_FILE',
   dccProjectCodeId: '9007199254740993', fileTypeTaxonomyId: 6, projectFolderId: '9223372036854775807',
   projectFolderChangeReason: '归入项目文件夹', relatedControlledFileIds: ['9007199254740997'] }
 test('formal submit contract accepts exact project folder and relation Long strings without conversion', () => {
@@ -30,6 +30,14 @@ test('free file type uses exact formal taxonomy Long rather than unsafe numeric 
 test('unsafe numeric and overflowing identities reject before transport', () => {
   for (const id of [Number.MAX_SAFE_INTEGER + 1, '9223372036854775808', 0, -1, '5.1']) {
     assert.throws(() => context.exports.validate({ ...request, dccProjectCodeId: id }, 'upload'))
+  }
+})
+
+test('independently uploaded drawings submit their own session identity', () => {
+  const drawing = { ...request, drawingPdfUploadTicket: 'drawing-ticket', drawingPdfSessionId: 'drawing-session' }
+  assert.doesNotThrow(() => context.exports.validate(drawing, 'upload'))
+  for (const session of [undefined, null, '']) {
+    assert.throws(() => context.exports.validate({ ...drawing, drawingPdfSessionId: session }, 'upload'), /drawingPdfSessionId/)
   }
 })
 

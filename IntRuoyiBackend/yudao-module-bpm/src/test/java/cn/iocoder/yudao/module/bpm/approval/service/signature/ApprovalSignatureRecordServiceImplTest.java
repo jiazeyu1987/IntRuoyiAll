@@ -90,6 +90,21 @@ class ApprovalSignatureRecordServiceImplTest {
             }
             verify(rows, org.mockito.Mockito.times(5)).insert(org.mockito.ArgumentMatchers.any(
                     cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.class));
+            security.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(100L);
+            Long blankSignatureId = null;
+            for (String blank : java.util.Arrays.asList(null, "", " \t\r\n\u2003\u00a0\u202f\u2007\uFEFF\000")) {
+                var signed = service.recordReviewSignature(longOpinionContext(100L, "9002", "9002",
+                        ApprovalTaskReviewResult.APPROVE, blank));
+                if (blankSignatureId == null) {
+                    blankSignatureId = signed.getUnifiedSignatureId();
+                }
+                assertEquals(blankSignatureId, signed.getUnifiedSignatureId());
+            }
+            assertEquals(6, persisted.size());
+            Long expectedBlankSignatureId = blankSignatureId;
+            var blankRow = persisted.values().stream().filter(row -> row.getId().equals(expectedBlankSignatureId)).findFirst().orElseThrow();
+            assertEquals("", blankRow.getReason());
+            assertEquals("", JsonUtils.parseTree(blankRow.getCanonicalContentJson()).path("reason").asText());
         } finally {
             cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
         }
@@ -165,6 +180,24 @@ class ApprovalSignatureRecordServiceImplTest {
     }
 
     @ParameterizedTest
+    @MethodSource("blankApprovalReasons")
+    void recordReviewSignatureAllowsBlankApprovalOpinion(ApprovalTaskReviewResult result, String reason) {
+        when(signatureImageSnapshotProvider.requireActiveSnapshot(100L)).thenReturn(signatureImageSnapshot());
+        when(electronicSignatureService.sign(org.mockito.ArgumentMatchers.any())).thenReturn(signatureResult(810004L));
+        var context = ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.EDHR, "EDHR_WORK_TASK", "9001", "9001",
+                null, result, reason, "test-credential", false);
+
+        assertEquals(810004L, newService().recordReviewSignature(context).getUnifiedSignatureId());
+
+        assertEquals("", captureSignatureCommand().reason());
+        verify(signatureImageSnapshotProvider).markReferenced(9101L);
+        var adapter = new BpmApprovalSignatureSubjectAdapter();
+        assertFalse(adapter.isReasonRequired("APPROVE", "BPM_APPROVAL_TASK"));
+        assertTrue(adapter.isReasonRequired("REJECT", "BPM_APPROVAL_TASK"));
+        assertTrue(adapter.isReasonRequired("APPROVE", "OTHER_SUBJECT"));
+    }
+
+    @ParameterizedTest
     @EnumSource(ApprovalTaskReviewResult.class)
     void recordReviewSignaturePreservesOriginalMultilineReasonInKernelCommand(ApprovalTaskReviewResult result) {
         String originalReason = "\u00a0\uFEFF\u2003  production evidence checked\n  user \"explanation\" \\ kept\tsecond line\r\nlast line  \r\n\u2003\u202f";
@@ -193,10 +226,14 @@ class ApprovalSignatureRecordServiceImplTest {
     }
 
     private static Stream<Arguments> blankReviewReasons() {
-        return Stream.of(ApprovalTaskReviewResult.values()).flatMap(result ->
+        return Stream.of(ApprovalTaskReviewResult.REJECT).flatMap(result ->
                 Stream.of(null, "", "  ", " \t\r\n ", "\u2003", "\u2003 \t\r\n\u2003", "\000", "\u2003\000 ",
                                 "\u00a0", "\u202f\u2007", "\uFEFF")
                         .map(reason -> Arguments.of(result, reason)));
+    }
+
+    private static Stream<Arguments> blankApprovalReasons() {
+        return blankReviewReasons().map(args -> Arguments.of(ApprovalTaskReviewResult.APPROVE, args.get()[1]));
     }
 
     @Test

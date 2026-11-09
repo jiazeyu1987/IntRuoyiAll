@@ -32,13 +32,12 @@ test('signature failure is visible and never reports assignment success', async 
   const result=await submitSignoffAssignment({ taskId:'t-1',assigneeUserId:99,password:'wrong',reason:'assign' },async () => { throw new Error('签名密码错误') })
   assert.equal(result.success,false); assert.equal(result.error,'签名密码错误')
 })
-test('missing password and reason block the save command', async () => {
+test('missing password blocks assignment but a blank opinion is optional', async () => {
   let calls=0
-  for(const form of [{password:'',reason:'a'},{password:'p',reason:''}]) {
-    const result=await submitSignoffAssignment({taskId:'t',assigneeUserId:99,...form},async()=>{calls++})
-    assert.equal(result.success,false)
-  }
-  assert.equal(calls,0)
+  const missing=await submitSignoffAssignment({taskId:'t',assigneeUserId:99,password:'',reason:'a'},async()=>{calls++;return true})
+  assert.equal(missing.success,false); assert.equal(calls,0)
+  const assigned=await submitSignoffAssignment({taskId:'t',assigneeUserId:99,password:'p',reason:'  '},async req=>{calls++;assert.equal(req.reason,'');return true})
+  assert.equal(assigned.success,true); assert.equal(calls,1)
 })
 test('future controlled distribution and activation are independent', () => {
   const facts={controlledTime:'2026-10-01 08:00',effectiveDate:'2026-10-10',status:'CONTROLLED_PENDING_EFFECTIVE'}

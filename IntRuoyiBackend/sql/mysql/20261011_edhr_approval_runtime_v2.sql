@@ -276,3 +276,4 @@ CREATE TABLE mes_edhr_managed_handoff_material_association (
  PRIMARY KEY(id), UNIQUE KEY uk_handoff_identity(tenant_id,handoff_key), UNIQUE KEY uk_handoff_association(tenant_id,association_id),
  UNIQUE KEY uk_handoff_task(tenant_id,manager_work_task_id), UNIQUE KEY uk_handoff_audit(tenant_id,handoff_audit_event_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+-- release-migration: allowedEnvironments=test; dependsOn=20260908_system_signature_password_t1,20260830_system_user_lifecycle_deactivation,20260908_system_electronic_signature_t3,20260731_mes_process_pool_team_leader_p1_runtime_config,20260924_gxp_audit_event_v2,20260618_mes_edhr_release_transaction_lifecycle; type=schema; riskLevel=high

@@ -52,8 +52,9 @@ public class DccCategoryPermissionAdminServiceImpl implements DccCategoryPermiss
         if (containsMatrixManagedAction) {
             throw exception(CATEGORY_PERMISSION_RULE_MANUAL_REVIEW_APPROVE_FORBIDDEN);
         }
-        // Non-matrix rules are rebuilt as configuration state; REVIEW/APPROVE
-        // remain owned by the approval matrix service.
+        if (reqVOList.stream().anyMatch(rule -> !Set.of("EDIT", "VIEW").contains(rule.getActionType())))
+            throw new IllegalArgumentException("文件权限仅支持编辑 EDIT 和浏览 VIEW");
+        // Legacy operation rules remain recorded; replace only the two current permissions.
         permissionRuleMapper.deleteConfigurableByCategoryIdHard(categoryId);
         List<DccFileCategoryPermissionRuleDO> rules = CollectionUtils.convertList(reqVOList, reqVO -> {
             DccFileCategoryPermissionRuleDO rule = BeanUtils.toBean(reqVO, DccFileCategoryPermissionRuleDO.class);

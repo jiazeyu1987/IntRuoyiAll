@@ -58,6 +58,31 @@ test('same submitted file reloads without navigation', async () => {
   const result = await invoke('9198354931001', context)
   assert.equal(result.reloads, 1); assert.deepEqual(result.routes, [])
 })
+
+test('actual restart submit callback enters the new formal application without retaining the reopen command or old round', async () => {
+  for (const extra of [{}, { revisionIntent: 'PARTIAL' }, { revisionIntent: 'REPLACEMENT' }]) {
+    const source = { query: { management: '1', restartApplication: '1', ...extra,
+      taskId: 'old-task', processInstanceId: 'old-bpm', handling: 'approval', viewer: '1',
+      operation: 'obsolete', reworkSourceAttributeRound: 'old-round' } }
+    const result = await invoke('9198354931099', source)
+    assert.equal(result.reloads, 0)
+    assert.equal(result.routes.length, 1)
+    assert.equal(result.routes[0].guardResult, true)
+    assert.deepEqual(result.routes[0].requested, {
+      path: '/dcc/controlled-file/detail/9198354931099',
+      query: { from: 'application-restart', management: '1', returnTo: '/dcc/controlled-file/browser' }
+    })
+  }
+})
+
+test('a later normal submission preserves the explicit successful restart origin', async () => {
+  const first = await invoke('9198354931099', { query: { management: '1', restartApplication: '1' } })
+  const result = await invoke('9198354931100', { query: first.routes[0].requested.query })
+  assert.equal(result.routes[0].guardResult, true)
+  assert.equal(result.routes[0].requested.path, '/dcc/controlled-file/detail/9198354931100')
+  assert.deepEqual(result.routes[0].requested.query, first.routes[0].requested.query)
+  assert.equal(Object.hasOwn(result.routes[0].requested.query, 'restartApplication'), false)
+})
 test('browser and workbench management contexts remain accepted by the actual guard', async () => {
   for (const from of ['browser', 'workbench']) {
     const source = { fullPath: context.fullPath, query: { from, mode: 'manage', management: '1', returnTo: '/dcc/controlled-file/' + (from === 'browser' ? 'browser?keyword=task' : 'workbench') } }
@@ -88,7 +113,12 @@ test('arbitrary submit/approval and missing foreign return contexts never grant 
     { from: 'project-browser', management: '1', returnTo: 'https://foreign.invalid/' },
     { from: 'project-browser', management: '1', returnTo: '/system/users' },
     { from: 'project-browser', management: '1', returnTo: ['/dcc/controlled-file/browser'] },
-    { from: 'project-browser', management: '1', returnTo: '/dcc/controlled-file/\\foreign' }
+    { from: 'project-browser', management: '1', returnTo: '/dcc/controlled-file/\\foreign' },
+    { management: '1', restartApplication: 'true' },
+    { restartApplication: '1' },
+    { from: 'application-restart', management: '1', returnTo: '/dcc/controlled-file/workbench' },
+    { from: 'application-restart', management: '1' },
+    { from: 'application-restart', returnTo: '/dcc/controlled-file/browser' }
   ]) await assert.rejects(() => invoke('9198354931099', { fullPath: context.fullPath, query }))
 })
 test('the unchanged actual guard still rejects bare application-submit navigation', () => {

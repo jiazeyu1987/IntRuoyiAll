@@ -238,6 +238,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(LocalDateTime.of(2026, 9, 2, 0, 0))
                 .build();
         historical.setTenantId(1L);
+        historical.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, historical.getVersionId()));
         assertEquals(1, snapshotMapper.insert(historical));
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
@@ -317,6 +318,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(LocalDateTime.of(2026, 9, 2, 0, 0))
                 .build();
         historical.setTenantId(1L);
+        historical.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, historical.getVersionId()));
         assertEquals(1, snapshotMapper.insert(historical));
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
@@ -363,6 +365,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                    SET expiry_date = ?
                  WHERE id = ?
                 """, expiryDate, visible.versionId()));
+        refreshFacts(visible.versionId());
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
                 .thenReturn(List.of(owner(10L, "Owner A")));
@@ -693,6 +696,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                    SET effective_date = ?, expiry_date = ?
                  WHERE tenant_id = 1 AND id = ?
                 """, LocalDate.of(2027, 9, 1), LocalDate.of(2031, 9, 1), outside.versionId()));
+        refreshFacts(outside.versionId());
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
                 .thenReturn(List.of(owner(10L, "Owner A")));
@@ -819,19 +823,12 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void oldDetailReturnsForScopedUserWithoutOldViewGrant() {
+    void oldDetailRejectsScopedUserWithoutOldViewGrant() {
         FormalFixture old = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-DETAIL", true, null);
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
-        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
-                .thenReturn(List.of(owner(10L, "Owner A")));
-
-        DccRegistrationCertificateDetail detail = queryService.getDetail(
-                1L, 99L, old.certificateId(), old.versionId(), context("REQ-OLD-SCOPED-DETAIL"));
-
-        assertEquals(old.certificateId(), detail.getCertificateId());
-        assertEquals(old.versionId(), detail.getVersionId());
-        assertEquals("OLD", detail.getStatus());
-        assertEquals(old.registrationFileId(), detail.getRegistrationFileId());
+        ServiceException error = assertThrows(ServiceException.class, () -> queryService.getDetail(
+                1L, 99L, old.certificateId(), old.versionId(), context("REQ-OLD-SCOPED-DETAIL")));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), error.getCode());
     }
 
     @Test
@@ -923,6 +920,187 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(1_080_000_219, duplicateAudit.getCode());
     }
 
+    @Test
+    void fdaFactsCombinedFiltersUseTypedListingDatesAndAllDisplayedSortFields() {
+        var a=seedFormal(1L,10L,"ACTIVE","CURRENT","FDA-A",true,20L);
+        var b=seedFormal(1L,10L,"ACTIVE","CURRENT","FDA-B",true,20L);
+        var excluded=seedFormal(1L,10L,"ACTIVE","CURRENT","FDA-EXCLUDED",true,20L);
+        seedFdaFacts(a,"B holder",LocalDate.of(2026,10,1),true);
+        seedFdaFacts(b,"A holder",LocalDate.of(2026,10,2),true);
+        seedFdaFacts(excluded,"C holder",LocalDate.of(2025,1,1),false);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)),any())).thenReturn(List.of(owner(10L,"Owner A")));
+        var query=DccRegistrationCertificatePageQuery.builder().certificateType("FDA")
+                .fieldFilters(java.util.Map.of("ownProduct","true","customerHeld","true","kpNumber","K001"))
+                .listingStart(LocalDate.of(2026,10,1)).listingEnd(LocalDate.of(2026,10,2))
+                .sortField("certificateHolder").sortOrder("asc").build();
+        var page=queryService.getPage(1L,99L,query,context("FDA-TYPED-FILTER"));
+        assertEquals(List.of(b.certificateId(),a.certificateId()),page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        for(String field:List.of("certificateHolder","registrationLink","productNameEn","submissionType","kpNumber","regulationCode","productCode","approvalDate","listingNumber","listingDate","customerHeld","approvalLetterStatus","factoryRegistrationStatus","ownProduct","changeDescription","remark")) {
+            query.setSortField(field);
+            assertEquals(2L,queryService.getPage(1L,99L,query,context("FDA-SORT-"+field)).getTotal());
+        }
+    }
+
+    @Test
+    void productionAndSupplementalFiltersCombineWithCanonicalCertificateFacts() {
+        var record=seedFormal(1L,10L,"ACTIVE","CURRENT","DOMESTIC-FILTER",true,20L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)),any())).thenReturn(List.of(owner(10L,"Owner A")));
+        var query=DccRegistrationCertificatePageQuery.builder().certificateType("DOMESTIC")
+                .fieldFilters(java.util.Map.of("ownProduct","true","entrustedProduction","true","selfProduction","false","intendedUse","Sensitive","entrustedEnterpriseName","Factory A"))
+                .certificateNo("DOMESTIC").sortField("intendedUse").sortOrder("desc").build();
+        var page=queryService.getPage(1L,99L,query,context("PRODUCTION-TYPED-FILTER"));
+        assertEquals(List.of(record.certificateId()),page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        query.setFieldFilters(java.util.Map.of("selfProduction","true"));
+        assertEquals(0L,queryService.getPage(1L,99L,query,context("PRODUCTION-NEGATIVE")).getTotal());
+    }
+
+    @Test
+    void ceTypedRevisionFiltersSurviveRealTenantAndPaginationParsing() {
+        var query = DccRegistrationCertificatePageQuery.builder().certificateType("CE")
+                .ceRevision("Rev.2").ceCertificateNo("CE-2")
+                .ceIssueStart(LocalDate.of(2026, 1, 1)).ceIssueEnd(LocalDate.of(2026, 12, 31))
+                .sortField("ceIssueDate").sortOrder("asc").build();
+        // This parser-only fixture must register the real tenant entities, not ignore unknown tables.
+        for (Class<?> entity : List.of(DccRegistrationCertificateDO.class,
+                DccRegistrationCertificateSnapshotDO.class, DccRegistrationCertificateVersionDO.class)) {
+            com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                    new org.apache.ibatis.builder.MapperBuilderAssistant(
+                            new com.baomidou.mybatisplus.core.MybatisConfiguration(), "ce-parser-fixture"), entity);
+        }
+        var tenantHandler = new cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor(
+                new cn.iocoder.yudao.framework.tenant.config.TenantProperties());
+        assertFalse(tenantHandler.ignoreTable("dcc_registration_certificate_snapshot"));
+        assertFalse(tenantHandler.ignoreTable("dcc_registration_certificate"));
+        var tenant = new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(tenantHandler);
+        Long previousTenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(7L);
+        try {
+            for (String provider : List.of(DccRegistrationCertificateQueryMapper.SqlProvider.selectPage(),
+                    DccRegistrationCertificateQueryMapper.SqlProvider.countPage(),
+                    DccRegistrationCertificateQueryMapper.SqlProvider.selectOldIndexPage(),
+                    DccRegistrationCertificateQueryMapper.SqlProvider.countOldIndex())) {
+                var source = new org.apache.ibatis.scripting.xmltags.XMLLanguageDriver().createSqlSource(
+                        new org.apache.ibatis.session.Configuration(), provider, java.util.Map.class);
+                var boundSql = source.getBoundSql(java.util.Map.of("tenantId", 1L, "companyIds", List.of(),
+                        "query", query, "limit", 10, "offset", 0));
+                String rewritten = assertDoesNotThrow(() -> tenant.parserSingle(boundSql.getSql(), null));
+                assertTrue(rewritten.contains("SET_VAR(cte_max_recursion_depth=4294967295)"));
+                assertTrue(rewritten.contains("s.tenant_id = 7"), rewritten);
+                assertFalse(rewritten.contains("ce.tenant_id")); // ce is a CTE over the already scoped snapshot.
+                assertFalse(rewritten.contains("JSON_TABLE"));
+                assertTrue(rewritten.contains("WITH RECURSIVE ce"));
+                assertTrue(rewritten.contains("ce.idx"));
+                assertTrue(boundSql.getParameterMappings().stream()
+                        .anyMatch(mapping -> mapping.getProperty().equals("query.ceIssueStart")));
+                var pagination = new com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor();
+                String countSql = pagination.autoCountSql(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10), rewritten);
+                assertTrue(countSql.contains("SET_VAR(cte_max_recursion_depth=4294967295)"));
+                assertDoesNotThrow(() -> net.sf.jsqlparser.parser.CCJSqlParserUtil.parse(countSql));
+                String pageSql = new com.baomidou.mybatisplus.extension.plugins.pagination.dialects.MySqlDialect()
+                        .buildPaginationSql(rewritten, 0, 10).getDialectSql();
+                assertTrue(pageSql.contains("SET_VAR(cte_max_recursion_depth=4294967295)"));
+                assertDoesNotThrow(() -> net.sf.jsqlparser.parser.CCJSqlParserUtil.parse(pageSql));
+            }
+        } finally {
+            if (previousTenant == null) cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+            else cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(previousTenant);
+        }
+    }
+
+    @Test
+    void nonCeQueriesKeepTheirOriginalRecursionSetting() {
+        var source = new org.apache.ibatis.scripting.xmltags.XMLLanguageDriver().createSqlSource(
+                new org.apache.ibatis.session.Configuration(),
+                DccRegistrationCertificateQueryMapper.SqlProvider.countPage(), java.util.Map.class);
+        var query = DccRegistrationCertificatePageQuery.builder().certificateType("DOMESTIC").build();
+        String sql = source.getBoundSql(java.util.Map.of("tenantId", 1L, "companyIds", List.of(), "query", query)).getSql();
+        assertFalse(sql.contains("SET_VAR"));
+        assertFalse(sql.contains("WITH RECURSIVE"));
+    }
+
+    @Test
+    void otherDomesticTextProjectCodeIsQueryableSortableAndNeverCreatesAssociation() {
+        var a=seedFormal(1L,10L,"ACTIVE","CURRENT","OTHER-A",true,null);
+        var b=seedFormal(1L,10L,"ACTIVE","CURRENT","OTHER-B",true,null);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)),any())).thenReturn(List.of(owner(10L,"Owner A")));
+        for(var fixture:List.of(a,b)) {
+            var snapshot=snapshotMapper.selectById(fixture.snapshotId());
+            var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+            facts.setOwnProduct(false);facts.setProjectCode(fixture==a?"EXT-B":"EXT-A");snapshot.setFactsJson(facts.toJson());jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+            jdbcTemplate.update("UPDATE dcc_registration_certificate SET product_master_id=NULL,project_code_id=NULL WHERE id=?",fixture.certificateId());
+        }
+        var query=DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).certificateType("DOMESTIC")
+                .fieldFilters(java.util.Map.of("projectCode","EXT-")).sortField("projectCode").sortOrder("asc").build();
+        var page=queryService.getPage(1L,99L,query,context("REQ-OTHER-PROJECT-CODE"));
+        assertEquals(List.of(b.certificateId(),a.certificateId()),page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals("EXT-A",page.getList().get(0).getProjectCode());assertEquals(null,page.getList().get(0).getProjectCodeId());assertEquals(null,page.getList().get(0).getProductMasterId());
+        query.setProjectCode("EXT-B");assertEquals(1L,queryService.getPage(1L,99L,query,context("REQ-OTHER-PROJECT-CODE-EXACT")).getTotal());
+    }
+
+    @Test
+    void snapshotIsoDatesRemainTypedForProjectionFilteringSortingAndReminder() {
+        FormalFixture fixture = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "ISO-DATES", true, 20L);
+        var snapshot = snapshotMapper.selectById(fixture.snapshotId());
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(snapshot.getFactsJson());
+        facts.setFirstObtainedDate(LocalDate.of(2025, 1, 2));
+        facts.setApprovalDate(LocalDate.of(2025, 2, 3));
+        facts.setEffectiveDate(LocalDate.of(2025, 3, 4));
+        facts.setExpiryDate(LocalDate.of(2031, 10, 5));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                facts.toJson(), fixture.snapshotId());
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        var query = DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10)
+                .expiryStart(LocalDate.of(2031, 10, 1)).expiryEnd(LocalDate.of(2031, 10, 31))
+                .sortField("expiryDate").sortOrder("asc").build();
+
+        var projected = queryMapper.selectPage(1L, List.of(), query, 10, 0);
+        assertEquals(1, projected.size());
+        assertEquals(facts.getFirstObtainedDate(), projected.get(0).getFirstObtainedDate());
+        assertEquals(facts.getApprovalDate(), projected.get(0).getApprovalDate());
+        assertEquals(facts.getEffectiveDate(), projected.get(0).getEffectiveDate());
+        assertEquals(facts.getExpiryDate(), projected.get(0).getExpiryDate());
+        var page = queryService.getPage(1L, 99L, query, context("REQ-ISO-DATE-REMINDER"));
+        assertEquals(1L, page.getTotal());
+        assertEquals(facts.getExpiryDate(), page.getList().get(0).getExpiryDate());
+        assertNotNull(page.getList().get(0).getVisualState());
+    }
+
+    @Test
+    void fdaJsonNullDatesStayAbsentAndDoNotRequireAnExpiryReminder() {
+        FormalFixture fixture = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "FDA-NULL-DATES", true, 20L);
+        seedFdaFacts(fixture, "FDA holder", LocalDate.of(2026, 10, 1), false);
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts
+                .parse(snapshotMapper.selectById(fixture.snapshotId()).getFactsJson());
+        facts.setApprovalDate(null);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",
+                facts.toJson(), fixture.snapshotId());
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        var query = DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10)
+                .certificateType("FDA").sortField("expiryDate").sortOrder("asc").build();
+
+        var projected = queryMapper.selectPage(1L, List.of(), query, 10, 0).get(0);
+        assertNull(projected.getFirstObtainedDate());
+        assertNull(projected.getApprovalDate());
+        assertNull(projected.getEffectiveDate());
+        assertNull(projected.getExpiryDate());
+        var item = queryService.getPage(1L, 99L, query, context("REQ-FDA-NULL-DATE-REMINDER"))
+                .getList().get(0);
+        assertNull(item.getExpiryDate());
+        assertEquals("NONE", item.getVisualState());
+        assertEquals("NORMAL", item.getReminderColor());
+    }
+
+    private void seedFdaFacts(FormalFixture fixture,String holder,LocalDate listed,boolean customerHeld) {
+        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("FDA");facts.setOwnProduct(true);facts.setClassification("II");facts.setCertificateHolder(holder);
+        facts.setSubmissionType("TRADITIONAL_510K");facts.setCustomerHeld(customerHeld);facts.setKpNumber("K001");
+        facts.setApprovalLetterStatus("VALID");facts.setFactoryRegistrationStatus("ACTIVE");facts.setListingDate(listed);facts.setApprovalDate(LocalDate.of(2026,1,1));
+        facts.validate();jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=?",facts.toJson(),fixture.snapshotId());
+    }
+
     private FormalFixture seedFormal(Long tenantId, Long ownerCompanyId, String masterStatus, String versionStatus,
                                      String certificateNo, boolean hasFile, Long projectCodeId) {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
@@ -973,6 +1151,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(java.time.LocalDateTime.of(2026, 9, 1, 0, 0))
                 .build();
         snapshot.setTenantId(tenantId);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
         assertEquals(1, jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_snapshot_entrusted
@@ -1011,12 +1190,18 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         return file.getId();
     }
 
+    private void refreshFacts(Long versionId) {
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE version_id=?",
+                DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,versionId),versionId);
+    }
+
     private void updateExpiryDate(Long versionId, LocalDate expiryDate) {
         assertEquals(1, jdbcTemplate.update("""
                 UPDATE dcc_registration_certificate_version
                    SET expiry_date = ?
                  WHERE tenant_id = 1 AND id = ?
                 """, expiryDate, versionId));
+        refreshFacts(versionId);
     }
 
     private void seedSupportingDocument(FormalFixture fixture, String documentType) {
@@ -1072,6 +1257,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(java.time.LocalDateTime.of(2026, 10, 1, 0, 0))
                 .build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
         assertEquals(1, jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_snapshot_entrusted
@@ -1123,6 +1309,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveAt(java.time.LocalDateTime.of(2021, 8, 25, 0, 0))
                 .build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
         assertEquals(1, jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_snapshot_entrusted

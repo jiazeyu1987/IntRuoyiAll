@@ -13,6 +13,12 @@ const buildDepartmentTree = (departments: DeptVO[]) => {
   return handleTree(departments.map(cloneDepartment))
 }
 
+// The formal tenant directory defines the choices; blank matrix rules have no company context.
+export const getSelectableDepartmentTree = (departments: DeptVO[]) =>
+  buildDepartmentTree(
+    departments.filter((department) => !VIRTUAL_TOP_ROOT_NAMES.has((department.name || '').trim()))
+  )
+
 export const createDepartmentByIdMap = (departments: DeptVO[]) => {
   return new Map(departments.map((department) => [department.id, department]))
 }

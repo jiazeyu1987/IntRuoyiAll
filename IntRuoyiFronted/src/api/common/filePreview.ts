@@ -19,7 +19,7 @@ import {
   type ControlledFilePreviewMetadataVO,
   type ControlledFilePreviewWithWatermark
 } from '@/api/dcc/controlledFile/workflow'
-import { normalizeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
+import { buildDccBodyReadQuery, buildDccBodyReadHeaders, normalizeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 
 export type OnlineFilePreviewSource =
   | {
@@ -32,6 +32,7 @@ export type OnlineFilePreviewSource =
       type: 'DCC_CONTROLLED_FILE_ATTACHMENT'
       controlledFileId: number | string
       attachmentId: number | string
+      bodyReadContext?: DccBodyReadContext
     }
   | {
       type: 'EDHR_SPECIAL_NODE_ATTACHMENT'
@@ -49,6 +50,12 @@ export type OnlineFilePreviewSource =
       type: 'DCC_REGISTRATION_CERTIFICATE'
       businessFileId: number | string
     }
+  | {
+      type: 'DCC_REGISTRATION_CERTIFICATE_APPROVAL'
+      businessFileId: number | string
+      requestId: number | string
+      processInstanceId: string
+    }
 
 export const buildDccControlledFilePreviewSource = (
   controlledFileId: number | string,
@@ -61,11 +68,13 @@ export const buildDccControlledFilePreviewSource = (
 
 export const buildDccControlledFileAttachmentPreviewSource = (
   controlledFileId: number | string,
-  attachmentId: number | string
+  attachmentId: number | string,
+  bodyReadContext?: DccBodyReadContext
 ): OnlineFilePreviewSource => ({
   type: 'DCC_CONTROLLED_FILE_ATTACHMENT',
   controlledFileId,
-  attachmentId
+  attachmentId,
+  bodyReadContext: normalizeDccBodyReadContext(controlledFileId, bodyReadContext)
 })
 
 export const buildEdhrSpecialNodeAttachmentPreviewSource = (
@@ -96,6 +105,15 @@ export const buildDccRegistrationCertificatePreviewSource = (
   businessFileId
 })
 
+export const buildDccRegistrationCertificateApprovalPreviewSource = (
+  businessFileId: number | string,
+  requestId: number | string,
+  processInstanceId: string
+): OnlineFilePreviewSource => ({ type: 'DCC_REGISTRATION_CERTIFICATE_APPROVAL', businessFileId, requestId, processInstanceId })
+
+const approvalPreviewBase = (source: Extract<OnlineFilePreviewSource, { type: 'DCC_REGISTRATION_CERTIFICATE_APPROVAL' }>) =>
+  `/dcc/registration-certificates/approval-materials/${encodeURIComponent(String(source.requestId))}/${encodeURIComponent(source.processInstanceId)}/${encodeURIComponent(String(source.businessFileId))}`
+
 export const getOnlineFilePreviewMetadata = async (
   source: OnlineFilePreviewSource
 ): Promise<ControlledFilePreviewMetadataVO> => {
@@ -109,11 +127,16 @@ export const getOnlineFilePreviewMetadata = async (
     return parseControlledFilePreviewMetadata(
       await request.get({
         url: `/dcc/controlled-files/${source.controlledFileId}/attachments/${source.attachmentId}/preview-metadata`,
+        params: buildDccBodyReadQuery(source.controlledFileId, source.bodyReadContext),
         headers: {
           [DCC_REQUEST_ID_HEADER]: `DCC-CONTROLLED-ATTACHMENT-PREVIEW-META-${generateUUID()}`
         }
       })
     )
+  }
+  if (source.type === 'DCC_REGISTRATION_CERTIFICATE_APPROVAL') {
+    return parseControlledFilePreviewMetadata(await request.get({ url: `${approvalPreviewBase(source)}/preview-metadata`,
+      headers: { [DCC_REQUEST_ID_HEADER]: `DCC-REG-APPROVAL-PREVIEW-META-${generateUUID()}` } }))
   }
   if (source.type === 'DCC_REGISTRATION_CERTIFICATE') {
     return parseControlledFilePreviewMetadata(
@@ -141,7 +164,9 @@ export const previewOnlineFileWithWatermark = async (
       normalizeDccBodyReadContext(source.controlledFileId, source.bodyReadContext))
   }
   const resolvedMetadata = metadata || (await getOnlineFilePreviewMetadata(source))
-  const previewUrl = source.type === 'DCC_REGISTRATION_CERTIFICATE'
+  const previewUrl = source.type === 'DCC_REGISTRATION_CERTIFICATE_APPROVAL'
+    ? `${approvalPreviewBase(source)}/preview`
+    : source.type === 'DCC_REGISTRATION_CERTIFICATE'
     ? `/dcc/registration-certificates/files/${source.businessFileId}/preview`
     : source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT'
       ? `/dcc/controlled-files/${source.controlledFileId}/attachments/${source.attachmentId}/preview`
@@ -150,10 +175,11 @@ export const previewOnlineFileWithWatermark = async (
     `${axiosConfig.base_url}${previewUrl}`,
     {
       headers: buildControlledFileBinaryHeaders({
-        ...(source.type === 'DCC_REGISTRATION_CERTIFICATE'
+        ...(source.type === 'DCC_REGISTRATION_CERTIFICATE' || source.type === 'DCC_REGISTRATION_CERTIFICATE_APPROVAL'
           ? { [DCC_REQUEST_ID_HEADER]: `DCC-REG-CERT-PREVIEW-BINARY-${generateUUID()}` }
           : source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT'
-            ? { [DCC_REQUEST_ID_HEADER]: `DCC-CONTROLLED-ATTACHMENT-PREVIEW-BINARY-${generateUUID()}` }
+            ? { ...buildDccBodyReadHeaders(source.controlledFileId, source.bodyReadContext),
+                [DCC_REQUEST_ID_HEADER]: `DCC-CONTROLLED-ATTACHMENT-PREVIEW-BINARY-${generateUUID()}` }
             : {}),
         [DCC_VIEWER_TOKEN_HEADER]: resolvedMetadata.viewerToken,
         [DCC_VIEWER_TOKEN_ID_HEADER]: resolvedMetadata.viewerTokenId,

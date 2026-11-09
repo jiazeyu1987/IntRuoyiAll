@@ -262,9 +262,25 @@ public class DccRegistrationCertificateAccessRequestService {
         }
         DccRegistrationCertificateVersionDO version = versionMapper.selectById(certificate.getCurrentVersionId());
         if (version == null || !Objects.equals(version.getTenantId(), tenantId)
-                || !Objects.equals(version.getCertificateId(), certificate.getId())
-                || isBlank(version.getCertificateNo())) {
+                || !Objects.equals(version.getCertificateId(), certificate.getId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+        }
+        if (isBlank(version.getCertificateNo())) {
+            // Foreign certificates may have no domestic number; only their exact formal snapshot authorizes that absence.
+            List<String> snapshots = jdbcTemplate.queryForList("""
+                    SELECT facts_json FROM dcc_registration_certificate_snapshot
+                     WHERE tenant_id = ? AND version_id = ? AND deleted = 0
+                     ORDER BY revision_no DESC, id DESC LIMIT 1
+                    """, String.class, tenantId, version.getId());
+            if (!"CURRENT".equals(version.getStatus()) || snapshots.size() != 1) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+            }
+            Map<?, ?> facts = JsonUtils.parseObject(snapshots.get(0), Map.class);
+            Object type = facts == null ? null : facts.get("certificateType");
+            if (!"FDA".equals(type) && !"CE".equals(type)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+            }
+            return null;
         }
         return version.getCertificateNo().trim();
     }
@@ -319,12 +335,12 @@ public class DccRegistrationCertificateAccessRequestService {
 
     private boolean isVersionRegistrationFile(DccRegistrationCertificateFileDO file) {
         return FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind());
+                && java.util.Set.of(FILE_KIND_REGISTRATION_CERTIFICATE,"CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind());
     }
 
     private boolean isChangeApprovalFile(DccRegistrationCertificateFileDO file) {
         return FILE_OWNER_TYPE_CHANGE.equals(file.getOwnerType())
-                && FILE_KIND_CHANGE_APPROVAL.equals(file.getFileKind());
+                && java.util.Set.of(FILE_KIND_CHANGE_APPROVAL,"CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind());
     }
 
     private void validateVersionFile(

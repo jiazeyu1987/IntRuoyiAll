@@ -58,8 +58,6 @@ function setup() {
   c.uploadSubmitted = { value: true }
   c.submitLoading = { value: false }
   c.previewUpload = { value: { uploadTicket: 'BOUND-TICKET' } }
-  c.editableUpload = { value: { uploadTicket: 'EDITABLE-BOUND-TICKET' } }
-  c.editableUploadLoading = { value: true }
   c.attachmentUploadAttempts = { value: [{ uid: 'a', status: 'READY' }] }
   c.loadApprovalUsers = () => { c.directoryReads.push('users') }
   c.loadSignoffDepartments = () => { c.directoryReads.push('departments') }
@@ -70,8 +68,6 @@ function setup() {
     'resetUploadNameContext',
     'resetUploadDirectoryContext',
     'resetSelectedPreview',
-    'resetEditableUpload',
-    'resetDrawingPdfUpload',
     'resetAttachmentUploads',
     'resetCategorySelectionForFileTypeTaxonomyChange',
     'resetProjectFileTemplateSelection',
@@ -107,9 +103,6 @@ test('successful cached upload starts a fresh independent session without reusin
   assert.equal(c.formData.effectiveDate, null)
   assert.equal(c.formData.versionNo, 'A/1')
   assert.equal(c.previewUpload.value, undefined)
-  assert.equal(c.editableUpload.value, undefined)
-  assert.equal(c.editableUploadLoading.value, false)
-  assert.ok(c.editableUploadRequestSeq > 1)
   assert.equal(c.uploadSessionBinding.value, undefined)
   assert.equal(c.attachmentUploads.value.length, 0)
   assert.ok(

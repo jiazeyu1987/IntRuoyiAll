@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
@@ -50,9 +51,10 @@ public class DccDelayedEffectiveConfirmationService {
     @Transactional(rollbackFor=Exception.class)
     public DccControlledFileDelayedEffectiveConfirmRespVO confirm(Long actor,Long id,DccControlledFileDelayedEffectiveConfirmReqVO request){
         if(request==null || request.getSelectedEffectiveTime()==null || request.getPassword()==null || request.getPassword().isBlank()
-                || request.getReason()==null || request.getReason().isBlank() || request.getReason().trim().length()>500
+                || request.getReason()!=null && request.getReason().trim().length()>500
                 || request.getIdempotencyKey()==null || request.getIdempotencyKey().isBlank() || request.getIdempotencyKey().length()>128
-                || !request.getIdempotencyKey().equals(request.getIdempotencyKey().trim())) throw invalid("请填写本次生效时间、电子签名密码、真实原因及幂等身份");
+                || !request.getIdempotencyKey().equals(request.getIdempotencyKey().trim())) throw invalid("请填写本次生效时间、电子签名密码及幂等身份");
+        String reason=ApprovalReviewReason.normalize(request.getReason());
         var locked=lock(actor,id);var file=locked.file();var bound=boundContracts.resolve(file);
         requireExpected(bound,request);
         electronicAuthorization.validateElectronicSignatureEnabled(actor);
@@ -62,7 +64,7 @@ public class DccDelayedEffectiveConfirmationService {
             var saved=signatures.selectById(verified.signatureId());var task=tasks.getHistoricTask(verified.taskId());
             var local=task==null?null:task.getTaskLocalVariables();
             if(!Objects.equals(verified.taskId(),request.getTaskId()) || !Objects.equals(verified.selectedEffectiveTime(),request.getSelectedEffectiveTime())
-                    || saved==null || !Objects.equals(saved.getComment(),request.getReason().trim()) || local==null
+                    || saved==null || !Objects.equals(saved.getComment(),reason) || local==null
                     || !Objects.equals(local.get("dccDelayedConfirmationKey"),request.getIdempotencyKey()))
                 throw invalid("延迟生效确认重放载荷或幂等身份冲突");
             return result(file,bound,verified);
@@ -72,7 +74,7 @@ public class DccDelayedEffectiveConfirmationService {
         requirePrerequisites(file,bound);
         var before=audit.capture(file,locked.master());
         var signed=signatureService.verifyPasswordAndCreateDelayedConfirmationSignature(actor,id,request.getTaskId(),file.getProcessInstanceId(),
-                bound.attributeRound(),request.getSelectedEffectiveTime(),request.getPassword(),request.getReason().trim());
+                bound.attributeRound(),request.getSelectedEffectiveTime(),request.getPassword(),reason);
         if(signed==null || signed.getSignatureId()==null)throw invalid("延迟生效确认未返回真实签名身份");
         var verified=confirmationEvidence.requireSignedForActiveTask(file,bound,signed.getSignatureId());
         datePolicy.requireDelayedEffectiveTime(verified.selectedEffectiveTime(),verified.signedAt());
@@ -87,7 +89,7 @@ public class DccDelayedEffectiveConfirmationService {
         audit.recordDelayedConfirmation(before,verified.processInstanceId(),signatures.selectById(verified.signatureId()));
         engineTasks.setVariablesLocal(request.getTaskId(),Map.of("dccVerifiedSignatureId",verified.signatureId(),"dccVerifiedSignatureActorId",actor,
                 "dccVerifiedSignatureAction","APPROVE","dccDelayedConfirmationKey",request.getIdempotencyKey()));
-        tasks.approveTask(actor,new BpmTaskApproveReqVO().setId(request.getTaskId()).setReason(request.getReason().trim()));
+        tasks.approveTask(actor,new BpmTaskApproveReqVO().setId(request.getTaskId()).setReason(reason));
         confirmationEvidence.requireConfirmed(file,bound);
         return result(file,bound,verified);
     }

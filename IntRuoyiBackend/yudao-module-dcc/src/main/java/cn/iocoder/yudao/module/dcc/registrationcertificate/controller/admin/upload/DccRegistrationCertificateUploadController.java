@@ -91,6 +91,18 @@ public class DccRegistrationCertificateUploadController {
                 DccProjectCodeRespVO.class));
     }
 
+    @GetMapping("/my-requests")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")
+    public CommonResult<List<java.util.Map<String,Object>>> myRequests() {
+        return success(uploadService.listMyRequests(TenantContextHolder.getRequiredTenantId(), getLoginUserId()));
+    }
+
+    @GetMapping("/my-request")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")
+    public CommonResult<java.util.Map<String,Object>> myRequest(@RequestParam("id") Long id) {
+        return success(uploadService.getMyRequest(TenantContextHolder.getRequiredTenantId(), getLoginUserId(), id));
+    }
+
     @PostMapping
     @Operation(summary = "提交注册证上传审批")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")

@@ -61,7 +61,7 @@ assert.match(
 )
 
 const timelineTemplateMatch = detailPage.match(
-  /<ContentWrap>\s*<div class="mb-12px flex items-center justify-between gap-12px">[\s\S]*?dcc-detail-lifecycle-timeline[\s\S]*?<\/ContentWrap>/
+  /<ContentWrap\b[^>]*>\s*<div class="mb-12px flex items-center justify-between gap-12px">[\s\S]*?dcc-detail-lifecycle-timeline[\s\S]*?<\/ContentWrap>/
 )
 assert.ok(timelineTemplateMatch, 'detail page must keep the lifecycle timeline template together')
 const timelineBuilderMatch = detailPresentation.match(
