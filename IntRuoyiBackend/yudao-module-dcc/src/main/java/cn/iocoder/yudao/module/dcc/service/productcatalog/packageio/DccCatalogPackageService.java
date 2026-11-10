@@ -28,7 +28,7 @@ public class DccCatalogPackageService {
     @Resource private ControlledContentRegistrationProjectionService projection;
     @Resource private ObjectMapper json;
     @Resource private DccProductCatalogRegistrationSyncService catalogSync;
-    private static final String FORMAT = "dcc-catalog-workbook.v4";
+    private static final String FORMAT = "dcc-catalog-workbook.v5";
     record Spec(String name, String table, String fields, String identity, String filter) {
         List<String> columns() { return List.of(fields.split(",")); }
         List<String> keys() { return List.of(identity.split(",")); }
@@ -41,7 +41,7 @@ public class DccCatalogPackageService {
         new Spec("DCC产品目录", "dcc_product_catalog", "id,data_source,original_row_no,category_level1,category_level2,product_sequence,product,product_code,project_name,project_code,registration_certificate_name,registration_certificate_number,certificate_holder,registration_place,effective_date,expiry_date,classification,registration_info_link,product_status,remark", "data_source,original_row_no", "1=1"),
         new Spec("注册证", "dcc_registration_certificate", "id,owner_company_id,product_master_id,project_code_id,first_obtained_date,current_version_id,pending_version_id,current_snapshot_id,status,row_version,certificate_key", "owner_company_id,certificate_key", "1=1"),
         new Spec("注册证版本", "dcc_registration_certificate_version", "id,certificate_id,version_no,version_type,certificate_no,approval_date,effective_date,expiry_date,classification,category_changed,base_snapshot_id,remark,status,formalized_at,formalized_by,voided_at,voided_by,void_reason", "certificate_id,version_no", "1=1"),
-        new Spec("注册证快照", "dcc_registration_certificate_snapshot", "id,version_id,revision_no,source_change_id,product_name,registrant_name,model_specification,structure_composition,intended_use,technical_requirements,residence_address,production_address,entrusted_production,self_production,entrusted_enterprises_json,effective_at", "version_id,revision_no", "1=1"),
+        new Spec("注册证快照", "dcc_registration_certificate_snapshot", "id,version_id,revision_no,source_change_id,product_name,registrant_name,model_specification,structure_composition,intended_use,technical_requirements,residence_address,production_address,entrusted_production,self_production,entrusted_enterprises_json,effective_at,facts_json", "version_id,revision_no", "1=1"),
         new Spec("受托公司绑定", "dcc_registration_certificate_snapshot_entrusted", "id,snapshot_id,enterprise_id,enterprise_name_snapshot,sort_order", "snapshot_id,enterprise_id", "1=1"),
         new Spec("目录项目注册证绑定", "dcc_data_relation", "id,product_catalog_id,project_code_id,registration_certificate_id,relation_status,relation_source,relation_remark,confirmed_by,confirmed_time", "product_catalog_id,project_code_id,registration_certificate_id", "1=1"));
     private static final Map<String, String> REFERENCES = Map.ofEntries(
@@ -273,6 +273,8 @@ public class DccCatalogPackageService {
                 throw invalid(spec.name() + "：绑定缺失 " + ref.getKey() + "=" + row.get(ref.getKey()));
         }
         for (var row : data.get("注册证快照")) {
+            var facts = json.readTree(required(row, "facts_json", "注册证快照"));
+            if (!facts.isObject()) throw invalid("注册证快照：监管事实必须是JSON对象");
             var nodes = json.readTree(required(row, "entrusted_enterprises_json", "注册证快照"));
             if (!nodes.isArray()) throw invalid("注册证快照：受托公司必须是数组");
             for (var node : nodes) if (!all.getOrDefault("mdm_enterprise", Set.of()).contains(node.path("enterpriseId").asText()))
@@ -361,7 +363,7 @@ public class DccCatalogPackageService {
         for (String field : writable(spec, deferred)) {
             String a = row.get(field), b = old.get(field);
             if (Objects.equals(a, b)) continue;
-            if (field.equals("entrusted_enterprises_json") && a != null && b != null && json.readTree(a).equals(json.readTree(b))) continue;
+            if (Set.of("entrusted_enterprises_json", "facts_json").contains(field) && a != null && b != null && json.readTree(a).equals(json.readTree(b))) continue;
             return false;
         }
         return true;

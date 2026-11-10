@@ -5223,7 +5223,7 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       label: getRouteProcessSettingColumnLabel('productionProcessConfig', '生产配置'),
       value: buildProductionProcessConfigSummary(),
       links: [],
-      loading: attributeLoading
+      loading: loading.value || attributeLoading
     },
     {
       key: 'deviceParameters',

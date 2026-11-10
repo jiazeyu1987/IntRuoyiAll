@@ -93,6 +93,7 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
         'docxtemplater',
         'pizzip',
         'vue-router',
+        'vuedraggable',
         'vue-types',
         'vue-i18n',
         'crypto-js',

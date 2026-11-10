@@ -32,7 +32,10 @@ class DccCatalogPackageServiceTest {
         for (var spec : specs) {
             if (!tables.add(spec.table())) continue;
             StringBuilder ddl = new StringBuilder("CREATE TABLE " + spec.table() + " (id BIGINT AUTO_INCREMENT PRIMARY KEY");
-            for (var field : spec.columns()) if (!field.equals("id") && !Set.of("certificate_key", "deleted").contains(field)) ddl.append(",").append(field).append(" VARCHAR(10000)");
+            for (var field : spec.columns()) if (!field.equals("id") && !Set.of("certificate_key", "deleted").contains(field)) {
+                ddl.append(",").append(field).append(" VARCHAR(10000)");
+                if (field.equals("facts_json")) ddl.append(" NOT NULL");
+            }
             ddl.append(",tenant_id BIGINT,deleted INT DEFAULT 0,creator VARCHAR(64),updater VARCHAR(64),update_time TIMESTAMP)");
             jdbc.execute(ddl.toString());
         }
@@ -58,11 +61,25 @@ class DccCatalogPackageServiceTest {
         jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,project_code,product,tenant_id) VALUES(1,'W01','2','PR1','产品',10)");
         jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,product_master_id,project_code_id,current_version_id,current_snapshot_id,status,tenant_id) VALUES(1,'2','1','1','1','1','ACTIVE',10)");
         jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(1,'1','1','REG001','CURRENT',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,tenant_id) VALUES(1,'1','1','[{\"enterpriseId\":1,\"enterpriseName\":\"关联公司\"}]',10)");
+        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,facts_json,tenant_id) VALUES(1,'1','1','[{\"enterpriseId\":1,\"enterpriseName\":\"关联公司\"}]','{\"certificateType\":\"DOMESTIC\",\"certificateNo\":\"REG001\",\"ownProduct\":true}',10)");
         jdbc.update("INSERT INTO dcc_registration_certificate_snapshot_entrusted(id,snapshot_id,enterprise_id,tenant_id) VALUES(1,'1','1',10)");
         jdbc.update("INSERT INTO dcc_data_relation(id,product_catalog_id,project_code_id,registration_certificate_id,tenant_id) VALUES(1,'1','1','1',10)");
     }
     @AfterEach void clear() { TenantContextHolder.clear(); }
+    @Test void transfersCompleteRegulatoryFactsAndRejectsMissingFactsBeforeWriting() throws Exception {
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
+        String facts = "{\"certificateType\":\"FDA\",\"ownProduct\":false,\"kpNumber\":\"K012345\",\"listingNumber\":\"D123456\",\"customerHeld\":true}";
+        jdbc.update("UPDATE dcc_registration_certificate_snapshot SET facts_json=? WHERE id=1", facts);
+        byte[] workbook = service.exportWorkbook();
+        TenantContextHolder.setTenantId(11L);
+        assertEquals(10, service.importWorkbook(workbook).get("created"));
+        assertEquals(facts, jdbc.queryForObject("SELECT facts_json FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
+        var changed = read(workbook);
+        row(changed, "注册证快照").put("facts_json", null);
+        TenantContextHolder.setTenantId(12L);
+        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(changed)));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_code WHERE tenant_id=12", Integer.class));
+    }
     @SuppressWarnings("unchecked") List<DccCatalogWorkbook.SheetData> read(byte[] data) throws Exception {
         var schema = (List<DccCatalogWorkbook.SheetData>) ReflectionTestUtils.invokeMethod(new DccCatalogPackageService(), "schema", 10L);
         return DccCatalogWorkbook.read(data, schema);
@@ -204,7 +221,7 @@ class DccCatalogPackageServiceTest {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
         jdbc.update("UPDATE dcc_registration_certificate_version SET status='OLD' WHERE id=1");
         jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,base_snapshot_id,tenant_id) VALUES(2,'1','2','REG001','CURRENT','1',10)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,tenant_id) VALUES(2,'2','1','[]',10)");
+        jdbc.update("INSERT INTO dcc_registration_certificate_snapshot(id,version_id,revision_no,entrusted_enterprises_json,facts_json,tenant_id) VALUES(2,'2','1','[]','{\"certificateType\":\"DOMESTIC\",\"certificateNo\":\"REG001\",\"ownProduct\":true}',10)");
         jdbc.update("UPDATE dcc_registration_certificate SET current_version_id='2',current_snapshot_id='2' WHERE id=1");
         for (String table : List.of("dcc_registration_certificate_version", "dcc_registration_certificate_snapshot", "dcc_registration_certificate_snapshot_entrusted"))
             jdbc.execute("CREATE TRIGGER guard_" + table + " BEFORE UPDATE ON " + table + " FOR EACH ROW CALL '" + FormalFactTrigger.class.getName() + "'");
