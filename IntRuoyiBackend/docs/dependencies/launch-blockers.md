@@ -15,8 +15,8 @@ It is based on the W0 freeze package and does not claim any missing external dep
 - `script/srm/check_srm_w0_freeze_gate.py`
 - `script/srm/check_srm_blocker_manifest.py`
 - `script/tests/test_srm_w0_freeze_gate.py`
-- `D:\ProjectPackage\Int\IntRuoyi\doc\tasks\20260621-srm9-worktree-delivery\verification-report.md`
-- `D:\ProjectPackage\Int\IntRuoyi\docs\integrations\kingdee-erp-official-docs.md`
+- `./doc/tasks/20260621-srm9-worktree-delivery/verification-report.md`
+- `./docs/integrations/kingdee-erp-official-docs.md`
 - 2026-06-21 主系统 `/system/nas` admin 只读发现：NAS 配置完整、根目录可读；未发现足以冻结 SRM 供应商 K3 写回的 FormId、字段映射或测试写入授权。
 - 2026-06-21 主系统 `/erp/kingdee-config` admin 只读发现：金蝶基础连接和同步配置存在；真实库聚合显示已有金蝶读同步水位、供应商映射和 `PUR_PurchaseOrder` 同步记录；未输出敏感值。
 - 2026-06-22 测试租户真实页面样本：`103 / 山东瑛泰医疗器械有限公司 / INT-010` 已通过门户审核台和准入资格校验 Playwright E2E，可作为 SRM 页面样本；K3 `BD_Supplier.Save` 写回样本仍未通过。

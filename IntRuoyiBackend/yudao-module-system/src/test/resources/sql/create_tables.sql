@@ -424,6 +424,8 @@ CREATE TABLE IF NOT EXISTS "system_users" (
     "password" varchar(100) not null default '',
     "password_update_time" timestamp default null,
     "password_credential_status" varchar(32) not null default 'ACTIVE',
+    "signature_pin_hash" varchar(100) not null default '$2b$12$UE14YTiZJRbU4rUww99ppOLbGLYRyizUEkb53EYhuMvvr/sum8ErG',
+    "signature_credential_type" varchar(8) not null default 'PIN',
     "signature_credential_generation" char(36) default null,
     "signature_credential_version" bigint default null,
     "nickname" varchar(30) not null,

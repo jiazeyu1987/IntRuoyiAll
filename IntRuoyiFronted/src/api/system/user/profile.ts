@@ -58,3 +58,9 @@ export const updateUserPassword = (oldPassword: string, newPassword: string) => 
     }
   })
 }
+
+export type SignatureCredentialType = 'PIN' | 'PASSWORD'
+export interface SignatureSettings { credentialType: SignatureCredentialType }
+export const getSignatureSettings = () => request.get<SignatureSettings>({ url: '/system/user/profile/signature-settings' })
+export const updateSignatureSettings = (data: SignatureSettings & { password: string; newPin?: string }) =>
+  request.put<boolean>({ url: '/system/user/profile/signature-settings', data })

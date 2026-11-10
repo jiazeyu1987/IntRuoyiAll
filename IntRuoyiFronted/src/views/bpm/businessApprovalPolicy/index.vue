@@ -624,15 +624,15 @@ const handlePolicyModeSwitch = async (row: BusinessApprovalPolicyVO, enabled: bo
   if (row.policyMode === targetMode) return
   let signaturePassword = ''
   try {
-    const promptResult = await message.prompt('请输入电子签名密码', '审批开关电子签名', {
+    const promptResult = await message.prompt('请输入所选签名方式的六位 PIN 码或密码', '审批开关电子签名', {
       inputType: 'password',
-      inputPlaceholder: '请输入电子签名密码',
+      inputPlaceholder: '请输入所选签名方式的六位 PIN 码或密码',
       inputValidator: (value) => Boolean(String(value || '').trim()),
-      inputErrorMessage: '电子签名密码不能为空'
+      inputErrorMessage: '电子签名凭据不能为空'
     })
     signaturePassword = String(promptResult.value || '').trim()
     if (!signaturePassword) {
-      message.warning('电子签名密码不能为空')
+      message.warning('电子签名凭据不能为空')
       await getList()
       return
     }

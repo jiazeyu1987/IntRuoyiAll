@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlinePqcNumericEntry.vue",
+      "kind": "page",
+      "value": "mes/pro/feedback/FrontlinePqcNumericEntry",
+      "reason": "一线PQC快速填写内部组件，由现有一线PQC逐件填写弹窗打开，沿用现有页面及提交权限，无独立菜单、路由、权限标识或新增角色、租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue",
       "kind": "page",
       "value": "mes/pro/processpool/PqcLeaderWorkbenchPage",

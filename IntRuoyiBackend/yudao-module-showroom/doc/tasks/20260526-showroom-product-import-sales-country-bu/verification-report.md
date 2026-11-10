@@ -2,7 +2,7 @@
 
 ## 目标
 
-验证展厅产品导入与发布链路完成字段语义替换：`core_selling_points(_en)` 作为 `在售国家 / Countries on Sale`，`pipeline_layout(_en)` 作为 `BU`；支持验收 Excel `D:\ProjectPackage\Int\IntRuoyi\resource\产品资料修改版.xlsx` 的 `产品列表` 新表头；管理前端与 Website 不再把旧业务标签作为目标展示。
+验证展厅产品导入与发布链路完成字段语义替换：`core_selling_points(_en)` 作为 `在售国家 / Countries on Sale`，`pipeline_layout(_en)` 作为 `BU`；支持验收 Excel `./resource/产品资料修改版.xlsx` 的 `产品列表` 新表头；管理前端与 Website 不再把旧业务标签作为目标展示。
 
 ## 需求到产物
 
@@ -28,7 +28,7 @@
 - PASS: `pnpm ts:check` in `yudao-ui-admin-vue3` with `NODE_OPTIONS=--max-old-space-size=16384` -> PASS。
 - PASS: `mvn -pl yudao-server -am "-Dmaven.test.skip=true" package` -> BUILD SUCCESS。
 - PASS: backend health `http://127.0.0.1:48081/actuator/health` -> 200，runtime jar `output/runtime/backend-20260527-showroom-sales-country-bu.jar`。
-- PASS: Playwright real import from `http://localhost:8081` with test tenant `测试租户` / `aoteman` and `D:\ProjectPackage\Int\IntRuoyi\resource\产品资料修改版.xlsx` -> `totalRows=164`、`successCount=164`、`skippedCount=0`、`failureCount=0`。
+- PASS: Playwright real import from `http://localhost:8081` with test tenant `测试租户` / `aoteman` and `./resource/产品资料修改版.xlsx` -> `totalRows=164`、`successCount=164`、`skippedCount=0`、`failureCount=0`。
 - PASS: backend log for the real import -> `/admin-api/showroom/product/import-excel` completed in 21348 ms; no `product-*-ruoxi.wav`, no `Native memory allocation`, no `SHOWROOM_AUDIO_GENERATION_FAILED`.
 - PASS: `git diff --check` in all three worktrees -> no whitespace errors; only line-ending warnings.
 - READ: `产品资料修改版.xlsx` -> sheets `产品列表`、`奖项`、`原材料`; `产品列表` row 1 matches the new 13-column contract.

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.service.user;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjUtil;
@@ -458,6 +459,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         if (CommonStatusEnum.isDisable(user.getStatus())) {
             throw exception(ESIGN_IDENTITY_DISABLED);
+        }
+        if (SignatureCredentialPolicy.isPin(user.getSignatureCredentialType())) {
+            if (!SignatureCredentialPolicy.validPin(rawPassword)
+                    || !isPasswordMatch(rawPassword, SignatureCredentialPolicy.credentialHash("PIN", user.getSignaturePinHash(), null)))
+                throw exception(ESIGN_IDENTITY_BAD_CREDENTIALS);
+            return user;
         }
         if (isLoginLockActive(user, LocalDateTime.now())) {
             throw exception(ESIGN_IDENTITY_LOCKED);

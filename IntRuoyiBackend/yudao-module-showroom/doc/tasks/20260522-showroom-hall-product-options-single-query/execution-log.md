@@ -6,10 +6,10 @@ RED: `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#hallP
 
 GREEN: `mvn -pl yudao-module-showroom clean "-Dtest=ShowroomHttpApiIntegrationTest#hallProductOptionsShouldReturnCandidateRowsWithHallIdsInSingleCall" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
 
-GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\doc\tasks\20260522-showroom-hall-product-options-single-query\backend-api-evidence.md` -> PASS。
+GREEN: `python -X utf8 会话技能：backend-api-delivery --evidence ./IntRuoyiBackend/yudao-module-showroom/doc/tasks/20260522-showroom-hall-product-options-single-query/backend-api-evidence.md` -> PASS。
 
-GREEN: `D:\ProjectPackage\Int\IntRuoyi\restart-ruoyi.bat` -> PASS，已拉起当前代码对应的本地运行时。
+GREEN: `./restart-ruoyi.bat` -> PASS，已拉起当前代码对应的本地运行时。
 
 GREEN: live HTTP verification `GET /admin-api/showroom/hall/product-options` -> PASS，返回 `code = 0`、`count = 180`、约 `42.68ms`。
 
-BLOCKER: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom --task-id 20260522-showroom-hall-product-options-single-query --mode preview` -> BLOCKED，当前 linked worktree 已经位于主分支，脚本按规则禁用自动 closeout merge。
+BLOCKER: `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiBackend/yudao-module-showroom --task-id 20260522-showroom-hall-product-options-single-query --mode preview` -> BLOCKED，当前 linked worktree 已经位于主分支，脚本按规则禁用自动 closeout merge。

@@ -39,7 +39,7 @@
           <el-form-item label="QA评审责任人" required
             ><UserSelectV2 v-model="qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人"
           /></el-form-item>
-          <el-form-item label="电子签名密码" required
+          <el-form-item label="签名凭据" required
             ><el-input v-model="password" type="password" show-password autocomplete="off"
           /></el-form-item>
         </template>

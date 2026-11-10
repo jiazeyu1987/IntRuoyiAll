@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED;
 
 /** A QA stage is one task. Each inspection item retains its own frozen sample quantity. */
 public final class MesPqcInspectionItemPlan {
@@ -14,8 +16,8 @@ public final class MesPqcInspectionItemPlan {
 
     public static Map<String, MesQcSamplingPlan.Evidence> requireSampling(MesPqcInspectionTaskDO task) {
         if (!"PATROL".equals(task.getInspectionType())) return Map.of();
-        if (task.getInspectionSamplingPlanJson() == null)
-            throw new IllegalStateException("PQC task has no frozen matrix sampling evidence");
+        if (task.getInspectionSamplingPlanJson() == null || task.getInspectionSamplingPlanJson().isBlank())
+            throw exception(PRO_PQC_SAMPLING_EVIDENCE_REQUIRED, task.getActiveOrderId(), task.getId());
         Map<String, MesQcSamplingPlan.Evidence> evidence =
                 JsonUtils.parseObject(task.getInspectionSamplingPlanJson(), new TypeReference<LinkedHashMap<String,
                         MesQcSamplingPlan.Evidence>>() { });

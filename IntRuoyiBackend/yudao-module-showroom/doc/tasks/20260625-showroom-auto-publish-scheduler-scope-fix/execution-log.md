@@ -24,6 +24,6 @@ GREEN: `mvn --% -pl yudao-module-showroom -Dtest=ShowroomReleaseAutoPublishServi
 
 GREEN: local MySQL scope repair -> PASS??? `showroom_public_site_binding(site_key=yingtai-showroom, stage=TEST)` ???? `tenant_id=122`???? `showroom.release.auto-publish.site-key=yingtai-showroom`?`showroom.release.auto-publish.stage=TEST`
 
-GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File D:\ProjectPackage\Int\IntRuoyiuoyi-vue-pro\script\deployestart-int-ruoyi-local.ps1 -Component backend` -> PASS
+GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File .uoyi-vue-pro\script\deployestart-int-ruoyi-local.ps1 -Component backend` -> PASS
 
 GREEN: delayed runtime verification -> PASS?`Invoke-RestMethod http://127.0.0.1:48081/actuator/health | ConvertTo-Json -Compress` ?? `{"status":"UP"}`??? `backend-runtime-control-20260625-222810.out.log` ????? `Dirty showroom release requires configured auto-publish site key and stage.`?`SHOWROOM_AUTO_PUBLISH_SCOPE_BINDING_REQUIRED` ? `ShowroomReleaseAutoPublishScheduler` ????

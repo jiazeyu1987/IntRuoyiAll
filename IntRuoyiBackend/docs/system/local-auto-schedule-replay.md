@@ -16,21 +16,21 @@ The demo data uses the `900xxx` id range under tenant `1`.
 
 - Local MySQL reachable at `127.0.0.1:23306`, or Docker container `int-ruoyi-mysql`
 - Local Redis reachable at `127.0.0.1:26379`, or Docker container `int-ruoyi-redis`
-- Backend branch checked out at `D:\wt\intsched-be`
-- Frontend branch checked out at `D:\ProjectPackage\Int\IntRuoyi-worktrees\auto-schedule-first-loop\yudao-ui-admin-vue3`
+- Backend branch checked out at `../IntRuoyiWorktree/intsched-be/IntRuoyiBackend`
+- Frontend branch checked out at `../IntRuoyiWorktree/auto-schedule-first-loop/yudao-ui-admin-vue3`
 
 ## Database Setup
 
 Helper script, minimal scenario:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Scenario Minimal -Action Replay
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Scenario Minimal -Action Replay
 ```
 
 Helper script, complete scenario:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -Action Replay
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -Action Replay
 ```
 
 The helper supports `ApplySchema`, `Clean`, `Seed`, `Verify`, `Replay`, `ExerciseApiFlow`, `ReplayAndExercise`, and `SyncSimulationDate`, and accepts `-Scenario Minimal` or `-Scenario Complete`.
@@ -39,44 +39,44 @@ When you need to normalize the simulation row to a specific day in the active te
 Apply schema patch directly:
 
 ```powershell
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-first-loop.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-first-loop.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql --force -uroot -p123456 ruoyi-vue-pro
 ```
 
 Minimal scenario seed:
 
 ```powershell
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-first-loop-demo-clean.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-first-loop-demo-clean.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-first-loop-demo-data.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-first-loop-demo-data.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 ```
 
 Complete scenario seed:
 
 ```powershell
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-complete-demo-clean.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-complete-demo-clean.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-complete-demo-data.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-complete-demo-data.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 ```
 
 Standalone simulation-date sync:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Action SyncSimulationDate -SimulationDate 2026-05-17
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Action SyncSimulationDate -SimulationDate 2026-05-17
 ```
 
 One-command replay and API exercise:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Scenario Minimal -Action ReplayAndExercise
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Scenario Minimal -Action ReplayAndExercise
 
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -Action ReplayAndExercise
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -Action ReplayAndExercise
 
-powershell -ExecutionPolicy Bypass -File D:\wt\intsched-be\script\shell\mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -SimulationDate 2026-05-17 -Action ReplayAndExercise
+powershell -ExecutionPolicy Bypass -File ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/script/shell/mes-auto-schedule-first-loop-demo.ps1 -Scenario Complete -SimulationDate 2026-05-17 -Action ReplayAndExercise
 ```
 
 Expected minimal seed:
@@ -107,9 +107,9 @@ mvn -pl yudao-server -am "-Dmaven.test.skip=true" package
 Start backend on `48081` using a runtime copy, not the mutable target jar:
 
 ```powershell
-$java = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot\bin\java.exe'
-$builtJar = 'D:\wt\intsched-be\yudao-server\target\yudao-server.jar'
-$runtimeJar = 'D:\wt\intsched-be\output\runtime\backend-auto-schedule-replay.jar'
+$java = '${JAVA_HOME}'
+$builtJar = '../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/yudao-server/target/yudao-server.jar'
+$runtimeJar = '../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/output/runtime/backend-auto-schedule-replay.jar'
 
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $runtimeJar) | Out-Null
 Copy-Item -LiteralPath $builtJar -Destination $runtimeJar -Force
@@ -132,11 +132,11 @@ Start-Process -FilePath $java -ArgumentList @(
 Start frontend on `3100`:
 
 ```powershell
-cmd /c mklink /J D:\ProjectPackage\Int\IntRuoyi-worktrees\auto-schedule-first-loop\yudao-ui-admin-vue3\node_modules D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\node_modules
+cmd /c mklink /J ../IntRuoyiWorktree/auto-schedule-first-loop/yudao-ui-admin-vue3/node_modules ./IntRuoyiFronted/node_modules
 
-Start-Process -FilePath 'C:\Users\BJB110\AppData\Roaming\npm\pnpm.cmd' -ArgumentList @(
+Start-Process -FilePath 'pnpm' -ArgumentList @(
   'exec', 'vite', '--mode', 'env.local', '--host', '0.0.0.0', '--port', '3100'
-) -WorkingDirectory 'D:\ProjectPackage\Int\IntRuoyi-worktrees\auto-schedule-first-loop\yudao-ui-admin-vue3' -WindowStyle Hidden
+) -WorkingDirectory '../IntRuoyiWorktree/auto-schedule-first-loop/yudao-ui-admin-vue3' -WindowStyle Hidden
 ```
 
 ## Browser Verification
@@ -213,13 +213,13 @@ Expected complete result:
 Minimal scenario:
 
 ```powershell
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-first-loop-demo-clean.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-first-loop-demo-clean.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 ```
 
 Complete scenario:
 
 ```powershell
-Get-Content D:\wt\intsched-be\sql\mysql\mes-auto-schedule-complete-demo-clean.sql -Raw |
+Get-Content ../IntRuoyiWorktree/intsched-be/IntRuoyiBackend/sql/mysql/mes-auto-schedule-complete-demo-clean.sql -Raw |
   docker exec -i int-ruoyi-mysql mysql -uroot -p123456 ruoyi-vue-pro
 ```

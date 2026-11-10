@@ -213,14 +213,14 @@
               @keyup.enter="submitRelease"
             />
           </el-form-item>
-          <el-form-item label="电子签名密码" required>
+          <el-form-item label="签名凭据" required>
             <el-input
               v-model="releaseForm.signaturePassword"
               type="password"
               data-pqc-production-release-signature-password
               show-password
               autocomplete="current-password"
-              placeholder="请输入当前账号电子签名密码"
+              placeholder="请输入当前账号电子签名凭据（PIN 码或密码）"
               @keyup.enter="submitRelease"
             />
           </el-form-item>
@@ -830,7 +830,7 @@ const submitRelease = async () => {
   const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
   if (!udiControlDocumentNo || udiControlDocumentNo.length > 128 || !signaturePassword) {
     releaseError.value = !udiControlDocumentNo ? 'UDI编号不能为空。' :
-      udiControlDocumentNo.length > 128 ? 'UDI编号长度不能超过128个字符。' : '电子签名密码不能为空。'
+      udiControlDocumentNo.length > 128 ? 'UDI编号长度不能超过128个字符。' : '电子签名凭据不能为空。'
     return
   }
   const scopeKey = releaseRequestScopeKey(row)

@@ -6,9 +6,9 @@ Make the anonymous showroom display APIs return the admin product cover image as
 
 ## Scope
 
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\src\main\java\cn\iocoder\yudao\module\showroom\controller\ShowroomApiRuntime.java`
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\src\test\java\cn\iocoder\yudao\module\showroom\integration\ShowroomHttpApiIntegrationTest.java`
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\doc\tasks\20260522-showroom-product-cover-prefer-admin-cover\**`
+- `./IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/controller/ShowroomApiRuntime.java`
+- `./IntRuoyiBackend/yudao-module-showroom/src/test/java/cn/iocoder/yudao/module/showroom/integration/ShowroomHttpApiIntegrationTest.java`
+- `./IntRuoyiBackend/yudao-module-showroom/doc/tasks/20260522-showroom-product-cover-prefer-admin-cover/**`
 
 ## Non-Scope
 
@@ -18,13 +18,13 @@ Make the anonymous showroom display APIs return the admin product cover image as
 
 ## Previous Task Check
 
-- Previous same-repo task record: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\doc\tasks\20260522-showroom-hall-product-options-single-query\task.md`
+- Previous same-repo task record: `./IntRuoyiBackend/yudao-module-showroom/doc/tasks/20260522-showroom-hall-product-options-single-query/task.md`
 - Status before this task: `Completed`
 - Impact: The previous showroom module task is completed and does not block this product-display contract fix.
 
 ## Repository Status Check
 
-- Repository: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro`
+- Repository: `./IntRuoyiBackend`
 - Current state: the repo contains unrelated local edits and generated task artifacts.
 - Impact: this task must keep its write set limited to the anonymous showroom runtime, direct regression tests, and its own task records.
 

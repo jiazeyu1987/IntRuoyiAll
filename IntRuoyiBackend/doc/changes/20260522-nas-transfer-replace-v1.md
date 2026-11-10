@@ -8,7 +8,7 @@
 ## Current Baseline Reviewed
 
 - Baseline feature task:
-  - `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260522-dcc-nas-transfer-controlled-files-backend\task.md`
+  - `./IntRuoyiBackend/doc/tasks/20260522-dcc-nas-transfer-controlled-files-backend/task.md`
 - Current runtime behavior before this change:
   - NAS 转移已不走审批且不走分发/培训
   - `PD可编辑` 目录第一次真实导入成功，4 条文件进入 `ACTIVE / V1.0`

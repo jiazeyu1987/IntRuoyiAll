@@ -11,10 +11,10 @@ This document defines the frontend design for adding automatic scheduling to the
 - `docs/product/acceptance-criteria.md`
 - `doc/tasks/20260512-intpp-auto-schedule-migration-assessment/task.md`
 - Current frontend evidence:
-  - `D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/src/views/mes/pro/task/index.vue`
-  - `D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/src/views/mes/pro/task/ProTaskList.vue`
-  - `D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/src/views/mes/pro/task/components/GanttChart.vue`
-  - `D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/src/api/mes/pro/task`
+  - `./IntRuoyiFronted/src/views/mes/pro/task/index.vue`
+  - `./IntRuoyiFronted/src/views/mes/pro/task/ProTaskList.vue`
+  - `./IntRuoyiFronted/src/views/mes/pro/task/components/GanttChart.vue`
+  - `./IntRuoyiFronted/src/api/mes/pro/task`
 - Current Gantt evidence: `GanttChart.vue` disables `auto_scheduling`, disables `drag_links`, and sends `links: []`.
 
 ## Pages and Routes

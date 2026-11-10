@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -40,7 +41,7 @@ public class MesProductionReleaseSignoffService {
                     || !"BPM".equals(signature.moduleCode())
                     || !"BPM_APPROVAL_TASK".equals(signature.subjectType())
                     || !"APPROVE".equals(signature.actionCode())
-                    || !"SESSION_PLUS_PASSWORD".equals(signature.authenticationMethod())
+                    || !SignatureCredentialPolicy.matchesMethod(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                     || !"VALID".equals(signature.verificationStatus())
                     || !Objects.equals(signature.evidenceHash(), evidenceHash)) {
                 continue;

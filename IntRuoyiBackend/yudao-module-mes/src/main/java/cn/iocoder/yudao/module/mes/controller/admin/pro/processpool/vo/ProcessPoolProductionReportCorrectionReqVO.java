@@ -45,7 +45,7 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     @Size(max = 500, message = "修改原因不能超过 500 个字符")
     private String changeReason;
 
-    @NotBlank(message = "签名密码不能为空")
+    @NotBlank(message = "签名凭据不能为空")
     private String signaturePassword;
 
     public MesProcessPoolProductionReportCorrectionCommand toCommand() {

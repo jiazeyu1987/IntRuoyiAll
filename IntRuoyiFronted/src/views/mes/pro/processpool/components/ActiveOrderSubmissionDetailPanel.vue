@@ -2272,6 +2272,8 @@ const signatureActionLabel = (code: string) => {
 }
 const signatureAuthenticationLabel = (method?: string) => {
   const labels: Record<string, string> = {
+    PIN: 'PIN 码确认', SESSION_PLUS_PIN: '登录账号 PIN 码确认',
+    SESSION_PLUS_SELECTED_USER_PIN: '指定人员 PIN 码确认', SESSION_PLUS_EMPLOYEE_PROFILE_PIN: '员工档案 PIN 码确认',
     PASSWORD: '密码确认', SESSION_PLUS_PASSWORD: '登录账号密码确认',
     SESSION_PLUS_SELECTED_USER_PASSWORD: '指定人员密码确认',
     SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD: '员工档案密码确认'

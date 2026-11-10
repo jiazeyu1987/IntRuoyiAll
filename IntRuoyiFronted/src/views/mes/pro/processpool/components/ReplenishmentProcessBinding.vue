@@ -47,13 +47,13 @@
       <el-form-item label="关联原因" required
         ><el-input v-model="reason" type="textarea" maxlength="500" aria-label="补料关联原因"
       /></el-form-item>
-      <el-form-item label="签名密码" required
+      <el-form-item label="签名凭据" required
         ><el-input
           v-model="password"
           type="password"
           autocomplete="off"
           show-password
-          aria-label="补料关联签名密码"
+          aria-label="补料关联签名凭据（PIN 码或密码）"
       /></el-form-item>
     </el-form>
     <template #footer>

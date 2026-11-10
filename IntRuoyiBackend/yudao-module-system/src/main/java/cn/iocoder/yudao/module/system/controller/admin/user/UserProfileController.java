@@ -81,6 +81,20 @@ public class UserProfileController {
         return success(true);
     }
 
+    @Resource private cn.iocoder.yudao.module.system.service.signature.UserSignatureSettingsService signatureSettings;
+    @GetMapping("/signature-settings")
+    @Operation(summary="读取本人电子签名方式")
+    public CommonResult<cn.iocoder.yudao.module.system.service.signature.UserSignatureSettingsService.Settings> getSignatureSettings() {
+        return success(signatureSettings.get());
+    }
+    @PutMapping("/signature-settings")
+    @ApiAccessLog(requestEnable=false, sanitizeKeys={"password", "newPin"})
+    @Operation(summary="修改本人签名 PIN 和签名方式")
+    public CommonResult<Boolean> updateSignatureSettings(@Valid @RequestBody cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserSignatureSettingsReqVO request) {
+        signatureSettings.update(request);
+        return success(true);
+    }
+
     @PutMapping("/update-password")
     @ApiAccessLog(requestEnable = false, sanitizeKeys = {"oldPassword", "newPassword"})
     @Operation(summary = "修改用户个人密码")

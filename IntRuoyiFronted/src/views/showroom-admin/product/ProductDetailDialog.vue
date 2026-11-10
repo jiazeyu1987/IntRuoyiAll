@@ -548,7 +548,7 @@ const handleApprovalSignatureConfirm = async (payload: { password: string; comme
     throw new Error('当前审批上下文缺失，无法执行审批动作')
   }
   if (!payload.password) {
-    message.error('请输入登录密码完成电子签名')
+    message.error('请输入所选签名方式的六位 PIN 码或密码')
     return
   }
   approvalComment.value = payload.comment

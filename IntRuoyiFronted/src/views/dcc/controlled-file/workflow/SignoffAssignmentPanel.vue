@@ -4,7 +4,7 @@
     <p>{{ departmentName }}：先签名指派本部门人员，再由被指派人正式会签。本人属于本部门时可以指派本人。</p>
     <UserSelectV2 v-model="selected" clearable placeholder="搜索并选择本部门会签人" :disabled="busy || assigned" :user-options="users.map(user => ({ ...user, nickname: user.name, deptName: user.departmentName }))" />
     <el-input v-model="reason" type="textarea" :rows="2" name="dcc-signoff-assignment-opinion" autocomplete="off" :readonly="!reasonFocused" @focus="reasonFocused = true" aria-label="指派意见" placeholder="指派意见（选填）" :disabled="busy || assigned" />
-    <el-input v-model="password" type="password" name="dcc-signoff-signature-password" autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" show-password aria-label="当前账号签名密码" placeholder="当前账号签名密码" :disabled="busy || assigned" />
+    <el-input v-model="password" type="password" name="dcc-signoff-signature-password" autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" show-password aria-label="当前账号签名凭据（PIN 码或密码）" placeholder="当前账号签名凭据（PIN 码或密码）" :disabled="busy || assigned" />
     <slot name="relation-arrangements" :disabled="busy || assigned"></slot>
     <p v-if="error" role="alert">{{ error }}</p>
     <div class="mt-12px flex flex-wrap items-center gap-8px">

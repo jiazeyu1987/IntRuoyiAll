@@ -13,4 +13,4 @@ Create a square premium medical-device showroom cover image for `BATCH-COVER-OK`
 - Confirm the composition is a single hero product cover with an uncluttered showroom-style environment.
 
 ## Status
-Completed. Generated once with the native image tool for this run, copied the selected PNG into the workspace, and verified the final cover at `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-ok-showroom-cover.png`.
+Completed. Generated once with the native image tool for this run, copied the selected PNG into the workspace, and verified the final cover at `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-ok-showroom-cover.png`.

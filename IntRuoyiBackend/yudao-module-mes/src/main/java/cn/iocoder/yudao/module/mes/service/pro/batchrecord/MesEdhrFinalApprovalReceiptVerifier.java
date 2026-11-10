@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -43,7 +44,7 @@ public class MesEdhrFinalApprovalReceiptVerifier {
                 && "MES".equals(signature.moduleCode()) && "MES_BATCH_RECORD".equals(signature.subjectType())
                 && action.equals(signature.actionCode()) && "VALID".equals(signature.verificationStatus())
                 && "mes-batch-record-signature-v1".equals(signature.policyVersion())
-                && "SESSION_PLUS_PASSWORD".equals(signature.authenticationMethod()) && signature.signedAt() != null
+                && SignatureCredentialPolicy.matchesMethod(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD") && signature.signedAt() != null
                 && Objects.equals(execution.getProcessInstanceId(), signature.processInstanceId())
                 && Objects.equals(task.getBpmTaskId(), signature.taskId()), "signature action/actor/process/task conflict");
         require(taskType.equals(task.getTaskType()), "signature task role conflict");

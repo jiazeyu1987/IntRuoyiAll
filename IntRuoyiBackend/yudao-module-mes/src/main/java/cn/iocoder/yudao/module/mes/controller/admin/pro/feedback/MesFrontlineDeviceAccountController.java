@@ -82,7 +82,8 @@ public class MesFrontlineDeviceAccountController {
         return success(employeeSignatureCredentials.qualification(activeOrderId,routeId,routeProcessId,processId,employeeProfileId,identityDomain));
     }
     @PostMapping("/employee-profile/signature-password/change")
-    @Operation(summary="员工校验原签名密码并设置个人签名密码")
+    @cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog(requestEnable=false,sanitizeKeys={"currentPassword","newPassword","newPin"})
+    @Operation(summary="员工修改签名密码、PIN 码和签名方式")
     @PreAuthorize("isAuthenticated()")
     public CommonResult<Boolean> changeEmployeeSignaturePassword(@Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesEmployeeSignaturePasswordChangeReqVO request) {
         employeeSignatureCredentials.change(request);

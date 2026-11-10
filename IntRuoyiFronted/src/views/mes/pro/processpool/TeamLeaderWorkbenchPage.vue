@@ -344,7 +344,7 @@
                   />
                 </el-form-item>
                 <el-alert
-                  title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
+                  title="正式工默认使用六位 PIN 码，初始值 888888；本人可在个人中心修改 PIN 或切换密码签名。"
                   type="info"
                   :closable="false"
                   show-icon
@@ -376,16 +376,16 @@
                     @input="clearProductionPersonnelDialogError"
                   />
                 </el-form-item>
-                <el-form-item label="签名密码">
+                <el-form-item label="初始签名密码">
                   <el-input
                     v-model="temporaryEmployeeForm.signaturePassword"
                     show-password
                     clearable
-                    placeholder="用于统一电子签名流程"
+                    placeholder="用于密码签名方式，沿用现有密码规则"
                   />
                 </el-form-item>
                 <el-alert
-                  title="临时工只创建生产人员档案，不创建系统登录账号。"
+                  title="临时工无登录账号；默认使用六位 PIN 码，初始值 888888。员工可在一线页面的签名设置中修改 PIN、密码或切换方式。"
                   type="info"
                   :closable="false"
                   show-icon
@@ -3570,7 +3570,7 @@
           type="password"
           show-password
           autocomplete="new-password"
-          placeholder="请输入当前登录密码完成电子签名"
+          placeholder="请输入所选签名方式的六位 PIN 码或密码"
           data-team-leader-review-signature-password
         />
       </el-form-item>
@@ -4093,13 +4093,13 @@
             placeholder="请说明本次修改原因"
           />
         </el-form-item>
-        <el-form-item label="签名密码" prop="signaturePassword">
+        <el-form-item label="签名凭据" prop="signaturePassword">
           <el-input
             v-model="correctionForm.signaturePassword"
             type="password"
             show-password
             autocomplete="current-password"
-            placeholder="请输入当前登录账号的签名密码"
+            placeholder="请输入当前登录账号的签名凭据（PIN 码或密码）"
             data-production-report-correction-signature-password
             @keyup.enter="submitCorrection"
           />
@@ -5317,7 +5317,7 @@ const correctionActiveMaterialKey = ref('')
 const correctionActiveDeviceKeys = reactive<Record<string, string>>({})
 const correctionFormRules = {
   changeReason: [{ required: true, message: '请输入修改原因', trigger: 'blur' }],
-  signaturePassword: [{ required: true, message: '请输入签名密码', trigger: 'blur' }]
+  signaturePassword: [{ required: true, message: '请输入所选签名方式的六位 PIN 码或密码', trigger: 'blur' }]
 }
 
 const correctionLossQuantity = computed(() =>
@@ -6298,10 +6298,10 @@ const updateEmployeeStatus = async (row: TeamProductionEmployeeRespVO, enabled: 
 
 const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置密码', {
+    const result = await ElMessageBox.prompt('请输入新的临时工签名密码（用于密码签名方式）', '重置密码', {
       inputType: 'password',
       inputPattern: /\S+/,
-      inputErrorMessage: '签名密码不能为空',
+      inputErrorMessage: '签名凭据不能为空',
       confirmButtonText: '重置',
       cancelButtonText: '取消'
     })
@@ -7521,7 +7521,7 @@ const applyAllocationSnapshot = (snapshot: TeamLeaderReportAllocationSnapshotRes
 const buildReviewSignaturePayload = () => {
   const signaturePassword = reviewForm.reviewSignaturePassword.trim()
   if (!signaturePassword) {
-    throw new Error('请输入电子签名密码')
+    throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   }
   return { signaturePassword }
 }
@@ -9427,7 +9427,7 @@ const requireCorrectionAuditFields = () => {
     throw new Error('修改原因不能为空')
   }
   if (!correctionForm.signaturePassword) {
-    throw new Error('签名密码不能为空')
+    throw new Error('签名凭据不能为空')
   }
   if (correctionChangePreview.value.length === 0) {
     throw new Error('没有可提交的变更')

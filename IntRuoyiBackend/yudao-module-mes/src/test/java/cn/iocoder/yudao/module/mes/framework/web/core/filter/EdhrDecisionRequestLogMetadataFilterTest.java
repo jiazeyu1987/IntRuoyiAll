@@ -21,8 +21,12 @@ class EdhrDecisionRequestLogMetadataFilterTest {
         var review = mock(MesProEdhrNonconformanceReviewController.class);
         when(releases.getObject()).thenReturn(release);
         when(reviews.getObject()).thenReturn(review);
-        var filter = new EdhrDecisionRequestLogMetadataFilter(new WebProperties(), releases, reviews);
-        for (String path : new String[]{"/mes/pro/edhr-release/reject", "/mes/pro/edhr-nonconformance-review/dispose"}) {
+        ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController> frontline = mock(ObjectProvider.class);
+        var device = mock(cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController.class);
+        when(frontline.getObject()).thenReturn(device);
+        var filter = new EdhrDecisionRequestLogMetadataFilter(new WebProperties(), releases, reviews, frontline);
+        for (String path : new String[]{"/mes/pro/edhr-release/reject", "/mes/pro/edhr-nonconformance-review/dispose",
+                "/mes/pro/feedback/frontline/device-account/employee-profile/signature-password/change"}) {
             for (String method : new String[]{"POST", "GET"}) {
                 var request = new MockHttpServletRequest(method, "/admin-api" + path);
                 request.setQueryString("password=PRIVATE_TEST_VALUE");
@@ -37,6 +41,6 @@ class EdhrDecisionRequestLogMetadataFilterTest {
             assertFalse(isRequestLoggingDisabled(unrelated));
             assertNull(unrelated.getAttribute(ATTRIBUTE_HANDLER_METHOD));
         });
-        verifyNoInteractions(release, review);
+        verifyNoInteractions(release, review, device);
     }
 }

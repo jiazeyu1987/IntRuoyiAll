@@ -580,6 +580,8 @@ public interface ErrorCodeConstants {
             "此活跃订单缺少检验规程来源快照，请选择本次更新后新建的活跃订单。");
     ErrorCode PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID = new ErrorCode(1_040_506_116,
             "此活跃订单的检验规程来源快照无效，请联系组长核对订单。");
+    ErrorCode PRO_PQC_SAMPLING_EVIDENCE_REQUIRED = new ErrorCode(1_040_506_117,
+            "此活跃订单的巡检任务缺少冻结抽样证据，无法填写。请联系组长核对，或选择新建的活跃订单；activeOrderId={}, taskId={}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # IntRuoyi Test Publish Evidence
 
 ## Environment
@@ -7,11 +9,11 @@ Current delivery target is the isolated IntRuoyi test runtime on `172.30.30.58`.
 ## Environments And Targets
 
 - Source workspace:
-  `D:\ProjectPackage\Int\IntRuoyi`
+  `.`
 - Owning backend repository:
-  `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro`
+  `./IntRuoyiBackend`
 - Frontend source repository:
-  `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
+  `./IntRuoyiFronted`
 - Target environment:
   test server `172.30.30.58`
 - Remote application directory:
@@ -36,7 +38,7 @@ This release used local build, image packaging, remote transfer, remote compose 
 ## Build And Package Commands
 
 - Backend package:
-  `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-server -am -DskipTests package`
+  `mvn -f ./IntRuoyiBackend/pom.xml -pl yudao-server -am -DskipTests package`
 - Frontend package:
   `pnpm exec vite build --mode test`
   Runtime overrides used during build:
@@ -44,7 +46,7 @@ This release used local build, image packaging, remote transfer, remote compose 
   `VITE_BASE_PATH=/`
   `VITE_OUT_DIR=dist-intruoyi-test`
 - Compose render validation:
-  `docker compose -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\deploy\int-ruoyi-test\docker-compose.yml --env-file <temp-env> config`
+  `docker compose -f ./IntRuoyiBackend/script/deploy/int-ruoyi-test/docker-compose.yml --env-file <temp-env> config`
 - Release image export:
   `docker save -o <release-dir>\intruoyi-images_<tag>.tar intruoyi-backend:<tag> intruoyi-frontend:<tag>`
 
@@ -166,15 +168,15 @@ Artifact:
 - Image: `intruoyi-backend-runtime-base:2026.06.05-jre21-noble-docker29.2.1`
 - Version: `2026.06.05-jre21-noble-docker29.2.1`
 - Image id: `sha256:b4f7d85f325665c3b372379e6d352c3c8be2d3a08add68ac0dc151f720160be7`
-- Tar: `D:\ProjectPackage\Int\BaseImages\intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar`
+- Tar: `历史外部材料（引用已移除）`
 - Tar SHA256: `5bcd568b46ba9f28bfa7ac8ee67e283aea95bd585a89842a14cc40827fa71603`
 
 Commands:
 
 - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File script/deploy/build-backend-runtime-base-image.ps1 -Version 2026.06.05-jre21-noble-docker29.2.1`
-- `docker load -i D:\ProjectPackage\Int\BaseImages\intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar`
+- `docker load -i 历史外部材料（引用已移除）`
 - `docker image inspect intruoyi-backend-runtime-base:2026.06.05-jre21-noble-docker29.2.1 --format '{{.Id}}'`
-- `docker build --no-cache --build-arg BACKEND_RUNTIME_BASE_IMAGE=intruoyi-backend-runtime-base:2026.06.05-jre21-noble-docker29.2.1 -t intruoyi-backend:codex-internal-base-verify -f script/deploy/int-ruoyi-test/Dockerfile.backend D:\ProjectPackage\Int\IntRuoyi`
+- `docker build --no-cache --build-arg BACKEND_RUNTIME_BASE_IMAGE=intruoyi-backend-runtime-base:2026.06.05-jre21-noble-docker29.2.1 -t intruoyi-backend:codex-internal-base-verify -f script/deploy/int-ruoyi-test/Dockerfile.backend .`
 - `python -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py script/tests/test_runtime_control_ops_scripts.py -q`
 - `mvn -pl yudao-module-infra -Dtest=RuntimeControlServiceImplTest test`
 

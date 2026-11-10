@@ -41,7 +41,7 @@ class DccRegistrationHandlingTaskDatabaseTest {
         assertNotNull(migration,"real handling-task migration must be available");
         String schema=Files.readString(migration.resolve("sql/mysql/20261030_dcc_registration_handling_tasks.sql"));
         for(String statement:schema.substring(0,schema.indexOf("INSERT INTO system_notify_template")).replaceAll("(?m)^--.*$", "").split(";"))if(!statement.isBlank())jdbc.execute(statement);
-        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT PRIMARY KEY,tenant_id BIGINT,project_code VARCHAR(32),project_name VARCHAR(128),status VARCHAR(16),deleted INT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT PRIMARY KEY,tenant_id BIGINT,project_code VARCHAR(32),project_name VARCHAR(128),status VARCHAR(16),deleted INT DEFAULT 0,default_attributes_json VARCHAR(2048))");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_access_request(id BIGINT PRIMARY KEY,tenant_id BIGINT,requester_user_id BIGINT,certificate_id BIGINT,project_code_id BIGINT,status VARCHAR(16),request_type VARCHAR(40),deleted INT DEFAULT 0)");
         var users=mock(AdminUserApi.class);var permissions=mock(PermissionApi.class);messages=mock(NotifyMessageSendApi.class);
         when(users.getUser(anyLong())).thenAnswer(i->accounts.get(i.getArgument(0)));
@@ -54,7 +54,7 @@ class DccRegistrationHandlingTaskDatabaseTest {
         service=new DccRegistrationHandlingTaskService(jdbc,users,permissions,messages,clock);
         for(long id:List.of(9L,10L,20L,30L))accounts.put(id,new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setNickname("账号"+id));
         grant(9L,"config:update");for(long id:List.of(10L,20L)){grant(id,"upload:create");grant(id,"renewal:upload");}
-        jdbc.update("INSERT INTO dcc_project_code VALUES(100,1,'PRJ-100','真实项目','ENABLE',0)");
+        jdbc.update("INSERT INTO dcc_project_code VALUES(100,1,'PRJ-100','真实项目','ENABLE',0,NULL)");
     }
     @AfterEach void cleanup(){TenantContextHolder.clear();}
     private void grant(Long actor,String suffix){grants.add(actor+":dcc:registration-certificate:"+suffix);}
@@ -68,6 +68,42 @@ class DccRegistrationHandlingTaskDatabaseTest {
     @Test void missingConfigurationFailsAccuratelyAndDoesNotGenerateTask(){
         var error=assertThrows(ServiceException.class,()->tx(()->service.createProjectTask(100L)));
         assertTrue(error.getMessage().contains("注册证负责人"));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_task",Integer.class));
+        verifyNoInteractions(messages);
+    }
+    private void attributes(String market,String holder,String manufacturer) {
+        var value=new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
+                List.of(market),null,holder,manufacturer,"N",null).validated();
+        jdbc.update("UPDATE dcc_project_code SET default_attributes_json=? WHERE id=100",
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(value));
+    }
+    @Test void notApplicableMarketNeedsNoConfigurationAndCreatesNoTaskEventOrNotification(){
+        attributes("NA","NA","NA");
+        assertNull(service.getConfig());
+        assertNull(tx(()->service.createProjectTask(100L)));
+        configured();
+        assertNull(tx(()->service.createProjectTask(100L)));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_task",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_event",Integer.class));
+        verifyNoInteractions(messages);
+    }
+    @Test void registrationAndManufacturerIdentityDoNotExemptAnApplicableMarket(){
+        attributes("NMPA","NA","NA");
+        assertThrows(ServiceException.class,()->tx(()->service.createProjectTask(100L)));
+        Long id=projectTask();
+        assertNotNull(id);
+        assertEquals("OPEN",status(id));
+    }
+    @Test void notApplicableMarketDoesNotDependOnRegistrantOrManufacturerIdentity(){
+        attributes("NA","Y","N");
+        assertNull(tx(()->service.createProjectTask(100L)));
+        verifyNoInteractions(messages);
+    }
+    @Test void invalidOrAmbiguousAttributesCannotBypassConfiguration(){
+        for(String json:List.of("{}","{\"targetMarkets\":[\"NA\",\"NMPA\"],\"licenseHolder\":\"NA\",\"actualManufacturer\":\"NA\",\"documentTransfer\":\"N\"}")) {
+            jdbc.update("UPDATE dcc_project_code SET default_attributes_json=? WHERE id=100",json);
+            assertThrows(RuntimeException.class,()->tx(()->service.createProjectTask(100L)));
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_task",Integer.class));
         verifyNoInteractions(messages);
     }
     @Test void configurationRequiresManagerActiveSameTenantOwnerAndBothHandlingPermissions(){

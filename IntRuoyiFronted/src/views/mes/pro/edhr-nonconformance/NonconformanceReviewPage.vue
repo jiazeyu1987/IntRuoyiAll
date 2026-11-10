@@ -215,14 +215,14 @@
                 placeholder="请输入评审意见"
               />
             </el-form-item>
-            <el-form-item label="电子签名密码" required>
+            <el-form-item label="签名凭据" required>
               <el-input
                 v-model="disposeForm.signaturePassword"
                 data-edhr-ncr-signature-password
                 type="password"
                 show-password
                 autocomplete="new-password"
-                placeholder="请输入本人电子签名密码"
+                placeholder="请输入本人电子签名凭据（PIN 码或密码）"
               >
                 <template #prefix><Icon icon="ep:lock" /></template>
               </el-input>
@@ -759,7 +759,7 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     !disposeForm.reviewOpinion.trim() ||
     !disposeForm.signaturePassword.trim()
   ) {
-    message.error('评审材料、评审意见和电子签名密码均不能为空。')
+    message.error('评审材料、评审意见和电子签名凭据（PIN 码或密码）均不能为空。')
     return
   }
   disposeLoading.value = true

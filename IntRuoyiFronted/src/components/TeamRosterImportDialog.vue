@@ -25,15 +25,16 @@
       <el-button type="primary" :loading="loading" :disabled="!files.length || !!result.length" @click="submit">确认导入</el-button>
     </template>
   </Dialog>
-  <Dialog v-model="temporaryPasswordVisible" title="临时工电子签名密码" width="480px">
-    <p class="mb-12px">临时工电子签名初始密码：<strong>Int@2025</strong></p>
+  <Dialog v-model="temporaryPasswordVisible" title="临时工电子签名设置" width="480px">
+    <p class="mb-12px">新增临时工默认使用六位 PIN 码：<strong>888888</strong>。</p>
+    <p class="mb-12px">密码方式的初始签名密码为 Int@2025；切换密码方式前须设置有效个人密码。</p>
     <p v-if="newTemporaryNames.length" class="mb-12px">本次新增临时工：{{ newTemporaryNames.join('、') }}。</p>
     <el-alert
       v-if="existingTemporaryCount"
-      :title="`本次有 ${existingTemporaryCount} 名临时工已存在，保留原密码；如已修改密码，请使用修改后的密码。`"
+      :title="`本次有 ${existingTemporaryCount} 名临时工已存在，保留本人已保存的 PIN、密码及签名方式。`"
       type="info" :closable="false" show-icon class="mb-12px"
     />
-    <p>此密码用于临时工电子签名，临时工无系统登录账号。</p>
+    <p>临时工无系统登录账号，可在一线页面的签名设置中修改 PIN、签名密码或切换方式。</p>
     <template #footer>
       <el-button type="primary" @click="temporaryPasswordVisible = false">我已知晓</el-button>
     </template>

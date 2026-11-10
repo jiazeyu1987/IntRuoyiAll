@@ -37,7 +37,7 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :md="12">
-            <el-form-item label="电子签名密码">
+            <el-form-item label="签名凭据">
               <el-input
                 v-model="revisionForm.signaturePassword"
                 type="password"
@@ -212,7 +212,7 @@ const buildRequestPayload = (): ProcessPoolEventRevisionUpdateReqVO => {
     throw new Error('变更原因不能为空')
   }
   if (!revisionForm.signaturePassword.trim()) {
-    throw new Error('电子签名密码不能为空')
+    throw new Error('电子签名凭据不能为空')
   }
 
   return {

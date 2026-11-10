@@ -452,7 +452,7 @@
             type="password"
             show-password
             autocomplete="new-password"
-            placeholder="请输入当前登录密码完成电子签名"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
           />
         </el-form-item>
       </el-form>
@@ -1340,7 +1340,7 @@ const submitReview = async () => {
     return
   }
   if (!reviewForm.signaturePassword.trim()) {
-    ElMessage.error('请输入电子签名密码')
+    ElMessage.error('请输入所选签名方式的六位 PIN 码或密码')
     return
   }
   const sourceTaskId = reviewTask.value.sourceTaskId

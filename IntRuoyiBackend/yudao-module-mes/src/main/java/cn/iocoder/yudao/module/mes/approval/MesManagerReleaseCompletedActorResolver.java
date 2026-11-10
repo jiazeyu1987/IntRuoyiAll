@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.approval;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -236,7 +237,7 @@ public class MesManagerReleaseCompletedActorResolver {
         require(evidence != null && Objects.equals(signatureId, evidence.id()) && Objects.equals(actor.getId(), evidence.actorId())
                 && "MES".equals(evidence.moduleCode()) && "QA_DISPOSITION".equals(evidence.actionCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
-                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) && evidence.signedAt() != null
+                && SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD") && evidence.signedAt() != null
                 && Objects.equals(review.getReviewOpinion(), evidence.reason()) && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "QA closure signature identity is inconsistent");
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "QA_DISPOSITION",
@@ -264,7 +265,7 @@ public class MesManagerReleaseCompletedActorResolver {
                 && Objects.equals(application.getPqcDecidedBy(), evidence.actorId()) && evidence.signedAt() != null
                 && "MES".equals(evidence.moduleCode()) && "PQC_RELEASE".equals(evidence.actionCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
-                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
+                && SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                 && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "formal PQC approval signature identity is inconsistent");
         var verified = verifiedContent(signatureId).signatureFact().verification();

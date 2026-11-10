@@ -2,8 +2,8 @@
 
 ## 只读检查范围
 
-- 管理前端 worktree：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260526-showroom-product-import-sales-country-bu\yudao-ui-admin-vue3`
-- Website worktree：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260526-showroom-product-import-sales-country-bu\Website`
+- 管理前端 worktree：`./worktrees/20260526-showroom-product-import-sales-country-bu/yudao-ui-admin-vue3`
+- Website worktree：`./worktrees/20260526-showroom-product-import-sales-country-bu/Website`
 - 前端本地入口基线：`http://localhost:8081`
 
 ## 管理前端实现前基线证据
@@ -79,7 +79,7 @@ GREEN: Playwright E2E at `http://localhost:8081` using test tenant and 验收 Ex
 
 1. 使用 `docs/login-access.md` 中测试环境/测试租户账号登录管理前端。
 2. 打开展厅-产品管理，从固定前端入口 `http://localhost:8081` 操作，不通过接口代替前端导入。
-3. 选择导入 `D:\ProjectPackage\Int\IntRuoyi\resource\产品资料修改版.xlsx`，该文件 `产品列表` 只含替换后表头：`展品编码`、`产品名-中文`、`产品名-英文`、`展柜名称`、`持证公司`、`在售/在研`、`BU`、`在售国家`、`适应症`、`型号规格`、`注册证信息`、`奖项`、`原材料表单`。
+3. 选择导入 `./resource/产品资料修改版.xlsx`，该文件 `产品列表` 只含替换后表头：`展品编码`、`产品名-中文`、`产品名-英文`、`展柜名称`、`持证公司`、`在售/在研`、`BU`、`在售国家`、`适应症`、`型号规格`、`注册证信息`、`奖项`、`原材料表单`。
 4. 在产品列表检查资料状态列使用 `在售国家` 对应信息。
 5. 打开导入后的产品基础信息，检查产品中英文名、`在售/在研` 解析结果、`BU`、`在售国家`、`适应症`、`型号规格`、`注册证信息` 值正确。
 6. 使用一条 `持证公司` 与当前所属公司不一致的测试数据验证前端导入反馈失败可见；若 `展柜名称`、`奖项`、`原材料表单` 未实现导入，反馈不能暗示这些列已导入。

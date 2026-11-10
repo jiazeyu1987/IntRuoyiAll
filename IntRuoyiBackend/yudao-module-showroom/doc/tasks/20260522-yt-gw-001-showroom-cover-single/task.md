@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 20260522 YT-GW-001 Showroom Cover Single
 
 ## Goal
@@ -14,4 +16,4 @@ Create one square premium medical-device showroom cover image for `YT-GW-001` ba
 - Confirm the image is square and suitable as a single-hero showroom cover.
 
 ## Status
-Completed. Generated and verified the showroom cover PNG at `C:\Users\BJB110\.codex\generated_images\019e4b8b-f9b0-7a23-9b0a-08ece25422aa\ig_08716fba05c68b55016a0f3ecba8708193a0bae6627d703317.png`.
+Completed. Generated and verified the showroom cover PNG at `历史外部材料（引用已移除）`.

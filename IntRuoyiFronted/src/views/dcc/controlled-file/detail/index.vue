@@ -2078,7 +2078,7 @@
         </el-descriptions-item>
       </el-descriptions>
       <el-form label-width="96px">
-        <el-form-item label="登录密码" :error="actionDialog.fieldErrors.password">
+        <el-form-item label="签名凭据" :error="actionDialog.fieldErrors.password">
           <el-input
             v-model="actionDialog.form.password"
             name="dcc-actionDialog-signature-password"
@@ -2086,7 +2086,7 @@
             :readonly="!actionDialog.passwordFocused"
             @focus="actionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
             show-password
             type="password"
           />
@@ -2302,7 +2302,7 @@
             />
           </el-form-item>
         </template>
-        <el-form-item label="登录密码" :error="taskActionDialog.fieldErrors.password">
+        <el-form-item label="签名凭据" :error="taskActionDialog.fieldErrors.password">
           <el-input
             v-model="taskActionDialog.form.password"
             name="dcc-taskActionDialog-signature-password"
@@ -2310,7 +2310,7 @@
             :readonly="!taskActionDialog.passwordFocused"
             @focus="taskActionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
             show-password
             type="password"
           />
@@ -2383,7 +2383,7 @@
         :title="electronicReceiptDialog.inlineError"
       />
       <el-form label-width="96px">
-        <el-form-item label="登录密码" :error="electronicReceiptDialog.fieldErrors.password">
+        <el-form-item label="签名凭据" :error="electronicReceiptDialog.fieldErrors.password">
           <el-input
             v-model="electronicReceiptDialog.form.password"
             name="dcc-electronicReceiptDialog-signature-password"
@@ -2391,7 +2391,7 @@
             :readonly="!electronicReceiptDialog.passwordFocused"
             @focus="electronicReceiptDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
             show-password
             type="password"
           />
@@ -6724,7 +6724,7 @@ const closeElectronicReceiptDialog = () => {
 const validateElectronicReceiptDialog = () => {
   const errors: Record<string, string> = {}
   if (!electronicReceiptDialog.form.password.trim()) {
-    errors.password = '请输入登录密码完成电子签名'
+    errors.password = '请输入所选签名方式的六位 PIN 码或密码'
   }
   electronicReceiptDialog.fieldErrors = errors
   electronicReceiptDialog.inlineError = Object.values(errors)[0] || ''
@@ -7339,7 +7339,7 @@ const submitActionDialog = async () => {
     if (request.external) {
       if (!request.form.password.trim()) {
         actionDialog.fieldErrors = { password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE }
-        actionDialog.inlineError = '请输入登录密码完成电子签名'
+        actionDialog.inlineError = '请输入所选签名方式的六位 PIN 码或密码'
         return
       }
       if (!isClickedForm()) throw new Error('签名任务或填写内容已变化，请重新提交确认')
@@ -7495,7 +7495,7 @@ const validateTaskActionDialog = () => {
   const password = taskActionDialog.form.password.trim()
   const reason = taskActionDialog.form.reason.trim()
   if (!password) {
-    errors.password = '请输入登录密码完成电子签名'
+    errors.password = '请输入所选签名方式的六位 PIN 码或密码'
   }
   if (!reason) {
     errors.reason = '请输入处理意见'

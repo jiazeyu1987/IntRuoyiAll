@@ -9,7 +9,6 @@ import cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi;
 import cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner;
 import cn.iocoder.yudao.module.system.service.gxpaudit.*;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import java.time.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,8 +17,8 @@ import static org.mockito.Mockito.*;
 class ElectronicSignatureCapturedImageVerificationTest {
     /** Exercise the real V2 writer and reader, including image bytes in both digests. */
     @ParameterizedTest
-    @ValueSource(strings = {"VALID", "VERIFIED", "INVALID"})
-    void onlyTheImageProvidersValidStatusPasses(String imageStatus) {
+    @org.junit.jupiter.params.provider.CsvSource({"VALID,PASSWORD", "VALID,PIN", "VERIFIED,PASSWORD", "VERIFIED,PIN", "INVALID,PIN"})
+    void onlyTheImageProvidersValidStatusPasses(String imageStatus, String credentialType) {
         TenantContextHolder.setTenantId(1L);
         try {
             var records = mock(ElectronicSignatureRecordMapper.class);
@@ -27,6 +26,7 @@ class ElectronicSignatureCapturedImageVerificationTest {
             var authentication = mock(SignatureAuthenticationApi.class);
             var signer = new AuthenticatedSigner(1L, "SYSTEM_USER", 2L, 2L, "ce75d9a0-9194-4bcb-a26e-ef302b9bc956", 1L, "request");
             when(authentication.identityDomain()).thenReturn("SYSTEM_USER");
+            when(authentication.credentialType(anyLong())).thenReturn(credentialType);
             when(authentication.lockAndRevalidate(eq(signer), any())).thenReturn(signer);
             when(records.insert(any(ElectronicSignatureRecordDO.class))).thenAnswer(call -> {
                 ElectronicSignatureRecordDO row = call.getArgument(0);

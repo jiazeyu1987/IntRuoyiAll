@@ -24,12 +24,12 @@
 
 ## Execution
 
-- RED: `python C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\scripts\validate_quality_assurance.py --evidence docs\qa\mes-scheduler-e2e-closure-evidence.md` -> FAIL，缺少标准 QA 证据结构与 RED/GREEN/Verification/Blockers 标记。
+- RED: `python 会话技能：quality-assurance-test-suite --evidence docs\qa\mes-scheduler-e2e-closure-evidence.md` -> FAIL，缺少标准 QA 证据结构与 RED/GREEN/Verification/Blockers 标记。
 - RED: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on `http://127.0.0.1:8095` -> FAIL，`归属状态` 文本多匹配，E2E 定位不唯一。
 - RED: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on `http://127.0.0.1:8095` -> FAIL，同登录态最终校验缺少前端鉴权 header。
 - RED: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on `http://127.0.0.1:8095` -> FAIL，token 缓存值需去除包裹引号。
 - RED: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on `http://127.0.0.1:8095` -> FAIL，工作台瓶颈字段名应为 `bottlenecks`。
-- GREEN: `python C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\scripts\validate_quality_assurance.py --evidence docs\qa\mes-scheduler-e2e-closure-evidence.md` -> PASS。
+- GREEN: `python 会话技能：quality-assurance-test-suite --evidence docs\qa\mes-scheduler-e2e-closure-evidence.md` -> PASS。
 - GREEN: `node --check tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` -> PASS。
 - GREEN: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on `http://127.0.0.1:8095` -> PASS。
 - RED: `node tests\e2e\mes-scheduler-target7-closed-loop-real-flow.e2e.js` on merged `int_main` `http://127.0.0.1:8081` -> FAIL，登录页没有显式租户输入时脚本仍尝试处理租户下拉，登录请求未触发。

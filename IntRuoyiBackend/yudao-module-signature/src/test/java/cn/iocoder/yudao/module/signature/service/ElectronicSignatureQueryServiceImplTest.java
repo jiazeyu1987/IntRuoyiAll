@@ -91,6 +91,11 @@ class ElectronicSignatureQueryServiceImplTest {
         when(directory.selectGxpAuditActor(1L, 7L)).thenReturn(account);
         ReflectionTestUtils.setField(auditWriter, "adminUserMapper", directory);
         writer = new ElectronicSignatureServiceImpl();
+        var systemIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        var employeeIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        when(systemIdentity.identityDomain()).thenReturn("SYSTEM_USER"); when(employeeIdentity.identityDomain()).thenReturn("MES_EMPLOYEE_PROFILE");
+        when(systemIdentity.credentialType(anyLong())).thenReturn("PASSWORD"); when(employeeIdentity.credentialType(anyLong())).thenReturn("PASSWORD");
+        ReflectionTestUtils.setField(writer,"authenticationProviders",List.of(systemIdentity,employeeIdentity));
         ReflectionTestUtils.setField(writer, "signatureRecordMapper", records); ReflectionTestUtils.setField(writer, "adminUserApi", users);
         ReflectionTestUtils.setField(writer, "gxpAuditService", auditWriter); ReflectionTestUtils.setField(writer, "subjectAdapters", List.of(adapter));
         var verifier = new SignatureCreationVerificationService(); ReflectionTestUtils.setField(verifier, "auditEventMapper", audits);

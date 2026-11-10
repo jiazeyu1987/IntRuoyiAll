@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.approval;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -86,7 +87,7 @@ public class MesEdhrExecutionFinalOutcomeReader {
                 && "MES".equals(signature.moduleCode()) && "MES_BATCH_RECORD".equals(signature.subjectType())
                 && action.equals(signature.actionCode()) && "VALID".equals(signature.verificationStatus())
                 && "mes-batch-record-signature-v1".equals(signature.policyVersion())
-                && "SESSION_PLUS_PASSWORD".equals(signature.authenticationMethod())
+                && SignatureCredentialPolicy.matchesMethod(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                 && Objects.equals(signature.signedAt(), actedAt),
                 "final signature/action actor conflict");
         String[] subject = new String(Base64.getUrlDecoder().decode(signature.subjectId()), StandardCharsets.UTF_8).split("\n", -1);

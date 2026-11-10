@@ -49,7 +49,7 @@ class SystemSignatureAuthenticationServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(operator, null, List.of()));
         user = new AdminUserDO(); user.setId(12L); user.setTenantId(7L); user.setDeleted(false);
-        user.setStatus(0); user.setPassword("stored-hash"); user.setPasswordCredentialStatus("ACTIVE");
+        user.setStatus(0); user.setSignatureCredentialType("PASSWORD"); user.setPassword("stored-hash"); user.setPasswordCredentialStatus("ACTIVE");
         user.setPasswordUpdateTime(LOCAL.minusDays(1)); user.setLoginLocked(0); user.setLoginFailureCount(0);
         user.setSignatureCredentialGeneration(GENERATION); user.setSignatureCredentialVersion(1L);
         when(users.selectPermissionSubjectForUpdate(7L, 12L)).thenReturn(user);
@@ -145,4 +145,39 @@ class SystemSignatureAuthenticationServiceTest {
     @Test void requestDiagnosticsNeverContainCredential() {
         assertFalse(request().toString().contains("typed-password"));
     }
+    private SignatureAuthenticationRequest pinRequest(String pin) {
+        return new SignatureAuthenticationRequest(7L,"SYSTEM_USER",12L,12L,"pin-request",pin);
+    }
+    @Test void pinAcceptsSixDigitsWithoutPasswordExpiryOrLockRequirements() {
+        user.setSignatureCredentialType("PIN"); user.setSignaturePinHash("pin-hash");
+        user.setPasswordCredentialStatus("INITIAL"); user.setPasswordUpdateTime(null);
+        user.setLoginLocked(1); user.setLoginLockedTime(LOCAL.minusMinutes(1));
+        when(encoder.matches("888888","pin-hash")).thenReturn(true);
+        assertTrue(service.authenticate(pinRequest("888888")).succeeded());
+        verify(users,never()).resetSignatureFailures(anyLong(),anyLong());
+        verify(users,never()).recordSignatureFailure(anyLong(),anyLong(),anyInt(),any(),anyInt(),any());
+        verifyNoInteractions(configApi);
+    }
+    @Test void wrongPinNeverCountsFailuresAndCannotUsePassword() {
+        user.setSignatureCredentialType("PIN"); user.setSignaturePinHash("pin-hash");
+        when(encoder.matches("typed-password","stored-hash")).thenReturn(true);
+        for(int i=0;i<7;i++) assertEquals("BAD_CREDENTIALS",service.authenticate(pinRequest("123456")).rejectionCode());
+        assertEquals("BAD_CREDENTIALS",service.authenticate(request()).rejectionCode());
+        verify(users,never()).recordSignatureFailure(anyLong(),anyLong(),anyInt(),any(),anyInt(),any());
+        verify(encoder,never()).matches(anyString(),eq("stored-hash"));
+    }
+    @Test void pinPreservesLeadingZerosAndRejectsNonSixDigitInput() {
+        user.setSignatureCredentialType("PIN"); user.setSignaturePinHash("pin-hash");
+        when(encoder.matches("000001","pin-hash")).thenReturn(true);
+        assertTrue(service.authenticate(pinRequest("000001")).succeeded());
+        for(String invalid:List.of("12345","1234567","abcdef","１２３４５６")) assertEquals("BAD_CREDENTIALS",service.authenticate(pinRequest(invalid)).rejectionCode());
+    }
+    @Test void pinStillRejectsDisabledIdentityAndMissingPinHash() {
+        user.setSignatureCredentialType("PIN"); user.setSignaturePinHash("pin-hash"); user.setStatus(1);
+        assertEquals("IDENTITY_DISABLED",service.authenticate(pinRequest("888888")).rejectionCode());
+        user.setStatus(0); user.setSignaturePinHash(null);
+        assertThrows(IllegalStateException.class,()->service.authenticate(pinRequest("888888")));
+        verifyNoInteractions(encoder);
+    }
+
 }

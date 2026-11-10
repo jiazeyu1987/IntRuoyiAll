@@ -155,6 +155,11 @@ class MesSignatureContentProtocolTest {
         ReflectionTestUtils.setField(auditWriter, "policyOperationMapper", policies);
         ReflectionTestUtils.setField(auditWriter, "eventRelationMapper", relations);
         writer = new ElectronicSignatureServiceImpl();
+        var systemIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        var employeeIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        when(systemIdentity.identityDomain()).thenReturn("SYSTEM_USER"); when(employeeIdentity.identityDomain()).thenReturn("MES_EMPLOYEE_PROFILE");
+        when(systemIdentity.credentialType(anyLong())).thenReturn("PASSWORD"); when(employeeIdentity.credentialType(anyLong())).thenReturn("PASSWORD");
+        ReflectionTestUtils.setField(writer,"authenticationProviders",List.of(systemIdentity,employeeIdentity));
         ReflectionTestUtils.setField(writer, "signatureRecordMapper", records);
         ReflectionTestUtils.setField(writer, "adminUserApi", users);
         ReflectionTestUtils.setField(writer, "gxpAuditService", auditWriter);
@@ -769,4 +774,14 @@ class MesSignatureContentProtocolTest {
     }
 
     private static String empty(String value) { return value == null ? "" : value; }
+    @ParameterizedTest @ValueSource(strings={"ordinary","SYSTEM_USER","MES_EMPLOYEE_PROFILE"})
+    void pinSignaturePassesTheRealProductionContentIdentityBoundary(String domain) {
+        var providers=(java.util.List<cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi>)ReflectionTestUtils.getField(writer,"authenticationProviders");
+        providers.forEach(provider->when(provider.credentialType(anyLong())).thenReturn("PIN"));
+        var fact=sign(realSubject("APPROVE","审批节点"),"APPROVE","批准",domain);
+        assertTrue(fact.authenticationMethod().endsWith("_PIN"));
+        var content=parse(fact,1L);
+        assertBusiness(content.businessContentJson(),expectedFull("APPROVE","审批节点","批准",null),false);
+    }
+
 }

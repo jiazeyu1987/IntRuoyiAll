@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
@@ -37,7 +38,7 @@ public class MesEdhrRecordChangeApprovalEvidence {
                 && Objects.equals(signature.actorId(), event.getApprovedBy())
                 && "MES".equals(signature.moduleCode()) && "MES_BATCH_RECORD".equals(signature.subjectType())
                 && action.equals(signature.actionCode()) && "VALID".equals(signature.verificationStatus())
-                && "SESSION_PLUS_PASSWORD".equals(signature.authenticationMethod())
+                && SignatureCredentialPolicy.matchesMethod(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                 && signature.signedAt() != null
                 && !signature.signedAt().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).isAfter(event.getApprovedAt()), "批准签名身份冲突");
         var content = JsonUtils.parseTree(signature.canonicalContentJson());

@@ -33,7 +33,7 @@ Generate one square PNG showroom cover image for `product_010` based only on the
 ## Expected Verification
 
 - Final PNG exists at:
-  - `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\product-010-showroom-cover-single-native.png`
+  - `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/product-010-showroom-cover-single-native.png`
 - PNG signature is valid and dimensions are square:
   - `89504E470D0A1A0A`
   - `1254x1254`
@@ -50,7 +50,7 @@ Generate one square PNG showroom cover image for `product_010` based only on the
 
 - Task record and execution log created.
 - One native image-generation request completed and returned a local PNG artifact.
-- The generated artifact was saved to `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\product-010-showroom-cover-single-native.png`.
+- The generated artifact was saved to `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/product-010-showroom-cover-single-native.png`.
 - File verification passed for existence, PNG signature, and square dimensions.
 - Closeout cleanup preview passed in `ready` state with no delete, blocked, or warning entries.
 

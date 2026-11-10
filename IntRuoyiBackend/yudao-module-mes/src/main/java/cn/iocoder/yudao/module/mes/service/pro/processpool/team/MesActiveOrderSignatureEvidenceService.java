@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -312,7 +313,7 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !"MES".equals(evidence.moduleCode()) || !"MES_BATCH_RECORD".equals(evidence.subjectType())
                 || !"PQC_RELEASE".equals(evidence.actionCode())
                 || evidence.authenticationMethod() == null
-                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD").contains(evidence.authenticationMethod()))
+                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_PIN", "SESSION_PLUS_SELECTED_USER_PASSWORD", "SESSION_PLUS_SELECTED_USER_PIN").contains(evidence.authenticationMethod()))
             throw exception(EVIDENCE_INVALID);
         var receipt = JsonUtils.parseTree(application.getDossierSummaryJson());
         if (receipt == null || !receipt.isObject()
@@ -386,7 +387,7 @@ public class MesActiveOrderSignatureEvidenceService {
         if (actual == null || !actual.isObject()) throw exception(EVIDENCE_INVALID);
         var expectedContent = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(expected.canonicalContentJson());
         var identity = actual.get("signatureIdentity");
-        if ("SESSION_PLUS_SELECTED_USER_PASSWORD".equals(evidence.authenticationMethod())) {
+        if (SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD")) {
             if (identity == null || !identity.isObject() || identity.size() != 5
                     || !"SYSTEM_USER".equals(identity.path("domain").asText())
                     || !numericId(identity.get("signerId"), evidence.actorId())
@@ -395,7 +396,7 @@ public class MesActiveOrderSignatureEvidenceService {
                     || !identity.path("displayName").isTextual() || identity.path("displayName").asText().isBlank())
                 throw exception(EVIDENCE_INVALID);
             expectedContent.set("signatureIdentity", identity);
-        } else if (!"SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) || identity != null) {
+        } else if (!SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD") || identity != null) {
             throw exception(EVIDENCE_INVALID);
         }
         if (!expectedContent.equals(actual))

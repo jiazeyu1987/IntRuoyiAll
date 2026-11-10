@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -910,10 +911,10 @@ public class MesProBatchRecordExecutionSignatureService {
         if (profile == null
                 || !Boolean.TRUE.equals(profile.getEnabled())
                 || profile.getSystemUserId() != null
-                || StrUtil.isBlank(profile.getSignaturePasswordHash())) {
+                || StrUtil.isBlank(SignatureCredentialPolicy.credentialHash(profile.getSignatureCredentialType(), profile.getSignaturePinHash(), profile.getSignaturePasswordHash()))) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        if (!passwordEncoder.matches(password, profile.getSignaturePasswordHash())) {
+        if (!((!SignatureCredentialPolicy.isPin(profile.getSignatureCredentialType()) || SignatureCredentialPolicy.validPin(password)) && passwordEncoder.matches(password, SignatureCredentialPolicy.credentialHash(profile.getSignatureCredentialType(), profile.getSignaturePinHash(), profile.getSignaturePasswordHash())))) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
         }
         String employeeCode = StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeCode()), null);
@@ -940,10 +941,10 @@ public class MesProBatchRecordExecutionSignatureService {
                     MesProcessPoolTeamEmployeeProfileDO current = employeeProfileMapper.selectById(actorId);
                     if (current == null || !Boolean.TRUE.equals(current.getEnabled()) || current.getSystemUserId() != null
                             || !Objects.equals(current.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                            || StrUtil.isBlank(current.getSignaturePasswordHash())) {
+                            || StrUtil.isBlank(SignatureCredentialPolicy.credentialHash(current.getSignatureCredentialType(), current.getSignaturePinHash(), current.getSignaturePasswordHash()))) {
                         throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
                     }
-                    if (!passwordEncoder.matches(password, current.getSignaturePasswordHash())) {
+                    if (!((!SignatureCredentialPolicy.isPin(current.getSignatureCredentialType()) || SignatureCredentialPolicy.validPin(password)) && passwordEncoder.matches(password, SignatureCredentialPolicy.credentialHash(current.getSignatureCredentialType(), current.getSignaturePinHash(), current.getSignaturePasswordHash())))) {
                         throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
                     }
                 }).signatureId();

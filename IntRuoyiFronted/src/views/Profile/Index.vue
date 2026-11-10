@@ -44,6 +44,9 @@
         <el-tab-pane :label="t('profile.info.basicInfo')" name="basicInfo">
           <BasicInfo />
         </el-tab-pane>
+        <el-tab-pane label="电子签名设置" name="signatureSettings" lazy>
+          <SignatureCredentialSettings v-if="activeName === 'signatureSettings'" />
+        </el-tab-pane>
         <el-tab-pane :label="t('profile.info.resetPwd')" name="resetPwd">
           <ResetPwd />
         </el-tab-pane>
@@ -62,6 +65,7 @@
   </div>
 </template>
 <script lang="ts" setup>
+import SignatureCredentialSettings from '@/views/signature-governance/components/SignatureCredentialSettings.vue'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
@@ -93,6 +97,7 @@ const resolveProfileActiveTab = () => {
   if (route.query.tab === 'notifyMessage') {
     return 'notifyMessage'
   }
+  if (route.query.tab === 'signatureSettings') return 'signatureSettings'
   if (route.query.tab === 'resetPwd') {
     return 'resetPwd'
   }

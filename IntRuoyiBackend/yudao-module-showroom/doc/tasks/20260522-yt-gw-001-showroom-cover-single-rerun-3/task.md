@@ -14,7 +14,7 @@ Create one square premium medical-device showroom cover image for `YT-GW-001` ba
 - Confirm the image is square and suitable as a single-hero showroom cover.
 
 ## Status
-Completed. Generated and verified the showroom cover PNG at `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\yt-gw-001-showroom-cover-single-rerun-3.png`.
+Completed. Generated and verified the showroom cover PNG at `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/yt-gw-001-showroom-cover-single-rerun-3.png`.
 
 ## Cleanup Keep
 - output/imagegen/yt-gw-001-showroom-cover-single-rerun-3.png

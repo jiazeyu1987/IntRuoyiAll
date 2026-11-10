@@ -1485,12 +1485,12 @@
         </el-descriptions-item>
       </el-descriptions>
       <el-form label-width="90px" class="edhr-page-shell__signature-form">
-        <el-form-item label="签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="formReviewSignForm.password"
             type="password"
             show-password
-            placeholder="请输入当前账号密码"
+            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="handleFormReviewSign"
           />
         </el-form-item>
@@ -1530,7 +1530,7 @@
             v-model="archiveForm.sealPassword"
             type="password"
             show-password
-            placeholder="请输入电子签名密码"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
             @keyup.enter="handleGenerateArchive"
           />
         </el-form-item>
@@ -4835,7 +4835,7 @@ const handleFormReviewSign = async () => {
     return
   }
   if (!formReviewSignForm.password.trim()) {
-    formReviewSignError.value = '签名密码不能为空。'
+    formReviewSignError.value = '签名凭据不能为空。'
     return
   }
 

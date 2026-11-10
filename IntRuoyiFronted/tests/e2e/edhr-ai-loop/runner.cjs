@@ -652,6 +652,7 @@ async function fillActivePqcInspectionItem(page, itemValue) {
   await page.locator('[data-pqc-piece-open-button]').click()
   const modal = page.locator('[data-pqc-piece-modal]')
   await modal.waitFor({ state: 'visible', timeout: 30000 })
+  await modal.getByRole('button', { name: '表格核对', exact: true }).click()
   const inputs = modal.locator('[data-pqc-piece-number-input]')
   const inputCount = await inputs.count()
   if (!inputCount) {

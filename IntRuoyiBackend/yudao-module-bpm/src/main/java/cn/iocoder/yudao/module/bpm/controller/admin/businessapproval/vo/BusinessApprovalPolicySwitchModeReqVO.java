@@ -12,7 +12,7 @@ public class BusinessApprovalPolicySwitchModeReqVO {
     @NotBlank
     private String policyMode;
 
-    @Schema(description = "电子签名密码")
+    @Schema(description = "所选电子签名方式的 PIN 码或密码")
     private String signaturePassword;
 
 }

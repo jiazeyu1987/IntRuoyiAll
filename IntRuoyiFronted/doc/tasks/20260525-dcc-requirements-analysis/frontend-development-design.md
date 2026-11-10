@@ -2,15 +2,15 @@
 
 ## Purpose and Scope
 
-本文为 DCC 截图需求的前端实现设计文档，范围限定在 IntRuoyi 前端现有 DCC、BPM、系统用户、站内信、下载/导出/打印能力基础上的增强设计。后续实现前必须先读取 `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`，并沿用 IntPP 生产订单列表风格：密集、克制、表格优先、蓝/中性色操作台视觉，不另起独立页面体系。
+本文为 DCC 截图需求的前端实现设计文档，范围限定在 IntRuoyi 前端现有 DCC、BPM、系统用户、站内信、下载/导出/打印能力基础上的增强设计。后续实现前必须先读取 `./docs/frontend-development.md`，并沿用 IntPP 生产订单列表风格：密集、克制、表格优先、蓝/中性色操作台视觉，不另起独立页面体系。
 
 本次仅写设计文档，不修改生产代码、不增加测试专用控件、不提交 Git。
 
 ## Evidence Reviewed
 
-- 后端产品草稿：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260525-dcc-requirements-analysis\ruoyi-vue-pro\docs\product\dcc-screenshot-requirements-prd.md`
-- 后端用户流程：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260525-dcc-requirements-analysis\ruoyi-vue-pro\docs\product\dcc-screenshot-requirements-user-flows.md`
-- 后端验收草稿：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260525-dcc-requirements-analysis\ruoyi-vue-pro\docs\product\dcc-screenshot-requirements-acceptance-criteria.md`
+- 后端产品草稿：`./worktrees/20260525-dcc-requirements-analysis/ruoyi-vue-pro/docs/product/dcc-screenshot-requirements-prd.md`
+- 后端用户流程：`./worktrees/20260525-dcc-requirements-analysis/ruoyi-vue-pro/docs/product/dcc-screenshot-requirements-user-flows.md`
+- 后端验收草稿：`./worktrees/20260525-dcc-requirements-analysis/ruoyi-vue-pro/docs/product/dcc-screenshot-requirements-acceptance-criteria.md`
 - 当前前端 DCC API：`src/api/dcc/controlledFile/workflow.ts`、`fileCategories.ts`、`approvalRoutes.ts`、`approvalPositions.ts`、`training.ts`、`signatures.ts`、`directories.ts`
 - 当前前端页面：`src/views/dcc/controlled-file/upload/index.vue`、`mine/index.vue`、`detail/index.vue`、`approval-tasks/index.vue`、`browser/index.vue`、`distribution/index.vue`、`training/index.vue`、`categories/index.vue`、`routes/index.vue`、`positions/index.vue`、`signatures/index.vue`
 - 系统能力：`src/api/system/user/index.ts`、`src/api/system/user/profile.ts`、`src/api/system/notify/message/index.ts`、`src/views/system/user/components/UserSelectV2.vue`、`src/views/system/notify/my/index.vue`、`src/utils/download.ts`、`src/utils/filt.ts`

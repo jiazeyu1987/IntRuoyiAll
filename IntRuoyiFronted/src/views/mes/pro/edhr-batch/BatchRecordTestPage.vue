@@ -1239,10 +1239,10 @@ const frontlinePqcRows = ref<BatchRecordTestRow[]>([
   {
     id: 107,
     sort: 7,
-    title: '电子密码提交',
-    description: '点击提交时必须要求输入电子密码，确认通过后才允许提交检验结果。',
-    caseName: '批记录测试-一线PQC-07-电子密码提交',
-    testScope: '一线PQC：提交检验结果必须经过电子密码确认'
+    title: '电子签名提交',
+    description: '点击提交时输入本人所选方式的 PIN 码或密码，验证通过后才允许提交检验结果。',
+    caseName: '批记录测试-一线PQC-07-电子签名提交',
+    testScope: '一线PQC：提交检验结果必须经过所选方式的电子签名验证'
   },
   {
     id: 108,
@@ -1314,11 +1314,11 @@ const frontlineProductionRows = ref<BatchRecordTestRow[]>([
   {
     id: 208,
     sort: 8,
-    title: '电子密码与待分配报工',
+    title: '电子签名与待分配报工',
     description:
-      '提交时必须输入所选员工的电子密码，而不是生产组长的电子密码；本地提交内容进入该组长的报工管理页签等待分配。',
-    caseName: '批记录测试-一线生产-08-电子密码与待分配报工',
-    testScope: '一线生产：使用所选员工电子密码提交并进入生产组长报工管理待分配'
+      '提交时输入所选员工所设方式的 PIN 码或密码；本地提交内容进入该组长的报工管理页签等待分配。',
+    caseName: '批记录测试-一线生产-08-电子签名与待分配报工',
+    testScope: '一线生产：使用所选员工所设方式的 PIN 码或密码签署，并进入生产组长报工管理待分配'
   }
 ])
 

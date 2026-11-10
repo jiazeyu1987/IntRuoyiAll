@@ -45,7 +45,7 @@ public class ProcessPoolPqcInspectionCorrectionReqVO {
     private String changeReason;
 
     @Schema(description = "签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "签名密码不能为空")
+    @NotBlank(message = "签名凭据不能为空")
     private String signaturePassword;
 
     public MesProcessPoolPqcInspectionCorrectionCommand toCommand() {

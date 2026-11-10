@@ -13,7 +13,7 @@ public class EdhrRecordChangeApproveReqVO {
     @NotNull(message = "变更事件不能为空")
     private Long changeEventId;
 
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String password;
 
     private String comment;

@@ -2,7 +2,7 @@
 
 ## 子任务边界
 
-- 仅在 `D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_version\yudao-ui-admin-vue3` 内调研和设计。
+- 仅在 `../IntRuoyiWorktree/edhr_version/yudao-ui-admin-vue3` 内调研和设计。
 - 不修改当前“导入 Word”运行接口，不把阶段二状态硬塞进阶段一尚未完成的页面。
 - 不使用 `page.route`、mock 响应、`.skip`、默认成功或接口绕过登录。
 

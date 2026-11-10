@@ -1,5 +1,6 @@
 <template>
   <section class="signature-my-pane">
+    <SignatureCredentialSettings />
     <el-alert
       v-if="inlineError"
       :closable="false"
@@ -112,6 +113,7 @@
 
 <script lang="ts" setup>
 import type { UploadFile } from 'element-plus'
+import SignatureCredentialSettings from './SignatureCredentialSettings.vue'
 import {
   disableDccElectronicSignatureImage,
   enableDccElectronicSignatureImage,

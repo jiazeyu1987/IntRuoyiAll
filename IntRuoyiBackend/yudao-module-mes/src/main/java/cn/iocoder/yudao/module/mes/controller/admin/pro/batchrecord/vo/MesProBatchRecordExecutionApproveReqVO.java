@@ -28,7 +28,7 @@ public class MesProBatchRecordExecutionApproveReqVO {
     @NotEmpty(message = "BPM 任务不能为空")
     private String bpmTaskId;
 
-    @NotEmpty(message = "签名密码不能为空")
+    @NotEmpty(message = "签名凭据不能为空")
     private String password;
 
     private String comment;

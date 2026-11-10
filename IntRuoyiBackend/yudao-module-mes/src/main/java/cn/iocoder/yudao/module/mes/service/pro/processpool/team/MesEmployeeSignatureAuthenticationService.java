@@ -29,6 +29,10 @@ public class MesEmployeeSignatureAuthenticationService implements SignatureAuthe
         this.profiles=profiles; this.events=events; this.encoder=encoder; this.clock=clock;
     }
     @Override public String identityDomain() { return "MES_EMPLOYEE_PROFILE"; }
+    @Override @Transactional(propagation=Propagation.MANDATORY)
+    public String credentialType(Long actorId) {
+        return SignatureCredentialPolicy.requireType(locked(TenantContextHolder.getRequiredTenantId(),actorId).getSignatureCredentialType());
+    }
     @Override @Transactional(propagation=Propagation.REQUIRES_NEW,rollbackFor=Exception.class)
     public SignatureAuthenticationOutcome authenticate(SignatureAuthenticationRequest request) {
         return authenticateCredential(request,false);
@@ -42,16 +46,19 @@ public class MesEmployeeSignatureAuthenticationService implements SignatureAuthe
         var row=locked(request.tenantId(),request.actorId());
         var now=LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.SECONDS),ZONE);
         String rejection=eligibility(row,now);
+        boolean pin=SignatureCredentialPolicy.isPin(row.getSignatureCredentialType());
         if(change && ("CREDENTIAL_CHANGE_REQUIRED".equals(rejection) || "CREDENTIAL_EXPIRED".equals(rejection))) rejection=null;
-        if(rejection==null && !encoder.matches(request.credential(),row.getSignaturePasswordHash())) {
+        if(rejection==null && !((!pin || SignatureCredentialPolicy.validPin(request.credential())) && encoder.matches(request.credential(),SignatureCredentialPolicy.credentialHash(row.getSignatureCredentialType(),row.getSignaturePinHash(),row.getSignaturePasswordHash())))) {
+            if(!pin) {
             boolean same=row.getSignatureFailureWindowStartAt()!=null && row.getSignatureFailureWindowStartAt().plusMinutes(SignatureCredentialPolicy.FAILURE_WINDOW_MINUTES).isAfter(now);
             if(same && (row.getSignatureFailureCount()==null || row.getSignatureFailureCount()<0)) throw new IllegalStateException("SIGNATURE_FAILURE_METADATA_INVALID");
             int count=same?Math.addExact(row.getSignatureFailureCount(),1):1;
             one(profiles.writeSignatureFailures(request.tenantId(),row.getId(),count,same?row.getSignatureFailureWindowStartAt():now,count>=SignatureCredentialPolicy.FAILURE_LIMIT?now.plusMinutes(SignatureCredentialPolicy.LOCK_MINUTES):null));
+            }
             rejection="BAD_CREDENTIALS";
-        } else if(rejection==null) one(profiles.writeSignatureFailures(request.tenantId(),row.getId(),0,null,null));
+        } else if(rejection==null && !pin) one(profiles.writeSignatureFailures(request.tenantId(),row.getId(),0,null,null));
         row=locked(request.tenantId(),request.actorId()); // Read the DB-maintained version after the write.
-        var event=new SignatureAuthenticationEventDO(); event.setTenantId(request.tenantId());event.setActorId(row.getId());event.setIdentityDomain(identityDomain());event.setOperatorId(request.operatorId());event.setRequestId(request.requestIdentity());event.setOperationType("AUTHENTICATE");event.setOutcome(rejection==null?"SUCCESS":rejection);event.setOccurredAt(now);event.setCredentialGeneration(row.getSignatureCredentialGeneration());event.setCredentialVersion(row.getSignatureCredentialVersion());one(events.insert(event));
+        var event=new SignatureAuthenticationEventDO(); event.setTenantId(request.tenantId());event.setActorId(row.getId());event.setIdentityDomain(identityDomain());event.setOperatorId(request.operatorId());event.setRequestId(request.requestIdentity());event.setOperationType("AUTHENTICATE_"+SignatureCredentialPolicy.requireType(row.getSignatureCredentialType()));event.setOutcome(rejection==null?"SUCCESS":rejection);event.setOccurredAt(now);event.setCredentialGeneration(row.getSignatureCredentialGeneration());event.setCredentialVersion(row.getSignatureCredentialVersion());one(events.insert(event));
         if(event.getId()==null || event.getId()<=0) throw new IllegalStateException("SIGNATURE_AUTHENTICATION_EVENT_ID_MISSING");
         return rejection==null?new SignatureAuthenticationOutcome(new AuthenticatedSigner(request.tenantId(),identityDomain(),row.getId(),request.operatorId(),row.getSignatureCredentialGeneration(),row.getSignatureCredentialVersion(),request.requestIdentity()),null):new SignatureAuthenticationOutcome(null,rejection);
     }
@@ -75,6 +82,10 @@ public class MesEmployeeSignatureAuthenticationService implements SignatureAuthe
     }
     private static String eligibility(MesProcessPoolTeamEmployeeProfileDO row,LocalDateTime now) {
         if(!Boolean.TRUE.equals(row.getEnabled()) || row.getDisabledAt()!=null) return "IDENTITY_DISABLED";
+        if(SignatureCredentialPolicy.isPin(row.getSignatureCredentialType())) {
+            SignatureCredentialPolicy.credentialHash("PIN",row.getSignaturePinHash(),null);
+            return null;
+        }
         if(row.getSignatureLockedUntil()!=null && row.getSignatureLockedUntil().isAfter(now)) return "IDENTITY_LOCKED";
         if(!"ACTIVE".equals(row.getSignatureCredentialStatus())) return "CREDENTIAL_CHANGE_REQUIRED";
         if(SignatureCredentialPolicy.isExpired(row.getSignaturePasswordUpdatedAt(),now)) return "CREDENTIAL_EXPIRED";

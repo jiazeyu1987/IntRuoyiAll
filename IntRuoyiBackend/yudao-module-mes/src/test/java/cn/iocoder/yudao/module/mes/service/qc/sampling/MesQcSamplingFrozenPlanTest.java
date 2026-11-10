@@ -37,7 +37,10 @@ class MesQcSamplingFrozenPlanTest {
         task.setInspectionType("PATROL");
         task.setPlannedInspectionQuantity(50);
         task.setInspectionItemPlanJson(MesPqcInspectionItemPlan.encode(Map.of("I", 50, "S3", 13)));
-        assertThrows(IllegalStateException.class, () -> MesPqcInspectionItemPlan.require(task));
+        var missing = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> MesPqcInspectionItemPlan.require(task));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED.getCode(), missing.getCode());
+        assertTrue(missing.getMessage().contains("缺少冻结抽样证据"));
         task.setInspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of(
                 "I", MesQcSamplingPlan.calculate(new BigDecimal("3000"), "I"),
                 "S3", MesQcSamplingPlan.calculate(new BigDecimal("3000"), "S3"))));

@@ -709,7 +709,7 @@ const submitAction = async () => {
     return
   }
   if (!actionForm.password.trim()) {
-    actionError.value = '当前账号密码不能为空。'
+    actionError.value = '当前签名凭据（PIN 码或密码）不能为空。'
     return
   }
   if (actionMode.value === 'reject' && !actionForm.rejectReason.trim()) {

@@ -80,6 +80,8 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     private ElectronicSignaturePrivilegedAuditMapper privilegedAuditMapper;
     @Resource
     private ElectronicSignatureArchiveRecoveryMapper archiveRecoveryMapper;
+    @MockitoBean(name="systemSignatureIdentity") private cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi systemIdentity;
+    @MockitoBean(name="employeeSignatureIdentity") private cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi employeeIdentity;
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
@@ -90,6 +92,8 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
 
     @org.junit.jupiter.api.BeforeEach
     void noCreationFactWasPersistedByTheMockedAppend() {
+        when(systemIdentity.identityDomain()).thenReturn("SYSTEM_USER"); when(employeeIdentity.identityDomain()).thenReturn("MES_EMPLOYEE_PROFILE");
+        when(systemIdentity.credentialType(anyLong())).thenReturn("PASSWORD"); when(employeeIdentity.credentialType(anyLong())).thenReturn("PASSWORD");
         when(auditEventMapper.selectSignatureCreationEvents(anyLong(), anyString())).thenReturn(java.util.List.of());
     }
 

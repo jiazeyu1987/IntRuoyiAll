@@ -16,7 +16,7 @@ public class EdhrBatchExecutionQualityRejectReqVO {
     @NotBlank(message = "拒收原因不能为空")
     private String reason;
 
-    @NotBlank(message = "签名密码不能为空")
+    @NotBlank(message = "签名凭据不能为空")
     private String password;
 
     @Valid

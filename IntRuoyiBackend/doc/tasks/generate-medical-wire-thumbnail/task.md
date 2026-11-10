@@ -23,5 +23,5 @@ Completed
 ## Final Verification
 
 - Generated exactly one native image.
-- Local PNG artifact confirmed: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\output\imagegen\weidaosi-tg-list-card-20260524.png`
+- Local PNG artifact confirmed: `./IntRuoyiBackend/output/imagegen/weidaosi-tg-list-card-20260524.png`
 - Image size confirmed as landscape: `1536x1024`

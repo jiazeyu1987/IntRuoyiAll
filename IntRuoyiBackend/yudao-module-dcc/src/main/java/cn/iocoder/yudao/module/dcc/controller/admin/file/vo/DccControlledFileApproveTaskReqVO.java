@@ -15,7 +15,7 @@ public class DccControlledFileApproveTaskReqVO {
     @NotBlank(message = "任务编号不能为空")
     private String taskId;
 
-    @Schema(description = "当前登录密码", requiredMode = Schema.RequiredMode.REQUIRED, example = "123456")
+    @Schema(description = "所选电子签名方式的 PIN 码或密码", requiredMode = Schema.RequiredMode.REQUIRED, example = "123456")
     @NotBlank(message = "密码不能为空")
     private String password;
 

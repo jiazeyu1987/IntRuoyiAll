@@ -36,11 +36,15 @@ public final class EdhrDecisionRequestLogMetadataFilter extends OncePerRequestFi
     private final List<ProtectedEndpoint> endpoints;
 
     public EdhrDecisionRequestLogMetadataFilter(WebProperties properties, ObjectProvider<MesProEdhrReleaseController> users,
-                                           ObjectProvider<MesProEdhrNonconformanceReviewController> profiles) {
+                                           ObjectProvider<MesProEdhrNonconformanceReviewController> profiles,
+                                           ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController> frontline) {
         endpoints = List.of(
                 endpoint(properties, MesProEdhrReleaseController.class, "reject", MesProEdhrReleaseRejectReqVO.class, users),
                 endpoint(properties, MesProEdhrNonconformanceReviewController.class, "dispose",
-                        MesProEdhrNonconformanceReviewDisposeReqVO.class, profiles));
+                        MesProEdhrNonconformanceReviewDisposeReqVO.class, profiles),
+                endpoint(properties, cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController.class,
+                        "changeEmployeeSignaturePassword",
+                        cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesEmployeeSignaturePasswordChangeReqVO.class, frontline));
         Assert.state(!endpoints.get(0).pattern().getPatternString().equals(endpoints.get(1).pattern().getPatternString()),
                 "eDHR decision log metadata mappings must be distinct");
     }

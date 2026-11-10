@@ -301,7 +301,7 @@
         <el-form-item v-if="actionMode !== 'approve'" label="审批人" required>
           <RecordChangeUserSelect v-model="actionForm.approverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
         </el-form-item>
-        <el-form-item label="签名密码" required><el-input v-model="actionForm.password" type="password" show-password autocomplete="new-password" placeholder="请输入当前账号密码" /></el-form-item>
+        <el-form-item label="签名凭据" required><el-input v-model="actionForm.password" type="password" show-password autocomplete="new-password" placeholder="请输入当前签名凭据（PIN 码或密码）" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="actionForm.comment" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
@@ -369,7 +369,7 @@ const openDecision = (row: EdhrRecordChangeRespVO, mode: 'submit' | 'approve' | 
 }
 const performAction = async (draft: boolean) => {
   if (actionLoading.value) return
-  if (!actionForm.password.trim()) { actionError.value = '请输入本人签名密码。'; return }
+  if (!actionForm.password.trim()) { actionError.value = '请输入本人签名凭据（PIN 码或密码）。'; return }
   if (!draft && actionMode.value !== 'approve' && !actionForm.approverUserId) { actionError.value = '请选择本次变更审批人。'; return }
   if (actionMode.value === 'request' && (!parsePositiveRouteQueryId(actionForm.batchExecutionId) || !actionForm.reasonCategory.trim() || !actionForm.reasonText.trim() || (actionForm.targetScope === 'EXECUTION' && !parsePositiveRouteQueryId(actionForm.executionId)))) {
     actionError.value = '请填写完整的变更对象与变更原因。'; return

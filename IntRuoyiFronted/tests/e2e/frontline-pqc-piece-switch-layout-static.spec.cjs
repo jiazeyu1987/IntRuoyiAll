@@ -8,6 +8,7 @@ const panelPath = path.join(
   'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
 )
 const source = fs.readFileSync(panelPath, 'utf8').replace(/\r\n/g, '\n')
+const styles = fs.readFileSync(path.join(path.dirname(panelPath), 'frontlineFixedTemplate.scss'), 'utf8')
 
 const extractBraceBlock = (text, marker) => {
   const markerIndex = text.indexOf(marker)
@@ -82,7 +83,7 @@ assert.match(
 )
 
 const updateChoiceFunctionStart = source.indexOf('const updatePqcPieceChoice =')
-const updateChoiceFunctionEnd = source.indexOf('\nconst stepPqcPieceValue =', updateChoiceFunctionStart)
+const updateChoiceFunctionEnd = source.indexOf('\nconst selectPqcInspectionRule =', updateChoiceFunctionStart)
 assert.ok(
   updateChoiceFunctionStart >= 0 && updateChoiceFunctionEnd > updateChoiceFunctionStart,
   'The explicit per-piece choice update handler must exist.'
@@ -104,10 +105,10 @@ assert.match(
   'Unexpected switch values must remain visible as an error instead of being silently accepted.'
 )
 
-const pieceListStyle = extractBraceBlock(source, '.frontline-pqc-piece-list')
-const pieceRowStyle = extractBraceBlock(source, '.frontline-pqc-piece-row')
-const pieceChoiceStyle = extractBraceBlock(source, '.frontline-pqc-piece-choice')
-const pieceSwitchStyle = extractBraceBlock(source, '.frontline-pqc-piece-switch')
+const pieceListStyle = extractBraceBlock(styles, '.frontline-pqc-piece-list')
+const pieceRowStyle = extractBraceBlock(styles, '.frontline-pqc-piece-row')
+const pieceChoiceStyle = extractBraceBlock(styles, '.frontline-pqc-piece-choice')
+const pieceSwitchStyle = extractBraceBlock(styles, '.frontline-pqc-piece-switch')
 
 assert.match(
   pieceListStyle,

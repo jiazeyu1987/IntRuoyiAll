@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.signature.service;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -196,7 +197,7 @@ public class ElectronicSignatureVerifiedFactService {
     private static Long operator(FrozenFact record, JsonNode content, List<String> reasons) {
         JsonNode identity = content == null ? null : content.get("signatureIdentity");
         if (identity == null || identity.isNull()) {
-            if (("SESSION_PLUS_PASSWORD".equals(record.authenticationMethod())
+            if ((SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                     || "SESSION_CONFIRMATION".equals(record.authenticationMethod()) && "MES".equals(record.moduleCode())
                     && "MES_BATCH_RECORD".equals(record.subjectType()) && "PQC_PATROL_ROUND_CORRECTION".equals(record.actionCode()))
                     && positive(record.actorId())) return record.actorId();
@@ -204,8 +205,8 @@ public class ElectronicSignatureVerifiedFactService {
             String domain = text(identity, "domain");
             Long signer = strictId(identity.get("signerId")), tenant = strictId(identity.get("tenantId")), operator = strictId(identity.get("operatorId"));
             if (Objects.equals(record.actorId(), signer) && Objects.equals(record.tenantId(), tenant) && operator != null
-                    && ("SYSTEM_USER".equals(domain) && "SESSION_PLUS_SELECTED_USER_PASSWORD".equals(record.authenticationMethod())
-                    || "MES_EMPLOYEE_PROFILE".equals(domain) && "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD".equals(record.authenticationMethod()))) return operator;
+                    && ("SYSTEM_USER".equals(domain) && SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD")
+                    || "MES_EMPLOYEE_PROFILE".equals(domain) && SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD"))) return operator;
         }
         reasons.add("IDENTITY_BINDING_MISMATCH"); return null;
     }
@@ -311,7 +312,7 @@ public class ElectronicSignatureVerifiedFactService {
             Long actor = v2Id(identity.get("signerId")), tenant = v2Id(identity.get("tenantId")); operator = v2Id(identity.get("operatorId"));
             if (!Objects.equals(actor, r.getActorId()) || !Objects.equals(tenant, r.getTenantId())) throw new IllegalArgumentException();
             String domain = text(identity, "domain"); String method = "MES_EMPLOYEE_PROFILE".equals(domain) ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SYSTEM_USER".equals(domain) ? actor.equals(operator) ? "SESSION_PLUS_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD" : null;
-            if (!Objects.equals(method, r.getAuthenticationMethod())) throw new IllegalArgumentException();
+            if (!SignatureCredentialPolicy.matchesMethod(r.getAuthenticationMethod(), method)) throw new IllegalArgumentException();
             var time = content.get("signatureTime"); keys.clear(); time.fieldNames().forEachRemaining(keys::add);
             if (!keys.equals(java.util.Set.of("localDateTime", "zoneId", "precision", "source")) || !"Asia/Shanghai".equals(text(time,"zoneId")) || !"SECOND".equals(text(time,"precision")) || !"SERVER_CLOCK".equals(text(time,"source")) || !Objects.equals("SERVER_CLOCK:" + text(time,"localDateTime"),r.getTimeEvidenceId())) throw new IllegalArgumentException();
             var image = content.get("signatureImage"); if (image == null || !image.isObject() || image.size()!=2 || !image.has("state") || !image.has("snapshot")) throw new IllegalArgumentException();

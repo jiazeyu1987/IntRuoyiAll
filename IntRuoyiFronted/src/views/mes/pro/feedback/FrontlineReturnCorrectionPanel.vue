@@ -138,11 +138,11 @@
           >更正原因<textarea v-model="reason" maxlength="500" aria-label="更正原因"></textarea>
         </label>
         <label
-          >本人签名密码<input
+          >本人签名凭据（PIN 码或密码）<input
             v-model="password"
             type="password"
             autocomplete="new-password"
-            aria-label="本人签名密码"
+            aria-label="本人签名凭据（PIN 码或密码）"
         /></label>
       </fieldset>
     </template>
@@ -377,7 +377,7 @@ const resubmit = async () => {
     return
   }
   if (!reason.value.trim() || !password.value) {
-    errorText.value = '请填写更正原因和本人签名密码'
+    errorText.value = '请填写更正原因和本人签名凭据（PIN 码或密码）'
     password.value = ''
     return
   }

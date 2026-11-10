@@ -4863,7 +4863,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                 String operationType, String actionName, String permissionCode) {
         if (StrUtil.isBlank(password)) {
             recordSignaturePasswordFailure(batch, operationType, actionName, permissionCode,
-                    "签名密码不能为空");
+                    "签名凭据不能为空");
             throw exception(BAD_REQUEST, actionName + "必须填写签名密码");
         }
         try {

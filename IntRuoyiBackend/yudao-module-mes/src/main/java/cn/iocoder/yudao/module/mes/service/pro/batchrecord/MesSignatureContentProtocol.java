@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureActionDefinition;
@@ -159,7 +160,7 @@ public final class MesSignatureContentProtocol {
     private static VerifiedSignatureIdentity readIdentity(JsonNode identity, ContentFacts fact,
             Long expectedTenantId) {
         if (identity == null || identity.isNull()) {
-            if (("SESSION_PLUS_PASSWORD".equals(fact.authenticationMethod())
+            if ((SignatureCredentialPolicy.matchesMethod(fact.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                     || "SESSION_CONFIRMATION".equals(fact.authenticationMethod())
                     && MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION.equals(fact.actionCode()))
                     && positive(fact.actorId())) return null;
@@ -175,9 +176,9 @@ public final class MesSignatureContentProtocol {
                 || !Objects.equals(tenantId, expectedTenantId) || !Objects.equals(tenantId, fact.tenantId())
                 || !Objects.equals(signerId, fact.actorId())
                 || !("SYSTEM_USER".equals(domain)
-                    && ("SESSION_PLUS_SELECTED_USER_PASSWORD".equals(fact.authenticationMethod()) || v2 && "SESSION_PLUS_PASSWORD".equals(fact.authenticationMethod()) && Objects.equals(signerId,operatorId))
+                    && (SignatureCredentialPolicy.matchesMethod(fact.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD") || v2 && SignatureCredentialPolicy.matchesMethod(fact.authenticationMethod(), "SESSION_PLUS_PASSWORD") && Objects.equals(signerId,operatorId))
                     || "MES_EMPLOYEE_PROFILE".equals(domain)
-                    && "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD".equals(fact.authenticationMethod())))
+                    && SignatureCredentialPolicy.matchesMethod(fact.authenticationMethod(), "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD")))
             throw invalid("MES_SIGNATURE_IDENTITY_CONFLICT");
         String displayName = text(identity, "displayName");
         return new VerifiedSignatureIdentity(domain, tenantId, signerId, operatorId,

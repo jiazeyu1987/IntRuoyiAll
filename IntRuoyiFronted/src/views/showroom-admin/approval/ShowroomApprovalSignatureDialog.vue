@@ -6,12 +6,12 @@
     destroy-on-close
   >
     <el-form label-width="96px">
-      <el-form-item label="登录密码">
+      <el-form-item label="签名凭据">
         <el-input
           v-model="password"
           show-password
           type="password"
-          placeholder="请输入当前登录密码"
+          placeholder="请输入所选签名方式的六位 PIN 码或密码"
         />
       </el-form-item>
       <el-form-item :label="mode === 'reject' ? '驳回原因' : '审批意见'">

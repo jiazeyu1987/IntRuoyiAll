@@ -424,7 +424,7 @@
         <el-form-item label="备注">
           <el-input v-model="ncrCreateForm.remark" type="textarea" :rows="2" maxlength="500" />
         </el-form-item>
-        <el-form-item label="签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input v-model="ncrCreateForm.signaturePassword" type="password" show-password autocomplete="new-password" />
         </el-form-item>
       </el-form>
@@ -633,7 +633,7 @@ const submitNcrCreate = async () => {
     return
   }
   if (!nonconformanceReason || !signaturePassword) {
-    ncrCreateError.value = '不合格原因和签名密码不能为空'
+    ncrCreateError.value = '不合格原因和签名凭据不能为空'
     return
   }
   ncrCreateLoading.value = true

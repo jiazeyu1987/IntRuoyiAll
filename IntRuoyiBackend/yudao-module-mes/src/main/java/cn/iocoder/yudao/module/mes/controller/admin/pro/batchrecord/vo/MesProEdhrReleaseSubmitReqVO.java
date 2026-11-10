@@ -15,7 +15,7 @@ public class MesProEdhrReleaseSubmitReqVO {
     @NotBlank(message = "提交幂等键不能为空")
     private String idempotencyKey;
 
-    @NotBlank(message = "负责人电子签名密码不能为空")
+    @NotBlank(message = "负责人电子签名凭据不能为空")
     private String password;
 
     private String submitReason;

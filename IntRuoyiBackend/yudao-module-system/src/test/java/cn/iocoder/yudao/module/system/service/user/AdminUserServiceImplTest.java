@@ -414,6 +414,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_badCredentialCountsFailure() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(0);
             o.setLoginLocked(0);
@@ -435,6 +436,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_successResetsFailures() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(2);
             o.setLoginFailureWindowStartTime(LocalDateTime.now().minusMinutes(5));
@@ -459,6 +461,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_activeLockRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(1);
             o.setLoginLockedTime(LocalDateTime.now().minusMinutes(10));
@@ -476,6 +479,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_expiredLockAllowsRetry() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(5);
             o.setLoginFailureWindowStartTime(LocalDateTime.now().minusMinutes(40));
@@ -499,6 +503,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_changeRequiredRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(0);
             o.setPasswordCredentialStatus("RESET_REQUIRED");
@@ -515,6 +520,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_expiredPasswordRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(0);
             o.setPasswordCredentialStatus("ACTIVE");
@@ -527,6 +533,22 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
                 ESIGN_CREDENTIAL_EXPIRED);
         when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
         assertEquals(user.getId(), userService.reauthenticateForSignature(user.getId(), "old").getId());
+    }
+
+    @Test
+    public void testReauthenticateForSignature_pinDoesNotLockOrRequirePasswordChange() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setPassword("encode:old"); o.setSignatureCredentialType("PIN"); o.setSignaturePinHash("encode:pin");
+            o.setStatus(CommonStatusEnum.ENABLE.getStatus()); o.setLoginLocked(1); o.setLoginLockedTime(LocalDateTime.now());
+            o.setLoginFailureCount(5); o.setPasswordCredentialStatus("INITIAL"); o.setPasswordUpdateTime(null);
+        });
+        userMapper.insert(user);
+        when(passwordEncoder.matches("000001","encode:pin")).thenReturn(true);
+        for(int attempt=0;attempt<7;attempt++) assertServiceException(()->userService.reauthenticateForSignature(user.getId(),"123456"),ESIGN_IDENTITY_BAD_CREDENTIALS);
+        assertEquals(user.getId(),userService.reauthenticateForSignature(user.getId(),"000001").getId());
+        assertEquals(5,userMapper.selectById(user.getId()).getLoginFailureCount());
+        assertEquals(1,userMapper.selectById(user.getId()).getLoginLocked());
+        verify(passwordEncoder,never()).matches(anyString(),eq("encode:old"));
     }
 
     @Test
@@ -1955,6 +1977,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
             o.setLoginFailureCount(0);
             o.setLoginLocked(0);
             o.setLoginLockedTime(null);
+            o.setSignatureCredentialType("PASSWORD");
             o.setTenantId(1L);
             o.setLifecycleDocumentType(null);
             o.setLifecycleDocumentNo(null);

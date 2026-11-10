@@ -104,7 +104,7 @@ GREEN: backend log check for the same real import -> PASS，仅出现 `/admin-ap
 
 REGRESSION: `mvn -pl yudao-server -am "-Dmaven.test.skip=true" package` -> PASS；本地 48081 运行 jar `output/runtime/backend-20260527-showroom-sales-country-bu.jar`，`/actuator/health` 返回 200。
 
-REGRESSION: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260526-showroom-product-import-sales-country-bu --mode preview --workspace <yudao-module-showroom> --worktree-closeout off --json` -> PASS，保留 `task.md`、`execution-log.md`、`backend-api-evidence.md`、`frontend-feature-evidence.md`、`verification-report.md`，无删除项、无阻塞项。
+REGRESSION: `python 会话技能：task-closeout-cleanup --task-id 20260526-showroom-product-import-sales-country-bu --mode preview --workspace <yudao-module-showroom> --worktree-closeout off --json` -> PASS，保留 `task.md`、`execution-log.md`、`backend-api-evidence.md`、`frontend-feature-evidence.md`、`verification-report.md`，无删除项、无阻塞项。
 
 ## 回归计划
 
@@ -125,7 +125,7 @@ REGRESSION: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\
 
 ## 真实 Excel 检查证据
 
-- READ: `D:\ProjectPackage\Int\IntRuoyi\resource\产品资料修改版.xlsx` -> exists, size 42134 bytes。
+- READ: `./resource/产品资料修改版.xlsx` -> exists, size 42134 bytes。
 - READ: workbook sheets -> `产品列表`、`奖项`、`原材料`。
 - READ: `产品列表` row 1 -> `展品编码 | 产品名-中文 | 产品名-英文 | 展柜名称 | 持证公司 | 在售/在研 | BU | 在售国家 | 适应症 | 型号规格 | 注册证信息 | 奖项 | 原材料表单`。
 - READ: `产品列表` row 2 -> `product_001`，`持证公司=瑛泰`，`在售/在研=已注册`，`BU` 为空，`在售国家=中国`。

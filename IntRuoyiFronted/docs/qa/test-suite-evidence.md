@@ -51,9 +51,9 @@
 - Pre-task coverage gap -> FAIL, because the repository had no Playwright E2E
   that proved the `DCC下发` page was rendering real category and distribution
   rule content.
-- `npx.cmd --yes --package @playwright/cli playwright-cli --session dcc-distribution-real-content-e2e run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260516-dcc-distribution-real-content-e2e\scripts\verify-dcc-distribution-real-content-e2e.mjs`
+- `npx.cmd --yes --package @playwright/cli playwright-cli --session dcc-distribution-real-content-e2e run-code --filename ./IntRuoyiFronted/doc/tasks/20260516-dcc-distribution-real-content-e2e/scripts/verify-dcc-distribution-real-content-e2e.mjs`
   -> FAIL, `no_active_category_with_distribution_rules:activeCategoryCount=48:sample=1:产品技术要求|2:生产用设备清单|3:检验用设备清单|4:说明书|5:包装设计`.
-- `D:\ProjectPackage\Int\IntRuoyi\restart-ruoyi.bat`
+- `./restart-ruoyi.bat`
   -> FAIL, the standard workspace restart path failed fast at the missing Docker
   Desktop engine, so backend recovery had to be performed manually while MySQL
   `23306` and Redis `26379` remained reachable.
@@ -64,7 +64,7 @@
   `ruoyi-vue-pro\yudao-server\target\yudao-server.jar` was launched with the
   standard local MySQL/Redis arguments and
   `http://127.0.0.1:48081/v3/api-docs` returned HTTP `200`.
-- `npx.cmd --yes --package @playwright/cli playwright-cli --session dcc-distribution-real-content-e2e run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260516-dcc-distribution-real-content-e2e\scripts\verify-dcc-distribution-real-content-e2e.mjs`
+- `npx.cmd --yes --package @playwright/cli playwright-cli --session dcc-distribution-real-content-e2e run-code --filename ./IntRuoyiFronted/doc/tasks/20260516-dcc-distribution-real-content-e2e/scripts/verify-dcc-distribution-real-content-e2e.mjs`
   -> PASS, the real browser flow selected `产品技术要求`, confirmed the warning
   state, and matched the visible rule row to backend department `瑛泰源码`
   with `active=true`.
@@ -81,7 +81,7 @@
   - `distributionRequired=false`
 - Final verified rule count: `1`
 - Screenshot artifact:
-  `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\output\playwright\dcc-distribution-real-content-e2e-20260516.png`
+  `./IntRuoyiFronted/output/playwright/dcc-distribution-real-content-e2e-20260516.png`
 
 ## Blockers
 

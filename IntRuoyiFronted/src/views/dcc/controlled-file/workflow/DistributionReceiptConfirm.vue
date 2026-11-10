@@ -3,7 +3,7 @@
     <div class="distribution-receipt__instructions">
       <p>本次下发版本：{{ versionNo }}。电子签名确认收到此版本。</p>
     </div>
-    <el-input v-model="password" name="dcc-distribution-signature-password" type="password" show-password autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" placeholder="当前账号密码" :disabled="busy || !canAcknowledge" />
+    <el-input v-model="password" name="dcc-distribution-signature-password" type="password" show-password autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" placeholder="当前签名凭据（PIN 码或密码）" :disabled="busy || !canAcknowledge" />
     <el-input v-model="comment" type="textarea" maxlength="1000" placeholder="签收意见（选填）" :disabled="busy || !canAcknowledge" />
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="saved">电子签名已保存，请刷新读取正式签名时间。</p>

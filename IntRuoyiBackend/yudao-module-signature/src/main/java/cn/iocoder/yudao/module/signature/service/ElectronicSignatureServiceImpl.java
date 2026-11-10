@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.signature.service;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -43,7 +44,12 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     private static final String HASH_ALGORITHM = "SHA-256";
     private static final String KEY_VERSION = "system-local-v1";
     private static final String VERIFICATION_STATUS_VALID = "VALID";
-    private static final String AUTHENTICATION_METHOD = "SESSION_PLUS_PASSWORD";
+    @Resource private List<cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi> authenticationProviders;
+    private String authenticationMethod(String domain, Long actorId, boolean selected) {
+        var providers=authenticationProviders.stream().filter(p -> domain.equals(p.identityDomain())).toList();
+        if(providers.size()!=1) throw new IllegalStateException("SIGNATURE_IDENTITY_PROVIDER_NOT_UNIQUE");
+        return SignatureCredentialPolicy.authenticationMethod(domain, selected, providers.get(0).credentialType(actorId));
+    }
 
     @Resource
     private AdminUserApi adminUserApi;
@@ -103,9 +109,8 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         }
         Long operatorId = actorId;
         if (identity != null) actorId = identity.signerId();
-        String authenticationMethod = sessionConfirmation ? "SESSION_CONFIRMATION" : identity == null ? AUTHENTICATION_METHOD
-                : AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())
-                    ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD";
+        String authenticationMethod = sessionConfirmation ? "SESSION_CONFIRMATION"
+                : authenticationMethod(identity == null ? "SYSTEM_USER" : identity.domain(), actorId, identity != null);
         String identityJson = identity == null ? null : JsonUtils.toJsonString(Map.of(
                 "domain", identity.domain(), "signerId", actorId, "displayName", identity.displayName(),
                 "operatorId", operatorId, "tenantId", TenantContextHolder.getRequiredTenantId()));

@@ -1019,12 +1019,12 @@
         <el-form-item label="审批人" required>
           <RecordChangeUserSelect v-model="reopenApproverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
         </el-form-item>
-        <el-form-item label="签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="reopenForm.password"
             type="password"
             show-password
-            placeholder="请输入当前账号密码"
+            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="submitReopenBatch"
           />
         </el-form-item>
@@ -1117,12 +1117,12 @@
             placeholder="请输入跳过原因，便于归档和审计复核"
           />
         </el-form-item>
-        <el-form-item label="签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="specialNodeSkipForm.password"
             type="password"
             show-password
-            placeholder="请输入当前账号密码"
+            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="submitSpecialNodeSkip"
           />
         </el-form-item>
@@ -1526,7 +1526,7 @@
         class="edhr-batch-detail__dialog-alert"
       />
       <el-alert
-        title="确认后将直接提交放行，请使用当前账号电子签名密码。"
+        title="确认后将直接提交放行，请使用当前账号电子签名凭据（PIN 码或密码）。"
         type="warning"
         :closable="false"
         show-icon
@@ -1538,7 +1538,7 @@
             v-model="releaseSignatureForm.password"
             type="password"
             show-password
-            placeholder="请输入负责人电子签名密码"
+            placeholder="请输入负责人电子签名凭据（PIN 码或密码）"
             @keyup.enter="confirmReleaseSignatureSubmit"
           />
         </el-form-item>
@@ -5061,7 +5061,7 @@ const submitReopenBatch = async () => {
     return
   }
   if (!reopenForm.password.trim()) {
-    reopenError.value = '签名密码不能为空。'
+    reopenError.value = '签名凭据不能为空。'
     return
   }
 
@@ -5359,7 +5359,7 @@ const runReleaseSignatureConfirmAction = async (
 const submitReleaseByOwnerSignature = async (releaseTransactionId: string) => {
   const password = releaseTransactionForm.password.trim()
   if (!password) {
-    throw new Error('负责人电子签名密码不能为空。')
+    throw new Error('负责人电子签名凭据不能为空。')
   }
   return await submitEdhrRelease({
     releaseTransactionId,
@@ -5386,7 +5386,7 @@ const confirmReleaseSignatureSubmit = async () => {
     return
   }
   if (!releaseSignatureForm.password.trim()) {
-    releaseSignatureError.value = '负责人电子签名密码不能为空。'
+    releaseSignatureError.value = '负责人电子签名凭据不能为空。'
     message.error(releaseSignatureError.value)
     return
   }
@@ -5686,7 +5686,7 @@ const submitSpecialNodeSkip = async () => {
     return
   }
   if (!specialNodeSkipForm.password.trim()) {
-    specialNodeSkipError.value = '签名密码不能为空。'
+    specialNodeSkipError.value = '签名凭据不能为空。'
     return
   }
   const taskId = currentSpecialNode.value.id

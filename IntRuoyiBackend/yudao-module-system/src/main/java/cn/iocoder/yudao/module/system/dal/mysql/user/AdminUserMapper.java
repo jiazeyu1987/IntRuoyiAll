@@ -16,6 +16,9 @@ import java.util.List;
 
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
+    @Update("UPDATE system_users SET signature_credential_type=#{type}, signature_pin_hash=#{hash}, updater=#{userId}, update_time=CURRENT_TIMESTAMP WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    int updateSignatureSettings(@Param("tenantId") Long tenantId, @Param("userId") Long userId, @Param("type") String type, @Param("hash") String hash);
+
     @Select("SELECT id, tenant_id, status, username, nickname FROM system_users "
             + "WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
     AdminUserDO selectGxpAuditActor(@Param("tenantId") Long tenantId, @Param("userId") Long userId);

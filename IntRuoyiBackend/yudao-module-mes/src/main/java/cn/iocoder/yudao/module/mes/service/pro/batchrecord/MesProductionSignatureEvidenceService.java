@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
@@ -200,8 +201,8 @@ public class MesProductionSignatureEvidenceService {
                 && MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE.equals(evidence.subjectType())
                 && evidence.signedAt() != null && "VALID".equals(evidence.verificationStatus())
                 && "SHA-256".equals(evidence.algorithm())
-                && Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD",
-                    "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD").contains(evidence.authenticationMethod())
+                && Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_PIN", "SESSION_PLUS_SELECTED_USER_PASSWORD", "SESSION_PLUS_SELECTED_USER_PIN",
+                    "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD", "SESSION_PLUS_EMPLOYEE_PROFILE_PIN").contains(evidence.authenticationMethod())
                 && !StrUtil.hasBlank(evidence.subjectId(), evidence.subjectVersion(), evidence.canonicalContentJson(),
                 evidence.contentHash(), evidence.evidenceHash(), evidence.keyVersion(), evidence.policyVersion()));
         String[] subject = new String(Base64.getUrlDecoder().decode(evidence.subjectId()), StandardCharsets.UTF_8)
@@ -240,8 +241,8 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(evidence.evidenceHash(), verification.calculatedEvidenceHash())
                 && Objects.equals(evidence.algorithm(), verification.algorithm())
                 && Objects.equals(evidence.keyVersion(), verification.keyVersion()));
-        require(identity == null ? "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
-                : Objects.equals(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
+        require(identity == null ? SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD")
+                : SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
                     ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : Objects.equals(identity.getLong("signerId"),identity.getLong("operatorId")) && "V2".equals(trusted.verification().evidenceFormatVersion()) ? "SESSION_PLUS_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD"));
         var audit = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() ? null : requireUnifiedSignatureAudit(evidence);
         return new Snapshot(identity != null && "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))

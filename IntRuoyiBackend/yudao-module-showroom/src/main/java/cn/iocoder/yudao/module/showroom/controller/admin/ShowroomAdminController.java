@@ -1279,13 +1279,13 @@ public class ShowroomAdminController {
     }
 
     public record ApprovalActionReqVO(Long id, Long reviewerUserId,
-                                      @NotBlank(message = "签名密码不能为空")
+                                      @NotBlank(message = "签名凭据不能为空")
                                       String password,
                                       String comment) {
     }
 
     public record ApprovalRejectReqVO(Long id, Long reviewerUserId,
-                                      @NotBlank(message = "签名密码不能为空")
+                                      @NotBlank(message = "签名凭据不能为空")
                                       String password,
                                       @NotBlank(message = "驳回原因不能为空")
                                       String reason) {

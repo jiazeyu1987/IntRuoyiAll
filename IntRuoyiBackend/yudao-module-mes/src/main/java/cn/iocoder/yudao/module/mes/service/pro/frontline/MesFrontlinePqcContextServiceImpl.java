@@ -90,6 +90,7 @@ import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.Me
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_REGULATION_REQUIRED;
@@ -259,9 +260,13 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             String readBlockReason = null;
             try {
                 MesPqcQaSources.requireVersionIds(activeOrder);
+                for (MesPqcInspectionTaskDO task : pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId())) {
+                    MesPqcInspectionItemPlan.requireSampling(task);
+                }
             } catch (ServiceException ex) {
                 if (!Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED.getCode())
-                        && !Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID.getCode())) {
+                        && !Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID.getCode())
+                        && !Objects.equals(ex.getCode(), PRO_PQC_SAMPLING_EVIDENCE_REQUIRED.getCode())) {
                     throw ex;
                 }
                 readBlockReason = ex.getMessage();

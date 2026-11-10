@@ -8,7 +8,7 @@
 
 ### 已执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
 - 创建 `doc/tasks/20260709-global-empty-search-reset/`，记录 BDD、设计约束、经验门禁和前端证据 -> PASS。
 - RED: `node tests/e2e/empty-search-reset-static.spec.js` -> FAIL，页面级 `handleQuery` 和通用搜索组件缺少空输入重置契约。
 - 实现结果：新增 `src/utils/search.ts`；通用搜索组件空输入搜索执行 `reset()`；具备 `handleQuery` / `resetQuery` 配对的列表页空输入搜索执行 `resetQuery()`，重置刷新使用 `handleQuery(true)` 避免递归。
@@ -28,14 +28,14 @@
 
 ### 已执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 技能与前端契约。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 技能与前端契约。
 - 定位 `src/views/mes/pro/workorder/index.vue` 中生产工单关键列复制按钮、剪贴板 handler 和相关静态契约。
 - 创建任务目录 `doc/tasks/20260709-workorder-remove-key-column-copy-buttons/`，写入 `task.md`、`execution-log.md`、`frontend-feature-evidence.md`。
 - 新增静态契约 `tests/e2e/workorder-remove-key-column-copy-buttons-static.spec.js`。
 - RED: `node tests/e2e/workorder-remove-key-column-copy-buttons-static.spec.js` -> FAIL，工单编号列仍渲染 `work-order-key-copy` 复制按钮。
 - 修复：移除工单编号、产品编码、产品名称、规格型号、计划数量列的复制按钮；移除 `handleCopyKeyField`、`handleCopyWorkOrderCode`、剪贴板写入逻辑和 `.work-order-key-copy` 样式。
 - GREEN: `node tests/e2e/workorder-remove-key-column-copy-buttons-static.spec.js`、`node tests/e2e/workorder-key-columns-static.spec.js`、`node tests/e2e/workorder-code-copy-button-static.spec.js` -> PASS。
-- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-workorder-remove-key-column-copy-buttons/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-workorder-remove-key-column-copy-buttons/frontend-feature-evidence.md` -> PASS。
 - Git commit -> BLOCKED，当前前端仓存在大量既有脏改；为避免混入非本任务 hunk，未提交。
 
 ## 2026-07-09 任务：20260709-schedule-order-admission-hide-purple-controls
@@ -46,14 +46,14 @@
 
 ### 已执行命令
 
-- 读取 `docs/powershell-memory.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 技能与前端契约。
+- 读取 `docs/powershell-memory.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 技能与前端契约。
 - 定位 `src/views/mes/pro/scheduleorder/index.vue` 中“待同步差异”弹窗的额外筛选区和动作区。
 - 创建任务目录 `doc/tasks/20260709-schedule-order-admission-hide-purple-controls/`，写入 `task.md`、`execution-log.md`、`frontend-feature-evidence.md`。
 - 新增静态契约 `tests/e2e/mes-pro-schedule-order-admission-hide-purple-controls-static.spec.js`。
 - RED: `node tests/e2e/mes-pro-schedule-order-admission-hide-purple-controls-static.spec.js` -> FAIL，额外筛选区仍显示 `工单编码`。
 - 修复：移除待同步差异弹窗 `extra-filters` 插槽，隐藏工单编码、产品编号、入池状态、阻断原因；移除动作区独立“搜索”按钮；保留重置、汇总标签和“选中工单加入排产工单池”。
 - GREEN: `node tests/e2e/mes-pro-schedule-order-admission-hide-purple-controls-static.spec.js`、`node tests/e2e/mes-pro-schedule-order-admission-unified-list-template-static.spec.js`、`node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` -> PASS。
-- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-schedule-order-admission-hide-purple-controls/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-schedule-order-admission-hide-purple-controls/frontend-feature-evidence.md` -> PASS。
 - `task-closeout-cleanup --task-id 20260709-schedule-order-admission-hide-purple-controls --mode preview` -> PASS，无阻塞；前端 evidence 文件列入 Cleanup Keep。
 - Git commit -> BLOCKED，当前前端仓存在大量既有脏改，且本轮触达的页面与既有静态契约文件在任务开始前已非干净状态；为避免混入非本任务 hunk，未提交。
 
@@ -71,8 +71,8 @@
 - `node tests/e2e/mes-schedule-order-freeze-visibility-static.spec.js` -> PASS。
 - `node tests/e2e/mes-schedule-order-workorder-link-static.spec.js` -> PASS。
 - `node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260702-schedule-order-hide-workorder-code-column/frontend-feature-evidence.md` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-schedule-order-hide-workorder-code-column --mode preview` -> PASS，无删除项、无阻塞。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260702-schedule-order-hide-workorder-code-column/frontend-feature-evidence.md` -> PASS。
+- `python 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-schedule-order-hide-workorder-code-column --mode preview` -> PASS，无删除项、无阻塞。
 
 ## 2026-06-29 任务：20260629-dcc-browser-cache-write-failure
 
@@ -82,20 +82,20 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\{SKILL.md,references\bug-contract.md}`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\{SKILL.md,references\frontend-contract.md}`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\dcc\controlled-file\browser\{index.vue,state-cache.ts}`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\dcc-browser-remember-state-cache-static.spec.js`
-- `rg -n "DCC 受控浏览本地缓存写入失败|浏览器本地存储权限|writeDccBrowserMetadataCache|directoryChildrenByParentKey" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop,references\bug-contract.md}`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery,references\frontend-contract.md}`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/dcc/controlled-file/browser/{index.vue,state-cache.ts}`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/dcc-browser-remember-state-cache-static.spec.js`
+- `rg -n "DCC 受控浏览本地缓存写入失败|浏览器本地存储权限|writeDccBrowserMetadataCache|directoryChildrenByParentKey" ./IntRuoyiFronted`
 - `apply_patch` -> 新建 `doc/tasks/20260629-dcc-browser-cache-write-failure/{task.md,execution-log.md,bug-regression-evidence.md,frontend-feature-evidence.md}`，新增 `tests/e2e/dcc-browser-cache-write-failure-static.spec.js`，并修改 DCC 浏览页缓存实现与现有 remember-state 静态合同。
-- `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\dcc-browser-cache-write-failure-static.spec.js` -> RED FAIL；修复后 -> PASS。
-- `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\dcc-browser-remember-state-cache-static.spec.js` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260629-dcc-browser-cache-write-failure\bug-regression-evidence.md` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260629-dcc-browser-cache-write-failure\frontend-feature-evidence.md` -> PASS。
-- `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\node_modules\vue-tsc\bin\vue-tsc.js --noEmit -p D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tsconfig.relaxed.json` -> FAIL，默认堆上限 OOM。
-- `$env:NODE_OPTIONS='--max-old-space-size=8192'; node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\node_modules\vue-tsc\bin\vue-tsc.js --noEmit -p D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tsconfig.relaxed.json` -> FAIL，既有无关错误位于 `src/views/mes/pro/edhr-batch/BatchExecutionTemplateSimulatePage.vue:158,305`。
+- `node ./IntRuoyiFronted/tests/e2e/dcc-browser-cache-write-failure-static.spec.js` -> RED FAIL；修复后 -> PASS。
+- `node ./IntRuoyiFronted/tests/e2e/dcc-browser-remember-state-cache-static.spec.js` -> PASS。
+- `python 会话技能：bug-regression-fix-loop --evidence ./IntRuoyiFronted/doc/tasks/20260629-dcc-browser-cache-write-failure/bug-regression-evidence.md` -> PASS。
+- `python 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260629-dcc-browser-cache-write-failure/frontend-feature-evidence.md` -> PASS。
+- `node ./IntRuoyiFronted/node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p ./IntRuoyiFronted/tsconfig.relaxed.json` -> FAIL，默认堆上限 OOM。
+- `$env:NODE_OPTIONS='--max-old-space-size=8192'; node ./IntRuoyiFronted/node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p ./IntRuoyiFronted/tsconfig.relaxed.json` -> FAIL，既有无关错误位于 `src/views/mes/pro/edhr-batch/BatchExecutionTemplateSimulatePage.vue:158,305`。
 
 ## 2026-06-29 任务：20260629-scheduler-workbench-copy-compress
 
@@ -105,13 +105,13 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\clear-frontend-copy\SKILL.md`
-- `rg -n "排产设置|班次小时设置|ERP工单同步时间|冒烟测试" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduler-workbench\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-scheduler-workbench-{shift-hours,policy-settings,smoke-toggle,density-layout}-static.spec.js`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 会话技能：clear-frontend-copy`
+- `rg -n "排产设置|班次小时设置|ERP工单同步时间|冒烟测试" ./IntRuoyiFronted`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduler-workbench/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-scheduler-workbench-{shift-hours,policy-settings,smoke-toggle,density-layout}-static.spec.js`
 - `apply_patch` -> 创建 `doc/tasks/20260629-scheduler-workbench-copy-compress/{task.md,execution-log.md}` 并更新工作台页面、静态契约和本段命令记录。
 
 ## 2026-06-28 任务：20260628-mes-scheduler-workbench-policy-label-overlap
@@ -122,19 +122,19 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\AGENTS.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduler-workbench\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-scheduler-workbench-policy-settings-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-scheduler-workbench-density-layout-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260628-mes-feedback-confirm-batch-cross-page\task.md`
+- `Get-Content -Encoding utf8 ./AGENTS.md`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/login-access.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduler-workbench/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-scheduler-workbench-policy-settings-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-scheduler-workbench-density-layout-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260628-mes-feedback-confirm-batch-cross-page/task.md`
 - `apply_patch` -> 创建 `doc/tasks/20260628-mes-scheduler-workbench-policy-label-overlap/{task.md,execution-log.md}`。
 - `apply_patch` -> 新增 `tests/e2e/mes-scheduler-workbench-policy-label-layout-static.spec.js`。
 - `node tests/e2e/mes-scheduler-workbench-policy-label-layout-static.spec.js` -> RED FAIL，策略区缺少独立标签布局和不可折行约束。
@@ -142,7 +142,7 @@
 - `node tests/e2e/mes-scheduler-workbench-policy-label-layout-static.spec.js` -> PASS
 - `node tests/e2e/mes-scheduler-workbench-policy-settings-static.spec.js` -> PASS
 - `node tests/e2e/mes-scheduler-workbench-density-layout-static.spec.js` -> PASS
-- `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduler-workbench --target-text 排产设置` -> PASS
+- `node ./scripts/preflight/login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduler-workbench --target-text 排产设置` -> PASS
 - `只读 Playwright 页面复验` -> PASS，输出截图 `output/playwright/20260628-mes-scheduler-workbench-policy-label-overlap/policy-label-layout-after-fix.png`
 - `apply_patch` -> 回写 `bug-regression-evidence.md`、`frontend-feature-evidence.md`、任务状态和本段命令记录。
 
@@ -154,16 +154,16 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\route-use\RouteUsePage.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-route-use-config-display-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260624-route-use-config-copy-cleanup\{task.md,execution-log.md}`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/route-use/RouteUsePage.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-route-use-config-display-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260624-route-use-config-copy-cleanup/{task.md,execution-log.md}`
 - `apply_patch` -> 创建 `doc/tasks/20260628-route-use-hourly-capacity-integer/{task.md,execution-log.md,frontend-feature-evidence.md}` 并记录本轮请求。
 - `apply_patch` -> 更新 `tests/e2e/mes-route-use-config-display-static.spec.js`，将 `产能(h)` 静态契约切换为整数输入与正整数保存。
 - `node tests/e2e/mes-route-use-config-display-static.spec.js` -> FAIL，当前仍保留 `:precision="6"`。
@@ -178,16 +178,16 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `rg -n "模拟填写|TemplateSimulate|BatchExecutionTemplateSimulate|template-simulate" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\router -S`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\edhr-batch\BatchExecutionTemplatePage.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\edhr-batch\BatchExecutionTemplateSimulatePage.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\batchrecordtemplate\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-batch-template-simulate-static.spec.js`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `rg -n "模拟填写|TemplateSimulate|BatchExecutionTemplateSimulate|template-simulate" ./IntRuoyiFronted/src/views/mes/pro ./IntRuoyiFronted/src/router -S`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionTemplatePage.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionTemplateSimulatePage.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/batchrecordtemplate/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/edhr-batch-template-simulate-static.spec.js`
 - `apply_patch` -> 创建 `doc/tasks/20260628-electronic-batch-record-simulate-entry/{task.md,execution-log.md,frontend-feature-evidence.md}`，并更新入口页面与现有模拟填写页契约。
 
 ## 2026-06-28 任务：20260628-electronic-batch-record-preview-scroll-fix
@@ -198,15 +198,15 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\components\IFrame\src\IFrame.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\batch-record-preview-toolbar.spec.js`
-- `rg -n "wheel|scroll|overflow|pointer-events|sameOriginChromeMode|jmreport-viewer-fit-width" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\components\IFrame D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\batchrecordtemplate -S`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 diff --unified=20 -- src/components/IFrame/src/IFrame.vue src/views/mes/pro/batchrecordtemplate/index.vue tests/e2e/batch-record-preview-toolbar.spec.js tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/components/IFrame/src/IFrame.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/batch-record-preview-toolbar.spec.js`
+- `rg -n "wheel|scroll|overflow|pointer-events|sameOriginChromeMode|jmreport-viewer-fit-width" ./IntRuoyiFronted/src/components/IFrame ./IntRuoyiFronted/src/views/mes/pro/batchrecordtemplate -S`
+- `git -C ./IntRuoyiFronted diff --unified=20 -- src/components/IFrame/src/IFrame.vue src/views/mes/pro/batchrecordtemplate/index.vue tests/e2e/batch-record-preview-toolbar.spec.js tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js`
 - `apply_patch` -> 创建 `doc/tasks/20260628-electronic-batch-record-preview-scroll-fix/{task.md,execution-log.md,bug-regression-evidence.md}`，并更新滚动契约与页面实现。
 
 ## 2026-06-28 任务：20260628-electronic-batch-record-remove-outer-card
@@ -217,15 +217,15 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `rg -n "批记录名称|报表名称|产品信息|粗洗工序生产记录|清洗工序生产记录" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 -S`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\batchrecordtemplate\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\electronic-batch-record-master-detail-layout-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\components\ContentWrap\src\ContentWrap.vue`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `rg -n "批记录名称|报表名称|产品信息|粗洗工序生产记录|清洗工序生产记录" ./IntRuoyiFronted -S`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/batchrecordtemplate/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/components/ContentWrap/src/ContentWrap.vue`
 - `apply_patch` -> 创建 `doc/tasks/20260628-electronic-batch-record-remove-outer-card/{task.md,execution-log.md,frontend-feature-evidence.md}`，更新页面与静态断言。
 
 ## 2026-06-26 任务：20260626-mes-schedule-order-toolbar-spacing
@@ -236,33 +236,33 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-showroom-product-bu-select-restriction\task.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-showroom-product-audio-modal\task.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-mes-replan-protected-task-readable\task.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-mes-replan-apply-disabled-regression\task.md`
-- `rg -n "同步工单|手动重排|批量冻结|批量解冻|批量删除|搜索|重置" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
-- `rg -n "批量冻结|批量解冻|批量删除|手动重排|同步工单" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduleorder\index.vue -TotalCount 220`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduleorder\index.vue | Select-Object -Skip 2180 -First 280`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-usability-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-replan-scope-static.spec.js`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 diff --unified=20 -- src/views/mes/pro/scheduleorder/index.vue`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-showroom-product-bu-select-restriction/task.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-showroom-product-audio-modal/task.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-mes-replan-protected-task-readable/task.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-mes-replan-apply-disabled-regression/task.md`
+- `rg -n "同步工单|手动重排|批量冻结|批量解冻|批量删除|搜索|重置" ./IntRuoyiFronted`
+- `rg -n "批量冻结|批量解冻|批量删除|手动重排|同步工单" ./IntRuoyiFronted/src/views/mes`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue -TotalCount 220`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue | Select-Object -Skip 2180 -First 280`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-usability-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js`
+- `git -C ./IntRuoyiFronted status --short`
+- `git -C ./IntRuoyiFronted diff --unified=20 -- src/views/mes/pro/scheduleorder/index.vue`
 - `apply_patch` -> 创建 `doc/tasks/20260626-mes-schedule-order-toolbar-spacing/{task.md,execution-log.md,frontend-feature-evidence.md}` 与 `tests/e2e/mes-pro-schedule-order-toolbar-layout-static.spec.js`
-- `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-toolbar-layout-static.spec.js` -> RED FAIL
+- `node ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-toolbar-layout-static.spec.js` -> RED FAIL
 - `apply_patch` -> 调整 `src/views/mes/pro/scheduleorder/index.vue` 工具栏结构与样式，补充分组、换行和间距
 - `node tests/e2e/mes-pro-schedule-order-toolbar-layout-static.spec.js` -> PASS
 - `node tests/e2e/mes-pro-schedule-order-usability-static.spec.js` -> PASS
 - `node tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js` -> PASS
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> BLOCKED（仓库现存全局类型错误）
-- `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduleorder --target-text 排产工单` -> BLOCKED
-- `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduleorder --target-text 同步工单` -> BLOCKED
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-mes-schedule-order-toolbar-spacing\frontend-feature-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260626-mes-schedule-order-toolbar-spacing --mode preview` -> PASS
+- `node ./scripts/preflight/login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduleorder --target-text 排产工单` -> BLOCKED
+- `node ./scripts/preflight/login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/scheduleorder --target-text 同步工单` -> BLOCKED
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260626-mes-schedule-order-toolbar-spacing/frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260626-mes-schedule-order-toolbar-spacing --mode preview` -> PASS
 
 ## 2026-06-26 任务：20260626-mdm-product-reference-id-missing
 
@@ -272,15 +272,15 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-showroom-product-audio-modal\task.md`
-- `rg -n "引用" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mdm\product\index.vue D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-mdm`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mdm\product\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\api\mdm\product\index.ts`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-mdm\src\main\java\cn\iocoder\yudao\module\mdm\controller\admin\product\MdmProductController.java`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-showroom-product-audio-modal/task.md`
+- `rg -n "引用" ./IntRuoyiFronted/src/views/mdm/product/index.vue ./IntRuoyiBackend/yudao-module-mdm`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mdm/product/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/api/mdm/product/index.ts`
+- `Get-Content -Encoding utf8 ./IntRuoyiBackend/yudao-module-mdm/src/main/java/cn/iocoder/yudao/module/mdm/controller/admin/product/MdmProductController.java`
 - `apply_patch` -> 创建 `doc/tasks/20260626-mdm-product-reference-id-missing/{task.md,execution-log.md,bug-regression-evidence.md}`，新增 `tests/e2e/mdm-product-reference-id-static.spec.js`
 - `node tests/e2e/mdm-product-reference-id-static.spec.js` -> RED FAIL
 - `apply_patch` -> 修正 `src/api/mdm/product/index.ts` 中 `/mdm/product/references` 的查询参数为 `id`
@@ -296,22 +296,22 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-ChildItem -Path D:\ProjectPackage\Int\IntRuoyi\doc\tasks -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 8 FullName,LastWriteTime`
-- `rg -n "排产前检查|排查前检查" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduleorder\index.vue | Select-Object -First 120`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduleorder\index.vue | Select-Object -Skip 680 -First 180`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-usability-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-replan-scope-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-scheduling-scope-static.spec.js`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\mes-pro-schedule-order-replan-apply-enabled-static.spec.js`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-ChildItem -Path ./doc/tasks -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 8 FullName,LastWriteTime`
+- `rg -n "排产前检查|排查前检查" ./IntRuoyiFronted`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue | Select-Object -First 120`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue | Select-Object -Skip 680 -First 180`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-usability-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-scheduling-scope-static.spec.js`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js`
 - `git status --short`
 - `git branch --show-current`
 - `git diff --unified=0 -- src/views/mes/pro/scheduleorder/index.vue`
-- `New-Item -ItemType Directory -Force D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-mes-remove-preflight-toolbar-button`
+- `New-Item -ItemType Directory -Force ./IntRuoyiFronted/doc/tasks/20260626-mes-remove-preflight-toolbar-button`
 
 ## 2026-06-23 任务：20260623-schedule-order-sync-button-copy
 
@@ -323,14 +323,14 @@
 
 - `Get-ChildItem -Force`
 - `git status --short`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\clear-frontend-copy\SKILL.md`
+- `Get-Content -Encoding utf8 会话技能：clear-frontend-copy`
 - `git status --short`（前端子仓库）
 - `rg -n "待同步差异|排产前检查|手动重排|排产工单|同步工单" yudao-ui-admin-vue3`
 - `Get-ChildItem -Directory .\doc\tasks | Sort-Object LastWriteTime -Descending | Select-Object -First 8 Name,LastWriteTime`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `Get-Content -Encoding utf8 .\doc\tasks\20260623-unified-electronic-signature-tab\task.md`
-- `python C:\Users\BJB110\.codex\skills\clear-frontend-copy\scripts\scan_frontend_copy.py --root D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --format markdown`
+- `python 会话技能：clear-frontend-copy --root ./IntRuoyiFronted --format markdown`
 - `Get-Content -Encoding utf8 .\src\views\mes\pro\scheduleorder\index.vue | Select-Object -First 90`
 - `Get-Content -Encoding utf8 .\tests\e2e\mes-pro-schedule-order-usability-static.spec.js`
 - `Get-Content -Encoding utf8 .\tests\e2e\smart-scheduling-smoke-real-flow.e2e.js | Select-Object -Skip 855 -First 30`
@@ -341,12 +341,12 @@
 - `node tests/e2e/mes-pro-schedule-order-usability-static.spec.js`
 - `node --check tests/e2e/smart-scheduling-smoke-real-flow.e2e.js`
 - `rg -n "待同步差异|同步工单" src tests -g "!*node_modules*"`
-- `python C:\Users\BJB110\.codex\skills\clear-frontend-copy\scripts\scan_frontend_copy.py --root D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\scheduleorder --format markdown`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md`
+- `python 会话技能：clear-frontend-copy --root ./IntRuoyiFronted/src/views/mes/pro/scheduleorder --format markdown`
+- `Get-Content -Encoding utf8 会话技能：task-closeout-cleanup`
 - `git diff -- src/views/mes/pro/scheduleorder/index.vue tests/e2e/mes-pro-schedule-order-usability-static.spec.js tests/e2e/smart-scheduling-smoke-real-flow.e2e.js doc/tasks/20260623-schedule-order-sync-button-copy/task.md doc/tasks/20260623-schedule-order-sync-button-copy/execution-log.md docs/request-command-log.md`
 - `git status --short`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\references\closeout-rules.md`
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260623-schedule-order-sync-button-copy --mode preview`
+- `Get-Content -Encoding utf8 会话技能：task-closeout-cleanup`
+- `python 会话技能：task-closeout-cleanup --task-id 20260623-schedule-order-sync-button-copy --mode preview`
 - `git add -- src/views/mes/pro/scheduleorder/index.vue tests/e2e/mes-pro-schedule-order-usability-static.spec.js tests/e2e/smart-scheduling-smoke-real-flow.e2e.js doc/tasks/20260623-schedule-order-sync-button-copy/task.md doc/tasks/20260623-schedule-order-sync-button-copy/execution-log.md docs/request-command-log.md`
 - `git commit -m "任务: 更新排产同步按钮文案"`
 - `git add -- docs/request-command-log.md`
@@ -367,16 +367,16 @@
 
 ### 已执行命令
 
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'C:/Users/BJB110/.codex/skills/frontend-feature-delivery/SKILL.md').read_text(encoding='utf-8'))"`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'C:/Users/BJB110/.codex/skills/frontend-feature-delivery/references/frontend-contract.md').read_text(encoding='utf-8'))"`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'D:/ProjectPackage/Int/IntRuoyi/docs/experience-index.md').read_text(encoding='utf-8'))"`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'D:/ProjectPackage/Int/IntPP/FRONTEND_STYLE.md').read_text(encoding='utf-8'))"`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
-- `rg -n "20260626-edhr-batch-template-simulate-fill|模板模拟填写|宽度适配容器|高度不限制" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\docs\request-command-log.md D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-edhr-batch-template-simulate-fill -S`
-- `rg -n "20260626-edhr-batch-template-simulate-fill|eDHR 模板模拟填写页|左右模板显示体一致|宽度适配容器且高度不受限" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-edhr-batch-template-simulate-fill D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\docs\request-command-log.md -S`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/doc/tasks/20260626-edhr-batch-template-simulate-fill/task.md').read_text(encoding='utf-8'))"`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/doc/tasks/20260626-edhr-batch-template-simulate-fill/execution-log.md').read_text(encoding='utf-8'))"`
-- `python -X utf8 -c "from pathlib import Path; print(Path(r'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/doc/tasks/20260626-edhr-batch-template-simulate-fill/frontend-feature-evidence.md').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'会话技能：frontend-feature-delivery').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'会话技能：frontend-feature-delivery').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'./docs/experience-index.md').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'./docs/frontend-development.md').read_text(encoding='utf-8'))"`
+- `git -C ./IntRuoyiFronted status --short`
+- `rg -n "20260626-edhr-batch-template-simulate-fill|模板模拟填写|宽度适配容器|高度不限制" ./IntRuoyiFronted/docs/request-command-log.md ./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill -S`
+- `rg -n "20260626-edhr-batch-template-simulate-fill|eDHR 模板模拟填写页|左右模板显示体一致|宽度适配容器且高度不受限" ./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill ./IntRuoyiFronted/docs/request-command-log.md -S`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill/task.md').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill/execution-log.md').read_text(encoding='utf-8'))"`
+- `python -X utf8 -c "from pathlib import Path; print(Path(r'./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill/frontend-feature-evidence.md').read_text(encoding='utf-8'))"`
 - `apply_patch` -> 新增模板说明页 `模板` 入口、隐藏路由、模板说明页、模拟填写页、可编辑模板组件、宽度适配组件，并持续修正文档与静态契约。
 - `node tests/e2e/edhr-batch-template-simulate-static.spec.js`
 - `node tests/e2e/edhr-batch-template-preview-static.spec.js`
@@ -384,7 +384,7 @@
 - `node tests/e2e/edhr-inline-signature-cells-static.spec.js`
 - `node tests/e2e/edhr-batch-review-summary-labels-static.spec.js`
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check`
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-edhr-batch-template-simulate-fill\frontend-feature-evidence.md`
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260626-edhr-batch-template-simulate-fill/frontend-feature-evidence.md`
 
 ## 2026-06-26 任务：20260626-electronic-batch-record-master-detail-layout
 
@@ -395,12 +395,12 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-role-management-toolbar-layout\task.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-role-management-toolbar-layout\execution-log.md`
-- `New-Item -ItemType Directory -Force -Path D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260626-electronic-batch-record-master-detail-layout`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-role-management-toolbar-layout/task.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260626-role-management-toolbar-layout/execution-log.md`
+- `New-Item -ItemType Directory -Force -Path ./IntRuoyiFronted/doc/tasks/20260626-electronic-batch-record-master-detail-layout`
 - `apply_patch` -> 创建任务文档、执行日志、前端证据文件和 `tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js`
 - `node tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js` -> RED FAIL，缺少主从三栏容器。
 - `apply_patch` -> 修改 `src/views/mes/pro/batchrecordtemplate/index.vue` 为三栏主从布局，新增选中批记录、选中报表和模板预览状态。
@@ -410,9 +410,9 @@
 - `node scripts/electronic-batch-record-word-import.test.mjs`
 - `node scripts/electronic-batch-record-report-page.test.mjs`
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check`
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260626-electronic-batch-record-master-detail-layout/frontend-feature-evidence.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md`
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260626-electronic-batch-record-master-detail-layout --mode preview --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260626-electronic-batch-record-master-detail-layout/frontend-feature-evidence.md`
+- `Get-Content -Encoding utf8 会话技能：task-closeout-cleanup`
+- `python 会话技能：task-closeout-cleanup --task-id 20260626-electronic-batch-record-master-detail-layout --mode preview --workspace ./IntRuoyiFronted`
 - `node --check tests/e2e/edhr-word-template-import-real-flow.e2e.js`
 - `node --check tests/e2e/edhr-template-attachment-rule-real-flow.e2e.js`
 ## 2026-06-26 任务：20260626-edhr-signature-cell-electronic-signature
@@ -423,12 +423,12 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：backend-api-delivery`
+- `Get-Content -Encoding utf8 会话技能：task-closeout-cleanup`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `apply_patch` -> 创建前后端任务文档、执行日志和 evidence 骨架。
 
 ## 2026-06-26 任务追加：电子批记录隐藏顶部工具区与表单自适应
@@ -439,11 +439,11 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `apply_patch` -> 更新 `src/components/IFrame/src/IFrame.vue`，新增 `jmreport-viewer-fit-width` 模式和 Jimu 表单等比缩放。
 - `apply_patch` -> 移除 `src/views/mes/pro/batchrecordtemplate/index.vue` 残留顶部工具区样式。
 - `apply_patch` -> 更新 `scripts/electronic-batch-record-word-import.test.mjs`，按新 UI 契约断言顶部工具区不显示且导入 input 保留。
@@ -462,14 +462,14 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `rg -n "表单模板|报表名称|批记录名称|签名位|单元格规则|产品信息" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\batchrecordtemplate\index.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\electronic-batch-record-master-detail-layout-static.spec.js`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `rg -n "表单模板|报表名称|批记录名称|签名位|单元格规则|产品信息" ./IntRuoyiFronted ./IntRuoyiBackend`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/batchrecordtemplate/index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js`
 - `apply_patch` -> 新建任务文档、execution-log、frontend-feature-evidence，并实现电子批记录预览缓存与静态契约更新。
 
 ## 2026-06-28 任务：20260628-electronic-batch-record-preview-keepalive
@@ -480,8 +480,8 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\components\IFrame\src\IFrame.vue`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\batchrecordtemplate\index.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/components/IFrame/src/IFrame.vue`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/batchrecordtemplate/index.vue`
 - `apply_patch` -> 新建保活切换任务文档，并将右侧预览改为已访问 iframe 保活切换。
 
 ## 2026-06-28 任务：20260628-edhr-batch-progress-over-100-fix
@@ -493,23 +493,23 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260628-edhr-batch-progress-over-100-fix\task.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260628-edhr-batch-progress-over-100-fix\execution-log.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\edhr-batch\progress.ts`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\batchrecord\MesProEdhrBatchExecutionServiceImpl.java`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260628-edhr-batch-progress-over-100-fix/task.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/doc/tasks/20260628-edhr-batch-progress-over-100-fix/execution-log.md`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/edhr-batch/progress.ts`
+- `Get-Content -Encoding utf8 ./IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java`
 - `node scripts/edhr-batch-required-progress.test.mjs` -> RED FAIL，确认模板必填任务分母与后端 `taskApprovedCount` 分子口径不一致。
 - `apply_patch` -> 更新 `src/views/mes/pro/edhr-batch/progress.ts`，新增模板必填任务完成数 helper，并统一列表进度与详情文案口径。
 - `apply_patch` -> 重写 `scripts/edhr-batch-required-progress.test.mjs` 为行为断言式回归，覆盖特殊节点不应把模板进度抬到 `100%` 以上。
 - `node scripts/edhr-batch-required-progress.test.mjs` -> PASS
 - `node tests/e2e/edhr-batch-template-preview-static.spec.js` -> PASS
 - `node node_modules/eslint/bin/eslint.js src/views/mes/pro/edhr-batch/progress.ts src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue scripts/edhr-batch-required-progress.test.mjs` -> PASS
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md`
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260628-edhr-batch-progress-over-100-fix --mode preview` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260628-edhr-batch-progress-over-100-fix\frontend-feature-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260628-edhr-batch-progress-over-100-fix\bug-regression-evidence.md` -> PASS
+- `Get-Content -Encoding utf8 会话技能：task-closeout-cleanup`
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260628-edhr-batch-progress-over-100-fix --mode preview` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260628-edhr-batch-progress-over-100-fix/frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：bug-regression-fix-loop --evidence ./IntRuoyiFronted/doc/tasks/20260628-edhr-batch-progress-over-100-fix/bug-regression-evidence.md` -> PASS
 
 ## 2026-06-29 任务：20260629-feedback-pending-table-wrap
 
@@ -519,13 +519,13 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\mes\pro\feedback\index.vue`
-- `rg -n "待归属|归属结果|报工时间|缓存池数量" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./IntRuoyiFronted/src/views/mes/pro/feedback/index.vue`
+- `rg -n "待归属|归属结果|报工时间|缓存池数量" ./IntRuoyiFronted/src ./IntRuoyiFronted/tests`
 - `apply_patch` -> 新建 `20260629-feedback-pending-table-wrap` 任务文档、执行日志、前端证据和待归属表多行展示静态契约测试。
 
 ## 2026-06-30 任务：20260630-test-server-dcc-browser-cache-write-failure-followup
@@ -537,31 +537,31 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\server-access.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\release-backup-restore.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-agent-checklist.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/server-access.md`
+- `Get-Content -Encoding utf8 ./docs/release-backup-restore.md`
+- `Get-Content -Encoding utf8 ./docs/login-access.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/release-agent-checklist.md`
+- `Get-Content -Encoding utf8 ./docs/release-build-preflight-lessons.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `git -C ./IntRuoyiFronted status --short`
 - `apply_patch` -> 将 `20260630-erp-production-order-material-list-bidirectional-link` 与 `20260630-dcc-admin-full-config-package` 显式标记为 `blocked`，并新建 `20260630-test-server-dcc-browser-cache-write-failure-followup` 任务文档与执行日志。
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\worktree-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\server-access.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\release-backup-restore.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-agent-checklist.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- `git -C D:\ProjectPackage\Int\release-worktrees\IntRuoyi-frontend-20260630-dcc-cache-rerelease status --short`
-- `node D:\ProjectPackage\Int\release-worktrees\IntRuoyi-frontend-20260630-dcc-cache-rerelease\tests\e2e\dcc-browser-cache-write-failure-static.spec.js` -> PASS
-- `node D:\ProjectPackage\Int\release-worktrees\IntRuoyi-frontend-20260630-dcc-cache-rerelease\tests\e2e\dcc-browser-remember-state-cache-static.spec.js` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\ProjectPackage\Int\release-worktrees\IntRuoyi-frontend-20260630-dcc-cache-rerelease\doc\tasks\20260630-test-server-dcc-browser-cache-write-failure-followup\bug-regression-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\release-worktrees\IntRuoyi-frontend-20260630-dcc-cache-rerelease\doc\tasks\20260630-test-server-dcc-browser-cache-write-failure-followup\frontend-feature-evidence.md` -> PASS
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/worktree-memory.md`
+- `Get-Content -Encoding utf8 ./docs/login-access.md`
+- `Get-Content -Encoding utf8 ./docs/server-access.md`
+- `Get-Content -Encoding utf8 ./docs/release-backup-restore.md`
+- `Get-Content -Encoding utf8 ./docs/release-agent-checklist.md`
+- `Get-Content -Encoding utf8 ./docs/release-build-preflight-lessons.md`
+- `git -C ../IntRuoyiWorktree/IntRuoyi-frontend-20260630-dcc-cache-rerelease status --short`
+- `node ../IntRuoyiWorktree/IntRuoyi-frontend-20260630-dcc-cache-rerelease/tests/e2e/dcc-browser-cache-write-failure-static.spec.js` -> PASS
+- `node ../IntRuoyiWorktree/IntRuoyi-frontend-20260630-dcc-cache-rerelease/tests/e2e/dcc-browser-remember-state-cache-static.spec.js` -> PASS
+- `python -X utf8 会话技能：bug-regression-fix-loop --evidence ../IntRuoyiWorktree/IntRuoyi-frontend-20260630-dcc-cache-rerelease/doc/tasks/20260630-test-server-dcc-browser-cache-write-failure-followup/bug-regression-evidence.md` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ../IntRuoyiWorktree/IntRuoyi-frontend-20260630-dcc-cache-rerelease/doc/tasks/20260630-test-server-dcc-browser-cache-write-failure-followup/frontend-feature-evidence.md` -> PASS
 - `apply_patch` -> 在干净前端发布 worktree 中补齐 `20260630-test-server-dcc-browser-cache-write-failure-followup` 的 bug 回归证据、前端证据与补发版门禁记录，并补记本次命令日志。
 
 ## 2026-07-01 任务：20260701-edhr-phase6-module-dedup
@@ -573,19 +573,19 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\worktree-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\simplify-codebase\SKILL.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/worktree-memory.md`
+- `Get-Content -Encoding utf8 会话技能：simplify-codebase`
 - `rg -n "template-simulate|edhr-batch-execution/review|BatchExecutionReviewPage|BatchExecutionTemplatePage|BatchExecutionTemplateSimulatePage" src/router src/views package.json doc/tasks/20260701-edhr-phase6-module-dedup -S`
 - `rg -n "review|template|simulate|router\.push|详情|复盘|模板|模拟" src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue -S`
 - `rg -n "simulate|router\.push|按钮|Button|模拟|填写|返回|详情" src/views/mes/pro/edhr-batch/BatchExecutionTemplatePage.vue -S`
 - `rg -n "template-simulate|模拟填写|router\.push" src/views/mes/pro/batchrecordtemplate/index.vue -S`
 - `apply_patch` -> 新建并更新 Phase 6 前端任务台账、去重矩阵、执行日志；从批次列表主操作移除 `复盘`、`模板` 直达入口；在批次详情页管理后台工作区补 `批次模板后台` 入口。
-- `pnpm --dir D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_phase\yudao-ui-admin-vue3 ts:check` -> FAIL，默认 Node 堆大小触发 `JavaScript heap out of memory`。
-- `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm --dir D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_phase\yudao-ui-admin-vue3 ts:check` -> PASS。
+- `pnpm --dir ../IntRuoyiWorktree/edhr_phase/yudao-ui-admin-vue3 ts:check` -> FAIL，默认 Node 堆大小触发 `JavaScript heap out of memory`。
+- `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm --dir ../IntRuoyiWorktree/edhr_phase/yudao-ui-admin-vue3 ts:check` -> PASS。
 - `node .runtime\edhr-list-click-detail-edge-e2e-v2.mjs` -> PASS，真实测试租户 `测试租户/aoteman` 从 `eDHR批次执行` 列表点击首行 `详情`，`/get` 与 `/workbench` 均 200，详情页显示 `批次总控 / 阶段摘要 / 放行 / 审计 / 管理后台`。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260701-edhr-phase6-module-dedup --mode preview` -> BLOCKED，无删除项；因无法快进合并到 `int_main` 且 cleanup 脚本把本轮生产改动判为 unrelated pending change，未执行 apply。
+- `python 会话技能：task-closeout-cleanup --task-id 20260701-edhr-phase6-module-dedup --mode preview` -> BLOCKED，无删除项；因无法快进合并到 `int_main` 且 cleanup 脚本把本轮生产改动判为 unrelated pending change，未执行 apply。
 - `git add -- src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue doc/tasks/20260701-edhr-phase6-module-dedup/task.md doc/tasks/20260701-edhr-phase6-module-dedup/execution-log.md doc/tasks/20260701-edhr-phase6-module-dedup/dedup-matrix.md`
 - `git commit -m '任务: 收口eDHR重复入口'` -> PASS，提交 `9fb1db19a`。
 
@@ -597,11 +597,11 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `rg -n "受控预览|下载当前受控副本|DCC基础条目|文件名称|文件类别|受控目录|禁止截图|外传|识别基础信息|当前预览" yudao-ui-admin-vue3\src yudao-ui-admin-vue3\tests -S`
 - `git -C yudao-ui-admin-vue3 status --short`
 - `apply_patch` -> 新建本任务文档、执行日志、前端证据，并先补缩放旋转 RED 静态契约测试。
@@ -612,9 +612,9 @@
 - `node tests/e2e/dcc-common-file-preview-source.spec.js`
 - `node tests/e2e/dcc-controlled-file-protection.contract.test.js`
 - `pnpm ts:check`
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260702-dcc-controlled-preview-transform-controls\frontend-feature-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-controlled-preview-transform-controls --mode preview` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-controlled-preview-transform-controls --mode apply` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260702-dcc-controlled-preview-transform-controls/frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-controlled-preview-transform-controls --mode preview` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-controlled-preview-transform-controls --mode apply` -> PASS
 
 ## 2026-07-02 任务：20260702-dcc-pdf-preview-arraybuffer-detach-fix
 
@@ -624,9 +624,9 @@
 
 ### 已执行命令
 
-- `rg -n "postMessage|ArrayBuffer|destroyPdfArtifacts|currentPdfBytes|renderPdfPages|getDocument|pdfBytes|previewPayload\\.bytes|data: pdfBytes" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\dcc\controlled-file\view\index.vue D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e -S`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
+- `rg -n "postMessage|ArrayBuffer|destroyPdfArtifacts|currentPdfBytes|renderPdfPages|getDocument|pdfBytes|previewPayload\\.bytes|data: pdfBytes" ./IntRuoyiFronted/src/views/dcc/controlled-file/view/index.vue ./IntRuoyiFronted/tests/e2e -S`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
 - `apply_patch` -> 新建本修复任务文档、执行日志、bug 回归证据，并先补 PDF worker 字节克隆 RED 静态契约。
 - `node tests/e2e/dcc-common-file-preview-source.spec.js` -> FAIL，缺少 `clonePdfBytesForWorker`。
 - `apply_patch` -> PDF 渲染传入 pdf.js worker 前克隆 `Uint8Array`，避免复用 detached ArrayBuffer。
@@ -642,18 +642,18 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
-- `rg -n "protected-viewer-transform-controls|protected-viewer-toolbar__actions|protected-viewer-frame|protected-viewer-corner-watermark|canTransformPreview" D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\dcc\controlled-file\view\index.vue D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e -S`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
+- `git -C ./IntRuoyiFronted status --short`
+- `rg -n "protected-viewer-transform-controls|protected-viewer-toolbar__actions|protected-viewer-frame|protected-viewer-corner-watermark|canTransformPreview" ./IntRuoyiFronted/src/views/dcc/controlled-file/view/index.vue ./IntRuoyiFronted/tests/e2e -S`
 - `apply_patch` -> 新建本任务文档、执行日志，并将 PDF/图片缩放旋转控制栏移入预览框内部 sticky 区域。
 - `node tests/e2e/dcc-common-file-preview-source.spec.js`
 - `node tests/e2e/dcc-controlled-file-protection.contract.test.js`
 - `pnpm ts:check`
 
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-preview-sticky-transform-controls --mode preview` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-preview-sticky-transform-controls --mode apply` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-preview-sticky-transform-controls --mode preview` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-preview-sticky-transform-controls --mode apply` -> PASS
 - 用户需求：排产工单不显示排产编码，冻结效果要明显。
 - `node tests/e2e/mes-schedule-order-freeze-visibility-static.spec.js`
 
@@ -665,8 +665,8 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
+- `Get-Content -Encoding utf8 会话技能：bug-regression-fix-loop`
 - `rg -n "protected-viewer-transform-controls|protected-viewer-frame|protected-viewer-content|overflow|sticky|fixed|viewerFrameRef|pageEntries" src/views/dcc/controlled-file/view/index.vue tests/e2e/dcc-common-file-preview-source.spec.js tests/e2e/dcc-controlled-file-protection.contract.test.js`
 - `apply_patch` -> 新建滚动容器修复任务文档与 bug 回归证据，先补 PDF / 图片内部滚动视口 RED 契约。
 - `node tests/e2e/dcc-common-file-preview-source.spec.js` -> FAIL，缺少 `protected-viewer-frame--transformable`。
@@ -676,8 +676,8 @@
 - `git diff --check` scoped to DCC files -> PASS。
 - `Invoke-WebRequest http://localhost:8081/src/views/dcc/controlled-file/view/index.vue` 与 Vite style module -> PASS，运行态源码与样式均包含内部滚动视口契约。
 - `pnpm ts:check` -> PASS，全量类型检查通过。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-preview-control-scroll-container-fix --mode preview` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260702-dcc-preview-control-scroll-container-fix --mode apply` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-preview-control-scroll-container-fix --mode preview` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260702-dcc-preview-control-scroll-container-fix --mode apply` -> PASS
 
 ## 2026-07-02 任务：20260702-dcc-preview-transform-controls-grid
 
@@ -687,11 +687,11 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `rg -n "protected-viewer-transform-controls|handleZoomIn|handleZoomOut|handleRotateLeft|handleRotateRight|resetViewerTransformState|左旋转90|右旋转90|放大|缩小|复原" src/views/dcc/controlled-file/view/index.vue tests/e2e/dcc-common-file-preview-source.spec.js tests/e2e/dcc-controlled-file-protection.contract.test.js -S`
 - `apply_patch` -> 新建任务文档与前端证据，先补 2x2 控制栏 RED 静态契约。
 - `node tests/e2e/dcc-common-file-preview-source.spec.js` -> FAIL，缺少 `protected-viewer-transform-controls__grid`。
@@ -700,7 +700,7 @@
 - `node tests/e2e/dcc-common-file-preview-source.spec.js` -> PASS
 - `node tests/e2e/dcc-controlled-file-protection.contract.test.js` -> PASS
 - `pnpm ts:check` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260702-dcc-preview-transform-controls-grid\frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260702-dcc-preview-transform-controls-grid/frontend-feature-evidence.md` -> PASS
 - `Invoke-WebRequest http://localhost:8081/src/views/dcc/controlled-file/view/index.vue` ? Vite style module -> PASS???????? 2x2 ?????????????
 
 ## 2026-07-02 ???20260702-dcc-preview-css-zoom
@@ -711,13 +711,13 @@
 
 ### ?????
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
 - `rg -n "applyPdfZoomChange|rerenderCurrentPdf|renderPdfPages|getDocument|currentPdfBytes|viewerScale|viewerZoomPercent|canvas-wrap|pageEntries|transformStyle|handleZoomIn|handleZoomOut" src/views/dcc/controlled-file/view/index.vue tests/e2e/dcc-common-file-preview-source.spec.js tests/e2e/dcc-controlled-file-protection.contract.test.js -S`
 - `apply_patch` -> ?????????????? PDF ??????????? RED ?????
 - `node tests/e2e/dcc-common-file-preview-source.spec.js` -> FAIL???????? `applyPdfZoomChange` / `rerenderCurrentPdf`?
 - `apply_patch` -> PDF ????????? canvas???????? CSS transform?????/?????????????
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260702-dcc-preview-css-zoom\frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260702-dcc-preview-css-zoom/frontend-feature-evidence.md` -> PASS
 - `Invoke-WebRequest http://localhost:8081/src/views/dcc/controlled-file/view/index.vue` ? Vite style module -> PASS?????????? PDF ???????????? PDF viewport wrapper?
 
 ## 2026-07-03 任务：20260703-edhr-process-form-action-columns
@@ -728,11 +728,11 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\SKILL.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：quality-assurance-test-suite`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `rg -n "工序复盘|已填写表单|当前工序操作台|基础信息|刷新复盘|当前工序" yudao-ui-admin-vue3`
 - `node tests/e2e/edhr-batch-basic-info-dialog-static.spec.js` -> PASS
 - `apply_patch` -> 新增 `edhr-process-form-action-columns-static.spec.js` RED 契约。
@@ -741,12 +741,12 @@
 - `node tests/e2e/edhr-process-form-action-columns-static.spec.js` -> PASS
 - `node tests/e2e/edhr-process-evidence-fusion-static.spec.js` -> PASS
 - `node tests/e2e/edhr-batch-detail-review-fusion-static.spec.js` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260703-edhr-process-form-action-columns\frontend-feature-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\scripts\validate_quality_assurance.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260703-edhr-process-form-action-columns\quality-assurance-evidence.md` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260703-edhr-process-form-action-columns/frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：quality-assurance-test-suite --evidence ./IntRuoyiFronted/doc/tasks/20260703-edhr-process-form-action-columns/quality-assurance-evidence.md` -> PASS
 - `pnpm ts:check` -> FAIL，Node 默认堆内存 OOM。
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-edhr-process-form-action-columns --mode preview` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-edhr-process-form-action-columns --mode apply` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-edhr-process-form-action-columns --mode preview` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-edhr-process-form-action-columns --mode apply` -> PASS
 
 ## 2026-07-03 任务：20260703-edhr-remove-redundant-review-copy
 
@@ -756,11 +756,11 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `rg -n "工序复盘|当前工序控制按钮|签名、审批、审计、归档、放行和变更都围绕工序|基础信息|刷新复盘" yudao-ui-admin-vue3`
 - `apply_patch` -> 新建任务文档、前端证据和 RED 静态契约。
 - `node tests/e2e/edhr-remove-redundant-review-copy-static.spec.js` -> FAIL，页面仍显示红框冗余内容。
@@ -770,18 +770,18 @@
 - `node tests/e2e/edhr-batch-basic-info-dialog-static.spec.js` -> PASS
 - `node tests/e2e/edhr-batch-detail-review-fusion-static.spec.js` -> PASS
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> FAIL，非本次修改文件 `src/views/mes/pro/feedback/index.vue` 存在既有类型错误。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-edhr-remove-redundant-review-copy/frontend-feature-evidence.md` -> 首次 FAIL，证据文件缺少固定 Acceptance / RED / GREEN / Verification 标记。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-edhr-remove-redundant-review-copy/frontend-feature-evidence.md` -> 首次 FAIL，证据文件缺少固定 Acceptance / RED / GREEN / Verification 标记。
 - `apply_patch` -> 补齐前端证据固定校验标记并记录 tscheck 阻塞点。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-edhr-remove-redundant-review-copy/frontend-feature-evidence.md` -> PASS
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-edhr-remove-redundant-review-copy --mode preview` -> PASS
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-edhr-remove-redundant-review-copy/frontend-feature-evidence.md` -> PASS
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-edhr-remove-redundant-review-copy --mode preview` -> PASS
 - `apply_patch` -> 标记任务完成并记录最终验证结果。
 
 ## 20260703-dcc-project-code-associated-files-grouping
 
 - 用户需求：DCC 基础条目详情中，识别出来的关联文档需要按分类显示，例如 `技术文档 -> 设计输入 -> XXX.pdf`。
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md`
 - `rg -n --encoding utf-8 -S "DCC基础条目|关联文档|文件名称|文件编号|基础条目" yudao-ui-admin-vue3\src`
 - `rg -n --encoding utf-8 -S "fileTypeLevel1|fileTypeLevel2|fileTypeLevel3|fileTypeLevel4|fileTypeLevel5" ruoyi-vue-pro\yudao-module-dcc\src\main\java yudao-ui-admin-vue3\src yudao-ui-admin-vue3\tests`
 - `apply_patch` -> 新建 DCC 任务文档、前端证据骨架，并新增 RED 静态契约。
@@ -790,15 +790,15 @@
 - `node tests/e2e/dcc-project-code-recognition-static.spec.js` -> PASS。
 - `pnpm e2e:dcc:project-code-basic-data:static` -> PASS。
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-dcc-project-code-associated-files-grouping/frontend-feature-evidence.md` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-dcc-project-code-associated-files-grouping --mode preview` -> PASS，预览仅删除本任务额外证据文件。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-dcc-project-code-associated-files-grouping/frontend-feature-evidence.md` -> PASS。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-dcc-project-code-associated-files-grouping --mode preview` -> PASS，预览仅删除本任务额外证据文件。
 - `apply_patch` -> 标记任务完成并记录 cleanup preview 结果。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> FAIL，cleanup 脚本未识别原任务状态格式。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> FAIL，cleanup 脚本未识别原任务状态格式。
 - `apply_patch` -> 将任务状态行改为 `Status: completed` 并记录 cleanup apply 阻塞。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> FAIL，cleanup 脚本仍未识别行内状态格式。
-- `rg -n --encoding utf-8 "status|completed|Task status|current status|Current Status" C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py` -> 确认脚本读取 `## Current Status` 章节。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> FAIL，cleanup 脚本仍未识别行内状态格式。
+- `rg -n --encoding utf-8 "status|completed|Task status|current status|Current Status" 会话技能：task-closeout-cleanup` -> 确认脚本读取 `## Current Status` 章节。
 - `apply_patch` -> 将任务状态改为 `## Current Status` 章节并记录第二次 cleanup apply 阻塞。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> PASS，删除本任务额外证据文件。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-dcc-project-code-associated-files-grouping --mode apply` -> PASS，删除本任务额外证据文件。
 
 ## 2026-07-03 排产工单删除追溯按钮
 
@@ -817,10 +817,10 @@
 - `node tests/e2e/mes-schedule-order-row-actions-static.spec.js` -> RED FAIL，确认行操作仍包含 `openOperationLogDialog(row)`。
 - `apply_patch` -> 删除排产工单非冻结行操作中的「追溯」按钮。
 - `node tests/e2e/mes-schedule-order-row-actions-static.spec.js` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-schedule-order-remove-trace-action/frontend-feature-evidence.md` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-schedule-order-remove-trace-action --mode preview` -> PASS，首次预览提示会清理 `frontend-feature-evidence.md`。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-schedule-order-remove-trace-action/frontend-feature-evidence.md` -> PASS。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-schedule-order-remove-trace-action --mode preview` -> PASS，首次预览提示会清理 `frontend-feature-evidence.md`。
 - `apply_patch` -> 将 `frontend-feature-evidence.md` 加入 Cleanup Keep，准备复验收尾预览。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-schedule-order-remove-trace-action --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-schedule-order-remove-trace-action --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
 - `apply_patch` -> 标记本次任务完成并记录最终验证结果。
 # 2026-07-03 eDHR 复盘摘要移入右侧栏
 
@@ -831,13 +831,13 @@
 
 ## 执行命令记录
 
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md -Encoding utf8`
+- `Get-Content -LiteralPath ./docs/powershell-memory.md -Encoding utf8`
 - `Get-ChildItem -LiteralPath doc\tasks -Directory`
 - `Get-Content -LiteralPath docs\experience-index.md -Encoding utf8`
 - `rg -n "执行编号|字段审计|追溯状态|VERIFIED|审批时间|电子批记录" src`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md -Encoding utf8`
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
+- `Get-Content -LiteralPath ./docs/frontend-development.md -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
 - `Get-Content -LiteralPath src\views\mes\pro\edhr-batch\BatchExecutionDetailPage.vue -Encoding utf8`
 - `git status --short`
 - `rg --files tests | rg "edhr.*(batch|detail|review)|batch.*detail|detail-dialog|review-summary"`
@@ -848,12 +848,12 @@
 - `node tests/e2e/edhr-review-summary-right-rail-static.spec.js; node tests/e2e/edhr-batch-basic-info-dialog-static.spec.js; node tests/e2e/edhr-batch-detail-review-fusion-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-remove-redundant-review-copy-static.spec.js` -> PASS。
 - `git diff -- src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue tests/e2e/edhr-review-summary-right-rail-static.spec.js tests/e2e/edhr-batch-basic-info-dialog-static.spec.js doc/tasks/20260703-edhr-review-summary-right-rail/task.md doc/tasks/20260703-edhr-review-summary-right-rail/execution-log.md doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md docs/request-command-log.md`
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md; git diff --check ...` -> evidence 校验缺少 `RED:` / `GREEN:` 标记，随后补齐。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md` -> PASS。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md; git diff --check ...` -> evidence 校验缺少 `RED:` / `GREEN:` 标记，随后补齐。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md` -> PASS。
 - `git diff --check -- src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue tests/e2e/edhr-review-summary-right-rail-static.spec.js tests/e2e/edhr-batch-basic-info-dialog-static.spec.js doc/tasks/20260703-edhr-review-summary-right-rail/task.md doc/tasks/20260703-edhr-review-summary-right-rail/execution-log.md doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md docs/request-command-log.md` -> PASS。
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\task-closeout-cleanup\references\closeout-rules.md -Encoding utf8`
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260703-edhr-review-summary-right-rail --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
+- `Get-Content -LiteralPath 会话技能：task-closeout-cleanup -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：task-closeout-cleanup -Encoding utf8`
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260703-edhr-review-summary-right-rail --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
 - `git status --short` -> 确认仅暂存本任务文件，跳过既有 `scheduleorder/index.vue`、旧任务文档和旧测试文件。
 - `git add -- docs/request-command-log.md src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue tests/e2e/edhr-batch-basic-info-dialog-static.spec.js tests/e2e/edhr-review-summary-right-rail-static.spec.js doc/tasks/20260703-edhr-review-summary-right-rail/task.md doc/tasks/20260703-edhr-review-summary-right-rail/execution-log.md doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md`
 - `git check-ignore -v doc/tasks/20260703-edhr-review-summary-right-rail/frontend-feature-evidence.md`
@@ -870,19 +870,19 @@
 
 ## 执行命令记录
 
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md -Encoding utf8`
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md -Encoding utf8`
+- `Get-Content -LiteralPath ./docs/powershell-memory.md -Encoding utf8`
+- `Get-Content -LiteralPath ./docs/experience-index.md -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
 - `rg -n "recognizeProjectCode|recognize-project-code|识别基础信息|识别产品|产品名称" src tests`
 - `apply_patch` -> 新增前端任务文档、前端证据和静态契约 RED 断言。
-- `pnpm.cmd --dir D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 run e2e:dcc:project-code-recognition:static` -> RED FAIL，脚本入口缺失。
+- `pnpm.cmd --dir ./IntRuoyiFronted run e2e:dcc:project-code-recognition:static` -> RED FAIL，脚本入口缺失。
 - `apply_patch` -> 扩展 `ControlledFileProjectCodeRecognitionRespVO` 类型、详情页 `NO_MATCH` 提示、静态契约测试和 package 脚本。
 - `node tests/e2e/dcc-project-code-recognition-static.spec.js` -> GREEN PASS。
-- `pnpm.cmd --dir D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 run e2e:dcc:project-code-recognition:static` -> GREEN PASS。
-- `pnpm.cmd --dir D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 exec eslint src/api/dcc/controlledFile/workflow.ts src/views/dcc/controlled-file/detail/index.vue tests/e2e/dcc-project-code-recognition-static.spec.js --format stylish` -> GREEN PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260706-dcc-recognition-no-match-success\frontend-feature-evidence.md` -> 初次 FAIL，缺少 `Acceptance` / `BDD:` 标记，随后补齐。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260706-dcc-recognition-no-match-success --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
+- `pnpm.cmd --dir ./IntRuoyiFronted run e2e:dcc:project-code-recognition:static` -> GREEN PASS。
+- `pnpm.cmd --dir ./IntRuoyiFronted exec eslint src/api/dcc/controlledFile/workflow.ts src/views/dcc/controlled-file/detail/index.vue tests/e2e/dcc-project-code-recognition-static.spec.js --format stylish` -> GREEN PASS。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence ./IntRuoyiFronted/doc/tasks/20260706-dcc-recognition-no-match-success/frontend-feature-evidence.md` -> 初次 FAIL，缺少 `Acceptance` / `BDD:` 标记，随后补齐。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiFronted --task-id 20260706-dcc-recognition-no-match-success --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
 # 2026-07-06 排程明细弹框按工单合并
 
 ## 用户需求
@@ -901,10 +901,10 @@
 - `node tests/e2e/mes-pro-schedule-calendar-day-summary-dialog-columns-static.spec.js` -> GREEN PASS。
 - `pnpm.cmd exec eslint src/views/mes/pro/task/calendar/index.vue tests/e2e/mes-pro-schedule-calendar-workorder-group-dialog-static.spec.js tests/e2e/mes-pro-schedule-calendar-day-summary-dialog-columns-static.spec.js --format stylish` -> GREEN PASS。
 - `pnpm.cmd run ts:check:schedule` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260706-schedule-calendar-workorder-group-dialog --mode preview` -> PASS，预览只清理本次额外证据文件。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260706-schedule-calendar-workorder-group-dialog --mode apply` -> BLOCKED，cleanup 脚本只识别 `## Current Status` 英文状态节。
+- `python 会话技能：task-closeout-cleanup --task-id 20260706-schedule-calendar-workorder-group-dialog --mode preview` -> PASS，预览只清理本次额外证据文件。
+- `python 会话技能：task-closeout-cleanup --task-id 20260706-schedule-calendar-workorder-group-dialog --mode apply` -> BLOCKED，cleanup 脚本只识别 `## Current Status` 英文状态节。
 - `apply_patch` -> 补充 `## Current Status` / `completed`，继续收尾。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260706-schedule-calendar-workorder-group-dialog --mode apply` -> PASS，删除本次额外证据文件，保留任务核心记录。
+- `python 会话技能：task-closeout-cleanup --task-id 20260706-schedule-calendar-workorder-group-dialog --mode apply` -> PASS，删除本次额外证据文件，保留任务核心记录。
 # 2026-07-06 排程明细任务表产品列拆分
 
 ## 用户需求
@@ -933,7 +933,7 @@
 ## 执行命令
 
 - 读取 `docs/powershell-memory.md`、`docs/worktree-memory.md`、worktree/backend/frontend/BDD 技能说明与证据契约 -> PASS。
-- `git worktree add -b edhr_batch_improve D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_batch_improve\yudao-ui-admin-vue3 int_main` -> PASS。
+- `git worktree add -b edhr_batch_improve ../IntRuoyiWorktree/edhr_batch_improve/yudao-ui-admin-vue3 int_main` -> PASS。
 - `Get-NetTCPConnection -LocalPort 8095,48095` -> PASS，目标端口当前未占用。
 - 创建 `doc/tasks/20260706-edhr-batch-role-permission-flow/`、`.runtime/runtime.env`，记录 BDD、设计约束、经验门禁和运行态计划 -> PASS。
 
@@ -957,7 +957,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 ## 执行命令
 
 - `Get-Content -Encoding utf8 docs\powershell-memory.md` -> PASS，完成 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 docs\experience-index.md` 与 `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，确认前端样式与经验门禁。
+- `Get-Content -Encoding utf8 docs\experience-index.md` 与 `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，确认前端样式与经验门禁。
 - `rg -n "来料检报|待处理详情|跳过节点|当前工序尚未形成" yudao-ui-admin-vue3` -> PASS，定位 `src\views\mes\pro\edhr-batch\BatchExecutionDetailPage.vue`。
 - `apply_patch` -> 新增任务文档、执行日志和 `tests\e2e\edhr-batch-pending-slot-tags-right-rail-static.spec.js` 静态契约。
 - `node tests\e2e\edhr-batch-pending-slot-tags-right-rail-static.spec.js` -> RED FAIL，左侧仍包含槽位状态标签和缺失配置提示。
@@ -966,9 +966,9 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 - `node tests\e2e\edhr-batch-pending-form-entry-static.spec.js` -> BLOCKER，当前工作区既有审批/批准待办动作契约断言失败；本次布局 diff 未触碰审批动作逻辑。
 - `node --check tests\e2e\edhr-batch-pending-slot-tags-right-rail-static.spec.js` -> GREEN PASS。
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm.cmd exec vue-tsc --noEmit -p tsconfig.relaxed.json --pretty false` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260708-edhr-pending-slot-tags-right-rail\frontend-feature-evidence.md` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260708-edhr-pending-slot-tags-right-rail --mode preview` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260708-edhr-pending-slot-tags-right-rail --mode apply` -> GREEN PASS，仅删除本任务临时证据文件。
+- `python 会话技能：frontend-feature-delivery --evidence doc\tasks\20260708-edhr-pending-slot-tags-right-rail\frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260708-edhr-pending-slot-tags-right-rail --mode preview` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260708-edhr-pending-slot-tags-right-rail --mode apply` -> GREEN PASS，仅删除本任务临时证据文件。
 
 # 2026-07-08 eDHR 详情页放行虚拟工序改造
 
@@ -979,7 +979,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 ## 执行命令
 
 - `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，完成 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，确认前端样式与经验门禁。
+- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，确认前端样式与经验门禁。
 - `node tests/e2e/edhr-release-virtual-process-static.spec.js` -> RED FAIL，预期失败：详情页尚未定义 `RELEASE_VIRTUAL_PROCESS`、`selectReleaseProcess` 和放行虚拟工序。
 - `apply_patch` -> 在 `BatchExecutionDetailPage.vue` 新增“放行”虚拟工序、放行摘要、右侧放行参数栏，并移除底部收尾区。
 - `apply_patch` -> 更新收尾按钮、短文案和详情融合静态契约，新增放行虚拟工序静态契约。
@@ -988,8 +988,8 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 - `node tests/e2e/edhr-closing-actions-compact-copy-static.spec.js` -> GREEN PASS。
 - `node tests/e2e/edhr-batch-detail-review-fusion-static.spec.js` -> GREEN PASS。
 - `NODE_OPTIONS=--max-old-space-size=8192 pnpm ts:check` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260708-edhr-release-virtual-process/frontend-feature-evidence.md` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260708-edhr-release-virtual-process --mode preview` -> GREEN PASS，无删除项、无阻塞。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260708-edhr-release-virtual-process/frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260708-edhr-release-virtual-process --mode preview` -> GREEN PASS，无删除项、无阻塞。
 
 # 2026-07-08 排产工单工具栏单行优化
 
@@ -1000,20 +1000,20 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 ## 执行命令
 
 - `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，完成 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
+- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
 - `rg -n "排产编码|同步工单|手动重排|完成筛选|显示字段" yudao-ui-admin-vue3` -> PASS，定位排产工单页 `src/views/mes/pro/scheduleorder/index.vue`。
 - `apply_patch` -> 将排产工单顶部查询表单改为单行 flex 布局，并将显示字段入口收进工具栏同排展示。
 - `apply_patch` -> 新增 `doc/tasks/20260708-schedule-order-toolbar-single-line/` 任务文档、执行日志、前端证据，并更新工具栏静态契约。
 - `node tests\e2e\mes-pro-schedule-order-toolbar-layout-static.spec.js` -> GREEN PASS。
 - `node tests\e2e\mes-pro-schedule-order-pool-static.spec.js` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260708-schedule-order-toolbar-single-line\frontend-feature-evidence.md` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260708-schedule-order-toolbar-single-line --mode preview` -> GREEN PASS，无删除项。
+- `python 会话技能：frontend-feature-delivery --evidence doc\tasks\20260708-schedule-order-toolbar-single-line\frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260708-schedule-order-toolbar-single-line --mode preview` -> GREEN PASS，无删除项。
 - `git commit` -> BLOCKED，`src/views/mes/pro/scheduleorder/index.vue` 与 `tests/e2e/mes-pro-schedule-order-toolbar-layout-static.spec.js` 存在本轮前置未提交重叠改动，无法安全只提交本任务 hunk。
 - 用户补充需求：蓝框的 item 靠右排布。
 - `apply_patch` -> 给 `完成筛选` 增加右侧起点 class，并将工具栏按钮组改为右对齐。
 - `node tests\e2e\mes-pro-schedule-order-toolbar-layout-static.spec.js` -> GREEN PASS。
 - `node tests\e2e\mes-pro-schedule-order-pool-static.spec.js` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260708-schedule-order-toolbar-single-line\frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：frontend-feature-delivery --evidence doc\tasks\20260708-schedule-order-toolbar-single-line\frontend-feature-evidence.md` -> GREEN PASS。
 
 # 2026-07-09 生产工单列表替换标准列表模板
 
@@ -1023,9 +1023,9 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md` -> PASS，读取前端交付技能。
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery` -> PASS，读取前端交付技能。
 - `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，读取 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，读取统一前端样式。
+- `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，读取统一前端样式。
 - `Get-Content -Encoding utf8 docs/experience-index.md` -> PASS，确认本任务命中 PowerShell 与前端页面 / 表格 / 样式门禁。
 - `apply_patch` -> 创建 `doc/tasks/20260709-workorder-unified-list-template/` 任务文档、前端证据和生产工单标准模板静态验收用例。
 - `node tests/e2e/mes-pro-workorder-unified-list-template-static.spec.js` -> RED FAIL，生产工单页尚未导入并使用 `UnifiedListTemplate`。
@@ -1033,9 +1033,9 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 - `apply_patch` -> 更新生产工单相关静态契约，适配通过标准列表模板渲染的工具栏与分页。
 - `node tests/e2e/mes-pro-workorder-unified-list-template-static.spec.js`、`node tests/e2e/workorder-key-columns-static.spec.js`、`node tests/e2e/workorder-toolbar-red-box-cleanup-static.spec.js`、`node tests/e2e/unified-list-template-static.spec.js`、`node tests/e2e/user-table-column-config-static.spec.js`、`node tests/e2e/table-quick-filter-static.spec.js` -> GREEN PASS。
 - `pnpm ts:check:schedule`、`NODE_OPTIONS=--max-old-space-size=8192 pnpm ts:check` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-workorder-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-workorder-unified-list-template --mode preview` -> GREEN PASS，无阻塞。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-workorder-unified-list-template --mode apply` -> GREEN PASS，删除临时前端证据文件，无阻塞。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-workorder-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-workorder-unified-list-template --mode preview` -> GREEN PASS，无阻塞。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-workorder-unified-list-template --mode apply` -> GREEN PASS，删除临时前端证据文件，无阻塞。
 - `git commit` -> BLOCKED，当前前端仓存在大量前置未提交改动，且本轮修改的生产工单页与相关静态测试存在文件级重叠；为避免混入非本轮改动，未创建提交。
 
 # 2026-07-09 工序列表展示并筛选所属工艺路线
@@ -1046,7 +1046,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、frontend/backend 交付技能与 closeout 规则 -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、frontend/backend 交付技能与 closeout 规则 -> PASS。
 - 创建 `doc/tasks/20260709-process-route-filter-column/`，记录 BDD、设计约束检查、经验门禁和执行日志 -> PASS。
 - RED: `node tests/e2e/mes-pro-process-route-filter-static.spec.js` -> FAIL，前端缺少路线 VO、筛选项和“所属工艺路线”列。
 - 实现结果：`src/views/mes/pro/process/index.vue` 新增“所属工艺路线”列和“工艺路线”快速筛选；`src/api/mes/pro/process/index.ts` 新增 `ProProcessRouteVO` 与 `routeList`。
@@ -1064,17 +1064,17 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md` -> PASS，读取前端交付技能。
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery` -> PASS，读取前端交付技能。
 - `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，读取 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
+- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
 - `apply_patch` -> 创建 `doc/tasks/20260709-edhr-batch-execution-unified-list-template/` 任务文档、前端证据和批次执行标准模板静态验收用例。
 - `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> RED FAIL，批次执行列表尚未导入并使用 `UnifiedListTemplate`。
 - `apply_patch` -> 将 `src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue` 接入 `UnifiedListTemplate`，保留快速过滤、显示字段、列宽拖拽、分页和原业务动作。
 - `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js`、`node tests/e2e/user-table-column-config-static.spec.js`、`node tests/e2e/edhr-rehearsal-readiness-panel-static.spec.js`、`node tests/e2e/edhr-readiness-business-action-static.spec.js`、`node tests/e2e/unified-list-template-static.spec.js`、`node tests/e2e/table-quick-filter-static.spec.js` -> GREEN PASS。
 - `NODE_OPTIONS=--max-old-space-size=8192 pnpm ts:check` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-edhr-batch-execution-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-edhr-batch-execution-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-edhr-batch-execution-unified-list-template --mode apply` -> GREEN PASS，已删除临时前端证据文件，无阻塞。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-edhr-batch-execution-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-edhr-batch-execution-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-edhr-batch-execution-unified-list-template --mode apply` -> GREEN PASS，已删除临时前端证据文件，无阻塞。
 - `git commit` -> BLOCKED，当前前端仓存在大量前置未提交改动；本任务依赖前置任务遗留未跟踪的 `src/components/UnifiedListTemplate/index.vue`，且修改文件与既有脏改存在文件级重叠，无法安全单独提交本任务 hunk。
 
 # 2026-07-09 待同步差异列表替换标准列表模板
@@ -1086,8 +1086,8 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 ## 执行命令
 
 - `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，读取 PowerShell / UTF-8 门禁。
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md` -> PASS，读取前端交付技能。
-- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery` -> PASS，读取前端交付技能。
+- `Get-Content -Encoding utf8 docs/experience-index.md` 与 `Get-Content -Encoding utf8 ./docs/frontend-development.md` -> PASS，确认前端页面 / 表格 / 样式门禁。
 - `rg -n "待同步差异|入池状态|阻断原因|UnifiedListTemplate" src tests/e2e` -> PASS，定位待同步差异弹窗在 `src/views/mes/pro/scheduleorder/index.vue`。
 - `apply_patch` -> 创建 `doc/tasks/20260709-schedule-order-admission-unified-list-template/` 任务文档、前端证据和待同步差异标准列表模板静态验收用例。
 
@@ -1096,13 +1096,13 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 - `node tests/e2e/mes-pro-schedule-order-admission-unified-list-template-static.spec.js`、`node tests/e2e/mes-pro-schedule-order-batch-admission-static.spec.js`、`node tests/e2e/mes-pro-schedule-order-pool-static.spec.js`、`node tests/e2e/unified-list-template-static.spec.js`、`node tests/e2e/user-table-column-config-static.spec.js` -> GREEN PASS。
 - `NODE_OPTIONS=--max-old-space-size=8192 pnpm ts:check` -> FAIL，PowerShell 不支持 Bash 风格环境变量前缀。
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> GREEN PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-schedule-order-admission-unified-list-template/frontend-feature-evidence.md` -> FAIL，证据缺少 RED/GREEN/Verification 固定标记；已补齐后准备重验。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-schedule-order-admission-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS，Frontend feature evidence is valid。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-schedule-order-admission-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-schedule-order-admission-unified-list-template --mode apply` -> BLOCKED，任务状态未被脚本识别；已补 `Status: completed` 后重跑。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-schedule-order-admission-unified-list-template/frontend-feature-evidence.md` -> FAIL，证据缺少 RED/GREEN/Verification 固定标记；已补齐后准备重验。
+- `python 会话技能：frontend-feature-delivery --evidence doc/tasks/20260709-schedule-order-admission-unified-list-template/frontend-feature-evidence.md` -> GREEN PASS，Frontend feature evidence is valid。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-schedule-order-admission-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-schedule-order-admission-unified-list-template --mode apply` -> BLOCKED，任务状态未被脚本识别；已补 `Status: completed` 后重跑。
 - `apply_patch/Python UTF-8 write` -> 新增 `## Current Status` / `completed`，供 closeout 脚本识别任务完成状态。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-schedule-order-admission-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-schedule-order-admission-unified-list-template --mode apply` -> GREEN PASS，已删除临时前端证据文件。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-schedule-order-admission-unified-list-template --mode preview` -> GREEN PASS，预览仅删除临时前端证据文件。
+- `python 会话技能：task-closeout-cleanup --task-id 20260709-schedule-order-admission-unified-list-template --mode apply` -> GREEN PASS，已删除临时前端证据文件。
 - `Git commit -> BLOCKED，当前前端仓存在 93 个脏改路径，且本任务修改的 `src/views/mes/pro/scheduleorder/index.vue` 与 `docs/request-command-log.md` 在本轮开始前已存在未提交改动；为避免混入非本任务 hunk，未创建提交。`
 - 用户反馈：标准列表模板应支持列宽可调节，待同步差异列表当前列宽不可调节。
 - `node tests/e2e/mes-pro-schedule-order-admission-unified-list-template-static.spec.js` -> RED FAIL，待同步差异表格未启用 `border`，且部分业务列未绑定持久化列宽。
@@ -1135,7 +1135,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`./docs/frontend-development.md` -> PASS。
 - 创建 `doc/tasks/20260709-route-product-bind-from-work-orders/`，记录 BDD、经验门禁、设计约束和前端证据 -> PASS。
 - RED: `node tests/e2e/mes-pro-route-product-bind-from-work-orders-static.spec.js` -> FAIL，缺少按钮、API 类型和补齐调用契约。
 - 实现结果：`RouteProductList.vue` 表格下方左侧新增 `从生产订单补齐产品` 按钮；`ProRouteProductApi` 新增 `bindFromWorkOrders`。
@@ -1150,7 +1150,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
 - 创建 `doc/tasks/20260709-standard-list-empty-search-reset/`，记录 BDD、设计约束、经验门禁和前端证据 -> PASS。
 - RED: `node tests/e2e/table-quick-filter-static.spec.js` -> FAIL，旧 `useTableQuickFilter` 未在空输入查询时执行 `resetQuickFilter()`。
 - 实现结果：`useTableQuickFilter.applyQuickFilter()` 在快速过滤输入为空时先执行 `resetQuickFilter()`；重置命令统一清理 `quickFilter` 和所有 `queryParamKey` 映射快速过滤参数，并回到第一页重新加载。
@@ -1169,7 +1169,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
 - 创建 `doc/tasks/20260709-schedule-order-remove-selected-buttons/`，记录 BDD、设计约束、经验门禁和前端证据 -> PASS。
 - RED: `node tests/e2e/mes-schedule-order-remove-selected-buttons-static.spec.js` -> FAIL，排产工单页签工具栏仍渲染 `同步工单`。
 - 实现结果：删除排产工单页签工具栏中的 `同步工单`、`批量冻结`、`批量解冻`、`批量删除` 按钮，并删除仅由这些按钮调用的入口函数。
@@ -1186,7 +1186,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
 - 创建 `doc/tasks/20260709-route-flow-detail-visible-items/`，记录 BDD、设计约束、经验门禁和前端证据 -> PASS。
 - RED: `node tests/e2e/mes-route-flow-detail-visible-items-static.spec.js` -> FAIL，流转关系图尚未接入服务端用户配置。
 - 实现结果：`RouteFlowGraphDesigner.vue` 使用 `mes.pro.route.flow.detailFields` 复用 `/system/user-table-column-config/get|save`；添加/删除 item 立即保存，保存失败回滚并禁用继续修改；可见 item 不再写入 URL query 或本地缓存。
@@ -1210,7 +1210,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`docs/agent-memory/project-error-prevention.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、`docs/agent-memory/project-error-prevention.md`、`frontend-feature-delivery` 与 `frontend-contract.md` -> PASS。
 - 创建 `doc/tasks/20260710-dcc-project-code-batch-ai-category/`，记录 BDD、设计约束、经验门禁和前端证据 -> PASS。
 - RED: `pnpm.cmd e2e:dcc:project-code-batch-ai-category:static` -> FAIL，缺少工具栏 `批量AI分类` 按钮。
 - 实现结果：`ProjectCodeTabPanel.vue` 在导出按钮右侧新增 `批量AI分类`，运行时显示 `el-progress` 项目级进度；按 `pageSize=200` 拉取全部项目代码，逐项目、逐文件串行复用现有 AI 分类 API；空项目计入已处理，失败项目继续后续并汇总项目、文件和后端错误。

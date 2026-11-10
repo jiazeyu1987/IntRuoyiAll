@@ -37,6 +37,12 @@ public class MesProcessPoolTeamEmployeeProfileDO extends TenantBaseDO {
     @ToString.Exclude
     private String signaturePasswordHash;
     private LocalDateTime signaturePasswordUpdatedAt;
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    @lombok.ToString.Exclude
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String signaturePinHash;
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.NEVER)
+    private String signatureCredentialType;
     private String signatureCredentialGeneration;
     private Long signatureCredentialVersion;
     private String signatureCredentialStatus;

@@ -142,6 +142,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_ITEM_NOT_E
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
@@ -3376,6 +3377,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static boolean isKnownActiveOrderReadError(ServiceException ex) {
         return Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED.getCode())
+                || Objects.equals(ex.getCode(), PRO_PQC_SAMPLING_EVIDENCE_REQUIRED.getCode())
                 || Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID.getCode())
                 || Objects.equals(ex.getCode(), PRO_ROUTE_NOT_EXISTS.getCode())
                 || Objects.equals(ex.getCode(), PRO_ROUTE_VERSION_NOT_EXISTS.getCode())

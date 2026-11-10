@@ -178,7 +178,7 @@
 ## 后续 Coding 门禁
 
 - 缺真实路由、菜单、权限或样本时必须 fail fast，并在任务日志记录影响。
-- 新页面必须遵守 `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` 的紧凑操作台风格，不做营销式落地页。
+- 新页面必须遵守 `./docs/frontend-development.md` 的紧凑操作台风格，不做营销式落地页。
 - 涉及写入的前端联调必须使用测试租户真实登录路径，接口只用于最终校验。
 - 新增 API 函数必须绑定后端真实路径，不允许 mock 成功、静默降级或返回默认空成功。
 - P1 建议先实现 `CR-T1-01 init-batch-precheck` 或 `CR-T4-01 release-precheck-engine` 的只读/预检切片，再做 T3 打印执行类高风险动作。

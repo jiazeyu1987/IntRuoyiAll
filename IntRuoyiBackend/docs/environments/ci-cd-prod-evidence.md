@@ -39,11 +39,11 @@ All blockers are currently resolved. During the 2026-05-27 production publish, o
 ## Production Target
 
 - Source workspace:
-  `D:\ProjectPackage\Int\IntRuoyi`
+  `.`
 - Owning backend repository:
-  `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro`
+  `./IntRuoyiBackend`
 - Frontend source repository:
-  `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3`
+  `./IntRuoyiFronted`
 - Target environment:
   production server `172.30.30.57`
 - Remote application directory:

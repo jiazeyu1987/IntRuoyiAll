@@ -17,9 +17,10 @@ public class MesWebConfiguration {
     public org.springframework.boot.web.servlet.FilterRegistrationBean<cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter> edhrDecisionRequestLogMetadataFilter(
             cn.iocoder.yudao.framework.web.config.WebProperties properties,
             org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrReleaseController> releases,
-            org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrNonconformanceReviewController> reviews) {
+            org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrNonconformanceReviewController> reviews,
+            org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController> frontline) {
         var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(
-                new cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter(properties, releases, reviews));
+                new cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter(properties, releases, reviews, frontline));
         registration.setOrder(cn.iocoder.yudao.framework.common.enums.WebFilterOrderEnum.API_ACCESS_LOG_FILTER - 2);
         return registration;
     }

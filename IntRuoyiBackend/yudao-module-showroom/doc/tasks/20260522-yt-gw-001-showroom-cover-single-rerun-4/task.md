@@ -28,11 +28,11 @@ Create one square PNG showroom cover image for product `YT-GW-001` based only on
 ## Final Verification Result
 
 - Native image generation used exactly once.
-- Final artifact: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\yt-gw-001-showroom-cover-single-rerun-4.png`
+- Final artifact: `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/yt-gw-001-showroom-cover-single-rerun-4.png`
 - Verification status: `PASS`
 
 ## Cleanup
 
 - Task-closeout preview attempted.
-- Preview result: blocked because the cleanup script resolved the git workspace root as `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro` and therefore did not locate this module-scoped task record.
+- Preview result: blocked because the cleanup script resolved the git workspace root as `./IntRuoyiBackend` and therefore did not locate this module-scoped task record.
 - No cleanup was applied.

@@ -125,6 +125,16 @@
               </el-option>
             </el-select>
           </label>
+          <label v-if="!selectedQaRegulationVersionId" class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">新版本号</span>
+            <el-input
+              v-model="qaRegulationDraft.versionNo"
+              aria-label="新规程版本号"
+              size="small"
+              :disabled="qaRegulationSaving || qaRegulationPublishing"
+              class="qa-regulation-page__version-input"
+            />
+          </label>
           <label class="qa-regulation-page__header-field">
             <span class="qa-regulation-page__header-field-label">生效日期</span>
             <el-date-picker
@@ -1173,9 +1183,13 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                         v-bind="sortColumnAttrs('samplingPlan')"
                       >
                         <template #default="{ row }">
-                          <div class="qa-regulation-page__sampling-plan">
-                            {{ formatQaItemSamplingPlan(row) }}
-                          </div>
+                          <el-input
+                            v-model="row.samplingPlanText"
+                            type="textarea"
+                            aria-label="原抽样方案"
+                            :autosize="{ minRows: 2, maxRows: 6 }"
+                            :disabled="commonRegulationItemsSaving"
+                          />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1194,6 +1208,28 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                             <el-option label="数值" value="NUMERIC" />
                             <el-option label="文本" value="TEXT" />
                           </el-select>
+                          <template v-if="row.resultType === 'NUMERIC'">
+                            <label>
+                              <span>单位</span>
+                              <el-input
+                                v-model="row.standardUnit"
+                                aria-label="数值单位"
+                                :disabled="commonRegulationItemsSaving"
+                              />
+                            </label>
+                            <label>
+                              <span>小数位数</span>
+                              <el-input-number
+                                v-model="row.standardPrecision"
+                                aria-label="数值精度"
+                                :min="0"
+                                :max="8"
+                                :precision="0"
+                                :controls="false"
+                                :disabled="commonRegulationItemsSaving"
+                              />
+                            </label>
+                          </template>
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1839,9 +1875,12 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                   v-bind="sortColumnAttrs('samplingPlan')"
                 >
                   <template #default="{ row }">
-                    <div class="qa-regulation-page__sampling-plan">
-                      {{ formatQaItemSamplingPlan(row) }}
-                    </div>
+                    <el-input
+                      v-model="row.samplingPlanText"
+                      type="textarea"
+                      aria-label="原抽样方案"
+                      :autosize="{ minRows: 2, maxRows: 6 }"
+                    />
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -1857,6 +1896,23 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                       <el-option label="数值" value="NUMERIC" />
                       <el-option label="文本" value="TEXT" />
                     </el-select>
+                    <template v-if="row.resultType === 'NUMERIC'">
+                      <label>
+                        <span>单位</span>
+                        <el-input v-model="row.standardUnit" aria-label="数值单位" />
+                      </label>
+                      <label>
+                        <span>小数位数</span>
+                        <el-input-number
+                          v-model="row.standardPrecision"
+                          aria-label="数值精度"
+                          :min="0"
+                          :max="8"
+                          :precision="0"
+                          :controls="false"
+                        />
+                      </label>
+                    </template>
                   </template>
                 </el-table-column>
                 <el-table-column

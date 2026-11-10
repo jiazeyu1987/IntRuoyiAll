@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 电子文控系统受控文件上传流程 PRD
 
 ## Purpose and Scope
@@ -8,7 +10,7 @@
 
 ## Evidence Reviewed
 
-- 原始 Excel：`C:\Users\BJB110\Desktop\文档\电子文控系统推进计划及需求表.xlsx`。
+- 原始 Excel：`历史外部材料（引用已移除）`。
 - Excel 证据范围：`推进计划!A3:E8`、`需求!C2:R20`、`需求!I18:I21`。
 - 用户补充：填写受控文件明细时，应自动关联同一文件编号的现行版本信息；文件下发范围应支持按部门勾选。
 - 当前前端入口：`yudao-ui-admin-vue3/src/views/dcc/controlled-file/upload/index.vue` 已存在受控文件提交页、历史文件名建议、可编辑源文件上传、图纸 PDF 上传、审批路线预览。

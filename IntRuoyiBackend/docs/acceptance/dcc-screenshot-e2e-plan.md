@@ -10,7 +10,7 @@
 - `docs/acceptance/dcc-screenshot-tdd-plan.md`
 - `docs/product/dcc-screenshot-requirements-user-flows.md`
 - 前端入口基线：`http://localhost:8081`
-- 登录与环境基线：`D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md`、`D:\ProjectPackage\Int\IntRuoyi\docs\server-access.md`
+- 登录与环境基线：`./docs/login-access.md`、`./docs/server-access.md`
 - 当前 DCC 前端路径：上传、我的受控文件、审批任务、详情、预览、培训、发放、路线、岗位。
 
 ## User Paths

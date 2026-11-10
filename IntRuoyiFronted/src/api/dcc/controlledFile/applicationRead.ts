@@ -176,7 +176,7 @@ export const buildDelayedEffectiveConfirmationCommand = (context: DelayedEffecti
   if (!context.canConfirm) throw new Error(context.unavailableReason || '当前用户不可办理本轮延迟生效确认')
   if (delayedTimeNanos(selectedEffectiveTime, true) < delayedTimeNanos(context.serverTime, false))
     throw new Error('生效时间不得早于本次确认时间，请重新选择')
-  if (!password || !password.trim()) throw new Error('请输入电子签名密码')
+  if (!password || !password.trim()) throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   if (!reason || !reason.trim() || reason.trim().length > 500) throw new Error('请填写500字符以内的真实电子签名原因')
   exactConfirmationText(idempotencyKey, '幂等身份')
   return { taskId: context.taskId, processInstanceId: context.processInstanceId, attributeRound: context.attributeRound,

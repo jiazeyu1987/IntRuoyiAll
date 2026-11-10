@@ -62,7 +62,7 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     private String signatureIdentityDomain;
 
     @Schema(description = "签名员工电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
 
     @Schema(description = "一线原始提交载荷", requiredMode = Schema.RequiredMode.REQUIRED)

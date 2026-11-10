@@ -1020,7 +1020,7 @@ const requireReviewSignaturePayload = (
   data: Pick<TeamLeaderSubmissionReviewReqVO, 'signaturePassword'>
 ) => {
   if (!data.signaturePassword?.trim()) {
-    throw new Error('请输入电子签名密码')
+    throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   }
 }
 

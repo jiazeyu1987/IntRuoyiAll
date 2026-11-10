@@ -123,42 +123,24 @@
       >
         <section class="frontline-pqc-piece-dialog">
           <h3>{{ activePqcInspectionItem.label }}（{{ activePqcItemQuantity }}件）</h3>
-          <div class="frontline-pqc-piece-list" data-pqc-piece-list>
+          <FrontlinePqcNumericEntry
+            v-if="activePqcInspectionItem.type === 'number'"
+            v-model="pqcPieceDraftValues"
+            :quantity="activePqcItemQuantity"
+            :unit="activePqcInspectionItem.unit"
+            :standard-text="activePqcInspectionItem.standardText"
+            :lower-limit="activePqcInspectionItem.standardLowerLimit"
+            :upper-limit="activePqcInspectionItem.standardUpperLimit"
+            :precision="activePqcInspectionItem.standardPrecision"
+          />
+          <div v-else class="frontline-pqc-piece-list" data-pqc-piece-list>
             <article
               v-for="pieceIndex in activePqcItemQuantity"
               :key="pieceIndex"
               class="frontline-pqc-piece-row"
             >
               <strong>{{ pieceIndex }}</strong>
-              <div
-                v-if="activePqcInspectionItem.type === 'number'"
-                class="frontline-pqc-piece-value-control"
-              >
-                <button
-                  type="button"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}减少`"
-                  @click="stepPqcPieceValue(pieceIndex - 1, -activePqcInspectionItem.step)"
-                >
-                  -
-                </button>
-                <input
-                  :value="pqcPieceDraftValues[pieceIndex - 1]"
-                  type="number"
-                  data-pqc-piece-number-input
-                  :step="activePqcInspectionItem.step"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}`"
-                  @input="updatePqcPieceDraftValue(pieceIndex - 1, $event)"
-                />
-                <button
-                  type="button"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}增加`"
-                  @click="stepPqcPieceValue(pieceIndex - 1, activePqcInspectionItem.step)"
-                >
-                  +
-                </button>
-                <span>{{ activePqcInspectionItem.unit }}</span>
-              </div>
-              <div v-else class="frontline-pqc-piece-choice">
+              <div class="frontline-pqc-piece-choice">
                 <el-switch
                   class="frontline-pqc-piece-switch"
                   data-pqc-piece-choice-switch
@@ -178,6 +160,7 @@
               type="button"
               class="primary"
               data-pqc-piece-confirm
+              :disabled="activePqcInspectionItem.type === 'number' && pqcPieceDraftValues.some(value => value.trim() && !isPqcNumericValue(value, activePqcInspectionItem?.standardPrecision))"
               @click="closePqcPieceInspection(true)"
             >
               完成
@@ -382,7 +365,7 @@
                   :class="{ active: isPqcManualChoiceActive(activePqcTabItem.key) }"
                   @click="openPqcPieceInspection(activePqcTabItem.key)"
                 >
-                  <span>{{ activePqcTabItem.type === 'number' ? '逐件填写' : '逐件选择' }}</span>
+                  <span>{{ activePqcTabItem.type === 'number' ? '快速填写' : '逐件选择' }}</span>
                   <em>{{ getPqcProgressText(activePqcTabItem.key) }}</em>
                   <strong aria-hidden="true">&gt;</strong>
                 </button>
@@ -537,7 +520,7 @@
         <section class="frontline-pqc-signature-dialog">
           <h3>电子签名</h3>
           <p>确认后将生成本次PQC正式提交签名。</p>
-          <label for="frontlinePqcSignaturePassword">登录密码</label>
+          <label for="frontlinePqcSignaturePassword">签名凭据</label>
           <input
             id="frontlinePqcSignaturePassword"
             v-model="pqcSignaturePassword"
@@ -1303,7 +1286,7 @@
           class="frontline-production-submit-confirmation-signature"
           for="frontlineProductionSignaturePassword"
         >
-          <span>签名密码</span>
+          <span>签名凭据（PIN 码或密码）</span>
           <input
             id="frontlineProductionSignaturePassword"
             v-model="productionSignaturePassword"
@@ -1311,7 +1294,7 @@
             data-production-submit-signature-password
             autocomplete="current-password"
             :disabled="payloadLoading"
-            placeholder="请输入所选员工签名密码"
+            placeholder="请输入所选员工签名凭据（PIN 码或密码）"
             @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
           />
         </label>
@@ -1528,6 +1511,8 @@ import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue
 import EmployeeSignaturePasswordDialog from './EmployeeSignaturePasswordDialog.vue'
 import FrontlinePqcInspectionTypeSelector from './FrontlinePqcInspectionTypeSelector.vue'
 import FrontlinePqcCompletionSummary from './FrontlinePqcCompletionSummary.vue'
+import FrontlinePqcNumericEntry from './FrontlinePqcNumericEntry.vue'
+import { isPqcNumericValue } from './pqcNumericEntry'
 import { toDateTimeValue } from '@/utils/formatTime'
 const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
 import axios, { isAxiosError } from 'axios'
@@ -4512,6 +4497,13 @@ const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
 const closePqcPieceInspection = (saveChanges: boolean) => {
   const itemKey = activePqcInspectionKey.value
   if (saveChanges && itemKey) {
+    if (activePqcInspectionItem.value?.type === 'number') {
+      const invalidIndex = pqcPieceDraftValues.value.findIndex(value => value.trim() && !isPqcNumericValue(value, activePqcInspectionItem.value?.standardPrecision))
+      if (invalidIndex >= 0) {
+        showFrontlineError(`第 ${invalidIndex + 1} 件不是有效数字，请修改后完成。`)
+        return
+      }
+    }
     const stateKey = getPqcPieceStateKey(itemKey)
     if (!stateKey) {
       showFrontlineError('当前工序上下文已失效，无法保存逐件检验。')
@@ -4551,23 +4543,6 @@ const updatePqcPieceChoice = (index: number, value: boolean | string | number) =
     return
   }
   showFrontlineError(`逐件检验结果无效：${String(value)}`)
-}
-
-const stepPqcPieceValue = (index: number, delta: number) => {
-  const item = activePqcInspectionItem.value
-  if (!item || item.type !== 'number') {
-    showFrontlineError('当前检验项目不是数值项目，无法调整数值。')
-    return
-  }
-  const current = Number(pqcPieceDraftValues.value[index] || item.defaultValue)
-  const precision = item.step < 1 ? String(item.step).split('.')[1]?.length || 0 : 0
-  pqcPieceDraftValues.value[index] = String(
-    Number((current + delta).toFixed(precision))
-  )
-}
-
-const updatePqcPieceDraftValue = (index: number, event: Event) => {
-  pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
 }
 
 const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey, patrolRound?: number) => {
@@ -5494,7 +5469,7 @@ const confirmProductionFormalSubmitConfirmation = () => {
     return
   }
   if (!productionSignaturePassword.value.trim()) {
-    showFrontlineError('请输入所选员工的电子签名密码。')
+    showFrontlineError('请输入所选员工的电子签名凭据（PIN 码或密码）。')
     return
   }
   resolveProductionFormalSubmitConfirmation(true)
@@ -5639,7 +5614,7 @@ const assertPqcSignatureAndQuantityReady = (requirePassword = false) => {
     throw new Error('PQC检验数量必须大于0。')
   }
   if (requirePassword && !pqcSignaturePassword.value.trim()) {
-    throw new Error('请输入所选员工的电子签名密码。')
+    throw new Error('请输入所选员工的电子签名凭据（PIN 码或密码）。')
   }
 }
 
@@ -5776,7 +5751,7 @@ const handleConfirmPqcSubmit = async () => {
   }
   if (payloadLoading.value || pqcSubmitResultUncertain.value) return
   if (!pqcSignaturePassword.value.trim()) {
-    showFrontlineError('请输入所选员工的电子签名密码。')
+    showFrontlineError('请输入所选员工的电子签名凭据（PIN 码或密码）。')
     return
   }
   const isCurrent = pqcSubmitGuard.capture()
@@ -6042,7 +6017,7 @@ const buildFrontlineFormalSubmitPayload = (
   assertFrontlineFormalSubmitContext(formalContext)
   const signaturePassword = productionSignaturePassword.value.trim()
   if (!signaturePassword) {
-    throw new Error('请输入所选员工的电子签名密码。')
+    throw new Error('请输入所选员工的电子签名凭据（PIN 码或密码）。')
   }
   const progressQuantity = resolveProductionProgressQuantity(materialDetails)
   const totalLossQuantity = resolveProductionLossQuantity(materialDetails)

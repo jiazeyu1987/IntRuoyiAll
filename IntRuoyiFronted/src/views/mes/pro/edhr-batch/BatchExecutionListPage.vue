@@ -363,13 +363,13 @@
         label-width="120px"
         class="mt-12px"
       >
-        <el-form-item label="电子签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="releaseForm.password"
             type="password"
             show-password
             autocomplete="new-password"
-            placeholder="请输入上市放行负责人的电子签名密码"
+            placeholder="请输入上市放行负责人的电子签名凭据（PIN 码或密码）"
             @keyup.enter="submitRelease"
           />
         </el-form-item>
@@ -457,13 +457,13 @@
             placeholder="请输入驳回进入不合格评审的原因"
           />
         </el-form-item>
-        <el-form-item label="电子签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="rejectForm.signaturePassword"
             type="password"
             show-password
             autocomplete="new-password"
-            placeholder="请输入上市放行负责人的电子签名密码"
+            placeholder="请输入上市放行负责人的电子签名凭据（PIN 码或密码）"
             @keyup.enter="submitRejectBatchExecution"
           />
         </el-form-item>
@@ -531,13 +531,13 @@
         <el-form-item label="原因说明" required>
           <el-input v-model="voidForm.reasonText" type="textarea" :rows="3" placeholder="请填写作废原因" />
         </el-form-item>
-        <el-form-item label="电子签名密码" required>
+        <el-form-item label="签名凭据" required>
           <el-input
             v-model="voidForm.password"
             type="password"
             show-password
             autocomplete="new-password"
-            placeholder="请输入电子签名密码"
+            placeholder="请输入所选签名方式的六位 PIN 码或密码"
           />
         </el-form-item>
         <el-form-item label="备注">
@@ -1587,7 +1587,7 @@ const submitRejectBatchExecution = async () => {
     return
   }
   if (!reason || !password) {
-    rejectError.value = '不合格原因和电子签名密码均不能为空。'
+    rejectError.value = '不合格原因和电子签名凭据（PIN 码或密码）均不能为空。'
     return
   }
   rejectLoading.value = true
@@ -1842,7 +1842,7 @@ const submitRelease = async () => {
     return
   }
   if (!releaseForm.password.trim()) {
-    releaseError.value = '请输入电子签名密码。'
+    releaseError.value = '请输入所选签名方式的六位 PIN 码或密码。'
     return
   }
   const batch = selectedReleaseBatch.value
@@ -2012,7 +2012,7 @@ const submitVoidBatchExecution = async () => {
     return
   }
   if (!voidForm.reasonCategory || !voidForm.reasonText.trim() || !voidForm.password.trim()) {
-    voidError.value = '请填写原因分类、原因说明和电子签名密码。'
+    voidError.value = '请填写原因分类、原因说明和电子签名凭据（PIN 码或密码）。'
     return
   }
   voidLoading.value = true

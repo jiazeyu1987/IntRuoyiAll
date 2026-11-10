@@ -31,7 +31,7 @@ When a product has a saved admin `cover_image`, the anonymous showroom display A
 - `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#websiteConfigAndHallDisplayShouldPreferAdminProductCoverImageOverPreviewAsset" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#narrationGetAndDisplayPayloadShouldExposePersistedLiveAssets+websiteConfigProductShouldExposeBilingualBasicFieldsAndKeepAdvancedFieldsExcluded+websiteConfigAndHallDisplayShouldPreferAdminProductCoverImageOverPreviewAsset" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -pl yudao-server -am -DskipTests package`
-- `cmd /c D:\ProjectPackage\Int\IntRuoyi\restart-ruoyi.bat`
+- `cmd /c ./restart-ruoyi.bat`
 - Real verification: `Invoke-WebRequest -UseBasicParsing http://127.0.0.1:48081/showroom/display/website-config` now returns `/admin-api/infra/file/28/get/showroom/product/cover/20260521/product-product_001-cover.png` for the first public product, and real Playwright verification against `http://127.0.0.1:4173/` shows the first product card and detail hero image both use that same path.
 
 ## Verification
@@ -39,7 +39,7 @@ When a product has a saved admin `cover_image`, the anonymous showroom display A
 - `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#websiteConfigAndHallDisplayShouldPreferAdminProductCoverImageOverPreviewAsset" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#narrationGetAndDisplayPayloadShouldExposePersistedLiveAssets+websiteConfigProductShouldExposeBilingualBasicFieldsAndKeepAdvancedFieldsExcluded+websiteConfigAndHallDisplayShouldPreferAdminProductCoverImageOverPreviewAsset" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -pl yudao-server -am -DskipTests package`
-- `cmd /c D:\ProjectPackage\Int\IntRuoyi\restart-ruoyi.bat`
+- `cmd /c ./restart-ruoyi.bat`
 - Real Website check: first product card and detail hero image on `http://127.0.0.1:4173/` both match `/admin-api/infra/file/28/get/showroom/product/cover/20260521/product-product_001-cover.png`.
 
 ## Risk And Regression Scope

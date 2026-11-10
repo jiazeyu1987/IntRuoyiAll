@@ -6,5 +6,5 @@ RED: artifact precheck -> FAIL, no task-scoped generated PNG exists yet for this
 GREEN: native image generation x1 -> PASS
 GREEN: PNG dimension check -> PASS, 1254x1254 square
 GREEN: visual constraint review -> PASS, single hero product, clean showroom depth, no readable text, logos, or watermarks observed
-GREEN: artifact finalization -> PASS, copied deliverable to D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\yt-gw-001-showroom-cover-single-rerun-4.png
-RED: task-closeout preview -> FAIL, cleanup script resolved workspace root at D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro and could not locate the module-scoped task.md, so no cleanup was applied
+GREEN: artifact finalization -> PASS, copied deliverable to ./IntRuoyiBackend/yudao-module-showroom/output/imagegen/yt-gw-001-showroom-cover-single-rerun-4.png
+RED: task-closeout preview -> FAIL, cleanup script resolved workspace root at ./IntRuoyiBackend and could not locate the module-scoped task.md, so no cleanup was applied

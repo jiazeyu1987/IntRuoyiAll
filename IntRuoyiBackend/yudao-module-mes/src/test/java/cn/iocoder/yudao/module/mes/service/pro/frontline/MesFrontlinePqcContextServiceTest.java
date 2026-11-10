@@ -360,6 +360,20 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void listActiveOrdersBlocksMissingFrozenPatrolSamplingEvidence() {
+        prepareActiveOrderList(routeVersion(PRODUCT_ID));
+        var task = pendingTaskForSource(7001L, REGULATION_VERSION_ID, QA_PROCESS_ID, "ID-001",
+                "PATROL", "PATROL", "PATROL");
+        task.setInspectionSamplingPlanJson(null);
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(task));
+        var candidate = service.listActiveOrders().get(0);
+        assertTrue(candidate.readBlocked());
+        assertTrue(candidate.readBlockReason().contains("缺少冻结抽样证据"));
+        assertTrue(candidate.readBlockReason().contains("7001"));
+        assertNull(task.getInspectionSamplingPlanJson());
+    }
+
+    @Test
     void lockedQaProjectionRejectsTaskFromUnknownQaProcess() {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));
