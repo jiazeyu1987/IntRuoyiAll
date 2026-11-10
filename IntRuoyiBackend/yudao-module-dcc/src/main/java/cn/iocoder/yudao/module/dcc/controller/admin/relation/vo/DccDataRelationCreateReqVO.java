@@ -14,7 +14,7 @@ public class DccDataRelationCreateReqVO {
     @NotNull(message = "DCC 项目代码不能为空")
     private Long projectCodeId;
 
-    @NotNull(message = "注册证不能为空")
+    @Schema(description = "注册证主档 ID，可在注册证建立后补绑")
     private Long registrationCertificateId;
 
     private String relationRemark;

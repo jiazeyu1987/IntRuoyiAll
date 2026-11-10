@@ -1,14 +1,6 @@
 <template>
   <div class="dcc-admin-page">
     <section class="dcc-admin-page__panel">
-      <header class="dcc-admin-page__header">
-        <div>
-          <h1>文控管理员</h1>
-          <p>导出或导入文控中心全量配置包，覆盖目录、权限矩阵、分发规则、培训规则与审批岗位配置。</p>
-        </div>
-        <el-tag type="info" effect="plain">JSON 单文件</el-tag>
-      </header>
-
       <div class="dcc-admin-page__toolbar">
         <el-button
           plain
@@ -35,16 +27,12 @@
           <Icon icon="ep:upload" class="mr-5px" />
           导入数据包
         </el-button>
+        <el-tag class="dcc-admin-page__format" type="info" effect="plain">JSON 单文件</el-tag>
       </div>
 
       <div class="dcc-admin-page__content">
         <div class="dcc-admin-page__note">
-          <h2>覆盖说明</h2>
-          <ul>
-            <li>导出包由后端统一聚合生成，不在前端拼装多个接口结果。</li>
-            <li>导入按业务键覆盖目标租户 owned scope 配置，引用解析失败时会直接报错阻塞。</li>
-            <li>导入成功后，文控权限四个页签、分发规则、培训规则及审批岗位配置应与源租户保持一致。</li>
-          </ul>
+          导入将按业务键覆盖目标租户配置；引用解析失败会阻止导入。
         </div>
 
         <div class="dcc-admin-page__summary">
@@ -234,74 +222,61 @@ const handleAdminConfigFileChange = async (event: Event) => {
 
 <style scoped>
 .dcc-admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
 }
 
 .dcc-admin-page__panel {
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
+  border: 1px solid #dbe3e7;
+  border-radius: 6px;
   background: #fff;
-  padding: 16px;
-}
-
-.dcc-admin-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.dcc-admin-page__header h1 {
-  margin: 0;
-  color: #172033;
-  font-size: 18px;
-  line-height: 26px;
-}
-
-.dcc-admin-page__header p {
-  margin: 6px 0 0;
-  color: #4b5563;
-  font-size: 13px;
-  line-height: 22px;
+  padding: 12px;
 }
 
 .dcc-admin-page__toolbar {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #dbe3e7;
+}
+
+.dcc-admin-page__toolbar :deep(.el-button) {
+  height: 32px;
+  margin-left: 0;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.dcc-admin-page__format {
+  margin-left: auto;
 }
 
 .dcc-admin-page__content {
   display: grid;
-  grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 1fr);
-  gap: 16px;
+  gap: 8px;
+  padding-top: 8px;
 }
 
-.dcc-admin-page__note,
-.dcc-admin-page__summary {
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #fafcff;
-  padding: 14px;
+.dcc-admin-page__note {
+  color: #b77913;
+  font-size: 12px;
+  line-height: 20px;
 }
 
-.dcc-admin-page__note h2,
 .dcc-admin-page__summary h2 {
-  margin: 0 0 10px;
-  color: #263247;
-  font-size: 14px;
-  line-height: 22px;
-}
-
-.dcc-admin-page__note ul {
   margin: 0;
-  padding-left: 18px;
-  color: #4b5563;
-  font-size: 13px;
+  color: #24343d;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 22px;
 }
 
@@ -310,7 +285,7 @@ const handleAdminConfigFileChange = async (event: Event) => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .dcc-admin-page__summary-head span {
@@ -320,28 +295,32 @@ const handleAdminConfigFileChange = async (event: Event) => {
 
 .dcc-admin-page__summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .dcc-admin-page__summary-card {
-  border: 1px solid #e5ebf3;
-  border-radius: 6px;
-  background: #fff;
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #dbe3e7;
+  border-radius: 5px;
+  background: #f5f8f9;
+  padding: 14px 12px;
 }
 
 .dcc-admin-page__summary-card span {
-  display: block;
-  margin-bottom: 6px;
   color: #4b5563;
   font-size: 12px;
   line-height: 18px;
 }
 
 .dcc-admin-page__summary-card strong {
-  color: #1677ff;
-  font-size: 20px;
+  color: #008f86;
+  font-size: 22px;
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
   line-height: 26px;
 }
@@ -351,14 +330,17 @@ const handleAdminConfigFileChange = async (event: Event) => {
 }
 
 @media (max-width: 768px) {
-  .dcc-admin-page__header,
   .dcc-admin-page__summary-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .dcc-admin-page__content {
-    grid-template-columns: 1fr;
+  .dcc-admin-page__summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dcc-admin-page__format {
+    margin-left: 0;
   }
 }
 </style>

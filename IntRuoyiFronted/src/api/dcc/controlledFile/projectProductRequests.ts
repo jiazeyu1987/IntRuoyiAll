@@ -120,8 +120,8 @@ const createPayload = (data: DccProjectProductCreateReqVO): DccProjectProductCre
   if (data.folderTemplateId != null) dccProjectProductRequestIdentity(data.folderTemplateId)
   return data
 }
-const actionPayload = (data: DccProjectProductApprovalActionReqVO): DccProjectProductApprovalActionReqVO => {
-  if (!data || typeof data.reason !== 'string' || !data.reason.trim() || data.reason.length > 500)
+const actionPayload = (data: DccProjectProductApprovalActionReqVO, reasonRequired = true): DccProjectProductApprovalActionReqVO => {
+  if (!data || typeof data.reason !== 'string' || (reasonRequired && !data.reason.trim()) || data.reason.length > 500)
     throw new Error('请填写500字以内的真实审批或重试原因')
   return { reason: data.reason.trim() }
 }
@@ -180,7 +180,7 @@ export const reviewDccProjectProductRequest = async (
   const requestId = dccProjectProductRequestIdentity(id)
   const result = validateRequestResponse(await request.post({
     url: `${requestUrl}/${requestId}/review/${approve ? 'approve' : 'reject'}`,
-    data: actionPayload(data), ignoreErrorMessage: true
+    data: actionPayload(data, !approve), ignoreErrorMessage: true
   }), requestId)
   const expected = approve ? (result.reviewContract === 'ROLE_SINGLE_REVIEW_V1' ? 'COMPLETED' : 'PENDING_APPROVAL') : 'REJECTED'
   if (result.status !== expected) throw new Error('项目审核回执未确认本次处理结果')
@@ -195,7 +195,7 @@ export const approveDccProjectProductRequest = async (
   const requestId = dccProjectProductRequestIdentity(id)
   const result = validateRequestResponse(await request.post({
     url: `${requestUrl}/${requestId}/approve/${approve ? 'approve' : 'reject'}`,
-    data: actionPayload(data), ignoreErrorMessage: true
+    data: actionPayload(data, !approve), ignoreErrorMessage: true
   }), requestId)
   if (result.reviewContract != null || !(approve ? ['COMPLETED', 'WRITE_FAILED'] : ['REJECTED']).includes(result.status)) throw new Error('旧批准回执与本次申请合同不一致')
   return result

@@ -185,7 +185,7 @@
 
       <el-tab-pane v-if="isTabVisible('authorizations')" label="签名授权" name="authorizations">
         <UnifiedListTemplate
-          class="dcc-signature-list-template"
+          class="dcc-signature-list-template dcc-signature-authorizations"
           table-key="dcc.electronicSignature.authorizations"
           :query-model="authorizationQueryParams"
           :filter-definitions="authorizationQuickFilterDefinitions"
@@ -369,7 +369,12 @@
     </template>
   </el-dialog>
 
-  <el-drawer v-model="authorizationAuditDrawer.visible" title="授权审计" size="760px">
+  <el-drawer
+    v-model="authorizationAuditDrawer.visible"
+    title="授权审计"
+    size="760px"
+    style="max-width: 100vw"
+  >
     <el-alert
       v-if="authorizationAuditDrawer.inlineError"
       :closable="false"
@@ -1268,6 +1273,85 @@ const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.dcc-signature-authorizations {
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-9: #e6f5f2;
+}
+
+.dcc-signature-authorizations :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.dcc-signature-authorizations :deep(.unified-list-template__toolbar-actions) {
+  margin-left: auto;
+}
+
+.dcc-signature-authorizations :deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 5px;
+}
+
+.dcc-signature-authorizations :deep(.el-table) {
+  margin-top: 0;
+  border-radius: 5px;
+  font-size: 13px;
+  --el-table-border-color: #eaf0f2;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #f5faf9;
+}
+
+.dcc-signature-authorizations :deep(.el-table th.el-table__cell) {
+  height: 42px;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dcc-signature-authorizations :deep(.el-table td.el-table__cell) {
+  height: 44px;
+  padding: 6px 0;
+}
+
+.dcc-signature-authorizations :deep(.el-table .cell) {
+  padding-right: 10px;
+  padding-left: 10px;
+  line-height: 20px;
+}
+
+.dcc-signature-authorizations :deep(.el-tag) {
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+}
+
+.dcc-signature-authorizations :deep(.el-button:not(.is-link)) {
+  height: 32px;
+  border-radius: 5px;
+}
+
+.dcc-signature-authorizations :deep(.el-button.is-link) {
+  color: #1677b9;
+}
+
+.dcc-signature-authorizations :deep(.el-pagination),
+.dcc-signature-audit-template :deep(.el-pagination) {
+  margin: 12px 0 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 700px) {
+  .dcc-signature-authorizations :deep(.el-pagination),
+  .dcc-signature-audit-template :deep(.el-pagination) {
+    justify-content: flex-start;
+  }
+}
+
 .signature-hash {
   font-family: var(--app-font-family);
   font-size: 12px;

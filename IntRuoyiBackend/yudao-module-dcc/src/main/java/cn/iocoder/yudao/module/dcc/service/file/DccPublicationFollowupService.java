@@ -5,4 +5,6 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 public interface DccPublicationFollowupService {
 
     void recordPublishedRevision(DccControlledFileDO publishedFile, DccControlledFileDO previousActiveFile);
+
+    void recordActivatedRevision(DccControlledFileLifecycleEvent event);
 }

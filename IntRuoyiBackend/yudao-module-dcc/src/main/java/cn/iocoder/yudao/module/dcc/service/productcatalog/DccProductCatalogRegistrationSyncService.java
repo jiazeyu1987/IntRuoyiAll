@@ -44,8 +44,49 @@ public class DccProductCatalogRegistrationSyncService {
     @Resource
     private DccRegistrationCertificateSnapshotMapper snapshotMapper;
 
+    /** Read the current approved snapshot, including projects created through project/product approval. */
+    public void enrichCurrentCertificate(cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO row) {
+        if (row.getProjectCodeId() == null) return;
+        Long certificateId = row.getRegistrationCertificateId();
+        if (certificateId == null) {
+            var candidates = certificateMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<DccRegistrationCertificateDO>()
+                    .eq(DccRegistrationCertificateDO::getProjectCodeId, row.getProjectCodeId())
+                    .eq(DccRegistrationCertificateDO::getStatus, CERTIFICATE_STATUS_ACTIVE));
+            // Multiple certificates require an explicit choice in the association dialog.
+            if (candidates.size() != 1) return;
+            certificateId = candidates.get(0).getId();
+        }
+        var projection = loadProjection(certificateId);
+        if (!Objects.equals(projection.certificate().getProjectCodeId(), row.getProjectCodeId())) {
+            throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+        }
+        var snapshot = projection.snapshot();
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(snapshot.getFactsJson());
+        row.setRegistrationCertificateId(certificateId);
+        row.setRegistrationCertificateName(snapshot.getProductName());
+        row.setRegistrationCertificateNumber(certificateNumber(facts));
+        row.setCertificateHolder(facts.getCertificateHolder());
+        row.setRegistrationPlace(snapshot.getResidenceAddress());
+        row.setEffectiveDate(formatDate(facts.getEffectiveDate()));
+        row.setExpiryDate(formatDate(facts.getExpiryDate()));
+        row.setClassification(facts.getClassification());
+        row.setRegistrationInfoLink(facts.getRegistrationLink());
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void syncRelation(DccDataRelationDO relation) {
+        if (relation.getRegistrationCertificateId() == null) {
+            DccProductCatalogDO catalog = productCatalogMapper.selectById(relation.getProductCatalogId());
+            DccProjectCodeDO projectCode = projectCodeMapper.selectById(relation.getProjectCodeId());
+            if (catalog == null || projectCode == null) {
+                throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+            }
+            productCatalogMapper.update(null, new LambdaUpdateWrapper<DccProductCatalogDO>()
+                    .eq(DccProductCatalogDO::getId, catalog.getId())
+                    .set(DccProductCatalogDO::getProjectName, projectCode.getProjectName())
+                    .set(DccProductCatalogDO::getProjectCode, projectCode.getProjectCode()));
+            return;
+        }
         RegistrationProjection projection = loadProjection(relation.getRegistrationCertificateId());
         syncRelation(relation, projection);
     }
@@ -67,17 +108,19 @@ public class DccProductCatalogRegistrationSyncService {
                 || !Objects.equals(relation.getRegistrationCertificateId(), projection.certificate().getId())) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
+        var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(projection.snapshot().getFactsJson());
         productCatalogMapper.update(null, new LambdaUpdateWrapper<DccProductCatalogDO>()
                 .eq(DccProductCatalogDO::getId, catalog.getId())
                 .set(DccProductCatalogDO::getProjectName, projectCode.getProjectName())
                 .set(DccProductCatalogDO::getProjectCode, projectCode.getProjectCode())
                 .set(DccProductCatalogDO::getRegistrationCertificateName, projection.snapshot().getProductName())
-                .set(DccProductCatalogDO::getRegistrationCertificateNumber, projection.version().getCertificateNo())
-                .set(DccProductCatalogDO::getCertificateHolder, projection.snapshot().getRegistrantName())
+                .set(DccProductCatalogDO::getRegistrationCertificateNumber, certificateNumber(facts))
+                .set(DccProductCatalogDO::getCertificateHolder, facts.getCertificateHolder())
+                .set(DccProductCatalogDO::getRegistrationInfoLink, facts.getRegistrationLink())
                 .set(DccProductCatalogDO::getRegistrationPlace, projection.snapshot().getResidenceAddress())
-                .set(DccProductCatalogDO::getEffectiveDate, formatDate(projection.version().getEffectiveDate()))
-                .set(DccProductCatalogDO::getExpiryDate, formatDate(projection.version().getExpiryDate()))
-                .set(DccProductCatalogDO::getClassification, projection.version().getClassification()));
+                .set(DccProductCatalogDO::getEffectiveDate, formatDate(facts.getEffectiveDate()))
+                .set(DccProductCatalogDO::getExpiryDate, formatDate(facts.getExpiryDate()))
+                .set(DccProductCatalogDO::getClassification, facts.getClassification()));
     }
 
     private RegistrationProjection loadProjection(Long registrationCertificateId) {
@@ -92,8 +135,7 @@ public class DccProductCatalogRegistrationSyncService {
                 || !Objects.equals(snapshot.getVersionId(), version.getId())
                 || !VERSION_STATUS_CURRENT.equals(version.getStatus())
                 || !Objects.equals(version.getTenantId(), certificate.getTenantId())
-                || !Objects.equals(snapshot.getTenantId(), certificate.getTenantId())
-                || StrUtil.isBlank(version.getCertificateNo())) {
+                || !Objects.equals(snapshot.getTenantId(), certificate.getTenantId())) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
         return new RegistrationProjection(certificate, version, snapshot);
@@ -101,6 +143,17 @@ public class DccProductCatalogRegistrationSyncService {
 
     private String formatDate(LocalDate date) {
         return date == null ? null : date.toString();
+    }
+
+    private String certificateNumber(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts facts) {
+        if ("CE".equals(facts.getCertificateType())) {
+            return facts.getCeCertificates() == null ? null : facts.getCeCertificates().stream()
+                    .map(cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.CeCertificate::getCertificateNo)
+                    .filter(value -> value != null && !value.isBlank()).distinct()
+                    .collect(java.util.stream.Collectors.joining("、"));
+        }
+        if (facts.isFda()) return facts.getListingNumber();
+        return facts.getCertificateNo();
     }
 
     private record RegistrationProjection(DccRegistrationCertificateDO certificate,

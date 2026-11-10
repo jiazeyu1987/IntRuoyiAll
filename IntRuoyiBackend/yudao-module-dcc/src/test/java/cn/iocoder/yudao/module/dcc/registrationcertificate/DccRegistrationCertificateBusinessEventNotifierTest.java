@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotificationConfigService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotificationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateChangeConfirmationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,42 +33,49 @@ class DccRegistrationCertificateBusinessEventNotifierTest {
             mock(DccRegistrationCertificateBusinessEventNotificationConfigService.class);
     private final DccRegistrationCertificateBusinessEventNotificationService notificationService =
             mock(DccRegistrationCertificateBusinessEventNotificationService.class);
+    private final DccRegistrationCertificateChangeConfirmationService confirmations =
+            mock(DccRegistrationCertificateChangeConfirmationService.class);
     private final DccRegistrationCertificateBusinessEventNotifier notifier =
-            new DccRegistrationCertificateBusinessEventNotifier(configService, notificationService);
+            new DccRegistrationCertificateBusinessEventNotifier(configService, notificationService, confirmations);
 
     @BeforeEach
     void resetMocks() {
-        reset(configService, notificationService);
+        reset(configService, notificationService, confirmations);
     }
 
     @Test
-    void missingReminderJobConfigSkipsBusinessEventNotificationWithoutBlockingApproval() {
-        when(configService.resolveRecipientScope())
+    void missingChangeConfirmationRecipientsFailsApprovalExplicitly() {
+        when(configService.resolveChangeConfirmationRecipientUserIds(1L))
                 .thenThrow(new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED));
 
-        assertDoesNotThrow(this::notifyChangeApprovalRecorded);
+        assertThrows(ServiceException.class,this::notifyChangeApprovalRecorded);
 
         verify(notificationService, never()).send(any());
     }
 
     @Test
     void configuredReminderScopeSendsChangeApprovalRecordedNotification() {
-        when(configService.resolveRecipientScope())
-                .thenReturn(new DccRegistrationCertificateBusinessEventNotificationConfigService.RecipientScope(
-                        List.of(1001L, 1002L), PERMISSION));
+        when(configService.resolveChangeConfirmationRecipientUserIds(1L)).thenReturn(List.of(1001L,1002L));
 
         notifyChangeApprovalRecorded();
 
         ArgumentCaptor<DccRegistrationCertificateBusinessEventNotificationCommand> captor =
                 ArgumentCaptor.forClass(DccRegistrationCertificateBusinessEventNotificationCommand.class);
-        verify(notificationService).send(captor.capture());
+        verify(confirmations).send(captor.capture(),org.mockito.ArgumentMatchers.eq(List.of(1001L,1002L)));
         DccRegistrationCertificateBusinessEventNotificationCommand command = captor.getValue();
         assertEquals("CHANGE_APPROVAL_RECORDED", command.eventType());
         assertEquals("approval-key-001", command.eventKey());
-        assertEquals(List.of(1001L, 1002L), command.documentControlRoleIds());
-        assertEquals(PERMISSION, command.recipientPermission());
-        assertEquals("变更批件已记录", command.detailParams().get("eventTitle"));
+        assertEquals(List.of(), command.documentControlRoleIds());
+        assertEquals("变更已生效，请确认", command.detailParams().get("eventTitle"));
         assertEquals("变更后产品名称", command.detailParams().get("productName"));
+    }
+
+    @Test
+    void missingReminderJobStillDoesNotAffectUnrelatedNewCertificateNotification() {
+        when(configService.resolveRecipientScope()).thenThrow(new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED));
+        assertDoesNotThrow(()->notifier.notifyNewCertificateFormalized(1L,501L,1001L,8001L,99L,"new-key",
+                "FDA产品",null,null,null));
+        verify(notificationService,never()).send(any());
     }
 
     @Test

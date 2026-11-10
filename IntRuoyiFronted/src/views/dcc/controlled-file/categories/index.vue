@@ -702,37 +702,74 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 
 <style scoped>
 .dcc-category-tabs :deep(.el-tabs__header) {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .category-tab-pane {
   display: grid;
+  min-width: 0;
   gap: 0;
 }
 
-.category-toolbar {
-  border: 1px solid #dbe3ef;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: #fff;
-  padding: 16px 16px 1px;
+.category-list-template {
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  --el-border-radius-base: 5px;
 }
 
-.category-toolbar__form {
-  margin-bottom: -15px;
+.category-list-template :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
 }
 
-.category-table-shell {
-  overflow: hidden;
-  border: 1px solid #dbe3ef;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  background: #fff;
+.category-list-template :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.category-list-template :deep(.el-button:not(.is-link)) {
+  min-height: 32px;
+}
+
+.category-list-template :deep(.unified-list-template__table-shell),
+.category-list-template :deep(.el-table) {
+  border-radius: 5px;
+}
+
+.category-list-template :deep(.el-table) {
+  --el-table-border-color: #e4eaed;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #eef7f5;
+  font-size: 13px;
+}
+
+.category-list-template :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+
+.category-list-template :deep(.el-table .cell) {
+  padding: 0 10px;
+  line-height: 20px;
+}
+
+.category-list-template :deep(.el-table th.el-table__cell) {
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.category-list-template :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background: #fafcfc;
 }
 
 .category-governance-summary {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -740,13 +777,36 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .category-governance-summary__meta {
-  color: #4b5563;
-  font-size: 12px;
-  line-height: 18px;
+  color: #71818a;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+@media (min-width: 1181px) {
+  .category-list-template :deep(.unified-list-template__multi-filter) {
+    flex: 1 1 620px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .category-list-template :deep(.el-table .el-table-fixed-column--right) {
+    position: static !important;
+  }
+
+  .category-list-template :deep(.el-table .el-table-fixed-column--right::before) {
+    box-shadow: none;
+  }
+
+  .category-list-template :deep(.unified-list-template__multi-filter),
+  .category-list-template :deep(.el-form-item__content) {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 </style>

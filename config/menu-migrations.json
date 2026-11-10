@@ -1,187 +1,1021 @@
 {
   "changes": [
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue","kind":"page","value":"mes/pro/processpool/PqcLeaderWorkbenchPage","migrations":["IntRuoyiBackend/sql/mysql/20261109_mes_pqc_packaging_leader_role.sql"]},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesPqcPackagingLeaderController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:query","migrations":["IntRuoyiBackend/sql/mysql/20261109_mes_pqc_packaging_leader_role.sql"]},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue","kind":"page","value":"mes/pro/processpool/ProductionLeaderWorkbenchPage","migrations":["IntRuoyiBackend/sql/mysql/20261109_mes_packaging_leader_role.sql"]},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/route/index.vue","kind":"permission","value":"mes:pro-edhr-work-task-rule:query","reason":"恢复现有业务处理时限内部弹窗在工艺路线高级菜单中的入口，沿用已有任务规则查询权限及后端租户隔离，不新增菜单、路由、权限标识、角色或套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/route/RouteTaskDeadlinesDialog.vue","kind":"permission","value":"mes:pro-edhr-work-task-rule:update","reason":"现有业务处理时限弹窗保存按钮与既有后端更新权限保持一致，仅控制已有按钮可见性，不新增菜单、路由、权限标识、角色或套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchExecutionArchiveController.java","kind":"permission","value":"mes:pro-edhr-batch-execution-archive:download","reason":"已放行活跃订单在现有追溯页直接打印、导出正式PDF，复用既有下载权限；校验本租户正式来源、签名、内容、PDF/A并记录操作审计，不创建归档、不改变放行或归档状态。正式归档继续保留S3留存要求，无新增菜单、权限或套餐。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue","kind":"permission","value":"mes:pro-edhr-batch-execution-archive:download","reason":"现有放行追溯内部组件直接打印、导出正式PDF，复用既有下载权限及后端来源、签名、内容、PDF/A校验和操作审计，无新增菜单、路由、权限标识或套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesReleaseTaskNotificationController.java","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信仅发现当前租户本人未送达的放行结果通知，补发复用既有通知回执及权限校验；原任务结束后仍以冻结收件人身份恢复，不新增菜单、路由、权限标识、角色或套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/production-release/components/ReleaseOutcomeRecovery.vue","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信内部恢复组件复用既有放行工作任务查询权限和补发组件，不新增页面路由、菜单、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts","kind":"permission","value":"00:00:00","reason":"历史追溯日期起点时刻常量，不是权限标识，不新增菜单或授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts","kind":"permission","value":"23:59:59","reason":"历史追溯日期终点时刻常量，不是权限标识，不新增菜单或授权。"},
-    {"source":"IntRuoyiFronted/src/views/signature-governance/components/signatureRecordQuery.ts","kind":"permission","value":"00:00:00","reason":"签名查询日期起点时刻常量，不是权限标识，不新增菜单或授权。"},
-    {"source":"IntRuoyiFronted/src/views/signature-governance/components/signatureRecordQuery.ts","kind":"permission","value":"23:59:59","reason":"签名查询日期终点时刻常量，不是权限标识，不新增菜单或授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderReplenishmentBindingService.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"签名补料工序关联审计记录复用生产组长既有维护权限，不新增菜单、路由、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderReplenishmentBindingController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:query","reason":"现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderReplenishmentBindingController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/components/ReplenishmentProcessBinding.vue","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"},
-
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java","kind":"permission","value":"mes:pro-work-order:create","reason":"生产工单菜单内的本轮本地虚拟输入候选、预检和准备接口复用现有工单创建权限，并组合校验项目查询权限、测试模式与当前租户；不新增菜单、路由、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java","kind":"permission","value":"dcc:project-code:query","reason":"本轮虚拟输入只选择已完成正式项目产品申请，复用既有项目查询权限并限定当前用户项目可读范围，与既有工单创建权限组合校验；不新增菜单、路由、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/workorder/index.vue","kind":"permission","value":"mes:pro-work-order:create","reason":"生产工单既有菜单内新增本轮本地虚拟输入准备弹窗，复用现有生产工单创建权限并受测试模式限制；不新增菜单、路由、权限、角色或租户套餐授权。后端另校验正式申请读取权限及项目范围。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesFixedTestOrderDataController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"生产组长活跃订单的数据按钮复用现有工作台维护权限，并校验测试模式与当前登录租户，仅补齐固定测试订单单据；未新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java","kind":"permission","value":"mes:qc-template:query","reason":"标准抽样对照表及两参数查询是现有质检方案菜单内的只读辅助功能，复用既有质检方案查询权限，无新增菜单、页面路由、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/qc/template/index.vue","kind":"permission","value":"mes:qc-template:query","reason":"质检方案列表增加抽样对照表内部弹窗，复用既有质检方案查询权限；未新增独立菜单、路由、角色或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamRosterImportService.java","kind":"permission","value":"mes:pro-process-pool-team-leader:query","reason":"导入组长前核对现有生产组长角色具备工作台查询权限，不新增或修改角色权限；复用既有权限标识。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamRosterImportService.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"导入组长前核对现有生产组长角色具备人员维护权限，不新增或修改角色权限；复用既有权限标识。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java","kind":"permission","value":"system:user:import","reason":"车间名单导入组长复用现有用户导入、创建及角色分配权限，组合校验后调用正式用户和角色服务；未新增菜单、权限或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java","kind":"permission","value":"system:user:create","reason":"组长导入创建账号复用既有用户创建权限，并与用户导入和角色分配权限组合校验；未新增权限或菜单。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java","kind":"permission","value":"system:permission:assign-user-role","reason":"名单组长自动授权复用既有用户角色分配权限和正式审计接口，仅绑定已有生产组长角色，不新建角色或扩展套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"生产人员名单导入复用班组人员维护权限，后端严格限定名单组长为当前用户，并复用正式工关联与临时工档案维护服务；不新增菜单或权限。"},
-    {"source":"IntRuoyiFronted/src/views/system/user/index.vue","kind":"permission","value":"system:permission:assign-user-role","reason":"用户管理高级菜单新增从车间名单导入组长的内部弹窗，组合复用用户导入、创建与角色分配权限；没有新增独立页面、菜单、权限或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"人员管理新增名单导入内部弹窗，复用生产组长人员维护权限，仅导入当前组长班组，不新增独立页面、菜单、权限或套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java","kind":"permission","value":"mes:pro-process-pool-team-leader:maintain","reason":"新增活跃订单弹窗按完整ERP订单号快捷同步，仅复用现有生产组长维护权限并限定同步类型为生产订单；只写入本地生产订单，不加入活跃订单，不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/system/role/index.vue","kind":"permission","value":"system:permission:assign-user-role","reason":"权限角色操作区新增分配指定用户的内部弹窗，复用现有用户角色分配权限和正式审计接口；不新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:model:query","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:model:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:model:deploy","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:category:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"system:role:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"system:role-category:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"bpm:model:query","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"bpm:model:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"bpm:model:deploy","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"bpm:category:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"system:role:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java","kind":"permission","value":"system:role-category:create","reason":"审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"},
-
-    {"source": "IntRuoyiFronted/src/router/modules/remaining.ts", "kind": "router", "value": "343b5788f4bda65d7579bbc14beede5ff7a887ba9a8c8b2048426dfa0b2c7000", "reason": "业务审批策略恢复已有页签可见性，复用bpm:business-approval-policy:query及既有20260719_business_approval_policy_menu.sql菜单；PermissionServiceImpl的TenantAdminBusinessPolicy已对所有启用的tenant_admin默认授予该业务菜单和接口权限，新租户创建亦使用tenant_admin，无需新增菜单、权限或套餐授权。流程管理仅在已有业务审批策略授权时展示，其余路由沿用既有登记。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:business-approval-policy:query","reason":"审批策略导出为流程管理及既有策略页的内部操作，复用策略查询权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:business-approval-policy:create","reason":"跨租户策略导入组合校验既有策略创建、发布和停用权限，按用户确认替换同业务策略；不新增权限标识、菜单、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:business-approval-policy:publish","reason":"导入保留已发布状态，必须具备既有策略发布权限，并同时具备创建、停用权限；不新增权限标识、菜单、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue","kind":"permission","value":"bpm:business-approval-policy:disable","reason":"导入替换会停用同业务现行策略，组合复用既有停用、创建和发布权限；不新增权限标识、菜单、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/bpm/model/index.vue","kind":"permission","value":"bpm:business-approval-policy:query","reason":"流程管理模型页增加通往现有审批策略隐藏路由的按钮，复用既有策略查询权限；不新增页面路由、菜单、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/CommonRegulationPage.vue","kind":"permission","value":"mes:qc-template:update","reason":"通用规程现有页面改为单份规程版本编辑器，保存草稿和发布复用现有规程修改权限及接口；沿用现有菜单、路由、角色和租户套餐授权，无新增权限。"},
-    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesQaInspectionRegulationController.java","kind":"permission","value":"mes:qc-template:query","reason":"通用规程编辑器读取单份规程版本列表和草稿详情，复用现有通用规程查询权限；仅增加读取接口，不新增菜单、权限、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/mes/pro/processpool/CommonRegulationLibrary.vue","kind":"permission","value":"mes:qc-template:update","reason":"已发布通用规程内部列表增加删除误导入版本操作，复用现有规程修改权限，与规程套删除保持一致；不新增菜单、路由、角色或租户套餐权限。"},
-    {"source":"IntRuoyiFronted/src/views/erp/product/unit/index.vue","kind":"permission","value":"erp:product-unit:create","reason":"产品单位导入仅新增，复用既有产品单位新增权限；沿用现有菜单、角色及租户套餐授权，不新增权限标识。"},
-    {"source":"IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/product/ErpProductUnitController.java","kind":"permission","value":"erp:product-unit:create","reason":"产品单位导入及模板下载复用既有产品单位新增权限；导入仅新增，不授予更新能力，不新增菜单、角色或租户套餐授权。"},
-    {"source":"IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java","kind":"permission","value":"system:user:export","reason":"用户导出新增JSON POST入口以承载全量列筛选ID，复用既有用户导出权限与导出业务；GET入口保留，不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source":"IntRuoyiFronted/src/views/system/user/index.vue","kind":"permission","value":"system:user:export","reason":"用户高级菜单增加用户数据与通用账户不合规清单导出入口，复用现有system:user:export及既有导出接口；不新增菜单路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/index.vue", "kind": "permission", "value": "system:gxp-audit:query", "migrations": ["IntRuoyiBackend/sql/mysql/20261102_system_permission_audit_query_menu.sql"]},
-    {"source": "IntRuoyiFronted/src/views/system/role/index.vue", "kind": "permission", "value": "system:user:query", "reason": "权限角色列表新增查看已分配人员的内部弹窗，复用现有 system:user:query 权限及 /system/user/page 的 roleId 筛选；沿用租户和数据权限，不新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue", "kind": "permission", "value": "mdm:product:query", "reason": "项目代码维护弹窗关联MDM产品，复用现有产品主数据查询权限加载候选项及dcc:project-code:update保存关联；无新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue", "kind": "permission", "value": "mes:qc-template:update", "reason": "QA 总览补充切换已发布通用规程套版本的内部操作，复用现有规程更新权限及 common-binding/bind 接口；不新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue", "kind": "permission", "value": "mes:pro-route:update", "reason": "工艺流程内部表单区分浏览与修改，关联项目保存复用现有工艺路线更新权限，与既有保存接口一致；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue", "kind": "permission", "value": "mes:pro-route:version-update", "reason": "工艺流程内部修改入口和草稿名称编辑复用现有候选版本修改权限；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java", "kind": "permission", "value": "infra:config:query", "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java", "kind": "permission", "value": "infra:config:update", "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"},
-
-    {"source": "IntRuoyiFronted/src/views/erp/components/RecentFullSyncButton.vue", "kind": "permission", "value": "erp:kingdee-sync:query", "reason": "ERP数据同步列表内新增按天全量同步按钮，复用现有 erp:kingdee-sync:query 权限及后台调度接口；无新增菜单、独立页面、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:product:query", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:product:create", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:product:update", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:product:query", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:product:create", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:product:update", "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "dcc:project-code:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "dcc:project-code:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "dcc:project-code:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "dcc:registration-certificate:config:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "dcc:registration-certificate:query-current", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:company-scope:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:company-scope:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:company-scope:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:enterprise:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:enterprise:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java", "kind": "permission", "value": "mdm:enterprise:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "dcc:project-code:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "dcc:project-code:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "dcc:project-code:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "dcc:registration-certificate:config:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "dcc:registration-certificate:query-current", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:company-scope:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:company-scope:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:company-scope:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:enterprise:create", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:enterprise:query", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue", "kind": "permission", "value": "mdm:enterprise:update", "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/utils/signatureAccess.ts", "kind": "permission", "value": "dcc:controlled-file:signature:manage", "reason": "复用电子签名授权既有权限，允许 tenant_admin 查看授权列表及审计；写操作仍要求电子签名管理员。租户管理员由统一业务授权策略提供菜单，无新增菜单或权限标识，无需套餐迁移 SQL。"},
-    {"source": "IntRuoyiFronted/src/utils/signatureAccess.ts", "kind": "permission", "value": "signature-governance:policy:query", "reason": "签名记录只读入口与后端统一按既有查询权限授权，修复普通专用查询角色被前端管理员角色白名单误拦；其他治理及授权管理边界保留。不新增菜单、路由、权限标识、角色或套餐授权；测试查询角色通过正式权限页面显式配置。TenantAdminBusinessPolicy现有自动授权不变。"},
-    {"source": "IntRuoyiFronted/src/views/mes/pro/edhr-form/FormPage.vue", "kind": "permission", "value": "mes:pro-edhr-form-instance:query", "migrations": ["IntRuoyiBackend/sql/mysql/20261029_edhr_form_read_permissions.sql"]},
-    {"source": "IntRuoyiFronted/src/views/mes/pro/edhr-form/FormPage.vue", "kind": "permission", "value": "mes:pro-edhr-form-template:query", "migrations": ["IntRuoyiBackend/sql/mysql/20261029_edhr_form_read_permissions.sql"]},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java", "kind": "permission", "value": "mes:dv-check-plan:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java", "kind": "permission", "value": "mes:dv-check-plan:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java", "kind": "permission", "value": "mes:dv-check-plan:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java", "kind": "permission", "value": "mes:dv-check-plan:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java", "kind": "permission", "value": "mes:dv-check-plan:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java", "kind": "permission", "value": "mes:dv-check-plan:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java", "kind": "permission", "value": "mes:dv-check-plan:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java", "kind": "permission", "value": "mes:dv-check-plan:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java", "kind": "permission", "value": "mes:dv-check-plan:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java", "kind": "permission", "value": "mes:dv-check-record:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java", "kind": "permission", "value": "mes:dv-check-record:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java", "kind": "permission", "value": "mes:dv-check-record:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java", "kind": "permission", "value": "mes:dv-check-record:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java", "kind": "permission", "value": "mes:dv-check-record:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java", "kind": "permission", "value": "mes:dv-check-record:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java", "kind": "permission", "value": "mes:dv-check-record:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java", "kind": "permission", "value": "mes:dv-check-record:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java", "kind": "permission", "value": "mes:dv-check-record:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:import", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:import；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryProcessController.java", "kind": "permission", "value": "mes:dv-machinery:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryProcessController.java 原样迁移现有权限校验 mes:dv-machinery:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java", "kind": "permission", "value": "mes:dv-machinery-type:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java", "kind": "permission", "value": "mes:dv-machinery-type:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java", "kind": "permission", "value": "mes:dv-machinery-type:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java", "kind": "permission", "value": "mes:dv-machinery-type:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java", "kind": "permission", "value": "mes:dv-mainten-record:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java", "kind": "permission", "value": "mes:dv-mainten-record:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java", "kind": "permission", "value": "mes:dv-mainten-record:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java", "kind": "permission", "value": "mes:dv-mainten-record:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java", "kind": "permission", "value": "mes:dv-mainten-record:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java", "kind": "permission", "value": "mes:dv-mainten-record:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java", "kind": "permission", "value": "mes:dv-mainten-record:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java", "kind": "permission", "value": "mes:dv-mainten-record:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java", "kind": "permission", "value": "mes:dv-mainten-record:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java", "kind": "permission", "value": "mes:dv-mainten-record:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java", "kind": "permission", "value": "mes:dv-repair:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java", "kind": "permission", "value": "mes:dv-repair:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java", "kind": "permission", "value": "mes:dv-repair:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java", "kind": "permission", "value": "mes:dv-repair:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java", "kind": "permission", "value": "mes:dv-repair:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java", "kind": "permission", "value": "mes:dv-repair:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java", "kind": "permission", "value": "mes:dv-repair:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java", "kind": "permission", "value": "mes:dv-repair:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java", "kind": "permission", "value": "mes:dv-repair:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java", "kind": "permission", "value": "mes:dv-repair:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java", "kind": "permission", "value": "mes:dv-subject:create", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java", "kind": "permission", "value": "mes:dv-subject:delete", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java", "kind": "permission", "value": "mes:dv-subject:export", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java", "kind": "permission", "value": "mes:dv-subject:query", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java", "kind": "permission", "value": "mes:dv-subject:update", "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserPublishController.java", "kind": "permission", "value": "form:parser:query", "reason": "简易解析设备查询复用20260908_bpm_form_parser_menu.sql已有表单解析查询权限，仅用于解析页设备列表读取，不新增菜单、权限或角色及租户套餐授权。"},
-{"source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue", "kind": "permission", "value": "mes:dv-machinery-type:delete", "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery-type:delete", "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:query", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:create", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:update", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:create", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:update", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:export", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
-{"source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue", "kind": "permission", "value": "mes:md-workshop:delete", "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:md-workshop:delete", "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"},
-{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesQaInspectionRegulationController.java", "kind": "permission", "value": "mes:qc-template:update", "reason": "简易PQC原子发布复用已有QA规程及PQC设备配置修改权限，不新增权限或扩大角色授权。"},
-{
-  "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
-  "kind": "page",
-  "value": "form-center/simple-pqc-parser/index",
-  "migrations": [
-    "IntRuoyiBackend/sql/mysql/20261028_simple_pqc_parser_menu.sql"
-  ]
-},
-{
-  "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
-  "kind": "permission",
-  "value": "mes:qc-template:update",
-  "reason": "简易PQC解析复用现有QA正式发布接口及mes:qc-template:update权限，不新增发布权限或扩大角色授权。"
-},
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue",
+      "kind": "page",
+      "value": "mes/pro/processpool/PqcLeaderWorkbenchPage",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261109_mes_pqc_packaging_leader_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesPqcPackagingLeaderController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261109_mes_pqc_packaging_leader_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue",
+      "kind": "page",
+      "value": "mes/pro/processpool/ProductionLeaderWorkbenchPage",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261109_mes_packaging_leader_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task-rule:query",
+      "reason": "恢复现有业务处理时限内部弹窗在工艺路线高级菜单中的入口，沿用已有任务规则查询权限及后端租户隔离，不新增菜单、路由、权限标识、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTaskDeadlinesDialog.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task-rule:update",
+      "reason": "现有业务处理时限弹窗保存按钮与既有后端更新权限保持一致，仅控制已有按钮可见性，不新增菜单、路由、权限标识、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchExecutionArchiveController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution-archive:download",
+      "reason": "已放行活跃订单在现有追溯页直接打印、导出正式PDF，复用既有下载权限；校验本租户正式来源、签名、内容、PDF/A并记录操作审计，不创建归档、不改变放行或归档状态。正式归档继续保留S3留存要求，无新增菜单、权限或套餐。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution-archive:download",
+      "reason": "现有放行追溯内部组件直接打印、导出正式PDF，复用既有下载权限及后端来源、签名、内容、PDF/A校验和操作审计，无新增菜单、路由、权限标识或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesReleaseTaskNotificationController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "个人站内信仅发现当前租户本人未送达的放行结果通知，补发复用既有通知回执及权限校验；原任务结束后仍以冻结收件人身份恢复，不新增菜单、路由、权限标识、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/production-release/components/ReleaseOutcomeRecovery.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "个人站内信内部恢复组件复用既有放行工作任务查询权限和补发组件，不新增页面路由、菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts",
+      "kind": "permission",
+      "value": "00:00:00",
+      "reason": "历史追溯日期起点时刻常量，不是权限标识，不新增菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts",
+      "kind": "permission",
+      "value": "23:59:59",
+      "reason": "历史追溯日期终点时刻常量，不是权限标识，不新增菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/signature-governance/components/signatureRecordQuery.ts",
+      "kind": "permission",
+      "value": "00:00:00",
+      "reason": "签名查询日期起点时刻常量，不是权限标识，不新增菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/signature-governance/components/signatureRecordQuery.ts",
+      "kind": "permission",
+      "value": "23:59:59",
+      "reason": "签名查询日期终点时刻常量，不是权限标识，不新增菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderReplenishmentBindingService.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "签名补料工序关联审计记录复用生产组长既有维护权限，不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderReplenishmentBindingController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderReplenishmentBindingController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ReplenishmentProcessBinding.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "现有生产组长订单详情内补料工序签名关联复用既有查询、维护权限，并校验订单归属、冻结路线、正式补料来源及本人签名；不新增菜单、页面路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java",
+      "kind": "permission",
+      "value": "mes:pro-work-order:create",
+      "reason": "生产工单菜单内的本轮本地虚拟输入候选、预检和准备接口复用现有工单创建权限，并组合校验项目查询权限、测试模式与当前租户；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "本轮虚拟输入只选择已完成正式项目产品申请，复用既有项目查询权限并限定当前用户项目可读范围，与既有工单创建权限组合校验；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/workorder/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-work-order:create",
+      "reason": "生产工单既有菜单内新增本轮本地虚拟输入准备弹窗，复用现有生产工单创建权限并受测试模式限制；不新增菜单、路由、权限、角色或租户套餐授权。后端另校验正式申请读取权限及项目范围。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesFixedTestOrderDataController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "生产组长活跃订单的数据按钮复用现有工作台维护权限，并校验测试模式与当前登录租户，仅补齐固定测试订单单据；未新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java",
+      "kind": "permission",
+      "value": "mes:qc-template:query",
+      "reason": "标准抽样对照表及两参数查询是现有质检方案菜单内的只读辅助功能，复用既有质检方案查询权限，无新增菜单、页面路由、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/qc/template/index.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:query",
+      "reason": "质检方案列表增加抽样对照表内部弹窗，复用既有质检方案查询权限；未新增独立菜单、路由、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamRosterImportService.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "导入组长前核对现有生产组长角色具备工作台查询权限，不新增或修改角色权限；复用既有权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamRosterImportService.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "导入组长前核对现有生产组长角色具备人员维护权限，不新增或修改角色权限；复用既有权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java",
+      "kind": "permission",
+      "value": "system:user:import",
+      "reason": "车间名单导入组长复用现有用户导入、创建及角色分配权限，组合校验后调用正式用户和角色服务；未新增菜单、权限或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java",
+      "kind": "permission",
+      "value": "system:user:create",
+      "reason": "组长导入创建账号复用既有用户创建权限，并与用户导入和角色分配权限组合校验；未新增权限或菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-user-role",
+      "reason": "名单组长自动授权复用既有用户角色分配权限和正式审计接口，仅绑定已有生产组长角色，不新建角色或扩展套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamRosterImportController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "生产人员名单导入复用班组人员维护权限，后端严格限定名单组长为当前用户，并复用正式工关联与临时工档案维护服务；不新增菜单或权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "system:permission:assign-user-role",
+      "reason": "用户管理高级菜单新增从车间名单导入组长的内部弹窗，组合复用用户导入、创建与角色分配权限；没有新增独立页面、菜单、权限或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "人员管理新增名单导入内部弹窗，复用生产组长人员维护权限，仅导入当前组长班组，不新增独立页面、菜单、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "新增活跃订单弹窗按完整ERP订单号快捷同步，仅复用现有生产组长维护权限并限定同步类型为生产订单；只写入本地生产订单，不加入活跃订单，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/index.vue",
+      "kind": "permission",
+      "value": "system:permission:assign-user-role",
+      "reason": "权限角色操作区新增分配指定用户的内部弹窗，复用现有用户角色分配权限和正式审计接口；不新增菜单、独立页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "bpm:model:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "bpm:model:deploy",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "bpm:category:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "system:role-category:create",
+      "reason": "审批策略完整配置包携带依赖流程、流程分类和审批角色定义，导入导出组合校验对应既有权限；复用现有菜单及权限标识，不新增菜单、路由、权限标识或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "343b5788f4bda65d7579bbc14beede5ff7a887ba9a8c8b2048426dfa0b2c7000",
+      "reason": "业务审批策略恢复已有页签可见性，复用bpm:business-approval-policy:query及既有20260719_business_approval_policy_menu.sql菜单；PermissionServiceImpl的TenantAdminBusinessPolicy已对所有启用的tenant_admin默认授予该业务菜单和接口权限，新租户创建亦使用tenant_admin，无需新增菜单、权限或套餐授权。流程管理仅在已有业务审批策略授权时展示，其余路由沿用既有登记。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "审批策略导出为流程管理及既有策略页的内部操作，复用策略查询权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "跨租户策略导入组合校验既有策略创建、发布和停用权限，按用户确认替换同业务策略；不新增权限标识、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:publish",
+      "reason": "导入保留已发布状态，必须具备既有策略发布权限，并同时具备创建、停用权限；不新增权限标识、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/PolicyTransferActions.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:disable",
+      "reason": "导入替换会停用同业务现行策略，组合复用既有停用、创建和发布权限；不新增权限标识、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/model/index.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:query",
+      "reason": "流程管理模型页增加通往现有审批策略隐藏路由的按钮，复用既有策略查询权限；不新增页面路由、菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/CommonRegulationPage.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "通用规程现有页面改为单份规程版本编辑器，保存草稿和发布复用现有规程修改权限及接口；沿用现有菜单、路由、角色和租户套餐授权，无新增权限。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesQaInspectionRegulationController.java",
+      "kind": "permission",
+      "value": "mes:qc-template:query",
+      "reason": "通用规程编辑器读取单份规程版本列表和草稿详情，复用现有通用规程查询权限；仅增加读取接口，不新增菜单、权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/CommonRegulationLibrary.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "已发布通用规程内部列表增加删除误导入版本操作，复用现有规程修改权限，与规程套删除保持一致；不新增菜单、路由、角色或租户套餐权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/product/unit/index.vue",
+      "kind": "permission",
+      "value": "erp:product-unit:create",
+      "reason": "产品单位导入仅新增，复用既有产品单位新增权限；沿用现有菜单、角色及租户套餐授权，不新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/product/ErpProductUnitController.java",
+      "kind": "permission",
+      "value": "erp:product-unit:create",
+      "reason": "产品单位导入及模板下载复用既有产品单位新增权限；导入仅新增，不授予更新能力，不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+      "kind": "permission",
+      "value": "system:user:export",
+      "reason": "用户导出新增JSON POST入口以承载全量列筛选ID，复用既有用户导出权限与导出业务；GET入口保留，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "system:user:export",
+      "reason": "用户高级菜单增加用户数据与通用账户不合规清单导出入口，复用现有system:user:export及既有导出接口；不新增菜单路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/index.vue",
+      "kind": "permission",
+      "value": "system:gxp-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_system_permission_audit_query_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/index.vue",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "权限角色列表新增查看已分配人员的内部弹窗，复用现有 system:user:query 权限及 /system/user/page 的 roleId 筛选；沿用租户和数据权限，不新增菜单、独立页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "kind": "permission",
+      "value": "mdm:product:query",
+      "reason": "项目代码维护弹窗关联MDM产品，复用现有产品主数据查询权限加载候选项及dcc:project-code:update保存关联；无新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "QA 总览补充切换已发布通用规程套版本的内部操作，复用现有规程更新权限及 common-binding/bind 接口；不新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "工艺流程内部表单区分浏览与修改，关联项目保存复用现有工艺路线更新权限，与既有保存接口一致；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "reason": "工艺流程内部修改入口和草稿名称编辑复用现有候选版本修改权限；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/components/RecentFullSyncButton.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "ERP数据同步列表内新增按天全量同步按钮，复用现有 erp:kingdee-sync:query 权限及后台调度接口；无新增菜单、独立页面、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:product:query",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:product:create",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:product:update",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:product:query",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:product:create",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:product:update",
+      "reason": "工作簿携带项目及注册证引用的产品主数据，为避免越权同步，复用既有产品查询、新增和修改权限；未新增权限、菜单或授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:company-scope:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:company-scope:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:company-scope:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:enterprise:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:enterprise:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/productcatalog/DccCatalogPackageController.java",
+      "kind": "permission",
+      "value": "mdm:enterprise:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:enterprise:create",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:enterprise:query",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/CatalogWorkbookActions.vue",
+      "kind": "permission",
+      "value": "mdm:enterprise:update",
+      "reason": "产品目录工作簿导入导出复用五类基础数据的既有权限，后端组合校验并校验注册证公司范围；未新增菜单、页面路由、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/signatureAccess.ts",
+      "kind": "permission",
+      "value": "dcc:controlled-file:signature:manage",
+      "reason": "复用电子签名授权既有权限，允许 tenant_admin 查看授权列表及审计；写操作仍要求电子签名管理员。租户管理员由统一业务授权策略提供菜单，无新增菜单或权限标识，无需套餐迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/signatureAccess.ts",
+      "kind": "permission",
+      "value": "signature-governance:policy:query",
+      "reason": "签名记录只读入口与后端统一按既有查询权限授权，修复普通专用查询角色被前端管理员角色白名单误拦；其他治理及授权管理边界保留。不新增菜单、路由、权限标识、角色或套餐授权；测试查询角色通过正式权限页面显式配置。TenantAdminBusinessPolicy现有自动授权不变。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-form/FormPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-form-instance:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261029_edhr_form_read_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-form/FormPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-form-template:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261029_edhr_form_read_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanMachineryController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java 原样迁移现有权限校验 mes:dv-check-plan:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-plan:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkplan/MesDvCheckPlanSubjectController.java 原样迁移现有权限校验 mes:dv-check-plan:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordController.java 原样迁移现有权限校验 mes:dv-check-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-check-record:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/checkrecord/MesDvCheckRecordLineController.java 原样迁移现有权限校验 mes:dv-check-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:import",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:import；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java 原样迁移现有权限校验 mes:dv-machinery:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryProcessController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryProcessController.java 原样迁移现有权限校验 mes:dv-machinery:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryTypeController.java 原样迁移现有权限校验 mes:dv-machinery-type:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordController.java 原样迁移现有权限校验 mes:dv-mainten-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-mainten-record:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/maintenrecord/MesDvMaintenRecordLineController.java 原样迁移现有权限校验 mes:dv-mainten-record:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairController.java 原样迁移现有权限校验 mes:dv-repair:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java",
+      "kind": "permission",
+      "value": "mes:dv-repair:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/repair/MesDvRepairLineController.java 原样迁移现有权限校验 mes:dv-repair:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-subject:create",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:create；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-subject:delete",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:delete；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-subject:export",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:export；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-subject:query",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:query；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java",
+      "kind": "permission",
+      "value": "mes:dv-subject:update",
+      "reason": "设备模块拆分，仅从 IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/subject/MesDvSubjectController.java 原样迁移现有权限校验 mes:dv-subject:update；接口、菜单、目标角色及租户套餐授权不变，无需新增迁移 SQL。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserPublishController.java",
+      "kind": "permission",
+      "value": "form:parser:query",
+      "reason": "简易解析设备查询复用20260908_bpm_form_parser_menu.sql已有表单解析查询权限，仅用于解析页设备列表读取，不新增菜单、权限或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:delete",
+      "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:delete",
+      "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:query",
+      "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:create",
+      "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery-type:update",
+      "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:md-workshop:create",
+      "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:md-workshop:update",
+      "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java",
+      "kind": "permission",
+      "value": "mes:md-workshop:export",
+      "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue",
+      "kind": "permission",
+      "value": "mes:md-workshop:delete",
+      "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes-device/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java",
+      "kind": "permission",
+      "value": "mes:md-workshop:delete",
+      "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesQaInspectionRegulationController.java",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "简易PQC原子发布复用已有QA规程及PQC设备配置修改权限，不新增权限或扩大角色授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
+      "kind": "page",
+      "value": "form-center/simple-pqc-parser/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_simple_pqc_parser_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "简易PQC解析复用现有QA正式发布接口及mes:qc-template:update权限，不新增发布权限或扩大角色授权。"
+    },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserPublishController.java",
       "kind": "permission",
@@ -1731,19 +2565,25 @@
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
       "kind": "permission",
       "value": "mes:pro-edhr-change:approve",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
       "kind": "permission",
       "value": "mes:pro-edhr-change:query",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
       "kind": "permission",
       "value": "mes:pro-edhr-work-task:query",
-      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
@@ -1949,45 +2789,584 @@
       "value": "mes:pro-edhr-change:void",
       "reason": "现有记录变更页增加单张记录作废申请，复用既有作废权限，指定独立审批人并展示目标记录，不新增菜单、权限、角色或租户套餐授权。"
     },
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java", "kind": "permission", "value": "erp:kingdee-sync:query", "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"},
-    {"source": "IntRuoyiFronted/src/views/erp/components/SyncByCodeButton.vue", "kind": "permission", "value": "erp:kingdee-sync:query", "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"},
-    {"source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue", "kind": "page", "value": "form-center/simple-common-parser/index", "migrations": ["IntRuoyiBackend/sql/mysql/20261031_simple_common_parser_menu.sql"]},
-    {"source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue", "kind": "permission", "value": "mes:qc-template:update", "reason": "简易通用解析确认发布复用既有QA规程修改权限，新增菜单按检验解析既有角色和租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue", "kind": "permission", "value": "mes:qc-template:query", "reason": "查看已发布规程按钮跳转既有通用检验规程页面，复用 mes:qc-template:query 查询权限；列表和只读详情均沿用该权限，无新增菜单、路由、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesSimpleCommonParserController.java", "kind": "permission", "value": "mes:qc-template:update", "reason": "复用既有解析查询与QA规程修改权限，不新增权限或扩大角色授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesSimpleCommonParserController.java", "kind": "permission", "value": "form:parser:query", "reason": "复用既有解析查询与QA规程修改权限，不新增权限或扩大角色授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:role:export", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:role:create", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:user:query", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:permission:assign-role-menu", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:permission:assign-user-role", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java", "kind": "permission", "value": "system:permission:assign-role-data-scope", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:role:export", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:role:create", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:user:query", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:permission:assign-role-menu", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:permission:assign-user-role", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:permission:assign-role-data-scope", "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "mes:pro-process:create", "reason": "工序新增页 ProProcessForm 复用项目选择接口，为新工序选择项目及生成项目编码；沿用既有工序新增权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "mes:auto-code-rule:query", "reason": "自动编码规则列表页复用项目选择接口进行项目筛选，沿用既有规则查询权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "mes:auto-code-rule:create", "reason": "自动编码规则新增表单复用项目选择接口，为规则选择所属项目；沿用既有规则新增权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "mes:auto-code-rule:update", "reason": "自动编码规则编辑表单复用项目选择接口回显所属项目，沿用既有规则修改权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "form:parser:query", "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "form:parser:production-batch-record", "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "form:parser:production-batch-record:publish", "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java", "kind": "permission", "value": "mes:pro-batch-record-template:import", "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/form-center/parser/simplePqcWord.ts", "kind": "permission", "value": "urn:intruoyi:simple-pqc:1", "reason": "该字符串是 Word 自定义 XML 数据命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"},
-    {"source": "IntRuoyiFronted/src/views/form-center/parser/simpleWord.ts", "kind": "permission", "value": "urn:intruoyi:simple-parser:word:v1", "reason": "该字符串是 Word 自定义 XML 快照命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"},
-    {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:role:update", "reason": "账号角色 Excel 迁移对已有角色的更新复用既有角色修改权限，与创建权限共同控制入口；不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java", "kind": "permission", "value": "form:parser:query", "reason": "规程解析试运行读取相同抽样矩阵，复用现有表单解析查询权限；无新增菜单或权限标识。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-pqc-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-team-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:query", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:create", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java", "kind": "permission", "value": "mes:pro-edhr-operation-audit:query", "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java", "kind": "permission", "value": "mes:pro-edhr-batch-execution:query", "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"}
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/components/SyncByCodeButton.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue",
+      "kind": "page",
+      "value": "form-center/simple-common-parser/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_simple_common_parser_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "简易通用解析确认发布复用既有QA规程修改权限，新增菜单按检验解析既有角色和租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-common-parser/index.vue",
+      "kind": "permission",
+      "value": "mes:qc-template:query",
+      "reason": "查看已发布规程按钮跳转既有通用检验规程页面，复用 mes:qc-template:query 查询权限；列表和只读详情均沿用该权限，无新增菜单、路由、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesSimpleCommonParserController.java",
+      "kind": "permission",
+      "value": "mes:qc-template:update",
+      "reason": "复用既有解析查询与QA规程修改权限，不新增权限或扩大角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesSimpleCommonParserController.java",
+      "kind": "permission",
+      "value": "form:parser:query",
+      "reason": "复用既有解析查询与QA规程修改权限，不新增权限或扩大角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:role:export",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-user-role",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/permission/EdhrPermissionTransferController.java",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:role:export",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:role:create",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:permission:assign-role-menu",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:permission:assign-user-role",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:permission:assign-role-data-scope",
+      "reason": "eDHR账号角色Excel迁移从现有角色管理页进入，组合复用既有角色导出/创建、用户查询和菜单/数据范围/账号角色授权权限；不新增菜单、路由或权限标识，也不修改静态角色和租户套餐授权。导入角色仅按用户确认在目标租户内通过原授权服务创建。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "mes:pro-process:create",
+      "reason": "工序新增页 ProProcessForm 复用项目选择接口，为新工序选择项目及生成项目编码；沿用既有工序新增权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "mes:auto-code-rule:query",
+      "reason": "自动编码规则列表页复用项目选择接口进行项目筛选，沿用既有规则查询权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "mes:auto-code-rule:create",
+      "reason": "自动编码规则新增表单复用项目选择接口，为规则选择所属项目；沿用既有规则新增权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "mes:auto-code-rule:update",
+      "reason": "自动编码规则编辑表单复用项目选择接口回显所属项目，沿用既有规则修改权限，并由 MesProRouteProjectGuard.options 按当前用户可读的 DCC 项目范围过滤。不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "form:parser:query",
+      "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record",
+      "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record:publish",
+      "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteController.java",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-template:import",
+      "reason": "工艺流程项目选择接口供现有简易解析、解析发布及批记录导入使用，复用既有功能权限并按 DCC 正式项目可读范围过滤；不新增菜单、页面、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/simplePqcWord.ts",
+      "kind": "permission",
+      "value": "urn:intruoyi:simple-pqc:1",
+      "reason": "该字符串是 Word 自定义 XML 数据命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/simpleWord.ts",
+      "kind": "permission",
+      "value": "urn:intruoyi:simple-parser:word:v1",
+      "reason": "该字符串是 Word 自定义 XML 快照命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue",
+      "kind": "permission",
+      "value": "system:role:update",
+      "reason": "账号角色 Excel 迁移对已有角色的更新复用既有角色修改权限，与创建权限共同控制入口；不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java",
+      "kind": "permission",
+      "value": "form:parser:query",
+      "reason": "规程解析试运行读取相同抽样矩阵，复用现有表单解析查询权限；无新增菜单或权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-feedback:query",
+      "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-feedback:query",
+      "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+      "kind": "permission",
+      "value": "mes:pro-feedback:query",
+      "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-pqc-leader:query",
+      "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:create",
+      "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-operation-audit:query",
+      "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "3647e7241333c827e730383ae496b7d5fd992db0cdbe0cb78f54b33a07218fb7",
+      "reason": "修复站内信及详情已有重提入口与 shared/submitted-application-navigation.ts 成功导航：首次要求 management=1/restartApplication=1，成功来源明确为 application-restart 并精确返回受控浏览，清除重开表单及旧轮次命令；复用既有详情和 submit 权限，服务端继续校验租户、原申请人、失败轮次及项目编辑权限，不新增页面、菜单、权限、角色或租户套餐授权。 文档13独立受控上传成功结果使用真实controlled-import来源、management=1和精确returnTo=/dcc/controlled-file/controlled-upload进入既有详情；ACTIVE明确DAILY，待生效精确VERSION_HISTORY，后端三重授权不变，不冒充browser或审批来源。复用20261102_dcc_controlled_import_edit_permissions.sql中已授权import菜单，不新增权限、页面、角色或套餐。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailObsoleteImpact.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/detail/DetailObsoleteImpact",
+      "reason": "作废申请内部影响提示组件，复用现有受控文件查看、作废权限及关联文件和项目引用只读接口；无独立菜单、路由或新增权限，不新增角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "失败申请从现有我的站内信及受控文件详情重新发起，复用既有 dcc:controlled-file:query 权限；服务另核对原申请人、租户、项目编辑和类别权限及精确终止流程，不新增菜单、页面路由或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:submit",
+      "reason": "失败申请从现有我的站内信及受控文件详情重新发起，复用既有 dcc:controlled-file:submit 权限；服务另核对原申请人、租户、项目编辑和类别权限及精确终止流程，不新增菜单、页面路由或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/config/DccRegistrationCertificateChangeConfirmationController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "注册证详情的变更通知履历复用既有 query-current 权限，调用原 getDetail 核验租户、主体及版本访问；站内信本人确认另按正式发送记录的租户及收件人身份授权，不增加菜单、路由、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/handling/DccRegistrationHandlingTaskController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/handling/DccRegistrationHandlingTaskController.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:renewal:upload",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/handling/DccRegistrationHandlingTaskService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:upload:create",
+      "reason": "注册证项目上传和失效换证办理任务复用既有注册证配置、上传及延续权限；任务入口复用我的站内信内部详情组件，服务额外校验本租户有效账号、原负责人、当前授权办理人与期限及真实审批申请，不新增菜单、页面路由、权限标识或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/association/DccRegistrationCertificateProjectCodeFileAssociationService.java",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "产品目录注册证文件夹按已有注册证查看、旧版查看及逐文件下载授权过滤，未获授权不返回分类文件；复用现有query-current权限，不新增菜单、路由、权限或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "page",
+      "value": "mdm/company-scope/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mdm/company-scope/index.vue",
+      "kind": "permission",
+      "value": "mdm:company-scope:delete",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mdm/src/main/java/cn/iocoder/yudao/module/mdm/controller/admin/companyscope/MdmCompanyScopeController.java",
+      "kind": "permission",
+      "value": "mdm:company-scope:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261031_mdm_company_scope_menu_supplement.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/controlled-upload/index.vue",
+      "value": "dcc/controlled-file/controlled-upload/index",
+      "kind": "page",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "value": "dcc:controlled-file:import",
+      "kind": "permission",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileHistoricalImportController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:import",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileHistoricalImportService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileHistoricalImportService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:import",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileCategoryPermissionSupport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccExternalFileReviewController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "文档14普通文件编辑读取既有类型分类列表、上传候选及启用category解析，复用已由20261102_dcc_controlled_import_edit_permissions.sql登记的独立edit权限；仅三个GET允许edit与原只读资格并列，create/update/delete仍要求category:manage；未新增权限、页面、菜单、角色或租户套餐授权，无新增迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_project_reviewer_approval_center_access.sql",
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_registration_approver_task_update.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccArchiveDownloadController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccArchiveAccessService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ArchiveBrowserPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccLibraryController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccLibraryController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:import",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/approval/ApprovalCenterController.java",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_registration_approver_task_update.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/DccDistributionTaskController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "既有发送与签收详情及失败批次重试已使用全局EDIT入口；本次Controller与前端一致复用现有编辑权限，服务继续按真实文件/库EDIT、租户、启用账号和精确批次轮次二次授权；不新增菜单、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:qms:view",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:qms:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:general:view",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:general:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/LibraryRoleAccessHint.vue",
+      "kind": "permission",
+      "value": "system:role:query",
+      "reason": "复用既有系统权限角色查询权限展示授权入口；不新增系统角色管理权限，仅新增四个文件夹权限，已关联20261105_dcc_library_role_permissions.sql。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/basic-data/file-type-taxonomy/index",
+      "reason": "既有五级文件分类页面新增原子保存审批矩阵，沿用现有菜单及dcc:controlled-file:category:manage文控维护权限，无新增菜单、权限或路由。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "1783c5e404b59cdcaf2ce9da86b5631f36cd1da129420f49c274ecd9c4abe9f3",
+      "reason": "合并 int_main 与 int_qms 的现有路由：保留主线生产工作台与规程导航，受控文件详情补充重启申请、重启结果和受控导入结果三个内部跳转条件。详情复用现有提交及导入权限，服务端继续校验租户、原申请人、失败轮次和项目编辑权限；不新增菜单、权限标识或角色及租户套餐授权。受控导入沿用已登记的 20261102_dcc_controlled_import_edit_permissions.sql。"
+    }
   ]
 }

@@ -60,7 +60,8 @@ test('actual submit always sends MINOR even if old form state carries MAJOR and 
 
 test('successful exact authoring checkin follows the returned working identity and preserves browser filters', async()=>{
   const {state,calls}=stateFor()
-  state.route.query={browserMode:'storage',scope:'global',keyword:'F1',workingFileId:FILE,workingMasterId:MASTER}
+  state.browserMode.value='working'
+  state.route.query={browserMode:'working',scope:'global',keyword:'F1',workingFileId:FILE,workingMasterId:MASTER}
   await state.exports.submit()
   assert.equal(calls.writes.length,1)
   assert.equal(calls.routes.length,1)
@@ -120,7 +121,7 @@ test('late successful write does not close or merge into a newer checkin context
 
 test('public controlled-version terminology and formal selected-working entry stay independent', () => {
   assert.doesNotMatch(source, /当前有效版|当前有效文件|当前有效版本/)
-  assert.match(block('handleSubmitWorkingIteration', 'getCheckoutDisplayName'), /const id = file.id[\s\S]*openManagement\(id\)/)
+  assert.match(block('openRevision', 'copyFileNumber'), /revisionBaseActiveControlledFileId[\s\S]*openManagement\(baselineId[\s\S]*revisionIterationId: String\(file.id\)/)
   assert.doesNotMatch(block('submitCheckin', 'mergeCheckinResult'), /submitControlledFileIteration|createMajorRevision|revisionChangeType/)
 })
 

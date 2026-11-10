@@ -136,7 +136,14 @@ public class DccRegistrationCertificateMigrationService {
         version.setTenantId(command.tenantId());
         requireSingle("新增迁移注册证版本", versionMapper.insert(version));
 
+        var facts=new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts();
+        facts.setCertificateType("DOMESTIC");facts.setOwnProduct(row.productMasterId()!=null);
+        facts.setCertificateStatus(row.expiryDate().isBefore(businessClock.businessDate())?"EXPIRED":"VALID");
+        facts.setCertificateNo(trim(row.certificateNo()));facts.setClassification(trim(row.classification()));
+        facts.setFirstObtainedDate(row.firstObtainedDate());facts.setApprovalDate(row.approvalDate());
+        facts.setEffectiveDate(row.effectiveDate());facts.setExpiryDate(row.expiryDate());
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
+                .factsJson(facts.toJson())
                 .versionId(version.getId())
                 .revisionNo(1)
                 .productName(trim(row.productName()))

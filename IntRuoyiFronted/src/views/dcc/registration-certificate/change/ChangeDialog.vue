@@ -1,269 +1,90 @@
 <template>
-  <el-dialog
-    v-model="dialogVisible"
-    class="registration-certificate-change-dialog"
-    data-testid="registration-certificate-change-dialog"
-    destroy-on-close
-    title="变更"
-    width="860px"
-    @closed="resetForm"
-  >
-    <el-descriptions v-if="certificate" :column="2" border class="mb-16px">
-      <el-descriptions-item label="证件编号">{{ certificate.certificateNo }}</el-descriptions-item>
-      <el-descriptions-item label="产品">{{ certificate.productName }}</el-descriptions-item>
-      <el-descriptions-item label="当前版本">第 {{ certificate.versionNo }} 版</el-descriptions-item>
-      <el-descriptions-item label="当前状态">{{ certificate.status }}</el-descriptions-item>
-    </el-descriptions>
-    <el-alert
-      v-if="detailLoadError"
-      class="mb-16px"
-      type="error"
-      show-icon
-      :closable="false"
-      :title="detailLoadError"
-    />
-    <el-alert
-      v-if="actionError"
-      class="mb-16px"
-      type="error"
-      show-icon
-      :closable="false"
-      :title="actionError"
-      data-testid="registration-certificate-change-action-error"
-    />
-    <el-form
-      v-loading="detailLoading"
-      element-loading-text="正在加载注册证当前信息"
-      class="registration-certificate-change-dialog__form"
-      label-width="128px"
-      data-testid="registration-certificate-change-form"
-    >
-      <el-row :gutter="24">
-        <el-col :span="12" :xs="24">
-          <el-form-item label="批准日期" required>
-            <el-date-picker v-model="form.approvalDate" clearable format="YYYY-MM-DD" placeholder="请选择批准日期" type="date" value-format="YYYY-MM-DD" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12" :xs="24">
-          <el-form-item label="变更内容" required>
-            <el-select v-model="form.changeTypes" multiple collapse-tags collapse-tags-tooltip placeholder="请选择变更内容" data-change-type-values="PRODUCT_NAME,MODEL_SPECIFICATION,STRUCTURE_COMPOSITION,INTENDED_USE,TECHNICAL_REQUIREMENTS,REGISTRANT_NAME,RESIDENCE_ADDRESS,PRODUCTION_ADDRESS,OTHER_CONTENT">
-              <el-option v-for="item in changeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-col v-for="item in selectedStructuredChangeTypes" :key="item.value" :span="12" :xs="24">
-          <el-form-item :label="item.label" required><el-input v-model="form.structuredValues[item.value]" :placeholder="item.placeholder" /></el-form-item>
-        </el-col>
-        <el-col v-if="form.changeTypes.includes('OTHER_CONTENT')" :span="24" :xs="24">
-          <el-form-item label="其他说明" required><el-input v-model="form.otherDescription" maxlength="4096" placeholder="请输入其他内容说明" type="textarea" :rows="3" /></el-form-item>
-        </el-col>
-        <template v-if="form.changeTypes.includes('PRODUCTION_ADDRESS')">
-          <el-col :span="12" :xs="24">
-            <el-form-item label="是否委托生产" required><el-select v-model="form.entrustedProduction" placeholder="请选择"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></el-form-item>
-          </el-col>
-          <el-col :span="12" :xs="24">
-            <el-form-item label="是否自行生产" required><el-select v-model="form.selfProduction" placeholder="请选择"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></el-form-item>
-          </el-col>
-          <el-col v-if="form.entrustedProduction" :span="24" :xs="24">
-            <el-form-item label="受托企业：" required><el-input v-model="form.entrustedEnterpriseNames" placeholder="请输入受托企业，多个请换行" type="textarea" :rows="2" /></el-form-item>
-          </el-col>
-        </template>
-        <el-col :span="24" :xs="24">
-          <el-form-item label="变更批件文件" required>
-            <el-upload v-model:file-list="fileList" action="#" :auto-upload="false" :limit="1" :on-change="handleFileChange" :on-remove="handleFileRemove" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" data-testid="registration-certificate-change-approval-file">
-              <el-button><Icon icon="ep:upload" class="mr-5px" />选择文件</el-button>
-            </el-upload>
-          </el-form-item>
-        </el-col>
-      </el-row>
-    </el-form>
-    <template #footer>
-      <el-button :disabled="saving" @click="dialogVisible = false">取消</el-button>
-      <el-button
-        :disabled="saving || detailLoading || Boolean(detailLoadError)"
-        :loading="saving"
-        type="primary"
-        @click="submit"
-      >确认</el-button>
-    </template>
-  </el-dialog>
+ <el-dialog v-model="visible" :title="requestId ? '变更驳回修改重提' : '注册证变更'" width="960px" destroy-on-close>
+  <el-alert title="提交后正式内容保持原样，审核通过后更新并保留全部历史。" type="info" :closable="false"/>
+  <el-form v-if="detail" v-loading="loading" label-width="140px" class="mt-16px">
+   <FactsFields v-model="facts" lock-type/>
+   <el-form-item label="当前已批准材料"><el-table :data="currentFiles" border empty-text="当前版本没有材料"><el-table-column label="材料类型" width="160"><template #default="{row}">{{fileLabels[row.fileKind]||row.fileKind}}</template></el-table-column><el-table-column prop="originalName" label="文件名"/></el-table></el-form-item>
+   <el-row :gutter="24"><el-col v-for="field in fields" :key="field.key" :span="12"><el-form-item :label="field.label"><el-input v-model="values[field.key]" type="textarea" :rows="2" maxlength="4096"/></el-form-item></el-col></el-row>
+   <template v-if="facts.certificateType !== 'FDA'">
+    <el-form-item label="是否委托生产"><el-select v-model="entrusted"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item>
+    <el-form-item label="是否自行生产"><el-select v-model="self"><el-option label="是" :value="true"/><el-option label="否" :value="false"/></el-select></el-form-item>
+    <el-form-item v-if="entrusted" label="受托企业"><el-input v-model="enterpriseNames" type="textarea" placeholder="每行一个企业名称"/></el-form-item>
+   </template>
+   <el-form-item label="变更批件批准日期" required><el-date-picker v-model="approvalDate" type="date" value-format="YYYY-MM-DD"/></el-form-item>
+   <el-form-item label="变更批件文件" required><el-upload v-model:file-list="files" action="#" :auto-upload="false" :limit="1"><el-button>选择文件</el-button></el-upload></el-form-item>
+   <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div></div></el-form-item>
+   <el-form-item v-if="facts.certificateType==='FDA'" label="新版产品描述材料"><el-upload v-model:file-list="descriptions" action="#" multiple :auto-upload="false"><el-button>上传批准后的产品说明、规格型号文件</el-button></el-upload></el-form-item>
+   <el-form-item label="变更附件"><el-upload v-model:file-list="attachments" action="#" multiple :auto-upload="false"><el-button>添加附件</el-button></el-upload></el-form-item>
+   <el-form-item label="其他变更说明"><el-input v-model="other" type="textarea" maxlength="4096"/></el-form-item>
+  </el-form>
+  <el-alert v-if="error" :title="error" type="error" :closable="false"/>
+  <template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="!detail||loading" @click="submit">提交审核</el-button></template>
+ </el-dialog>
 </template>
-
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
-import {
-  getRegistrationCertificateDetail,
-  submitRegistrationCertificateChange,
-  type DccRegistrationCertificateDetailVO,
-  type DccRegistrationCertificatePageItemVO
-} from '@/api/dcc/registrationCertificate'
+import type { UploadUserFile } from 'element-plus'
+import { getRegistrationCertificateDetail, getRegistrationCertificateEvidence, getMyRegistrationCertificateUpload, submitRegistrationCertificateChange, type DccRegistrationCertificateDetailVO, type DccRegistrationCertificatePageItemVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
-import { resolveRegistrationCertificateUserMessage } from '../shared/state'
-
-defineOptions({ name: 'RegistrationCertificateChangeDialog' })
-const props = defineProps<{ modelValue: boolean; certificate?: DccRegistrationCertificatePageItemVO }>()
-const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
-const message = useMessage()
-const saving = ref(false)
-const detailLoading = ref(false)
-const detailLoadError = ref('')
-const actionError = ref('')
-const currentDetail = ref<DccRegistrationCertificateDetailVO>()
-const fileList = ref<UploadUserFile[]>([])
-const selectedFile = ref<File | null>(null)
-const structuredChangeTypeOptions = [
-  { label: '产品名称', value: 'PRODUCT_NAME', placeholder: '变更后的产品名称' },
-  { label: '型号规格', value: 'MODEL_SPECIFICATION', placeholder: '变更后的型号规格' },
-  { label: '结构组成', value: 'STRUCTURE_COMPOSITION', placeholder: '变更后的结构组成' },
-  { label: '适用范围', value: 'INTENDED_USE', placeholder: '变更后的适用范围' },
-  { label: '产品技术要求', value: 'TECHNICAL_REQUIREMENTS', placeholder: '变更后的产品技术要求' },
-  { label: '注册人名称', value: 'REGISTRANT_NAME', placeholder: '变更后的注册人名称' },
-  { label: '住所', value: 'RESIDENCE_ADDRESS', placeholder: '变更后的住所' },
-  { label: '生产地址', value: 'PRODUCTION_ADDRESS', placeholder: '变更后的生产地址' }
-] as const
-const changeTypeOptions = [...structuredChangeTypeOptions, { label: '其他内容', value: 'OTHER_CONTENT' }] as const
-type StructuredChangeType = (typeof structuredChangeTypeOptions)[number]['value']
-type ChangeType = StructuredChangeType | 'OTHER_CONTENT'
-const form = reactive({ approvalDate: '', changeTypes: [] as ChangeType[], structuredValues: {} as Partial<Record<StructuredChangeType, string>>, otherDescription: '', entrustedProduction: undefined as boolean | undefined, selfProduction: undefined as boolean | undefined, entrustedEnterpriseNames: '' })
-const dialogVisible = computed({ get: () => props.modelValue, set: (value: boolean) => emit('update:modelValue', value) })
-const selectedStructuredChangeTypes = computed(() => structuredChangeTypeOptions.filter((item) => form.changeTypes.includes(item.value)))
-const handleFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => { selectedFile.value = uploadFile.raw ?? null; fileList.value = uploadFiles.slice(-1) as UploadUserFile[] }
-const handleFileRemove = () => { selectedFile.value = null; fileList.value = [] }
-const normalizeText = (value?: string) => (value ?? '').trim()
-const buildChangePayload = () => {
-  if (!props.certificate) throw new Error('缺少当前注册证行，无法提交变更申请')
-  if (!currentDetail.value) throw new Error('注册证当前信息尚未加载完成，无法提交变更申请')
-  if (!form.approvalDate) throw new Error('请选择变更批件批准日期')
-  if (form.changeTypes.length === 0) throw new Error('请选择至少一项变更内容')
-  if (!selectedFile.value) throw new Error('请先选择变更批件文件')
-  const payload = new FormData()
-  payload.append('expectedRowVersion', String(currentDetail.value.rowVersion)); payload.append('approvalDate', form.approvalDate)
-  form.changeTypes.forEach((changeType) => payload.append('changeTypes', changeType))
-  for (const item of selectedStructuredChangeTypes.value) { const value = normalizeText(form.structuredValues[item.value]); if (!value) throw new Error(`请填写${item.placeholder}`); payload.append(`structuredValues[${item.value}]`, value) }
-  if (form.changeTypes.includes('OTHER_CONTENT')) { const description = normalizeText(form.otherDescription); if (!description) throw new Error('请填写其他内容说明'); payload.append('otherDescription', description) }
-  if (form.changeTypes.includes('PRODUCTION_ADDRESS')) {
-    if (form.entrustedProduction === undefined || form.selfProduction === undefined) throw new Error('请选择是否委托生产和是否自行生产')
-    if (!form.entrustedProduction && !form.selfProduction) throw new Error('委托生产和自行生产不可同时选择否。')
-    const names = form.entrustedEnterpriseNames.split(/\r?\n|[,，;；]/).map((value) => value.trim()).filter(Boolean)
-    if (form.entrustedProduction && names.length === 0) throw new Error('委托生产为是时，请填写受托企业')
-    if (!form.entrustedProduction && names.length > 0) throw new Error('委托生产为否时，不可填写受托企业')
-    payload.append('entrustedProduction', String(form.entrustedProduction)); payload.append('selfProduction', String(form.selfProduction)); payload.append('entrustedEnterprisesJson', JSON.stringify(names.map((enterpriseName) => ({ enterpriseName }))))
-  }
-  payload.append('file', selectedFile.value); return payload
-}
-const submit = async () => {
-  actionError.value = ''
-  let payload: FormData
-  try {
-    payload = buildChangePayload()
-  } catch (error) {
-    actionError.value = resolveRegistrationCertificateUserMessage(error, '提交变更申请失败')
-    message.error(actionError.value)
-    return
-  }
-  saving.value = true
-  try {
-    if (!props.certificate) throw new Error('缺少当前注册证行，无法提交变更申请')
-    await submitRegistrationCertificateChange(props.certificate.certificateId, payload, `DCC-REG-CERT-CHANGE-${generateUUID()}`)
-    message.success('变更已提交审核'); dialogVisible.value = false; emit('saved')
-  } catch (error) {
-    actionError.value = resolveRegistrationCertificateUserMessage(error, '提交变更申请失败')
-    message.error(actionError.value)
-    throw error
-  } finally { saving.value = false }
-}
-let detailLoadToken = 0
-
-const resetForm = () => {
-  detailLoadToken += 1
-  form.approvalDate = ''
-  form.changeTypes = []
-  form.structuredValues = {}
-  form.otherDescription = ''
-  form.entrustedProduction = undefined
-  form.selfProduction = undefined
-  form.entrustedEnterpriseNames = ''
-  fileList.value = []
-  selectedFile.value = null
-  currentDetail.value = undefined
-  detailLoading.value = false
-  detailLoadError.value = ''
-  actionError.value = ''
-}
-
-const parseEntrustedEnterpriseNames = (raw?: string) => {
-  if (!raw?.trim()) return ''
-  const parsed = JSON.parse(raw) as unknown
-  if (!Array.isArray(parsed)) throw new Error('当前受托企业数据格式无效')
-  return parsed.map((item) => {
-    if (!item || typeof item !== 'object' || !('enterpriseName' in item)) {
-      throw new Error('当前受托企业数据缺少企业名称')
-    }
-    const name = String(item.enterpriseName ?? '').trim()
-    if (!name) throw new Error('当前受托企业名称为空')
-    return name
-  }).join('\n')
-}
-
-const initializeCurrentValues = (detail: DccRegistrationCertificateDetailVO) => {
-  form.structuredValues = {
-    PRODUCT_NAME: detail.productName,
-    MODEL_SPECIFICATION: detail.modelSpecification,
-    STRUCTURE_COMPOSITION: detail.structureComposition,
-    INTENDED_USE: detail.intendedUse,
-    TECHNICAL_REQUIREMENTS: detail.technicalRequirements,
-    REGISTRANT_NAME: detail.registrantName,
-    RESIDENCE_ADDRESS: detail.residenceAddress,
-    PRODUCTION_ADDRESS: detail.productionAddress
-  }
-  form.entrustedProduction = detail.entrustedProduction
-  form.selfProduction = detail.selfProduction
-  form.entrustedEnterpriseNames = parseEntrustedEnterpriseNames(detail.entrustedEnterprisesJson)
-}
-
-const loadCurrentDetail = async () => {
-  if (!props.certificate) {
-    detailLoadError.value = '缺少当前注册证行，无法加载注册证当前信息'
-    return
-  }
-  const token = ++detailLoadToken
-  detailLoading.value = true
-  detailLoadError.value = ''
-  currentDetail.value = undefined
-  try {
-    const detail = await getRegistrationCertificateDetail(props.certificate.certificateId)
-    if (token !== detailLoadToken) return
-    if (String(detail.certificateId) !== String(props.certificate.certificateId)) {
-      throw new Error('注册证详情与当前选择不一致')
-    }
-    initializeCurrentValues(detail)
-    currentDetail.value = detail
-  } catch (error) {
-    if (token !== detailLoadToken) return
-    detailLoadError.value = resolveRegistrationCertificateUserMessage(error, '加载注册证当前信息失败')
-  } finally {
-    if (token === detailLoadToken) detailLoading.value = false
-  }
-}
-
-watch(
-  () => [props.modelValue, props.certificate?.certificateId] as const,
-  ([visible]) => {
-    if (!visible) return
-    resetForm()
-    void loadCurrentDetail()
-  },
-  { immediate: true }
-)
+import FactsFields from '../shared/FactsFields.vue'
+import { emptyFacts, parseFacts, validateFacts } from '../shared/facts'
+const props=defineProps<{modelValue:boolean;certificate?:DccRegistrationCertificatePageItemVO;requestId?:number|string}>()
+const emit=defineEmits<{'update:modelValue':[boolean];saved:[]}>()
+const visible=computed({get:()=>props.modelValue,set:(v:boolean)=>emit('update:modelValue',v)})
+const detail=ref<DccRegistrationCertificateDetailVO>(),facts=ref(emptyFacts()),loading=ref(false),saving=ref(false),error=ref('')
+const fields=[{key:'PRODUCT_NAME',prop:'productName',label:'产品中文名称'},{key:'MODEL_SPECIFICATION',prop:'modelSpecification',label:'型号规格'},{key:'STRUCTURE_COMPOSITION',prop:'structureComposition',label:'结构组成'},{key:'INTENDED_USE',prop:'intendedUse',label:'适用范围'},{key:'TECHNICAL_REQUIREMENTS',prop:'technicalRequirements',label:'产品技术要求'},{key:'REGISTRANT_NAME',prop:'registrantName',label:'注册人名称'},{key:'RESIDENCE_ADDRESS',prop:'residenceAddress',label:'住所'},{key:'PRODUCTION_ADDRESS',prop:'productionAddress',label:'生产地址'}]
+const values=reactive<Record<string,string>>({}),entrusted=ref<boolean>(),self=ref<boolean>(),enterpriseNames=ref(''),approvalDate=ref(''),other=ref(''),files=ref<UploadUserFile[]>([]),attachments=ref<UploadUserFile[]>([]),descriptions=ref<UploadUserFile[]>([])
+const retainedFiles=ref<Array<{id:number|string;fileKind:string;originalName:string;retained:boolean}>>([])
+const currentFiles=ref<Array<{fileKind:string;originalName:string}>>([])
+const fileLabels:Record<string,string>={REGISTRATION_CERTIFICATE:'注册证',CERTIFICATE_ATTACHMENT:'附件',FDA_PRODUCT_DESCRIPTION:'FDA产品描述',CHANGE_APPROVAL:'变更批件'}
+let initialFacts='',initialRelation=''
+let generation=0
+const relation=()=>JSON.stringify([entrusted.value,self.value,enterpriseNames.value.trim()])
+watch(()=>props.modelValue,async show=>{const current=++generation;if(!show)return;detail.value=undefined;error.value='';loading.value=true;currentFiles.value=[];files.value=[];attachments.value=[];descriptions.value=[];retainedFiles.value=[];approvalDate.value='';other.value='';try{
+ const source=props.requestId?await getMyRegistrationCertificateUpload(props.requestId):undefined
+ if(current!==generation)return
+ let frozen:any
+ if(source){frozen=JSON.parse(source.request.detailJson);if(source.request.status!=='REJECTED'||frozen.operation!=='CHANGE_CERTIFICATE')throw new Error('该申请不是可重提的驳回变更申请');if(!frozen.factsJson||!frozen.draft||!source.request.certificateId)throw new Error('该申请未保存完整变更内容，不能自动回填')}
+ const certificateId=source?.request.certificateId??props.certificate?.certificateId
+ if(!certificateId)throw new Error('未选择注册证')
+ const data=await getRegistrationCertificateDetail(certificateId)
+ if(current!==generation)return
+ facts.value=parseFacts(data.factsJson);initialFacts=JSON.stringify(facts.value)
+ for(const field of fields)values[field.key]=String((data as any)[field.prop]??'')
+ entrusted.value=data.entrustedProduction;self.value=data.selfProduction
+ const enterprises=JSON.parse(data.entrustedEnterprisesJson||'[]');if(!Array.isArray(enterprises))throw new Error('受托企业数据格式无效')
+ enterpriseNames.value=enterprises.map(item=>item.enterpriseName).join('\n');initialRelation=relation()
+ if(frozen){
+  facts.value=parseFacts(frozen.factsJson)
+  for(const field of fields)values[field.key]=String(frozen.draft[field.prop]??'')
+  entrusted.value=frozen.draft.entrustedProduction;self.value=frozen.draft.selfProduction
+  const names=JSON.parse(frozen.draft.entrustedEnterprisesJson);if(!Array.isArray(names))throw new Error('原申请受托企业数据无效');enterpriseNames.value=names.map(item=>item.enterpriseName).join('\n')
+  approvalDate.value=frozen.approvalDate||'';other.value=frozen.otherDescription||''
+  retainedFiles.value=source.files.map(file=>({...file,retained:true}))
+ }
+ const evidence=await getRegistrationCertificateEvidence(certificateId,data.versionId)
+ if(current!==generation)return
+ currentFiles.value=evidence.files
+ detail.value=data
+}catch(e){if(current===generation)error.value=e instanceof Error?e.message:String(e)}finally{if(current===generation)loading.value=false}})
+const submit=async()=>{error.value='';try{
+ if(!detail.value)throw new Error('当前正式信息未加载');validateFacts(facts.value)
+ if(!approvalDate.value)throw new Error('请填写变更批件批准日期');if(!files.value[0]?.raw&&!retainedFiles.value.some(f=>f.retained&&f.fileKind==='CHANGE_APPROVAL'))throw new Error('请上传变更批件文件')
+ if(facts.value.certificateType==='FDA'&&!facts.value.changeDescription?.trim())throw new Error('FDA变更必须填写变更描述')
+ const data=new FormData(),changes:Record<string,string>={}
+ if(initialFacts!==JSON.stringify(facts.value))changes.CERTIFICATE_INFORMATION=JSON.stringify(facts.value)
+ for(const field of fields)if(values[field.key]!==String((detail.value as any)[field.prop]??'')){if(!values[field.key].trim())throw new Error(`${field.label}变更值不能为空`);changes[field.key]=values[field.key].trim()}
+ if(facts.value.certificateType!=='FDA'&&relation()!==initialRelation){if(entrusted.value===undefined||self.value===undefined||(!entrusted.value&&!self.value))throw new Error('生产选项不可同时为否');const names=enterpriseNames.value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);if(entrusted.value&&!names.length)throw new Error('请填写受托企业');changes.PRODUCTION_RELATION='生产关系';data.append('entrustedProduction',String(entrusted.value));data.append('selfProduction',String(self.value));data.append('entrustedEnterprisesJson',JSON.stringify(entrusted.value?names.map(enterpriseName=>({enterpriseName})):[]))}
+ const hasSupportingFiles=attachments.value.length||descriptions.value.length||retainedFiles.value.some(f=>f.retained&&['CERTIFICATE_ATTACHMENT','FDA_PRODUCT_DESCRIPTION'].includes(f.fileKind))
+ if(!Object.keys(changes).length&&!other.value.trim()&&!hasSupportingFiles)throw new Error('请至少修改一项内容')
+ // Address and production relation have separate audit entries.
+ if(changes.PRODUCTION_ADDRESS&&!changes.PRODUCTION_RELATION){data.append('entrustedProduction',String(entrusted.value));data.append('selfProduction',String(self.value));data.append('entrustedEnterprisesJson',JSON.stringify(entrusted.value?enterpriseNames.value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean).map(enterpriseName=>({enterpriseName})):[]))}
+ if(!Object.keys(changes).length&&hasSupportingFiles){changes.CERTIFICATE_INFORMATION=JSON.stringify(facts.value)}
+ for(const [key,value]of Object.entries(changes)){data.append('changeTypes',key);data.append(`structuredValues[${key}]`,value)}
+ if(other.value.trim()){data.append('changeTypes','OTHER_CONTENT');data.append('otherDescription',other.value.trim())}
+ data.append('expectedRowVersion',String(detail.value.rowVersion));data.append('approvalDate',approvalDate.value);if(files.value[0]?.raw)data.append('file',files.value[0].raw)
+ if(props.requestId){data.append('sourceRequestId',String(props.requestId));retainedFiles.value.filter(f=>f.retained).forEach(f=>data.append('retainedFileIds',String(f.id)))}
+ for(const [key,list]of [['attachments',attachments.value],['productDescriptionFiles',descriptions.value]] as const)for(const file of list){if(!file.raw)throw new Error('文件内容丢失，请重新选择');data.append(key,file.raw)}
+ saving.value=true;await submitRegistrationCertificateChange(detail.value.certificateId,data,`DCC-REG-CERT-CHANGE-${generateUUID()}`);useMessage().success('变更已提交审核');visible.value=false;emit('saved')
+}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{saving.value=false}}
 </script>
-
-<style lang="scss">
-.registration-certificate-change-dialog.el-dialog { max-width: calc(100vw - 24px); }
-.registration-certificate-change-dialog .el-dialog__body { max-height: calc(100vh - 180px); overflow-y: auto; padding: 24px 32px !important; }
-.registration-certificate-change-dialog__form .el-row { row-gap: 4px; }
-.registration-certificate-change-dialog__form .el-form-item { margin-bottom: 20px; }
-.registration-certificate-change-dialog__form .el-form-item__label { height: auto; padding-right: 12px; margin-bottom: 0; color: #263247; font-weight: 600; line-height: 32px; white-space: nowrap; }
-.registration-certificate-change-dialog__form .el-input, .registration-certificate-change-dialog__form .el-select, .registration-certificate-change-dialog__form .el-date-editor { width: 100%; }
-@media (max-width: 720px) { .registration-certificate-change-dialog .el-dialog__body { padding: 20px 16px !important; } .registration-certificate-change-dialog__form .el-form-item__label { width: 100% !important; justify-content: flex-start; padding-right: 0; margin-bottom: 8px; line-height: 20px; } .registration-certificate-change-dialog__form .el-form-item__content { margin-left: 0 !important; } }
-</style>

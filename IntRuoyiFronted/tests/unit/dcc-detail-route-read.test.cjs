@@ -20,7 +20,7 @@ function host() {
     approvalTodoTask:vue.ref(),approvalTaskList:vue.ref([]),stageProgressList:vue.ref([]),approvalLoading:vue.ref(false),
     dccSignatureEvidenceList:vue.ref([]),dccSignatureEvidenceTotal:vue.ref(0),dccSignatureEvidenceLoading:vue.ref(false),dccSignatureEvidenceError:vue.ref(''),
     controlledPrintRecords:vue.ref([]),controlledPrintRecordsLoading:vue.ref(false),controlledPrintRecordsError:vue.ref(''),
-    checkPermi:()=>true,distributionReadMode:vue.ref(false),viewerMode:vue.ref(false),showLifecycleTraceSections:vue.ref(true),
+    checkPermi:()=>true,distributionReadMode:vue.ref(false),viewerMode:vue.ref(false),showLifecycleTraceSections:vue.ref(true),isApprovalUploadHandlingPage:vue.ref(false),
     categories:vue.ref([]),directories:vue.ref([]),activeApprovalPrintTemplate:vue.ref(null),categoryNameMap:vue.ref(),directoryNameMap:vue.ref(),directoryPathMap:vue.ref(),userNameMap:vue.ref(),departmentList:vue.ref([]),deptNameMap:vue.ref(),
     getControlledFile:async id=>{reads.push(['file',id]);return{id}},getFileCategoryList:async()=>[],getDirectoryTree:async()=>[],getSimpleUserList:async()=>[],getSimpleDeptList:async()=>[],
     getPaperDistributionRecords:async id=>{reads.push(['paper',id]);return[]},getActiveApprovalPrintTemplate:async()=>null,
@@ -53,6 +53,39 @@ test('actual direct loaders reject a non-detail scope before any API and valid s
   assert.deepEqual(h.reads.filter(r=>r[0]==='file'),[['file','10'],['file','10']]);assert.equal(h.c.fileDetail.value.id,'10')
   h.setRoute('/dcc/controlled-file/detail/11','11','?from=approval-center');await h.reload()
   assert.equal(h.c.fileDetail.value.id,'11');assert.equal(h.reads.filter(r=>r[0]==='tasks').length,3)
+})
+
+test('approval detail uses its submitted directory path without requesting the unrelated global tree',async()=>{
+  const h=host();h.c.isApprovalUploadHandlingPage.value=true;h.c.showLifecycleTraceSections.value=false
+  h.c.getControlledFile=async id=>({id,directoryPath:'本次申请/提交目录'})
+  h.c.getDirectoryTree=()=>{throw new Error('审批页不应读取全局目录树')}
+  await h.reload()
+  assert.equal(h.c.fileDetail.value.directoryPath,'本次申请/提交目录')
+  assert.equal(h.reads.filter(r=>r[0]==='tasks').length,1)
+  assert.deepEqual(h.messages,[])
+})
+
+test('ordinary detail still loads the global tree and exposes a real directory load failure',async()=>{
+  const h=host();let calls=0
+  h.c.getDirectoryTree=async()=>{calls++;throw new Error('目录读取失败')}
+  await h.reload()
+  assert.equal(calls,1);assert.equal(h.c.fileDetail.value,undefined)
+  assert.equal(h.messages[0],'目录读取失败')
+})
+
+test('document control still reads the category scoped directory and propagates its real error',async()=>{
+  const calls=[],c={exports:{},fileDetail:vue.ref({categoryId:198,directoryId:65}),
+    docControlDirectoryTreeLoading:vue.ref(false),docControlDirectoryTreeOptions:vue.ref([]),fourthNodeUpload:{},
+    hasLeafUploadDirectory:(nodes,id)=>nodes.some(node=>node.id===id&&node.leaf),
+    getControlledFileUploadDirectoryTree:async id=>{calls.push(id);return{children:[{id:65,leaf:true}]}}}
+  const declaration=ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>d.name.text==='loadDocControlDirectoryTree'))
+  vm.runInNewContext(ts.transpileModule(declaration.getText(ast)+'\nexports.load=loadDocControlDirectoryTree',{
+    compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
+  await c.exports.load()
+  assert.deepEqual(calls,[198]);assert.equal(c.fourthNodeUpload.confirmedDirectoryId,65)
+  c.getControlledFileUploadDirectoryTree=async()=>{throw new Error('类别目录读取失败')}
+  await assert.rejects(c.exports.load(),/类别目录读取失败/)
+  assert.equal(c.docControlDirectoryTreeLoading.value,false)
 })
 test('late old failure after leaving detail cannot read blank access explanation or notify the new page',async()=>{
   const h=host(),p=deferred();h.c.getControlledFile=id=>{h.reads.push(['file',id]);return id==='10'?p.promise:Promise.resolve({id})}

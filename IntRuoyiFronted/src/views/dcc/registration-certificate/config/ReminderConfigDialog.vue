@@ -1,5 +1,12 @@
 <template>
   <Dialog v-model="dialogVisible" title="通知设置" width="640px">
+    <el-alert
+      v-if="loaded && recipientsUnconfigured"
+      title="通知接收人尚未配置，请按实际职责选择接收人后保存。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
     <el-form
       ref="formRef"
       v-loading="loading"
@@ -67,6 +74,7 @@ import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 type ThresholdKey = keyof RegistrationCertificateThresholdRecipientUserIds
 
 const thresholds: Array<{ key: ThresholdKey; label: string }> = [
+  { key: 'CHANGE_CONFIRMATION', label: '变更生效确认人员' },
   { key: 'T_30', label: '到期前 30 个月' },
   { key: 'T_8', label: '到期前 8 个月' },
   { key: 'T_2', label: '到期前 2 个月' },
@@ -87,6 +95,11 @@ const formData = reactive({
   rowVersion: 0,
   thresholdRecipientUserIds: createEmptyRecipients()
 })
+const recipientsUnconfigured = computed(() =>
+  ['T_30', 'T_8', 'T_2', 'T_1'].every((key) =>
+    formData.thresholdRecipientUserIds[key as ThresholdKey]?.length === 0
+  )
+)
 const formRules: FormRules = Object.fromEntries(
   thresholds.map(({ key }) => [
     `thresholdRecipientUserIds.${key}`,
@@ -114,7 +127,9 @@ const open = async () => {
     formData.rowVersion = config.rowVersion
     for (const { key } of thresholds) {
       formData.thresholdRecipientUserIds[key] = normalizeUserIds(
-        config.thresholdRecipientUserIds[key] || []
+        key === 'CHANGE_CONFIRMATION' && config.thresholdRecipientUserIds[key] === undefined
+          ? []
+          : config.thresholdRecipientUserIds[key]
       )
     }
     loaded.value = true
@@ -148,7 +163,8 @@ const submit = async () => {
         T_30: normalizeUserIds(formData.thresholdRecipientUserIds.T_30),
         T_8: normalizeUserIds(formData.thresholdRecipientUserIds.T_8),
         T_2: normalizeUserIds(formData.thresholdRecipientUserIds.T_2),
-        T_1: normalizeUserIds(formData.thresholdRecipientUserIds.T_1)
+        T_1: normalizeUserIds(formData.thresholdRecipientUserIds.T_1),
+        CHANGE_CONFIRMATION: normalizeUserIds(formData.thresholdRecipientUserIds.CHANGE_CONFIRMATION)
       }
     })
     formData.rowVersion = updated.rowVersion
@@ -172,12 +188,12 @@ const handleRecipientChange = (users: UserVO | UserVO[] | undefined) => {
 
 const removeRecipient = (threshold: ThresholdKey, userId: number) => {
   const normalizedUserId = normalizeUserId(userId)
-  formData.thresholdRecipientUserIds[threshold] = formData.thresholdRecipientUserIds[threshold]
+  formData.thresholdRecipientUserIds[threshold] = (formData.thresholdRecipientUserIds[threshold] || [])
     .filter((currentUserId) => normalizeUserId(currentUserId) !== normalizedUserId)
 }
 
 function createEmptyRecipients(): RegistrationCertificateThresholdRecipientUserIds {
-  return { T_30: [], T_8: [], T_2: [], T_1: [] }
+  return { T_30: [], T_8: [], T_2: [], T_1: [], CHANGE_CONFIRMATION: [] }
 }
 
 function formatUserLabel(user: UserVO) {

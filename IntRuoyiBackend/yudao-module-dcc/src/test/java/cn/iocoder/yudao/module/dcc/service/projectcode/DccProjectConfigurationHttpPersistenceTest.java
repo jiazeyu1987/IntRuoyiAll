@@ -60,6 +60,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(scripts = "/sql/dcc_b_gxp_audit_clean.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class DccProjectConfigurationHttpPersistenceTest extends BaseDbUnitTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductActorSupport projectActors;

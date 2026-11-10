@@ -206,6 +206,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     void metadataEntryDoesNotGrantTheOriginalBinaryAndQueriesDoNotCreateWork() {
         var file=files.selectById(20L);
         var guard=new DccControlledFileDetailAuthorizationGuard();
+        org.springframework.test.util.ReflectionTestUtils.setField(guard, "projectReferenceReadAccess", org.mockito.Mockito.mock(DccProjectReferenceReadAccess.class));
         wire(guard,"assignmentScopeService",scope,"offlineTraining",training,"bpmTaskService",tasks);
         assertTrue(guard.isAllowed(99L,file,false,null));
         var query=new DccControlledFileQueryServiceImpl();

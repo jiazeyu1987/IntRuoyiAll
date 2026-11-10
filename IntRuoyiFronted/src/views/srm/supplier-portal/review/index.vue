@@ -180,7 +180,7 @@ const auditForm = reactive<SrmSupplierPortalApplicationAuditReqVO>({
 const auditRules = computed<FormRules>(() => ({
   auditRemark:
     auditMode.value === 'reject'
-      ? [{ required: true, message: '请输入驳回原因', trigger: 'blur' }]
+      ? [{ required: true, whitespace: true, message: '请输入驳回原因', trigger: 'blur' }]
       : []
 }))
 

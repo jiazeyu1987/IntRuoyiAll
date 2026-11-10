@@ -1,12 +1,20 @@
 # 本地开发审计策略
 
-`yudao.gxp-audit.local-development-policy` 默认关闭。显式开启后，仅允许单独的 `local` Spring profile，且主、从 MySQL 数据源必须使用 `localhost`、`127.0.0.1`、`127.0.0.2` 或 `[::1]`。非本地 profile（包括与 `local` 混用）及远端数据库会导致启动失败。
+`yudao.gxp-audit.local-development-policy` 默认关闭。显式开启后，仅允许单独的 `local` 或单独的 `dcc-local-development` Spring profile，且主、从 MySQL 数据源必须使用 `localhost`、`127.0.0.1`、`127.0.0.2` 或 `[::1]`。其他 profile、多个 profile 混用及远端数据库会导致启动失败。
 
 本机启动脚本启用方式：
 
 ```powershell
 & .\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend -WorktreeName int_main -LocalDevelopmentAuditPolicy
 ```
+
+分支启动入口同样支持显式开关；DCC 本地配置可使用：
+
+```powershell
+& .\scripts\runtime\start-branch-backend.ps1 -SpringProfile dcc-local-development -LocalDevelopmentAuditPolicy
+```
+
+重启现有 DCC 服务时仍须保留其连接配置和任务专用的 `ExtraArgs`。
 
 直接启动时可传入 `--yudao.gxp-audit.local-development-policy=true`，或在 `local` 配置下设置环境变量 `INTRUOYI_LOCAL_DEVELOPMENT_AUDIT_POLICY=true`。脚本每次显式传入开关值；不带参数即关闭，不依赖上次启动状态。
 

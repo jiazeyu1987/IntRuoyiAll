@@ -23,6 +23,7 @@ import static org.mockito.Mockito.*;
 
 /** 验证共同基线既有人员逻辑后的真实失败/重试，不把admin认定为待定需求最终人员。 */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class, DccProjectProductCreateWriteService.class,
+        DccProjectReviewerRoleService.class,
         cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
         DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class, DccProjectProductCreateFailureService.class,
@@ -31,6 +32,8 @@ import static org.mockito.Mockito.*;
 @org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
 @org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -41,6 +44,8 @@ class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
     }
 
     @Resource private DccProjectProductCreateServiceImpl service;
+    @Resource private DccProjectProductAuditService productAudit;
+    @Resource private DccProjectProductIdentityClaimMapper claims;
     @Resource private DccFolderTemplateService templates;
     @Resource private DccProjectProductCreateRequestMapper requests;
     @Resource private DccProjectCodeMapper projects;
@@ -52,6 +57,7 @@ class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
     @MockitoBean private DccProjectAccessService access;
     @MockitoBean private GxpAuditService audit;
     @Test void writeFailureCanRetryWithoutPartialAssetsOrStaleActiveError() {
+        when(projectActors.canUpdate(1L)).thenReturn(true);
         when(projectActors.isApprover(1L)).thenReturn(true); // This test exercises asset rollback/retry, not actor lookup.
         var leader = new AdminUserRespDTO(); leader.setId(7L); leader.setStatus(0); leader.setNickname("正式负责人");
         var existingReviewer = new AdminUserRespDTO(); existingReviewer.setId(1L); existingReviewer.setStatus(0); existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
@@ -63,7 +69,7 @@ class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
         input.setProjectName("重试项目"); input.setProjectCode("RETRY-B"); input.setProjectLeaderUserId(7L);
         input.setFolderTemplateId(templateId); input.setDefaultAttributes(new DccProjectAttributes(List.of("CE"), null, "Y", "N", "N", null));
         input.setProductCode("PR-RETRY-B"); input.setProductName("重试产品"); input.setClassification("一类");input.setCreationReason("正式新建申请原因");
-        Long requestId = service.createRequest(9L, input);
+        Long requestId = DccProjectProductRegressionFixture.historical(reviewerDataSource,templates,requests,claims,productAudit,input);
         service.review(1L, requestId, "共同基线审核测试", true);
         doThrow(new IllegalStateException("真实目录写入失败")).when(folders).insert(any(DccProjectFolderDO.class));
         assertThrows(RuntimeException.class, () -> service.approve(1L, requestId, "共同基线批准测试", true));

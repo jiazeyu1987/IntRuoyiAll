@@ -150,7 +150,7 @@ test('actual viewer navigation preserves the exact body context while from is on
   assert.equal(locations.length, 1)
 })
 
-test('actual browser preview selects AUTHORING only for its exact dedicated working identity', () => {
+test('actual browser preview selects AUTHORING for a dedicated unsent working body', () => {
   const script = parse(read('src/views/dcc/controlled-file/browser/index.vue')).descriptor.scriptSetup.content
   const ast = ts.createSourceFile('browser.ts', script, ts.ScriptTarget.Latest, true)
   const declaration = ast.statements.find(statement => ts.isVariableStatement(statement)
@@ -159,7 +159,7 @@ test('actual browser preview selects AUTHORING only for its exact dedicated work
   for (const dedicated of [false, true]) {
     const calls = []
     const h = helper(), presentation = load('src/views/dcc/controlled-file/view/presentation.ts')
-    const host = { exports: {}, ...h, ...presentation, route: { query: dedicated ? { workingFileId: FILE, workingMasterId: '700' } : {} },
+    const host = { exports: {}, ...h, ...presentation, browserMode: { value: 'working' }, route: { query: dedicated ? { workingFileId: FILE, workingMasterId: '700' } : {} },
       workingBrowserIdentityQuery: query => query, buildBrowserReturnPath: () => '/dcc/controlled-file/browser',
       window: { open: (url, target) => { calls.push({ url, target }); return {} } }, message: { error: message => { throw new Error(message) } } }
     vm.runInNewContext(ts.transpileModule(declaration.getText(ast) + '\nexports.open=openPreview', {

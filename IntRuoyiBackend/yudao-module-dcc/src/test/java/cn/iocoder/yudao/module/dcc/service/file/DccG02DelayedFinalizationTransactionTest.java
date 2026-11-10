@@ -135,6 +135,23 @@ public class DccG02DelayedFinalizationTransactionTest {
         assertEquals("CONTROLLED_PENDING_EFFECTIVE",file.getStatus());assertEquals(10L,f.masters.selectById(3L).getCurrentActiveControlledFileId());
         var before=chain.rows();var replay=chain.confirm();assertEquals(response.getSignatureId(),replay.getSignatureId());assertEquals(before,chain.rows());
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})
+    void optionalApprovalOpinionCompletesRealDelayedSigningAuditBpmAndOfficialEnd(String reason) throws Exception {
+        var chain=new PublicCommandChain();chain.request.setReason(reason);var response=chain.confirm();
+        var unified=chain.unifiedRows.selectList().get(0);var signature=f.signatures.selectById(response.getSignatureId());
+        assertEquals("",unified.getReason());assertEquals("",signature.getComment());
+        assertEquals("VALID",chain.unifiedVerifier.verifyEvidence(unified.getId()).verificationStatus());
+        assertEquals("VALID",f.verifier.verifySignatureEvidence(signature.getId()).getVerificationStatus());
+        assertEquals("CONTROLLED_PENDING_EFFECTIVE",f.files.selectById(20L).getStatus());
+        assertEquals(1,chain.auditCount("dcc.controlled-file.delayed-effective-confirm"));
+        assertEquals("",f.jdbc.queryForObject("SELECT reason FROM gxp_audit_event WHERE operation_id='dcc.controlled-file.delayed-effective-confirm'",String.class));
+        var audit=f.jdbc.queryForObject("SELECT after_state_json FROM gxp_audit_event WHERE operation_id='dcc.controlled-file.delayed-effective-confirm'",String.class);
+        assertEquals("APPROVE",cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(audit,Map.class).get("approvalResult"));
+        assertNotNull(f.engine.getHistoryService().createHistoricTaskInstanceQuery().taskId(f.confirmTaskId).singleResult().getEndTime());
+        var before=chain.rows();assertEquals(response.getSignatureId(),chain.confirm().getSignatureId());assertEquals(before,chain.rows());
+    }
 
     @Test void publicCommandLateRealGxpAppendFailureRollsBackUnifiedDccCasAndEngineThenRetries() throws Exception {
         var chain=new PublicCommandChain();var before=chain.rows();
@@ -234,20 +251,34 @@ public class DccG02DelayedFinalizationTransactionTest {
             for(var mapper:List.of(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class,
                     cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class,
                     cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class,
+                    cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class,
+                    cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMapper.class,
+                    cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class,
                     cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class)) config.addMapper(mapper);
             unifiedRows=f.mapperSessions.getMapper(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
             var ledger=new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
             wire(ledger,"auditEventMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class),
                     "ledgerSequenceMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class),
-                    "policyOperationMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class),"adminUserApi",accounts);
+                    "policyOperationMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class),
+                    "policyActivationMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class),
+                    "eventRelationMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMapper.class),
+                    "adminUserMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class));
+            var watermark=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();watermark.setTenantId(1L);watermark.setNextLedgerSequence(1L);
+            f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class).insert(watermark);
+            var activation=new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();activation.setTenantId(1L);activation.setPolicyVersion("G02-PUBLIC");activation.setPolicyHash("a".repeat(64));activation.setPreviousActivationHash("0".repeat(64));activation.setRequestId("g02-isolated-policy");activation.setActorId(99L);activation.setApprovalReference("isolated-test");activation.setActivatedAtUtc(java.time.LocalDateTime.now());activation.setEffectiveAfterSequence(0L);activation.setCanonicalActivationJson("{}");activation.setActivationHash("b".repeat(64));
+            f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class).insert(activation);
             for(String op:List.of("signature.record.create","dcc.controlled-file.delayed-effective-confirm","dcc.controlled-file.control","dcc.controlled-file.activate","dcc.controlled-file.auto-obsolete")) {
-                f.jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'G02-PUBLIC',?,'SERVICE_METHOD','G02 actual composition','DCC','DCC_CONTROLLED_FILE','UPDATE','REQUIRED',?,'PRESENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','G02-public','G02','GXP',TRUE)",op,op.equals("signature.record.create")||op.endsWith("confirm")?"REQUIRED":"NOT_REQUIRED");
+                f.jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'G02-PUBLIC',?,'SERVICE_METHOD','G02 actual composition','DCC','DCC_CONTROLLED_FILE','UPDATE',?,?,'PRESENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','G02-public','G02','GXP',TRUE)",op,op.equals("signature.record.create")||op.endsWith("confirm")?"APPROVAL_DECISION":"REQUIRED",op.equals("signature.record.create")||op.endsWith("confirm")?"REQUIRED":"NOT_REQUIRED");
             }
+            f.jdbc.update("UPDATE gxp_audit_policy_operation SET domain='SIGNATURE',subject_type='SIGNATURE_RECORD',action_type='CREATE',source_locator='ElectronicSignatureServiceImpl.sign' WHERE operation_id='signature.record.create'");
             var audit=new DccWorkflowFileStateAudit();wire(audit,"jdbcTemplate",f.jdbc,"auditService",ledger);wire(f.lifecycle,"fileStateAudit",audit);
             var adapter=new DccControlledFileSignatureSubjectAdapter();wire(adapter,"signatureEvidenceService",f.signer);
             var unified=new cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl();
             wire(unified,"signatureRecordMapper",unifiedRows,"adminUserApi",accounts,"gxpAuditService",ledger,"subjectAdapters",List.of(adapter));
             wire(unifiedVerifier,"signatureRecordMapper",unifiedRows);
+            var creationVerification=new cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService();
+            wire(creationVerification,"auditEventMapper",f.mapperSessions.getMapper(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class));
+            wire(unifiedVerifier,"signatureCreationVerificationService",creationVerification);
             var producer=new DccSignatureVerificationServiceImpl();
             var users=mock(cn.iocoder.yudao.module.system.service.user.AdminUserService.class);
             when(users.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO().setId(99L).setUsername("g02-compiler").setNickname("G02 Compiler").setDeptId(7L).setPostIds(Set.of(9L)));
@@ -288,6 +319,8 @@ public class DccG02DelayedFinalizationTransactionTest {
             String gxp=Files.readString(root.resolve("IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/dcc_b_gxp_audit_tables.sql"));
             // Flowable uses its explicit H2 LEGACY dialect; table comments are metadata, not constraints.
             for(String sql:gxp.split(";"))if(!sql.isBlank())f.jdbc.execute(sql.replaceAll("\\) COMMENT '[^']*'", ")"));
+            f.jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id BIGINT PRIMARY KEY,tenant_id BIGINT,username VARCHAR(64),nickname VARCHAR(64),status INT,deleted BIT DEFAULT FALSE)");
+            f.jdbc.update("INSERT INTO system_users(id,tenant_id,username,nickname,status,deleted) VALUES(99,1,'g02-compiler','G02 Compiler',0,FALSE)");
             String officialGxp=Files.readString(root.resolve("IntRuoyiBackend/sql/mysql/20260908_gxp_audit_trail_core.sql"));
             assertTrue(officialGxp.contains("`subject_id` varchar(2048)"));assertTrue(officialGxp.contains("`idempotency_key` varchar(512)"));
             // The reused historical test resource has smaller capacities than the formal core DDL.

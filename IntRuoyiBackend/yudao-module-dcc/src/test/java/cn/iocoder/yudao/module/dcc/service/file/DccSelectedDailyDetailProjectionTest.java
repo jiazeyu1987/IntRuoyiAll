@@ -141,6 +141,38 @@ class DccSelectedDailyDetailProjectionTest {
         assertTrue(result.getCanPreview());assertTrue(result.getActionProjection().getAllowedActions().contains("PREVIEW"));
         assertTrue(workingOption(result).getCanPreview(),"non-DAILY must not inherit daily option filtering");
     }
+    @Test void delayedDetailUsesAuthorizedSourceWithoutPassingRootContextToHistory() {
+        active.setStatus("PENDING_DELAYED_EFFECTIVE_CONFIRM");active.setProcessInstanceId("f01-round");
+        bindRound(true);
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                ACTIVE.toString(),"A/1","UPLOAD","f01-round","f01-task");
+        var result=reader.read(ACTOR,ACTIVE,context);
+        assertTrue(result.getCanPreview());assertNull(result.getPreviewUnavailableReason());
+        assertEquals("application/pdf",result.getContentType());
+        assertEquals(WORKING,workingOption(result).getId());
+        assertTrue(workingOption(result).getCanPreview());
+        assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"bodyReadContext")).get());
+        assertTrue(query.getControlledFile(ACTOR,ACTIVE).getPreviewUnavailableReason().contains("本轮审批任务"));
+        FileMapper binaries=port(query,"fileMapper");when(binaries.selectById(501L)).thenReturn(null);
+        var missing=reader.read(ACTOR,ACTIVE,context);
+        assertFalse(missing.getCanPreview());assertTrue(missing.getPreviewUnavailableReason().contains("不存在"));
+    }
+    @Test void rejectedHandledTaskCanReadWithoutOrdinaryDetailGrantAndCannotBorrowAnotherVersion() {
+        active.setStatus("REJECTED");active.setRequesterId(123L);active.setSubmitterId(123L);
+        DccDirectoryAccessPermissionService directories=port(query,"directoryAccessPermissionService");
+        when(directories.getAuthorizedDirectoryIds(ACTOR,DccAccessTypeEnum.QUERY)).thenReturn(Set.of());
+        when(directories.getAuthorizedDirectoryIds(ACTOR,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        bindRound(false);
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                ACTIVE.toString(),"A/1","UPLOAD","f01-round","f01-task");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getControlledFile(ACTOR,ACTIVE));
+        var result=reader.read(ACTOR,ACTIVE,context);
+        assertEquals("F01",result.getTitle());assertTrue(result.getCanPreview());
+        assertThrows(IllegalArgumentException.class,()->reader.read(ACTOR,WORKING,context));
+        BpmTaskService tasks=port(query,"bpmTaskService");
+        when(tasks.getHistoricTask("f01-task").getAssignee()).thenReturn("123");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->reader.read(ACTOR,ACTIVE,context));
+    }
     private void bindRound(boolean activeTask){
         BpmProcessInstanceService processes=port(query,"bpmProcessInstanceService");
         var history=mock(org.flowable.engine.history.HistoricProcessInstance.class);

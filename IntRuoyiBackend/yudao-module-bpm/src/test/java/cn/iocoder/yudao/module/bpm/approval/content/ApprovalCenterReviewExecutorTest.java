@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.bpm.approval.service.signature.*;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewPrepareDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.approval.BpmApprovalReviewReceiptMapper;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
+import cn.iocoder.yudao.module.signature.api.dto.AuthenticatedSignatureRequest;
 import cn.iocoder.yudao.module.signature.service.*;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi;
@@ -19,6 +20,9 @@ import org.apache.ibatis.session.Configuration;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.*;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,6 +36,40 @@ import static org.mockito.ArgumentMatchers.*;
 /** Actual center executor and receipt MyBatis statements in isolated H2 physical transactions.
  * Signature, identity, image and domain systems are explicit boundary doubles, not crypto evidence. */
 class ApprovalCenterReviewExecutorTest {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n", "\u2003", "\u00a0\u202f\u2007", "\uFEFF", "\000"})
+    void blankApprovalPersistsEmptyOpinionWithSignatureAndReceipt(String reason) throws Exception {
+        var f = new Fixture(null);
+        f.command.setReason(reason);
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var result = f.tx.execute(s -> f.executor.execute(4L, f.command, f.signer, "c".repeat(64)));
+            var row = f.mapper.selectExact(1L, f.command.getIdempotencyKey());
+            assertNotNull(result);
+            assertEquals("", row.getReason());
+            assertEquals(500L, row.getCenterSignatureId());
+            assertEquals(ApprovalCenterReceiptService.recordHash(row), row.getReceiptRecordHash());
+            assertEquals(List.of("SIGNATURE", "DOMAIN", "IMAGE", "AUDIT"),
+                    f.jdbc.queryForList("SELECT stage FROM committed_effect ORDER BY ordinal", String.class));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n", "\u2003", "\u00a0\u202f\u2007", "\uFEFF", "\000"})
+    void blankRejectionCannotWriteEvenWhenExecutorCalledDirectly(String reason) throws Exception {
+        var f = new Fixture(null);
+        f.command.setResult(ApprovalTaskReviewResult.REJECT).setReason(reason);
+        var ex = assertThrows(IllegalArgumentException.class,
+                () -> f.tx.execute(s -> f.executor.execute(4L, f.command, f.signer, "c".repeat(64))));
+        assertEquals("APPROVAL_REVIEW_REASON_REQUIRED", ex.getMessage());
+        assertEquals(0, f.jdbc.queryForObject("SELECT COUNT(*) FROM committed_effect", Integer.class));
+        assertNull(f.mapper.selectExact(1L, f.command.getIdempotencyKey()));
+    }
+
     @Test void succeedsWithSignatureDomainImageAuditThenActualReceiptInsert() throws Exception {
         var f=new Fixture(null);
         try {
@@ -120,7 +158,11 @@ class ApprovalCenterReviewExecutorTest {
             when(receipts.findVerifiedCurrent(4L,command.getIdempotencyKey())).thenAnswer(i -> mapper.selectExactCurrent(1L,command.getIdempotencyKey()));
             when(receipts.findVerified(4L,command.getIdempotencyKey())).thenAnswer(i -> {var row=mapper.selectExact(1L,command.getIdempotencyKey());assertNotNull(row);assertEquals(ApprovalCenterReceiptService.recordHash(row),row.getReceiptRecordHash());return row;});
             when(receipts.response(any())).thenAnswer(i -> cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(((cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO)i.getArgument(0)).getResponseJson(),ApprovalDecisionReceipt.class));
-            var signatures=mock(ElectronicSignatureTransactionExecutor.class);when(signatures.executeAuthenticated(any(),any())).thenAnswer(i -> {effect("SIGNATURE");return new ElectronicSignatureResult(500L,"VERIFIED",LocalDateTime.of(2026,10,10,9,0),"clock",version,hash,"b".repeat(64),"SHA-256","digest-format-v2");});
+            var signatures=mock(ElectronicSignatureTransactionExecutor.class);when(signatures.executeAuthenticated(any(),any())).thenAnswer(i -> {
+                AuthenticatedSignatureRequest request = i.getArgument(0);
+                assertEquals(command.getReason(), request.command().reason());
+                assertEquals(command.getReason(), ApprovalContentJson.parse(request.subject().canonicalContentJson()).path("reason").asText());
+                effect("SIGNATURE");return new ElectronicSignatureResult(500L,"VERIFIED",LocalDateTime.of(2026,10,10,9,0),"clock",version,hash,"b".repeat(64),"SHA-256","digest-format-v2");});
             var fact=mock(ElectronicSignatureVerifiedFactService.VerifiedSignatureFact.class);when(fact.auditEventId()).thenReturn(600L);
             var verifier=mock(ElectronicSignatureVerifiedFactService.class);when(verifier.requireVerifiedFact(500L)).thenReturn(fact);
             var images=mock(ApprovalSignatureImageSnapshotProvider.class);when(images.requireActiveSnapshotLocked(4L)).thenReturn(ApprovalSignatureImageSnapshot.builder().imageId(10L).versionNo(1).fileId(11L).fileUrl("/signature.png").sha256("a".repeat(64)).contentType("image/png").fileSize(12L).imageStatus("ACTIVE").verifiedStatus("VERIFIED").build());doAnswer(i -> {effect("IMAGE");return null;}).when(images).markReferencedLocked(4L,10L);

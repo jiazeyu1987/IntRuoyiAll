@@ -144,21 +144,9 @@ for (const dialogToken of [
 }
 
 assert.ok(
-  reviewMatrixDialog.includes('getDepartmentTreeForRule(row)') &&
-    reviewMatrixDialog.includes('resolveDepartmentCompanyRootId') &&
-    reviewMatrixDialog.includes('resolveReviewMatrixCompanyRootId') &&
-    reviewMatrixDialog.includes('resolveRuleDepartmentId') &&
-    reviewMatrixDialog.includes('getCompanyChildDepartmentTree') &&
-    !reviewMatrixDialog.includes(':data="departmentTree"'),
-  '审阅矩阵编辑器对应部门必须按规则裁剪部门树，首层从部门开始且不能继续直接绑定整棵部门树'
-)
-
-assert.ok(
-  reviewMatrixDialog.includes('findExactMatchedDepartmentIdByLabel') &&
-    reviewMatrixDialog.includes('resolveCategoryCompanyRootId') &&
-    reviewMatrixDialog.includes('uniqueCompanyRootIds') &&
-    reviewMatrixDialog.includes('return []'),
-  '审阅矩阵编辑器必须按既定优先级推断唯一公司上下文，无法唯一推断时返回空树而不是混出多家公司'
+  reviewMatrixDialog.includes('getSelectableDepartmentTree(departmentOptions.value)') &&
+    !reviewMatrixDialog.includes('resolveReviewMatrixCompanyRootId'),
+  '审阅矩阵部门候选必须来自正式部门目录，不能依赖现有规则猜测公司导致空选项'
 )
 
 for (const removedDialogToken of [

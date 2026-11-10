@@ -12,9 +12,6 @@
     <div class="protected-viewer-toolbar">
       <div>
         <div class="protected-viewer-title">{{ title || '受控文件预览' }}</div>
-        <div class="protected-viewer-subtitle">
-          当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。
-        </div>
       </div>
       <div class="protected-viewer-toolbar__actions">
         <span v-if="registeredPreviewVisible" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
@@ -425,7 +422,6 @@ import { getDocument, GlobalWorkerOptions } from './vendor/pdf.min.mjs'
 import {
   buildPreviewWatermarkBackground,
   buildPreviewWatermarkDetail,
-  drawControlledPreviewStamp,
   getPreviewWatermarkBadgeLabel,
   getProtectedViewerRenderScale,
   resolveViewerErrorMessage,
@@ -1297,7 +1293,7 @@ const renderPdfPages = async (
       page.cleanup?.()
       return
     }
-    drawControlledPreviewStamp(context, viewport, resolvedWatermark.value, outputScale)
+    // 正式受控章由文件产物承载；页面仅叠加可追溯的预览水印。
     page.cleanup?.()
   }
 }
@@ -1484,7 +1480,9 @@ watch(
 
 <style scoped>
 .protected-viewer-shell {
-  min-height: 560px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13px;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1492,8 +1490,12 @@ watch(
 .protected-viewer-reading-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
-  margin-bottom: 12px;
+  gap: 6px 16px;
+  padding: 8px 12px;
+  border: 1px solid #dbe3e7;
+  border-radius: 4px;
+  background: #f5faf9;
+  margin-bottom: 8px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
 }
@@ -1503,17 +1505,17 @@ watch(
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .protected-viewer-pdf-tools {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   padding: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
+  border: 1px solid #dbe3e7;
+  border-radius: 6px;
   font-size: 13px;
 }
 
@@ -1525,11 +1527,12 @@ watch(
 }
 
 .protected-viewer-pdf-tools__page {
-  width: 80px;
+  width: 64px;
+  max-width: 100%;
 }
 
 .protected-viewer-pdf-tools__query {
-  width: min(100%, 280px);
+  width: min(100%, 240px);
 }
 
 .protected-viewer-pdf-tools__error {
@@ -1544,30 +1547,29 @@ watch(
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dbe3e7;
 }
 
 .protected-viewer-toolbar__actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .protected-viewer-title {
   color: #172033;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 26px;
-}
-
-.protected-viewer-subtitle {
-  margin-top: 4px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 18px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
 }
 
 .protected-preview-badge {
@@ -1575,26 +1577,29 @@ watch(
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  border-radius: 999px;
-  background: #fff7ed;
-  border: 1px solid #fdba74;
-  color: #9a3412;
+  border-radius: 4px;
+  background: #fff5f5;
+  border: 1px solid #efcccc;
+  color: #c94848;
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .protected-preview-badge__hint {
-  color: #c2410c;
+  color: #c94848;
 }
 
 .protected-viewer-transform-controls {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 128px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
   padding: 6px;
-  border: 1px solid #dbe3ef;
+  border: 1px solid #dbe3e7;
   border-radius: 6px;
   background: #ffffff;
 }
@@ -1604,7 +1609,7 @@ watch(
   top: 0;
   z-index: 12;
   align-self: flex-end;
-  box-shadow: 0 8px 20px rgb(23 32 51 / 10%);
+  box-shadow: 0 2px 6px rgb(23 32 51 / 6%);
 }
 
 .protected-viewer-transform-controls__status {
@@ -1618,15 +1623,15 @@ watch(
 
 .protected-viewer-transform-controls__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
 }
 
 .protected-viewer-transform-controls__grid :deep(.el-button) {
   width: 100%;
   min-width: 0;
-  padding-right: 0;
-  padding-left: 0;
+  padding-right: 10px;
+  padding-left: 10px;
 }
 
 .protected-viewer-transform-controls__grid :deep(.el-button + .el-button) {
@@ -1637,12 +1642,14 @@ watch(
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   overflow: auto;
-  padding: 18px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #f4f7fb;
+  padding: 12px;
+  border: 1px solid #dbe3e7;
+  border-radius: 6px;
+  background: #f5f7f8;
 }
 
 .protected-viewer-frame--transformable {
@@ -1664,8 +1671,8 @@ watch(
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
+  border: 1px solid #dbe3e7;
+  border-radius: 6px;
   background: #fff;
   font-size: 13px;
 }
@@ -1678,11 +1685,12 @@ watch(
 }
 
 .protected-viewer-text-tools__page {
-  width: 80px;
+  width: 64px;
+  max-width: 100%;
 }
 
 .protected-viewer-text-tools__query {
-  width: min(100%, 280px);
+  width: min(100%, 240px);
 }
 
 .protected-viewer-page {
@@ -1713,12 +1721,13 @@ watch(
 .protected-viewer-page__canvas-wrap,
 .protected-viewer-image-wrap {
   overflow: visible;
-  padding: 24px;
+  padding: 12px;
 }
 
 .protected-viewer-page__canvas-viewport {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   transition: width 0.16s ease, height 0.16s ease;
@@ -1739,7 +1748,7 @@ watch(
 
 .protected-viewer-flat-viewport {
   position: relative;
-  margin: 24px auto;
+  margin: 12px auto;
 }
 
 .protected-viewer-flat-stage {
@@ -1754,14 +1763,20 @@ watch(
 .protected-viewer-video,
 .protected-viewer-audio-card {
   max-width: 100%;
-  border: 1px solid #dbe3ef;
+  border: 1px solid #dbe3e7;
   border-radius: 6px;
   background: #fff;
   box-shadow: 0 8px 24px rgb(23 32 51 / 8%);
 }
 
 .protected-viewer-canvas {
+  max-width: none;
+  flex-shrink: 0;
   transition: transform 0.16s ease;
+}
+
+.protected-viewer-page__canvas-wrap {
+  justify-content: safe center;
 }
 
 .protected-viewer-video {
@@ -1795,8 +1810,8 @@ watch(
   width: 100%;
   min-height: 420px;
   margin: 0;
-  padding: 18px;
-  border: 1px solid #dbe3ef;
+  padding: 12px;
+  border: 1px solid #dbe3e7;
   border-radius: 6px;
   background: #fff;
   box-shadow: 0 8px 24px rgb(23 32 51 / 8%);
@@ -1832,14 +1847,14 @@ watch(
   margin-left: auto;
   max-width: min(420px, calc(100% - 32px));
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(55, 65, 81, 0.58);
   border: 1px solid rgba(251, 191, 36, 0.9);
   color: #f9fafb;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
   pointer-events: none;
   z-index: 7;
   backdrop-filter: blur(6px);
@@ -1869,5 +1884,69 @@ watch(
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.92);
   word-break: break-all;
+}
+.protected-preview-registered-at {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.protected-viewer-reading-summary span:first-child {
+  color: #008f86;
+  font-weight: 600;
+}
+
+.protected-viewer-shell :deep(.el-button--small) {
+  min-height: 32px;
+  height: auto;
+}
+
+.protected-viewer-pdf-tools__row :deep(.el-button + .el-button),
+.protected-viewer-text-tools__row :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.protected-viewer-pdf-tools :deep(.el-input__wrapper),
+.protected-viewer-text-tools :deep(.el-input__wrapper) {
+  min-height: 34px;
+}
+
+@media (max-width: 700px) {
+  .protected-viewer-toolbar__actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .protected-viewer-reading-summary {
+    flex-direction: column;
+    gap: 6px;
+    overflow-wrap: anywhere;
+  }
+
+  .protected-viewer-pdf-tools__row,
+  .protected-viewer-text-tools__row {
+    overflow-wrap: anywhere;
+  }
+
+  .protected-viewer-frame {
+    padding: 8px;
+  }
+
+  .protected-viewer-transform-controls {
+    align-self: flex-start;
+  }
+
+  .protected-viewer-corner-watermark {
+    max-width: 100%;
+    padding: 8px;
+  }
+
+  .protected-viewer-corner-watermark__title {
+    flex-wrap: wrap;
+  }
+
+  .protected-viewer-reading-error :deep(.el-button) {
+    max-width: 100%;
+    white-space: normal;
+  }
 }
 </style>

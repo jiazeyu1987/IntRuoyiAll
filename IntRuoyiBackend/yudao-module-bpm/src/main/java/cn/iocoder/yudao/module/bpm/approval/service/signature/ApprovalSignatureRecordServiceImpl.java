@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.approval.service.signature;
 
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
@@ -33,12 +34,7 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
         Objects.requireNonNull(context.getModuleCode(), "APPROVAL_MODULE_REQUIRED");
         Objects.requireNonNull(context.getResult(), "APPROVAL_REVIEW_RESULT_REQUIRED");
-        String reason = context.getReason() == null ? null
-                : context.getReason().replaceAll(
-                        "^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
-        if (reason == null || reason.isEmpty()) {
-            throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_REQUIRED");
-        }
+        String reason = ApprovalReviewReason.requireValid(context.getResult(), context.getReason());
         if (context.getSourceTaskType() == null || context.getSourceTaskType().isBlank()) {
             throw new NullPointerException("APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         }

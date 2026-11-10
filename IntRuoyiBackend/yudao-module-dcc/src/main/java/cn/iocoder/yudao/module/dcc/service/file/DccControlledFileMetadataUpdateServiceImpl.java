@@ -23,7 +23,6 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCode
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeCommand;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,8 +66,6 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     @Resource
     private cn.iocoder.yudao.module.mdm.api.product.MdmProductApi mdmProductApi;
     @Resource
-    private PermissionApi permissionApi;
-    @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
     private DccProjectCodeAssignmentService projectCodeAssignmentService;
@@ -76,21 +73,21 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     private DccProjectCodeMetadataChangeAuditService metadataChangeAuditService;
     @Resource
     private DccControlledFilePendingActionGuard pendingActionGuard;
+    @Resource
+    private DccControlledFileEditPermissionSupport editPermissions;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper placementMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMetadata(Long userId, Long id, DccControlledFileMetadataUpdateReqVO reqVO) {
-        boolean docControl = hasDocControlRole(userId);
-        if (!docControl && (reqVO == null || reqVO.getAssignmentId() == null)) {
-            throw exception(CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
-        }
-        DccProjectCodeAssignmentAuthorization authorization = docControl
-                ? null
+        if (reqVO == null) throw exception(CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
+        DccProjectCodeAssignmentAuthorization authorization = reqVO.getAssignmentId() == null ? null
                 : projectCodeAssignmentService.assertMetadataUpdateAllowed(userId, id, reqVO.getAssignmentId());
         NormalizedMetadata metadata = validateAndNormalize(reqVO);
-        if (!docControl && !Objects.equals(authorization.projectCodeId(), metadata.dccProjectCodeId())) {
+        if (authorization != null && !Objects.equals(authorization.projectCodeId(), metadata.dccProjectCodeId()))
             throw exception(PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
-        }
+        editPermissions.assertEditableProjectCategory(userId, metadata.dccProjectCodeId(), metadata.categoryId());
 
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {
@@ -99,13 +96,12 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
             throw exception(CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
         }
-        if (docControl) {
-            authorization = DccProjectCodeAssignmentAuthorization.docControlDirect(
-                    file.getDccProjectCodeId() == null ? metadata.dccProjectCodeId() : file.getDccProjectCodeId());
-        }
+        editPermissions.assertEditableProjectCategory(userId, file.getDccProjectCodeId(), file.getCategoryId());
+        if (authorization == null)
+            authorization = new DccProjectCodeAssignmentAuthorization(null, file.getDccProjectCodeId(), "FILE_EDITOR_DIRECT");
         pendingActionGuard.assertNoPendingBusinessAction(file);
         validateCategory(metadata.categoryId());
-        Long selectedDirectoryId = resolveSelectedDirectoryId(metadata.categoryId(), metadata.directoryId());
+        Long selectedDirectoryId = resolveMetadataDirectory(file, metadata);
 
         DccControlledFileMasterDO master = validateMasterLink(file);
         List<DccControlledFileDO> chainFiles = controlledFileMapper.selectListByMasterId(master.getId());
@@ -159,16 +155,6 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         if(productRows!=1) throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
         metadataChangeAuditService.recordMetadataChange(new DccProjectCodeMetadataChangeCommand(
                 userId, authorization, file, afterFile, reqVO.getChangeReason()));
-    }
-
-    private boolean hasDocControlRole(Long userId) {
-        return permissionApi.hasAnyRoles(userId, DOC_CONTROL_ROLE_CODE);
-    }
-
-    private void validateDocControlRole(Long userId) {
-        if (!hasDocControlRole(userId)) {
-            throw exception(CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
-        }
     }
 
     private NormalizedMetadata validateAndNormalize(DccControlledFileMetadataUpdateReqVO reqVO) {
@@ -244,6 +230,23 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         if (!Boolean.TRUE.equals(category.getActive())) {
             throw exception(CONTROLLED_FILE_CATEGORY_DISABLED);
         }
+    }
+
+    private Long resolveMetadataDirectory(DccControlledFileDO file, NormalizedMetadata metadata) {
+        var placement = placementMapper.findFile(file.getId());
+        if (placement == null) return resolveSelectedDirectoryId(metadata.categoryId(), metadata.directoryId());
+        // Registered storage identities need a real relocation operation; metadata editing cannot move their binding.
+        if (Boolean.TRUE.equals(placement.getDeleted())
+                || !Objects.equals(placement.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(placement.getControlledFileId(), file.getId())
+                || !Objects.equals(placement.getProjectCodeId(), file.getDccProjectCodeId())
+                || !Objects.equals(placement.getStorageDirectoryId(), file.getDirectoryId())
+                || !Objects.equals(metadata.dccProjectCodeId(), file.getDccProjectCodeId())
+                || !Objects.equals(metadata.categoryId(), file.getCategoryId())
+                || !Objects.equals(metadata.fileTypeTaxonomyId(), file.getFileTypeTaxonomyId())
+                || (metadata.directoryId() != null && !Objects.equals(metadata.directoryId(), file.getDirectoryId())))
+            throw exception(CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
+        return file.getDirectoryId();
     }
 
     private Long resolveSelectedDirectoryId(Long categoryId, Long selectedDirectoryId) {

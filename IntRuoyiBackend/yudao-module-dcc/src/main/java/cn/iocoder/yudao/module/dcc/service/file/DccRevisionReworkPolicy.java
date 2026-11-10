@@ -46,14 +46,18 @@ final class DccRevisionReworkPolicy {
     static Attempt requireAttempt(DccControlledFileDO baseline,DccControlledFileDO selected,String intent,List<DccControlledFileDO> chain,DccControlledFileVersionPolicy policy) {
         String target=policy.formalTarget(baseline,intent).display();
         var allocated=chain.stream().filter(f->target.equals(f.getVersionNo())).toList();
-        var prior=predecessor(selected,chain,policy);
+        var correction=predecessor(selected,chain,policy);
         if(allocated.isEmpty()) {
-            if(prior!=null || !policy.requireStored(selected).formal().display().equals(baseline.getVersionNo()))
+            if(!policy.requireStored(selected).formal().display().equals(baseline.getVersionNo())
+                    && !correctionMatchesBaseline(baseline,selected,chain,policy))
                 throw new IllegalArgumentException("selected correction has no legal failed formal predecessor");
             return new Attempt(null,1);
         }
-        if(prior==null || !correctionMatchesBaseline(baseline,selected,chain,policy) || !intent.equals(prior.getRevisionChangeType()))
-            throw new IllegalArgumentException("formal target is allocated; select its exact failed attempt correction");
+        // A terminated attempt does not consume its target version; any authorised current body may retry it.
+        if(!policy.requireStored(selected).formal().display().equals(baseline.getVersionNo())
+                && (correction==null || !correctionMatchesBaseline(baseline,selected,chain,policy)))
+            throw new IllegalArgumentException("working body does not belong to this controlled baseline");
+        var prior=allocated.stream().max(Comparator.comparingInt(f->f.getRevisionAttemptNo()==null?1:f.getRevisionAttemptNo())).orElseThrow();
         var byId=new HashMap<Long,DccControlledFileDO>();for(var row:allocated)byId.put(row.getId(),row);
         var cursor=prior;int expected=prior.getRevisionAttemptNo()==null?1:prior.getRevisionAttemptNo();int next=Math.addExact(expected,1);
         var visited=new HashSet<Long>();

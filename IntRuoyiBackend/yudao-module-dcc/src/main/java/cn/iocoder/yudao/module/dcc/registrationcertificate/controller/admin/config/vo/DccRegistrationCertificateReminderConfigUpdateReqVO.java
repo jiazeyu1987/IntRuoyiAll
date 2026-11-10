@@ -19,7 +19,7 @@ public class DccRegistrationCertificateReminderConfigUpdateReqVO {
     @Size(min = 5, max = 5)
     private String dailyRunTime;
     @NotNull
-    @Size(min = 4, max = 4)
+    @Size(min = 5, max = 5)
     private Map<String, List<Long>> thresholdRecipientUserIds;
     @NotNull
     @Positive

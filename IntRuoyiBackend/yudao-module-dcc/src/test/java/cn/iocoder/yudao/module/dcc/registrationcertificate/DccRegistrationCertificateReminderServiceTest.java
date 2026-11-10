@@ -116,10 +116,10 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
                   (id, tenant_id, version_id, revision_no, product_name, registrant_name,
                    model_specification, structure_composition, intended_use, technical_requirements,
                    residence_address, production_address, entrusted_production, self_production,
-                   entrusted_enterprises_json, effective_at)
+                   entrusted_enterprises_json, effective_at, facts_json)
                 VALUES (?, ?, ?, 1, '产品', '注册人', '型号', '结构', '用途', '要求',
-                        '住所', '生产地址', 0, 1, '[]', CURRENT_TIMESTAMP)
-                """, snapshotId, tenantId, currentVersionId);
+                        '住所', '生产地址', 0, 1, '[]', CURRENT_TIMESTAMP, ?)
+                """, snapshotId, tenantId, currentVersionId,DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,currentVersionId));
     }
 
     private void insertSupportingDocument(Long tenantId, Long id, Long certificateId,

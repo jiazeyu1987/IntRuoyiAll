@@ -43,10 +43,13 @@ export interface ControlledFileCategoryDirectoryBindingReqVO {
 }
 
 export interface ControlledFileCategorySaveReqVO extends ControlledFileCategoryVO {
+  matrixSourceCategoryId?: number
+  approvalMatrix?: ControlledFileCategoryApprovalMatrixSaveReqVO
   directoryBinding?: ControlledFileCategoryDirectoryBindingReqVO | null
 }
 
 export type ControlledFileCategoryPermissionAction =
+  | 'EDIT'
   | 'VIEW'
   | 'UPLOAD'
   | 'DOWNLOAD'

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_RULE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,6 +65,17 @@ class DccProjectAccessServiceImplTest {
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
     }
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})
+    void initialOwnerGrantRequiresItsOwnNonblankChangeReason(String reason) {
+        var project=DccProjectCodeDO.builder().id(100L).status("ENABLE").projectLeaderUserId(99L).build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(project);
+        var failure=assertThrows(ServiceException.class,()->service.initializeApprovedProjectLeaderOwner(100L,99L,reason));
+        assertEquals(DCC_PROJECT_ACCESS_RULE_INVALID.getCode(),failure.getCode());
+        verify(accessRuleMapper,never()).insert(any(DccProjectAccessRuleDO.class));
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource
     @org.junit.jupiter.params.provider.ValueSource(ints = {1})
@@ -144,6 +156,29 @@ class DccProjectAccessServiceImplTest {
         assertEquals(100L, captor.getAllValues().get(0).getDccProjectCodeId());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"USER,OWNER,EDIT", "USER,EDIT,VIEW", "USER,VIEW,VIEW",
+            "DEPT,OWNER,VIEW", "ROLE,OWNER,EDIT", "POSITION,EDIT,VIEW"})
+    void duplicateActiveSubjectIsRejectedBeforeDeletingExistingRules(String type, String first, String second) {
+        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        ServiceException error = assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(100L,
+                List.of(saveRule(type, 99L, first), saveRule(" " + type.toLowerCase() + " ", 99L, second))));
+        assertEquals(DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE.getCode(), error.getCode());
+        verify(accessRuleMapper, never()).deleteByProjectCodeId(any(Long.class));
+        verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
+    }
+
+    @Test
+    void inactiveRulesAndDifferentSubjectTypesDoNotConflict() {
+        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        var inactive = saveRule("USER", 99L, "VIEW");
+        inactive.setActive(false);
+        var result = service.replaceProjectAccessRules(100L, List.of(
+                saveRule("USER", 99L, "OWNER"), inactive, saveRule("ROLE", 99L, "EDIT")));
+        assertEquals(3, result.size());
+        verify(accessRuleMapper, times(3)).insert(any(DccProjectAccessRuleDO.class));
+    }
+
     @Test
     void replaceProjectAccessRules_rejectsRulesWithoutActiveOwner() {
         when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
@@ -220,6 +255,79 @@ class DccProjectAccessServiceImplTest {
         when(accessRuleMapper.selectActiveRules(eq(100L), any(LocalDateTime.class)))
                 .thenReturn(List.of(rule("POSITION", 30L, "OWNER")));
         assertDoesNotThrow(() -> service.assertProjectOwner(99L, 100L));
+    }
+
+    @Test
+    void independentLibraryRoleDoesNotGrantAccessToAnotherProject() {
+        var library = DccProjectCodeDO.builder().id(200L).libraryScope("QMS").status("ENABLE").build();
+        library.setTenantId(1L);
+        when(projectCodeMapper.selectById(200L)).thenReturn(library);
+        when(permissionApi.hasAnyPermissions(99L,"dcc:library:qms:edit")).thenReturn(true);
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of());
+        org.junit.jupiter.api.Assertions.assertTrue(service.hasProjectEditorOrOwner(99L,200L));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,100L));
+    }
+
+    @Test
+    void libraryRulesCannotBeReadThroughLegacyProjectEndpointWithoutSuperAdmin() {
+        when(projectCodeMapper.selectById(200L)).thenReturn(DccProjectCodeDO.builder().id(200L).libraryScope("QMS").build());
+        try (var login = org.mockito.Mockito.mockStatic(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.class)) {
+            login.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            assertThrows(ServiceException.class, () -> service.getProjectAccessRules(200L));
+            verify(accessRuleMapper, never()).selectListByProjectCodeId(200L);
+            when(permissionApi.hasAnyRoles(99L,"super_admin")).thenReturn(true);
+            when(accessRuleMapper.selectListByProjectCodeId(200L)).thenReturn(List.of(rule("USER",99L,"VIEW")));
+            assertEquals(1,service.getProjectAccessRules(200L).size());
+        }
+    }
+
+    @Test
+    void libraryAclWritesAreRetiredEvenForSuperAdministrator() {
+        when(projectCodeMapper.selectById(200L)).thenReturn(DccProjectCodeDO.builder().id(200L).libraryScope("QMS").build());
+        assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(200L,List.of(saveRule("USER",99L,"VIEW"))));
+        assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(200L,List.of()));
+        verify(accessRuleMapper,never()).deleteByProjectCodeId(any(Long.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"QMS,dcc:library:qms:view,dcc:library:qms:edit", "GENERAL,dcc:library:general:view,dcc:library:general:edit"})
+    void libraryViewEditRevocationAndTenantBoundaries(String scope, String view, String edit) {
+        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L,view,edit)).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L,edit)).thenReturn(false);
+        var library = DccProjectCodeDO.builder().id(200L).libraryScope(scope).status("ENABLE").build();
+        library.setTenantId(1L);
+        when(projectCodeMapper.selectById(200L)).thenReturn(library);
+        var staleRule = rule("USER",99L,"EDIT"); staleRule.setDccProjectCodeId(200L);
+        when(accessRuleMapper.selectActiveReaderRules(eq(1L),any())).thenReturn(List.of(staleRule));
+        when(projectCodeMapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(library));
+        assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L,200L));
+        assertEquals(List.of(),service.listReadableProjectIds(99L));
+        when(permissionApi.hasAnyPermissions(99L,view,edit)).thenReturn(true);
+        assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L,200L));
+        assertEquals(List.of(200L),service.listReadableProjectIds(99L));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
+        when(permissionApi.hasAnyPermissions(99L,edit)).thenReturn(true);
+        org.junit.jupiter.api.Assertions.assertTrue(service.hasProjectEditorOrOwner(99L,200L));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectOwner(99L,200L));
+        when(permissionApi.hasAnyPermissions(99L,view,edit)).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L,edit)).thenReturn(false);
+        assertEquals(List.of(),service.listReadableProjectIds(99L));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
+        when(permissionApi.hasAnyPermissions(99L,edit)).thenReturn(true);
+        org.junit.jupiter.api.Assertions.assertTrue(service.hasProjectEditorOrOwner(99L,200L));
+        library.setTenantId(2L);
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
+        assertEquals(List.of(),service.listReadableProjectIds(99L));
+        library.setTenantId(1L); library.setStatus("DISABLE");
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
+        assertEquals(List.of(),service.listReadableProjectIds(99L));
+        library.setStatus("ENABLE");
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(1));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
+        assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
+        verify(accessRuleMapper,never()).selectActiveRules(eq(200L),any());
     }
 
     private static DccProjectAccessRuleDO rule(String subjectType, Long subjectId, String accessLevel) {

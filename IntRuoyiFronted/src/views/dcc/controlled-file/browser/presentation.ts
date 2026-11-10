@@ -132,6 +132,7 @@ export const getBrowserVersionSummary = (
 
 export const getBrowserRowActionState = (row: BrowserRowReadableState) => {
   const hasProjection = hasDccControlledFileActionProjection(row)
+  const obsoleteApprovalPending = row.actionProjection?.actionLockReason === 'OBSOLETE_APPROVAL_PENDING'
   return {
     canPreview: isDccControlledFileActionAllowed(row, 'PREVIEW'),
     canDownload: isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
@@ -141,6 +142,9 @@ export const getBrowserRowActionState = (row: BrowserRowReadableState) => {
       Boolean(row.canDownloadEditable) && isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
     canPrint: isDccControlledFileActionAllowed(row, 'PRINT'),
     canPublish: isDccControlledFileActionAllowed(row, 'PUBLISH'),
+    canObsolete: isDccControlledFileActionAllowed(row, 'OBSOLETE'),
+    showObsolete: obsoleteApprovalPending || isDccControlledFileActionAllowed(row, 'OBSOLETE'),
+    obsoleteApprovalPending,
     projectionMissing: !hasProjection,
     actionReadonlyReason: hasProjection
       ? resolveDccActionProjectionReadonlyReason(row, '后端动作投影未放行浏览页操作。')

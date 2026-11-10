@@ -22,7 +22,7 @@ test('route navigation cannot clean or leave while formal submit binds its ticke
 })
 test('successful unsent leave invalidates cleaned cached tickets and rotates the session',async()=>{
  const {c,calls}=setup();assert.equal(await c.exports.leave(),true)
- assert.deepEqual(calls,['cleanup','source','drawing','attachments','source-input','drawing-input','attachment-input']);assert.equal(c.uploadSessionId,'NEW')
+ assert.deepEqual(calls,['cleanup','source','attachments','source-input','attachment-input']);assert.equal(c.uploadSessionId,'NEW')
 })
 test('cleanup refusal retains the draft and prevents leaving rather than simulating success',async()=>{
  const {c,calls}=setup({cleanup:false});assert.equal(await c.exports.leave(),false);assert.deepEqual(calls,['cleanup']);assert.equal(c.uploadSessionId,'OLD')

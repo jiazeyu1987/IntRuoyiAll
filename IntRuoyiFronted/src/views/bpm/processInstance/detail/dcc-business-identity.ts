@@ -12,7 +12,8 @@ export const resolveDccTaskHandlingLocation = (
   definitionKey: string | undefined,
   todoTask?: { id?: unknown; processInstanceId?: unknown } | null
 ) => {
-  if (!todoTask || !definitionKey || !['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(definitionKey)) return null
+  if (!todoTask || !definitionKey || !['dcc-controlled-file-upload', 'dcc-controlled-file-revision',
+    'dcc-controlled-file-obsolete', 'dcc-controlled-file-obsolete-approval'].includes(definitionKey)) return null
   const fileId = resolveDccControlledFileBusinessId(instance, definitionKey)
   const bpm = instance?.id, task = todoTask.id
   if (!fileId || typeof bpm !== 'string' || !bpm || bpm !== bpm.trim() || bpm.length > 64

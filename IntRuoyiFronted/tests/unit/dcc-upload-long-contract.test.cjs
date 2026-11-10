@@ -33,6 +33,14 @@ test('unsafe numeric and overflowing identities reject before transport', () => 
   }
 })
 
+test('independently uploaded drawings submit their own session identity', () => {
+  const drawing = { ...request, drawingPdfUploadTicket: 'drawing-ticket', drawingPdfSessionId: 'drawing-session' }
+  assert.doesNotThrow(() => context.exports.validate(drawing, 'upload'))
+  for (const session of [undefined, null, '']) {
+    assert.throws(() => context.exports.validate({ ...drawing, drawingPdfSessionId: session }, 'upload'), /drawingPdfSessionId/)
+  }
+})
+
 test('explicit departments preserve full Long IDs and reject empty, duplicate or unsafe identities', () => {
   const departments = ['9223372036854775701', '9223372036854775702']
   assert.doesNotThrow(() => context.exports.validate({ ...request, selectedSignoffDepartmentIds: departments }, 'upload'))

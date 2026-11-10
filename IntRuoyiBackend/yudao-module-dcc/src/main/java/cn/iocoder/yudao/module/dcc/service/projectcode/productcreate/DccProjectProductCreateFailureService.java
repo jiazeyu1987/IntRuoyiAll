@@ -32,13 +32,13 @@ public class DccProjectProductCreateFailureService {
         }
         if (!WRITING.equals(request.getStatus())) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         String version=productAudit.attemptVersion(request.getWriteAttemptNo());
-        productAudit.validateReason(request.getWriteReason());
+        productAudit.validateDecisionReason(request.getWriteReason(),true);
         var before=productAudit.snapshot(requestId);
         request.setStatus(WRITE_FAILED);
         request.setWriteErrorCode(errorCode);
         request.setWriteErrorMessage(errorMessage);
         request.setFailedTime(LocalDateTime.now());
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "写入失败记录");
-        productAudit.append("dcc.project-product.write-failed",requestId,version,request.getWriteReason(),before);
+        productAudit.append("dcc.project-product.write-failed",requestId,version,request.getWriteReason(),before,"APPROVE");
     }
 }

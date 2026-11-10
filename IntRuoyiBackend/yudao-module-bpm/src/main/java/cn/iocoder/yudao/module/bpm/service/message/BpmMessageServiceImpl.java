@@ -91,6 +91,17 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     @Override
+    public void sendMessageWhenProcessInstanceCancel(BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO) {
+        if (!Set.of("dcc-controlled-file-upload", "dcc-controlled-file-revision", "dcc-controlled-file-obsolete")
+                .contains(java.util.Objects.toString(reqDTO.getProcessDefinitionKey(), ""))) return;
+        Map<String, Object> params = new HashMap<>();
+        params.put("processInstanceName", reqDTO.getProcessInstanceName());
+        params.put("reason", reqDTO.getReason());
+        params.put("detailUrl", getProcessInstanceDetailUrl(reqDTO.getProcessInstanceId()));
+        sendNotifyMessage(reqDTO.getStartUserId(), "dcc_controlled_file_withdrawn", params);
+    }
+
+    @Override
     public void sendMessageWhenTaskAssigned(BpmMessageSendWhenTaskCreatedReqDTO reqDTO) {
         Map<String, Object> templateParams = new HashMap<>();
         templateParams.put("processInstanceName", reqDTO.getProcessInstanceName());

@@ -33,21 +33,21 @@ public class DccProjectProductCreateStateService {
         if (!DccProjectProductCreateStatusConstants.PENDING_APPROVAL.equals(request.getStatus())) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         }
-        productAudit.validateReason(reason);
+        String normalizedReason=productAudit.validateDecisionReason(reason,approve);
         var before=productAudit.snapshot(requestId);
         request.setApproverUserId(operatorUserId);
         request.setApprovedTime(LocalDateTime.now());
         if (approve) {
-            request.setApprovalReason(required(reason));
+            request.setApprovalReason(normalizedReason);
             request.setStatus(DccProjectProductCreateStatusConstants.WRITING);
-            request.setWriteAttemptNo(1);request.setWriteReason(required(reason));request.setWriteOperatorUserId(operatorUserId);
+            request.setWriteAttemptNo(1);request.setWriteReason(normalizedReason);request.setWriteOperatorUserId(operatorUserId);
         } else {
-            request.setRejectReason(required(reason));
+            request.setRejectReason(normalizedReason);
             request.setStatus(DccProjectProductCreateStatusConstants.REJECTED);
             identityClaimMapper.deleteByRequestId(request.getId());
         }
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "批准决定");
-        productAudit.append("dcc.project-product.approve",requestId,"1",reason,before);
+        productAudit.append("dcc.project-product.approve",requestId,"1",normalizedReason,before,approve?"APPROVE":"REJECT");
         if (!approve) notifications.rejected(request, true);
         return request;
     }
@@ -66,7 +66,7 @@ public class DccProjectProductCreateStateService {
         request.setWriteReason(required(reason));request.setWriteOperatorUserId(operatorUserId);
         request.setStatus(DccProjectProductCreateStatusConstants.WRITING);
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "申请重试状态");
-        productAudit.append("dcc.project-product.retry",requestId,productAudit.attemptVersion(request.getWriteAttemptNo()),reason,before);
+        productAudit.append("dcc.project-product.retry",requestId,productAudit.attemptVersion(request.getWriteAttemptNo()),reason,before,null);
         return request;
     }
 

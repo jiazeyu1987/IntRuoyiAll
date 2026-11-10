@@ -22,6 +22,9 @@ public class DccProjectCodeDO extends TenantBaseDO {
 
     @TableId
     private Long id;
+    @Builder.Default
+    private String libraryScope = "PROJECT";
+    public boolean isLibrary() { return "QMS".equals(libraryScope) || "GENERAL".equals(libraryScope); }
     private Long productMasterId;
     private String docControlNo;
     private String projectName;

@@ -12,6 +12,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** H06: real B snapshots, Root round mappings and real File/Master persisted in isolated H2. */
 class DccProjectUnsubmittedInheritanceTest extends DccProjectFormalCombinationTest {
+    @ParameterizedTest @ValueSource(strings={"UPLOAD","REVISION"})
+    void anotherEditorCheckinInheritsExactDraftWithoutChangingItsOwner(String type) {
+        var project=project("EDITOR-CHECKIN-"+type,7L);var source=source(project.getId(),type);
+        source.setRequesterId(8L);source.setCheckedOutBy(7L);files.updateById(source);
+        var saved=tx(()->snapshots.prepareDraft(7L,project.getId(),type,source.getId(),value("CE")));
+        var target=working(project.getId(),source.getMasterId(),type,source.getId());
+        int round=tx(()->rounds.reserveDraft(project.getId(),type,target.getId()));
+        org.mockito.Mockito.when(filePermissions.hasFilePermission(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(true);
+        var copied=tx(()->inherit(project.getId(),type,source.getId(),saved.getApplicationRound(),target.getId(),round));
+        assertEquals(source.getId(),copied.getSourceApplicationId());
+        assertEquals(saved.getActualAttributesJson(),copied.getActualAttributesJson());
+        assertEquals(8L,files.selectById(source.getId()).getRequesterId());
+        assertEquals(7L,files.selectById(target.getId()).getRequesterId());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"noEdit","otherCheckout","wrongPredecessor"})
+    void anotherEditorCannotInheritAnUnownedOrUnrelatedCheckout(String badFact) {
+        String type="REVISION";var project=project("DENY-CHECKIN-"+badFact,7L);var source=source(project.getId(),type);
+        source.setRequesterId(8L);source.setCheckedOutBy("otherCheckout".equals(badFact)?8L:7L);files.updateById(source);
+        var saved=tx(()->snapshots.prepareDraft(7L,project.getId(),type,source.getId(),value("CE")));
+        var target=working(project.getId(),source.getMasterId(),type,"wrongPredecessor".equals(badFact)?null:source.getId());
+        int round=tx(()->rounds.reserveDraft(project.getId(),type,target.getId()));
+        org.mockito.Mockito.lenient().when(filePermissions.hasFilePermission(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(!"noEdit".equals(badFact));
+        assertThrows(RuntimeException.class,()->tx(()->inherit(project.getId(),type,source.getId(),saved.getApplicationRound(),target.getId(),round)));
+    }
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
     cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundService roundSpy;
     DccControlledFileDO working(Long projectId, Long masterId, String type, Long predecessor) {

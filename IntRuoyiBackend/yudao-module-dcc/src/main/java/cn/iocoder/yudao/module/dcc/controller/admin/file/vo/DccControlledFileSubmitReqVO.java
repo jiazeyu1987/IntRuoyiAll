@@ -33,17 +33,20 @@ public class DccControlledFileSubmitReqVO {
     @Schema(hidden = true)
     private String creationPayloadHash;
 
-    /** Required PDF used for online read-only browsing. */
+    /** Separate read-only uploads are rejected for new submissions. */
     private String readOnlyUploadTicket;
 
-    /** Optional editable source used only by the editable download endpoint. */
+    /** Separate editable uploads are rejected for new submissions. */
     private String editableUploadTicket;
 
+    /** Required SOURCE ticket for the single uploaded original. */
     private String originalUploadTicket;
 
     private String sourceUploadTicket;
 
     private String drawingPdfUploadTicket;
+
+    private String drawingPdfSessionId;
 
     private List<DccControlledFileAttachmentUploadTicketReqVO> attachmentUploadTickets;
 

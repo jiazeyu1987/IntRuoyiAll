@@ -3,6 +3,7 @@
     <UnifiedListTemplate
       class="dcc-project-code-list-template"
       table-key="dcc.projectCode.main"
+      column-popover-class="dcc-project-code-columns-popover"
       :query-model="queryParams"
       label-width="76px"
       :filter-definitions="projectCodeQuickFilterDefinitions"
@@ -27,8 +28,12 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
+        <el-button
+data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
           type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
+        <el-button
+data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
+          @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
       </template>
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div
@@ -513,7 +518,7 @@
     </el-table>
   </el-dialog>
 
-  <Dialog v-model="formVisible" class="scheme-d-form-control" title="项目代码维护" width="760px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control" title="项目代码维护" width="min(760px, calc(100vw - 24px))">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -820,7 +825,7 @@
             v-hasPermi="['dcc:project-code:update']"
           >
             <Icon icon="ep:user-filled" class="mr-5px" />
-            项目 OWNER/编制权限
+            项目编辑/浏览授权
           </el-button>
           <el-button
             class="scheme-d-btn scheme-d-btn--primary"
@@ -869,6 +874,12 @@
       <div class="dcc-project-code-associated-heading">
         <span>关联文档</span>
         <div class="dcc-project-code-associated-heading-actions">
+          <el-checkbox v-model="showHiddenAssociatedFolders" @change="handleHiddenAssociatedFoldersChange">
+            显示隐藏目录
+          </el-checkbox>
+          <span v-if="!showHiddenAssociatedFolders && hiddenAssociatedFileCount" class="text-12px text-gray-500">
+            已隐藏 {{ hiddenAssociatedFileCount }} 份注册证材料
+          </span>
           <span
             v-if="aiCategoryRunning"
             class="dcc-project-code-ai-category-percent"
@@ -1252,7 +1263,7 @@
   <Dialog
     v-model="projectAccessRulesVisible"
     class="scheme-d-form-control"
-    title="正式负责人/编制权限"
+    title="项目编辑/浏览授权"
     width="1080px"
     data-testid="dcc-project-code-access-rules-dialog"
   >
@@ -1262,7 +1273,7 @@
         type="warning"
         :closable="false"
         show-icon
-        title="上传、升版和编制授权只读取 dcc_project_access_rule；项目负责人文本不作为正式授权。"
+        title="普通用户分配编辑或浏览。同一授权主体只能保留一条启用规则，OWNER 已包含编辑和浏览，EDIT 已包含浏览。编辑还须具有独立的全局编辑资格及文件类型编辑授权；浏览仅用于查看内容。正式负责人 OWNER 为项目归属配置，已有记录保留。"
       />
       <div class="mb-12px flex items-center justify-between">
         <span>
@@ -1272,14 +1283,11 @@
           </template>
         </span>
         <div class="flex gap-8px">
-          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('OWNER')">
-            添加负责人
-          </el-button>
           <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('EDIT')">
-            添加编制
+            添加编辑
           </el-button>
           <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('VIEW')">
-            添加查看
+            添加浏览
           </el-button>
         </div>
       </div>
@@ -1326,7 +1334,8 @@
         </el-table-column>
         <el-table-column label="权限级别" min-width="140">
           <template #default="{ row }">
-            <el-select v-model="row.accessLevel" class="!w-full">
+            <el-select v-model="row.accessLevel" class="!w-full" :disabled="row.accessLevel === 'OWNER'">
+              <el-option v-if="row.accessLevel === 'OWNER'" label="正式负责人 OWNER" value="OWNER" />
               <el-option
                 v-for="option in projectAccessLevelOptions"
                 :key="option.value"
@@ -1493,6 +1502,7 @@ import {
   buildDccFileTypeTaxonomyStageTypeNameMap,
   buildDccFileTypeTaxonomyStageTypeOptionsMap,
   getDccFileTypeTaxonomyStageRows,
+  getDccRegistrationCertificateTaxonomyIds,
   resolveDccFileTypeTaxonomyStageName,
   resolveDccFileTypeTaxonomyStageTypeName,
   toDccFileTypeTaxonomyStageOptions
@@ -1557,9 +1567,8 @@ const projectAccessSubjectTypeOptions = [
   { label: '岗位', value: 'POSITION' }
 ]
 const projectAccessLevelOptions = [
-  { label: '负责人 OWNER', value: 'OWNER' },
-  { label: '编制 EDIT', value: 'EDIT' },
-  { label: '查看 VIEW', value: 'VIEW' }
+  { label: '编辑 EDIT', value: 'EDIT' },
+  { label: '浏览 VIEW', value: 'VIEW' }
 ]
 
 const submitProjectAccessRules = async () => {
@@ -1577,7 +1586,7 @@ const submitProjectAccessRules = async () => {
     const savedRules = await replaceProjectCodeAccessRules(projectCodeId, { rules })
     projectAccessRules.value = savedRules
     projectAccessRuleFormRows.value = savedRules.map((rule) => buildProjectAccessRuleFormRow(rule))
-    message.success('正式负责人/编制权限已保存')
+    message.success('项目编辑/浏览授权已保存')
     projectAccessRulesVisible.value = false
   } finally {
     projectAccessRulesSaving.value = false
@@ -1732,6 +1741,7 @@ const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const projectFileTemplateLoading = ref(false)
 const projectFileTemplateError = ref('')
 const associatedNavigationFiles = ref<ControlledFileVO[]>([])
+const showHiddenAssociatedFolders = ref(false)
 const associatedFilesTotal = ref(0)
 const assignmentDialogVisible = ref(false)
 const assignmentUsersLoading = ref(false)
@@ -1861,12 +1871,21 @@ const handleProjectAccessSubjectTypeChange = (row: ProjectAccessRuleFormRow) => 
 
 const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | null => {
   const rules: DccProjectAccessRuleSaveReqVO[] = []
+  const activeSubjects = new Set<string>()
   for (const row of projectAccessRuleFormRows.value) {
     const subjectId = Number(row.subjectId)
     if (!Number.isInteger(subjectId) || subjectId <= 0) {
       message.error('正式权限规则必须填写有效授权主体')
       return null
     }
+    const subjectKey = `${row.subjectType}:${subjectId}`
+    if (row.active && activeSubjects.has(subjectKey)) {
+      message.error(
+        '同一授权主体只能保留一条启用的正式权限规则，请选择一个权限级别；OWNER 已包含编辑和浏览，EDIT 已包含浏览'
+      )
+      return null
+    }
+    if (row.active) activeSubjects.add(subjectKey)
     const changeReason = row.changeReason?.trim()
     if (!changeReason) {
       message.error('正式权限规则必须填写变更原因')
@@ -2140,6 +2159,16 @@ const associatedTaxonomyStageTypeNameMap = computed(() =>
 const associatedTaxonomyStageTypeOptionsMap = computed(() =>
   buildDccFileTypeTaxonomyStageTypeOptionsMap(fileTypeTaxonomies.value)
 )
+const hiddenAssociatedTaxonomyIds = computed(() =>
+  getDccRegistrationCertificateTaxonomyIds(fileTypeTaxonomies.value)
+)
+const isAssociatedTaxonomyHidden = (taxonomyId?: number | string | null) =>
+  !showHiddenAssociatedFolders.value && hiddenAssociatedTaxonomyIds.value.has(Number(taxonomyId))
+const hiddenAssociatedFileCount = computed(() =>
+  associatedNavigationFiles.value.filter((file) =>
+    hiddenAssociatedTaxonomyIds.value.has(Number(file.fileTypeTaxonomyId))
+  ).length
+)
 const associatedAutoClassifyTargetOptions = computed(() =>
   Array.from(associatedTaxonomyStageTypeOptionsMap.value.values()).flat()
 )
@@ -2245,6 +2274,7 @@ const createAssociatedStageGroup = (stageKey: string, label = stageKey): Associa
   const associatedStageTypeOptions = associatedTaxonomyStageTypeOptionsMap.value.get(stageKey) || []
   const typeMap = new Map<string, AssociatedTypeGroup>()
   for (const option of associatedStageTypeOptions) {
+    if (isAssociatedTaxonomyHidden(option.taxonomyId)) continue
     typeMap.set(option.value, {
       key: option.value,
       label: option.label,
@@ -2266,6 +2296,7 @@ const associatedStageGroups = computed<AssociatedStageGroup[]>(() => {
   }
 
   for (const file of associatedNavigationFiles.value) {
+    if (isAssociatedTaxonomyHidden(file.fileTypeTaxonomyId)) continue
     const stageKey = resolveAssociatedStageKey(file)
     let stageGroup = stageMap.get(stageKey)
     if (!stageGroup) {
@@ -2348,6 +2379,11 @@ const selectAssociatedStage = (stageKey: string) => {
   selectedAssociatedFileIds.value = []
   resetAssociatedFilePage()
 }
+const handleHiddenAssociatedFoldersChange = () => {
+  selectedAssociatedFileIds.value = []
+  resetAssociatedFilePage()
+  ensureAssociatedSelection()
+}
 const selectAssociatedType = (typeKey: string) => {
   selectedAssociatedTypeKey.value = typeKey
   selectedAssociatedFileIds.value = []
@@ -2387,6 +2423,9 @@ const applyAssociatedRouteFocus = () => {
   const targetFile = resolveAssociatedRouteFocusFile()
   if (!targetFile) {
     return false
+  }
+  if (hiddenAssociatedTaxonomyIds.value.has(Number(targetFile.fileTypeTaxonomyId))) {
+    showHiddenAssociatedFolders.value = true
   }
   selectedAssociatedStageKey.value = resolveAssociatedStageKey(targetFile)
   selectedAssociatedTypeKey.value = resolveAssociatedTypeName(targetFile)
@@ -2967,6 +3006,7 @@ const handleDelete = async (row: DccProjectCodeRespVO) => {
 
 const resetAssociatedFilesState = () => {
   associatedNavigationFiles.value = []
+  showHiddenAssociatedFolders.value = false
   associatedFilesTotal.value = 0
   selectedAssociatedStageKey.value = ''
   selectedAssociatedTypeKey.value = ''
@@ -3702,6 +3742,148 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.scheme-d-basic-data-page--dcc-project-code,
+.dcc-project-code-detail {
+  --scheme-d-primary: #008f86;
+  --scheme-d-primary-soft: #e6f5f2;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.dcc-project-code-list-template {
+  min-width: 0;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding: 8px;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.scheme-d-btn--primary.el-button:not(.is-link):not(.is-disabled)) {
+  --el-button-hover-bg-color: #4db1aa;
+  --el-button-hover-border-color: #4db1aa;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-input__wrapper),
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__toolbar-actions) {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-left: 0;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__toolbar-actions .el-form-item__content) {
+  width: 100%;
+  min-width: 0;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__toolbar) {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__toolbar .el-button) {
+  height: 32px;
+  margin-left: 0;
+  padding: 0 10px;
+  font-size: 13px;
+  border-radius: 5px;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__column-settings) {
+  margin-left: auto;
+}
+
+.dcc-project-code-list-template :deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  font-size: 13px;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-table .el-table__cell) {
+  height: 36px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-table th.el-table__cell) {
+  background: #f5f8f9;
+  font-size: 12px;
+}
+
+.scheme-d-basic-data-page--dcc-project-code :deep(.el-pagination),
+.dcc-project-code-detail :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+  white-space: normal;
+  max-width: 100%;
+}
+
+@media (max-width: 700px) {
+  .dcc-project-code-list-template :deep(.table-multi-filter-field),
+  .dcc-project-code-list-template :deep(.table-multi-filter-field__range) {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dcc-project-code-list-template :deep(.table-multi-filter-field__value) {
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dcc-project-code-list-template :deep(.table-multi-filter__tabs-row) {
+    flex-wrap: wrap;
+  }
+
+  .dcc-project-code-list-template :deep(.unified-list-template__multi-filter) {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dcc-project-code-list-template :deep(.unified-list-template__column-settings) {
+    margin-left: 0;
+  }
+
+  .scheme-d-basic-data-page--dcc-project-code :deep(.el-table-fixed-column--right) {
+    position: static !important;
+  }
+
+  .dcc-project-code-list-template :deep(td.el-table-fixed-column--right .cell) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    max-width: calc(100vw - 80px);
+    margin-left: auto;
+  }
+
+  .dcc-project-code-list-template :deep(td.el-table-fixed-column--right .el-button) {
+    margin-left: 0;
+  }
+
+  .dcc-project-code-associated-heading,
+  .dcc-project-code-associated-heading-actions {
+    flex-wrap: wrap;
+  }
+}
+
 .dcc-project-code-governance-cell {
   display: flex;
   flex-direction: column;
@@ -3820,7 +4002,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 .dcc-project-code-detail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   min-width: 0;
   overflow-x: hidden;
 }
@@ -3829,9 +4011,9 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   color: #172033;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -3931,15 +4113,15 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 }
 
 .dcc-project-code-associated-list-item:hover {
-  color: #1677ff;
-  background: #fafcff;
-  border-color: #b8d4ff;
+  color: #008f86;
+  background: #e6f5f2;
+  border-color: #b3ddd9;
 }
 
 .dcc-project-code-associated-list-item.is-active {
-  color: #1677ff;
-  background: #eef6ff;
-  border-color: #1677ff;
+  color: #008f86;
+  background: #e6f5f2;
+  border-color: #008f86;
 }
 
 .dcc-project-code-associated-file-table :deep(.is-associated-route-focus > td) {

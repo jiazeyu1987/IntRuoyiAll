@@ -126,7 +126,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var project=projects.selectById(file.getDccProjectCodeId());var master=masters.selectById(file.getMasterId());
         if(project==null||master==null||!Objects.equals(project.getTenantId(),file.getTenantId())||!Objects.equals(master.getTenantId(),file.getTenantId())||Boolean.TRUE.equals(project.getDeleted())||Boolean.TRUE.equals(master.getDeleted())||currentEligibility&&(!"ENABLE".equals(project.getStatus())||!Objects.equals(master.getLatestControlledFileId(),file.getId()))
                 ||!Objects.equals(master.getDccProjectCodeId(),file.getDccProjectCodeId())||!Objects.equals(master.getCategoryId(),file.getCategoryId())||!Objects.equals(master.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId())||!Objects.equals(master.getNormalizedFileNumber(),file.getFileNumber()))throw invalid("REWORK_SOURCE_FAMILY_INVALID");
-        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasCategoryPermission(file.getCategoryId(),actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
+        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasFilePermission(file,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
     }
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public void onPendingApprovalStarted(FormActionInstance instance){
@@ -315,7 +315,7 @@ public class DccObsoleteFormExecutionPreparationService {
                 ||!Objects.equals(master.getCategoryId(),file.getCategoryId())||!Objects.equals(master.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId())||!Objects.equals(master.getNormalizedFileNumber(),file.getFileNumber())
                 ||Boolean.TRUE.equals(master.getDeleted())||Boolean.TRUE.equals(project.getDeleted())||file.getControlledTime()==null||!Set.of("ACTIVE","CONTROLLED_PENDING_EFFECTIVE").contains(file.getStatus())
                 ||!Objects.equals(file.getVersionNo(),ctx.getObjectVersion())||!Objects.equals(file.getStatus(),ctx.getObjectState())||!Objects.equals(master.getLatestControlledFileId(),file.getId()))throw invalid("CONTROLLED_SOURCE_IDENTITY_INVALID");
-        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasCategoryPermission(file.getCategoryId(),actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
+        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasFilePermission(file,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
         var applicant=users.getUser(actor);if(applicant==null||!Objects.equals(applicant.getId(),actor)||!Objects.equals(applicant.getTenantId(),tenant)||!Integer.valueOf(0).equals(applicant.getStatus()))throw invalid("APPLICANT_INVALID");return file;
     }
     private DccDirectSupervisorSource.Evidence requireSupervisor(DccControlledFileDO file,Long actor){
@@ -329,7 +329,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var route=routeResolver.resolvePublicMatrix(raw,actor,"OBSOLETE",departments);var nodes=new ArrayList<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode>();
         nodes.add(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(0,"SUPERVISOR_REVIEW","直接主管审核",0,"USER",supervisor.supervisorUserId(),List.of(supervisor.supervisorUserId()),"ANY",null,false,List.of(supervisor.supervisorUserId())));nodes.addAll(route.nodes());
         if(!nodes.stream().map(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode::stageCode).toList().equals(List.of("SUPERVISOR_REVIEW","MATRIX_REVIEW","MATRIX_APPROVAL")))throw invalid("OBSOLETE_STAGE_CONTRACT_INVALID");
-        var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(route.route(),List.copyOf(nodes),route.sourceApprovalMatrix(),route.derivationVersion(),route.runtimeGroups());readiness.requireReadyResolvedRoute(resolved);return resolved;
+        var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(route.route(),List.copyOf(nodes),route.sourceApprovalMatrix(),route.derivationVersion(),route.runtimeGroups());readiness.requireReadyObsoleteRoute(resolved);return resolved;
     }
     private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute restoreServerCandidates(DccApprovalMatrixSourceService.Source source,List<Long> departments,DccDirectSupervisorSource.Evidence supervisor,String runtime){
         var document=JsonUtils.parseObject(runtime,Map.class);
@@ -351,7 +351,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var resolved=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(source.route(),nodes,source.baseline(),cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.VERSION,groups);
         // Freeze leaders selected at preparation. Recheck current enabled account/post/signature eligibility,
         // not current department leader or mutable matrix configuration.
-        readiness.requireReadyResolvedRoute(resolved);return resolved;
+        readiness.requireReadyObsoleteRoute(resolved);return resolved;
     }
     private Map<String,List<Long>> serverStart(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){var result=new TreeMap<String,List<Long>>();for(var node:route.nodes())if(Set.of("SUPERVISOR_REVIEW","MATRIX_REVIEW").contains(node.stageCode()))result.put(node.stageCode(),List.copyOf(node.resolvedUserIds()));return Collections.unmodifiableMap(result);}
     private Map<String,List<Long>> serverApprove(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){var result=new TreeMap<String,List<Long>>();for(var node:route.nodes())if("MATRIX_APPROVAL".equals(node.stageCode()))result.put(node.stageCode(),List.copyOf(node.resolvedUserIds()));return Collections.unmodifiableMap(result);}

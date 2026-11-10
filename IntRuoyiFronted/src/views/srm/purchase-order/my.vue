@@ -230,7 +230,7 @@ const rejectFormData = reactive({
   rejectRemark: ''
 })
 const rejectRules = reactive<FormRules>({
-  rejectRemark: [{ required: true, message: '请填写拒绝原因', trigger: 'blur' }]
+  rejectRemark: [{ required: true, whitespace: true, message: '请填写拒绝原因', trigger: 'blur' }]
 })
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {

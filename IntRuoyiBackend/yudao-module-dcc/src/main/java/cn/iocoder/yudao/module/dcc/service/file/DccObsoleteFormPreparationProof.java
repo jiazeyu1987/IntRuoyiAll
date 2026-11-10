@@ -17,9 +17,18 @@ public class DccObsoleteFormPreparationProof {
     private static final String PURPOSE="DCC_OBSOLETE_FORM_PREPARATION_V1";
     @Resource private DccApprovalMatrixTokenProperties signing;
     public String sign(Map<String,Object> payload){return Base64.getUrlEncoder().withoutPadding().encodeToString(mac(PURPOSE+"\n"+canonical(payload)));}
-    public void verify(Map<String,Object> payload,String token){try{if(!MessageDigest.isEqual(mac(PURPOSE+"\n"+canonical(payload)),Base64.getUrlDecoder().decode(token)))throw invalid();}catch(IllegalArgumentException malformed){throw invalid();}}
+    public void verify(Map<String,Object> payload,String token){verify(payload,token,false);}
+    private void verify(Map<String,Object> payload,String token,boolean recorded){
+        var keys=new ArrayList<byte[]>();keys.add(signing.requireSigningKey());
+        if(recorded)keys.addAll(signing.recordedVerificationKeys());
+        try{
+            if(token==null||token.isBlank())throw invalid();
+            byte[] signature=Base64.getUrlDecoder().decode(token);String input=PURPOSE+"\n"+canonical(payload);
+            if(keys.stream().noneMatch(key->MessageDigest.isEqual(mac(input,key),signature)))throw invalid();
+        }catch(IllegalArgumentException malformed){throw invalid();}
+    }
     public DccWorkflowDefinitionCatalog.Graph verifyRecorded(DccControlledFileDO file,FormActionInstanceDO form,Map<?,?> source,String exactId,String exactDigest){
-        var payload=new TreeMap<String,Object>((Map<String,Object>)source);Object token=payload.remove("authorizationToken");if(!(token instanceof String text))throw invalid();verify(payload,text);
+        var payload=new TreeMap<String,Object>((Map<String,Object>)source);Object token=payload.remove("authorizationToken");if(!(token instanceof String text))throw invalid();verify(payload,text,true);
         boolean v1=PURPOSE.equals(payload.get("formatVersion"))&&"UNBOUND_FORM_DRAFT".equals(payload.get("attributeState"));
         boolean v2="DCC_OBSOLETE_FORM_PREPARATION_V2".equals(payload.get("formatVersion"))&&"RESERVED_FORM_DRAFT".equals(payload.get("attributeState"));
         if(v2&&(!(payload.get("attributeRound") instanceof Number round)||round.intValue()<=0||!(payload.get("defaultSourceJson") instanceof String)||!(payload.get("actualAttributesJson") instanceof String)
@@ -42,6 +51,7 @@ public class DccObsoleteFormPreparationProof {
     }
     public String canonical(Object object){return JsonUtils.toJsonString(sorted(object));}
     private Object sorted(Object input){if(input instanceof Map<?,?> map){var result=new TreeMap<String,Object>();map.forEach((k,v)->result.put(k.toString(),sorted(v)));return result;}if(input instanceof List<?> list)return list.stream().map(this::sorted).toList();return input;}
-    private byte[] mac(String text){try{var mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(signing.requireSigningKey(),"HmacSHA256"));return mac.doFinal(text.getBytes(StandardCharsets.UTF_8));}catch(java.security.GeneralSecurityException failure){throw new IllegalStateException("DCC_OBSOLETE_PREPARATION_SIGNING_UNAVAILABLE",failure);}}
+    private byte[] mac(String text){return mac(text,signing.requireSigningKey());}
+    private byte[] mac(String text,byte[] key){try{var mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(key,"HmacSHA256"));return mac.doFinal(text.getBytes(StandardCharsets.UTF_8));}catch(java.security.GeneralSecurityException failure){throw new IllegalStateException("DCC_OBSOLETE_PREPARATION_SIGNING_UNAVAILABLE",failure);}}
     private IllegalArgumentException invalid(){return new IllegalArgumentException("DCC_OBSOLETE_RECORDED_PREPARATION_PROOF_INVALID");}
 }

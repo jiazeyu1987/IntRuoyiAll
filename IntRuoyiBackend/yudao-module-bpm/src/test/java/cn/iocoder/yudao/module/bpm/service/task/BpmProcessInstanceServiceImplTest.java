@@ -98,6 +98,24 @@ class BpmProcessInstanceServiceImplTest {
     }
 
     @Test
+    void completedCancelDispatchesTheExactFailedApplicationToNotificationService() {
+        when(processInstance.getId()).thenReturn(PROCESS_INSTANCE_ID);
+        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-upload");
+        when(processInstance.getBusinessKey()).thenReturn("128");
+        when(processInstance.getName()).thenReturn("上传申请");
+        when(processInstance.getStartUserId()).thenReturn("149");
+        when(runtimeService.getVariables(PROCESS_INSTANCE_ID)).thenReturn(Map.of(
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS, BpmProcessInstanceStatusEnum.CANCEL.getStatus()));
+        processInstanceService.processProcessInstanceCompleted(processInstance);
+        var captured = ArgumentCaptor.forClass(cn.iocoder.yudao.module.bpm.service.message.dto.BpmMessageSendWhenProcessInstanceRejectReqDTO.class);
+        verify(messageService).sendMessageWhenProcessInstanceCancel(captured.capture());
+        assertEquals(PROCESS_INSTANCE_ID, captured.getValue().getProcessInstanceId());
+        assertEquals("dcc-controlled-file-upload", captured.getValue().getProcessDefinitionKey());
+        assertEquals(149L, captured.getValue().getStartUserId());
+        verify(messageService, never()).sendMessageWhenProcessInstanceReject(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void processProcessInstanceCompleted_shouldPublishLastApproverFromRuntimeVariables() {
         when(processInstance.getId()).thenReturn(PROCESS_INSTANCE_ID);
         when(processInstance.getProcessDefinitionKey()).thenReturn("mes_pro_route_version_approval");

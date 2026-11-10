@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -203,7 +204,7 @@ public class MesProEdhrUnifiedChangeServiceImpl implements MesProEdhrUnifiedChan
     public MesProEdhrUnifiedChangeRespVO approve(MesProEdhrUnifiedChangeApproveReqVO reqVO) {
         MesProEdhrUnifiedChangeRequestDO request = requireChangeRequest(reqVO.getChangeRequestId());
         requireStatus(request, STATUS_SUBMITTED);
-        String approvalOpinion = requireReason(reqVO.getApprovalOpinion());
+        String approvalOpinion = ApprovalReviewReason.normalize(reqVO.getApprovalOpinion());
         String signoffEvidenceHash = requireSignoffEvidence(reqVO.getSignoffEvidenceHash());
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String impactSummaryJson = requireImpactScope(request.getImpactSummaryJson());

@@ -223,7 +223,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-preview")
     @Operation(summary = "Upload one controlled file before submit")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') or ((#reqVO.purpose == 'APPROVAL_PDF' or #reqVO.purpose == 'TRAINING_RECORD') and @ss.hasPermission('dcc:controlled-file:approve'))")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') or ((#reqVO.purpose == 'APPROVAL_PDF' or #reqVO.purpose == 'TRAINING_RECORD') and @ss.hasPermission('dcc:controlled-file:approve'))")
     public CommonResult<DccControlledFileUploadRespVO> uploadPreviewFile(@Valid DccControlledFileUploadPreviewReqVO reqVO,
                                                                          HttpServletRequest request)
             throws Exception {
@@ -231,9 +231,21 @@ public class DccControlledFileController {
                 DccRequestAuditContext.from(request, null)));
     }
 
+    @GetMapping("/archive-projects")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:archive:query')")
+    public CommonResult<java.util.List<java.util.Map<String,Object>>> archiveProjects() {
+        return success(queryService.getArchiveProjects(getLoginUserId()));
+    }
+
+    @GetMapping("/archive-page")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:archive:query')")
+    public CommonResult<PageResult<DccControlledFileRespVO>> getArchivePage(@Valid DccControlledFilePageReqVO request) {
+        return success(queryService.getArchivePage(getLoginUserId(), request));
+    }
+
     @GetMapping("/project-product")
     @Operation(summary = "解析上传项目的正式产品编号")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccProjectProductRespVO> previewProjectProduct(
             @RequestParam("projectCodeId") Long projectCodeId) {
         return success(workflowService.previewProjectProduct(getLoginUserId(), projectCodeId));
@@ -241,7 +253,7 @@ public class DccControlledFileController {
 
     @GetMapping("/upload-temporary/status")
     @Operation(summary = "Get current user temporary upload status by request id")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> getUploadTemporaryStatus(
             @RequestParam("requestId") String requestId) {
         return success(toTemporaryStatusRespVO(
@@ -250,7 +262,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-temporary/session-cleanup")
     @Operation(summary = "Clean current user's unbound temporary uploads for one upload session")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> cleanupUploadTemporarySession(
             @Valid @RequestBody DccControlledFileUploadTemporaryCleanupReqVO reqVO,
             HttpServletRequest request) throws Exception {
@@ -276,7 +288,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-temporary/ticket-cleanup")
     @Operation(summary = "Clean one current-user unbound temporary upload ticket")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> cleanupUploadTemporaryTicket(
             @Valid @RequestBody DccControlledFileUploadTemporaryTicketCleanupReqVO reqVO,
             HttpServletRequest request) throws Exception {
@@ -321,7 +333,7 @@ public class DccControlledFileController {
 
     @PostMapping("/route-preview")
     @Operation(summary = "Preview the resolved submit route")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileRouteReadinessRespVO> previewRoute(
             @Valid @RequestBody DccControlledFileRoutePreviewReqVO reqVO) {
         return success(workflowService.previewRoute(getLoginUserId(), reqVO));
@@ -329,7 +341,7 @@ public class DccControlledFileController {
 
     @GetMapping("/upload-name-options")
     @Operation(summary = "List historical upload names for one DCC project and file type taxonomy")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<List<DccControlledFileUploadNameOptionRespVO>> getUploadNameOptions(
             @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam("fileTypeTaxonomyId") Long fileTypeTaxonomyId) {
@@ -338,7 +350,7 @@ public class DccControlledFileController {
 
     @PostMapping("/submit")
     @Operation(summary = "Submit one new controlled file and start approval")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public CommonResult<Long> submitControlledFile(@Validated(DccSubmissionValidationGroup.class) @RequestBody DccControlledFileSubmitReqVO reqVO) {
         Long actorId = getLoginUserId();
@@ -348,7 +360,7 @@ public class DccControlledFileController {
 
     @GetMapping("/current-version")
     @Operation(summary = "Get current active controlled file version by file number")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileCurrentVersionRespVO> getCurrentVersion(
             @RequestParam("fileNumber") String fileNumber,
             @RequestParam(value = "dccProjectCodeId", required = false) Long dccProjectCodeId,
@@ -362,14 +374,14 @@ public class DccControlledFileController {
 
     @GetMapping("/upload-directory-tree")
     @Operation(summary = "Get upload directory tree for one controlled file category")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileUploadDirectoryTreeRespVO> getUploadDirectoryTree(Long categoryId) {
         return success(queryService.getUploadDirectoryTree(categoryId));
     }
 
     @PostMapping("/working")
     @Operation(summary = "Create a WORKING controlled file iteration without starting approval")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public CommonResult<Long> createWorkingControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
         Long actorId = getLoginUserId();
@@ -379,7 +391,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/submit")
     @Operation(summary = "Submit the latest WORKING controlled file iteration for approval")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Long> submitWorkingIteration(@PathVariable("id") Long id,
                                                       @Valid @RequestBody DccControlledFileSubmitIterationReqVO reqVO) {
         return success(workflowService.submitWorkingIteration(getLoginUserId(), id, reqVO));
@@ -387,7 +399,7 @@ public class DccControlledFileController {
 
     @PostMapping("/nas-transfer")
     @Operation(summary = "Transfer selected NAS directories into DCC controlled directories/files")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> transferNasDirectories(
             @Valid @RequestBody DccControlledFileNasTransferReqVO reqVO) {
         return success(nasTransferService.transfer(getLoginUserId(), reqVO));
@@ -395,7 +407,7 @@ public class DccControlledFileController {
 
     @PostMapping("/local-folder-import")
     @Operation(summary = "Import one local browser-selected folder into DCC controlled directories/files")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> importLocalFolder(
             @Valid DccControlledFileLocalFolderImportReqVO reqVO) {
         return success(nasTransferService.importLocalFolder(getLoginUserId(), reqVO));
@@ -403,7 +415,7 @@ public class DccControlledFileController {
 
     @PostMapping("/local-folder-import/sessions")
     @Operation(summary = "Create one local folder import upload session")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> createLocalFolderImportSession(
             @Valid @RequestBody DccControlledFileLocalFolderImportSessionCreateReqVO reqVO) {
         return success(nasTransferService.createLocalFolderImportSession(getLoginUserId(), reqVO));
@@ -411,7 +423,7 @@ public class DccControlledFileController {
 
     @PostMapping("/local-folder-import/sessions/{taskId}/batches")
     @Operation(summary = "Upload one local folder import batch")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> uploadLocalFolderImportBatch(
             @PathVariable("taskId") Long taskId,
             @Valid DccControlledFileLocalFolderImportBatchReqVO reqVO) {
@@ -420,7 +432,7 @@ public class DccControlledFileController {
 
     @GetMapping("/local-folder-import/sessions/{taskId}/upload-state")
     @Operation(summary = "Get one local folder import resumable upload state")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileLocalFolderImportUploadStateRespVO> getLocalFolderImportUploadState(
             @PathVariable("taskId") Long taskId) {
         return success(nasTransferService.getLocalFolderImportUploadState(getLoginUserId(), taskId));
@@ -428,7 +440,7 @@ public class DccControlledFileController {
 
     @PostMapping("/local-folder-import/sessions/{taskId}/chunks")
     @Operation(summary = "Upload one local folder import chunk")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileLocalFolderImportChunkRespVO> uploadLocalFolderImportChunk(
             @PathVariable("taskId") Long taskId,
             @Valid DccControlledFileLocalFolderImportChunkReqVO reqVO) {
@@ -437,7 +449,7 @@ public class DccControlledFileController {
 
     @PostMapping("/local-folder-import/sessions/{taskId}/complete")
     @Operation(summary = "Complete one local folder import upload session")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> completeLocalFolderImportSession(
             @PathVariable("taskId") Long taskId) {
         return success(nasTransferService.completeLocalFolderImportSession(getLoginUserId(), taskId));
@@ -445,7 +457,7 @@ public class DccControlledFileController {
 
     @GetMapping("/nas-transfer/tasks/{taskId}")
     @Operation(summary = "Get one NAS transfer task state")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
     public CommonResult<DccControlledFileNasTransferRespVO> getNasTransferTask(
             @PathVariable("taskId") Long taskId) {
         return success(nasTransferService.getTask(getLoginUserId(), taskId));
@@ -453,17 +465,25 @@ public class DccControlledFileController {
 
     @GetMapping("/page")
     @Operation(summary = "Get controlled file page")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<PageResult<DccControlledFileRespVO>> getControlledFilePage(@Valid DccControlledFilePageReqVO reqVO) {
         throw exception(CONTROLLED_FILE_PERSONAL_PAGE_DISABLED);
     }
 
     @GetMapping("/browser-page")
     @Operation(summary = "Get controlled file browser summary page")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<PageResult<DccControlledFileRespVO>> getControlledFileBrowserPage(
             @Valid DccControlledFilePageReqVO reqVO) {
         return success(queryService.getControlledFileBrowserPage(getLoginUserId(), reqVO));
+    }
+
+    @GetMapping("/working-browser-page")
+    @Operation(summary = "Get exact working file operation page")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
+    public CommonResult<PageResult<DccControlledFileRespVO>> getControlledFileWorkingBrowserPage(
+            @Valid DccControlledFilePageReqVO reqVO) {
+        return success(queryService.getControlledFileWorkingBrowserPage(getLoginUserId(), reqVO));
     }
 
     @GetMapping("/browser-extension-blacklist")
@@ -514,9 +534,23 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/revision-options")
     @Operation(summary = "Read formal revision preparation for the selected controlled baseline")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileRevisionOptions> getRevisionOptions(@PathVariable("id") Long id) {
         return success(queryService.getRevisionOptions(getLoginUserId(), id));
+    }
+
+    @GetMapping("/application-restart-context")
+    @Operation(summary = "Read the original applicant's terminated application restart entry")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<java.util.Map<String, Object>> getApplicationRestartContext(@RequestParam("processInstanceId") String processInstanceId) {
+        return success(queryService.getApplicationRestartContext(getLoginUserId(), processInstanceId));
+    }
+
+    @PostMapping("/{id:\\d+}/restart-application")
+    @Operation(summary = "Prepare a working draft preserving the rejected or withdrawn application's inputs")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
+    public CommonResult<String> prepareApplicationRestart(@PathVariable("id") Long id) {
+        return success(queryService.prepareApplicationRestart(getLoginUserId(), id).toString());
     }
 
     @GetMapping("/{id:\\d+}/application-evidence")
@@ -524,15 +558,21 @@ public class DccControlledFileController {
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileApplicationEvidence> getApplicationEvidence(
             @PathVariable("id") Long id, @RequestParam("applicationType") String applicationType,
-            @RequestParam("bpmRound") String bpmRound) {
-        return success(queryService.getApplicationEvidence(getLoginUserId(), id, applicationType, bpmRound));
+            @RequestParam("bpmRound") String bpmRound, HttpServletRequest request) {
+        var context = request.getParameterValues("bodyReadContext") == null
+                && request.getHeader(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.HEADER) == null
+                ? null : bodyReadRequest(id, request, false);
+        return success(queryService.getApplicationEvidence(getLoginUserId(), id, applicationType, bpmRound, context));
     }
 
     @GetMapping("/{id:\\d+}/application-rounds")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
     public CommonResult<List<cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundSummary>> listApplicationRounds(
-            @PathVariable("id") Long id) {
-        return success(queryService.listApplicationRounds(getLoginUserId(), id));
+            @PathVariable("id") Long id, HttpServletRequest request) {
+        var context = request.getParameterValues("bodyReadContext") == null
+                && request.getHeader(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.HEADER) == null
+                ? null : bodyReadRequest(id, request, false);
+        return success(queryService.listApplicationRounds(getLoginUserId(), id, context));
     }
 
     @GetMapping("/{id:\\d+}/training-application-progress")
@@ -550,47 +590,47 @@ public class DccControlledFileController {
     }
 
     @PostMapping("/{id:\\d+}/working-type-change/preview")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangePreviewVO> previewWorkingTypeChange(
             @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangeReqVO request) {
         return success(workingTypeChanges.preview(getLoginUserId(),id,request));
     }
 
     @PostMapping("/{id:\\d+}/working-type-change")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangePreviewVO> confirmWorkingTypeChange(
             @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangeReqVO request) {
         return success(workingTypeChanges.confirm(getLoginUserId(),id,request));
     }
 
     @GetMapping("/{id:\\d+}/working-type-storage-recovery/preview")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryPreviewVO> previewWorkingTypeStorageRecovery(
             @PathVariable("id") Long id) {
         return success(workingTypeChanges.previewStorageRecovery(getLoginUserId(),id));
     }
 
     @PostMapping("/{id:\\d+}/working-type-storage-recovery")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryPreviewVO> confirmWorkingTypeStorageRecovery(
             @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryReqVO request) {
         return success(workingTypeChanges.confirmStorageRecovery(getLoginUserId(),id,request));
     }
 
     @GetMapping("/{id:\\d+}/working-attributes")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccWorkingApplicationAttributes> readWorkingApplicationAttributes(@PathVariable("id") Long id) {
         return success(workflowService.readWorkingApplicationAttributes(getLoginUserId(),id));
     }
     @GetMapping("/{id:\\d+}/replacement-attributes")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<DccWorkingApplicationAttributes> readReplacementApplicationAttributes(
             @PathVariable("id") Long selectedIterationId,@org.springframework.web.bind.annotation.RequestParam("controlledBaselineId") Long controlledBaselineId) {
         return success(workflowService.readReplacementApplicationAttributes(getLoginUserId(),selectedIterationId,controlledBaselineId));
     }
 
     @PostMapping("/{id:\\d+}/working-attributes/restore")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Boolean> restoreWorkingApplicationAttributes(@PathVariable("id") Long id) {
         workflowService.restoreWorkingApplicationAttributes(getLoginUserId(),id);
         return success(true);
@@ -598,7 +638,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/working-attributes")
     @Operation(summary = "Save actual attributes of an authorized existing working application")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Boolean> saveWorkingApplicationAttributes(
             @PathVariable("id") Long id,
             @Valid @RequestBody DccWorkingApplicationSaveReqVO request) {
@@ -608,7 +648,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/checkout")
     @Operation(summary = "Check out one controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccControlledFileRespVO> checkoutControlledFile(@PathVariable("id") Long id,
                                                                          @Valid @RequestBody DccControlledFileCheckoutReqVO reqVO) {
         return success(queryService.checkoutControlledFile(getLoginUserId(), id, reqVO));
@@ -616,7 +656,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/checkin")
     @Operation(summary = "Check in one controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccControlledFileRespVO> checkinControlledFile(@PathVariable("id") Long id,
                                                                         @Valid @RequestBody DccControlledFileCheckinReqVO reqVO) {
         return success(queryService.checkinControlledFile(getLoginUserId(), id, reqVO));
@@ -624,7 +664,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/checkout/cancel")
     @Operation(summary = "Cancel checkout without creating a new iteration")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccControlledFileRespVO> cancelCheckoutControlledFile(
             @PathVariable("id") Long id,
             @Valid @RequestBody DccControlledFileCancelCheckoutReqVO reqVO) {
@@ -633,7 +673,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/access-explanation")
     @Operation(summary = "Explain why current user can or cannot access one controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccControlledFileAccessExplanationRespVO> explainControlledFileAccess(
             @PathVariable("id") Long id) {
         return success(queryService.explainControlledFileAccess(getLoginUserId(), id));
@@ -673,7 +713,7 @@ public class DccControlledFileController {
 
     @PutMapping("/{id:\\d+}/metadata")
     @Operation(summary = "Update controlled file metadata")
-    @PreAuthorize("@ss.hasRole('doc_control') or @ss.hasPermission('dcc:project-code-assignment:execute')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:edit')")
     public CommonResult<Boolean> updateMetadata(@PathVariable("id") Long id,
                                                 @Valid @RequestBody DccControlledFileMetadataUpdateReqVO reqVO) {
         metadataUpdateService.updateMetadata(getLoginUserId(), id, reqVO);
@@ -797,7 +837,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/withdraw")
     @Operation(summary = "Withdraw a pending controlled file revision")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Boolean> withdrawControlledFile(@PathVariable("id") Long id,
                                                         @Valid @RequestBody DccControlledFileWithdrawReqVO reqVO) {
         workflowService.withdrawControlledFile(getLoginUserId(), id, reqVO);
@@ -806,7 +846,7 @@ public class DccControlledFileController {
 
     @DeleteMapping("/{id:\\d+}/withdrawn-flow")
     @Operation(summary = "Delete one withdrawn controlled file workflow from business lists")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Boolean> deleteWithdrawnControlledFile(@PathVariable("id") Long id) {
         workflowService.deleteWithdrawnControlledFile(getLoginUserId(), id);
         return success(true);
@@ -814,14 +854,14 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/resubmit")
     @Operation(summary = "Resubmit one withdrawn controlled file as a new BPM workflow")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Long> resubmitWithdrawnControlledFile(@PathVariable("id") Long id) {
         return success(workflowService.resubmitWithdrawnControlledFile(getLoginUserId(), id));
     }
 
     @PostMapping("/{id:\\d+}/task-action-readiness")
     @Operation(summary = "Check whether one DCC workflow task action is ready")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:review','dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:review','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileTaskReadinessRespVO> getTaskActionReadiness(
             @PathVariable("id") Long id,
             @Valid @RequestBody DccControlledFileTaskReadinessReqVO reqVO) {
@@ -830,7 +870,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/approve-task")
     @Operation(summary = "Approve one DCC workflow task with password signature")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:review','dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit','dcc:controlled-file:review','dcc:controlled-file:approve')")
     public CommonResult<DccSignatureActionRespVO> approveTask(@PathVariable("id") Long id,
                                                               @Valid @RequestBody DccControlledFileApproveTaskReqVO reqVO) {
         return success(workflowService.approveTask(getLoginUserId(), id, reqVO));
@@ -908,7 +948,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/manual-release")
     @Operation(summary = "Manually release one training-gated controlled file distribution")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<Boolean> releaseManualDistribution(@PathVariable("id") Long id) {
         finalizationService.releaseManualDistribution(getLoginUserId(), id);
         return success(true);
@@ -916,28 +956,28 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/controlled-print")
     @Operation(summary = "Create one controlled print record")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<DccControlledFilePrintRecordRespVO> createControlledPrint(
             @PathVariable("id") Long id,
-            @Valid @RequestBody DccControlledFilePrintCreateReqVO reqVO) {
-        return success(controlledFilePrintService.createPrintRecord(getLoginUserId(), id, reqVO));
+            @Valid @RequestBody DccControlledFilePrintCreateReqVO reqVO, HttpServletRequest request) {
+        return success(controlledFilePrintService.createPrintRecord(getLoginUserId(), id, reqVO, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/controlled-print/records")
     @Operation(summary = "List controlled print records")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<List<DccControlledFilePrintRecordRespVO>> getControlledPrintRecords(
-            @PathVariable("id") Long id) {
-        return success(controlledFilePrintService.getPrintRecords(getLoginUserId(), id));
+            @PathVariable("id") Long id, HttpServletRequest request) {
+        return success(controlledFilePrintService.getPrintRecords(getLoginUserId(), id, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/controlled-print/print-html")
     @Operation(summary = "Build controlled print HTML with traceable metadata")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:print')")
     public CommonResult<DccControlledFilePrintHtmlRespVO> getControlledPrintHtml(
             @PathVariable("id") Long id,
-            @RequestParam("printRecordId") Long printRecordId) {
-        return success(controlledFilePrintService.getPrintHtml(getLoginUserId(), id, printRecordId));
+            @RequestParam("printRecordId") Long printRecordId, HttpServletRequest request) {
+        return success(controlledFilePrintService.getPrintHtml(getLoginUserId(), id, printRecordId, auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/preview")
@@ -1032,7 +1072,8 @@ public class DccControlledFileController {
             @RequestHeader(VIEWER_TOKEN_ID_HEADER) String viewerTokenId,
             @RequestHeader(VIEWER_TOKEN_NONCE_HEADER) String viewerTokenNonce,
             HttpServletRequest request) {
-        var binary = queryService.readAttachmentPreviewFile(getLoginUserId(), id, attachmentId, viewerToken,
+        var binary = queryService.readAttachmentPreviewFile(getLoginUserId(), id, attachmentId,
+                bodyReadRequest(id, request, true), viewerToken,
                 accessEventCode, watermarkTraceCode, viewerTokenId, viewerTokenNonce,
                 auditContext(request, accessEventCode));
         return ResponseEntity.ok()
@@ -1054,7 +1095,7 @@ public class DccControlledFileController {
             @PathVariable("attachmentId") Long attachmentId,
             HttpServletRequest request) {
         return success(queryService.getAttachmentPreviewMetadata(getLoginUserId(), id, attachmentId,
-                auditContext(request, null)));
+                bodyReadRequest(id, request, false), auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/onlyoffice-file")
@@ -1074,7 +1115,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/download")
     @Operation(summary = "Download controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-read-only')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:download-read-only')")
     public ResponseEntity<byte[]> downloadControlledFile(@PathVariable("id") Long id,
                                                           @RequestParam("nonControlledWarningConfirmed")
                                                           Boolean nonControlledWarningConfirmed,
@@ -1105,7 +1146,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/download/read-only")
     @Operation(summary = "Download the non-editable controlled file version")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-read-only')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:download-read-only')")
     public ResponseEntity<byte[]> downloadReadOnlyControlledFile(@PathVariable("id") Long id,
                                                                   @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
                                                                   @RequestParam("downloadRequestId") String requestId,
@@ -1113,9 +1154,18 @@ public class DccControlledFileController {
         return downloadVariant(id, confirmed, requestId, request, false);
     }
 
+    @GetMapping("/{id:\\d+}/download/archive")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadArchivedFile(@PathVariable("id") Long id,
+            @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
+            @RequestParam("downloadRequestId") String requestId, HttpServletRequest request) {
+        if (!queryService.isArchivedFile(id)) throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED);
+        return downloadVariant(id, confirmed, requestId, request, false);
+    }
+
     @GetMapping("/{id:\\d+}/download/editable")
     @Operation(summary = "Download the editable controlled file version")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-editable')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:download-editable') or @dccControlledFileQueryServiceImpl.canDownloadLibraryOriginal(#id)")
     public ResponseEntity<byte[]> downloadEditableControlledFile(@PathVariable("id") Long id,
                                                                   @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
                                                                   @RequestParam("downloadRequestId") String requestId,
@@ -1172,14 +1222,14 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/approval-print/print-html")
     @Operation(summary = "Build DCC approval process print HTML from the active template")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccApprovalPrintHtmlRespVO> getApprovalPrintHtml(@PathVariable("id") Long id) {
         return success(approvalPrintTemplateService.getApprovalPrintHtml(getLoginUserId(), id));
     }
 
     @GetMapping("/{id:\\d+}/approval-print/export-word")
     @Operation(summary = "Export DCC approval process Word from the active template")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public ResponseEntity<byte[]> exportApprovalWord(@PathVariable("id") Long id) {
         DccApprovalPrintRenderedWord word = approvalPrintTemplateService.exportApprovalWord(getLoginUserId(), id);
         return ResponseEntity.ok()
@@ -1241,7 +1291,7 @@ public class DccControlledFileController {
 
     @GetMapping("/source-governance/batches/{taskKey}/blockers")
     @Operation(summary = "List blockers from a DCC source governance batch")
-    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<List<DccControlledFileSourceGovernanceBlockerRespVO>> getSourceGovernanceBlockers(
             @PathVariable String taskKey) {
         return success(sourceGovernanceBatchService.getBlockers(taskKey).stream()
@@ -1251,7 +1301,7 @@ public class DccControlledFileController {
 
     @GetMapping("/source-governance/batches/{taskKey}/postflight")
     @Operation(summary = "Run read-only postflight checks for a DCC source governance batch")
-    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<DccControlledFileSourceGovernancePostflightRespVO> getSourceGovernancePostflight(
             @PathVariable String taskKey) {
         return success(DccControlledFileSourceGovernancePostflightRespVO.from(
@@ -1293,7 +1343,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/obsolete-application-draft")
     @Operation(summary = "Read the current applicant's exact obsolete form draft")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO>
             getObsoleteApplicationDraft(@PathVariable("id") Long id,
                 @Valid cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteReworkSourceReqVO source) {
@@ -1303,7 +1353,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/obsolete")
     @Operation(summary = "Obsolete an active controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<FormInstanceRespVO> obsoleteControlledFile(@PathVariable("id") Long id,
                                                         @Valid @RequestBody DccControlledFileObsoleteReqVO reqVO) {
         return success(obsoleteService.obsoleteControlledFile(getLoginUserId(), id, reqVO));
@@ -1311,7 +1361,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/publish")
     @Operation(summary = "Publish an approved revision candidate")
-    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:approve')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:edit')")
     public CommonResult<FormInstanceRespVO> publishControlledFile(@PathVariable("id") Long id,
                                                                   @Valid @RequestBody DccControlledFilePublishReqVO reqVO) {
         return success(publishService.publishControlledFile(getLoginUserId(), id, reqVO));
@@ -1319,7 +1369,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/training-acknowledge")
     @Operation(summary = "Acknowledge controlled file training")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:query')")
     public CommonResult<Boolean> acknowledgeTraining(@PathVariable("id") Long id) {
         trainingAssignmentAckService.acknowledgeTraining(getLoginUserId(), id);
         return success(true);

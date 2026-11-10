@@ -82,7 +82,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         var locked=DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L).categoryId(10L).versionNo("A/1").status("ACTIVE").build();
         when(controlledFileMapper.selectById(900L)).thenReturn(initial);
         org.mockito.Mockito.doReturn(locked).when(controlledFileMapper).selectByIdAndTenantForUpdate(1L,900L);
-        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        when(permissionSupport.hasFilePermission(locked, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
         var process=org.mockito.Mockito.mock(org.flowable.engine.history.HistoricProcessInstance.class);
         when(process.getId()).thenReturn("approved-round");when(process.getTenantId()).thenReturn("1");when(process.getStartUserId()).thenReturn("99");
         when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
@@ -106,7 +106,6 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         var request=new DccControlledFileObsoleteReqVO();request.setReason("作废");
         when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L)
                 .categoryId(10L).versionNo("A/1").status("OBSOLETE").build());
-        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
         assertThrows(RuntimeException.class,()->obsoleteService.applyApprovedObsoleteControlledFile(99L,900L,request));
         verify(obsoleteArchiveRequestService,never()).request(any(),any());
         verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
@@ -121,7 +120,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
 
         org.mockito.Mockito.lenient().when(controlledFileMasterMapper.selectByIdForUpdate(700L))
                 .thenReturn(DccControlledFileMasterDO.builder().id(700L).tenantId(1L).build());
-        org.mockito.Mockito.lenient().when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(permissionSupport.hasFilePermission(file, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
         var context=new BusinessActionContextReqVO();context.setTenantId(1L);context.setDataDomain("DCC");
         context.setSystemCode("DCC");context.setObjectType("CONTROLLED_FILE");context.setObjectId("900");
         context.setObjectVersion("A/1");context.setActionCode("OBSOLETE");context.setReason("作废原因");
@@ -313,7 +312,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+        when(permissionSupport.hasFilePermission(file, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
         doThrow(new IllegalStateException("controlled file is locked by active form action"))
                 .when(pendingActionGuard).assertNoPendingBusinessAction(file);
@@ -343,7 +342,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .currentActiveControlledFileId(900L)
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(900L), 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
         when(distributionMapper.selectListByControlledFileId(900L)).thenReturn(List.of(
                 DccControlledFileDistributionDO.builder().id(301L).controlledFileId(900L).build()));
@@ -425,7 +424,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .currentActiveControlledFileId(902L)
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+        when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(902L), 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
         when(distributionMapper.selectListByControlledFileId(902L)).thenReturn(List.of());
         when(trainingMapper.selectListByControlledFileId(902L)).thenReturn(List.of());
@@ -462,7 +461,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .categoryId(11L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build());
-        org.mockito.Mockito.lenient().when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+        org.mockito.Mockito.lenient().when(permissionSupport.hasFilePermission(controlledFileMapper.selectById(901L), 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(false);
 
         assertServiceException(() -> obsoleteService.applyApprovedObsoleteControlledFile(99L, 901L, reqVO),

@@ -96,6 +96,19 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
     }
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   "})
+    void assignmentOpinionIsOptionalAndStillRecordsSignedAssignmentFacts(String opinion) {
+        var request=request(100L);request.setReason(opinion);
+        service.assign(99L,10L,request);
+        verify(signatureService).verifyPasswordAndCreateWorkflowSignature(eq(99L),eq(10L),eq("task-51"),eq("round-1"),
+                eq("MATRIX_REVIEW"),eq("ASSIGN"),eq("password"),argThat(reason->reason.contains("部门=51，会签人=100")));
+        verify(taskService).setAssignee("task-51","100");
+        verify(bpmTaskService,never()).approveTask(any(),any());
+        verify(relationStageService).prepare(any(),any(),any(),any(),any(),anyString(),isNull(),eq("会签指派：部门=51"));
+    }
+
     @Test void selfAssignmentHasIndependentSignatureAndDoesNotCompleteSignoff() {
         service.assign(99L,10L,request(99L));
         verify(signatureService).verifyPasswordAndCreateWorkflowSignature(eq(99L),eq(10L),eq("task-51"),eq("round-1"),eq("MATRIX_REVIEW"),eq("ASSIGN"),
@@ -434,6 +447,22 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
         row.setDepartmentId(52L);
         assertThrows(RuntimeException.class,()->service.assign(99L,10L,request(99L)));
         verifyNoInteractions(signatureService,taskService);
+    }
+
+    @Test void unassignedDepartmentLeaderCanRejectButCannotApproveOrUseAnotherLeader() {
+        when(task.getAssignee()).thenReturn("99");
+        assertDoesNotThrow(()->service.requireReviewActor(99L,10L,task,"REJECT"));
+        assertThrows(RuntimeException.class,()->service.requireReviewActor(99L,10L,task,"APPROVE"));
+        assertThrows(RuntimeException.class,()->service.requireReviewActor(100L,10L,task,"REJECT"));
+        verifyNoInteractions(signatureService,taskService);
+    }
+
+    @Test void assignedReviewRequiresActualAssigneeForBothDecisions() {
+        row.setAssignmentSignatureId(7L);row.setAssignedTime(LocalDateTime.now());row.setBpmTaskId("task-51");row.setAssigneeUserId(100L);
+        when(task.getAssignee()).thenReturn("100");
+        assertDoesNotThrow(()->service.requireReviewActor(100L,10L,task,"APPROVE"));
+        assertDoesNotThrow(()->service.requireReviewActor(100L,10L,task,"REJECT"));
+        assertThrows(RuntimeException.class,()->service.requireReviewActor(99L,10L,task,"REJECT"));
     }
 
     private DccSignoffAssignmentReqVO request(long assignee) {

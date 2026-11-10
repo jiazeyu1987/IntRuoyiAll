@@ -21,7 +21,23 @@ public record DccRegistrationCertificateChangeCommand(
         String entrustedEnterprisesJson,
         String voidReason,
         MultipartFile file,
-        List<String> changeTypes) {
+        List<String> changeTypes, List<MultipartFile> attachments, List<MultipartFile> productDescriptionFiles, Long sourceRequestId, List<Long> retainedFileIds) {
+
+    public DccRegistrationCertificateChangeCommand(Long tenantId,Long actorId,String idempotencyKey,String requestTraceId,
+            Long certificateId,Integer expectedRowVersion,LocalDate approvalDate,Map<String,String> structuredValues,
+            String otherDescription,Boolean entrustedProduction,Boolean selfProduction,String entrustedEnterprisesJson,
+            String voidReason,MultipartFile file,List<String> changeTypes,List<MultipartFile> attachments,List<MultipartFile> productDescriptionFiles) {
+        this(tenantId,actorId,idempotencyKey,requestTraceId,certificateId,expectedRowVersion,approvalDate,structuredValues,
+                otherDescription,entrustedProduction,selfProduction,entrustedEnterprisesJson,voidReason,file,changeTypes,attachments,productDescriptionFiles,null,List.of());
+    }
+
+    public DccRegistrationCertificateChangeCommand(Long tenantId,Long actorId,String idempotencyKey,String requestTraceId,
+            Long certificateId,Integer expectedRowVersion,LocalDate approvalDate,Map<String,String> structuredValues,
+            String otherDescription,Boolean entrustedProduction,Boolean selfProduction,String entrustedEnterprisesJson,
+            String voidReason,MultipartFile file,List<String> changeTypes) {
+        this(tenantId,actorId,idempotencyKey,requestTraceId,certificateId,expectedRowVersion,approvalDate,structuredValues,
+                otherDescription,entrustedProduction,selfProduction,entrustedEnterprisesJson,voidReason,file,changeTypes,List.of(),List.of());
+    }
 
     public DccRegistrationCertificateChangeCommand(Long tenantId, Long actorId, String idempotencyKey,
                                                    String requestTraceId, Long certificateId,

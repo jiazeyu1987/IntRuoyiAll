@@ -56,7 +56,6 @@ export const submitSignoffAssignment = async (
 ): Promise<{ success: boolean; error?: string }> => {
   if (!request.taskId.trim() || !isWorkflowId(request.assigneeUserId)) return { success: false, error: '请选择本部门会签人，可以选择本人' }
   if (!request.password.trim()) return { success: false, error: '请输入当前账号密码完成指派签名' }
-  if (!request.reason.trim()) return { success: false, error: '请填写指派意见' }
   const arrangements = request.relationArrangements || []
   const masters = new Set<string>()
   for (const row of arrangements) {

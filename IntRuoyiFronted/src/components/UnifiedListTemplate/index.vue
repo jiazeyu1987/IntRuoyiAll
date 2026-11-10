@@ -97,6 +97,7 @@
             :columns="columns"
             :saving="columnSaving"
             :show-reset="showColumnReset"
+            :popover-class="columnPopoverClass"
             @change="$emit('column-change', $event)"
             @reset="$emit('column-reset')"
           />
@@ -210,6 +211,7 @@ type UnifiedListSortableColumn = {
 const props = withDefaults(
   defineProps<{
     tableKey: string
+    columnPopoverClass?: string
     queryModel?: Record<string, any>
     labelWidth?: string
     queryFormTestId?: string

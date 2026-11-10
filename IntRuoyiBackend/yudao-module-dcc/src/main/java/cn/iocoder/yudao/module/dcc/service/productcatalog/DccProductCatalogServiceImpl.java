@@ -71,6 +71,9 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private DccDataRelationMapper relationMapper;
 
     @Resource
+    private DccProductCatalogRegistrationSyncService registrationProjection;
+
+    @Resource
     private DccProjectProductRelationMapper projectProductRelationMapper;
 
     @Resource
@@ -81,6 +84,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
         PageResult<DccProductCatalogRespVO> page =
                 BeanUtils.toBean(productCatalogMapper.selectPage(reqVO), DccProductCatalogRespVO.class);
         enrichBoundRelationIds(page.getList());
+        page.getList().forEach(registrationProjection::enrichCurrentCertificate);
         enrichBatchRecordTotalRecognitionJson(page.getList());
         return page;
     }
@@ -213,36 +217,32 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             return;
         }
         Map<Long, DccDataRelationDO> latestRelationByCatalogId = new HashMap<>();
+        Map<Long, Long> approvedProjects = new HashMap<>();
+        for (DccProjectProductRelationDO relation : projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
+            Long previous = approvedProjects.putIfAbsent(relation.getProductCatalogId(), relation.getProjectCodeId());
+            if (previous != null) {
+                throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT);
+            }
+        }
         for (DccDataRelationDO relation : relationMapper.selectByProductCatalogIds(productCatalogIds)) {
             if (relation.getProductCatalogId() != null) {
                 latestRelationByCatalogId.putIfAbsent(relation.getProductCatalogId(), relation);
             }
         }
         for (DccProductCatalogRespVO row : rows) {
+            Long approvedProjectId = approvedProjects.get(row.getId());
+            row.setProjectCodeId(approvedProjectId);
             DccDataRelationDO relation = latestRelationByCatalogId.get(row.getId());
             if (relation == null) {
                 continue;
             }
+            if (approvedProjectId != null && !approvedProjectId.equals(relation.getProjectCodeId())) {
+                throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT);
+            }
             row.setProjectCodeId(relation.getProjectCodeId());
             row.setRegistrationCertificateId(relation.getRegistrationCertificateId());
         }
-        // 联合新增审批建立的项目产品关系独立于注册证绑定，尚未绑定注册证也能打开正式项目。
-        Map<Long, Long> approvedProjectIds = new HashMap<>();
-        for (DccProjectProductRelationDO relation :
-                projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
-            if (approvedProjectIds.putIfAbsent(relation.getProductCatalogId(), relation.getProjectCodeId()) != null) {
-                throw exception(DCC_DATA_RELATION_CONFLICT);
-            }
-        }
-        for (DccProductCatalogRespVO row : rows) {
-            Long approvedProjectId = approvedProjectIds.get(row.getId());
-            if (approvedProjectId != null) {
-                if (row.getProjectCodeId() != null && !Objects.equals(row.getProjectCodeId(), approvedProjectId)) {
-                    throw exception(DCC_DATA_RELATION_CONFLICT);
-                }
-                row.setProjectCodeId(approvedProjectId);
-            }
-        }
+
     }
 
     private DccProductCatalogTreeNodeRespVO branchNode(String treeNodeId, String nodeType, int treeLevel,

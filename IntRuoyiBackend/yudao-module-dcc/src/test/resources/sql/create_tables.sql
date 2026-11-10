@@ -381,6 +381,9 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `revision_source_version_no` VARCHAR(64) NULL,
   `selected_iteration_controlled_file_id` BIGINT NULL,
   `selected_iteration_version_no` VARCHAR(64) NULL,
+  `import_source` VARCHAR(32) NULL,
+  `imported_by` BIGINT NULL,
+  `imported_time` DATETIME NULL,
   `source_original_file_name` VARCHAR(256) NULL,
   `revision_code` VARCHAR(8) NULL,
   `iteration_no` INT NULL,
@@ -1776,6 +1779,7 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_acl_restore_log` (
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
+  `library_scope` varchar(16) NOT NULL DEFAULT 'PROJECT',
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `product_master_id` BIGINT NULL,
   `doc_control_no` VARCHAR(64) NULL,
@@ -2296,6 +2300,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   `version_id` BIGINT NOT NULL,
   `revision_no` INT NOT NULL,
   `source_change_id` BIGINT NULL,
+  `facts_json` VARCHAR(65535) NOT NULL,
   `product_name` VARCHAR(255) NOT NULL,
   `registrant_name` VARCHAR(255) NULL,
   `model_specification` VARCHAR(2000) NULL,
@@ -2371,7 +2376,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   CONSTRAINT `chk_dcc_reg_cert_file_owner_type` CHECK
     (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
-    ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+    ('REGISTRATION_CERTIFICATE', 'CERTIFICATE_ATTACHMENT', 'FDA_PRODUCT_DESCRIPTION', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
     (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
@@ -2551,7 +2556,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change_item` (
   CONSTRAINT `chk_dcc_reg_cert_change_item_type` CHECK (`item_type` IN
     ('PRODUCT_NAME', 'REGISTRANT_NAME', 'MODEL_SPECIFICATION', 'STRUCTURE_COMPOSITION',
      'INTENDED_USE', 'TECHNICAL_REQUIREMENTS', 'RESIDENCE_ADDRESS', 'PRODUCTION_ADDRESS',
-     'OTHER_CONTENT')),
+     'OTHER_CONTENT', 'CERTIFICATE_INFORMATION', 'PRODUCTION_RELATION')),
   CONSTRAINT `chk_dcc_reg_cert_change_item_value` CHECK (`sort_order` > 0),
   UNIQUE KEY `uk_dcc_reg_cert_change_item_type` (`tenant_id`, `change_id`, `item_type`)
 );
@@ -3318,4 +3323,10 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_preview_view_session` (
   `active_marker` tinyint GENERATED ALWAYS AS (CASE WHEN `ended_at` IS NULL THEN 1 ELSE NULL END),
   CONSTRAINT `uk_dcc_preview_client` UNIQUE (`tenant_id`, `access_event_id`, `user_id`, `client_session_id`),
   CONSTRAINT `uk_dcc_preview_active` UNIQUE (`tenant_id`, `resource_type`, `controlled_file_id`, `user_id`, `active_marker`)
+);
+CREATE TABLE IF NOT EXISTS dcc_project_file_reference (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL, project_id BIGINT NOT NULL,
+ folder_id BIGINT NOT NULL, master_id BIGINT NOT NULL, selected_controlled_file_id BIGINT NOT NULL,
+ created_by BIGINT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(tenant_id,project_id,folder_id,master_id)
 );

@@ -19,6 +19,7 @@ public class DccRegistrationCertificateQueryRecord {
     private String reminderColor;
     private String visualState;
     private LocalDate firstObtainedDate;
+    private String factsJson;
     private String productName;
     private String certificateNo;
     private Integer versionNo;

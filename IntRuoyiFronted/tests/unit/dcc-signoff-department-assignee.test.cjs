@@ -18,11 +18,13 @@ const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow
 const renderer = () => vue.createRenderer({ createElement: type => ({ type, children: [] }), createText: text => ({ text }),
   createComment: () => ({}), insert: (node, parent) => parent.children.push(node), remove() {}, setText() {},
   setElementText(node, text) { node.text = text }, patchProp() {}, parentNode: () => null, nextSibling: () => null })
-function mount(file, props, dependencies = {}) {
-  const component = moduleFrom(compileScript(parse(read(file)).descriptor, { id: file }).content, dependencies).default
-  component.render = () => vue.h('section')
+function mount(file, props, dependencies = {}, inlineTemplate = false) {
+  const component = moduleFrom(compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate }).content, dependencies).default
+  if (!inlineTemplate) component.render = () => vue.h('section')
   const reactive = vue.reactive(props)
   const app = renderer().createApp({ render: () => vue.h(component, reactive) })
+  app.component('ContentWrap', { setup: (_props, { slots }) => () => vue.h('section', slots.default?.()) })
+  app.component('el-alert', { render: () => vue.h('aside') })
   const host = app.mount({ children: [] })
   return { app, props: reactive, state: host.$.subTree.component.setupState }
 }
@@ -48,6 +50,33 @@ test('actual assignment cannot load or sign a cross-department user through the 
     assert.equal(panel.externalLoads.length, 0, '会签不能加载全员目录')
     assert.equal(panel.writes.length, 0, '跨部门账号不能进入签名保存')
     assert.match(panel.state.error, /候选|本部门/)
+  } finally { panel.app.unmount() }
+})
+
+test('actual signer never mounts assignment inputs or loads assignment relation directories', async () => {
+  let assignmentForms = 0
+  let unexpectedCalls = 0
+  const unexpected = () => { unexpectedCalls++; throw Error('actual review must not load assignment data') }
+  const states = []
+  const panel = mount('src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue', {
+    fileId: '10', processInstanceId: 'round-a', taskId: 'task-a', onState: value => states.push(value)
+  }, {
+    '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => ({
+      controlledFileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
+      processDefinitionKey: 'dcc-controlled-file-revision', departmentId: '5', assigned: true,
+      canAssign: false, assigneeOptions: []
+    }) },
+    '@/api/dcc/controlledFile/relations': { listHistoricalRelations: unexpected, listRelationArrangements: unexpected },
+    '@/api/dcc/controlledFile/workflowLifecycle': { assignWorkflowSignoff: unexpected },
+    '@/api/system/user': { getSimpleUserList: unexpected },
+    '../workflow/workflow-actions': actions,
+    '../workflow/SignoffAssignmentPanel.vue': { setup: () => { assignmentForms++; return () => vue.h('input') } }
+  }, true)
+  try {
+    await drain()
+    assert.equal(assignmentForms, 0)
+    assert.equal(unexpectedCalls, 0)
+    assert.equal(states.at(-1).assigned, true)
   } finally { panel.app.unmount() }
 })
 
@@ -119,4 +148,15 @@ test('actual detail save refuses an injected user outside the exact department c
     await panel.state.saveAssignment({ taskId: 'task-a', assigneeUserId: '99', password: 'unit-only', reason: '指派本人' })
     assert.equal(writes.length, 1)
   } finally { panel.app.unmount() }
+})
+
+test('signature opinion and password start locked and task changes erase entered content', async () => {
+  const panel=assignment()
+  try {
+    assert.equal(panel.state.reasonFocused,false);assert.equal(panel.state.passwordFocused,false)
+    panel.state.reasonFocused=true;panel.state.passwordFocused=true
+    panel.props.taskId='task-b';await vue.nextTick()
+    assert.equal(panel.state.reason,'');assert.equal(panel.state.password,'')
+    assert.equal(panel.state.reasonFocused,false);assert.equal(panel.state.passwordFocused,false)
+  } finally {panel.app.unmount()}
 })

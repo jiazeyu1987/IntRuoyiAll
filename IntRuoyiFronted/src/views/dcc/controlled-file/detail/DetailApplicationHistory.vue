@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap v-loading="loading" data-testid="dcc-detail-application-history">
+  <ContentWrap class="dcc-detail-surface" v-loading="loading" data-testid="dcc-detail-application-history">
     <p class="font-600">{{ lockPrimaryRound ? '本次申请信息' : '申请轮次与冻结证据' }}</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="lockPrimaryRound && !contextError"
@@ -77,7 +77,7 @@
             ></el-table-column
           >
           <el-table-column label="意见" min-width="200"
-            ><template #default="{ row }">{{ row.comment || '未记录' }}</template></el-table-column
+            ><template #default="{ row }">{{ getDccSignatureOpinionLabel(row.comment) }}</template></el-table-column
           >
           <el-table-column label="时间" min-width="175"
             ><template #default="{ row }">{{
@@ -147,6 +147,7 @@
 </template>
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
+import { serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import {
   getControlledFileApplicationRounds,
   getControlledFileApplicationEvidence
@@ -160,12 +161,13 @@ import ProjectAttributesFields from '../project-attributes/ProjectAttributesFiel
 import DetailRelationStageEvidence from './DetailRelationStageEvidence.vue'
 import { formatControlledFileDateTime } from './presentation'
 import { validateApplicationRoundMappings } from './application-round-context'
-import { getDccSignatureTaskActionLabel } from '../shared/signature-evidence'
+import { getDccSignatureTaskActionLabel, getDccSignatureOpinionLabel } from '../shared/signature-evidence'
 import { validateApplicationNodeRecords } from './application-node-records'
 import { detailIdentity } from './relation-contract'
 import type { DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 const props = defineProps<{
+  bodyReadContext?: DccBodyReadContext
   fileId: string | number
   expectedVersionNo?: string
   primaryApplicationType?: DccApplicationType
@@ -226,7 +228,8 @@ const selectRound = async (key: string) => {
     const result = await getControlledFileApplicationEvidence(
       round.controlledFileId,
       round.applicationType,
-      round.bpmRound
+      round.bpmRound,
+      props.bodyReadContext ? serializeDccBodyReadContext(props.fileId, props.bodyReadContext) : undefined
     )
     if (!isCurrent()) return
     if (
@@ -276,6 +279,7 @@ const selectRound = async (key: string) => {
 watch(
   () => [
     String(props.fileId),
+    JSON.stringify(props.bodyReadContext),
     props.primaryBpmRound,
     props.contextKey,
     props.contextError,
@@ -299,7 +303,8 @@ watch(
     evidenceLoading.value = false
     try {
       if (props.contextError) throw new Error(props.contextError)
-      const result = await getControlledFileApplicationRounds(props.fileId)
+      const result = await getControlledFileApplicationRounds(props.fileId,
+        props.bodyReadContext ? serializeDccBodyReadContext(props.fileId, props.bodyReadContext) : undefined)
       if (isCurrent()) {
         const validated = validateApplicationRoundMappings(props.fileId, result)
         loadedAuthority.value = authority

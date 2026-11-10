@@ -87,9 +87,12 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DELETE_REFERENCED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DUPLICATE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED;
 
 @Import(DccProjectCodeServiceImpl.class)
 class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
 
     private static final List<String> EXPECTED_HEADERS = List.of(
             "文控", "项目名称", "项目代码", "类别", "委托生产",
@@ -135,7 +138,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void createUpdateDeleteShouldPersistNormalizedFieldsAndAllowBlankProjectCode() {
+    void directCreateIsForbiddenAndExistingBlankCodeProjectCanStillUpdateAndDelete() {
         DccProjectCodeSaveReqVO createReqVO = new DccProjectCodeSaveReqVO();
         createReqVO.setDocControlNo(" 12 ");
         createReqVO.setProjectName(" 项目A ");
@@ -148,19 +151,13 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         createReqVO.setPriority(" 高 ");
         createReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
 
-        Long id = projectCodeService.createProjectCode(createReqVO);
-
-        DccProjectCodeDO created = projectCodeMapper.selectById(id);
-        assertNotNull(created);
-        assertEquals("12", created.getDocControlNo());
-        assertEquals("项目A", created.getProjectName());
-        assertEquals("", created.getProjectCode());
-        assertEquals("类别A", created.getCategory());
-        assertEquals("√", created.getCommissionedProduction());
-        assertEquals("负责人A", created.getProjectLeader());
-        assertEquals("工程师A", created.getProjectEngineer());
-        assertEquals("新N", created.getStorageLocation());
-        assertEquals("高", created.getPriority());
+        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED);
+        assertTrue(projectCodeMapper.selectList().isEmpty());
+        DccProjectCodeDO historical = DccProjectCodeDO.builder().docControlNo("12").projectName("项目A").projectCode("")
+                .category("类别A").commissionedProduction("√").projectLeader("负责人A").projectEngineer("工程师A")
+                .storageLocation("新N").priority("高").status(DccProjectCodeStatusConstants.ENABLE).build();
+        projectCodeMapper.insert(historical);
+        Long id = historical.getId();
 
         DccProjectCodeUpdateReqVO updateReqVO = new DccProjectCodeUpdateReqVO();
         updateReqVO.setId(id);
@@ -196,7 +193,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void createOrUpdateShouldRejectDuplicateProjectNameAndProjectCode() {
+    void directCreateIsForbiddenAndUpdateRejectsDuplicateProjectNameAndProjectCode() {
         projectCodeMapper.insert(DccProjectCodeDO.builder()
                 .docControlNo("1")
                 .projectName("项目A")
@@ -208,7 +205,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         createReqVO.setProjectName("项目A");
         createReqVO.setProjectCode("CODE-A");
         createReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
-        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), PROJECT_CODE_DUPLICATE);
+        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED);
+        assertEquals(1,projectCodeMapper.selectList().size());
 
         DccProjectCodeDO another = DccProjectCodeDO.builder()
                 .docControlNo("2")
@@ -227,7 +225,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void createShouldRejectDuplicateProjectCodeAcrossProjectNames() {
+    void directCreateRejectsBeforeDuplicateChecksAcrossProjectNames() {
         projectCodeMapper.insert(DccProjectCodeDO.builder()
                 .docControlNo("1")
                 .projectName("项目A")
@@ -240,7 +238,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         createReqVO.setProjectCode("CODE-SHARED");
         createReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
 
-        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), PROJECT_CODE_DUPLICATE);
+        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED);
+        assertEquals(1,projectCodeMapper.selectList().size());
     }
 
     @Test

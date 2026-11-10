@@ -13,4 +13,5 @@ public class DccControlledFileActionProjectionRespVO {
     private Boolean canWithdraw;
     private Long pendingRequestId;
     private String pendingVersionNo;
+    private cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO activeObsoleteAction;
 }

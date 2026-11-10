@@ -86,7 +86,7 @@ class DccObsoleteFormOpenDraftDatabaseTest extends BaseDbUnitTest {
                 .fileNumber("N-1").fileName("SOP").title("SOP").sourceOriginalFileName("SOP.pdf").sourceFileId(100L).originalFileId(100L).sourceSha256("a".repeat(64))
                 .versionNo("A/1").changeType("NEW").processType("CONTROLLED_FILE").requesterId(99L).submitterId(99L).status("ACTIVE").controlledTime(java.time.LocalDateTime.of(2026,10,1,0,0))
                 .processInstanceId("original-upload-round").processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD).build();files.insert(file);
-        when(permissions.hasCategoryPermission(any(),eq(99L),any())).thenReturn(true);
+        when(permissions.hasFilePermission(any(),eq(99L),any())).thenReturn(true);
         policies=mock(BusinessApprovalPolicyMapper.class);var policy=BusinessApprovalPolicyDO.builder().id(81L).tenantId(1L).dataDomain("DCC").systemCode("DCC").objectType("CONTROLLED_FILE").actionCode("OBSOLETE").objectState("ACTIVE")
                 .policyMode("BPM_REQUIRED").formPolicyType("NONE").formSlotsJson("[]").processDefinitionKey(DccControlledFileProcessDefinitionKeys.OBSOLETE).effectExecutorCode("DCC_OBSOLETE").status("PUBLISHED").build();
         when(policies.selectPublishedByAction(any(),any(),any(),any(),any(),any())).thenReturn(List.of(policy));
@@ -114,7 +114,21 @@ class DccObsoleteFormOpenDraftDatabaseTest extends BaseDbUnitTest {
     FormInstanceRespVO open(DccControlledFileObsoleteReqVO r){return tx().execute(s->obsolete.obsoleteControlledFile(99L,20L,r));}
     int ownRound(FormInstanceRespVO form){return tx().execute(s->rounds.requireObsoleteFormDraft(99L,20L,form.getId(),form.getInstanceCode()));}
     DccControlledFileObsoleteReqVO phaseRequest(FormInstanceRespVO form,String phase){var r=request("OPEN-SAVE");r.setPhase(phase);r.setFormInstanceId(form.getId());r.setFormInstanceCode(form.getInstanceCode());r.setAttributeRound(ownRound(form));r.setApplicationContextKey("DCC_OBSOLETE:"+form.getId()+":"+form.getInstanceCode());return r;}
-    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO getDraft(){return tx().execute(s->obsolete.getObsoleteApplicationDraft(99L,20L));}
+    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO getDraft(){
+        var proxy=new org.springframework.aop.framework.ProxyFactory(obsolete);
+        proxy.setProxyTargetClass(true);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        return ((DccControlledFileObsoleteServiceImpl)proxy.getProxy()).getObsoleteApplicationDraft(99L,20L);
+    }
+    @Test void reopeningDraftUsesWritableTransactionForIdentityLocks(){
+        var opened=open(request("OPEN-SAVE"));
+        when(permissions.hasFilePermission(any(),anyLong(),any())).thenAnswer(call->{
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly(),"MySQL forbids draft FOR UPDATE locks in a read-only transaction");
+            return true;
+        });
+        assertEquals(opened.getId(),getDraft().getId());
+    }
     cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO phase(DccControlledFileObsoleteReqVO r){return (cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO)tx().execute(s->obsolete.obsoleteControlledFile(99L,20L,r));}
     void currentMatrix(int version)throws Exception{
         if(version==1){var category=cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX").id(2L).code("IC29").name("真实作废类别").active(true).source("LOCAL").lifecycleStage("DEVELOPMENT").fileTypeTaxonomyId(6L).build();sql.getMapper(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper.class).insert(category);jdbc.update("UPDATE dcc_file_category SET tenant_id=1 WHERE id=2");}
@@ -159,6 +173,26 @@ class DccObsoleteFormOpenDraftDatabaseTest extends BaseDbUnitTest {
         doAnswer(c->{var created=c.callRealMethod();jdbc.update("UPDATE dcc_controlled_file SET status='OBSOLETE' WHERE id=20 AND tenant_id=1");return created;}).when(actualCenter).createInstance(any(),eq(99L));
         wire(obsolete,"formCenterRuntimeService",actualCenter);var error=assertThrows(IllegalArgumentException.class,()->open(request("OPEN-LOCKED-STATE")));assertTrue(error.getMessage().contains("受控File"));
         assertEquals(sourceBefore,files.selectById(20L));assertEquals(0L,forms.selectCount(null));assertEquals(0L,formSnapshots.selectCount(null));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_application_round_link WHERE form_instance_id IS NOT NULL",Integer.class));assertEquals(0L,attributesRows.selectCount(null));verify(actualCenter,never()).submitInstance(any(),any(),any());
+    }
+    @ParameterizedTest @ValueSource(strings={"QMS","GENERAL"})
+    void libraryEditPreviewsWithoutCategoryRulesAndViewOnlyCannotPreview(String scope)throws Exception{
+        jdbc.update("UPDATE dcc_project_code SET library_scope=? WHERE id=5",scope);currentMatrix(1);
+        var exactPermissions=new DccControlledFileCategoryPermissionSupport();
+        var globalPermissions=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        var categoryRules=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionRuleMapper.class);
+        wire(exactPermissions,"projectMapper",projects,"projectAccessService",projectAccess,"permissionApi",globalPermissions,"permissionRuleMapper",categoryRules);
+        wire(source,"categoryPermissions",exactPermissions);wire(obsolete,"permissionSupport",exactPermissions);
+        when(projectAccess.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+        var openRequest=request("OPEN-SAVE");openRequest.setProjectAttributes(DccProjectAttributes.forLibrary(scope));
+        var form=open(openRequest);var previewRequest=phaseRequest(form,"PREVIEW");previewRequest.setProjectAttributes(DccProjectAttributes.forLibrary(scope));
+        var formBefore=forms.selectById(form.getId());var fileBefore=files.selectById(20L);
+        assertNotNull(phase(previewRequest).getApprovalMatrixBaselineToken());
+        assertEquals(formBefore,forms.selectById(form.getId()));
+        when(projectAccess.hasProjectEditorOrOwner(99L,5L)).thenReturn(false);
+        when(projectAccess.listReadableProjectIds(99L)).thenReturn(List.of(5L));
+        assertTrue(exactPermissions.hasFilePermission(files.selectById(20L),99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW));
+        assertThrows(RuntimeException.class,()->phase(previewRequest));
+        assertEquals(formBefore,forms.selectById(form.getId()));assertEquals(fileBefore,files.selectById(20L));verifyNoInteractions(categoryRules);
     }
     @Test void previewReadsActualRawBeforeAfterTokensWithoutAnyFormAttributeOrSourceWrites()throws Exception{
         currentMatrix(1);var form=open(request("OPEN-SAVE"));var formBefore=forms.selectById(form.getId());var attrsBefore=attributesRows.find("OBSOLETE",20L,ownRound(form));var fileBefore=files.selectById(20L);var r=phaseRequest(form,"PREVIEW");

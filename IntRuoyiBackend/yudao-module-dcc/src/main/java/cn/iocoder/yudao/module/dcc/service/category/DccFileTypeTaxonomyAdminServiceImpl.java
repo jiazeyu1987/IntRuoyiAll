@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS;
@@ -59,6 +60,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
     public Long createTaxonomy(DccFileTypeTaxonomySaveReqVO reqVO) {
         DccFileTypeTaxonomyDO taxonomy = BeanUtils.toBean(reqVO, DccFileTypeTaxonomyDO.class);
         normalizeForCreate(taxonomy);
+        if (StrUtil.isBlank(taxonomy.getCode())) {
+            taxonomy.setCode("FT_" + UUID.randomUUID().toString().replace("-", ""));
+        }
         validateDuplicateSibling(taxonomy);
         if (taxonomyMapper.insert(taxonomy) != 1 || taxonomy.getId() == null) {
             throw exception(WRITE_INCOMPLETE, "新增分类");
@@ -68,16 +72,31 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @com.mzt.logapi.starter.annotation.LogRecord(type = "DCC文件类型", subType = "修改文件类型", bizNo = "{{#reqVO.id}}", success = "类型修改：原内容 {{#before}}；新内容 {{#reqVO}}")
     public void updateTaxonomy(DccFileTypeTaxonomySaveReqVO reqVO) {
         DccFileTypeTaxonomyDO existing = validateExists(reqVO.getId());
+        com.mzt.logapi.context.LogRecordContext.putVariable("before", existing.toString());
         Long normalizedParentId = normalizeParentId(reqVO.getParentId());
         if (!Objects.equals(existing.getParentId(), normalizedParentId)) {
             throw exception(FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN);
+        }
+        if (!"其他".equals(StrUtil.trim(reqVO.getName())) && categoryMapper.selectList().stream()
+                .anyMatch(category -> Objects.equals(category.getFileTypeTaxonomyId(), existing.getId())
+                        && "APPLICATION_CUSTOM".equals(category.getApprovalSourceMode()))) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.CONFIGURATION_REQUIRED);
+        }
+        if ("其他".equals(StrUtil.trim(reqVO.getName())) && categoryMapper.selectList().stream()
+                .anyMatch(category -> Objects.equals(category.getFileTypeTaxonomyId(), existing.getId())
+                        && "PUBLIC_MATRIX".equals(category.getApprovalSourceMode()))) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
         }
         // 停用保留正式类型 ID、模板映射与历史；新申请解析会明确拒绝失效路径。
         DccFileTypeTaxonomyDO taxonomy = BeanUtils.toBean(reqVO, DccFileTypeTaxonomyDO.class);
         taxonomy.setParentId(existing.getParentId());
         taxonomy.setLevelNo(existing.getLevelNo());
+        if (StrUtil.isBlank(taxonomy.getCode())) {
+            taxonomy.setCode(existing.getCode());
+        }
         validateDuplicateSibling(taxonomy);
         if (taxonomyMapper.updateById(taxonomy) != 1) {
             throw exception(WRITE_INCOMPLETE, "修改分类");
@@ -86,8 +105,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @com.mzt.logapi.starter.annotation.LogRecord(type = "DCC文件类型", subType = "删除文件类型", bizNo = "{{#id}}", success = "删除类型 {{#before}}")
     public void deleteTaxonomy(Long id) {
-        validateExists(id);
+        com.mzt.logapi.context.LogRecordContext.putVariable("before", validateExists(id).toString());
         if (taxonomyMapper.selectCount(DccFileTypeTaxonomyDO::getParentId, id) > 0) {
             throw exception(FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS);
         }

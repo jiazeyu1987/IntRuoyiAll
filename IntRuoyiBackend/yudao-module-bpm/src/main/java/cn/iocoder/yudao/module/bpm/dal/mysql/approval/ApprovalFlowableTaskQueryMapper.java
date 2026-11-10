@@ -13,6 +13,7 @@ public interface ApprovalFlowableTaskQueryMapper {
     List<String> window(Map<String,Object> parameters);
     long countBrokenProvenance(Map<String,Object> parameters);
     List<BpmApprovalProcessOwnershipDO> ownerships(Map<String,Object> parameters);
+    List<String> unownedHistoricProcesses(Map<String,Object> parameters);
     long countInitiated(Map<String,Object> parameters);
     List<String> windowInitiated(Map<String,Object> parameters);
     long countCopied(Map<String,Object> parameters);

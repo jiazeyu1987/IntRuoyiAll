@@ -74,6 +74,10 @@ import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledC
 
 @Service
 public class DccRegistrationCertificateRenewalService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
+
 
     private static final String VERSION_TYPE_RENEWAL = "RENEWAL_CERTIFICATE";
     private static final String STATUS_ACTIVE = "ACTIVE";
@@ -190,6 +194,12 @@ public class DccRegistrationCertificateRenewalService {
         businessFile.setTenantId(command.tenantId());
         requireSingle(fileMapper.insert(businessFile), REGISTRATION_CERTIFICATE_FILE_CONFLICT);
 
+        Map<String,Object> frozen=submitDetail(command,businessFile.getId(),payloadHash,uploadFile,
+                renewalCertificateNo,renewalClassification,productName,ownerCompanyName);
+        var projected=copySnapshot(currentSnapshot,command.currentVersionId());
+        projected.setFactsJson(renewalFacts(currentSnapshot.getFactsJson(),renewalCertificateNo,renewalClassification,
+                command.approvalDate(),command.effectiveDate(),command.expiryDate()));
+        frozen.put("factsJson",projected.getFactsJson());frozen.put("draft",projected);
         DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
                 .ownerCompanyId(certificate.getOwnerCompanyId())
                 .certificateId(certificate.getId())
@@ -199,9 +209,7 @@ public class DccRegistrationCertificateRenewalService {
                 .purpose(RENEWAL_REQUEST_PURPOSE)
                 .status(REQUEST_STATUS_SUBMITTED)
                 .requestedAt(businessClock.now())
-                .detailJson(JsonUtils.toJsonString(submitDetail(
-                        command, businessFile.getId(), payloadHash, uploadFile,
-                        renewalCertificateNo, renewalClassification, productName, ownerCompanyName)))
+                .detailJson(JsonUtils.toJsonString(frozen))
                 .build();
         request.setTenantId(command.tenantId());
         try {
@@ -226,6 +234,7 @@ public class DccRegistrationCertificateRenewalService {
                         .build();
         requestFile.setTenantId(command.tenantId());
         requireSingle(requestFileMapper.insert(requestFile), REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        registrationHandlingTasks.bindRequest(command.tenantId(), command.actorId(), certificate.getProjectCodeId(), certificate.getId(), request.getId(), "RENEWAL");
         return new DccRegistrationCertificateRenewalSubmitResult(
                 request.getId(), certificate.getId(), businessFile.getId(), request.getStatus());
     }
@@ -244,6 +253,7 @@ public class DccRegistrationCertificateRenewalService {
                 detail.approvalDate(), detail.effectiveDate(), detail.expiryDate(),
                 detail.categoryChanged(), detail.certificateNo(), detail.classification()));
         markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_APPROVED);
+        registrationHandlingTasks.recordDecision(tenantId, approverId, requestId, true, "延续审批通过，新证已入库，按证件日期生效");
         return result;
     }
 
@@ -253,6 +263,7 @@ public class DccRegistrationCertificateRenewalService {
         RenewalRequestDetail detail = parseRenewalRequestDetail(request);
         markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_REJECTED);
         voidStagedRenewalFile(tenantId, detail.businessFileId(), actorId, reason);
+        registrationHandlingTasks.recordDecision(tenantId, actorId, requestId, false, reason);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -304,6 +315,8 @@ public class DccRegistrationCertificateRenewalService {
         }
 
         DccRegistrationCertificateSnapshotDO renewalSnapshot = copySnapshot(currentSnapshot, renewalVersion.getId());
+        renewalSnapshot.setFactsJson(renewalFacts(currentSnapshot.getFactsJson(),renewalVersion.getCertificateNo(),
+                renewalVersion.getClassification(),renewalVersion.getApprovalDate(),renewalVersion.getEffectiveDate(),renewalVersion.getExpiryDate()));
         requireSingle(snapshotMapper.insert(renewalSnapshot), REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT);
         for (DccRegistrationCertificateSnapshotEntrustedDO row : entrustedRows) {
             DccRegistrationCertificateSnapshotEntrustedDO copy =
@@ -574,12 +587,20 @@ public class DccRegistrationCertificateRenewalService {
         }
     }
 
+    private static String renewalFacts(String source,String number,String classification,LocalDate approval,LocalDate effective,LocalDate expiry) {
+        var facts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(source);
+        facts.setCertificateNo(number);facts.setClassification(classification);facts.setApprovalDate(approval);
+        facts.setEffectiveDate(effective);facts.setExpiryDate(expiry);facts.setCertificateStatus("VALID");
+        return facts.toJson();
+    }
+
     private DccRegistrationCertificateSnapshotDO copySnapshot(DccRegistrationCertificateSnapshotDO source,
                                                               Long renewalVersionId) {
         DccRegistrationCertificateSnapshotDO copy = DccRegistrationCertificateSnapshotDO.builder()
                 .versionId(renewalVersionId)
                 .revisionNo(1)
                 .sourceChangeId(null)
+                .factsJson(source.getFactsJson())
                 .productName(source.getProductName())
                 .registrantName(source.getRegistrantName())
                 .modelSpecification(source.getModelSpecification())

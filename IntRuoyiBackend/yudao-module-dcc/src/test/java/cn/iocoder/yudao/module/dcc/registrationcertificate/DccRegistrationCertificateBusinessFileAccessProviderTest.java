@@ -89,6 +89,8 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
     private DccRegistrationCertificateFileMapper dbFileMapper;
     @Resource
     private DccRegistrationCertificateAuditMapper auditMapper;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
@@ -116,7 +118,7 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
         assertEquals(BUSINESS_TYPE, reference.businessType());
         assertEquals(file.businessFileId(), reference.businessId());
         assertEquals(10L, reference.companyId());
-        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
         DccRegistrationCertificateAuditDO audit = auditMapper.selectByTenantIdAndEventKey(
                 1L, "REQ-RC-PREVIEW-001:PREVIEW:CERTIFICATE:" + file.certificateId() + ":SUCCESS");
         assertNotNull(audit);
@@ -153,7 +155,7 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
                 "REQ-RC-OLD-OFFICE-001", null, "10.0.0.1", "JUnit")).orElseThrow();
 
         assertEquals(file.businessFileId(), reference.businessId());
-        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        org.mockito.Mockito.verifyNoInteractions(companyScopeApi);
         assertNotNull(auditMapper.selectByTenantIdAndEventKey(
                 1L, "REQ-RC-OLD-OFFICE-001:ONLYOFFICE_PREVIEW:CERTIFICATE:"
                         + file.certificateId() + ":SUCCESS"));
@@ -272,6 +274,7 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
                 .effectiveAt(LocalDateTime.of(2026, 8, 1, 0, 0))
                 .build();
         snapshot.setTenantId(tenantId);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, snapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(snapshot));
 
         DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()

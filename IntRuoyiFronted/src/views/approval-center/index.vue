@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="approval-center">
+    <div class="approval-center" :class="{ 'approval-center--dcc': queryParams.moduleCode === 'DCC' }">
       <UnifiedListTemplate
         :table-key="approvalCenterTableKey"
         :query-model="queryParams"
@@ -61,7 +61,7 @@
                 <template #default="{ row }">
                   <el-tag size="small" type="info">{{ resolveModuleName(row.moduleCode) }}</el-tag>
                   <div class="approval-center__muted">{{ resolveSourceTaskTypeLabel(row) }}</div>
-                  <div v-if="row.moduleCode === 'BPM'" class="approval-center__muted">由业务提交生成的流程任务</div>
+                  <div v-if="row.moduleCode === 'BPM' && row.sourceTaskType !== 'BPM_TASK_HISTORY'" class="approval-center__muted">由业务提交生成的流程任务</div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -376,7 +376,10 @@
               <div class="approval-center__muted">
                 处理人：{{ entry.actorUserId || '--' }}
               </div>
-              <div v-if="entry.comment" class="approval-center__timeline-comment">
+              <div
+                v-if="entry.comment && !(entry.moduleCode === 'DCC' && entry.nodeCode === 'MATRIX_REVIEW_ASSIGN')"
+                class="approval-center__timeline-comment"
+              >
                 {{ entry.comment }}
               </div>
               <div class="approval-center__muted">
@@ -404,7 +407,7 @@
           <span>{{ resolveBusinessTitleLabel(reviewTask) }}</span>
         </div>
         <div class="approval-center__review-summary-hint">
-          {{ reviewForm.result === 'APPROVE' ? '审核通过需填写审批意见并完成电子签名确认。' : '审核不通过需填写原因并完成电子签名确认。' }}
+          {{ reviewForm.result === 'APPROVE' ? '审核通过需完成电子签名确认，审批意见选填。' : '审核不通过需填写原因并完成电子签名确认。' }}
         </div>
       </div>
       <section v-if="reviewTask?.moduleCode === 'EDHR'" v-loading="reviewPreviewLoading">
@@ -429,7 +432,7 @@
         </el-form-item>
         <el-form-item
           :label="reviewForm.result === 'REJECT' ? '不通过原因' : '审批意见'"
-          required
+          :required="reviewForm.result === 'REJECT'"
         >
           <el-input
             v-model="reviewForm.reason"
@@ -437,12 +440,15 @@
             :rows="3"
             maxlength="4000"
             show-word-limit
-            :placeholder="reviewForm.result === 'REJECT' ? '请输入审核不通过原因' : '请输入审批意见'"
+            :placeholder="reviewForm.result === 'REJECT' ? '请输入审核不通过原因' : '可填写审批意见（选填）'"
           />
         </el-form-item>
         <el-form-item label="电子签名" required>
           <el-input
             v-model="reviewForm.signaturePassword"
+            name="approval-center-signature-password"
+            :readonly="!reviewForm.passwordFocused"
+            @focus="reviewForm.passwordFocused = true"
             type="password"
             show-password
             autocomplete="new-password"
@@ -566,6 +572,7 @@ const APPROVAL_MODULE_LABELS: Record<ApprovalModuleCode, string> = {
 const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   BPM_TASK_TODO: '流程待办任务',
   BPM_TASK_DONE: '流程已办任务',
+  BPM_TASK_HISTORY: '流程历史记录',
   BPM_PROCESS_INSTANCE: '流程实例',
   BPM_PROCESS_INSTANCE_COPY: '流程抄送实例',
   DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
@@ -668,10 +675,12 @@ const reviewForm = reactive<{
   result: ApprovalTaskReviewResult
   reason: string
   signaturePassword: string
+  passwordFocused: boolean
 }>({
   result: 'APPROVE',
   reason: '',
-  signaturePassword: ''
+  signaturePassword: '',
+  passwordFocused: false
 })
 
 const queryParams = reactive<ApprovalCenterQueryParams>({
@@ -1188,7 +1197,7 @@ const openTimeline = async (row: ApprovalTaskSummaryVO) => {
       sourceTaskType: row.sourceTaskType,
       sourceTaskId: row.sourceTaskId,
       businessKey: row.businessKey,
-      processInstanceId: row.processInstanceId
+      ...(row.processInstanceId?.trim() ? { processInstanceId: row.processInstanceId } : {})
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     if (!data || data.length === 0) {
@@ -1223,6 +1232,8 @@ const canReviewInModule = (row: ApprovalTaskSummaryVO) => {
     && !row.businessDeleted
     && !bpmMissingPermissionReason(row)
     && (actions.includes('REVIEW_IN_MODULE') || actions.includes('APPROVE_IN_MODULE')
+      || (row.moduleCode === 'DCC' && ['DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL'].includes(row.sourceTaskType)
+        && actions.includes('PROCESS_IN_MODULE') && canOpenView(row))
       || (row.moduleCode === 'EDHR' && row.sourceTaskType === 'ACTIVE_ORDER_HANDOFF'
         && actions.includes('PROCESS_IN_MODULE') && canOpenView(row))
       || canProcessBpmInModule(row, queryParams.viewType))
@@ -1266,6 +1277,7 @@ const resetReviewRequestContext = () => {
   reviewGeneration++
   reviewSubmitting.value = false
   reviewForm.signaturePassword = ''
+  reviewForm.passwordFocused = false
 }
 
 watch(reviewDialogVisible, (visible) => {
@@ -1282,6 +1294,7 @@ const openReviewDialog = (row: ApprovalTaskSummaryVO) => {
   reviewForm.result = 'APPROVE'
   reviewForm.reason = ''
   reviewForm.signaturePassword = ''
+  reviewForm.passwordFocused = false
   reviewDialogVisible.value = true
   reviewPreview.value = undefined
   reviewIdempotencyKey.value = crypto.randomUUID()
@@ -1295,6 +1308,7 @@ const loadReviewPreview = async () => {
   reviewPreview.value = undefined
   reviewPreviewError.value = ''
   reviewForm.signaturePassword = ''
+  reviewForm.passwordFocused = false
   reviewPreviewLoading.value = true
   try {
     const preview = await getApprovalReviewPreview({ moduleCode: task.moduleCode, sourceTaskType: task.sourceTaskType, sourceTaskId: task.sourceTaskId, processInstanceId: task.processInstanceId })
@@ -1321,8 +1335,8 @@ const submitReview = async () => {
     ElMessage.error('该审批任务不支持所选审核动作，请刷新任务')
     return
   }
-  if (!reviewForm.reason.trim()) {
-    ElMessage.error(reviewForm.result === 'REJECT' ? '审核不通过必须填写原因' : '审核通过必须填写审批意见')
+  if (reviewForm.result === 'REJECT' && !reviewForm.reason.trim()) {
+    ElMessage.error('审核不通过必须填写原因')
     return
   }
   if (!reviewForm.signaturePassword.trim()) {
@@ -1377,6 +1391,7 @@ const submitReview = async () => {
       success: () => {
         if (!isCurrent()) return
         reviewForm.signaturePassword = ''
+        reviewForm.passwordFocused = false
         ElMessage.success(payload.result === 'APPROVE' ? '审核已通过' : '审核不通过已提交')
         reviewDialogVisible.value = false
       },
@@ -1389,8 +1404,24 @@ const submitReview = async () => {
   } catch (error) {
     if (isCurrent()) {
       const message = resolveErrorMessage(error)
-      reviewForm.signaturePassword = ''
-      if (/审批资料已变化|审批预览已过期/.test(message)) {
+      if (error && typeof error === 'object' && 'code' in error
+        && ['ECONNABORTED', 'ETIMEDOUT'].includes(String(error.code))) {
+        reviewForm.signaturePassword = ''
+        reviewForm.passwordFocused = false
+        reviewDialogVisible.value = false
+        ElMessage.warning('办理结果待确认，请刷新核对审批结果后再操作')
+        try {
+          if (!await getList(true) && isPageCurrent()) {
+            ElMessage.error(`审批列表刷新失败：${loadError.value || '请返回审批中心重新刷新'}`)
+          }
+        } catch (refreshError) {
+          if (isPageCurrent()) ElMessage.error(`审批列表刷新失败：${resolveErrorMessage(refreshError)}`)
+        }
+        return
+      }
+      if (/审批资料已变化|审批预览已过期|STALE_CONTENT|APPROVAL_PREPARE_EXPIRED/.test(message)) {
+        reviewForm.signaturePassword = ''
+        reviewForm.passwordFocused = false
         reviewPreview.value = undefined
         reviewPreviewError.value = message
       }
@@ -1845,6 +1876,115 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.approval-center--dcc {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  --el-component-size: 32px;
+
+  min-width: 0;
+}
+
+.approval-center.approval-center--dcc {
+  gap: 8px;
+}
+
+.approval-center--dcc .approval-center__title-group {
+  display: none;
+}
+
+.approval-center.approval-center--dcc :deep(.unified-list-template__query-form) {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.approval-center--dcc :deep(.unified-list-template),
+.approval-center--dcc :deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.approval-center--dcc :deep(.unified-list-template__table-shell) {
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.approval-center--dcc :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #dbe3e7;
+  --el-table-row-hover-bg-color: #e6f5f2;
+}
+
+.approval-center--dcc :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+
+.approval-center--dcc :deep(th.el-table__cell) {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.approval-center--dcc .approval-center__muted {
+  margin-top: 2px;
+}
+
+.approval-center--dcc .approval-center__dcc-key-fields,
+.approval-center--dcc .approval-center__dcc-context {
+  gap: 2px 8px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.approval-center--dcc .approval-center__primary-row {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.approval-center--dcc .approval-center__primary-row .approval-center__primary {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.approval-center--dcc :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+@media (max-width: 700px) {
+  .approval-center.approval-center--dcc :deep(.unified-list-template__multi-filter) {
+    flex-basis: 100%;
+  }
+
+  .approval-center--dcc :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .approval-center--dcc :deep(.table-multi-filter-field__operator),
+  .approval-center--dcc :deep(.table-multi-filter__field-select) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .approval-center--dcc :deep(.table-multi-filter-field__value) {
+    flex: 1 1 220px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .approval-center--dcc :deep(.table-multi-filter-field__label) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 .approval-center {
   display: flex;
   flex-direction: column;

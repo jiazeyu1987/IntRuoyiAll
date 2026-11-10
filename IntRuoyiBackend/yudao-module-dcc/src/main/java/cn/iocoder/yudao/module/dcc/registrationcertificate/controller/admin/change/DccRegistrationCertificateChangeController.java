@@ -63,7 +63,7 @@ public class DccRegistrationCertificateChangeController {
                 requestTraceId, certificateId, reqVO.getExpectedRowVersion(),
                 reqVO.getApprovalDate(), reqVO.getStructuredValues(), reqVO.getOtherDescription(),
                 reqVO.getEntrustedProduction(), reqVO.getSelfProduction(),
-                reqVO.getEntrustedEnterprisesJson(), null, reqVO.getFile(), reqVO.getChangeTypes()));
+                reqVO.getEntrustedEnterprisesJson(), null, reqVO.getFile(), reqVO.getChangeTypes(), reqVO.getAttachments(), reqVO.getProductDescriptionFiles(), reqVO.getSourceRequestId(), reqVO.getRetainedFileIds()));
         approvalService.startNativeApproval(
                 tenantId, actorId, new DccRegistrationCertificateApprovalStartCommand(requestId));
         return success(requestId);

@@ -111,6 +111,10 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         GxpAuditCommand normalized = GxpAuditCommand.builder().build();
         BeanUtils.copyProperties(command, normalized);
         command = normalized;
+        if ("APPROVAL_DECISION".equals(policy.getReasonPolicy()) && isApprovedDecision(command)
+                && isBlankReason(command.getReason())) {
+            command.setReason("");
+        }
         GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKeyForUpdate(tenantId, command.getIdempotencyKey());
         if (existing != null) {
             if (!Objects.equals(existing.getActorId(), actor.getId())) {
@@ -274,8 +278,9 @@ public class GxpAuditServiceImpl implements GxpAuditService {
 
     private void validatePolicyRequirements(GxpAuditCommand command, GxpAuditPolicyOperationDO policy) {
         if (("USER_REQUIRED".equals(policy.getReasonPolicy())
-                || StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED"))
-                && StrUtil.isBlank(command.getReason()) && !isOptionalMarketReleaseOpinion(command)) {
+                || StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED")
+                || ("APPROVAL_DECISION".equals(policy.getReasonPolicy()) && !isApprovedDecision(command)))
+                && isBlankReason(command.getReason()) && !isOptionalMarketReleaseOpinion(command)) {
             throw exception(GXP_AUDIT_REASON_REQUIRED, command.getOperationId());
         }
         if (command.getBeforeState() == null || command.getAfterState() == null
@@ -288,6 +293,27 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         if ("REQUIRED".equals(policy.getSignaturePolicy()) && StrUtil.isBlank(command.getSignatureRecordId())) {
             throw exception(GXP_AUDIT_SIGNATURE_REQUIRED, command.getOperationId());
         }
+    }
+
+    private static boolean isBlankReason(String reason) {
+        return reason == null || reason.codePoints().allMatch(codePoint -> codePoint <= 0x20
+                || Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == 0xFEFF);
+    }
+
+    private static boolean isApprovedDecision(GxpAuditCommand command) {
+        String field = switch (command.getOperationId()) {
+            case "signature.record.create" -> "actionCode";
+            case "APPROVAL_CENTER_REVIEW_COMMIT" -> "action";
+            case "dcc.project-product.review", "dcc.project-product.approve", "dcc.project-product.complete",
+                    "dcc.project-product.write-failed", "dcc.controlled-file.delayed-effective-confirm" -> "approvalResult";
+            default -> null;
+        };
+        if (field == null || command.getAfterState() == null
+                || StrUtil.isBlank(command.getAfterState().getCanonicalJson())) {
+            return false;
+        }
+        var state = JsonUtils.parseTree(command.getAfterState().getCanonicalJson());
+        return state != null && "APPROVE".equals(state.path(field).textValue());
     }
 
     private void enrichServerOwnedFields(GxpAuditCommand command, LoginUser actor, Long tenantId) {

@@ -3,7 +3,7 @@
     <p class="mb-12px text-12px text-[var(--el-text-color-secondary)]">
       本次配置仅用于此申请。直接主管由组织关系确定；会签部门负责人签名指派本部门会签人。
     </p>
-    <ElFormItem label="本次会签部门" required>
+    <ElFormItem label-width="124px" label="本次会签部门" required>
       <ElSelect
         data-testid="dcc-custom-signoff-departments" :model-value="displayedSelection.departments ?? []"
         multiple filterable class="w-full" placeholder="选择本次会签部门，可增加或删除"
@@ -13,14 +13,14 @@
         <ElOption v-for="id in unavailableDepartments" :key="`unavailable-${id}`" :value="id" :label="`部门ID ${id}（当前不可用）`" disabled />
       </ElSelect>
     </ElFormItem>
-    <ElFormItem label="本次批准人" required>
+    <ElFormItem label-width="124px" label="本次批准人" required>
       <UserSelectV2
         data-testid="dcc-custom-approver" :model-value="displayedSelection.matrix?.approverUserId ?? undefined"
         clearable class="w-full" placeholder="选择本次批准人"
         :disabled="editingDisabled" @update:model-value="value => updateAccount('approverUserId', value)"
        :user-options="directory.users.map(user => ({ ...user, nickname: user.name }))" />
     </ElFormItem>
-    <ElFormItem label="本次文控审核人" required>
+    <ElFormItem label-width="124px" label="本次文控审核人" required>
       <UserSelectV2
         data-testid="dcc-custom-document-control" :model-value="displayedSelection.matrix?.documentControlUserId ?? undefined"
         clearable class="w-full" placeholder="选择本次文控审核人"

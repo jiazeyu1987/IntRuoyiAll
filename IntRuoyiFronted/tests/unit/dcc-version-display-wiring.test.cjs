@@ -69,6 +69,39 @@ function mount(c, props) {
 }
 const flush = async () => { for (let i = 0; i < 10; i++) { await Promise.resolve(); await vue.nextTick() } }
 const noRawDraft = mounted => { assert.deepEqual(mounted.errors, []); assert.match(text(mounted.root), /草稿/); assert.doesNotMatch(text(mounted.root), /A\/1-[12]/) }
+
+test('revision without a work body offers an actionable preparation entry instead of an empty form', async () => {
+  let preparations = 0
+  const mounted = mount(component('revision/DccRevisionPanel.vue'), {
+    baselineId: '300', baselineVersionNo: 'A/1', partialTarget: {}, replacementTarget: {}, idempotencyKey: 'empty-body',
+    initialIntent: 'PARTIAL', facts: {}, iterations: [], canPartial: false, canReplacement: false,
+    submitRevision: async () => { throw new Error('No work body may be submitted') }, onPrepareBody: () => preparations++
+  })
+  try {
+    assert.deepEqual(mounted.errors, [])
+    assert.match(findAll(mounted.root, 'el-alert')[0].props.title, /检出.*检入/)
+    assert.equal(findAll(mounted.root, 'el-form').length, 0)
+    await findAll(mounted.root, 'el-button')[0].props.onClick()
+    assert.equal(preparations, 1)
+  } finally { mounted.unmount() }
+})
+
+for (const intent of ['PARTIAL', 'REPLACEMENT']) {
+  test(`${intent} entry keeps its operation fixed and only offers eligible work bodies`, async () => {
+    const mounted = mount(component('revision/DccRevisionPanel.vue'), {
+      baselineId: '300', baselineVersionNo: 'A/1', partialTarget: {}, replacementTarget: {}, idempotencyKey: intent,
+      initialIntent: intent, facts: {}, iterations: [
+        { id: FILE, versionNo: 'A/1-1', canPartial: true, canReplacement: false },
+        { id: SECOND, versionNo: 'A/1-2', canPartial: false, canReplacement: true }
+      ], canPartial: intent === 'PARTIAL', canReplacement: intent === 'REPLACEMENT', submitRevision: async () => {}
+    })
+    try {
+      assert.deepEqual(mounted.errors, [])
+      assert.equal(findAll(mounted.root, 'el-radio-group').length, 0)
+      assert.deepEqual(findAll(mounted.root, 'el-option').map(n => n.props.value), [intent === 'PARTIAL' ? FILE : SECOND])
+    } finally { mounted.unmount() }
+  })
+}
 const candidate = (id = FILE, versionNo = 'A/1-2') => ({ tenantId: '1', controlledFileId: id, masterId: '300', projectId: '20', projectName: '质量项目', projectFolderId: '2', folderName: '制度', fileName: '管理制度', fileNumber: 'F-1', versionNo, status: 'WORKING', controlled: false, pendingEffect: false, executable: false, canPreview: true })
 
 test('actual browser presentation hides the selected work identity while keeping formal current execution', () => {
@@ -121,6 +154,36 @@ test('mounted project folder table shows draft and formal versions and emits the
     findAll(mounted.root, 'el-button').find(n => text(n) === '浏览').props.onClick()
     assert.equal(events[0].controlledFileId, FILE); assert.equal(events[0].versionNo, 'A/1-2')
   } finally { mounted.unmount() }
+})
+
+test('checkin merge retains each draft summary from its exact version history, including after reload', () => {
+  const { descriptor } = parse(read('browser/index.vue'))
+  const ast = ts.createSourceFile('browser.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const names = ['buildCurrentVersionOption', 'hydrateCurrentBrowserVersionActionState', 'getVersionOptions', 'getBrowserVersionOptionLabel', 'mergeCheckinResult']
+  const declarations = ast.statements.filter(s => s.declarationList?.declarations.some(d => names.includes(d.name.text)))
+  const first = Object.freeze({ id: FILE, versionNo: 'B/7-1', status: 'WORKING', createTime: '2026-10-27 16:45:17', changeDescription: '123' })
+  const second = Object.freeze({ id: SECOND, versionNo: 'B/7-2', status: 'WORKING', createTime: '2026-10-27 16:49:57', changeDescription: 'mjmj' })
+  const formal = Object.freeze({ id: '300', versionNo: 'B/7', status: 'ACTIVE' })
+  const response = Object.freeze({ id: SECOND, versionNo: second.versionNo, status: second.status, versionHistory: Object.freeze([second, formal, first]) })
+  const list = { value: [{ id: formal.id, versionNo: formal.versionNo, versionHistory: [second, formal, first] }] }
+  const exports = {}
+  new Function('exports', 'list', 'getDccVersionDisplayText', 'formatControlledFileDateTime', 'isValidBrowserOptionId', compile(
+    declarations.map(s => s.getText(ast)).join('\n') + '\nexports.merge=mergeCheckinResult;exports.options=getVersionOptions;exports.label=getBrowserVersionOptionLabel;'
+  ))(exports, list, display.getDccVersionDisplayText, value => String(value), id => typeof id === 'string')
+  const labels = row => exports.options(row).map(exports.label).sort()
+  const expected = [
+    `草稿 · 编制时间：2026-10-27 16:49:57 · mjmj · 文件 #${SECOND}`,
+    'B/7',
+    `草稿 · 编制时间：2026-10-27 16:45:17 · 123 · 文件 #${FILE}`
+  ].sort()
+  assert.deepEqual(labels(list.value[0]), expected)
+  exports.merge(response, FILE)
+  assert.deepEqual(labels(list.value[0]), expected)
+  assert.equal(list.value[0].selectedVersionId, SECOND)
+  assert.deepEqual(labels(response), expected)
+  assert.equal(exports.label({ id: SECOND, versionNo: 'B/7-2', createTime: ' ', changeDescription: ' ' }), `草稿 · 编制时间未提供 · 说明未提供 · 文件 #${SECOND}`)
+  assert.equal(response.versionHistory[0], second)
+  assert.equal(second.versionNo, 'B/7-2')
 })
 
 test('mounted project relation header uses draft text while exact permission response matching remains enforced', async () => {

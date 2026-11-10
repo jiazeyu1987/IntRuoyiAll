@@ -254,7 +254,7 @@ const approveForm = reactive({
   approveRemark: '审批通过'
 })
 const approveRules = reactive<FormRules>({
-  approveRemark: [{ required: true, message: '请输入审批说明', trigger: 'blur' }]
+  approveRemark: []
 })
 
 const rejectVisible = ref(false)
@@ -264,7 +264,7 @@ const rejectForm = reactive({
   rejectRemark: ''
 })
 const rejectRules = reactive<FormRules>({
-  rejectRemark: [{ required: true, message: '请输入驳回原因', trigger: 'blur' }]
+  rejectRemark: [{ required: true, whitespace: true, message: '请输入驳回原因', trigger: 'blur' }]
 })
 
 const pushVisible = ref(false)

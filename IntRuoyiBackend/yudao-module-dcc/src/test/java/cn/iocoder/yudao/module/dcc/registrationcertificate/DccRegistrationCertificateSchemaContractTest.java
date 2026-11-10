@@ -103,7 +103,8 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "formal registration certificate master cannot return to draft",
                 "voided registration certificate master status is terminal",
                 "lower(actual_column.column_type) <> expected_column.column_type",
-                "actual_table.column_count <> expected_table.column_count",
+                "actual_table.column_count < expected_table.required_column_count",
+                "actual_table.column_count > expected_table.allowed_column_count",
                 "create temporary table tmp_dcc_reg_cert_expected_column",
                 "create temporary table tmp_dcc_reg_cert_expected_generation",
                 "create temporary table tmp_dcc_reg_cert_expected_check",
@@ -269,6 +270,7 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 .effectiveAt(LocalDateTime.of(2026, 8, 17, 8, 0))
                 .build();
         snapshot.setTenantId(1L);
+        snapshot.setFactsJson(DccRegistrationCertificateTestFacts.portableMapperFixture());
         assertEquals(1, snapshotMapper.insert(snapshot));
         assertTrue(snapshot.getId() > 0);
         assertEquals("Product A", snapshotMapper.selectById(snapshot.getId()).getProductName());

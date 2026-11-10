@@ -98,20 +98,24 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
             String ticketSessionId = reqVO.getSessionId();
             boolean trainingRecord=DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD.equals(purpose);
-            validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord));
-            if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
-            if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
+            boolean sourceContext = DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_READ_ONLY_VIEW.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_EDITABLE_SOURCE.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
-                    || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
+                    || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose);
+            validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord || sourceContext));
+            if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
+            if (sourceContext) {
                 if (StrUtil.isBlank(reqVO.getUploadContext())) {
                     throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
                 }
                 workflowService.validateSourceUploadContext(userId, reqVO);
                 String prefix = switch (reqVO.getUploadContext()) {
-                    case "NEW_UPLOAD" -> DccSourceUploadSession.newUploadPrefix(reqVO.getDccProjectCodeId(),
-                            reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
+                    case "NEW_UPLOAD" -> DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
+                            || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)
+                            ? DccSourceUploadSession.auxiliaryPrefix(reqVO.getDccProjectCodeId(), reqVO.getFileTypeTaxonomyId())
+                            : DccSourceUploadSession.newUploadPrefix(reqVO.getDccProjectCodeId(),
+                                    reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
                     case "CHECKIN" -> {
                         if (DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
                             if (TenantContextHolder.isIgnore() || reqVO.getControlledFileId() == null

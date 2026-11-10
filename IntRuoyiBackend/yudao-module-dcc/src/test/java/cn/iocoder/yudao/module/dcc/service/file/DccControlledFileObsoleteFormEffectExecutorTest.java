@@ -21,6 +21,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -115,16 +117,44 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
     }
 
     @Test
-    void executeDccObsolete_domainFailureBecomesQueryableEffectFailure() {
+    void executeDccObsolete_propagatesOriginalDomainFailure() {
         FormActionInstance instance = dccObsoleteInstance();
         approvedEffectStage(instance);
-        doThrow(new IllegalStateException("obsolete domain effect failed"))
+        var failure = new IllegalStateException("obsolete domain effect failed");
+        doThrow(failure)
                 .when(obsoleteService).applyApprovedObsoleteControlledFile(eq(99L), eq(900L), any());
 
-        FormBusinessEffectResult result = executor.execute(instance, "IDEM-DCC-OBSOLETE-1");
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> executor.execute(instance, "IDEM-DCC-OBSOLETE-1")));
+    }
 
-        assertFalse(result.isSuccess());
-        assertEquals("obsolete domain effect failed", result.getFailureReason());
+    @Test
+    void transactionalEffectFailureRollsBackApprovalAndKeepsBusinessCause() {
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:obsolete_effect_rollback;DB_CLOSE_DELAY=-1", "sa", "");
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE approval_marker (id INT PRIMARY KEY)");
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource);
+        var attributes = new org.springframework.transaction.interceptor.MatchAlwaysTransactionAttributeSource();
+        attributes.setTransactionAttribute(new org.springframework.transaction.interceptor.DefaultTransactionAttribute());
+        var proxyFactory = new org.springframework.aop.framework.ProxyFactory(obsoleteService);
+        proxyFactory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager, attributes));
+        var transactionalExecutor = new DccControlledFileObsoleteFormEffectExecutor(
+                (DccControlledFileObsoleteService) proxyFactory.getProxy());
+        var missingEvidence = cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        doThrow(missingEvidence).when(obsoleteService).applyApprovedObsoleteControlledFile(any(), any(), any());
+        var instance = dccObsoleteInstance();
+        approvedEffectStage(instance);
+
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> new org.springframework.transaction.support.TransactionTemplate(manager).executeWithoutResult(status -> {
+                    jdbc.update("INSERT INTO approval_marker VALUES (1)");
+                    transactionalExecutor.execute(instance, "obsolete-effect");
+                }));
+
+        assertSame(missingEvidence, failure);
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM approval_marker", Integer.class));
     }
 
     @Test
@@ -132,8 +162,7 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
         FormActionInstance instance=dccObsoleteInstance();
         instance.setStatus(cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus.PENDING_EFFECT);
         instance.setBpmBinding(null);
-        var result=executor.execute(instance,"missing-approval-binding");
-        assertFalse(result.isSuccess());
+        assertThrows(IllegalArgumentException.class, () -> executor.execute(instance,"missing-approval-binding"));
         verify(obsoleteService,never()).applyApprovedObsoleteControlledFile(any(),any(),any());
     }
 

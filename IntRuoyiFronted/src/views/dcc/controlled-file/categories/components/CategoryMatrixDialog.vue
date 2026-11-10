@@ -101,15 +101,16 @@
               placeholder="请选择"
               @change="() => handleSubjectTypeChange(row)"
             >
-              <el-option label="用户" value="USER" />
+              <el-option label="用户" value="USER" :disabled="row.stageType === 'SIGNOFF'" />
               <el-option label="部门" value="DEPT" />
-              <el-option label="权限角色" value="ROLE" />
-              <el-option label="组织角色" value="POST" />
-              <el-option label="审批角色" value="DCC_POSITION" />
+              <el-option label="权限角色" value="ROLE" :disabled="row.stageType === 'SIGNOFF'" />
+              <el-option label="组织角色" value="POST" :disabled="row.stageType === 'SIGNOFF'" />
+              <el-option label="审批角色" value="DCC_POSITION" :disabled="row.stageType === 'SIGNOFF'" />
               <el-option
                 v-if="row.subjectType === 'POSITION'"
                 label="原审批角色"
                 value="POSITION"
+                :disabled="row.stageType === 'SIGNOFF'"
               />
             </el-select>
           </template>
@@ -127,7 +128,7 @@
               v-else-if="row.subjectType === 'DEPT'"
               :model-value="getDepartmentSelectValue(row)"
               class="review-matrix-dialog__department-select"
-              :data="getDepartmentTreeForRule(row)"
+              :data="getDepartmentTreeForRule()"
               :disabled="isPreviewMode"
               :props="defaultProps"
               check-strictly
@@ -182,9 +183,9 @@
             <span v-else class="review-matrix-dialog__placeholder">请选择主体类型后配置主体</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80" align="center">
-          <template #default="{ $index }">
-            <el-button link type="danger" :disabled="isPreviewMode" @click="removeRule($index)">
+        <el-table-column label="操作" width="80" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="danger" :disabled="isPreviewMode" @click="removeRule(row)">
               删除
             </el-button>
           </template>
@@ -340,9 +341,9 @@
 
     <template #footer>
       <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button plain :loading="previewLoading" @click="refreshPreview">刷新预览</el-button>
+      <el-button v-if="!draftMode" plain :loading="previewLoading" @click="refreshPreview">刷新预览</el-button>
       <el-button v-if="!isPreviewMode" type="primary" :loading="saving" @click="submitForm">
-        保存矩阵
+        {{ draftMode ? '使用此矩阵草稿' : '保存矩阵' }}
       </el-button>
     </template>
   </Dialog>
@@ -378,9 +379,7 @@ import {
 } from '../governance'
 import {
   createDepartmentByIdMap,
-  findExactMatchedDepartmentIdByLabel,
-  getCompanyChildDepartmentTree,
-  resolveDepartmentCompanyRootId
+  getSelectableDepartmentTree
 } from './departmentTreeScope'
 
 defineOptions({ name: 'CategoryMatrixDialog' })
@@ -390,8 +389,10 @@ type PreviewSubject = ControlledFileCategoryReviewMatrixEffectivePreviewVO['view
 
 const emit = defineEmits<{
   success: []
+  draft: [payload: import('@/api/dcc/controlledFile/fileCategories').ControlledFileCategoryApprovalMatrixSaveReqVO]
 }>()
 
+const draftMode = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('审阅矩阵配置')
 const loading = ref(false)
@@ -527,6 +528,11 @@ const loadMatrix = async () => {
 }
 
 const canPreviewCurrentDraft = () => {
+  if (hasUnsupportedSignoffSubject()) {
+    previewError.value = '会签规则必须选择正式部门，不能使用用户、角色或岗位代替部门'
+    previewData.value = null
+    return false
+  }
   if (!formData.effectiveTime) {
     previewError.value = '请选择审阅矩阵生效时间后再预览。'
     previewData.value = null
@@ -578,7 +584,15 @@ const refreshPreview = async () => {
   }
 }
 
+const hasUnsupportedSignoffSubject = () => formData.rules.some(
+  rule => rule.active !== false && rule.stageType === 'SIGNOFF' && rule.subjectType !== 'DEPT'
+)
+
 const validateForm = () => {
+  if (hasUnsupportedSignoffSubject()) {
+    message.warning('会签规则必须选择正式部门，不能使用用户、角色或岗位代替部门')
+    return false
+  }
   if (!formData.effectiveTime) {
     message.warning('请选择审阅矩阵生效时间')
     return false
@@ -608,7 +622,7 @@ const validateForm = () => {
 
 const submitForm = async () => {
   const context = captureMatrixContext()
-  if (saving.value || isPreviewMode.value || !context.categoryId || !validateForm()) {
+  if (saving.value || isPreviewMode.value || (!draftMode.value && !context.categoryId) || !validateForm()) {
     return
   }
   const payload = {
@@ -616,9 +630,13 @@ const submitForm = async () => {
     remark: formData.remark.trim() || undefined,
     rules: formData.rules.map((rule) => buildRulePayload(rule))
   }
+  if (draftMode.value) {
+    emit('draft', payload)
+    dialogVisible.value = false
+    return
+  }
   saving.value = true
   previewError.value = ''
-  let persisted = false
   try {
     const preview = await refreshPreview()
     if (!isMatrixContextCurrent(context)) return
@@ -627,19 +645,14 @@ const submitForm = async () => {
       return
     }
     await saveCategoryApprovalMatrix(context.categoryId, payload)
-    persisted = true
     if (!isMatrixContextCurrent(context)) return
     message.success('审阅矩阵已保存')
-    await loadMatrix()
-    if (!isMatrixContextCurrent(context)) return
-    await refreshPreview()
-    if (!isMatrixContextCurrent(context)) return
+    saving.value = false
+    dialogVisible.value = false
     emit('success')
   } catch (error) {
     if (!isMatrixContextCurrent(context)) return
-    previewError.value =
-      (persisted ? '矩阵已保存，刷新失败，请核对原配置；' : '') +
-      resolveErrorMessage(error, '审阅矩阵保存失败，请根据后端错误提示修正后重试。')
+    previewError.value = resolveErrorMessage(error, '审阅矩阵保存失败，请根据后端错误提示修正后重试。')
   } finally {
     if (isMatrixContextCurrent(context)) saving.value = false
   }
@@ -698,8 +711,9 @@ const addRule = () => {
   })
 }
 
-const removeRule = (index: number) => {
-  formData.rules.splice(index, 1)
+const removeRule = (row: EditableMatrixRule) => {
+  const index = formData.rules.indexOf(row)
+  if (index >= 0) formData.rules.splice(index, 1)
 }
 
 const runDepartmentAutoMatch = () => {
@@ -735,78 +749,12 @@ const getDepartmentSelectValue = (row: ReviewMatrixRuleDraft) => {
   return row.subjectType === 'DEPT' ? row.subjectId : undefined
 }
 
-const resolveRuleDepartmentId = (row: ReviewMatrixRuleDraft) => {
-  if (row.subjectType === 'DEPT' && row.subjectId) {
-    return row.subjectId
-  }
-  const label = normalizeSubjectLabel(row.subjectLabel)
-  if (!label) {
-    return undefined
-  }
-  return formData.rules.find(
-    (rule) =>
-      rule !== row &&
-      rule.subjectType === 'DEPT' &&
-      Boolean(rule.subjectId) &&
-      normalizeSubjectLabel(rule.subjectLabel) === label
-  )?.subjectId
-}
-
-const resolveCategoryCompanyRootId = (row: ReviewMatrixRuleDraft) => {
-  const uniqueCompanyRootIds = [
-    ...new Set(
-      formData.rules
-        .filter((rule) => rule !== row && rule.subjectType === 'DEPT' && Boolean(rule.subjectId))
-        .map((rule) => resolveDepartmentCompanyRootId(departmentById.value, rule.subjectId))
-        .filter((companyRootId): companyRootId is number => Boolean(companyRootId))
-    )
-  ]
-  return uniqueCompanyRootIds.length === 1 ? uniqueCompanyRootIds[0] : undefined
-}
-
-const resolveReviewMatrixCompanyRootId = (row: ReviewMatrixRuleDraft) => {
-  const currentSelectedCompanyRootId = resolveDepartmentCompanyRootId(
-    departmentById.value,
-    row.subjectType === 'DEPT' ? row.subjectId : undefined
-  )
-  if (currentSelectedCompanyRootId) {
-    return currentSelectedCompanyRootId
-  }
-
-  const sameLabelSelectedCompanyRootId = resolveDepartmentCompanyRootId(
-    departmentById.value,
-    resolveRuleDepartmentId(row)
-  )
-  if (sameLabelSelectedCompanyRootId) {
-    return sameLabelSelectedCompanyRootId
-  }
-
-  const exactMatchedDepartmentId = findExactMatchedDepartmentIdByLabel(
-    departmentOptions.value,
-    normalizeSubjectLabel,
-    row.subjectLabel
-  )
-  const exactMatchedCompanyRootId = resolveDepartmentCompanyRootId(
-    departmentById.value,
-    exactMatchedDepartmentId
-  )
-  if (exactMatchedCompanyRootId) {
-    return exactMatchedCompanyRootId
-  }
-
-  return resolveCategoryCompanyRootId(row)
-}
-
-const getDepartmentTreeForRule = (row: ReviewMatrixRuleDraft) => {
-  const companyRootId = resolveReviewMatrixCompanyRootId(row)
-  return getCompanyChildDepartmentTree(departmentOptions.value, departmentById.value, companyRootId)
-}
+const getDepartmentTreeForRule = () => getSelectableDepartmentTree(departmentOptions.value)
 
 const clearSubjectMapping = (row: ReviewMatrixRuleDraft) => {
   row.subjectId = undefined
   row.subjectName = undefined
   row.subjectDepartmentPath = undefined
-  row.marker = normalizeRuleMarker()
 }
 
 const syncSameLabelDepartment = (sourceRule: ReviewMatrixRuleDraft) => {
@@ -826,7 +774,6 @@ const syncSameLabelDepartment = (sourceRule: ReviewMatrixRuleDraft) => {
       rule.subjectId = sourceRule.subjectId
       rule.subjectName = sourceRule.subjectName
       rule.subjectDepartmentPath = sourceRule.subjectDepartmentPath
-      rule.marker = normalizeRuleMarker()
     }
   }
 }
@@ -837,7 +784,6 @@ const handleDepartmentChange = (row: ReviewMatrixRuleDraft, deptId?: number | st
   row.subjectId = Number.isFinite(selectedDeptId) && selectedDeptId > 0 ? selectedDeptId : undefined
   row.subjectName = row.subjectId ? departmentById.value.get(row.subjectId)?.name : undefined
   row.subjectDepartmentPath = buildDepartmentPath(row.subjectId)
-  row.marker = normalizeRuleMarker()
   syncSameLabelDepartment(row)
 }
 
@@ -846,7 +792,6 @@ const handleUserChange = (row: ReviewMatrixRuleDraft, user?: UserVO) => {
   row.subjectId = user?.id
   row.subjectName = user?.nickname || user?.username
   row.subjectDepartmentPath = undefined
-  row.marker = normalizeRuleMarker()
 }
 
 const handleRoleChange = (row: ReviewMatrixRuleDraft, role?: RoleVO) => {
@@ -854,7 +799,6 @@ const handleRoleChange = (row: ReviewMatrixRuleDraft, role?: RoleVO) => {
   row.subjectId = role?.id
   row.subjectName = role?.name
   row.subjectDepartmentPath = undefined
-  row.marker = normalizeRuleMarker()
 }
 
 const handlePostChange = (row: ReviewMatrixRuleDraft, postId?: number | string) => {
@@ -863,7 +807,6 @@ const handlePostChange = (row: ReviewMatrixRuleDraft, postId?: number | string) 
   row.subjectId = Number.isFinite(selectedPostId) && selectedPostId > 0 ? selectedPostId : undefined
   row.subjectName = postOptions.value.find((item) => item.id === row.subjectId)?.name
   row.subjectDepartmentPath = undefined
-  row.marker = normalizeRuleMarker()
 }
 
 const handleDccPositionChange = (row: ReviewMatrixRuleDraft, positionId?: number | string) => {
@@ -873,7 +816,6 @@ const handleDccPositionChange = (row: ReviewMatrixRuleDraft, positionId?: number
     Number.isFinite(selectedPositionId) && selectedPositionId > 0 ? selectedPositionId : undefined
   row.subjectName = approvalPositionOptions.value.find((item) => item.id === row.subjectId)?.name
   row.subjectDepartmentPath = undefined
-  row.marker = normalizeRuleMarker()
 }
 
 const handleSubjectLabelChange = (row: ReviewMatrixRuleDraft) => {
@@ -967,6 +909,11 @@ const previewUnresolvedRules = computed(() => {
 })
 
 const open = async (category: ControlledFileCategoryVO, mode: MatrixDialogMode = 'edit') => {
+  if (category.approvalSourceMode === 'APPLICATION_CUSTOM') {
+    message.warning('其他类型使用本次申请自定义矩阵，不能新增公共审批配置')
+    return
+  }
+  draftMode.value = false
   matrixGeneration++
   previewSequence++
   saving.value = false
@@ -994,7 +941,26 @@ const open = async (category: ControlledFileCategoryVO, mode: MatrixDialogMode =
   }
 }
 
-defineExpose({ open })
+const openDraft = async (name: string, draft?: import('@/api/dcc/controlledFile/fileCategories').ControlledFileCategoryApprovalMatrixSaveReqVO) => {
+  draftMode.value = true
+  matrixGeneration++
+  previewSequence++
+  currentCategory.value = undefined
+  dialogMode.value = 'create'
+  dialogTitle.value = `新增文件类型审批矩阵 · ${name || '未命名'}`
+  dialogVisible.value = true
+  previewData.value = null
+  previewError.value = ''
+  applyMatrix()
+  if (draft) {
+    formData.effectiveTime = draft.effectiveTime
+    formData.remark = draft.remark || ''
+    formData.rules = draft.rules.map(normalizeRule)
+  }
+  loading.value = true
+  try { await ensureLookupData() } finally { loading.value = false }
+}
+defineExpose({ open, openDraft })
 </script>
 
 <style scoped>

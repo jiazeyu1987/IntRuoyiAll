@@ -21,6 +21,7 @@ public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
 
     default PageResult<DccProjectCodeDO> selectPage(DccProjectCodePageReqVO reqVO) {
         LambdaQueryWrapperX<DccProjectCodeDO> wrapper = new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .eq(DccProjectCodeDO::getLibraryScope, "PROJECT")
                 .eqIfPresent(DccProjectCodeDO::getProductMasterId, reqVO.getProductMasterId())
                 .likeIfPresent(DccProjectCodeDO::getProjectName, reqVO.getProjectName())
                 .likeIfPresent(DccProjectCodeDO::getProjectCode, reqVO.getProjectCode())
@@ -75,6 +76,7 @@ public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
 
     default List<DccProjectCodeDO> selectEnabledList() {
         return selectList(new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .eq(DccProjectCodeDO::getLibraryScope, "PROJECT")
                 .eq(DccProjectCodeDO::getStatus, DccProjectCodeStatusConstants.ENABLE)
                 .orderByAsc(DccProjectCodeDO::getId));
     }

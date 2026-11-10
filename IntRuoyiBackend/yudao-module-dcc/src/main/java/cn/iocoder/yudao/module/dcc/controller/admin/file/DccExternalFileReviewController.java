@@ -39,7 +39,7 @@ public class DccExternalFileReviewController {
 
     @PostMapping("/submit")
     @Operation(summary = "提交外来文件评审")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:edit','dcc:controlled-file:submit')")
     public CommonResult<Long> submitExternalReview(@Valid @RequestBody DccExternalFileReviewSubmitReqVO reqVO) {
         return success(externalFileReviewService.submitExternalReview(getLoginUserId(), reqVO));
     }

@@ -24,6 +24,8 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileCategoryPermissionSupportTest extends BaseMockitoUnitTest {
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper projectMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccessService;
     @org.junit.jupiter.api.BeforeEach void tenant() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
     }
@@ -42,6 +44,29 @@ class DccControlledFileCategoryPermissionSupportTest extends BaseMockitoUnitTest
 
     @InjectMocks
     private DccControlledFileCategoryPermissionSupport permissionSupport;
+
+    private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO libraryFile() {
+        var library=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO();
+        library.setId(7L);library.setTenantId(1L);library.setLibraryScope("QMS");
+        when(projectMapper.selectById(7L)).thenReturn(library);
+        var file=cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.builder()
+                .id(10L).dccProjectCodeId(7L).categoryId(100L).build();file.setTenantId(1L);return file;
+    }
+
+    @Test void libraryViewAllowsBodyButDoesNotGrantOriginalDownloadOrEditing() {
+        var file=libraryFile();when(projectAccessService.listReadableProjectIds(99L)).thenReturn(List.of(7L));
+        assertTrue(permissionSupport.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.VIEW));
+        assertFalse(permissionSupport.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD));
+        assertFalse(permissionSupport.hasEditableProjectCategory(99L,7L,100L));
+        org.mockito.Mockito.verifyNoInteractions(permissionRuleMapper);
+    }
+
+    @Test void libraryEditAllowsOriginalDownloadWithoutProjectCategoryRules() {
+        var file=libraryFile();when(projectAccessService.hasProjectEditorOrOwner(99L,7L)).thenReturn(true);
+        assertTrue(permissionSupport.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD));
+        assertTrue(permissionSupport.hasEditableProjectCategory(99L,7L,100L));
+        org.mockito.Mockito.verifyNoInteractions(permissionRuleMapper);
+    }
 
     @Test
     void hasCategoryPermission_matchesDepartmentDescendantRule() {

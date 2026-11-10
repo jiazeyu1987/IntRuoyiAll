@@ -41,6 +41,7 @@ public record ControlledContentTransitionProfile(
                     EnumSet.of(REGISTER_ACTIVE, CREATE_CANDIDATE, SUBMIT, WITHDRAW, CANCEL, APPROVE, REQUEST_REWORK, REJECT,
                             START_FINALIZATION, RETRY_FINALIZATION, FINALIZE_SUCCESS, FINALIZE_FAILED,
                             SUPERSEDE_ACTIVE, OBSOLETE_ACTIVE,
+                            ControlledContentTransitionAction.REGISTER_CONTROLLED_IMPORT,
                             ControlledContentTransitionAction.COMPLETE_CONTROL,
                             ControlledContentTransitionAction.ACTIVATE_CONTROLLED,
                             ControlledContentTransitionAction.OBSOLETE_CONTROLLED)),

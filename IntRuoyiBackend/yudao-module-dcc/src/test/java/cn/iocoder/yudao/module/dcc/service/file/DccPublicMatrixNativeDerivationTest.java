@@ -9,6 +9,20 @@ class DccPublicMatrixNativeDerivationTest {
         DccCategoryApprovalRouteNodeDO.builder().id(3L).stageNo(4).stageType("DOC_CONTROL").marker("▲").subjectType("DCC_POSITION").candidateSourceType("POSITION").candidateSourceIds("10").approveMethod("ANY").requireAllApprovals(false).required(true).build());}
     @Test void explicitDerivationRetainsDepartmentObligationsAndDoesNotMutatePublicRules(){var raw=raw();var nodes=DccPublicMatrixNativeDerivation.derive(raw,"NEW",List.of(51L,52L));assertEquals("51,52",nodes.get(0).getCandidateSourceIds());assertEquals(List.of("MATRIX_REVIEW","MATRIX_APPROVAL","DOC_CONTROL_REVIEW"),nodes.stream().map(DccCategoryApprovalRouteNodeDO::getStageCode).toList());assertNull(raw.get(0).getStageCode());}
     @Test void optionalApprovalAndNonDepartmentSignoffFailRatherThanSkip(){var raw=raw();raw.get(1).setMarker("◎");assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.derive(raw,"NEW",List.of(51L)));raw.get(1).setMarker("●");raw.get(0).setSubjectType("USER");assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.derive(raw,"NEW",List.of(51L)));}
+    @Test void obsoleteExplicitDepartmentsReplaceLegacyPositionsWithoutTreatingPositionIdentityAsDepartment(){
+        var raw=raw();raw.get(0).setSubjectType("DCC_POSITION");raw.get(0).setCandidateSourceType("POSITION");
+        var before=raw.stream().map(DccCategoryApprovalRouteNodeDO::toString).toList();
+        var projection=DccPublicMatrixNativeDerivation.project(raw,"OBSOLETE",List.of(51L,52L));
+        assertEquals("DEPT",projection.nodes().get(0).getCandidateSourceType());assertEquals("51,52",projection.nodes().get(0).getCandidateSourceIds());
+        assertEquals("ALL",projection.nodes().get(0).getApproveMethod());assertTrue(projection.nodes().get(0).getRequireAllApprovals());
+        assertFalse(projection.groups().get(0).applied());assertEquals("DCC_POSITION",projection.groups().get(0).subjectType());
+        assertEquals(List.of(51L),projection.groups().get(0).candidateSourceIds());assertEquals(before,raw.stream().map(DccCategoryApprovalRouteNodeDO::toString).toList());
+        DccPublicMatrixNativeDerivation.validateRuntime(projection.nodes(),"OBSOLETE");
+        assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.project(raw,"OBSOLETE",null));
+        for(var action:List.of("NEW","REVISION"))assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.project(raw,action,List.of(52L)));
+        for(var selected:List.of(List.<Long>of(),List.of(0L),List.of(52L,52L)))assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.project(raw,"OBSOLETE",selected));
+        raw.get(0).setSubjectType("USER");assertThrows(IllegalArgumentException.class,()->DccPublicMatrixNativeDerivation.project(raw,"OBSOLETE",List.of(52L)));
+    }
     @Test void originalMandatoryDepartmentCanBeRemovedFromThisApplicationWithoutChangingPublicRules(){
         for(var action:List.of("NEW","REVISION","OBSOLETE")){
             var raw=new ArrayList<>(raw());

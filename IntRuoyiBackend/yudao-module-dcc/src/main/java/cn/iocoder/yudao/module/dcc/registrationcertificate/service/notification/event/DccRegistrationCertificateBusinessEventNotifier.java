@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -23,12 +24,15 @@ public class DccRegistrationCertificateBusinessEventNotifier {
 
     private final DccRegistrationCertificateBusinessEventNotificationConfigService configService;
     private final DccRegistrationCertificateBusinessEventNotificationService notificationService;
+    private final DccRegistrationCertificateChangeConfirmationService changeConfirmationService;
 
     public DccRegistrationCertificateBusinessEventNotifier(
             DccRegistrationCertificateBusinessEventNotificationConfigService configService,
-            DccRegistrationCertificateBusinessEventNotificationService notificationService) {
+            DccRegistrationCertificateBusinessEventNotificationService notificationService,
+            DccRegistrationCertificateChangeConfirmationService changeConfirmationService) {
         this.configService = require(configService, "configService");
         this.notificationService = require(notificationService, "notificationService");
+        this.changeConfirmationService = require(changeConfirmationService, "changeConfirmationService");
     }
 
     public void notifyNewCertificateFormalized(Long tenantId, Long ownerCompanyId, Long certificateId,
@@ -59,8 +63,10 @@ public class DccRegistrationCertificateBusinessEventNotifier {
                                              Long versionId, Long actorId, String eventKey,
                                              String productName, String certificateNo,
                                              LocalDate effectiveDate, LocalDate expiryDate) {
-        send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_CHANGE_APPROVAL_RECORDED,
-                eventKey, "变更批件已记录", productName, certificateNo, effectiveDate, expiryDate);
+        Map<String,Object> params=detailParams("变更已生效，请确认",productName,certificateNo,effectiveDate,expiryDate);
+        changeConfirmationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
+                tenantId,ownerCompanyId,certificateId,versionId,actorId,EVENT_CHANGE_APPROVAL_RECORDED,
+                eventKey,List.of(),null,params),configService.resolveChangeConfirmationRecipientUserIds(tenantId));
     }
 
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
@@ -87,16 +93,15 @@ public class DccRegistrationCertificateBusinessEventNotifier {
 
     private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,
                                                     LocalDate effectiveDate, LocalDate expiryDate) {
-        if (isBlank(eventTitle) || isBlank(productName) || isBlank(certificateNo)
-                || effectiveDate == null || expiryDate == null) {
+        if (isBlank(eventTitle) || isBlank(productName)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
         }
         LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("eventTitle", eventTitle.trim());
         params.put("productName", productName.trim());
-        params.put("certificateNo", certificateNo.trim());
-        params.put("effectiveDate", effectiveDate.toString());
-        params.put("expiryDate", expiryDate.toString());
+        params.put("certificateNo", isBlank(certificateNo) ? "证件未载明编号" : certificateNo.trim());
+        params.put("effectiveDate", effectiveDate == null ? "证件未载明" : effectiveDate.toString());
+        params.put("expiryDate", expiryDate == null ? "不适用" : expiryDate.toString());
         return Map.copyOf(params);
     }
 

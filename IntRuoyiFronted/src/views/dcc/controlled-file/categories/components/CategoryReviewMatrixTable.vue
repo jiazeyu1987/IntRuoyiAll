@@ -291,6 +291,7 @@ const openMatrixDialog = async (row: ControlledFileCategoryReviewMatrixRowVO, mo
     if (matching.length !== 1) throw new Error(matching.length ? '正式文件类别身份重复，请核对已保存类别' : '正式文件类别记录缺失，请重新读取已保存类别')
     const saved = matching[0]
     const category: ControlledFileCategoryVO = { ...saved, approvalSourceMode: requireCategoryApprovalSourceMode(saved.approvalSourceMode) }
+    if (category.approvalSourceMode === 'APPLICATION_CUSTOM') throw new Error('其他类型使用本次申请自定义矩阵，不能新增公共审批配置')
     if (!matrixDialogRef.value) throw new Error('审阅矩阵编辑区域尚未就绪，请重新打开')
     await matrixDialogRef.value.open(category, mode)
   } catch (cause) {

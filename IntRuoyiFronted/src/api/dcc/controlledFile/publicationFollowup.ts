@@ -115,9 +115,12 @@ export interface DccPageResult<T> {
   total: number
 }
 
-export const getPublicationFollowupByFile = (controlledFileId: DccBusinessId) =>
+export const getPublicationFollowupByFile = (controlledFileId: DccBusinessId, params?: {
+  bodyReadContext?: string; processInstanceId?: string; taskId?: string; applicationType?: string
+}) =>
   request.get<DccPublicationFollowupVO | null>({
     url: `/dcc/publication-followups/files/${controlledFileId}`,
+    params,
     ignoreErrorMessage: true
   })
 

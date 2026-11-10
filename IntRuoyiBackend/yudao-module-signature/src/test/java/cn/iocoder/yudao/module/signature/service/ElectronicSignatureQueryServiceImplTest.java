@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.List;
@@ -48,7 +49,7 @@ class ElectronicSignatureQueryServiceImplTest {
         security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(7L);
         security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(login);
         records = mock(ElectronicSignatureRecordMapper.class); audits = mock(GxpAuditEventMapper.class);
-        users = mock(AdminUserApi.class); adapter = mock(ElectronicSignatureSubjectAdapter.class);
+        users = mock(AdminUserApi.class); adapter = mock(ElectronicSignatureSubjectAdapter.class, CALLS_REAL_METHODS);
         when(adapter.moduleCode()).thenReturn("MES");
         when(adapter.serverTimeResolution(any(), any())).thenCallRealMethod();
         when(adapter.bindServerSignedAt(any(), any(), any())).thenCallRealMethod();
@@ -69,7 +70,7 @@ class ElectronicSignatureQueryServiceImplTest {
         var policyMapper = mock(GxpAuditPolicyOperationMapper.class);
         var policy = new GxpAuditPolicyOperationDO(); policy.setActive(true); policy.setApplicability("GXP");
         policy.setPolicyVersion("audit-p1"); policy.setDomain("SIGNATURE"); policy.setSubjectType("SIGNATURE_RECORD");
-        policy.setActionType("CREATE"); policy.setReasonPolicy("USER_REQUIRED"); policy.setSignaturePolicy("REQUIRED");
+        policy.setActionType("CREATE"); policy.setReasonPolicy("APPROVAL_DECISION"); policy.setSignaturePolicy("REQUIRED");
         when(policyMapper.selectByPolicyVersionForUpdate(1L, "audit-p1", "signature.record.create")).thenReturn(policy);
         var auditWriter = new GxpAuditServiceImpl();
         var auditUsers = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
@@ -83,6 +84,12 @@ class ElectronicSignatureQueryServiceImplTest {
         ReflectionTestUtils.setField(auditWriter, "policyActivationMapper", activationMapper);
         ReflectionTestUtils.setField(auditWriter, "policyOperationMapper", policyMapper);
         ReflectionTestUtils.setField(auditWriter, "eventRelationMapper", mock(GxpAuditEventRelationMapper.class));
+        var directory = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var account = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO()
+                .setId(7L).setStatus(0).setUsername("operator").setNickname("设备操作员");
+        account.setTenantId(1L);
+        when(directory.selectGxpAuditActor(1L, 7L)).thenReturn(account);
+        ReflectionTestUtils.setField(auditWriter, "adminUserMapper", directory);
         writer = new ElectronicSignatureServiceImpl();
         ReflectionTestUtils.setField(writer, "signatureRecordMapper", records); ReflectionTestUtils.setField(writer, "adminUserApi", users);
         ReflectionTestUtils.setField(writer, "gxpAuditService", auditWriter); ReflectionTestUtils.setField(writer, "subjectAdapters", List.of(adapter));
@@ -104,6 +111,120 @@ class ElectronicSignatureQueryServiceImplTest {
         else writer.signAuthorized(command, new AuthorizedSignatureIdentity(domain, 9L, "签署时姓名"),
                 "MES_EMPLOYEE_PROFILE".equals(domain) ? mock(Runnable.class) : null);
         clearInvocations(adapter, users);
+    }
+
+    private void configureDccApproval() {
+        when(adapter.moduleCode()).thenReturn("DCC");
+        when(adapter.supportedActions()).thenReturn(Set.of(
+                new SignatureActionDefinition("DCC", "APPROVE", "DCC_CONTROLLED_FILE", "APPROVE", "批准", "p1"),
+                new SignatureActionDefinition("DCC", "REJECT", "DCC_CONTROLLED_FILE", "REJECT", "驳回", "p1")));
+        when(adapter.isReasonRequired("APPROVE", "DCC_CONTROLLED_FILE")).thenReturn(false);
+        when(adapter.serverTimeResolution(any(), any())).thenReturn(ElectronicSignatureSubjectAdapter.ServerTimeResolution.MICROS);
+        when(adapter.loadAndAuthorize(any())).thenReturn(new SignatureSubjectSnapshot("DCC_CONTROLLED_FILE", "10", "v1",
+                "{\"value\":\"文件审批事实\"}", null, null, null, "pi", "task", "node", 1));
+    }
+
+    private void signEmptyDccApproval(String reason) {
+        configureDccApproval();
+        writer.sign(new ElectronicSignatureCommand("DCC", "APPROVE", "DCC_CONTROLLED_FILE", "10", "v1",
+                "password", reason, "empty-dcc-approval", null, null));
+        verify(users).reauthenticateForSignature(7L, "password");
+        clearInvocations(adapter, users);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t\r\n ", "\u00a0\u2003\ufeff"})
+    void emptyDccApprovalPassesActualWriterAndVerifierWithSystemReasonSource(String reason) {
+        signEmptyDccApproval(reason);
+        assertEquals("", record.getReason());
+        assertEquals("", audit.getReason());
+        assertEquals("SYSTEM", audit.getReasonSource());
+        assertEquals("APPROVE", JsonUtils.parseTree(audit.getAfterStateJson()).path("actionCode").asText());
+        assertEquals("", JsonUtils.parseTree(audit.getAfterStateJson()).path("reason").asText());
+        var verification = query.verifyEvidence(10L);
+        assertEquals("VALID", verification.verificationStatus());
+        assertEquals("CONSISTENT", verification.auditBindingStatus());
+        assertEquals("CONSISTENT", verification.timeConsistencyStatus());
+        assertEquals("SERVER_MICROS_CLOCK", verification.timeSource());
+        assertTrue(record.getTimeEvidenceId().startsWith("SERVER_MICROS_CLOCK:"));
+        assertEquals(0, record.getSignedAt().getNano() % 1000);
+        assertEquals("", verifiedFacts.requireVerifiedFact(10L).reason());
+        verifyNoInteractions(adapter, users);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"timeColumn", "crossMicrosecond", "subMicrosecond", "secondsPrefix"})
+    void microsecondApprovalRejectsChangedTimeAndUnsupportedPrecision(String mutation) {
+        signEmptyDccApproval("");
+        var at = java.time.LocalDateTime.of(2026, 10, 27, 10, 0, 0, 123456000);
+        record.setSignedAt(at);
+        record.setTimeEvidenceId("SERVER_MICROS_CLOCK:" + at);
+        switch (mutation) {
+            case "timeColumn" -> record.setSignedAt(at.plusNanos(1000));
+            case "crossMicrosecond" -> record.setTimeEvidenceId("SERVER_MICROS_CLOCK:" + at.plusNanos(1000));
+            case "subMicrosecond" -> {
+                record.setSignedAt(at.plusNanos(1));
+                record.setTimeEvidenceId("SERVER_MICROS_CLOCK:" + record.getSignedAt());
+            }
+            case "secondsPrefix" -> record.setTimeEvidenceId("SERVER_CLOCK:" + at);
+            default -> throw new AssertionError(mutation);
+        }
+        // Recompute synthetic hashes to isolate precision/value validation from digest tampering.
+        rehashSignature();
+        Map<String,Object> state = ReflectionTestUtils.invokeMethod(verifiedFacts, "afterState",
+                (Object) ReflectionTestUtils.invokeMethod(verifiedFacts, "freeze", record));
+        audit.setAfterStateJson(JsonUtils.toJsonString(state));
+        rehashAudit();
+        var result = query.verifyEvidence(10L);
+        assertEquals("CONSISTENT", result.digestStatus());
+        assertEquals("CONSISTENT", result.auditBindingStatus());
+        assertEquals("MISMATCH", result.timeConsistencyStatus());
+        assertTrue(result.reasonCodes().contains("TIME_VALUE_MISMATCH"));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> verifiedFacts.requireVerifiedFact(10L));
+        verifyNoInteractions(adapter, users);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reason", "reasonSource", "rejection", "otherAction"})
+    void emptyApprovalStillRejectsAlteredReasonSourceAndNonApprovalHistory(String mutation) {
+        signEmptyDccApproval("");
+        switch (mutation) {
+            case "reason" -> { record.setReason("改写意见"); rehashSignature(); }
+            case "reasonSource" -> { audit.setReasonSource("USER"); rehashAudit(); }
+            case "rejection", "otherAction" -> {
+                record.setActionCode("rejection".equals(mutation) ? "REJECT" : "DISTRIBUTION_ACK");
+                rehashSignature();
+                Map<String,Object> state = ReflectionTestUtils.invokeMethod(verifiedFacts, "afterState",
+                        (Object) ReflectionTestUtils.invokeMethod(verifiedFacts, "freeze", record));
+                audit.setAfterStateJson(JsonUtils.toJsonString(state));
+                audit.setReasonSource("USER");
+                rehashAudit();
+            }
+            default -> throw new AssertionError(mutation);
+        }
+        var result = query.verifyEvidence(10L);
+        assertNotEquals("VALID", result.verificationStatus());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> verifiedFacts.requireVerifiedFact(10L));
+        if (Set.of("rejection", "otherAction").contains(mutation)) {
+            assertTrue(result.reasonCodes().contains("SIGNATURE_FACT_INVALID"));
+        }
+        verifyNoInteractions(adapter, users);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t\r\n ", "\u00a0\u2003\ufeff"})
+    void emptyDccRejectionRemainsRejectedBeforeSignatureOrAuditWrite(String reason) {
+        configureDccApproval();
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> writer.sign(new ElectronicSignatureCommand("DCC", "REJECT", "DCC_CONTROLLED_FILE", "10", "v1",
+                        "password", reason, "empty-dcc-rejection", null, null)));
+        verify(records, never()).insert(any(ElectronicSignatureRecordDO.class));
+        verify(audits, never()).insert(any(GxpAuditEventDO.class));
+        verifyNoInteractions(users);
     }
     @ParameterizedTest @ValueSource(strings={"ordinary", "SYSTEM_USER", "MES_EMPLOYEE_PROFILE"})
     void generatedV1FactsPassActualDigestTimeAndCreationAudit(String domain) {

@@ -138,7 +138,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.dcc-product-catalog-split-layout\s*\{[\s\S]*height:\s*clamp\(420px,\s*calc\(100vh - 258px\),\s*680px\)/,
+  /\.dcc-product-catalog-split-layout\s*\{[\s\S]*height:\s*clamp\(420px,\s*calc\(100vh - 210px\),\s*720px\)/,
   '产品目录左树右表布局必须使用视口约束高度，让横向滚动条停留在当前页面可视区底部'
 )
 assert.match(

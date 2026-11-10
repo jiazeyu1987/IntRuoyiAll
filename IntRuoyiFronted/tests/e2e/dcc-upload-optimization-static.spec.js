@@ -51,7 +51,7 @@ requireToken(
 )
 requireToken(
   uploadPage,
-  'const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\\/[1-9]\\d*)+$/i',
+  'const WINDCHILL_VERSION_PATTERN = /^[A-HJ-NP-Z]+(?:\\/[1-9])+$/i',
   'controlled-file initial version pattern must accept configured multi-segment Windchill versions'
 )
 assert.match(
@@ -67,7 +67,7 @@ assert.doesNotMatch(
 
 requireToken(
   uploadPage,
-  '新文件须使用修订版/1格式；后续大小版本统一通过文件检出、检入生成。',
+  '初始版本号使用“修订字母/数字”格式，字母不能包含 I、O，数字为 1～9；检入只生成工作小版本，正式局部变更或换版变更须单独提交审批。',
   'upload page must direct later version changes to checkout/checkin instead of upload revision'
 )
 assert.doesNotMatch(

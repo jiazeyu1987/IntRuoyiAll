@@ -1,7 +1,8 @@
 <template>
   <section class="project-browser" data-testid="dcc-project-browser">
     <aside>
-      <UnifiedListTemplate
+      <LibraryRoleAccessHint v-if="libraryScope" :scope="libraryScope" />
+      <UnifiedListTemplate v-if="!libraryScope"
         @query="searchProjects"
         @reset="resetProjects"
         :query-loading="state.projectLoading"
@@ -52,17 +53,22 @@
       </UnifiedListTemplate>
 
       <h4>{{ state.project ? state.project.projectName : '项目文件夹' }}</h4>
-      <div v-if="state.project" data-testid="dcc-project-folder-maintenance">
+      <div v-if="state.project && !libraryScope" data-testid="dcc-project-folder-maintenance">
         <el-button v-hasPermi="['dcc:project-code:update']" :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
         <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
         <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
       </div>
+      <div v-if="state.project && libraryScope && libraryCanEdit" data-testid="dcc-library-folder-maintenance">
+        <el-button :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
+        <el-button :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
+        <el-button :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
+      </div>
       <el-alert v-if="state.folderError" :title="state.folderError" type="error" :closable="false" />
       <el-tree :key="state.project?.id" v-loading="state.folderLoading" :data="state.directories" node-key="key" :props="{ label: 'name', children: 'children' }" highlight-current default-expand-all @node-click="selectFolder" />
-      <el-empty v-if="state.project && !state.folderLoading && !state.folderError && !state.directories.length" description="项目尚无文件夹" />
+      <el-empty v-if="state.project && !state.folderLoading && !state.folderError && !state.directories.length" :description="libraryScope ? '文件库尚无文件夹' : '项目尚无文件夹'" />
     </aside>
     <main>
-      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane label="全局文件" name="global" /><el-tab-pane label="当前项目" name="project" :disabled="!state.project" /><el-tab-pane label="项目文件夹" name="directory" /></el-tabs>
+      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane v-if="!libraryScope" label="全局文件" name="global" /><el-tab-pane :label="libraryScope ? '当前目录' : '当前项目'" name="project" :disabled="!state.project" /><el-tab-pane :label="libraryScope ? '文件夹' : '项目文件夹'" name="directory" /></el-tabs>
       <p v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
       <p v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
       <UnifiedListTemplate
@@ -120,12 +126,12 @@
         <template #actions>
 
           <el-button
-            v-if="state.scope === 'directory' && state.folder"
+            v-if="!libraryScope && state.scope === 'directory' && state.folder"
             @click="operationVisible = true"
           >
             选择文件操作
           </el-button>
-          <template v-if="state.scope === 'directory' && state.project && state.folder">
+          <template v-if="!libraryScope && state.scope === 'directory' && state.project && state.folder">
             <el-button
               v-if="state.canReference"
               :disabled="
@@ -167,7 +173,7 @@
           <DccProjectReferences
             ref="projectReferences"
             embedded-toolbar
-            v-if="state.scope === 'directory' && state.project && state.folder"
+            v-if="!libraryScope && state.scope === 'directory' && state.project && state.folder"
             :key="state.contextKey"
             :context-key="state.contextKey"
             :selection-context-key="listContextKey"
@@ -222,6 +228,7 @@
           </DccProjectReferences>
           <ProjectFolderFileTable
             v-else
+            :read-only="Boolean(libraryScope)" :can-manage="libraryScope ? canManageLibraryFile : undefined" :can-download="Boolean(libraryScope) && libraryCanEdit" @download="downloadLibraryFile"
             :resolve-rows="resolveRows"
             :files="state.rows"
             :references="[]"
@@ -235,7 +242,7 @@
             @operation="openOperationRow"
             @usage="openUsage"
           />
-          <p v-if="state.scope === 'directory' && state.folder">
+          <p v-if="!libraryScope && state.scope === 'directory' && state.folder">
             当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。
           </p>
         </template>
@@ -245,7 +252,7 @@
     <DccFileSelector v-if="state.folder" v-model="operationVisible" :source="selectorSource" purpose="operation" :directories="state.directories" :selected="[]" :load-page="loadPage" :open-preview="preview" :persist="openOperation" />
     <ProjectFileRelationsDialog v-if="relationsVisible && relationsSource" v-model="relationsVisible" :source="relationsSource" :context-key="listContextKey" />
     <DccReferenceUsageDialog v-if="usageVisible && usageSource" v-model="usageVisible" :source="usageSource" :context-key="listContextKey" :return-to="route.fullPath" />
-    <ProjectFolderEditor v-if="state.project" :key="state.project.id" ref="folderEditor" @saved="handleFolderMaintenanceSaved" @deleted="handleFolderMaintenanceSaved" />
+    <ProjectFolderEditor v-if="state.project" :key="state.project.id" ref="folderEditor" :library-scope="libraryScope" :library-can-edit="libraryCanEdit" @saved="handleFolderMaintenanceSaved" @deleted="handleFolderMaintenanceSaved" />
   </section>
 </template>
 <script setup lang="ts">
@@ -256,6 +263,7 @@ import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import { checkPermi } from '@/utils/permission'
 import ProjectFolderEditor from '../basic-data/components/ProjectFolderEditor.vue'
+import LibraryRoleAccessHint from './LibraryRoleAccessHint.vue'
 import DccFileSelector from '../relations/DccFileSelector.vue'
 import DccProjectReferences from '../relations/DccProjectReferences.vue'
 import ProjectFolderFileTable from './ProjectFolderFileTable.vue'
@@ -267,6 +275,10 @@ import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
 import { referenceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
 import { buildControlledFileViewerPath, buildControlledFileTraceabilityPath } from '../view/presentation'
 import { serializeDccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
+import request from '@/config/axios'
+import { triggerControlledFileVariantDownload } from '@/api/dcc/controlledFile/workflow'
+const props=defineProps<{libraryScope?: 'QMS' | 'GENERAL'}>()
+const libraryCanEdit=ref(false)
 import { ProjectBrowserState, PROJECT_BROWSER_VERSION_VIEWS } from './project-browser'
 import type { FolderFileRow } from './folder-file-list'
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
@@ -330,7 +342,7 @@ const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
     !project ||
     state.folderLoading ||
     state.folderError ||
-    !checkPermi(['dcc:project-code:update'])
+    !(props.libraryScope ? libraryCanEdit.value : checkPermi(['dcc:project-code:update']))
   )
     return
   if (mode !== 'create' && (!folder?.folderId || folder.projectId !== project.id)) return
@@ -340,11 +352,14 @@ const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
   }
   if (mode === 'delete') await folderEditor.value.openDelete(project.id, folder!.folderId!)
   else if (mode === 'update') await folderEditor.value.open(project.id, folder!.folderId!)
+  else if (props.libraryScope) await folderEditor.value.open(project.id, undefined, folder?.folderId || '0')
   else await folderEditor.value.open(project.id)
 }
 const handleFolderMaintenanceSaved = async (projectId: number | string) => {
   const current = state.project
-  if (current && current.id === String(projectId)) await state.selectProject(current.id)
+  if (!current || current.id !== String(projectId)) return
+  if (props.libraryScope) await state.selectLibrary(current)
+  else await state.selectProject(current.id)
 }
 const relationsVisible = ref(false),
   relationsSource = ref<FileCandidate>()
@@ -475,11 +490,11 @@ const preview = async (row: FileCandidate, bodyReadContext?: string) => {
 }
 const openOperation = async (rows: FileCandidate[]) => {
   if (rows.length !== 1) throw new Error('请选择一个文件')
-  await router.push({
-    path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`,
-    query: { management: '1', from: 'project-browser', returnTo: route.fullPath }
-  })
+  if (props.libraryScope && !canManageLibraryFile(rows[0])) throw new Error('当前账号或文件状态不允许变更，请刷新后核对权限')
+  await router.push({ path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`, query: { management: '1', from: 'project-browser', returnTo: route.fullPath } })
 }
+const canManageLibraryFile = (file: FileCandidate) => libraryCanEdit.value && file.canEditFile === true
+  && ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(file.status)
 const previewRow = async (row: FileCandidate) => {
   try {
     const bodyReadContext =
@@ -495,6 +510,7 @@ const previewRow = async (row: FileCandidate) => {
     state.error = error instanceof Error ? error.message : String(error)
   }
 }
+const downloadLibraryFile=async(row:FileCandidate)=>{try {await triggerControlledFileVariantDownload(row.controlledFileId,'editable')} catch(e:any){state.error=e.message||'下载失败'}}
 const openOperationRow = async (row: FileCandidate) => {
   try {
     await openOperation([row])
@@ -502,7 +518,16 @@ const openOperationRow = async (row: FileCandidate) => {
     state.error = error instanceof Error ? error.message : String(error)
   }
 }
-onMounted(() => Promise.all([state.loadProjects(), state.loadActor(), state.loadFiles()]))
+onMounted(async () => {
+  if (!props.libraryScope) { await Promise.all([state.loadProjects(), state.loadActor(), state.loadFiles()]); return }
+  try {
+    const library=await request.get({url:'/dcc/project-codes/library',params:{scope:props.libraryScope}})
+    if (!library || !library.id || library.libraryScope!==props.libraryScope || typeof library.canEdit!=='boolean')
+      throw new Error('独立文件库身份或权限响应不完整')
+    libraryCanEdit.value=library.canEdit
+    await state.loadActor();await state.selectLibrary({...library,id:String(library.id)})
+  } catch(e:any) {state.projectError=e.message || '文件库加载失败'}
+})
 </script>
 <style scoped>
 .project-browser { height:calc(100dvh - 170px);min-height:0;overflow:hidden;display: grid; grid-template-columns: minmax(260px, 28%) minmax(0, 1fr); gap: 18px; }

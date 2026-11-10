@@ -65,7 +65,7 @@ class DccRegistrationCertificateQueryControllerTest {
     }
 
     @Test
-    void historyRoute_checksScopedDetailBeforeReadingHistory() throws Exception {
+    void historyRoute_checksSelectedVersionAuthorizationAndOmitsOtherVersions() throws Exception {
         Class<?> controllerType = loadController();
         DccRegistrationCertificateQueryService queryService = mock(DccRegistrationCertificateQueryService.class);
         DccRegistrationCertificateHistoryService historyService = mock(DccRegistrationCertificateHistoryService.class);
@@ -76,23 +76,28 @@ class DccRegistrationCertificateQueryControllerTest {
         HttpServletRequest request = auditRequest();
         List<DccRegistrationCertificateHistoryItem> expected = List.of(
                 new DccRegistrationCertificateHistoryItem("FORMALIZED", "FORMALIZED", null, "{}", 22L,
-                        null, null, null, null, null, null, null, null, null, null, null, null,
+                        null, null, 44L, null, null, null, null, null, null, null, null, null,
                         null, null, null, null, null));
-        when(historyService.listHistory(11L, 33L)).thenReturn(expected);
+        var detail=new cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateDetail();
+        detail.setVersionId(44L);
+        when(queryService.getDetail(eq(11L),eq(22L),eq(33L),eq(44L),any(DccRequestAuditContext.class))).thenReturn(detail);
+        var anotherVersion=new DccRegistrationCertificateHistoryItem("FORMALIZED","FORMALIZED",null,"{}",22L,
+                null,null,55L,null,null,null,null,null,null,null,null,null,null,null,null,null,null);
+        when(historyService.listHistory(11L, 33L)).thenReturn(List.of(expected.get(0),anotherVersion));
 
         TenantContextHolder.setTenantId(11L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
             CommonResult<?> result = (CommonResult<?>) controllerType
-                    .getDeclaredMethod("getHistory", Long.class, HttpServletRequest.class)
-                    .invoke(controller, 33L, request);
+                    .getDeclaredMethod("getHistory", Long.class, Long.class, HttpServletRequest.class)
+                    .invoke(controller, 33L, 44L, request);
             assertEquals(expected, result.getData());
         } finally {
             TenantContextHolder.clear();
         }
 
         InOrder order = inOrder(queryService, historyService);
-        order.verify(queryService).getDetail(eq(11L), eq(22L), eq(33L), eq(null), any(DccRequestAuditContext.class));
+        order.verify(queryService).getDetail(eq(11L), eq(22L), eq(33L), eq(44L), any(DccRequestAuditContext.class));
         order.verify(historyService).listHistory(11L, 33L);
     }
 
@@ -107,15 +112,15 @@ class DccRegistrationCertificateQueryControllerTest {
                 .newInstance(queryService, historyService);
         HttpServletRequest request = auditRequest();
         IllegalStateException denied = new IllegalStateException("scope denied");
-        when(queryService.getDetail(eq(11L), eq(22L), eq(33L), eq(null), any(DccRequestAuditContext.class)))
+        when(queryService.getDetail(eq(11L), eq(22L), eq(33L), eq(44L), any(DccRequestAuditContext.class)))
                 .thenThrow(denied);
 
         TenantContextHolder.setTenantId(11L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
             InvocationTargetException thrown = assertThrows(InvocationTargetException.class,
-                    () -> controllerType.getDeclaredMethod("getHistory", Long.class, HttpServletRequest.class)
-                            .invoke(controller, 33L, request));
+                    () -> controllerType.getDeclaredMethod("getHistory", Long.class, Long.class, HttpServletRequest.class)
+                            .invoke(controller, 33L, 44L, request));
             assertSame(denied, thrown.getCause());
         } finally {
             TenantContextHolder.clear();

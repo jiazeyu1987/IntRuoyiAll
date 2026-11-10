@@ -273,7 +273,7 @@ class DccApprovalTaskAdapterTest {
         assertEquals(1L, page.getTotal());
         assertEquals("6003", page.getList().get(0).getBusinessKey());
         assertEquals("OBSOLETE-6003", page.getList().get(0).getBusinessCode());
-        assertEquals(Set.of("APPROVE", "REJECT"),
+        assertEquals(Set.of("PROCESS_IN_MODULE"),
                 page.getList().get(0).getAvailableActions());
     }
 
@@ -475,14 +475,15 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
-    void reviewApproveRejectsBlankReasonBeforeWorkflow() {
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+    void reviewApproveAllowsBlankReasonAndStillUsesSignedWorkflow() {
+        for(String reason:new String[]{null,"","   "})
+            adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
                         "DCC_CONTROLLED_FILE_TASK", "task-approve", "6001", "pi-1",
-                        ApprovalTaskReviewResult.APPROVE, "   ", "secret", false)));
-
-        assertEquals("APPROVAL_REASON_REQUIRED: DCC approve requires reason", error.getMessage());
-        verify(workflowService, never()).approveTask(anyLong(), anyLong(), any());
+                        ApprovalTaskReviewResult.APPROVE, reason, "secret", false));
+        var requests=ArgumentCaptor.forClass(DccControlledFileApproveTaskReqVO.class);
+        verify(workflowService,org.mockito.Mockito.times(3)).approveTask(eq(100L),eq(6001L),requests.capture());
+        assertTrue(requests.getAllValues().stream().allMatch(request->"secret".equals(request.getPassword())));
+        assertEquals(java.util.Arrays.asList(null,"","   "),requests.getAllValues().stream().map(DccControlledFileApproveTaskReqVO::getReason).toList());
     }
 
     @Test
@@ -910,5 +911,25 @@ class DccApprovalTaskAdapterTest {
         assertEquals(2,first.getTotal());assertEquals(2,second.getTotal());
         assertEquals("9007199254740993",first.getList().get(0).getBusinessKey());
         assertEquals("6011",second.getList().get(0).getBusinessKey());
+    }
+
+    @Test
+    void doneTasksUseCompletionTimeWhenCombiningFlowableAndNativeSources() {
+        var completedLater = ApprovalTaskSummary.builder().id("native-later-completion")
+                .moduleCode(ApprovalModuleCode.DCC).sourceTaskType("DCC_PROJECT_PRODUCT_REVIEW")
+                .sourceTaskId("native-later-completion").taskCreatedAt(java.time.LocalDateTime.of(2026, 10, 20, 9, 0))
+                .taskCompletedAt(java.time.LocalDateTime.of(2026, 10, 22, 9, 0)).build();
+        var completedEarlier = ApprovalTaskSummary.builder().id("native-earlier-completion")
+                .moduleCode(ApprovalModuleCode.DCC).sourceTaskType("DCC_PROJECT_PRODUCT_REVIEW")
+                .sourceTaskId("native-earlier-completion").taskCreatedAt(java.time.LocalDateTime.of(2026, 10, 21, 9, 0))
+                .taskCompletedAt(java.time.LocalDateTime.of(2026, 10, 21, 9, 0)).build();
+        when(projectApplications.list(any())).thenReturn(List.of(completedEarlier, completedLater));
+        when(centerQuery.done(any(), eq("DCC_TASK"))).thenReturn(new PageResult<>(List.of(), 0L));
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(List.of("native-later-completion", "native-earlier-completion"), page.getList().stream()
+                .map(ApprovalTaskSummary::getId).toList());
     }
 }

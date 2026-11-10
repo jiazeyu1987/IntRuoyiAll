@@ -14,7 +14,7 @@ public interface DccFileCategoryPermissionRuleMapper extends BaseMapperX<DccFile
     @Delete("""
             DELETE FROM dcc_file_category_permission_rule
             WHERE category_id = #{categoryId}
-              AND UPPER(action_type) NOT IN ('REVIEW', 'APPROVE')
+              AND UPPER(action_type) IN ('EDIT', 'VIEW')
             """)
     int deleteConfigurableByCategoryIdHard(Long categoryId);
 }

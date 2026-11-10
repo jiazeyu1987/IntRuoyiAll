@@ -1,8 +1,7 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="dcc-workbench-toolbar">
     <div class="dcc-workbench-header">
       <div class="dcc-workbench-header__main">
-        <div class="dcc-workbench-title">DCC 工作台</div>
         <div class="dcc-workbench-updated">更新时间：{{ lastLoadedAt || '-' }}</div>
       </div>
       <div class="dcc-workbench-actions">
@@ -14,6 +13,9 @@
           <Icon icon="ep:upload" class="mr-5px" />
           上传文件
         </el-button>
+        <el-button v-hasPermi="['dcc:controlled-file:import']" plain type="primary" @click="openPath('/dcc/controlled-file/controlled-upload')">
+          已受控文件上传
+        </el-button>
         <el-button plain type="primary" @click="openPath('/dcc/controlled-file/browser')">
           <Icon icon="ep:folder-opened" class="mr-5px" />
           受控浏览
@@ -22,7 +24,7 @@
     </div>
   </ContentWrap>
 
-  <ContentWrap>
+  <ContentWrap class="dcc-workbench-overview">
     <el-alert
       v-if="loadErrorMessage"
       class="mb-12px"
@@ -111,7 +113,7 @@
       <el-alert v-else :title="legacySectionState.approval.error" type="error" :closable="false" />
     </ContentWrap>
 
-    <ContentWrap v-if="canHandleWorkflowDistribution" id="dcc-workbench-pending-distribution" class="dcc-workbench-panel">
+    <ContentWrap v-if="canHandleWorkflowDistribution" id="dcc-workbench-pending-distribution" class="dcc-workbench-panel dcc-workbench-panel--wide">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">待文控下发</div>
       </div>
@@ -463,8 +465,7 @@ const readWorkflowDistributionContext = () => {
 }
 const workflowDistributionContextKey = computed(readWorkflowDistributionContext)
 const canHandleWorkflowDistribution = computed(() => userStore.getIsSetUser
-  && userStore.getRoles.includes('doc_control')
-  && (userStore.getPermissions.has('dcc:controlled-file:distribute') || userStore.getPermissions.has('*:*:*'))
+  && (userStore.getPermissions.has('dcc:controlled-file:distribute') || userStore.getPermissions.has('dcc:controlled-file:edit') || userStore.getPermissions.has('*:*:*'))
   && Boolean(workflowDistributionContextKey.value))
 const pendingDistributionPanel = ref<{ refresh: () => Promise<void> }>()
 const pendingDistributionState = reactive<{ total: number | null; loading: boolean; error: string; remindersOnly: boolean }>({
@@ -868,22 +869,14 @@ onActivated(() => {
 <style scoped>
 .dcc-workbench-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-}
-
-.dcc-workbench-title {
-  color: var(--el-text-color-primary);
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.3;
+  gap: 8px;
 }
 
 .dcc-workbench-updated {
-  margin-top: 6px;
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .dcc-workbench-actions {
@@ -895,20 +888,20 @@ onActivated(() => {
 
 .dcc-workbench-metric-grid {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .dcc-workbench-metric {
   display: flex;
-  min-height: 72px;
+  min-height: 56px;
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3e7;
+  border-radius: 5px;
   background: #fff;
   color: #172033;
   text-align: left;
@@ -927,7 +920,7 @@ onActivated(() => {
 
 .dcc-workbench-metric__count {
   font-variant-numeric: tabular-nums;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
 }
@@ -950,12 +943,15 @@ onActivated(() => {
 
 .dcc-workbench-panel-grid {
   display: grid;
-  gap: 16px;
+  gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dcc-workbench-panel {
   min-width: 0;
+  margin-bottom: 0;
+  border-color: #dbe3e7;
+  border-radius: 5px;
 }
 
 .dcc-workbench-panel--wide {
@@ -966,25 +962,86 @@ onActivated(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-height: 28px;
 }
 
 .dcc-workbench-panel__title {
   color: var(--el-text-color-primary);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .dcc-workbench-panel :deep(.el-table) {
   font-size: 13px;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #eaf0f2;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #f4faf9;
+}
+
+.dcc-workbench-toolbar,
+.dcc-workbench-overview,
+.dcc-workbench-panel-grid {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c3;
+  --el-color-primary-light-7: #b3ddda;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.dcc-workbench-toolbar,
+.dcc-workbench-overview {
+  margin-bottom: 8px;
+  border-color: #dbe3e7;
+  border-radius: 5px;
+}
+
+.dcc-workbench-toolbar :deep(.el-card__body),
+.dcc-workbench-overview :deep(.el-card__body),
+.dcc-workbench-panel :deep(.el-card__body) {
+  padding: 12px !important;
+  min-width: 0;
+}
+
+.dcc-workbench-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.dcc-workbench-toolbar :deep(.el-button),
+.dcc-workbench-panel :deep(.el-button:not(.is-link)) {
+  height: 32px;
+  border-radius: 5px;
+}
+
+.dcc-workbench-panel :deep(.el-table__cell) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.dcc-workbench-panel :deep(th.el-table__cell) {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dcc-workbench-panel :deep(.el-alert) {
+  margin-bottom: 8px;
+}
+
+.dcc-workbench-panel :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .dcc-workbench-file-context {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .dcc-workbench-file-context__title {
@@ -1045,8 +1102,27 @@ onActivated(() => {
 }
 
 @media (max-width: 760px) {
+  .dcc-workbench-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dcc-workbench-metric {
+    gap: 6px;
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+
   .dcc-workbench-header {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dcc-workbench-panel__header {
+    flex-wrap: wrap;
+  }
+
+  .dcc-workbench-panel__title {
+    overflow-wrap: anywhere;
   }
 
   .dcc-workbench-actions {

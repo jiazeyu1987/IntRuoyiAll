@@ -54,12 +54,19 @@
         <span v-if="loaded">{{ timezoneLabel }}</span>
       </el-form-item>
       <el-form-item label="接收规则">
-        <el-alert
-          title="提醒收件人由注册部经理在注册证页面的“通知设置”中维护。"
-          type="info"
-          :closable="false"
-          show-icon
-        />
+        <div>
+          <el-alert
+            :title="loaded && recipientsUnconfigured
+              ? '通知接收人尚未配置，请通过通知设置选择实际接收人。'
+              : '提醒及变更确认接收人通过通知设置维护。'"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+          <el-button v-if="canUpdate && loaded" @click="reminderConfigDialog?.open()">
+            通知设置
+          </el-button>
+        </div>
       </el-form-item>
       <el-form-item label="到期提醒节点">
         <div v-if="loaded">
@@ -80,6 +87,7 @@
       </el-form-item>
     </el-form>
   </el-card>
+  <ReminderConfigDialog ref="reminderConfigDialog" @success="loadConfig" />
 </template>
 
 <script setup lang="ts">
@@ -89,6 +97,7 @@ import {
   type DccRegistrationCertificateReminderConfigRespVO,
   type RegistrationCertificateThresholdRecipientUserIds
 } from '@/api/dcc/registrationCertificate/reminderConfig'
+import ReminderConfigDialog from '../ReminderConfigDialog.vue'
 
 const props = defineProps<{
   canUpdate: boolean
@@ -100,6 +109,7 @@ const loading = ref(false)
 const saving = ref(false)
 const loaded = ref(false)
 const loadError = ref('')
+const reminderConfigDialog = ref<InstanceType<typeof ReminderConfigDialog>>()
 interface RegistrationCertificateReminderConfigForm {
   enabled: boolean
   dailyRunTime: string
@@ -117,6 +127,11 @@ const form = reactive<RegistrationCertificateReminderConfigForm>({
   thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [] },
   rowVersion: 0
 })
+const recipientsUnconfigured = computed(() =>
+  ['T_30', 'T_8', 'T_2', 'T_1'].every((key) =>
+    form.thresholdRecipientUserIds[key as keyof RegistrationCertificateThresholdRecipientUserIds]?.length === 0
+  )
+)
 
 const timezoneLabel = computed(() => form.timezone === 'Asia/Shanghai' ? '北京时间（UTC+8）' : form.timezone)
 const thresholdDays = computed<number[]>(() => loaded.value ? JSON.parse(form.thresholdDaysJson) : [])
@@ -159,6 +174,10 @@ const assertConfigShape = (data: DccRegistrationCertificateReminderConfigRespVO)
       throw new Error(`注册证提醒配置返回格式无效：${key} 收件人必须为数组。`)
     }
   }
+  if (data.thresholdRecipientUserIds.CHANGE_CONFIRMATION !== undefined
+      && !Array.isArray(data.thresholdRecipientUserIds.CHANGE_CONFIRMATION)) {
+    throw new Error('注册证配置返回格式无效：变更确认收件人必须为数组。')
+  }
 }
 
 const applyConfig = (data: DccRegistrationCertificateReminderConfigRespVO) => {
@@ -171,7 +190,10 @@ const applyConfig = (data: DccRegistrationCertificateReminderConfigRespVO) => {
     T_30: [...data.thresholdRecipientUserIds.T_30],
     T_8: [...data.thresholdRecipientUserIds.T_8],
     T_2: [...data.thresholdRecipientUserIds.T_2],
-    T_1: [...data.thresholdRecipientUserIds.T_1]
+    T_1: [...data.thresholdRecipientUserIds.T_1],
+    ...(data.thresholdRecipientUserIds.CHANGE_CONFIRMATION === undefined ? {} : {
+      CHANGE_CONFIRMATION: [...data.thresholdRecipientUserIds.CHANGE_CONFIRMATION]
+    })
   }
   form.rowVersion = data.rowVersion
   loaded.value = true

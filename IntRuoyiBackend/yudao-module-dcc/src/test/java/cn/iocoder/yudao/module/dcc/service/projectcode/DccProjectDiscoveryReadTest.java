@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Actual public project Controller / project service / access / folders / assignment / isolated H2. */
 @Import({DccProjectCodeServiceImpl.class,DccProjectCodeController.class,DccProjectFolderViewReadTest.WriteObservation.class})
 class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
+    @MockitoBean cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
     @Resource DccProjectCodeController discoveryController;
     @Resource DccProjectCodeService projectCodes;
     @Resource DccProjectCodeAssignmentMapper assignments;

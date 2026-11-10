@@ -513,9 +513,11 @@ const auditFormData = reactive({
   supplierName: '',
   auditRemark: ''
 })
-const auditFormRules = reactive<FormRules>({
-  auditRemark: [{ required: true, message: '请填写审核备注', trigger: 'blur' }]
-})
+const auditFormRules = computed<FormRules>(() => ({
+  auditRemark: ['reject', 'rejectSample', 'rejectTrial'].includes(auditAction.value)
+    ? [{ required: true, whitespace: true, message: '请填写驳回原因', trigger: 'blur' }]
+    : []
+}))
 
 const checkFormData = reactive({
   supplierId: undefined as number | undefined

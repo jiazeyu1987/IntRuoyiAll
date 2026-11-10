@@ -60,7 +60,7 @@ export type EdhrWorkTaskNotifyTarget = {
 
 export type DccPublicationNotifyTarget = {
   type: 'dccPublication'
-  label: '查看发布文件'
+  label: '查看发布文件' | '查看关联文件'
   targetId: string
 }
 
@@ -278,6 +278,12 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
   if (message?.templateCode === 'dcc_relation_remediation') {
     const target = resolveDccRelationRemediationTarget(templateParams)
     return target ? [target] : []
+  }
+  if (message?.templateCode === 'dcc_related_file_revision') {
+    const id = templateParams.sourceControlledFileId
+    if (typeof id !== 'string' || !/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n
+      || templateParams.detailUrl !== `/dcc/controlled-file/detail/${id}?viewer=1&from=notification`) return []
+    return [{ type: 'dccPublication', label: '查看关联文件', targetId: id }]
   }
   if (templateParams.notifyTargetType === DCC_OFFLINE_TRAINING_RECORD) {
     try {

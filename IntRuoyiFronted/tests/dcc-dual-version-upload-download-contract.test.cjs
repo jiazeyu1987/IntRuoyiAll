@@ -54,15 +54,16 @@ const permissionSql = fs.readFileSync(
   'utf8'
 )
 
-test('submit contract distinguishes required read-only and optional editable tickets', () => {
+test('new submissions bind one original source while historical download artifacts remain distinct', () => {
   assert.match(vo, /readOnlyUploadTicket/)
   assert.match(vo, /editableUploadTicket/)
   assert.match(vo, /readOnlyFileId/)
   assert.match(vo, /editableFileId/)
   assert.match(workflow, /getReadOnlyUploadTicket\(\)/)
   assert.match(workflow, /getEditableUploadTicket\(\)/)
-  assert.doesNotMatch(submitter, /originalUploadTicket:\s*previewFile\.uploadTicket/)
-  assert.match(submitter, /readOnlyUploadTicket/)
+  assert.match(submitter, /originalUploadTicket:\s*previewFile\.uploadTicket/)
+  assert.doesNotMatch(submitter, /readOnlyUploadTicket:/)
+  assert.doesNotMatch(submitter, /editableUploadTicket:/)
 })
 
 test('upload policy has explicit read-only and editable purposes', () => {

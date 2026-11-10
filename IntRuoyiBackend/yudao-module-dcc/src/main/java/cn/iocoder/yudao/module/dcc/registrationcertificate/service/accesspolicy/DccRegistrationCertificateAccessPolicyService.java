@@ -118,7 +118,7 @@ public class DccRegistrationCertificateAccessPolicyService {
     }
 
     public void assertDownloadAllowed(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
-        requireDownloadGrant(tenantId, actorId, businessFileId, at);
+        if (!canDownloadFile(tenantId, actorId, businessFileId, at)) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
     }
 
     public boolean canDownloadFile(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
@@ -135,9 +135,7 @@ public class DccRegistrationCertificateAccessPolicyService {
         if (version == null || !Objects.equals(version.getTenantId(), tenantId)) {
             return false;
         }
-        if (authorizeRegistrationManagerDownloadIfRole(tenantId, actorId, version.getCertificateId())) {
-            return true;
-        }
+        if (isExpired(tenantId, version, at) && !isRegistrationDepartment(tenantId, actorId)) return false;
         try {
             requireDownloadGrant(tenantId, actorId, businessFileId, at);
             return true;
@@ -172,15 +170,6 @@ public class DccRegistrationCertificateAccessPolicyService {
                 """, rs -> rs.next() ? rs.getLong(1) : null, tenantId, actorId, businessFileId);
     }
 
-    public boolean authorizeRegistrationManagerDownloadIfRole(Long tenantId, Long actorId, Long certificateId) {
-        if (!hasRegistrationManagerRole(actorId)) {
-            return false;
-        }
-        DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, certificateId);
-        assertCompanyScope(actorId, certificate.getOwnerCompanyId());
-        return true;
-    }
-
     public DccRegistrationCertificateGrantDO requireDownloadGrant(Long tenantId, Long actorId, Long businessFileId,
                                                                   LocalDateTime at) {
         List<DccRegistrationCertificateGrantDO> grants = grantMapper.selectByBusinessFile(
@@ -199,14 +188,33 @@ public class DccRegistrationCertificateAccessPolicyService {
         }
         DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, grant.getCertificateId());
         assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+        if (isExpired(tenantId, version, at) && !isRegistrationDepartment(tenantId, actorId))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         return grant;
     }
 
     private boolean isDownloadableFileKind(DccRegistrationCertificateFileDO file) {
         return (FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind()))
+                && java.util.Set.of(FILE_KIND_REGISTRATION_CERTIFICATE, "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()))
                 || ("CHANGE".equals(file.getOwnerType())
-                && "CHANGE_APPROVAL".equals(file.getFileKind()));
+                && java.util.Set.of("CHANGE_APPROVAL","CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind()));
+    }
+
+    private boolean isRegistrationDepartment(Long tenantId, Long actorId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM system_users u JOIN system_dept d ON d.id=u.dept_id AND d.tenant_id=u.tenant_id
+                 WHERE u.tenant_id=? AND u.id=? AND u.deleted=0 AND d.deleted=0 AND d.name='注册部'
+                """, Integer.class, tenantId, actorId);
+        return count != null && count > 0;
+    }
+
+    private boolean isExpired(Long tenantId, DccRegistrationCertificateVersionDO version, LocalDateTime at) {
+        List<String> jsons = jdbcTemplate.queryForList("""
+                SELECT facts_json FROM dcc_registration_certificate_snapshot
+                 WHERE tenant_id=? AND version_id=? AND deleted=0 ORDER BY revision_no DESC,id DESC LIMIT 1
+                """, String.class, tenantId, version.getId());
+        if (jsons.size()!=1) throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        return cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(jsons.get(0)).isExpired(at.toLocalDate());
     }
 
     private boolean hasRegistrationManagerRole(Long actorId) {

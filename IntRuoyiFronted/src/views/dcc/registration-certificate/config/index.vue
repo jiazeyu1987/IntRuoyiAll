@@ -1,6 +1,7 @@
 <template>
   <div v-if="canQuery">
     <ReminderScheduleSetting ref="scheduleRef" :can-update="canUpdate" />
+    <HandlingTaskSettings :can-update="canUpdate" />
     <el-button class="mt-16px" :disabled="!canUpdate" @click="reminderRef?.open()"
       >收件人通知设置</el-button
     >
@@ -12,6 +13,7 @@
 import { hasExplicitConfigPermission } from '@/utils/businessConfigAccess'
 import ReminderScheduleSetting from './components/ReminderScheduleSetting.vue'
 import ReminderConfigDialog from './ReminderConfigDialog.vue'
+import HandlingTaskSettings from './components/HandlingTaskSettings.vue'
 defineOptions({ name: 'DccRegistrationCertificateConfig' })
 const scheduleRef = ref<InstanceType<typeof ReminderScheduleSetting>>()
 const reminderRef = ref<InstanceType<typeof ReminderConfigDialog>>()

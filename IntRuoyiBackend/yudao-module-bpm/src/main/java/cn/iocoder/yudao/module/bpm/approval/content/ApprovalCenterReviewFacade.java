@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.bpm.approval.content;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.service.*;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.signature.service.ElectronicSignatureAuthenticationFacade;
 import cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,7 @@ public class ApprovalCenterReviewFacade {
     @Transactional(propagation=Propagation.NOT_SUPPORTED)
     public ApprovalDecisionReceipt review(Long actor,ApprovalTaskReviewCommand command) {
         if(actor==null || actor<=0 || command.getIdempotencyKey()==null || !command.getIdempotencyKey().matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")) throw new IllegalArgumentException("APPROVAL_IDEMPOTENCY_KEY_INVALID");
-        String reason=command.getReason()==null?"":command.getReason().replaceAll("^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
+        String reason=ApprovalReviewReason.requireValid(command.getResult(),command.getReason());
         if(reason.length()>4000) throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_INVALID");command.setReason(reason);
         var old=receipts.findVerified(actor,command.getIdempotencyKey());
         ApprovalIdentity identity;

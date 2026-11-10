@@ -15,7 +15,7 @@ const candidate = { tenantId: '1', controlledFileId: '9007199254740993', masterI
   projectId: '6', projectName: '另一项目', fileName: '受控.pdf', fileNumber: 'N-2', versionNo: 'B/1',
   folderName: '质量', controlled: true, pendingEffect: true, executable: false, canPreview: false }
 const state = () => ({
-  formData: { dccProjectCodeId: '5', projectFolderId: '500', fileNumber: 'N-1', versionNo: 'A/1', relatedControlledFileIds: [] },
+  formData: { fileName: '真实原文件.docx', dccProjectCodeId: '5', projectFolderId: '500', fileNumber: 'N-1', versionNo: 'A/1', relatedControlledFileIds: [] },
   selectedProjectCode: { value: { id: '5', projectName: '编制项目' } },
   selectedProjectFolder: { value: { id: '500', name: '文件夹' } },
   previewUpload: { value: { sessionId: 'upload-session', fileName: '真实原文件.docx' } },
@@ -32,7 +32,7 @@ const handlers = state => {
   context.mapReferenceDirectoryNodes = mapping.exports.mapReferenceDirectoryNodes
   context.projectFolderTree = { value: [{ id: '500', projectCodeId: '5', parentId: '0', name: '文件夹', active: true, sortOrder: 0, children: [] }] }
   context.uploadRelationDirectories = { value: [] }
-  vm.runInNewContext(ts.transpileModule(source() + '\nexports.api={buildUploadRelationSource,openUploadRelations,persistUploadRelations}',
+  vm.runInNewContext(ts.transpileModule(source() + '\nexports.api={buildUploadRelationSource,openUploadRelations,persistUploadRelations,previewUploadRelation}',
     { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return context.exports.api
 }
@@ -55,10 +55,10 @@ test('confirmed same-project effective readable controlled selection preserves t
   assert.deepEqual(JSON.parse(JSON.stringify(current.formData.relatedControlledFileIds)), ['9007199254740993'])
   assert.equal(current.selectedUploadRelations.value[0].projectId, '5')
 })
-test('cross-project, future, obsolete and unreadable relations reject without replacing application input', async () => {
+test('cross-project, future, obsolete and uncontrolled relations reject without replacing application input', async () => {
   const current = state(); const api = handlers(current); api.openUploadRelations()
   const valid = { ...candidate, projectId: '5', pendingEffect: false, executable: true, canPreview: true, status: 'ACTIVE' }
-  for (const bad of [candidate, { ...valid, projectId: '6' }, { ...valid, pendingEffect: true }, { ...valid, status: 'OBSOLETE' }, { ...valid, canPreview: false }]) {
+  for (const bad of [candidate, { ...valid, projectId: '6' }, { ...valid, pendingEffect: true }, { ...valid, status: 'OBSOLETE' }, { ...valid, controlled: false }, { ...valid, executable: false }]) {
     await assert.rejects(api.persistUploadRelations([bad]))
     assert.deepEqual(current.formData.relatedControlledFileIds, [])
   }
@@ -71,4 +71,16 @@ test('source changes and foreign tenant reject the selection without replacing p
   current.formData.projectFolderId = '500'
   await assert.rejects(api.persistUploadRelations([{ ...candidate, tenantId: '2' }]), /租户/)
   assert.deepEqual(current.formData.relatedControlledFileIds, [])
+})
+
+
+test('name-visible relations can be confirmed before uploading the original without body permission', async () => {
+  const current = state(); current.previewUpload.value = undefined
+  const api = handlers(current); api.openUploadRelations()
+  assert.equal(current.uploadRelationsVisible.value, true)
+  const visibleNameOnly = { ...candidate, projectId: '5', pendingEffect: false, executable: true, canPreview: false, status: 'ACTIVE' }
+  await api.persistUploadRelations([visibleNameOnly])
+  assert.deepEqual(Array.from(current.formData.relatedControlledFileIds), ['9007199254740993'])
+  assert.equal(current.selectedUploadRelations.value[0].canPreview, false)
+  await assert.rejects(api.previewUploadRelation(visibleNameOnly), /没有该文件正文查看权限/)
 })

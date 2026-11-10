@@ -73,6 +73,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileDistributionMapper distributionMapper;
     @Mock private DccControlledFileDistributionRecipientMapper distributionRecipientMapper;
     @Mock private DccControlledFileRelatedFileService relatedFileService;
+    @Mock private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService relationStages;
     @Mock private DccControlledFileMasterMapper masterMapper;
     @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private AdminUserApi adminUserApi;
@@ -339,6 +340,93 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 distributionMapper, distributionRecipientMapper, relatedFileService, masterMapper,
                 controlledFileMapper, adminUserApi, deptApi, impactAssessmentService,
                 publicationNotificationService);
+    }
+
+    @Test
+    void activationNotifiesReverseOwnersOnceForPartialWithoutChangingVisibility() {
+        var published = publishedB1();
+        published.setStatus("ACTIVE");
+        published.setRevisionChangeType("PARTIAL");
+        published.setVersionNo("A/3");
+        published.setControlledTime(published.getPublishedTime());
+        published.setActivatedTime(published.getPublishedTime().plusDays(1));
+        published.setProcessInstanceId("revision-round");
+        var previous = activeA2(); previous.setTenantId(1L);
+        when(controlledFileMapper.selectById(100L)).thenReturn(published);
+        when(controlledFileMapper.selectById(99L)).thenReturn(previous);
+        when(relatedFileService.listReverseCurrentActiveRelations(1L,10L)).thenReturn(List.of(
+                relation(702L,200L,98L,10L), relation(703L,300L,99L,10L)));
+        when(masterMapper.selectBatchIds(Set.of(20L,30L))).thenReturn(List.of(
+                master(20L,200L,"A"), master(30L,300L,"C")));
+        // Both dependent files belong to one compiler: one delivery candidate, two reasons.
+        when(controlledFileMapper.selectBatchIds(Set.of(200L,300L))).thenReturn(List.of(
+                relatedActive(200L,20L,3L,"A/1"), relatedActive(300L,30L,3L,"C/1")));
+        when(adminUserApi.getUserList(Set.of(3L))).thenReturn(List.of(user(3L,"编制人",11L)));
+        when(deptApi.getDeptList(Set.of(11L))).thenReturn(List.of(dept(11L,"编制部门")));
+        var event = new DccControlledFileLifecycleEvent("activated-100","ACTIVATED",1L,10L,100L,99L,
+                "A/3","revision-round",published.getActivatedTime());
+        service.recordActivatedRevision(event);
+        service.recordActivatedRevision(event);
+        var candidates=ArgumentCaptor.forClass(DccPublicationNotificationCandidateDO.class);
+        verify(candidateMapper,times(1)).insert(candidates.capture());
+        assertEquals(3L,candidates.getValue().getUserId());
+        var reasons=ArgumentCaptor.forClass(DccPublicationNotificationCandidateReasonDO.class);
+        verify(candidateReasonMapper,times(2)).insert(reasons.capture());
+        assertTrue(reasons.getAllValues().stream().allMatch(row->"RELATED_FILE_OWNER".equals(row.getReasonType())));
+        verify(publicationNotificationService,times(1)).materializeForPublicationBatch(900L);
+        verifyNoInteractions(visibilityRuleMapper,visibilityUserMapper,assignmentScopeService,
+                viewMatrixRuleMapper,viewMatrixAccessService,impactAssessmentService,distributionMapper);
+        verify(relatedFileService,never()).listForwardRelations(any());
+    }
+
+    @Test
+    void activationMaterializesSignedSupplementOwnerUsingExactRoundProjection() {
+        var published=publishedB1();published.setStatus("ACTIVE");published.setRevisionChangeType("PARTIAL");
+        published.setControlledTime(published.getPublishedTime());published.setActivatedTime(published.getPublishedTime());published.setProcessInstanceId("revision-round");
+        when(controlledFileMapper.selectById(100L)).thenReturn(published);
+        when(relatedFileService.listReverseCurrentActiveRelations(1L,10L)).thenReturn(List.of());
+        var selection=new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageContracts.Selection(10L,98L,40L,"DOC-100","旧B","A/1","SUPPLEMENT",false);
+        when(relationStages.findEffectiveReverseSelections(1L,10L)).thenReturn(List.of(new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService.EffectiveReverseSelection(88L,200L,selection)));
+        when(controlledFileMapper.selectBatchIds(Set.of(200L))).thenReturn(List.of(relatedActive(200L,20L,3L,"A/1")));
+        when(masterMapper.selectBatchIds(Set.of(20L))).thenReturn(List.of(master(20L,200L,"A")));
+        when(adminUserApi.getUserList(Set.of(3L))).thenReturn(List.of(user(3L,"编制人",11L)));
+        when(deptApi.getDeptList(Set.of(11L))).thenReturn(List.of(dept(11L,"编制部门")));
+        service.recordActivatedRevision(new DccControlledFileLifecycleEvent("activated","ACTIVATED",1L,10L,100L,null,"B/1","revision-round",published.getActivatedTime()));
+        var candidate=ArgumentCaptor.forClass(DccPublicationNotificationCandidateDO.class);verify(candidateMapper).insert(candidate.capture());assertEquals(3L,candidate.getValue().getUserId());
+        var direction=ArgumentCaptor.forClass(DccPublicationRelationDirectionSnapshotDO.class);verify(relationDirectionMapper).insert(direction.capture());assertEquals("SIGNED_ROUND",direction.getValue().getRelationSourceSnapshot());assertEquals(88L,direction.getValue().getSourceRelationId());
+        verify(publicationNotificationService).materializeForPublicationBatch(900L);
+        verifyNoInteractions(assignmentScopeService,impactAssessmentService);
+    }
+
+    @Test
+    void replacementWithoutPreviouslyActiveVersionStillCreatesEffectiveRevisionNotificationBatch() {
+        var file=publishedB1();file.setRevisionChangeType("REPLACEMENT");file.setStatus("ACTIVE");
+        file.setControlledTime(file.getPublishedTime());file.setActivatedTime(file.getPublishedTime().plusDays(1));
+        file.setProcessInstanceId("revision-round");
+        when(controlledFileMapper.selectById(100L)).thenReturn(file);
+        when(relatedFileService.listReverseCurrentActiveRelations(1L,10L)).thenReturn(List.of());
+        service.recordActivatedRevision(new DccControlledFileLifecycleEvent("activated","ACTIVATED",1L,
+                10L,100L,null,"B/1","revision-round",file.getActivatedTime()));
+        verify(batchMapper).insertOrKeepExisting(any());
+        verify(publicationNotificationService).materializeForPublicationBatch(900L);
+        verifyNoInteractions(assignmentScopeService,impactAssessmentService);
+    }
+
+    @Test
+    void activationRequiresActualTenantRoundAndEffectiveTime() {
+        var file=publishedB1();file.setRevisionChangeType("REPLACEMENT");
+        file.setStatus("CONTROLLED_PENDING_EFFECTIVE");file.setControlledTime(file.getPublishedTime());
+        file.setProcessInstanceId("revision-round");
+        when(controlledFileMapper.selectById(100L)).thenReturn(file);
+        var event=new DccControlledFileLifecycleEvent("activated","ACTIVATED",1L,10L,100L,99L,
+                "B/1","revision-round",file.getPublishedTime().plusDays(1));
+        assertThrows(IllegalStateException.class,()->service.recordActivatedRevision(event));
+        assertThrows(IllegalArgumentException.class,()->service.recordActivatedRevision(
+                new DccControlledFileLifecycleEvent("other","ACTIVATED",2L,10L,100L,99L,"B/1","revision-round",event.occurredAt())));
+        file.setStatus("ACTIVE");file.setActivatedTime(event.occurredAt());
+        assertThrows(IllegalStateException.class,()->service.recordActivatedRevision(
+                new DccControlledFileLifecycleEvent("other","ACTIVATED",1L,10L,100L,99L,"B/1","foreign-round",event.occurredAt())));
+        verifyNoInteractions(batchMapper,publicationNotificationService);
     }
 
     @Test

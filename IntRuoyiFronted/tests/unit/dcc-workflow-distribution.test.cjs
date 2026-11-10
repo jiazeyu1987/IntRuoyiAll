@@ -163,6 +163,12 @@ test('preset mode shows saved date and never replaces it with activation time', 
   try { assert.match(text(view.rootNode), /预设生效日期：2026-10-12/);assert.match(text(view.rootNode), /实际生效时间：尚未记录/); }
   finally { view.app.unmount() }
 })
+test('controlled import remains visible as its own saved effective mode', () => {
+  const view = mount('WorkflowDistributionPanel.vue', { fileId: '42', processInstanceId: 'obsolete-round', versionNo: 'B/1',
+    facts: { effectiveMode: 'CONTROLLED_IMPORT', effectiveDate: '2026-10-12', status: 'OBSOLETE' } })
+  try { assert.match(text(view.rootNode), /受控导入/);assert.equal(text(view.rootNode).includes('预设生效日期：'), false); }
+  finally { view.app.unmount() }
+})
 test('missing historical mode is shown as unrecorded instead of inferred from a date', () => {
   const view = mount('WorkflowDistributionPanel.vue', { fileId: '42', processInstanceId: 'round-42', versionNo: 'B/1',
     facts: { effectiveMode: null, effectiveDate: '2026-10-12', status: 'ACTIVE' } })

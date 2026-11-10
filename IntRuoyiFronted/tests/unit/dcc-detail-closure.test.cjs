@@ -550,6 +550,19 @@ test('relation source rejects a different version even on the same Master and pr
   assert.equal(row.controlledFileId, '31')
   assert.equal(row.canPreview, false)
 })
+test('signed supplemental relation has a fixed identity without inventing an upload row id', () => {
+  const m = mod(read('src/views/dcc/controlled-file/detail/relation-contract.ts'))
+  const snapshot = { controlledFileId: '31', masterId: '300', projectCodeId: '20', fileName: '会签后补.pdf', fileNumber: 'R', versionNo: 'A/1', origin: 'SUPPLEMENT' }
+  const navigation = { tenantId: '1', controlledFileId: '31', masterId: '300', projectId: '20', projectName: '项目', folderName: '目录', canPreview: false }
+  const row = m.historicalRelationCandidate(snapshot, navigation)
+  assert.equal(row.relationId, undefined)
+  assert.equal(row.controlledFileId, '31')
+  assert.equal(row.versionNo, 'A/1')
+  assert.equal(row.canPreview, false)
+  assert.throws(() => m.historicalRelationCandidate({ ...snapshot, origin: undefined }, navigation), /身份/)
+  assert.throws(() => m.historicalRelationCandidate(snapshot, { ...navigation, masterId: '999' }), /身份/)
+})
+
 test('public detail relations loads only the selected snapshot, preserving fixed body and readonly boundaries', async () => {
   const calls = [],
     selected = {
@@ -968,4 +981,42 @@ test('project browser wrapper defaults to latest controlled and forwards an expl
   ])
     await assert.rejects(a.loadDccProjectBrowserPage('1', query, options), /浏览|状态/)
   assert.equal(calls.length, 2)
+})
+
+
+test('project relation panel displays native signed supplements and still rejects foreign target authority', async () => {
+  let targetTenant = '1'
+  const calls = []
+  const source = { id: '10', masterId: '100', dccProjectCodeId: '20', versionNo: 'A/1', title: '源.pdf', fileNumber: 'S' }
+  const p = mount('DetailRelationsPanel', { file: source, allowEdit: false }, {
+    '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => undefined },
+    '@/api/dcc/controlledFile/bodyReadContext': mod(read('src/api/dcc/controlledFile/bodyReadContext.ts')),
+    '@/api/dcc/controlledFile/applicationRead': {
+      getControlledFileRelationPermissions: async (id) => {
+        calls.push(['permission', id])
+        return metadata(id, id === '10'
+          ? { masterId: '100', projectId: '20', fileName: '源.pdf', fileNumber: 'S', versionNo: 'A/1' }
+          : { masterId: '300', projectId: '20', tenantId: targetTenant, versionNo: 'A/1', canPreview: false })
+      }
+    },
+    '@/api/dcc/controlledFile/relations': {
+      listHistoricalRelations: async (id) => {
+        calls.push(['history', id])
+        return [{ controlledFileId: '31', masterId: '300', projectCodeId: '20', fileName: '会签后补.pdf', fileNumber: 'R', versionNo: 'A/1', origin: 'SUPPLEMENT' }]
+      }
+    }
+  })
+  try {
+    await p.state.load()
+    assert.equal(p.state.error, '')
+    assert.equal(p.state.files.length, 1)
+    assert.equal(p.state.files[0].fileName, '会签后补.pdf')
+    assert.equal(p.state.files[0].controlledFileId, '31')
+    assert.equal(p.state.files[0].canPreview, false)
+    assert.ok(calls.every(([kind, id]) => kind === 'history' ? id === '10' : ['10', '31'].includes(id)))
+    targetTenant = '2'
+    await p.state.load()
+    assert.match(p.state.error, /租户/)
+    assert.equal(p.state.files.length, 0)
+  } finally { p.app.unmount() }
 })

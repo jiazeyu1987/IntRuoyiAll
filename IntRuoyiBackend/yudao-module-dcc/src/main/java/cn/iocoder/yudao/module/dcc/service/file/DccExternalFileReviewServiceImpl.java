@@ -181,6 +181,7 @@ public class DccExternalFileReviewServiceImpl implements DccExternalFileReviewSe
         submitReqVO.setSourceUploadTicket(reqVO.getSourceUploadTicket());
         submitReqVO.setSourceFileName(reqVO.getSourceFileName());
         submitReqVO.setDrawingPdfUploadTicket(reqVO.getDrawingPdfUploadTicket());
+        submitReqVO.setDrawingPdfSessionId(reqVO.getDrawingPdfSessionId());
         submitReqVO.setProductMasterId(null);
         submitReqVO.setProductCode(reqVO.getProductCode());
         submitReqVO.setDccProjectCodeId(reqVO.getDccProjectCodeId());

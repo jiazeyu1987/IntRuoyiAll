@@ -80,15 +80,102 @@ class DccRegistrationCertificateApprovalRuntimeTest {
 
     private DccRegistrationCertificateApprovalService service;
 
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
     @BeforeEach
     void setUp() {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
                 bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
                 businessClock, renewalService, uploadService, changeService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "registrationHandlingTasks", registrationHandlingTasks);
+        lenient().when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 10, 30, 12, 0));
         lenient().when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
         lenient().when(bindingMapper.updateById(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
         lenient().when(grantMapper.updateById(any(DccRegistrationCertificateGrantDO.class))).thenReturn(1);
+    }
+
+    @Test
+    void ceWithoutOptionalCertificateNumberStartsNativeApproval() {
+        assertUploadWithoutCertificateNumberStarts("CE");
+    }
+
+    @Test
+    void approvalDetailRequiresExactBindingAndTenantEvenForRequester() {
+        var request = request("BPM_BOUND");
+        request.setBpmProcessInstanceId("proc-1");
+        var binding = binding("RUNNING");
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, 1001L)).thenReturn(binding);
+        assertEquals(request, service.requireApprovalDetailRequest(TENANT_ID, ACTOR_ID, 1001L, "proc-1"));
+        assertThrows(ServiceException.class,
+                () -> service.requireApprovalDetailRequest(TENANT_ID, ACTOR_ID, 1001L, "proc-other"));
+        request.setTenantId(2L);
+        assertThrows(ServiceException.class,
+                () -> service.requireApprovalDetailRequest(TENANT_ID, ACTOR_ID, 1001L, "proc-1"));
+    }
+
+    @Test
+    void approvalDetailRequiresFrozenCandidateAndCurrentUploadRolePermission() {
+        var request = request("BPM_BOUND");
+        request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        request.setBpmProcessInstanceId("proc-1");
+        var binding = binding("RUNNING");
+        binding.setDetailJson("{\"candidateUserIds\":[200]}");
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, 1001L)).thenReturn(binding);
+        var role = new RoleRespDTO();
+        role.setId(8L); role.setCode(APPROVER_ROLE_CODE); role.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(role);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(java.util.Set.of(200L, 201L));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.UPLOAD_APPROVAL_PERMISSION)).thenReturn(true);
+        assertEquals(request, service.requireApprovalDetailRequest(TENANT_ID, 200L, 1001L, "proc-1"));
+        assertThrows(ServiceException.class,
+                () -> service.requireApprovalDetailRequest(TENANT_ID, 201L, 1001L, "proc-1"));
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(java.util.Set.of(201L));
+        assertThrows(ServiceException.class,
+                () -> service.requireApprovalDetailRequest(TENANT_ID, 200L, 1001L, "proc-1"));
+    }
+
+    @Test
+    void fdaWithoutDomesticCertificateNumberStartsNativeApproval() {
+        assertUploadWithoutCertificateNumberStarts("FDA");
+    }
+
+    private void assertUploadWithoutCertificateNumberStarts(String certificateType) {
+        var request = request("SUBMITTED");
+        request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        request.setDetailJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                "operation", "UPLOAD_CERTIFICATE", "productName", "审批产品", "classification", "II",
+                "ownerCompanyName", "持证业务公司", "factsJson", "{\"certificateType\":\"" + certificateType + "\"}")));
+        when(requestMapper.selectById(request.getId())).thenReturn(request);
+        var role = new RoleRespDTO();
+        role.setId(8L);
+        role.setCode(APPROVER_ROLE_CODE);
+        role.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(role);
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L),
+                cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.UPLOAD_APPROVAL_PERMISSION)).thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(java.util.Set.of(200L));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any())).thenReturn("proc-regulatory");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(TENANT_ID);
+        try {
+            var result = service.startNativeApproval(TENANT_ID, ACTOR_ID,
+                    new cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand(request.getId()));
+            assertEquals("BPM_BOUND", result.status());
+            var captured = org.mockito.ArgumentCaptor.forClass(cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO.class);
+            verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captured.capture());
+            assertEquals("注册证上传审批", captured.getValue().getName());
+            org.junit.jupiter.api.Assertions.assertFalse(captured.getValue().getVariables().containsKey("certificateNo"));
+            assertEquals("审批产品", captured.getValue().getVariables().get("productName"));
+            assertEquals("{\"certificateType\":\"" + certificateType + "\"}",
+                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(request.getDetailJson(), java.util.Map.class).get("factsJson"));
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
     }
 
     @Test

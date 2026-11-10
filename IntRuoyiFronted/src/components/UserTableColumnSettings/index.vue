@@ -1,6 +1,6 @@
 <template>
   <div class="user-table-column-settings">
-    <el-popover trigger="click" placement="bottom-end" width="260">
+    <el-popover trigger="click" placement="bottom-end" width="260" :popper-class="popoverClass">
       <template #reference>
         <el-button plain>
           <Icon icon="ep:setting" class="mr-5px" />
@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{
   saving?: boolean
   showReset?: boolean
   buttonLabel?: string
+  popoverClass?: string
 }>(), {
   showReset: true,
   buttonLabel: '显示字段'

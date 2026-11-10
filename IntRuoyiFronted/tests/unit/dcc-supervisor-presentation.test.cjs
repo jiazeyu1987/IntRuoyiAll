@@ -53,7 +53,7 @@ test('actual stage labels retain recorded names and use the supervisor label onl
   assert.equal(stages.resolveDccStageDisplayName('MATRIX_REVIEW', null), '会签审核')
 })
 
-test('actual supervisor runtime lookup provides the signed stage without changing matrix or withdrawal choices', () => {
+test('actual supervisor runtime lookup provides the signed stage and allows requester withdrawal', () => {
   const lifecycle = load(base + 'shared/lifecycle.ts')
   for (const stage of [
     lifecycle.getDccControlledFileStageByKey('SUPERVISOR_REVIEW'),
@@ -64,7 +64,7 @@ test('actual supervisor runtime lookup provides the signed stage without changin
     assert.equal(stage.requiredPermission, 'REVIEW')
     assert.equal(stage.order, 0)
   }
-  assert.equal(lifecycle.isDccControlledFileWithdrawableStatus('PENDING_SUPERVISOR_REVIEW'), false)
+  assert.equal(lifecycle.isDccControlledFileWithdrawableStatus('PENDING_SUPERVISOR_REVIEW'), true)
   assert.deepEqual(Array.from(lifecycle.DCC_CONTROLLED_FILE_STAGE_KEYS),
     ['DOC_CONTROL_REVIEW', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_APPROVAL'])
   assert.equal(lifecycle.getDccControlledFileStageByKey('UNKNOWN_REVIEW'), undefined)

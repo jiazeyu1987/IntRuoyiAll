@@ -10,7 +10,6 @@ public class DccFileTypeTaxonomySaveReqVO {
     private Long id;
     private Long parentId;
 
-    @NotBlank(message = "分类编码不能为空")
     private String code;
 
     @NotBlank(message = "分类名称不能为空")
@@ -23,4 +22,13 @@ public class DccFileTypeTaxonomySaveReqVO {
     private Integer sort;
 
     private String remark;
+
+    // 一级二级仅承载路径；三级及以下必须随类型保存明确审批来源。
+    private Boolean pathNodeOnly;
+    private String approvalSourceMode;
+    private Long matrixSourceCategoryId;
+    @jakarta.validation.Valid
+    private DccCategoryDirectoryBindingSaveReqVO directoryBinding;
+    @jakarta.validation.Valid
+    private DccCategoryApprovalMatrixSaveReqVO approvalMatrix;
 }

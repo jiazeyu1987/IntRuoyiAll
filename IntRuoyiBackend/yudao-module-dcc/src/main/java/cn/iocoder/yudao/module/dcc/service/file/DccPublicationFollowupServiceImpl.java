@@ -76,6 +76,7 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
     @Resource private DccControlledFileDistributionMapper distributionMapper;
     @Resource private DccControlledFileDistributionRecipientMapper distributionRecipientMapper;
     @Resource private DccControlledFileRelatedFileService relatedFileService;
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService relationStages;
     @Resource private DccControlledFileMasterMapper masterMapper;
     @Resource private DccControlledFileMapper controlledFileMapper;
     @Resource private AdminUserApi adminUserApi;
@@ -87,12 +88,42 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void recordPublishedRevision(DccControlledFileDO publishedFile, DccControlledFileDO previousActiveFile) {
+        recordRevision(publishedFile, previousActiveFile, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordActivatedRevision(DccControlledFileLifecycleEvent event) {
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        if (event == null || !"ACTIVATED".equals(event.eventType()) || !Objects.equals(tenant, event.tenantId()))
+            throw new IllegalArgumentException("关联升版通知必须来自本租户正式生效事件");
+        var file = controlledFileMapper.selectById(event.controlledFileId());
+        if (file == null || !Objects.equals(file.getTenantId(), tenant)
+                || !Objects.equals(file.getMasterId(), event.masterId())
+                || !Objects.equals(file.getVersionNo(), event.versionNo())
+                || !Objects.equals(file.getProcessInstanceId(), event.approvalProcessInstanceId())
+                || !Objects.equals(file.getActivatedTime(), event.occurredAt())
+                || file.getControlledTime() == null || file.getActivatedTime() == null || !"ACTIVE".equals(file.getStatus()))
+            throw new IllegalStateException("关联升版通知与实际生效文件身份不一致");
+        if ("INITIAL".equals(file.getRevisionChangeType())) return;
+        DccControlledFileRevisionChangeType.requireRevision(file.getRevisionChangeType());
+        DccControlledFileDO previous = event.previousActiveFileId() == null ? null
+                : controlledFileMapper.selectById(event.previousActiveFileId());
+        if (event.previousActiveFileId() != null && (previous == null
+                || !Objects.equals(previous.getTenantId(), tenant) || !Objects.equals(previous.getMasterId(), file.getMasterId())
+                || Objects.equals(previous.getId(), file.getId())))
+            throw new IllegalStateException("关联升版通知的前执行版本身份不一致");
+        recordRevision(file, previous, true);
+    }
+
+    private void recordRevision(DccControlledFileDO publishedFile, DccControlledFileDO previousActiveFile,
+                                boolean relatedOnly) {
         requirePublicationIdentity(publishedFile);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (publishedFile.getTenantId() != null && !tenantId.equals(publishedFile.getTenantId())) {
             throw new IllegalStateException("Published controlled file tenant does not match current tenant");
         }
-        if (!isMajorRevisionChange(publishedFile, previousActiveFile)) {
+        if (!relatedOnly && !isMajorRevisionChange(publishedFile, previousActiveFile)) {
             return;
         }
         LocalDateTime frozenAt = publishedFile.getPublishedTime().withNano(0);
@@ -125,11 +156,11 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
             throw new IllegalStateException("Publication follow-up batch id is missing after insert");
         }
 
-        List<VisibilityRuleDraft> visibilityRules = resolveVisibilityRules(publishedFile);
-        Map<Long, RelationDraft> relationDrafts = resolveRelations(tenantId, publishedFile);
-        Map<Long, List<CandidateReasonDraft>> candidateReasons = resolveCandidateReasons(
-                publishedFile, visibilityRules, relationDrafts);
-        applyAssignmentScope(visibilityRules, publishedFile.getId());
+        List<VisibilityRuleDraft> visibilityRules = relatedOnly ? List.of() : resolveVisibilityRules(publishedFile);
+        Map<Long, RelationDraft> relationDrafts = resolveRelations(tenantId, publishedFile, relatedOnly);
+        Map<Long, List<CandidateReasonDraft>> candidateReasons = relatedOnly
+                ? resolveReverseOwnerReasons(relationDrafts) : resolveCandidateReasons(publishedFile, visibilityRules, relationDrafts);
+        if (!relatedOnly) applyAssignmentScope(visibilityRules, publishedFile.getId());
 
         Set<Long> allSnapshotUserIds = new LinkedHashSet<>();
         visibilityRules.forEach(rule -> rule.users().forEach(user -> allSnapshotUserIds.add(user.userId())));
@@ -142,7 +173,21 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
         // Publication/activation must never infer a task assignee from the related file requester.
         insertNotificationCandidates(batch, candidateReasons, userDirectory);
         publicationNotificationService.materializeForPublicationBatch(batch.getId());
-        impactAssessmentService.resolveLinkedRevisionAfterPublication(publishedFile);
+        if (!relatedOnly) impactAssessmentService.resolveLinkedRevisionAfterPublication(publishedFile);
+    }
+
+    private Map<Long, List<CandidateReasonDraft>> resolveReverseOwnerReasons(Map<Long, RelationDraft> relationDrafts) {
+        Map<Long, List<CandidateReasonDraft>> reasons = new LinkedHashMap<>();
+        for (var draft : relationDrafts.values()) {
+            if (draft.directions().stream().noneMatch(direction -> DIRECTION_REVERSE.equals(direction.direction()))) continue;
+            var active = draft.activeFile();
+            if (active == null || active.getRequesterId() == null)
+                throw new IllegalStateException("反向关联的当前文件缺少编制人，不能生成升版通知");
+            addCandidateReason(reasons, active.getRequesterId(), new CandidateReasonDraft(
+                    REASON_RELATED_FILE_OWNER, active.getId(), draft.relatedMasterId(),
+                    "编制文件 " + active.getFileNumber() + " 的关联文件已升版生效"));
+        }
+        return reasons;
     }
 
     private List<VisibilityRuleDraft> resolveVisibilityRules(DccControlledFileDO file) {
@@ -208,18 +253,20 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
         return rules;
     }
 
-    private Map<Long, RelationDraft> resolveRelations(Long tenantId, DccControlledFileDO publishedFile) {
-        List<DccControlledFileRelatedFileDO> forwardRelations = Objects.requireNonNull(
+    private Map<Long, RelationDraft> resolveRelations(Long tenantId, DccControlledFileDO publishedFile, boolean reverseOnly) {
+        List<DccControlledFileRelatedFileDO> forwardRelations = reverseOnly ? List.of() : Objects.requireNonNull(
                 relatedFileService.listForwardRelations(publishedFile.getId()),
                 "forward controlled-file relations must not be null");
         List<DccControlledFileRelatedFileDO> reverseRelations = Objects.requireNonNull(
                 relatedFileService.listReverseCurrentActiveRelations(tenantId, publishedFile.getMasterId()),
                 "reverse controlled-file relations must not be null");
 
+        var signedSelections=reverseOnly?relationStages.findEffectiveReverseSelections(tenantId,publishedFile.getMasterId()):List.<cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService.EffectiveReverseSelection>of();
         Set<Long> reverseSourceFileIds = reverseRelations.stream()
                 .map(DccControlledFileRelatedFileDO::getControlledFileId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        signedSelections.forEach(row->reverseSourceFileIds.add(row.sourceFileId()));
         Map<Long, DccControlledFileDO> reverseSourceFiles = loadFiles(reverseSourceFileIds,
                 "reverse relation source controlled file");
         Map<Long, RelationDraft> drafts = new LinkedHashMap<>();
@@ -240,6 +287,13 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
                 drafts.computeIfAbsent(relatedMasterId, RelationDraft::new).directions().add(
                         direction(DIRECTION_REVERSE, relation));
             }
+        }
+        for(var signed:signedSelections) {
+            var source=Objects.requireNonNull(reverseSourceFiles.get(signed.sourceFileId()),"signed relation source file is missing");
+            var draft=drafts.computeIfAbsent(source.getMasterId(),RelationDraft::new);
+            if(draft.directions().stream().noneMatch(row->DIRECTION_REVERSE.equals(row.direction()) && Objects.equals(row.sourceControlledFileId(),source.getId())))
+                // The source id names the immutable application-round record in the SIGNED_ROUND namespace.
+                draft.directions().add(new RelationDirectionDraft(DIRECTION_REVERSE,signed.roundId(),source.getId(),signed.selection().selectedControlledFileId(),"SIGNED_ROUND"));
         }
         if (drafts.isEmpty()) {
             return drafts;

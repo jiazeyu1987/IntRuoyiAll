@@ -7,13 +7,24 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 /** IC-1 属性值；不可变，默认和实际快照不得共享可变数组。 */
 public record DccProjectAttributes(List<String> targetMarkets, String otherMarket,
                                    String licenseHolder, String actualManufacturer,
-                                   String documentTransfer, String transferTo) {
+                                   String documentTransfer, String transferTo, String libraryScope) {
+    public DccProjectAttributes(List<String> markets,String other,String holder,String manufacturer,String transfer,String to) {
+        this(markets,other,holder,manufacturer,transfer,to,null);
+    }
+    public static DccProjectAttributes forLibrary(String scope) {
+        return new DccProjectAttributes(null,null,null,null,null,null,scope).validated();
+    }
     private static final Set<String> MARKETS = Set.of("NMPA", "CE", "FDA", "MADSAP", "OTHER", "NA");
     private static final Set<String> IDENTITIES = Set.of("Y", "N", "NA");
     public DccProjectAttributes {
         if (targetMarkets != null) targetMarkets = List.copyOf(targetMarkets);
     }
     public DccProjectAttributes validated() {
+        if (libraryScope != null) {
+            if (!Set.of("QMS","GENERAL").contains(libraryScope) || targetMarkets != null || otherMarket != null
+                    || licenseHolder != null || actualManufacturer != null || documentTransfer != null || transferTo != null) throw fail(INVALID);
+            return this;
+        }
         if (targetMarkets == null || targetMarkets.isEmpty()
                 || targetMarkets.stream().anyMatch(value -> !MARKETS.contains(value))
                 || targetMarkets.stream().distinct().count() != targetMarkets.size()

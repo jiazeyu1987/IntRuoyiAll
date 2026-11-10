@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.bpm.approval.service;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveR
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO;
+import cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.FlowableUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
@@ -54,6 +56,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
     private static final String COPY_SOURCE = "BPM_PROCESS_INSTANCE_COPY";
     private static final String TODO_SOURCE = "BPM_TASK_TODO";
     private static final String DONE_SOURCE = "BPM_TASK_DONE";
+    private static final String HISTORY_SOURCE = "BPM_TASK_HISTORY";
     private static final String BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE =
             "BATCH_RECORD_VERSION_APPROVAL";
     private static final String EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE =
@@ -106,6 +109,18 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             "dcc-controlled-file-revision",
             "dcc-controlled-file-obsolete"
     );
+
+    private List<ApprovalTaskSummaryEnricher> summaryEnrichers = List.of();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSummaryEnrichers(List<ApprovalTaskSummaryEnricher> enrichers) {
+        this.summaryEnrichers = List.copyOf(enrichers);
+    }
+
+    private ApprovalTaskSummary enrichSummary(ApprovalTaskSummary summary, String definitionKey) {
+        summaryEnrichers.forEach(enricher -> enricher.enrich(summary, definitionKey));
+        return summary;
+    }
 
     private final BpmProcessInstanceService processInstanceService;
     private final BpmProcessInstanceCopyService copyService;
@@ -184,8 +199,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void review(ApprovalTaskReviewContext context) {
-        preflightReview(context);
         Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
+        context.setReason(ApprovalReviewReason.requireValid(context.getResult(), context.getReason()));
+        preflightReview(context);
         if (!TODO_SOURCE.equals(context.getSourceTaskType())) {
             throw new IllegalArgumentException("APPROVAL_SOURCE_TASK_TYPE_UNSUPPORTED: BPM only supports "
                     + TODO_SOURCE);
@@ -286,9 +302,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                         instance -> requireText(instance.getId(),
                                 "APPROVAL_PROCESS_INSTANCE_ID_REQUIRED: BPM done history"),
                         Function.identity()));
+        Set<String> unownedProcesses = centerQuery.unownedHistoricProcesses(processInstanceIds);
         List<ApprovalTaskSummary> summaries = page.getList().stream()
                 .map(task -> toDoneSummary(task, requireHistoricProcessInstance(
-                        processInstancesById, task.getProcessInstanceId())))
+                        processInstancesById, task.getProcessInstanceId()),
+                        unownedProcesses.contains(task.getProcessInstanceId())))
                 .toList();
         return new PageResult<>(summaries, page.getTotal());
     }
@@ -317,9 +335,16 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 centerQuery.copied(context);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM copy");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM copy");
+        Map<String, HistoricProcessInstance> processes = summaryEnrichers.isEmpty() || page.getList().isEmpty()
+                ? Map.of() : processInstanceService.getHistoricProcessInstanceMap(page.getList().stream()
+                    .map(BpmProcessInstanceCopyDO::getProcessInstanceId).collect(Collectors.toSet()));
         List<ApprovalTaskSummary> summaries = page.getList().stream()
-                .map(this::toCopySummary)
-                .toList();
+                .map(copy -> {
+                    var summary = toCopySummary(copy);
+                    // Copy records survive historic-process retention; enrich only a formally identified process.
+                    var process = processes.get(copy.getProcessInstanceId());
+                    return process == null ? summary : enrichSummary(summary, process.getProcessDefinitionKey());
+                }).toList();
         return new PageResult<>(summaries, page.getTotal());
     }
 
@@ -347,7 +372,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
             });
             contextTags = blockerTags;
         }
-        return ApprovalTaskSummary.builder()
+        return enrichSummary(ApprovalTaskSummary.builder()
                 .id("BPM:" + TODO_SOURCE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
                 .sourceTaskType(TODO_SOURCE)
@@ -376,7 +401,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                         ? ownership.decisionRoute() == null ? DETAIL_ACTIONS : Set.of("OPEN_DETAIL", "PROCESS_IN_MODULE")
                         : TODO_ACTIONS)
                 .capabilities(CAPABILITIES)
-                .build();
+                .build(), processInstance.getProcessDefinitionKey());
     }
 
     private static Map<String, Object> resolveTodoProcessVariables(Task task, ProcessInstance processInstance) {
@@ -392,19 +417,28 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         return variables.isEmpty() ? null : variables;
     }
 
-    private ApprovalTaskSummary toDoneSummary(HistoricTaskInstance task, HistoricProcessInstance instance) {
+    private ApprovalTaskSummary toDoneSummary(HistoricTaskInstance task, HistoricProcessInstance instance,
+                                             boolean ownershipEvidenceMissing) {
         requireTaskIdentity(task.getId(), task.getProcessInstanceId(), "BPM done");
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", task.getProcessInstanceId());
         detailQuery.put("taskId", task.getId());
         Map<String, Object> variables = instance.getProcessVariables();
-        Map<String, String> decisionDetailQuery = buildDecisionDetailQuery(variables, task.getProcessInstanceId());
-        ApprovalTaskReviewResult approvalResult = resolveDoneApprovalResult(task);
+        Map<String, String> decisionDetailQuery = ownershipEvidenceMissing ? Map.of()
+                : buildDecisionDetailQuery(variables, task.getProcessInstanceId());
+        Integer taskStatus = FlowableUtils.getTaskStatus(task);
+        var historicalStatus = BpmTaskStatusEnum.valueOf(taskStatus);
+        ApprovalTaskReviewResult approvalResult = ownershipEvidenceMissing
+                && (historicalStatus == null || !Set.of(
+                        BpmTaskStatusEnum.APPROVE, BpmTaskStatusEnum.APPROVING,
+                        BpmTaskStatusEnum.REJECT).contains(historicalStatus))
+                ? null : resolveDoneApprovalResult(task);
         RoleRespDTO assigneeRole = resolveRegistrationCertificateAssigneeRole(variables);
-        return ApprovalTaskSummary.builder()
-                .id("BPM:" + DONE_SOURCE + ":" + task.getId())
+        String source = ownershipEvidenceMissing ? HISTORY_SOURCE : DONE_SOURCE;
+        ApprovalTaskSummary summary = ApprovalTaskSummary.builder()
+                .id("BPM:" + source + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
-                .sourceTaskType(DONE_SOURCE)
+                .sourceTaskType(source)
                 .sourceTaskId(task.getId())
                 .businessKey(instance.getBusinessKey())
                 .businessTitle(resolveBusinessTitle(instance.getName(), variables))
@@ -428,11 +462,23 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/bpm/process-instance/detail")
                 .detailQuery(detailQuery)
-                .decisionDetailRoute(resolveDecisionDetailRoute(variables))
+                .decisionDetailRoute(ownershipEvidenceMissing ? null : resolveDecisionDetailRoute(variables))
                 .decisionDetailQuery(decisionDetailQuery)
                 .availableActions(DETAIL_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
+        if (ownershipEvidenceMissing) {
+            // Historical engine evidence is readable; it does not establish a native business owner.
+            var tags = new ArrayList<String>();
+            if (summary.getBusinessContextTags() != null) tags.addAll(summary.getBusinessContextTags());
+            tags.add("历史归属证据缺失");
+            if (historicalStatus != null) tags.add("任务状态：" + historicalStatus.getName());
+            return summary.setBusinessContextTags(tags).setRequiresSignature(false)
+                    .setTaskOutcome(historicalStatus == null ? "UNKNOWN" : historicalStatus.name())
+                    .setSourceStatus(taskStatus == null ? null : taskStatus.toString())
+                    .setSourceRemark(FlowableUtils.getTaskReason(task));
+        }
+        return enrichSummary(summary, instance.getProcessDefinitionKey());
     }
 
     private ApprovalTaskSummary toProcessInstanceSummary(HistoricProcessInstance instance) {
@@ -442,7 +488,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", instance.getId());
         Map<String, Object> variables = instance.getProcessVariables();
-        return ApprovalTaskSummary.builder()
+        return enrichSummary(ApprovalTaskSummary.builder()
                 .id("BPM:" + PROCESS_INSTANCE_SOURCE + ":" + instance.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
                 .sourceTaskType(PROCESS_INSTANCE_SOURCE)
@@ -465,7 +511,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
                 .detailQuery(detailQuery)
                 .availableActions(DETAIL_ACTIONS)
                 .capabilities(CAPABILITIES)
-                .build();
+                .build(), instance.getProcessDefinitionKey());
     }
 
     private Map<String, ProcessInstance> requireRuntimeProcessInstances(List<? extends Task> tasks) {

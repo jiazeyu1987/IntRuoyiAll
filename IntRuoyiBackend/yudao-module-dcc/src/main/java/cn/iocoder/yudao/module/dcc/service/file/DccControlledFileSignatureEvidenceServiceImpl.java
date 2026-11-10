@@ -102,7 +102,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         if(req==null || !"DELAYED_EFFECTIVE_CONFIRM_APPROVE".equals(req.getMeaningCode()) || req.getTenantId()==null
                 || req.getProcessInstanceId()==null || req.getProcessInstanceId().isBlank() || req.getTaskId()==null || req.getTaskId().isBlank()
                 || req.getSignerUserId()==null || req.getSelectedEffectiveTime()==null || req.getSelectedEffectiveTime().getNano()!=0
-                || req.getAttributeRound()==null || req.getAttributeRound()<=0 || req.getReasonText()==null || req.getReasonText().isBlank())
+                || req.getAttributeRound()==null || req.getAttributeRound()<=0)
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         var file=controlledFileMapper.selectById(req.getControlledFileId());
         if(file==null || file.getSourceFileId()==null || !Objects.equals(file.getTenantId(),req.getTenantId())
@@ -144,7 +144,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         if ("DELAYED_EFFECTIVE_CONFIRM_APPROVE".equals(req.getMeaningCode())) {
             if(req.getProcessInstanceId()==null || req.getAttributeRound()==null || req.getAttributeRound()<=0
                     || req.getSelectedEffectiveTime()==null || req.getSelectedEffectiveTime().getNano()!=0
-                    || req.getSelectedEffectiveTime().isBefore(req.getSignedAt()) || StrUtil.isBlank(req.getReasonText()))
+                    || req.getSelectedEffectiveTime().isBefore(req.getSignedAt()))
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         } else if(req.getSelectedEffectiveTime()!=null || req.getAttributeRound()!=null)
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);

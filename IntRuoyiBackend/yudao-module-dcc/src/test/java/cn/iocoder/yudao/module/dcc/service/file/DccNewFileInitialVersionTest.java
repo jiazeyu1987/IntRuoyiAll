@@ -17,11 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DccNewFileInitialVersionTest {
 
     @Test
-    void newFileUsesSpecifiedValidInitialRevisionAtIterationOne() {
+    void newFileUsesSpecifiedValidInitialRevisionAndIteration() {
         assertEquals("A/1", DccWindchillVersionNumber.initialForNewFile("a/1"));
         assertEquals("B/1", DccWindchillVersionNumber.initialForNewFile("B/1"));
         assertEquals("A/1", DccWindchillVersionNumber.initialForNewFile(null));
-        assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.initialForNewFile("A/2"));
+        for (int iteration = 1; iteration <= 9; iteration++) {
+            assertEquals("A/" + iteration, DccWindchillVersionNumber.initialForNewFile("a/" + iteration));
+        }
+        assertEquals("AH/9", DccWindchillVersionNumber.initialForNewFile("ah/9"));
+        for (String invalid : new String[]{"A/0", "A/10", "A/01", "I/1", "O/2", "AI/3", "ao/9", "A/2-1"}) {
+            assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.initialForNewFile(invalid), invalid);
+        }
         assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.initialForNewFile("V1.0"));
     }
 
@@ -37,6 +43,9 @@ class DccNewFileInitialVersionTest {
         assertEquals("A/2", DccWindchillVersionNumber.parse("A/1").nextIteration().display());
         assertEquals("B/1", DccWindchillVersionNumber.parse("A/9").nextRevision().display());
         assertEquals("AA/1", DccWindchillVersionNumber.parse("Z/2").nextRevision().display());
+        assertEquals("J/1", DccWindchillVersionNumber.parse("H/9").nextIteration().display());
+        assertEquals("P/1", DccWindchillVersionNumber.parse("N/9").nextRevision().display());
+        assertEquals("AJ/1", DccWindchillVersionNumber.parse("AH/9").nextRevision().display());
     }
 
     @Test

@@ -32,7 +32,7 @@ public class DccProjectFolderMaintenanceService {
     /** CC-2逻辑删除：D同一project→folder锁，历史身份与审计保留，无物理级联。 */
     @Transactional(rollbackFor=Exception.class)
     public void delete(Long userId,Long projectId,Long folderId,boolean confirmed,String reason) {
-        if(userId==null || !permissions.hasAnyPermissions(userId,"dcc:project-code:update"))throw fail(TEMPLATE_FORBIDDEN);
+        assertMaintenancePermission(userId, projectId);
         access.assertProjectEditorOrOwner(userId,projectId);reasons.validateReason(reason);
         if(!confirmed || folderId==null || folderId<=0)throw fail(FOLDER_INVALID);
         Long tenant=TenantContextHolder.getRequiredTenantId();
@@ -63,7 +63,7 @@ public class DccProjectFolderMaintenanceService {
 
     @Transactional(rollbackFor=Exception.class)
     public DccProjectFolderDO save(Long userId, Long projectId, Save input) {
-        if (userId==null || !permissions.hasAnyPermissions(userId,"dcc:project-code:update")) throw fail(TEMPLATE_FORBIDDEN);
+        assertMaintenancePermission(userId, projectId);
         access.assertProjectEditorOrOwner(userId,projectId);
         Long tenant=TenantContextHolder.getRequiredTenantId();
         var project=projectId==null?null:projects.selectByIdForUpdate(projectId);
@@ -119,5 +119,13 @@ public class DccProjectFolderMaintenanceService {
                 .afterState(GxpAuditStateEnvelope.builder().state("PRESENT").canonicalJson(JsonUtils.toJsonString(persisted))
                         .objectVersion(version).build()).build());
         return persisted;
+    }
+
+    private void assertMaintenancePermission(Long userId, Long projectId) {
+        var project = projectId == null ? null : projects.selectById(projectId);
+        if (userId == null || project == null
+                || !Objects.equals(project.getTenantId(), TenantContextHolder.getRequiredTenantId())) throw fail(TEMPLATE_FORBIDDEN);
+        // 独立库由本库 EDIT 授权维护；普通项目继续要求项目配置权限。
+        if (!project.isLibrary() && !permissions.hasAnyPermissions(userId, "dcc:project-code:update")) throw fail(TEMPLATE_FORBIDDEN);
     }
 }

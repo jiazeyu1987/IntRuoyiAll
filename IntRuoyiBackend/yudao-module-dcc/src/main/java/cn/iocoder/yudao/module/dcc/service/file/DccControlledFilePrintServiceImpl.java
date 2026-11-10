@@ -67,9 +67,9 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccControlledFilePrintRecordRespVO createPrintRecord(Long userId, Long controlledFileId,
-                                                                DccControlledFilePrintCreateReqVO reqVO) {
+                                                                DccControlledFilePrintCreateReqVO reqVO, DccRequestAuditContext auditContext) {
         requirePrintFields(reqVO);
-        DccControlledFileDO file = validatePrintableFile(userId, controlledFileId);
+        DccControlledFileDO file = validatePrintableFile(userId, controlledFileId, auditContext);
         LocalDateTime printTime = LocalDateTime.now();
         DccControlledFilePrintRecordDO record = DccControlledFilePrintRecordDO.builder()
                 .controlledFileId(file.getId())
@@ -90,14 +90,14 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
     }
 
     @Override
-    public List<DccControlledFilePrintRecordRespVO> getPrintRecords(Long userId, Long controlledFileId) {
-        validatePrintableFile(userId, controlledFileId);
+    public List<DccControlledFilePrintRecordRespVO> getPrintRecords(Long userId, Long controlledFileId, DccRequestAuditContext auditContext) {
+        validatePrintableFile(userId, controlledFileId, auditContext);
         return convertList(printRecordMapper.selectListByControlledFileId(controlledFileId), this::toRespVO);
     }
 
     @Override
-    public DccControlledFilePrintHtmlRespVO getPrintHtml(Long userId, Long controlledFileId, Long printRecordId) {
-        validatePrintableFile(userId, controlledFileId);
+    public DccControlledFilePrintHtmlRespVO getPrintHtml(Long userId, Long controlledFileId, Long printRecordId, DccRequestAuditContext auditContext) {
+        validatePrintableFile(userId, controlledFileId, auditContext);
         DccControlledFilePrintRecordDO record = printRecordMapper.selectByIdAndControlledFileId(printRecordId,
                 controlledFileId);
         if (record == null) {
@@ -110,12 +110,12 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
         return respVO;
     }
 
-    private DccControlledFileDO validatePrintableFile(Long userId, Long controlledFileId) {
+    private DccControlledFileDO validatePrintableFile(Long userId, Long controlledFileId, DccRequestAuditContext auditContext) {
         DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        requirePrintBusinessAccess(userId, file);
+        requirePrintBusinessAccess(userId, file, auditContext);
         if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
@@ -124,14 +124,14 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
         if (master == null || !Objects.equals(master.getCurrentActiveControlledFileId(), file.getId())) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
-        if (!permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.PRINT)) {
+        if (!permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.PRINT)) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
         return file;
     }
 
-    private void requirePrintBusinessAccess(Long userId, DccControlledFileDO file) {
+    private void requirePrintBusinessAccess(Long userId, DccControlledFileDO file, DccRequestAuditContext auditContext) {
+        Objects.requireNonNull(auditContext, "DCC print request audit context is required");
         Long infraFileId = firstPresent(file.getPublishedFileId(), file.getSourceFileId(), file.getOriginalFileId());
         if (infraFileId == null) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
@@ -140,7 +140,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
             businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
                             BusinessFileAccessOperation.PRINT, infraFileId,
                             TenantContextHolder.getRequiredTenantId(), userId, null,
-                            "DCC-PRINT-" + UUID.randomUUID(), null, null, null))
+                            auditContext.requireRequestId("controlled print"), null, auditContext.sourceIp(), auditContext.userAgent()))
                     .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
         } catch (BusinessFileAccessDeniedException ex) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);

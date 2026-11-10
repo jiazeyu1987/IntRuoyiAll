@@ -1,19 +1,19 @@
 <template>
-  <section data-testid="dcc-detail-attachments" class="mb-16px">
+  <section data-testid="dcc-detail-attachments" class="mb-16px min-w-0 w-full">
     <div class="mb-12px flex items-center justify-between gap-12px">
       <div class="text-15px font-600">文件附件</div>
       <el-tag size="small" type="info">共 {{ validationError ? '—' : attachments.length }} 个</el-tag>
     </div>
     <el-alert v-if="validationError || actionError" :title="validationError || actionError" type="error" :closable="false" class="mb-12px" />
-    <el-table v-if="!validationError && attachments.length" :data="attachments" border>
+    <el-table v-if="!validationError && attachments.length" :data="attachments" border class="w-full" table-layout="auto">
       <el-table-column prop="fileName" label="附件名称" min-width="220" show-overflow-tooltip />
-      <el-table-column label="用途" width="120"><template #default="{ row }">{{ attachmentPurposeText(row) }}</template></el-table-column>
-      <el-table-column label="上传人" min-width="160"><template #default="{ row }">{{ attachmentUploaderText(row) }}</template></el-table-column>
-      <el-table-column label="上传时间" min-width="170"><template #default="{ row }">{{ attachmentUploadTimeText(row) }}</template></el-table-column>
-      <el-table-column label="首次提交轮次" min-width="180" show-overflow-tooltip><template #default="{ row }">{{ attachmentRoundText(row) }}</template></el-table-column>
-      <el-table-column label="类型" min-width="120"><template #default="{ row }">{{ row.contentType || row.previewKind || '未记录' }}</template></el-table-column>
-      <el-table-column label="大小" width="110"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
-      <el-table-column label="操作" min-width="170" fixed="right">
+      <el-table-column label="用途" min-width="90"><template #default="{ row }">{{ attachmentPurposeText(row) }}</template></el-table-column>
+      <el-table-column label="上传人" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentUploaderText(row) }}</template></el-table-column>
+      <el-table-column label="上传时间" min-width="150"><template #default="{ row }">{{ attachmentUploadTimeText(row) }}</template></el-table-column>
+      <el-table-column label="首次提交轮次" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentRoundText(row) }}</template></el-table-column>
+      <el-table-column label="类型" min-width="90" show-overflow-tooltip><template #default="{ row }">{{ row.contentType || row.previewKind || '未记录' }}</template></el-table-column>
+      <el-table-column label="大小" min-width="85"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
+      <el-table-column label="操作" min-width="135" fixed="right">
         <template #default="{ row }">
           <el-button v-if="!['OFFICE', 'DOWNLOAD_ONLY'].includes(row.previewKind || '')" link type="primary" @click="preview(row)">在线查看</el-button>
           <span v-else class="text-12px text-[var(--el-text-color-secondary)]">不支持在线预览</span>
@@ -28,6 +28,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import type { DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import ProtectedPdfViewer from '../view/index.vue'
@@ -38,10 +39,11 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string }>()
 const userStore = useUserStoreWithOut()
 const actionError = ref(''), downloading = ref(''), selected = ref<ControlledFileAttachmentVO>(), previewVisible = ref(false)
 const validationError = computed(() => {
+  if (props.contextError) return props.contextError
   if (!props.file) return ''
   try {
     if (!Array.isArray(props.file.attachments)) throw new Error('文件附件清单未返回，请刷新详情')
@@ -51,7 +53,7 @@ const validationError = computed(() => {
 })
 const attachments = computed(() => validationError.value ? [] : props.file?.attachments || [])
 const previewSource = computed(() => selected.value && props.file
-  ? buildDccControlledFileAttachmentPreviewSource(props.file.id, selected.value.attachmentId) : undefined)
+  ? buildDccControlledFileAttachmentPreviewSource(props.file.id, selected.value.attachmentId, props.bodyReadContext) : undefined)
 const formatSize = (size?: number | null) => size == null ? '未记录' : size >= 1048576 ? `${(size / 1048576).toFixed(2)} MB` : size >= 1024 ? `${(size / 1024).toFixed(2)} KB` : `${size} B`
 const readAuthority = () => JSON.stringify([
   String(getTenantId() ?? ''), String(getVisitTenantId() ?? ''), String(userStore.getUser.id)
@@ -65,7 +67,7 @@ const downloadFingerprint = (file?: ControlledFileVO): string => JSON.stringify(
   readAuthority(), file?.attachments
 ])
 let generation = 0
-watch(() => [props.file, downloadFingerprint(props.file)], () => {
+watch(() => [props.file, props.bodyReadContext, downloadFingerprint(props.file)], () => {
   generation++; selected.value = undefined; previewVisible.value = false; actionError.value = ''; downloading.value = ''
 }, { flush: 'sync' })
 onBeforeUnmount(() => {
@@ -79,6 +81,7 @@ const ensureLoadedAuthority = () => {
 }
 const preview = (row: ControlledFileAttachmentVO) => {
   try {
+    if (validationError.value) throw new Error(validationError.value)
     if (!props.file) throw new Error('文件详情未读取')
     if (!ensureLoadedAuthority()) return
     assertAttachmentBelongsToVersion(row, props.file.id)

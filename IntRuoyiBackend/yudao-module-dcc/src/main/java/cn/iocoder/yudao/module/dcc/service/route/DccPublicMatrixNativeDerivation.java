@@ -22,16 +22,20 @@ public final class DccPublicMatrixNativeDerivation {
         if(signoff.isEmpty()||approvals.isEmpty())throw invalid("APPROVAL_GROUPS_MISSING");
         var groups=new ArrayList<RuleGroup>();
         var required=new TreeSet<Long>();var optional=new TreeSet<Long>();
-        for(var rule:signoff){if(!"DEPT".equals(rule.getSubjectType())||!"DEPT".equals(rule.getCandidateSourceType()))throw invalid("SIGNOFF_SUBJECT_UNSUPPORTED");
+        for(var rule:signoff){boolean department="DEPT".equals(rule.getSubjectType())&&"DEPT".equals(rule.getCandidateSourceType());
+            // Obsolete saves its own department roster; retain legacy position rules as source facts, never as department IDs.
+            boolean replacedPosition="OBSOLETE".equals(action)&&selected!=null&&"DCC_POSITION".equals(rule.getSubjectType())&&"POSITION".equals(rule.getCandidateSourceType());
+            if(!department&&!replacedPosition)throw invalid("SIGNOFF_SUBJECT_UNSUPPORTED");
             validatePolicy(rule);if(!"ALL".equals(rule.getApproveMethod()))throw invalid("SIGNOFF_METHOD_CONFLICT",rule);
             boolean must=requiredParticipation(rule);
+            if(replacedPosition){ids(rule);continue;}
             for(Long id:ids(rule)){if(required.contains(id)||optional.contains(id))throw invalid("DUPLICATE_DEPARTMENT_RULE");(must?required:optional).add(id);}}
         List<Long> actual;
         if(selected==null){var defaults=new TreeSet<>(required);defaults.addAll(optional);actual=List.copyOf(defaults);}
         // Public participation markers describe the source; this application's explicit roster is authoritative.
         else {if(selected.stream().anyMatch(id->id==null||id<=0)||selected.stream().distinct().count()!=selected.size())throw invalid("SIGNOFF_SELECTION_INVALID");actual=selected.stream().sorted().toList();}
         if(actual.isEmpty())throw invalid("SIGNOFF_EMPTY");
-        for(var rule:signoff)groups.add(group(rule,actual.stream().anyMatch(ids(rule)::contains)));
+        for(var rule:signoff)groups.add(group(rule,"DEPT".equals(rule.getSubjectType())&&"DEPT".equals(rule.getCandidateSourceType())&&actual.stream().anyMatch(ids(rule)::contains)));
         var approval=approvalNode(approvals,groups);
         var result=new ArrayList<DccCategoryApprovalRouteNodeDO>();
         result.add(DccCategoryApprovalRouteNodeDO.builder().stageNo(1).stageCode("MATRIX_REVIEW").stageName("会签指派与实际签名").stageOrder(1)

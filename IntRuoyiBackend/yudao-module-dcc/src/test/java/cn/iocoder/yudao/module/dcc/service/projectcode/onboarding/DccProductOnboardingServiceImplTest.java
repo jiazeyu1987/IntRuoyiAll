@@ -37,6 +37,9 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private MdmProductApi mdmProductApi;
 
+    @Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
     @InjectMocks
     private DccProductOnboardingServiceImpl onboardingService;
 
@@ -126,6 +129,7 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(DccProductOnboardingStatusConstants.APPROVED, approved.getStatus());
         assertEquals(99L, approved.getApproverUserId());
         assertEquals(3000L, approved.getGeneratedProjectCodeId());
+        verify(registrationHandlingTasks).createProjectTask(3000L);
         assertNotNull(approved.getApprovedTime());
         verify(requestMapper).updateById(any(DccProductOnboardingRequestDO.class));
     }

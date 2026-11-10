@@ -69,7 +69,7 @@ public class DccProjectAttributesController {
     }
 
     private void requireConfigurationProject(DccProjectCodeDO project) {
-        if (project == null || !Objects.equals(project.getTenantId(),
+        if (project == null || project.isLibrary() || !Objects.equals(project.getTenantId(),
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 || !"ENABLE".equals(project.getStatus())) throw fail(DEFAULTS_MISSING);
     }
@@ -84,7 +84,7 @@ public class DccProjectAttributesController {
     public CommonResult<Boolean> configure(@PathVariable Long projectId, @RequestBody Configuration input) {
         accessService.assertProjectViewerOrAbove(getLoginUserId(), projectId);
         accessService.assertProjectEditorOrOwner(getLoginUserId(), projectId);
-        if (input == null) throw fail(INVALID);
+        if (input == null || input.defaultAttributes() == null || input.defaultAttributes().libraryScope() != null) throw fail(INVALID);
         auditService.validateReason(input.changeReason());
         var user = leaderService.requireEnabledAccount(input.projectLeaderUserId());
         String json = service.encode(input.defaultAttributes());

@@ -51,7 +51,9 @@ BEGIN
        UNION ALL SELECT 'ck_wb_retirement_window','((`retired_at_millis` >= 0) and (`purge_not_before_millis` > `retired_at_millis`))'
        UNION ALL SELECT 'ck_wb_retirement_duration','((`retention_seconds` > 0) and (`rollback_protection_seconds` > 0))'
      ) expected ON CAST(tc.CONSTRAINT_NAME AS BINARY)=CAST(expected.constraint_name AS BINARY)
-       AND CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+       -- MySQL 8.0.40 escapes quotes in CHECK_CLAUSE; compare both exact renderings.
+       AND (CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(expected.check_clause AS BINARY)
+         OR CAST(cc.CHECK_CLAUSE AS BINARY)=CAST(REPLACE(expected.check_clause,CHAR(39),CONCAT(CHAR(92),CHAR(39))) AS BINARY))
      WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_SCHEMA=DATABASE()
        AND CAST(tc.TABLE_NAME AS BINARY)=CAST('system_workbench_generation_retirement' AS BINARY)
        AND tc.CONSTRAINT_TYPE='CHECK' AND tc.ENFORCED='YES')!=4 THEN

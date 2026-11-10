@@ -1275,13 +1275,27 @@ const remainingRouter: AppRouteRecordRaw[] = [
             ['project-browser', 'workbench'].includes(String(to.query.from || '')) &&
             (String(to.query.management || '') === '1' || String(to.query.mode || '') === 'manage') &&
             String(to.query.returnTo || '').startsWith('/dcc/controlled-file/')
+          const isApplicationRestart =
+            String(to.query.management || '') === '1' &&
+            String(to.query.restartApplication || '') === '1'
+          const isApplicationRestartResult =
+            String(to.query.management || '') === '1' &&
+            String(to.query.from || '') === 'application-restart' &&
+            String(to.query.returnTo || '') === '/dcc/controlled-file/browser'
+          const isControlledImportResult =
+            String(to.query.management || '') === '1' &&
+            String(to.query.from || '') === 'controlled-import' &&
+            String(to.query.returnTo || '') === '/dcc/controlled-file/controlled-upload'
           if (
             String(to.query.viewer || '') === '1' ||
             isApprovalHandling ||
             isBrowserTraceability ||
             isHistoricalTraceability ||
             isBrowserManagement ||
-            isProjectOrWorkbenchManagement
+            isProjectOrWorkbenchManagement ||
+            isApplicationRestart ||
+            isApplicationRestartResult ||
+            isControlledImportResult
           ) {
             return true
           }

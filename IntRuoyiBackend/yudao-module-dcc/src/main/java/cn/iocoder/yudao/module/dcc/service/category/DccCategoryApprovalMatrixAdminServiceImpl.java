@@ -165,7 +165,7 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     @Override
     public DccCategoryReviewMatrixEffectivePreviewRespVO previewApprovalMatrix(Long categoryId,
                                                                                DccCategoryApprovalMatrixSaveReqVO reqVO) {
-        validateCategoryExists(categoryId);
+        validatePublicMatrixCategory(validateCategoryExists(categoryId));
         validateMatrixRules(reqVO);
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> signoffRules = getStageRules(reqVO, "SIGNOFF");
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> approvalRules = getStageRules(reqVO, "APPROVAL");
@@ -246,6 +246,7 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @com.mzt.logapi.starter.annotation.LogRecord(type = "DCC审批矩阵", subType = "修改审批矩阵", bizNo = "{{#categoryId}}", success = "保存审批矩阵 {{#reqVO}}；历史规则保留于版本记录")
     public DccCategoryApprovalRouteDO saveApprovalMatrix(Long categoryId, DccCategoryApprovalMatrixSaveReqVO reqVO) {
         MatrixSaveContext context = prepareMatrixSaveContext(categoryId, reqVO);
         DccCategoryReviewMatrixEffectivePreviewRespVO preview = buildMatrixPreview(categoryId,
@@ -273,7 +274,18 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     @Transactional(rollbackFor = Exception.class)
     public void deleteApprovalMatrix(Long categoryId) {
         lockMatrixCategory(categoryId);
-        routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId).stream()
+        DccFileCategoryDO category = validateCategoryExists(categoryId);
+        if ((category.getFileTypeTaxonomyId() != null && "PUBLIC_MATRIX".equals(category.getApprovalSourceMode()))
+                || controlledFileMapper.selectCount(DccControlledFileDO::getCategoryId, categoryId) > 0) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.MATRIX_IN_USE);
+        }
+        var routes = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId);
+        if (routes.stream().filter(item -> LEGACY_MATRIX_ACTION.equals(item.getActionType()))
+                .anyMatch(item -> routeSnapshotMapper.selectCount(
+                        DccControlledFileRouteSnapshotDO::getSourceApprovalMatrixId, item.getId()) > 0)) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.MATRIX_IN_USE);
+        }
+        routes.stream()
                 .filter(item -> LEGACY_MATRIX_ACTION.equals(item.getActionType()))
                 .filter(item -> Boolean.TRUE.equals(item.getActive()))
                 .forEach(item -> {
@@ -600,7 +612,7 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     }
 
     private MatrixSaveContext prepareMatrixSaveContext(Long categoryId, DccCategoryApprovalMatrixSaveReqVO reqVO) {
-        lockMatrixCategory(categoryId);
+        validatePublicMatrixCategory(lockMatrixCategory(categoryId));
         validateMatrixRules(reqVO);
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> signoffRules = getStageRules(reqVO, "SIGNOFF");
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> approvalRules = getStageRules(reqVO, "APPROVAL");
@@ -698,6 +710,8 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
             else if (!Set.of("●", "◎", "▲").contains(StrUtil.blankToDefault(rule.getMarker(), ""))) reason = "必须显式选择参与标记●或◎，历史▲可保留";
             else if (Boolean.TRUE.equals(rule.getActive()) && (rule.getSubjectId() == null || rule.getSubjectId() <= 0)) reason = "启用规则缺少有效主体身份";
             else if (Boolean.TRUE.equals(rule.getActive()) && !Set.of("USER", "DEPT", "ROLE", "POST", "DCC_POSITION", "POSITION").contains(normalizeRuleValue(rule.getSubjectType()))) reason = "主体类型不受支持";
+            else if (Boolean.TRUE.equals(rule.getActive()) && "SIGNOFF".equals(normalizeRuleValue(rule.getStageType()))
+                    && !"DEPT".equals(normalizeRuleValue(rule.getSubjectType()))) reason = "会签规则必须选择正式部门，不能使用用户、角色或岗位代替部门";
             if (reason != null) throw exception(DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, index + 1, reason);
         }
     }
@@ -1141,12 +1155,19 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
         return route;
     }
 
-    private void lockMatrixCategory(Long categoryId) {
+    private void validatePublicMatrixCategory(DccFileCategoryDO category) {
+        if ("APPLICATION_CUSTOM".equals(category.getApprovalSourceMode())) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
+        }
+    }
+
+    private DccFileCategoryDO lockMatrixCategory(Long categoryId) {
         Long tenant = TenantContextHolder.getRequiredTenantId();
         var category = categoryId == null ? null : categoryMapper.selectMatrixCategoryForUpdate(tenant, categoryId);
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
         }
+        return category;
     }
 
     private record FixedStageDefinition(Integer stageNo, String stageCode, String stageName, Integer stageOrder,

@@ -92,6 +92,7 @@ public class DccControlledFileFormEffectExecutor
         reqVO.setOriginalUploadTicket(optionalString(formData, "originalUploadTicket"));
         reqVO.setSourceUploadTicket(optionalString(formData, "sourceUploadTicket"));
         reqVO.setDrawingPdfUploadTicket(optionalString(formData, "drawingPdfUploadTicket"));
+        reqVO.setDrawingPdfSessionId(optionalString(formData, "drawingPdfSessionId"));
         reqVO.setOriginalFileId(optionalLong(formData, "originalFileId"));
         reqVO.setSourceFileId(optionalLong(formData, "sourceFileId"));
         reqVO.setSourceFileName(optionalString(formData, "sourceFileName"));

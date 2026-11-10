@@ -52,6 +52,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
 
     @Mock private DccControlledFileQueryService controlledFileQueryService;
+    @Mock private DccSelectedDetailReadService selectedDetailReader;
     @Mock private DccPublicationFollowupBatchMapper batchMapper;
     @Mock private DccPublicationNotificationDeliveryMapper deliveryMapper;
     @Mock private DccPublicationNotificationCandidateReasonMapper reasonMapper;
@@ -74,6 +75,40 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void obsoleteApprovalFollowupUsesSelectedTaskInsteadOfOriginalUploadRound() {
+        assertNull(service.getFileFollowup(99L, 70L, null, "obsolete-round", "approval-task", "OBSOLETE"));
+        verify(selectedDetailReader).readApplication(99L, 70L, "obsolete-round", "approval-task", "OBSOLETE");
+        verify(batchMapper).selectLatestByPublishedControlledFileId(1L, 70L);
+        verifyNoInteractions(controlledFileQueryService);
+    }
+
+    @Test
+    void followupPreservesExactBodyReadContext() {
+        var context = new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "70", "A/1", "OBSOLETE", "obsolete-round", "approval-task");
+        service.getFileFollowup(99L, 70L, context.wire(), null, null, null);
+        verify(selectedDetailReader).read(99L, 70L, context);
+        verifyNoInteractions(controlledFileQueryService);
+    }
+
+    @Test
+    void rejectedSelectedTaskCannotFallBackToDailyPermissionOrReadFollowup() {
+        var denied = new IllegalArgumentException("task does not belong to actor");
+        org.mockito.Mockito.doThrow(denied).when(selectedDetailReader)
+                .readApplication(99L, 70L, "obsolete-round", "other-task", "OBSOLETE");
+        org.junit.jupiter.api.Assertions.assertSame(denied, assertThrows(IllegalArgumentException.class,
+                () -> service.getFileFollowup(99L, 70L, null, "obsolete-round", "other-task", "OBSOLETE")));
+        verifyNoInteractions(controlledFileQueryService, batchMapper);
+    }
+
+    @Test
+    void followupRejectsMixedReadIdentitiesBeforeReadingData() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getFileFollowup(99L, 70L, "context", "round", "task", "OBSOLETE"));
+        verifyNoInteractions(selectedDetailReader, controlledFileQueryService, batchMapper);
     }
 
     @Test

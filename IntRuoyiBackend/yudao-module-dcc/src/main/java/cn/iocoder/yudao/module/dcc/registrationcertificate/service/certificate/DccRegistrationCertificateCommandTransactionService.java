@@ -73,7 +73,7 @@ public class DccRegistrationCertificateCommandTransactionService {
                 .certificateId(certificate.getId())
                 .versionNo(1)
                 .versionType("INITIAL_CERTIFICATE")
-                .certificateNo(draft.certificateNo().trim())
+                .certificateNo(draft.certificateNo() == null ? null : draft.certificateNo().trim())
                 .approvalDate(draft.approvalDate())
                 .effectiveDate(draft.effectiveDate())
                 .expiryDate(draft.expiryDate())
@@ -178,7 +178,7 @@ public class DccRegistrationCertificateCommandTransactionService {
                 state.snapshot().getEntrustedProduction(), state.snapshot().getSelfProduction(),
                 state.entrustedProjection().stream()
                         .map(DccRegistrationCertificateSnapshotEntrustedDO::getEnterpriseId).toList(),
-                state.version().getRemark());
+                state.version().getRemark(), state.snapshot().getFactsJson());
     }
 
     private static void requireSingle(int affected) {

@@ -70,7 +70,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         productAudit.validateReason(reqVO.getCreationReason());
         var before=productAudit.beforeCreate(reqVO.getFolderTemplateId());
         Long id=createPendingRequest(applicantUserId,reqVO,reqVO.getCreationReason().trim(),null);
-        productAudit.append("dcc.project-product.create",id,"1",reqVO.getCreationReason(),before);
+        productAudit.append("dcc.project-product.create",id,"1",reqVO.getCreationReason(),before,null);
         notifications.reviewTodo(requestMapper.selectById(id), reqVO.getCreationReason().trim());
         return id;
     }
@@ -83,6 +83,9 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         String projectCode = required(reqVO.getProjectCode());
         var leader = leaderService.requireEnabledAccount(reqVO.getProjectLeaderUserId());
         String projectLeader = required(leader.getNickname());
+        if (reqVO.getDefaultAttributes() == null || reqVO.getDefaultAttributes().libraryScope() != null)
+            throw cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.fail(
+                    cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.INVALID);
         String defaultsJson = attributesService.encode(reqVO.getDefaultAttributes());
         String productCode = required(reqVO.getProductCode());
         String productName = required(reqVO.getProductName());
@@ -194,8 +197,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         if (!DccProjectProductCreateStatusConstants.PENDING_REVIEW.equals(request.getStatus())) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         }
-        String normalizedReason = required(reason);
-        productAudit.validateReason(normalizedReason);
+        String normalizedReason = productAudit.validateDecisionReason(reason,approve);
         var before=productAudit.snapshot(requestId);
         request.setReviewerUserId(operatorUserId);
         request.setReviewedTime(LocalDateTime.now());
@@ -213,7 +215,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
             throw exception(cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.WRITE_INCOMPLETE,
                     "审核决定");
         }
-        productAudit.append("dcc.project-product.review",requestId,"1",normalizedReason,before);
+        productAudit.append("dcc.project-product.review",requestId,"1",normalizedReason,before,approve?"APPROVE":"REJECT");
         if (approve) notifications.approvalTodo(request);
         else notifications.rejected(request, false);
         return request;
@@ -253,7 +255,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     /** New role contract is a single physical decision-and-creation transaction; late failure restores the pending request. */
     private DccProjectProductCreateRequestDO reviewSingleRole(Long actor,DccProjectProductCreateRequestDO request,String reason,boolean approve) {
         reviewerRoles.assertReviewer(actor,request);
-        String normalizedReason=required(reason);productAudit.validateReason(normalizedReason);
+        String normalizedReason=productAudit.validateDecisionReason(reason,approve);
         if (!DccProjectProductCreateStatusConstants.PENDING_REVIEW.equals(request.getStatus())) {
             boolean replay=java.util.Objects.equals(actor,request.getReviewerUserId()) && request.getReviewedTime()!=null
                 && (approve ? DccProjectProductCreateStatusConstants.COMPLETED.equals(request.getStatus()) && normalizedReason.equals(request.getReviewReason())
@@ -272,7 +274,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
             identityClaimMapper.deleteByRequestId(request.getId());
         }
         if(requestMapper.updateById(request)!=1)throw exception(cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.WRITE_INCOMPLETE,"项目角色审核决定");
-        productAudit.append("dcc.project-product.review",request.getId(),"1",normalizedReason,before);
+        productAudit.append("dcc.project-product.review",request.getId(),"1",normalizedReason,before,approve?"APPROVE":"REJECT");
         if(!approve){notifications.rejected(request,false);return request;}
         return writeService.writeApprovedRequest(request.getId());
     }

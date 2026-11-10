@@ -9,7 +9,6 @@ import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -57,7 +56,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
                 DccDirectoryAccessRuleDO.builder().directoryId(3L).subjectType("POSITION").subjectId(20L).canQuery(true).active(true).build(),
                 DccDirectoryAccessRuleDO.builder().directoryId(4L).subjectType("ROLE").subjectId(30L).canQuery(true).active(true).build(),
                 DccDirectoryAccessRuleDO.builder().directoryId(5L).subjectType("ROLE").subjectId(40L).canQuery(false).active(true).build()
-        )).when(accessRuleMapper).selectList(org.mockito.ArgumentMatchers.<SFunction<DccDirectoryAccessRuleDO, ?>>any(), eq(Boolean.TRUE));
+        )).when(accessRuleMapper).selectActiveForSubjects(eq(99L), any(), any(), any());
         when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(30L));
 
         Set<Long> actual = permissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
@@ -77,7 +76,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
                         .canQuery(true).active(true).build(),
                 DccDirectoryAccessRuleDO.builder().directoryId(5L).subjectType("ROLE").subjectId(40L)
                         .canQuery(true).active(true).build()
-        )).when(accessRuleMapper).selectList(org.mockito.ArgumentMatchers.<SFunction<DccDirectoryAccessRuleDO, ?>>any(), eq(Boolean.TRUE));
+        )).when(accessRuleMapper).selectActiveForSubjects(eq(99L), any(), any(), any());
         when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(30L));
 
         Set<Long> actual = permissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
@@ -97,7 +96,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
         doReturn(List.of(
                 DccDirectoryAccessRuleDO.builder().directoryId(2L).subjectType("DEPT").subjectId(10L)
                         .canQuery(true).canPreview(false).active(true).build()
-        )).when(accessRuleMapper).selectList(org.mockito.ArgumentMatchers.<SFunction<DccDirectoryAccessRuleDO, ?>>any(), eq(Boolean.TRUE));
+        )).when(accessRuleMapper).selectActiveForSubjects(eq(99L), any(), any(), any());
         when(deptApi.getDept(11L)).thenReturn(childDept(11L, 10L));
         when(deptApi.getDept(10L)).thenReturn(childDept(10L, null));
 
@@ -117,7 +116,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
         doReturn(List.of(
                 DccDirectoryAccessRuleDO.builder().directoryId(8L).subjectType("1").subjectId(99L)
                         .canQuery(false).canPreview(true).active(true).build()
-        )).when(accessRuleMapper).selectList(org.mockito.ArgumentMatchers.<SFunction<DccDirectoryAccessRuleDO, ?>>any(), eq(Boolean.TRUE));
+        )).when(accessRuleMapper).selectActiveForSubjects(eq(99L), any(), any(), any());
 
         Set<Long> actual = permissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
 

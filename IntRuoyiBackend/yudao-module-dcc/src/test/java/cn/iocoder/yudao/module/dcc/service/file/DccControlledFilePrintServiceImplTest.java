@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
 
     private static final Long USER_ID = 99L;
+    private static final DccRequestAuditContext AUDIT = new DccRequestAuditContext("192.0.2.14", "word14-browser", "word14-print-request");
     private static final Long CONTROLLED_FILE_ID = 800L;
     private static final Long MASTER_ID = 700L;
     private static final Long CATEGORY_ID = 10L;
@@ -78,7 +79,7 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
     void createPrintRecord_allowsCurrentActiveControlledFileWithoutGeneratedArtifact() {
         when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(currentActiveFile());
         when(controlledFileMasterMapper.selectById(MASTER_ID)).thenReturn(currentMaster(CONTROLLED_FILE_ID));
-        when(permissionSupport.hasCategoryPermission(CATEGORY_ID, USER_ID,
+        when(permissionSupport.hasFilePermission(currentActiveFile(), USER_ID,
                 DccFileCategoryPermissionActionEnum.PRINT)).thenReturn(true);
         when(adminUserApi.getUser(USER_ID)).thenReturn(user());
         when(printRecordMapper.insert(any(DccControlledFilePrintRecordDO.class))).thenAnswer(invocation -> {
@@ -88,7 +89,7 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
         });
 
         DccControlledFilePrintRecordRespVO respVO =
-                printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq());
+                printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq(), AUDIT);
 
         assertEquals(1200L, respVO.getId());
         assertEquals(CONTROLLED_FILE_ID, respVO.getControlledFileId());
@@ -113,7 +114,7 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(currentActiveFile());
         when(controlledFileMasterMapper.selectById(MASTER_ID)).thenReturn(currentMaster(801L));
 
-        assertServiceException(() -> printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq()),
+        assertServiceException(() -> printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq(), AUDIT),
                 CONTROLLED_FILE_PRINT_NOT_ALLOWED);
     }
 
@@ -124,7 +125,7 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
                 .thenThrow(new BusinessFileAccessDeniedException("denied",
                         BusinessFileAccessOperation.PRINT, SOURCE_FILE_ID, "dcc"));
 
-        assertServiceException(() -> printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq()),
+        assertServiceException(() -> printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq(), AUDIT),
                 CONTROLLED_FILE_ACCESS_DENIED);
 
         verify(printRecordMapper, never()).insert(any(DccControlledFilePrintRecordDO.class));
@@ -138,10 +139,54 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
                 .thenThrow(new BusinessFileAccessDeniedException("denied",
                         BusinessFileAccessOperation.PRINT, SOURCE_FILE_ID, "dcc"));
 
-        assertServiceException(() -> printService.getPrintHtml(USER_ID, CONTROLLED_FILE_ID, 1200L),
+        assertServiceException(() -> printService.getPrintHtml(USER_ID, CONTROLLED_FILE_ID, 1200L, AUDIT),
                 CONTROLLED_FILE_ACCESS_DENIED);
 
         verify(printRecordMapper, never()).selectByIdAndControlledFileId(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"records", "create", "html"})
+    void printBusinessGateReceivesActualRequestAuditForEveryEntry(String entry) {
+        var file = currentActiveFile();
+        when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(MASTER_ID)).thenReturn(currentMaster(CONTROLLED_FILE_ID));
+        when(permissionSupport.hasFilePermission(file, USER_ID, DccFileCategoryPermissionActionEnum.PRINT)).thenReturn(true);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class))).thenAnswer(call -> {
+            BusinessFileAccessRequest request = call.getArgument(0);
+            assertEquals(BusinessFileAccessOperation.PRINT, request.operation());
+            assertEquals(SOURCE_FILE_ID, request.fileId());
+            assertEquals(31L, request.tenantId());
+            assertEquals(USER_ID, request.userId());
+            assertEquals(AUDIT.sourceIp(), request.sourceIp());
+            assertEquals(AUDIT.userAgent(), request.userAgent());
+            assertEquals(AUDIT.requestId(), request.requestId());
+            // The actual provider constructs this strict context before evaluating file permission.
+            new DccRequestAuditContext(request.sourceIp(), request.userAgent(), request.requestId());
+            return java.util.Optional.of(DCC_REFERENCE);
+        });
+        if ("records".equals(entry)) {
+            when(printRecordMapper.selectListByControlledFileId(CONTROLLED_FILE_ID)).thenReturn(java.util.List.of());
+            assertEquals(java.util.List.of(), printService.getPrintRecords(USER_ID, CONTROLLED_FILE_ID, AUDIT));
+        } else if ("create".equals(entry)) {
+            when(adminUserApi.getUser(USER_ID)).thenReturn(user());
+            printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq(), AUDIT);
+        } else {
+            when(printRecordMapper.selectByIdAndControlledFileId(1200L, CONTROLLED_FILE_ID)).thenReturn(
+                    DccControlledFilePrintRecordDO.builder().id(1200L).controlledFileId(CONTROLLED_FILE_ID).build());
+            assertEquals(1200L, printService.getPrintHtml(USER_ID, CONTROLLED_FILE_ID, 1200L, AUDIT).getPrintRecordId());
+        }
+        verify(permissionSupport).hasFilePermission(file, USER_ID, DccFileCategoryPermissionActionEnum.PRINT);
+    }
+
+    @Test
+    void getPrintRecordsRejectsMissingExactFilePrintGrantBeforeListing() {
+        var file = currentActiveFile();
+        when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(MASTER_ID)).thenReturn(currentMaster(CONTROLLED_FILE_ID));
+        when(permissionSupport.hasFilePermission(file, USER_ID, DccFileCategoryPermissionActionEnum.PRINT)).thenReturn(false);
+        assertServiceException(() -> printService.getPrintRecords(USER_ID, CONTROLLED_FILE_ID, AUDIT), CONTROLLED_FILE_PRINT_NOT_ALLOWED);
+        verify(printRecordMapper, never()).selectListByControlledFileId(any());
     }
 
     private DccControlledFileDO currentActiveFile() {
@@ -149,6 +194,8 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
                 .id(CONTROLLED_FILE_ID)
                 .masterId(MASTER_ID)
                 .categoryId(CATEGORY_ID)
+                .tenantId(31L)
+                .dccProjectCodeId(300L)
                 .sourceFileId(SOURCE_FILE_ID)
                 .fileNumber("DCC-PRINT-001")
                 .versionNo("A.1")

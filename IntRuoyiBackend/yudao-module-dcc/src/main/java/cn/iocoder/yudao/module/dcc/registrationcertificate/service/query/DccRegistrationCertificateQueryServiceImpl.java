@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -37,6 +38,8 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     private static final Set<String> OWNED_COMPANY = Set.of("OWNED_COMPANY");
     private static final Set<String> SORT_ORDERS = Set.of("asc", "desc");
     private static final Set<String> CURRENT_SORT_FIELDS = Set.of(
+            "certificateHolder", "registrationLink", "tradeName", "notifiedBodyCode", "regulationCode", "listingNumber", "customerHeld", "ownProduct", "changeDescription", "firstObtainedDate", "ceRevision", "ceCertificateNo", "ceIssueDate", "registrantName", "modelSpecification", "structureComposition", "intendedUse", "technicalRequirements", "residenceAddress", "productionAddress", "entrustedProduction", "selfProduction", "entrustedEnterpriseName",
+            "certificateType", "certificateStatus", "productNameEn", "productCode", "kpNumber", "submissionType", "approvalLetterStatus", "factoryRegistrationStatus", "listingDate",
             "certificateNo",
             "ownerCompanyName",
             "productName",
@@ -51,7 +54,9 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "expiryDate",
             "reminder",
             "remark");
-    private static final Set<String> OLD_INDEX_SORT_FIELDS = Set.of(
+    private static final Set<String> OLD_INDEX_SORT_FIELDS = Set.of("projectCode",
+            "certificateHolder", "registrationLink", "tradeName", "notifiedBodyCode", "regulationCode", "listingNumber", "customerHeld", "ownProduct", "changeDescription", "firstObtainedDate", "approvalDate", "effectiveDate", "remark", "ceRevision", "ceCertificateNo", "ceIssueDate", "registrantName", "modelSpecification", "structureComposition", "intendedUse", "technicalRequirements", "residenceAddress", "productionAddress", "entrustedProduction", "selfProduction", "entrustedEnterpriseName",
+            "certificateType", "certificateStatus", "productNameEn", "productCode", "kpNumber", "submissionType", "approvalLetterStatus", "factoryRegistrationStatus", "listingDate",
             "certificateNo",
             "ownerCompanyName",
             "productName",
@@ -126,6 +131,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                     String.valueOf(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode()), "not_found_or_out_of_scope");
             throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
         }
+        accessPolicyService.assertFilePreviewAllowed(tenantId, actorId, certificateId, row.getVersionId(), businessClock.now());
         Map<Long, String> companyNames = companyNames(tenantId, List.of(row));
         readAuditService.record(successAudit(tenantId, actorId, row, "DETAIL", auditContext, "detail"));
         DccRegistrationCertificateOperationAudit initialAudit =
@@ -231,6 +237,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .ownerCompanyId(row.getOwnerCompanyId())
                 .ownerCompanyName(ownerCompanyName)
                 .productMasterId(row.getProductMasterId())
+                .factsJson(row.getFactsJson())
                 .productName(row.getProductName())
                 .projectCodeId(row.getProjectCodeId())
                 .projectCode(row.getProjectCode())
@@ -265,6 +272,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .ownerCompanyId(row.getOwnerCompanyId())
                 .ownerCompanyName(ownerCompanyName)
                 .productMasterId(row.getProductMasterId())
+                .factsJson(row.getFactsJson())
                 .productName(row.getProductName())
                 .projectCodeId(row.getProjectCodeId())
                 .projectCode(row.getProjectCode())
@@ -301,6 +309,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     private DccRegistrationCertificateReminderEvaluation reminderState(
             Long tenantId, DccRegistrationCertificateQueryRecord row) {
+        if (row.getExpiryDate() == null && "FDA".equals(
+                cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(row.getFactsJson()).getCertificateType())) {
+            return new DccRegistrationCertificateReminderEvaluation("NONE", "NORMAL", 0);
+        }
         DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(
                 businessClock.businessDate(), row.getExpiryDate(), false);
         if (!"T_8".equals(evaluation.thresholdLevel())) {
@@ -345,6 +357,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         if (value.getPageSize() > 100) {
             value.setPageSize(100);
         }
+        if (value.getCertificateType() != null && !Set.of("DOMESTIC", "CE", "FDA").contains(value.getCertificateType())) throw new IllegalArgumentException("注册证类型无效");
+        if (value.getFieldFilters() != null && !Set.of("projectCode", "certificateHolder", "certificateStatus", "productNameEn", "productCode", "tradeName", "notifiedBodyCode", "submissionType", "kpNumber", "regulationCode", "listingNumber", "approvalLetterStatus", "factoryRegistrationStatus", "registrationLink", "remark", "customerHeld", "ownProduct", "changeDescription", "structureComposition", "intendedUse", "technicalRequirements", "residenceAddress", "entrustedProduction", "selfProduction", "entrustedEnterpriseName").containsAll(value.getFieldFilters().keySet())) throw new IllegalArgumentException("注册证筛选字段无效");
+        for(LocalDate[] range:new LocalDate[][]{{value.getCeIssueStart(),value.getCeIssueEnd()},{value.getListingStart(),value.getListingEnd()},{value.getFirstObtainedStart(),value.getFirstObtainedEnd()},{value.getApprovalStart(),value.getApprovalEnd()},{value.getEffectiveStart(),value.getEffectiveEnd()},{value.getExpiryStart(),value.getExpiryEnd()}})
+            if(range[0]!=null&&range[1]!=null&&range[0].isAfter(range[1]))throw new IllegalArgumentException("日期起始不能晚于截止");
         return value;
     }
 

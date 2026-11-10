@@ -47,7 +47,7 @@ const normalizePayload = extractBetween(
 )
 
 for (const panelToken of [
-  '正式负责人/编制权限',
+  '项目编辑/浏览授权',
   'data-testid="dcc-project-code-access-rules-open"',
   'data-testid="dcc-project-code-access-rules-table"',
   'data-testid="dcc-project-code-access-rules-save"',

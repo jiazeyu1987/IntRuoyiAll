@@ -23,8 +23,9 @@ function moduleAt(file, dependencies = {}) {
   }).outputText, context)
   return context.exports
 }
-function fixture(rows = []) {
+function fixture(rows = [], references = []) {
   const calls = []
+  let sourcePermissionReads = 0
   const adapter = moduleAt('src/api/dcc/controlledFile/applicationRead.ts', {
     '@/config/axios': { default: { get: async request => { calls.push(request); return { list: rows, total: rows.length } } } },
     '@/views/dcc/controlled-file/project-attributes/state': moduleAt('src/views/dcc/controlled-file/project-attributes/state.ts')
@@ -32,15 +33,62 @@ function fixture(rows = []) {
   const { ProjectBrowserState } = moduleAt('src/views/dcc/controlled-file/browser/project-browser.ts', {
     '@/api/dcc/controlledFile/projectDiscovery': { getProjectDiscovery: async id => ({ id, projectName: '项目' + id, projectCode: 'P' + id, projectLeaderUserId: '9' }) },
     '@/api/dcc/controlledFile/projectAttributes': { getProjectFolders: async projectCodeId => ['51', '52'].map((id, i) => ({ id, projectCodeId, parentId: '0', name: '文件夹' + id, active: true, sortOrder: i })) },
-    '@/api/dcc/controlledFile/applicationRead': adapter,
+    '@/api/dcc/controlledFile/applicationRead': { ...adapter, getControlledFileRelationPermissions: async () => {
+      sourcePermissionReads++; throw new Error('SOURCE_NAME_DENIED')
+    } },
     '@/api/dcc/controlledFile/workflow': {},
     '@/api/system/user': {},
-    '@/api/dcc/controlledFile/relations': { getProjectReferenceUsage: async controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false }) },
+    '@/api/dcc/controlledFile/relations': { listProjectReferences: async () => references,
+      createProjectReferences: async (_project, _folder, ids) => ids.map(id => ({ reference: { selectedControlledFileId: id } })),
+      getProjectReferenceUsage: async controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false }) },
     '../basic-data/components/project-folder-tree': moduleAt('src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts'),
     '../relations/project-reference-contract': moduleAt('src/views/dcc/controlled-file/relations/project-reference-contract.ts')
   })
-  return { calls, adapter, state: new ProjectBrowserState('1', '9') }
+  return { calls, adapter, state: new ProjectBrowserState('1', '9'), sourcePermissionReads: () => sourcePermissionReads }
 }
+
+const listedReference = (status = 'ACTIVE', canPreview = false) => ({
+  reference: { id: '91', projectId: '5', folderId: '51', masterId: '1101', selectedControlledFileId: '101', createdBy: '9' },
+  selectedVersion: { tenantId: '1', controlledFileId: '101', masterId: '1101', projectId: '6', fileName: '引用.pdf', fileNumber: 'REF',
+    versionNo: 'A/1', status, controlled: status === 'ACTIVE', pendingEffect: false, executable: status === 'ACTIVE' },
+  referenceProjectCount: 1,
+  permissions: { controlledFileId: '101', tenantId: '1', masterId: '1101', projectId: '6', projectName: '来源项目',
+    projectFolderId: '61', projectFolderName: '来源目录', fileName: '引用.pdf', fileNumber: 'REF', versionNo: 'A/1', status,
+    controlled: status === 'ACTIVE', pendingEffect: false, executable: status === 'ACTIVE', canPreview }
+})
+test('destination viewer sees existing active and retained references without source name permission', async () => {
+  for (const status of ['ACTIVE', 'SUPERSEDED', 'OBSOLETE']) {
+    const { state, sourcePermissionReads } = fixture([], [listedReference(status)])
+    const rows = await state.loadReferences('5', '51')
+    assert.equal(rows.length, 1); assert.equal(rows[0].sourceProjectName, '来源项目')
+    assert.equal(rows[0].selectedVersion.folderName, '来源目录')
+    assert.equal(rows[0].selectedVersion.canPreview, false)
+    assert.equal(sourcePermissionReads(), 0)
+    state.project = { id: '5' }; state.folder = { folderId: '51' }
+    await assert.rejects(state.readReferenceForAction(rows[0]), /SOURCE_NAME_DENIED/)
+  }
+})
+test('reference list preserves body grants and rejects mismatched tenant, folder or permission identity', async () => {
+  const allowed = listedReference('ACTIVE', true)
+  assert.equal((await fixture([], [allowed]).state.loadReferences('5', '51'))[0].selectedVersion.canPreview, true)
+  for (const mutate of [row => row.selectedVersion.tenantId = '2', row => row.reference.folderId = '52',
+    row => row.permissions.controlledFileId = '102', row => delete row.permissions]) {
+    const row = listedReference(); mutate(row)
+    await assert.rejects(fixture([], [row]).state.loadReferences('5', '51'))
+  }
+})
+test('creating references reads the destination list and reports an unconfirmed saved version explicitly', async () => {
+  for (const present of [true, false]) {
+    const { state, sourcePermissionReads } = fixture([], present ? [listedReference()] : [])
+    state.project = { id: '5', projectLeaderUserId: '9' }; state.folder = { folderId: '51' }; state.actorEnabled = true
+    if (present) {
+      const rows = await state.createReferences('5', '51', ['101'], '正式引用')
+      assert.equal(rows[0].reference.selectedControlledFileId, '101'); assert.equal(sourcePermissionReads(), 0)
+    } else {
+      await assert.rejects(state.createReferences('5', '51', ['101'], '正式引用'), error => error.referenceSaved === true && /引用列表未确认/.test(error.message))
+    }
+  }
+})
 test('current-project adapter uses GLOBAL with exact project and accepts two different folders', async () => {
   const { adapter, calls } = fixture([active('101'), active('102', '5', '52')])
   const result = await adapter.loadDccProjectBrowserPage('1', { ...query, projectId: '5' })
@@ -120,4 +168,14 @@ test('global adapter still accepts different authorized projects without inventi
   assert.equal(result.list.length, 2)
   assert.equal(calls[0].params.dccProjectCodeId, undefined)
   assert.equal(calls[0].params.projectFolderId, undefined)
+})
+
+test('independent library loads its own folders and current active files without project discovery', async () => {
+  const { state, calls }=fixture([active('101','700')])
+  await state.selectLibrary({id:'700',projectName:'QMS文件夹',projectCode:'QMS',status:'ENABLE',projectLeaderUserId:null,projectLeader:null,associatedFileCount:1})
+  assert.equal(state.error,'');assert.equal(state.folderError,'')
+  assert.equal(state.project.id,'700');assert.equal(state.directories.length,2)
+  assert.equal(calls.at(-1).params.dccProjectCodeId,'700')
+  assert.equal(calls.at(-1).params.latestVersionOnly,true)
+  assert.equal(state.rows[0].controlledFileId,'101')
 })

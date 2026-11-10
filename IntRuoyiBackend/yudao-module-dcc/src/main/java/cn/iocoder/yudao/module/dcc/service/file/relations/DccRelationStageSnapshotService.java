@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccRelationStageSnapshotD
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccRelationStageMemberDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccRelationStageSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext;
 import cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundService;
 import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageContracts.*;
 import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.Arrangement;
@@ -68,7 +69,7 @@ public class DccRelationStageSnapshotService {
                     || !Objects.equals(selected.masterId(),row.relatedMasterId()) || Objects.equals(selected.masterId(),source.masterId())
                     || !Objects.equals(selected.projectId(),source.projectId()) || !Objects.equals(row.projectId(),source.projectId()))
                 throw fail("DCC_RELATION_STAGE_FROZEN_IDENTITY_INVALID");
-            access.assertNameVisible(actorId,row.selectedControlledFileId());
+            // 精确源任务及冻结证据已授权既有名称；新增补充关系仍独立校验目标权限。
         }
         if(expectedDigest!=null && !Objects.equals(expectedDigest,baseline.digest()))throw fail("DCC_RELATION_STAGE_STALE_DIGEST");
         var complete=new TreeMap<Long,Selection>();baseline.selections().forEach(row->complete.put(row.relatedMasterId(),row));
@@ -171,7 +172,12 @@ public class DccRelationStageSnapshotService {
             if(t.formActionInstanceId()!=null || nativeRound.size()!=1 || !Objects.equals(nativeRound.get(0),t.processInstanceId()))
                 throw fail("DCC_RELATION_STAGE_ROUND_IDENTITY_INVALID");
         }
-        access.assertNameVisible(actor,id);return source;
+        if("OBSOLETE".equals(t.applicationType())) {
+            var readContext=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                    id.toString(),source.versionNo(),t.applicationType(),t.processInstanceId(),t.taskId());
+            query.assertApplicationRoundReadable(actor,id,t.applicationType(),t.processInstanceId(),readContext);
+        } else access.assertNameVisible(actor,id);
+        return source;
     }
     private Baseline baseline(Long source,ValidatedTaskIdentity t) {
         var rows=uploadSelections(t.tenantId(),source,true);
@@ -180,9 +186,7 @@ public class DccRelationStageSnapshotService {
             throw fail("DCC_RELATION_STAGE_UPLOAD_IDENTITY_INVALID");
         var sourceFile=files.resolveSelected(source);
         if("OBSOLETE".equals(t.applicationType())) {
-            var nativeEvidence=nativeOriginalEvidence(t.tenantId(),source,new HashSet<>(),true);
-            requireEffectiveEvidence(nativeEvidence);
-            nativeEvidence.completeSelections().forEach(row->putFixed(all,new Selection(row.relatedMasterId(),row.selectedControlledFileId(),row.projectId(),
+            obsoleteOriginalSelections(t.tenantId(),source,new HashSet<>(),true,true).forEach(row->putFixed(all,new Selection(row.relatedMasterId(),row.selectedControlledFileId(),row.projectId(),
                     row.fileNumber(),row.fileName(),row.versionNo(),row.origin(),false)));
         }
         var inherited=rounds.readRelationSourceForUpdate(sourceFile.projectId(),t.applicationType(),source,t.attributeRound());
@@ -257,12 +261,63 @@ public class DccRelationStageSnapshotService {
 
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public DccRelationRoundEvidence readRoundEvidence(Long actorId,Long fileId,String applicationType,String bpmRound) {
+        return readRoundEvidence(actorId,fileId,applicationType,bpmRound,null);
+    }
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public DccRelationRoundEvidence readRoundEvidence(Long actorId,Long fileId,String applicationType,String bpmRound,
+            DccControlledFileBodyReadContext context) {
+        if(actorId==null || actorId<=0)throw fail("DCC_RELATION_STAGE_CONTEXT_INVALID");
+        if(context==null) access.assertNameVisible(actorId,fileId);
+        else query.assertApplicationRoundReadable(actorId,fileId,applicationType,bpmRound,context);
+        var result=buildRoundEvidence(TenantContextHolder.getRequiredTenantId(),fileId,applicationType,bpmRound,new HashSet<>(),false);
+        // Exact task/history authority includes frozen names, without granting target daily/body access.
+        if(context==null) result.completeSelections().forEach(row->access.assertNameVisible(actorId,row.selectedControlledFileId()));
+        return result;
+    }
+    /** Selected version's native application, including signed supplements; name visibility grants no body access. */
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public DccRelationRoundEvidence readNativeVersionEvidence(Long actorId,Long fileId) {
         if(actorId==null || actorId<=0)throw fail("DCC_RELATION_STAGE_CONTEXT_INVALID");
         access.assertNameVisible(actorId,fileId);
-        var result=buildRoundEvidence(TenantContextHolder.getRequiredTenantId(),fileId,applicationType,bpmRound,new HashSet<>(),false);
+        var result=nativeOriginalEvidence(TenantContextHolder.getRequiredTenantId(),fileId,new HashSet<>(),false);
+        requireEffectiveEvidence(result,new HashSet<>(),false);
         result.completeSelections().forEach(row->access.assertNameVisible(actorId,row.selectedControlledFileId()));
         return result;
     }
+    /** Internal activation projection: exact current round only; no user/body authorization is created. */
+    @Transactional(readOnly=true)
+    public List<EffectiveReverseSelection> findEffectiveReverseSelections(Long tenant,Long relatedMasterId) {
+        if(!Objects.equals(tenant,TenantContextHolder.getRequiredTenantId()) || relatedMasterId==null || relatedMasterId<=0)
+            throw fail("DCC_RELATION_STAGE_CONTEXT_INVALID");
+        var candidates=store.jdbc().query("""
+                SELECT round_link.id,source_file.id,round_link.application_type,round_link.bpm_round
+                  FROM dcc_controlled_file source_file
+                  JOIN dcc_controlled_file_master master ON master.tenant_id=source_file.tenant_id
+                   AND master.id=source_file.master_id AND master.current_active_controlled_file_id=source_file.id AND master.deleted=0
+                  JOIN dcc_application_round_link round_link ON round_link.tenant_id=source_file.tenant_id
+                   AND round_link.project_id=source_file.dcc_project_code_id AND round_link.application_id=source_file.id
+                   AND round_link.bpm_round=source_file.process_instance_id AND round_link.application_type IN ('UPLOAD','REVISION')
+                 WHERE source_file.tenant_id=? AND source_file.deleted=0 AND source_file.status='ACTIVE'
+                   AND source_file.master_id<>? AND EXISTS (
+                       SELECT 1 FROM dcc_relation_stage_snapshot head JOIN dcc_relation_stage_member member
+                         ON member.tenant_id=head.tenant_id AND member.snapshot_id=head.id
+                        WHERE head.tenant_id=source_file.tenant_id AND head.source_master_id=source_file.master_id
+                          AND member.related_master_id=? AND member.supplemental=1)
+                 ORDER BY source_file.id
+                """,(rs,n)->new ActiveRound(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getString(4)),tenant,relatedMasterId,relatedMasterId);
+        var result=new ArrayList<EffectiveReverseSelection>();var seen=new HashSet<Long>();
+        for(var candidate:candidates) {
+            if(!seen.add(candidate.fileId()))throw fail("DCC_RELATION_STAGE_NATIVE_SOURCE_MAPPING_INVALID");
+            var evidence=buildRoundEvidence(tenant,candidate.fileId(),candidate.type(),candidate.bpm(),new HashSet<>(),false);
+            requireEffectiveEvidence(evidence,new HashSet<>(),false);
+            for(var selection:evidence.completeSelections())if(Objects.equals(selection.relatedMasterId(),relatedMasterId))
+                result.add(new EffectiveReverseSelection(candidate.roundId(),candidate.fileId(),selection));
+        }
+        return List.copyOf(result);
+    }
+    private record ActiveRound(Long roundId,Long fileId,String type,String bpm) {}
+    public record EffectiveReverseSelection(Long roundId,Long sourceFileId,Selection selection) {}
+
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     @cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation(operationId="dcc.relation.round.inherit")
     public DccRelationRoundSource inheritRoundSelections(Long actorId,Long sourceFileId,String sourceType,String sourceBpmRound,
@@ -315,7 +370,7 @@ public class DccRelationStageSnapshotService {
         try {
             var original=uploadSelections(tenant,fileId,locked);
             var all=new TreeMap<Long,Selection>();original.forEach(row->putFixed(all,row));
-            if("OBSOLETE".equals(type))nativeOriginalEvidence(tenant,fileId,visiting,locked).completeSelections().forEach(row->putFixed(all,
+            if("OBSOLETE".equals(type))obsoleteOriginalSelections(tenant,fileId,visiting,locked,false).forEach(row->putFixed(all,
                     new Selection(row.relatedMasterId(),row.selectedControlledFileId(),row.projectId(),row.fileNumber(),row.fileName(),row.versionNo(),row.origin(),false)));
             var source=locked?rounds.readRelationSourceForUpdate(file.projectId(),type,fileId,attributeRound):rounds.readRelationSource(file.projectId(),type,fileId,attributeRound);
             if(source!=null) {
@@ -382,32 +437,49 @@ public class DccRelationStageSnapshotService {
                 && Objects.equals(h.actionType(),row.get("action_type"));
     }
     private DccRelationRoundEvidence nativeOriginalEvidence(Long tenant,Long file,Set<String> visiting,boolean locked) {
-        var exact=store.jdbc().queryForList("SELECT round_link.application_type,round_link.bpm_round FROM dcc_application_round_link round_link "
-                + "INNER JOIN dcc_controlled_file file ON file.tenant_id=round_link.tenant_id AND file.id=round_link.application_id "
-                + "AND file.dcc_project_code_id=round_link.project_id AND file.process_instance_id=round_link.bpm_round "
-                + "WHERE round_link.tenant_id=? AND round_link.application_id=? AND round_link.application_type IN ('UPLOAD','REVISION') "
-                + "AND round_link.bpm_round IS NOT NULL AND file.deleted=0"+(locked?" FOR UPDATE":""),tenant,file);
+        var exact=nativeSourceMappings(tenant,file,locked);
         if(exact.size()!=1)throw fail("DCC_RELATION_STAGE_NATIVE_SOURCE_MAPPING_INVALID");
         var row=new TreeMap<String,Object>(String.CASE_INSENSITIVE_ORDER);row.putAll(exact.get(0));
         return buildRoundEvidence(tenant,file,(String)row.get("application_type"),(String)row.get("bpm_round"),visiting,locked);
     }
+    private List<Map<String,Object>> nativeSourceMappings(Long tenant,Long file,boolean locked) {
+        return store.jdbc().queryForList("SELECT round_link.application_type,round_link.bpm_round FROM dcc_application_round_link round_link "
+                + "INNER JOIN dcc_controlled_file file ON file.tenant_id=round_link.tenant_id AND file.id=round_link.application_id "
+                + "AND file.dcc_project_code_id=round_link.project_id AND file.process_instance_id=round_link.bpm_round "
+                + "WHERE round_link.tenant_id=? AND round_link.application_id=? AND round_link.application_type IN ('UPLOAD','REVISION') "
+                + "AND round_link.bpm_round IS NOT NULL AND file.deleted=0"+(locked?" FOR UPDATE":""),tenant,file);
+    }
+    private List<Selection> obsoleteOriginalSelections(Long tenant,Long file,Set<String> visiting,boolean locked,boolean requireValid) {
+        if(nativeSourceMappings(tenant,file,locked).isEmpty()) {
+            // A controlled import has real admission provenance, but never had a native upload BPM or signatures.
+            var imported=store.jdbc().queryForList("SELECT id FROM dcc_controlled_file file WHERE tenant_id=? AND id=? AND deleted=0 "
+                    + "AND import_source='CONTROLLED_IMPORT' AND imported_by>0 AND imported_time IS NOT NULL AND controlled_time IS NOT NULL "
+                    + "AND process_instance_id IS NULL AND NOT EXISTS (SELECT 1 FROM dcc_application_round_link round_link "
+                    + "WHERE round_link.tenant_id=file.tenant_id AND round_link.application_id=file.id "
+                    + "AND round_link.application_type IN ('UPLOAD','REVISION'))"+(locked?" FOR UPDATE":""),Long.class,tenant,file);
+            if(imported.size()==1)return List.of();
+        }
+        var evidence=nativeOriginalEvidence(tenant,file,visiting,locked);
+        if(requireValid)requireEffectiveEvidence(evidence,new HashSet<>(),locked);
+        return evidence.completeSelections();
+    }
     private Long number(Object value){return value instanceof Number n?n.longValue():null;}
     private void requireEffectiveEvidence(DccRelationRoundEvidence evidence) {
-        requireEffectiveEvidence(evidence,new HashSet<>());
+        requireEffectiveEvidence(evidence,new HashSet<>(),true);
     }
-    private void requireEffectiveEvidence(DccRelationRoundEvidence evidence,Set<String> visited) {
+    private void requireEffectiveEvidence(DccRelationRoundEvidence evidence,Set<String> visited,boolean locked) {
         String key=evidence.applicationType()+":"+evidence.fileId()+":"+evidence.bpmRound();
         if(!visited.add(key))throw fail("DCC_RELATION_STAGE_SOURCE_CYCLE");
         if(evidence.stages().stream().anyMatch(stage->!stage.signatureIdentityMatches() || !"VALID".equals(stage.signatureEvidenceStatus())))
             throw fail("DCC_RELATION_STAGE_PRIOR_SIGNATURE_INVALID");
         var source=rounds.readRelationSource(evidence.projectId(),evidence.applicationType(),evidence.fileId(),evidence.attributeRound());
         if(source!=null) {
-            var upstream=buildRoundEvidence(evidence.tenantId(),source.sourceApplicationId(),source.sourceApplicationType(),source.sourceBpmRound(),new HashSet<>(),true);
+            var upstream=buildRoundEvidence(evidence.tenantId(),source.sourceApplicationId(),source.sourceApplicationType(),source.sourceBpmRound(),new HashSet<>(),locked);
             if(!Objects.equals(upstream.relationDigest(),source.sourceRelationDigest()))throw fail("DCC_RELATION_STAGE_SOURCE_DIGEST_CHANGED");
-            requireEffectiveEvidence(upstream,visited);
+            requireEffectiveEvidence(upstream,visited,locked);
         } else if("OBSOLETE".equals(evidence.applicationType())) {
             // The first obsolete round includes native signed supplements; those signatures remain authoritative.
-            requireEffectiveEvidence(nativeOriginalEvidence(evidence.tenantId(),evidence.fileId(),new HashSet<>(),true),visited);
+            obsoleteOriginalSelections(evidence.tenantId(),evidence.fileId(),new HashSet<>(),locked,true);
         }
         visited.remove(key);
     }

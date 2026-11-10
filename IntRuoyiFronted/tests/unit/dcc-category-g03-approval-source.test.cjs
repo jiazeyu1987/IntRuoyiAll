@@ -111,6 +111,7 @@ async function form() {
   const categoryApi = api([]).categories
   const component = moduleFrom(script.content, name => {
     if (name === 'vue') return vue
+    if (name === './CategoryMatrixDialog.vue') return { default: { render: () => null } }
     if (name.endsWith('/fileCategories')) return { ...categoryApi, createFileCategory: async value => { writes.push(value); return 91 }, updateFileCategory: async (id, value) => { writes.push({ ...value, id }); return true } }
     if (name.endsWith('/fileTypeTaxonomies')) return { getFileTypeTaxonomyList: async () => [] }
     if (name.endsWith('/tree')) return { defaultProps: {}, handleTree: rows => rows }
@@ -125,7 +126,7 @@ async function form() {
   app.component('el-select', { props: ['modelValue', 'disabled'], emits: ['update:modelValue'], setup: (p, { slots, attrs, emit }) => () => vue.h('selector', { ...attrs, value: p.modelValue, onChoose: value => emit('update:modelValue', value) }, slots.default?.()) })
   app.component('el-option', { props: ['label', 'value'], setup: p => () => vue.h('option', { value: p.value }, p.label) })
   app.component('el-alert', { props: ['title'], setup: p => () => vue.h('alert', {}, p.title) })
-  for (const tag of ['el-tree-select', 'el-input', 'el-cascader', 'el-radio-group', 'el-radio', 'el-switch', 'el-input-number', 'el-button']) app.component(tag, { setup: (_p, { slots, attrs }) => () => vue.h(tag, attrs, slots.default?.()) })
+  for (const tag of ['el-tag', 'el-tree-select', 'el-input', 'el-cascader', 'el-radio-group', 'el-radio', 'el-switch', 'el-input-number', 'el-button']) app.component(tag, { setup: (_p, { slots, attrs }) => () => vue.h(tag, attrs, slots.default?.()) })
   app.directive('loading', {})
   app.mount(host); await vue.nextTick()
   const field = () => { const rows = walk(host, n => n.type === 'selector' && n.props['data-testid'] === 'dcc-category-approval-source'); assert.equal(rows.length, 1); return rows[0] }
@@ -152,5 +153,15 @@ test('unknown saved category source produces visible feedback and zero write rat
     await h.open(category(undefined)); assert.match(content(h.host), /审批来源.*未配置|审批来源.*无效/)
     await h.save(); assert.equal(h.writes.length, 0)
     await h.open(); assert.equal(h.field().props.value, 'PUBLIC_MATRIX')
+  } finally { h.app.unmount() }
+})
+
+test('category form rejects switching an ordinary taxonomy to application custom', async () => {
+  const h = await form()
+  try {
+    await h.open(category('PUBLIC_MATRIX'))
+    h.field().props.onChoose('APPLICATION_CUSTOM'); await vue.nextTick(); await h.save()
+    assert.equal(h.writes.length, 0)
+    assert.match(content(h.host), /只有.*其他.*文件类型/)
   } finally { h.app.unmount() }
 })

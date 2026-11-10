@@ -59,6 +59,50 @@ public class DccRevisionAttachmentsDatabaseTest {
         assertTrue(f.rows(20L).isEmpty());
     }
 
+    @Test void rejectedUploadAndRevisionCheckinRetainsIndependentOrdinaryAttachmentsAndOriginalUploadFacts() {
+        for(String status:List.of("REJECTED","PENDING_APPLICANT_REWORK","WITHDRAWN")) {
+            f.jdbc.update("DELETE FROM dcc_controlled_file_attachment");
+            f.jdbc.update("UPDATE dcc_controlled_file_temporary_file SET status='AVAILABLE',cleanup_status='ACTIVE',bound_controlled_file_id=NULL,bound_time=NULL");
+            f.jdbc.update("UPDATE dcc_controlled_file SET status=?,process_instance_id='rejected-round' WHERE id=20",status);
+            f.jdbc.update("INSERT INTO dcc_controlled_file_attachment(tenant_id,controlled_file_id,storage_file_id,original_file_name,content_type,file_size,file_sha256,sort_no,attachment_purpose,application_process_instance_id,uploaded_by,uploaded_username_snapshot,uploaded_nickname_snapshot,uploaded_at) VALUES(1,20,111,'One.pdf','application/pdf',3,?,0,'ATTACHMENT','rejected-round',99,'original','原上传人',TIMESTAMP '2026-10-01 10:00:00')",DigestUtil.sha256Hex(f.content(111L)));
+            f.jdbc.update("INSERT INTO dcc_controlled_file_attachment(tenant_id,controlled_file_id,storage_file_id,original_file_name,sort_no,attachment_purpose,application_process_instance_id,uploaded_by) VALUES(1,20,199,'Training.pdf',1,'TRAINING_RECORD','rejected-round',99)");
+            f.bind();
+            var rows=f.rows(21L);assertEquals(3,rows.size());var inherited=rows.get(2);
+            assertEquals("One.pdf",inherited.getOriginalFileName());assertEquals(2,inherited.getSortNo());
+            assertNotEquals(111L,inherited.getStorageFileId());assertArrayEquals(f.content(111L),f.content(inherited.getStorageFileId()));
+            assertEquals("原上传人",inherited.getUploadedNicknameSnapshot());assertEquals(LocalDateTime.of(2026,10,1,10,0),inherited.getUploadedAt());
+            assertNull(inherited.getApplicationProcessInstanceId());assertEquals(2,f.rows(20L).size());
+        }
+    }
+
+    @Test void inheritedAttachmentCopyFailureRollsBackNewUploadsAndPreservesRejectedApplication() {
+        f.jdbc.update("UPDATE dcc_controlled_file SET status='REJECTED',process_instance_id='rejected-round' WHERE id=20");
+        f.jdbc.update("INSERT INTO dcc_controlled_file_attachment(tenant_id,controlled_file_id,storage_file_id,original_file_name,content_type,file_size,file_sha256,sort_no,attachment_purpose,uploaded_by,uploaded_username_snapshot,uploaded_nickname_snapshot,uploaded_at) VALUES(1,20,111,'One.pdf','application/pdf',3,?,0,'ATTACHMENT',99,'original','原上传人',CURRENT_TIMESTAMP)",DigestUtil.sha256Hex(f.content(111L)));
+        f.jdbc.execute("ALTER TABLE dcc_controlled_file_attachment ADD CONSTRAINT fail_inherited CHECK(controlled_file_id<>21 OR storage_file_id<1000)");
+        String before=f.snapshot();assertThrows(RuntimeException.class,f::bind);assertEquals(before,f.snapshot());
+    }
+
+    @Test void rejectedQueryCheckinAndExactReplayVerifyInheritedManifestAndRejectTampering() throws Exception {
+        var query=f.configureQuery();var input=f.checkinRequest();
+        f.jdbc.update("UPDATE dcc_controlled_file SET status='REJECTED',process_instance_id='rejected-round' WHERE id=20");
+        f.jdbc.update("INSERT INTO dcc_controlled_file_attachment(tenant_id,controlled_file_id,storage_file_id,original_file_name,content_type,file_size,file_sha256,sort_no,attachment_purpose,application_process_instance_id,uploaded_by,uploaded_username_snapshot,uploaded_nickname_snapshot,uploaded_at) VALUES(1,20,111,'One.pdf','application/pdf',3,?,0,'ATTACHMENT','rejected-round',99,'original','原上传人',TIMESTAMP '2026-10-01 10:00:00')",DigestUtil.sha256Hex(f.content(111L)));
+        var rounds=(DccApplicationRoundService)ReflectionTestUtils.getField(query,"applicationRoundService");
+        when(rounds.require("UPLOAD",20L,"rejected-round")).thenReturn(1);
+        var execution=(DccApplicationExecutionContractService)ReflectionTestUtils.getField(query,"executionContracts");
+        when(execution.inheritPrepared(eq(99L),anyLong(),eq(20L),eq(1))).thenReturn(new DccApplicationExecutionContractService.Prepared("LEGACY","exact-definition","d".repeat(64),"dcc-upload"));
+        when(execution.readInheritedDraftFacts(eq(99L),anyLong(),eq(20L),eq(1))).thenReturn(new DccApplicationExecutionContractService.DraftFacts(true,false,"{}","[]","AFTER_STANDARDIZATION_SIGNATURE",null,"[]","[]",false,null,null,null));
+        var first=f.tx.execute(s->query.checkinControlledFile(99L,20L,input));
+        assertEquals(3,first.getAttachments().size());var inherited=f.rows(first.getId()).get(2);
+        assertNotEquals(111L,inherited.getStorageFileId());assertArrayEquals(f.content(111L),f.content(inherited.getStorageFileId()));
+        String before=f.snapshot();int bytes=f.bytes.size();
+        var replay=f.tx.execute(s->query.checkinControlledFile(99L,20L,input));
+        assertEquals(first.getId(),replay.getId());assertEquals(3,replay.getAttachments().size());
+        assertEquals(before,f.snapshot());assertEquals(bytes,f.bytes.size());
+        f.jdbc.update("UPDATE dcc_controlled_file_attachment SET uploaded_nickname_snapshot='tampered' WHERE id=?",inherited.getId());
+        String tampered=f.snapshot();assertThrows(RuntimeException.class,()->f.tx.execute(s->query.checkinControlledFile(99L,20L,input)));
+        assertEquals(tampered,f.snapshot());assertEquals(bytes,f.bytes.size());
+    }
+
     @Test void secondAttachmentDatabaseFailureRollsBackBothBindingsAndCanRetry() {
         f.jdbc.execute("ALTER TABLE dcc_controlled_file_attachment ADD CONSTRAINT fail_second CHECK(storage_file_id<>112)");
         String before=f.snapshot();

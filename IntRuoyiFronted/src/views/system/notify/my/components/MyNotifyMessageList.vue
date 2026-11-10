@@ -354,8 +354,15 @@ const handleUpdateAll = async () => {
 }
 
 /** 初始化 **/
-onMounted(() => {
-  getList()
+onMounted(getList)
+let wasDeactivated = false
+onDeactivated(() => {
+  wasDeactivated = true
+})
+onActivated(() => {
+  if (!wasDeactivated) return
+  wasDeactivated = false
+  return getList()
 })
 
 const loadColumnFilterRows0 = async () => {

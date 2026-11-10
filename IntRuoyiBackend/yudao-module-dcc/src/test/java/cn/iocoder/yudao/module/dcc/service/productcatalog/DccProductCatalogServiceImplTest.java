@@ -46,6 +46,35 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccDataRelationMapper relationMapper;
+    @Mock
+    private DccProductCatalogRegistrationSyncService registrationProjection;
+
+    @Test
+    void approvedProjectIsVisibleWithoutManualDataRelation() {
+        var req = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(req)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "产品")), 1L));
+        var approved = cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                .productCatalogId(10L).projectCodeId(22L).relationStatus("ACTIVE").build();
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L))).thenReturn(List.of(approved));
+        var result = service.getProductCatalogPage(req).getList().get(0);
+        assertEquals(22L, result.getProjectCodeId());
+        org.junit.jupiter.api.Assertions.assertNull(result.getRegistrationCertificateId());
+    }
+
+    @Test
+    void conflictingManualRelationCannotReplaceApprovedProject() {
+        var req = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(req)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "产品")), 1L));
+        var approved = cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                .productCatalogId(10L).projectCodeId(22L).relationStatus("ACTIVE").build();
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L))).thenReturn(List.of(approved));
+        var manual = new DccDataRelationDO();
+        manual.setProductCatalogId(10L); manual.setProjectCodeId(23L);
+        when(relationMapper.selectByProductCatalogIds(List.of(10L))).thenReturn(List.of(manual));
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> service.getProductCatalogPage(req));
+    }
 
     @Mock
     private DccProjectProductRelationMapper projectProductRelationMapper;

@@ -51,7 +51,7 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
         viewRule.setActive(Boolean.TRUE);
         viewRule.setRemark("viewer");
         DccCategoryPermissionRuleSaveReqVO uploadRule = new DccCategoryPermissionRuleSaveReqVO();
-        uploadRule.setActionType("UPLOAD");
+        uploadRule.setActionType("EDIT");
         uploadRule.setSubjectType("DEPT");
         uploadRule.setSubjectId(200L);
         uploadRule.setActive(Boolean.TRUE);
@@ -64,7 +64,7 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
         List<DccFileCategoryPermissionRuleDO> dbRules = permissionRuleMapper.selectList(
                 DccFileCategoryPermissionRuleDO::getCategoryId, category.getId());
         assertEquals(2, dbRules.size());
-        assertEquals(List.of("UPLOAD", "VIEW"),
+        assertEquals(List.of("EDIT", "VIEW"),
                 permissionAdminService.getPermissionRules(category.getId()).stream()
                         .map(DccFileCategoryPermissionRuleDO::getActionType)
                         .sorted()
@@ -126,7 +126,7 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
                 .build());
 
         DccCategoryPermissionRuleSaveReqVO uploadRule = new DccCategoryPermissionRuleSaveReqVO();
-        uploadRule.setActionType("UPLOAD");
+        uploadRule.setActionType("EDIT");
         uploadRule.setSubjectType("USER");
         uploadRule.setSubjectId(100L);
         uploadRule.setActive(Boolean.TRUE);
@@ -134,7 +134,7 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
 
         permissionAdminService.replacePermissionRules(category.getId(), List.of(uploadRule));
 
-        assertEquals(List.of("APPROVE", "REVIEW", "UPLOAD"),
+        assertEquals(List.of("APPROVE", "EDIT", "REVIEW"),
                 permissionRuleMapper.selectList(DccFileCategoryPermissionRuleDO::getCategoryId, category.getId())
                         .stream()
                         .map(DccFileCategoryPermissionRuleDO::getActionType)
@@ -153,6 +153,20 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> permissionAdminService.replacePermissionRules(category.getId(), List.of(reqVO)),
                 CATEGORY_PERMISSION_RULE_MANUAL_REVIEW_APPROVE_FORBIDDEN);
+    }
+
+    @Test
+    void replacePermissionRules_preservesLegacyAndRejectsNewLegacyAssignments() {
+        DccFileCategoryDO category = createCategory("LEGACY", false, false);
+        permissionRuleMapper.insert(DccFileCategoryPermissionRuleDO.builder().categoryId(category.getId())
+                .actionType("DOWNLOAD").subjectType("USER").subjectId(100L).scopeType("GLOBAL").active(true).build());
+        permissionAdminService.replacePermissionRules(category.getId(), List.of());
+        assertEquals("DOWNLOAD", permissionAdminService.getPermissionRules(category.getId()).get(0).getActionType());
+        DccCategoryPermissionRuleSaveReqVO request = new DccCategoryPermissionRuleSaveReqVO();
+        request.setActionType("DOWNLOAD"); request.setSubjectType("USER"); request.setSubjectId(101L); request.setActive(true);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> permissionAdminService.replacePermissionRules(category.getId(), List.of(request)));
+        assertEquals(1, permissionAdminService.getPermissionRules(category.getId()).size());
     }
 
     private DccFileCategoryDO createCategory(String code, Boolean distributionRequired, Boolean trainingRequired) {

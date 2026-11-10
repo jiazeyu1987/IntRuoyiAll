@@ -101,12 +101,18 @@ class DccRegistrationCertificateBpmIntegrationTest {
     private DccRegistrationCertificateApprovalService service;
     private DccRegistrationCertificateApprovalStatusListener listener;
 
+    @org.mockito.Mock
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(TENANT_ID);
+        lenient().when(businessClock.now()).thenReturn(java.time.LocalDateTime.of(2026,10,30,10,0));
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
                 bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
                 businessClock, renewalService, uploadService, changeService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "registrationHandlingTasks", registrationHandlingTasks);
         lenient().when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(approverRole());
         listener = new DccRegistrationCertificateApprovalStatusListener(listenerApprovalService);
     }

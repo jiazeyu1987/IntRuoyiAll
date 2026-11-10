@@ -50,15 +50,11 @@ public class DccDirectoryAccessPermissionServiceImpl implements DccDirectoryAcce
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) {
             return Collections.emptySet();
         }
-        List<DccDirectoryAccessRuleDO> rules = accessRuleMapper.selectList(DccDirectoryAccessRuleDO::getActive, Boolean.TRUE);
-        Set<Long> userRoleIds = rules.stream()
-                .anyMatch(rule -> matchesSubjectType(rule.getSubjectType(), DccAccessSubjectTypeEnum.ROLE))
-                ? permissionApi.getUserRoleIdListByUserId(userId)
-                : Collections.emptySet();
-        Set<Long> userDeptAndAncestorIds = rules.stream()
-                .anyMatch(rule -> matchesSubjectType(rule.getSubjectType(), DccAccessSubjectTypeEnum.DEPT))
-                ? collectUserDeptAndAncestorIds(user.getDeptId())
-                : Collections.emptySet();
+        Set<Long> userRoleIds = permissionApi.getUserRoleIdListByUserId(userId);
+        Set<Long> userDeptAndAncestorIds = collectUserDeptAndAncestorIds(user.getDeptId());
+        List<DccDirectoryAccessRuleDO> rules = accessRuleMapper.selectActiveForSubjects(userId,
+                userDeptAndAncestorIds, userRoleIds,
+                user.getPostIds() == null ? Collections.emptySet() : user.getPostIds());
         Set<Long> authorized=rules.stream()
                 .filter(rule -> matchesSubject(rule, userId, user, userRoleIds, userDeptAndAncestorIds))
                 .filter(rule -> allows(rule, accessType))

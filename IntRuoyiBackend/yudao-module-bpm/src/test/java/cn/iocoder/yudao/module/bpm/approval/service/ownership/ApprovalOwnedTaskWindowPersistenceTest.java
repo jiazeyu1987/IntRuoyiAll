@@ -11,12 +11,15 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Loads the production count/window mapper; only its binary cast type is adapted for task-owned H2. */
-class ApprovalOwnedTaskWindowPersistenceTest {
+public class ApprovalOwnedTaskWindowPersistenceTest {
     @Test void formalPartitionAndCandidateUnionKeepSameCountAcross200And1000Boundaries() throws Exception {
         var source=new DriverManagerDataSource("jdbc:h2:mem:owned_window_"+UUID.randomUUID()
                 +";MODE=MySQL;DATABASE_TO_UPPER=false","sa","");
         var jdbc=new JdbcTemplate(source);
         try(var fixtureConnection=source.getConnection()) {
+        jdbc.execute("CREATE ALIAS JSON_EXTRACT FOR '"+getClass().getName()+".jsonExtract'");
+        jdbc.execute("CREATE ALIAS JSON_UNQUOTE FOR '"+getClass().getName()+".jsonUnquote'");
+        jdbc.execute("CREATE ALIAS JSON_TYPE FOR '"+getClass().getName()+".jsonType'");
         jdbc.execute("CREATE TABLE ACT_RU_TASK(ID_ VARCHAR(128),PROC_INST_ID_ VARCHAR(128),PROC_DEF_ID_ VARCHAR(128),TENANT_ID_ VARCHAR(32),NAME_ VARCHAR(128),ASSIGNEE_ VARCHAR(32),SUSPENSION_STATE_ INT,CREATE_TIME_ TIMESTAMP,TASK_DEF_KEY_ VARCHAR(128))");
         jdbc.execute("CREATE TABLE ACT_HI_PROCINST(PROC_INST_ID_ VARCHAR(128),TENANT_ID_ VARCHAR(32),BUSINESS_KEY_ VARCHAR(255))");
         jdbc.execute("CREATE TABLE ACT_RE_PROCDEF(ID_ VARCHAR(128),KEY_ VARCHAR(128),TENANT_ID_ VARCHAR(32))");
@@ -24,12 +27,12 @@ class ApprovalOwnedTaskWindowPersistenceTest {
         jdbc.execute("CREATE TABLE bpm_approval_selected_candidate(tenant_id BIGINT,process_instance_id VARCHAR(128),user_id BIGINT,selection_kind VARCHAR(64))");
         jdbc.execute("CREATE TABLE ACT_RU_IDENTITYLINK(TASK_ID_ VARCHAR(128),TYPE_ VARCHAR(32),USER_ID_ VARCHAR(32),GROUP_ID_ VARCHAR(32))");
         jdbc.execute("CREATE TABLE ACT_ID_MEMBERSHIP(USER_ID_ VARCHAR(32),GROUP_ID_ VARCHAR(32))");
+        jdbc.execute("CREATE TABLE dcc_controlled_file(tenant_id BIGINT,id BIGINT,title VARCHAR(128),file_number VARCHAR(128),status VARCHAR(32))");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_bpm_binding(tenant_id BIGINT,bpm_process_instance_id VARCHAR(128),request_id BIGINT,business_key VARCHAR(255),status VARCHAR(32),deleted INT)");
-        jdbc.execute("CREATE TABLE dcc_registration_certificate_access_request(tenant_id BIGINT,id BIGINT,bpm_process_instance_id VARCHAR(128),certificate_id BIGINT,status VARCHAR(32),request_type VARCHAR(64),request_key VARCHAR(128),deleted INT)");
+        jdbc.execute("CREATE TABLE dcc_registration_certificate_access_request(tenant_id BIGINT,id BIGINT,bpm_process_instance_id VARCHAR(128),certificate_id BIGINT,status VARCHAR(32),request_type VARCHAR(64),request_key VARCHAR(128),deleted INT,detail_json VARCHAR(4000))");
         jdbc.execute("CREATE TABLE dcc_registration_certificate(tenant_id BIGINT,id BIGINT,current_version_id BIGINT,current_snapshot_id BIGINT,deleted INT)");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_version(tenant_id BIGINT,id BIGINT,certificate_id BIGINT,certificate_no VARCHAR(128),deleted INT)");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_snapshot(tenant_id BIGINT,id BIGINT,version_id BIGINT,product_name VARCHAR(128),deleted INT)");
-        jdbc.execute("CREATE TABLE dcc_controlled_file(tenant_id BIGINT,id BIGINT,title VARCHAR(128),file_number VARCHAR(128),status VARCHAR(32))");
         jdbc.update("INSERT INTO ACT_RE_PROCDEF VALUES('definition','native',122)");
         for(int i=0;i<1207;i++) {
             String id=String.format("task-%04d",i),process="process-"+i;
@@ -42,12 +45,12 @@ class ApprovalOwnedTaskWindowPersistenceTest {
         jdbc.update("INSERT INTO ACT_RU_IDENTITYLINK VALUES('task-0200','candidate','7',NULL)");
         jdbc.update("INSERT INTO bpm_approval_selected_candidate VALUES(122,'process-200',7,'REGISTRATION_CERTIFICATE')");
         jdbc.update("INSERT INTO dcc_registration_certificate_bpm_binding VALUES(122,'process-200',200,'business-200','RUNNING',0)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_access_request VALUES(122,200,'process-200',NULL,'BPM_BOUND','UPLOAD_CERTIFICATE','request-200',0)");
+        jdbc.update("INSERT INTO dcc_registration_certificate_access_request VALUES(122,200,'process-200',NULL,'BPM_BOUND','UPLOAD_CERTIFICATE','request-200',0,NULL)");
         // A registration-only task past the old 1000 boundary must remain eligible.
         jdbc.update("UPDATE ACT_RU_TASK SET ASSIGNEE_=NULL WHERE ID_='task-1005'");
         jdbc.update("INSERT INTO bpm_approval_selected_candidate VALUES(122,'process-1005',7,'REGISTRATION_CERTIFICATE')");
         jdbc.update("INSERT INTO dcc_registration_certificate_bpm_binding VALUES(122,'process-1005',1005,'business-1005','RUNNING',0)");
-        jdbc.update("INSERT INTO dcc_registration_certificate_access_request VALUES(122,1005,'process-1005',NULL,'BPM_BOUND','DOWNLOAD_FILE','request-1005',0)");
+        jdbc.update("INSERT INTO dcc_registration_certificate_access_request VALUES(122,1005,'process-1005',NULL,'BPM_BOUND','DOWNLOAD_FILE','request-1005',0,NULL)");
         var config=new Configuration();String resource="mapper/approval/ApprovalFlowableTaskQueryMapper.xml";
         try(var in=Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(resource))) {
             new XMLMapperBuilder(in,config,resource,config.getSqlFragments()).parse();
@@ -74,6 +77,18 @@ class ApprovalOwnedTaskWindowPersistenceTest {
         assertEquals(List.of("task-0203","task-1001"),window(jdbc,config,p));
         p.put("projection","BPM");p.put("keyword","%absent%");assertEquals(0L,count(jdbc,config,p));assertTrue(window(jdbc,config,p).isEmpty());
         }
+    }
+    // H2 lacks MySQL JSON functions; material-search behavior is covered against MySQL separately.
+    public static String jsonExtract(String json,String path) {
+        if(json==null)return null;
+        var value=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json).get(path.substring(2));
+        return value==null?null:value.toString();
+    }
+    public static String jsonUnquote(String json) {
+        return json==null?null:cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json).asText();
+    }
+    public static String jsonType(String json) {
+        return json==null?null:cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json).getNodeType().name();
     }
     private static void fact(JdbcTemplate jdbc,long id,String process,boolean dcc) {
         var row=new BpmApprovalProcessOwnershipDO();row.setId(id);row.setTenantId(122L);row.setProcessInstanceId(process);

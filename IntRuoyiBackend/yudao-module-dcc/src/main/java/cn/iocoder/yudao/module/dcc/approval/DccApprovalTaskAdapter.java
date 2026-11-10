@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRes
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
@@ -64,7 +66,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final int SOURCE_PAGE_SIZE = 200;
     private static final Set<String> PROCESS_IN_MODULE_ACTIONS = Set.of("PROCESS_IN_MODULE");
     private static final Set<String> QUICK_REVIEW_ACTIONS = Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE");
-    private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = Set.of("APPROVE", "REJECT");
+    private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = PROCESS_IN_MODULE_ACTIONS;
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
             ApprovalTaskViewType.DONE
@@ -85,6 +87,9 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private final DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     private final DccProjectProductTaskDelegate projectApplications;
     private final DccOfflineTrainingTaskDelegate offlineTraining;
+
+    @jakarta.annotation.Resource
+    private DccControlledFileSignatureMapper signatureMapper;
 
     private static List<String> buildDccProcessDefinitionKeys() {
         List<String> keys = new ArrayList<>(DccControlledFileProcessDefinitionKeys.APPROVAL_CENTER_KEYS);
@@ -164,9 +169,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             throw new IllegalStateException("APPROVAL_ADAPTER_SOURCE_PAGE_INCONSISTENT: incomplete DCC merge source");
         }
         combined.addAll(nativeTasks);
-        combined.sort(java.util.Comparator.comparing((ApprovalTaskSummary row) -> row.getTaskCreatedAt() == null
-                        ? row.getInitiatedAt() : row.getTaskCreatedAt(), java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder()))
-                .thenComparing(ApprovalTaskSummary::getId));
+        combined = new ArrayList<>(cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl
+                .sortRows(combined, context.getViewType()));
         VisibleWindow window = visibleWindow(context);
         int from = (int) Math.min(window.fromIndex(), combined.size());
         int to = (int) Math.min(window.toIndex(), combined.size());
@@ -184,10 +188,69 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         String businessKey = resolveTimelineBusinessKey(context.getBusinessKey(), processInstance);
         requireControlledFileSnapshotForTimeline(businessKey);
         List<HistoricTaskInstance> tasks = requireTimelineTasks(processInstanceId);
-        assertTimelineAccess(context, processInstance, tasks);
+        boolean separateSignoff = isSignoffProcess(processInstance.getProcessDefinitionKey())
+                && tasks.stream().anyMatch(task -> "MATRIX_REVIEW".equals(task.getTaskDefinitionKey()));
+        List<DccControlledFileSignatureDO> signatures = separateSignoff
+                ? signatureMapper.selectListByControlledFileId(parseBusinessKey(businessKey)) : List.of();
+        assertTimelineAccess(context, processInstance, tasks, signatures, businessKey);
         return tasks.stream()
-                .map(task -> toTimelineEntry(task, businessKey))
+                .flatMap(task -> {
+                    var entry = toTimelineEntry(task, businessKey);
+                    return (separateSignoff && "MATRIX_REVIEW".equals(task.getTaskDefinitionKey())
+                            ? signoffTimelineEntries(task, entry, signatures) : List.of(entry)).stream();
+                })
                 .toList();
+    }
+
+    private static boolean isSignoffProcess(String processKey) {
+        return DccControlledFileProcessDefinitionKeys.UPLOAD.equals(processKey)
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(processKey)
+                || DccControlledFileProcessDefinitionKeys.OBSOLETE.equals(processKey);
+    }
+
+    // A shared engine task contains two business stages; only a persisted signature completes assignment.
+    static List<ApprovalTaskTimelineEntry> signoffTimelineEntries(HistoricTaskInstance task,
+            ApprovalTaskTimelineEntry review, List<DccControlledFileSignatureDO> signatures) {
+        var assignments = signatures.stream()
+                .filter(signature -> Objects.equals(review.getBusinessKey(), String.valueOf(signature.getControlledFileId()))
+                        && Objects.equals(task.getProcessInstanceId(), signature.getProcessInstanceId())
+                        && Objects.equals(task.getId(), signature.getTaskId())
+                        && "ASSIGN".equals(signature.getActionType()))
+                .toList();
+        if (assignments.size() > 1) throw new IllegalStateException("DCC_TIMELINE_ASSIGNMENT_SIGNATURE_DUPLICATED");
+        if (assignments.isEmpty()) {
+            if ("APPROVED".equals(review.getAction())
+                    || task.getTaskLocalVariables().get("dccAssignmentSignatureId") != null)
+                throw new IllegalStateException("DCC_TIMELINE_ASSIGNMENT_SIGNATURE_MISSING");
+            return List.of(review.setNodeCode("MATRIX_REVIEW_ASSIGN").setNodeName("部门负责人签名指派"));
+        }
+        var signature = assignments.get(0);
+        if (signature.getId() == null || signature.getActorId() == null || signature.getSignedAt() == null
+                || task.getCreateTime() == null
+                || !"MATRIX_REVIEW_ASSIGN".equals(signature.getMeaningCode())
+                || !"VALID".equals(signature.getEvidenceStatus())
+                || signature.getSignedAt().isBefore(toLocalDateTime(task.getCreateTime()))
+                || (task.getEndTime() != null && signature.getSignedAt().isAfter(toLocalDateTime(task.getEndTime()))))
+            throw new IllegalStateException("DCC_TIMELINE_ASSIGNMENT_SIGNATURE_INVALID");
+        var assignment = ApprovalTaskTimelineEntry.builder()
+                .id(task.getId() + ":ASSIGN").moduleCode(ApprovalModuleCode.DCC)
+                .sourceTaskType(SOURCE_TASK_TYPE).sourceTaskId(task.getId()).businessKey(review.getBusinessKey())
+                .nodeCode("MATRIX_REVIEW_ASSIGN").nodeName("部门负责人签名指派")
+                .action("APPROVED").actionLabel("指派完成").status("DONE")
+                .actorUserId(signature.getActorId()).actedAt(signature.getSignedAt()).comment(signature.getComment())
+                .taskCreatedAt(toLocalDateTime(task.getCreateTime())).taskCompletedAt(signature.getSignedAt())
+                .taskCompletedByUserId(signature.getActorId())
+                .evidenceType("DCC_SIGNATURE").domainReferenceId(signature.getId().toString())
+                .evidenceId(signature.getId().toString()).build();
+        review.setNodeName("实际会签人会签").setTaskCreatedAt(signature.getSignedAt());
+        if ("CURRENT".equals(review.getAction())) review.setActedAt(signature.getSignedAt());
+        return List.of(assignment, review);
+    }
+
+    static String businessTaskName(org.flowable.task.api.TaskInfo task, String processKey) {
+        if (!isSignoffProcess(processKey) || !"MATRIX_REVIEW".equals(task.getTaskDefinitionKey())) return task.getName();
+        return task.getTaskLocalVariables().get("dccAssignmentSignatureId") == null
+                ? "部门负责人签名指派" : "实际会签人会签";
     }
 
     @jakarta.annotation.Resource
@@ -258,10 +321,10 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessTitle(file.getTitle())
                 .businessCode(file.getFileNumber())
                 .businessStatus(file.getStatus())
-                .businessContextTags(buildDccBusinessContextTags(file, task.getName()))
+                .businessContextTags(buildDccBusinessContextTags(file, businessTaskName(task, processInstance.getProcessDefinitionKey())))
                 .businessDeleted(Boolean.FALSE)
                 .currentNodeCode(task.getTaskDefinitionKey())
-                .currentNodeName(task.getName())
+                .currentNodeName(businessTaskName(task, processInstance.getProcessDefinitionKey()))
                 .initiatorUserId(parseLong(processInstance.getStartUserId()))
                 .processInstanceId(task.getProcessInstanceId())
                 .taskCreatedAt(toLocalDateTime(task.getCreateTime()))
@@ -295,10 +358,10 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessTitle(file.getTitle())
                 .businessCode(file.getFileNumber())
                 .businessStatus(file.getStatus())
-                .businessContextTags(buildDccBusinessContextTags(file, task.getName()))
+                .businessContextTags(buildDccBusinessContextTags(file, businessTaskName(task, processInstance.getProcessDefinitionKey())))
                 .businessDeleted(Boolean.TRUE.equals(file.getDeleted()))
                 .currentNodeCode(task.getTaskDefinitionKey())
-                .currentNodeName(task.getName())
+                .currentNodeName(businessTaskName(task, processInstance.getProcessDefinitionKey()))
                 .initiatorUserId(parseLong(processInstance.getStartUserId()))
                 .processInstanceId(task.getProcessInstanceId())
                 .taskCreatedAt(toLocalDateTime(task.getCreateTime()))
@@ -363,7 +426,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
             reqVO.setTaskId(taskId);
             reqVO.setPassword(password);
-            reqVO.setReason(requireApprovalReason(context.getReason()));
+            reqVO.setReason(context.getReason());
             workflowService.approveTask(context.getLoginUserId(), fileId, reqVO);
             return;
         }
@@ -371,7 +434,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             DccControlledFileRejectTaskReqVO reqVO = new DccControlledFileRejectTaskReqVO();
             reqVO.setTaskId(taskId);
             reqVO.setPassword(password);
-            reqVO.setReason(requireText(context.getReason(),
+            reqVO.setReason(requireText(cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason.normalize(context.getReason()),
                     "APPROVAL_REJECT_REASON_REQUIRED: DCC reject requires reason"));
             workflowService.rejectTask(context.getLoginUserId(), fileId, reqVO);
             return;
@@ -516,7 +579,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 category == null ? null : category.getDistributionRequired());
     }
 
-    private List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
+    List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
         DccFileCategoryDO category = resolveCategory(file.getCategoryId());
         return buildDccBusinessContextTags(file.getFileNumber(), historicalVersionLabel(file.getVersionNo()),
                 resolveHistoricalCategoryLabel(category, file.getCategoryId()), currentNodeName,
@@ -570,7 +633,26 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private ApprovalTaskTimelineEntry toTimelineEntry(HistoricTaskInstance task, String businessKey) {
-        boolean completed = task.getEndTime() != null;
+        Integer taskStatus = FlowableUtils.getTaskStatus(task);
+        var decision = cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.valueOf(taskStatus);
+        if (decision == null) throw new IllegalStateException("DCC_TIMELINE_TASK_STATUS_MISSING_OR_UNKNOWN: " + task.getId());
+        String action = switch (decision) {
+            case APPROVE -> "APPROVED";
+            case REJECT -> "REJECTED";
+            case CANCEL -> "CANCELLED";
+            case RETURN -> "RETURNED";
+            case SKIP -> "SKIPPED";
+            case NOT_START, RUNNING, APPROVING, WAIT -> "CURRENT";
+        };
+        String label = switch (decision) {
+            case APPROVE -> approvedNodeLabel(task.getTaskDefinitionKey());
+            case REJECT -> "驳回";
+            case CANCEL -> "取消";
+            case RETURN -> "退回";
+            case SKIP -> "跳过";
+            case NOT_START, RUNNING, APPROVING, WAIT -> "处理中";
+        };
+        boolean completed = !"CURRENT".equals(action);
         return ApprovalTaskTimelineEntry.builder()
                 .id(task.getId())
                 .moduleCode(ApprovalModuleCode.DCC)
@@ -579,14 +661,25 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessKey(businessKey)
                 .nodeCode(task.getTaskDefinitionKey())
                 .nodeName(task.getName())
-                .action(completed ? "APPROVED" : "CURRENT")
-                .actionLabel(completed ? "审批通过" : "处理中")
+                .action(action)
+                .actionLabel(label)
                 .actorUserId(parseLong(task.getAssignee()))
                 .actedAt(toLocalDateTime(completed ? task.getEndTime() : task.getCreateTime()))
                 .status(completed ? "DONE" : "RUNNING")
                 .evidenceType("FLOWABLE_HISTORY")
                 .domainReferenceId(task.getId())
                 .build();
+    }
+
+    private static String approvedNodeLabel(String nodeCode) {
+        if (nodeCode == null) throw new IllegalStateException("DCC_TIMELINE_NODE_REQUIRED");
+        return switch (nodeCode) {
+            case "SUPERVISOR_REVIEW", "DOC_CONTROL_REVIEW", "MATRIX_REVIEW" -> "审核通过";
+            case "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL" -> "批准通过";
+            case "DELAYED_EFFECTIVE_CONFIRM" -> "延迟生效已确认";
+            case "APPLICANT_REWORK" -> "已重新提交";
+            default -> "任务通过";
+        };
     }
 
     private void requireSourceTaskType(String sourceTaskType) {
@@ -641,7 +734,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private void assertTimelineAccess(ApprovalTaskTimelineQueryContext context,
                                       HistoricProcessInstance processInstance,
-                                      List<HistoricTaskInstance> tasks) {
+                                      List<HistoricTaskInstance> tasks,
+                                      List<DccControlledFileSignatureDO> signatures, String businessKey) {
         if (context.isGlobalView()) {
             return;
         }
@@ -649,10 +743,19 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .anyMatch(task -> Objects.equals(context.getLoginUserId(), parseLong(task.getAssignee())));
         boolean initiatedByLoginUser = Objects.equals(context.getLoginUserId(),
                 parseLong(processInstance.getStartUserId()));
+        boolean assignedByLoginUser = signatures.stream().anyMatch(signature ->
+                Objects.equals(context.getLoginUserId(), signature.getActorId())
+                        && Objects.equals(businessKey, String.valueOf(signature.getControlledFileId()))
+                        && Objects.equals(context.getProcessInstanceId(), signature.getProcessInstanceId())
+                        && "ASSIGN".equals(signature.getActionType())
+                        && "MATRIX_REVIEW_ASSIGN".equals(signature.getMeaningCode())
+                        && "VALID".equals(signature.getEvidenceStatus())
+                        && tasks.stream().anyMatch(task -> "MATRIX_REVIEW".equals(task.getTaskDefinitionKey())
+                                && Objects.equals(task.getId(), signature.getTaskId())));
         BpmTaskRespVO todoTask = context.getSourceTaskId() == null || context.getSourceTaskId().isBlank()
                 ? null : bpmTaskService.getTodoTask(context.getLoginUserId(), context.getSourceTaskId(),
                 context.getProcessInstanceId());
-        if (!handledByLoginUser && !initiatedByLoginUser && todoTask == null) {
+        if (!handledByLoginUser && !initiatedByLoginUser && !assignedByLoginUser && todoTask == null) {
             throw new IllegalStateException("APPROVAL_TIMELINE_ACCESS_DENIED: DCC timeline is not visible to login user");
         }
     }
@@ -753,13 +856,6 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalStateException(message);
-        }
-        return value;
-    }
-
-    private static String requireApprovalReason(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("APPROVAL_REASON_REQUIRED: DCC approve requires reason");
         }
         return value;
     }

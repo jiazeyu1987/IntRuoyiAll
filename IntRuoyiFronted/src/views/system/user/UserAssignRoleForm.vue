@@ -8,8 +8,16 @@
         <el-input v-model="formData.nickname" :disabled="true" />
       </el-form-item>
       <el-form-item label="角色">
-        <el-select v-model="formData.roleIds" :disabled="formLoading || !roleOptionsReady" multiple placeholder="请选择角色">
-          <el-option v-for="item in roleList" :key="item.id" :label="roleOptionLabel(item, roleList)" :value="item.id" />
+        <el-select
+          v-model="formData.roleIds"
+          :disabled="formLoading || !roleOptionsReady"
+          multiple
+          filterable
+          :filter-method="(query: string) => roleKeyword = query"
+          placeholder="搜索角色名称、编号或标识"
+          @visible-change="roleKeyword = ''"
+        >
+          <el-option v-for="item in filteredRoleList" :key="item.id" :label="roleOptionLabel(item, roleList)" :value="item.id" />
         </el-select>
       </el-form-item>
       <el-form-item
@@ -60,6 +68,12 @@ const formData = ref({
 })
 const formRef = ref() // 表单 Ref
 const roleList = ref([] as RoleApi.RoleVO[]) // 角色的列表
+const roleKeyword = ref('')
+const filteredRoleList = computed(() => {
+  const keyword = roleKeyword.value.trim().toLowerCase()
+  return roleList.value.filter(role =>
+    [role.name, role.id, role.code].some(value => String(value).toLowerCase().includes(keyword)))
+})
 
 /** 打开弹窗 */
 const open = async (row: UserApi.UserVO) => {
@@ -126,6 +140,7 @@ const submitForm = async () => {
 /** 重置表单 */
 const resetForm = () => {
   roleOptionsReady.value = false
+  roleKeyword.value = ''
   roleList.value = []
   formData.value = {
     id: -1,

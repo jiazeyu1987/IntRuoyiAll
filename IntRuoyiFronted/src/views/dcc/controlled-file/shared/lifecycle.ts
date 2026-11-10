@@ -35,6 +35,7 @@ export const DCC_CONTROLLED_FILE_STATUSES = [
 export type DccControlledFileStatus = (typeof DCC_CONTROLLED_FILE_STATUSES)[number]
 
 export const DCC_CATEGORY_PERMISSIONS = [
+  'EDIT',
   'VIEW',
   'UPLOAD',
   'DOWNLOAD',
@@ -86,6 +87,7 @@ export interface DccControlledFileRuntimeStageDefinition
 }
 
 export const DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES = [
+  'PENDING_SUPERVISOR_REVIEW',
   'PENDING_DOC_CONTROL_REVIEW',
   'PENDING_MATRIX_REVIEW',
   'PENDING_MATRIX_APPROVAL',
@@ -106,7 +108,7 @@ export const DCC_CONTROLLED_FILE_STATUS_DEFINITIONS: readonly DccControlledFileS
     { value: 'PENDING_MATRIX_APPROVAL', label: '待会签批准', tagType: 'primary', order: 4 },
     { value: 'PENDING_DOC_CONTROL_APPROVAL', label: '待文控批准', tagType: 'primary', order: 5 },
     { value: 'PENDING_APPLICANT_REWORK', label: '待申请人处理回退', tagType: 'warning', order: 6 },
-    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待文控上传培训记录', tagType: 'warning', order: 7 },
+    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待文件编制人上传培训记录', tagType: 'warning', order: 7 },
     { value: 'PENDING_DELAYED_EFFECTIVE_CONFIRM', label: '待延迟生效确认', tagType: 'primary', order: 7.5 },
     { value: 'READY_TO_PUBLISH', label: '待受控', tagType: 'warning', order: 8 },
     { value: 'FINALIZING', label: '受控处理中', tagType: 'warning', order: 9 },
@@ -156,7 +158,8 @@ export const DCC_CONTROLLED_FILE_STATUS_OPTIONS: ReadonlyArray<DccOption<DccCont
   DCC_CONTROLLED_FILE_STATUS_DEFINITIONS.map(({ label, value }) => ({ label, value }))
 
 export const DCC_CATEGORY_PERMISSION_OPTIONS: ReadonlyArray<DccOption<DccCategoryPermission>> = [
-  { label: '查看', value: 'VIEW' },
+  { label: '编辑', value: 'EDIT' },
+  { label: '浏览', value: 'VIEW' },
   { label: '上传', value: 'UPLOAD' },
   { label: '下载', value: 'DOWNLOAD' },
   { label: '打印', value: 'PRINT' },

@@ -29,10 +29,12 @@ class DccProjectReferenceApiPersistenceTest {
     DccLatestControlledFileResolver files;GxpAuditService audit;
     @BeforeEach void setup() throws Exception {
         var ds=new JdbcDataSource();ds.setURL("jdbc:h2:mem:"+UUID.randomUUID()+";MODE=MYSQL;DB_CLOSE_DELAY=-1");jdbc=new JdbcTemplate(ds);
-        jdbc.execute("CREATE TABLE dcc_controlled_file_master (id BIGINT,tenant_id BIGINT,deleted INT)");jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (10,1,0),(20,1,0)");
-        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,deleted INT)");
-        jdbc.execute("CREATE TABLE dcc_project_folder(id BIGINT,project_code_id BIGINT,tenant_id BIGINT,deleted INT)");
-        jdbc.update("INSERT INTO dcc_project_code VALUES(2,1,0)");jdbc.update("INSERT INTO dcc_project_folder VALUES(21,2,1,0)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file_master (id BIGINT,tenant_id BIGINT,dcc_project_code_id BIGINT,deleted INT)");jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (10,1,9,0),(20,1,9,0)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file(id BIGINT,tenant_id BIGINT,master_id BIGINT,dcc_project_code_id BIGINT,file_name VARCHAR(80),file_number VARCHAR(80),version_no VARCHAR(30),status VARCHAR(50),deleted INT)");
+        jdbc.update("INSERT INTO dcc_controlled_file VALUES(100,1,10,9,'一.pdf','N1','A/1','ACTIVE',0),(200,1,20,9,'二.pdf','N2','A/1','ACTIVE',0)");
+        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,project_name VARCHAR(80),deleted INT)");
+        jdbc.execute("CREATE TABLE dcc_project_folder(id BIGINT,project_code_id BIGINT,tenant_id BIGINT,name VARCHAR(80),deleted INT)");
+        jdbc.update("INSERT INTO dcc_project_code VALUES(2,1,'目标项目',0)");jdbc.update("INSERT INTO dcc_project_folder VALUES(21,2,1,'目标目录',0)");
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))if(!sql.isBlank())jdbc.execute(sql);
         files=mock(DccLatestControlledFileResolver.class);authority=mock(DccProjectReferenceAuthority.class);access=mock(DccRelationAccessPolicy.class);audit=mock(GxpAuditService.class);
         when(files.resolveSelectedForUpdate(any())).thenAnswer(call->files.resolveSelected((Long)call.getArgument(0)));

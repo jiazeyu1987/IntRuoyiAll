@@ -32,6 +32,126 @@ class DccNewActionBaselinePreparationDatabaseTest extends DccPreparedExecutionIn
     DccApprovalMatrixTokenService tokens;
     DccWorkflowDatePolicy dates;
     String revisionId;
+    @Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSourceOwnershipMapper importOwnership;
+    void importedRevisionBody() throws Exception {
+        wire(contracts,"sourceOwnership",importOwnership);
+        jdbc.update("DELETE FROM dcc_project_application_attributes WHERE application_id=20");
+        jdbc.update("UPDATE dcc_controlled_file SET status='ACTIVE',controlled_time=CURRENT_TIMESTAMP,effective_time=CURRENT_TIMESTAMP,activated_time=CURRENT_TIMESTAMP,effective_mode='CONTROLLED_IMPORT',import_source='CONTROLLED_IMPORT',imported_by=99,imported_time=CURRENT_TIMESTAMP,revision_change_type='INITIAL' WHERE id=20");
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");
+        importOwnership.insert(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceOwnershipDO.builder()
+                .tenantId(1L).controlledFileId(20L).sourceFileId(100L).originSourceFileId(100L).sourceSha256("a".repeat(64))
+                .ownershipType("CONTROLLED_IMPORT").claimedBy(99L).claimedTime(java.time.LocalDateTime.now()).build());
+        Path root=Path.of("").toAbsolutePath();while(root!=null&&!Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
+        revisionId=deploy(Files.readString(root.resolve("IntRuoyiBackend/config/dcc-workflow-v6/revision.bpmn20.xml")));
+        when(definitions.getActiveProcessDefinition(DccControlledFileProcessDefinitionKeys.REVISION)).thenReturn(
+                engine.getRepositoryService().createProcessDefinitionQuery().processDefinitionId(revisionId).singleResult());
+        add(21L,20L);
+        jdbc.update("UPDATE dcc_controlled_file SET change_type='REVISION',revision_base_active_controlled_file_id=20,version_no='A/1-1' WHERE id=21");
+        tx().executeWithoutResult(s->initializer.initialize(99L,20L,21L,null));
+    }
+    @Test void controlledImportStartsOwnRevisionAndRepeatedCheckinKeepsPinnedDefinition() throws Exception {
+        importedRevisionBody();var before=original(20L);
+        tx().executeWithoutResult(s->{
+            var prepared=contracts.inheritPrepared(99L,21L,20L,null);
+            assertEquals(revisionId,prepared.processDefinitionId());
+            assertEquals(DccApplicationExecutionContractService.PUBLIC_V2,prepared.executionContract());
+            assertEquals(prepared,contracts.verifyInheritedPrepared(99L,21L,20L,null));
+            assertTrue(contracts.readInheritedDraftFacts(99L,21L,20L,null).newActionBaselineRequired());
+            assertNull(contracts.readRejectedDraftFacts(99L,files.selectById(21L)));
+        });
+        nextUnpreparedRevisionBody();
+        tx().executeWithoutResult(s->{
+            assertEquals(revisionId,contracts.requireNewActionBaselinePreparation(99L,22L).processDefinitionId());
+            assertTrue(contracts.readInheritedDraftFacts(99L,22L,21L,1).newActionBaselineRequired());
+        });
+        assertEquals(before,original(20L));assertNull(files.selectById(20L).getProcessInstanceId());
+        verify(definitions,times(1)).getActiveProcessDefinition(DccControlledFileProcessDefinitionKeys.REVISION);
+    }
+    @ParameterizedTest @ValueSource(strings={"UNMARKED","INCOMPLETE","NOT_ACTIVE","NOT_CURRENT","WRONG_OWNER","WRONG_ARTIFACT","INVENTED_ROUND","MISSING_DEFINITION"})
+    void controlledImportCannotBypassInvalidSourceOrMissingDefinition(String violation) throws Exception {
+        importedRevisionBody();
+        switch(violation){
+            case "UNMARKED" -> jdbc.update("UPDATE dcc_controlled_file SET import_source=NULL WHERE id=20");
+            case "INCOMPLETE" -> jdbc.update("UPDATE dcc_controlled_file SET imported_by=NULL WHERE id=20");
+            case "NOT_ACTIVE" -> jdbc.update("UPDATE dcc_controlled_file SET status='CONTROLLED_PENDING_EFFECTIVE' WHERE id=20");
+            case "NOT_CURRENT" -> jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=NULL WHERE id=10");
+            case "WRONG_OWNER" -> jdbc.update("UPDATE dcc_controlled_file_source_ownership SET claimed_by=88 WHERE controlled_file_id=20");
+            case "WRONG_ARTIFACT" -> jdbc.update("UPDATE dcc_controlled_file_source_ownership SET source_file_id=101 WHERE controlled_file_id=20");
+            case "MISSING_DEFINITION" -> when(definitions.getActiveProcessDefinition(anyString())).thenReturn(null);
+            case "INVENTED_ROUND" -> { }
+        }
+        assertThrows(RuntimeException.class,()->tx().execute(s->contracts.inheritPrepared(99L,21L,20L,"INVENTED_ROUND".equals(violation)?1:null)));
+        assertNull(files.selectById(21L).getPreparedProcessDefinitionId());
+    }
+    void freshCustomImport() throws Exception {
+        importedRevisionBody();
+        tx().executeWithoutResult(s->contracts.inheritPrepared(99L,21L,20L,null));
+        jdbc.update("UPDATE dcc_file_category SET approval_source_mode='APPLICATION_CUSTOM' WHERE id=2");
+        wire(workflow,"customMatrices",new DccApplicationCustomMatrixService(),"approvalMatrixTokens",tokens);
+    }
+    @Test void importedFreshCustomProjectionUsesOwnIdentityAndWritesNothingForBothRevisionIntents() throws Exception {
+        freshCustomImport();var source=original(20L);var target=original(21L);
+        var attributesBefore=jdbc.queryForList("SELECT * FROM dcc_project_application_attributes");
+        var partial=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L));
+        var replacement=tx().execute(s->workflow.readReplacementApplicationAttributes(99L,21L,20L));
+        assertEquals(partial,replacement);assertEquals("APPLICATION_CUSTOM",partial.approvalSourceMode());
+        assertEquals("dcc-custom-v1:1:REVISION:21:1",partial.applicationContextKey());assertEquals(1,partial.attributeRound());
+        assertNull(partial.applicationCustomMatrix());assertNull(partial.draftApprovalMatrix());assertFalse(partial.canSubmit());
+        assertEquals("本次自定义审批配置尚未保存",partial.unavailableReason());
+        assertFalse(partial.newActionBaselineRequired());assertFalse(partial.newActionBaselinePreparationAllowed());
+        assertEquals(revisionId,partial.preparedProcessDefinitionId());assertNotNull(partial.applicationCustomMatrixDigest());
+        var context=new DccApplicationCustomMatrixService.SourceContext(DccApplicationCustomMatrix.ApprovalSourceMode.APPLICATION_CUSTOM,
+                1L,5L,2L,6L,99L,21L,1,"REVISION",partial.applicationContextKey(),partial.preparedProcessDefinitionId(),partial.preparedDefinitionDigest());
+        var matrices=new DccApplicationCustomMatrixService();var selection=matrices.canonicalize(context,null,null);
+        assertEquals(selection.digest(),partial.applicationCustomMatrixDigest());
+        var wrongRound=new DccApplicationCustomMatrixService.SourceContext(context.approvalSourceMode(),1L,5L,2L,6L,99L,21L,2,"REVISION",context.applicationContextKey(),context.processDefinitionId(),context.definitionDigest());
+        assertThrows(IllegalArgumentException.class,()->matrices.readCanonical(selection.canonical(),selection.digest(),wrongRound));
+        var wrongTenant=new DccApplicationCustomMatrixService.SourceContext(context.approvalSourceMode(),2L,5L,2L,6L,99L,21L,1,"REVISION",context.applicationContextKey(),context.processDefinitionId(),context.definitionDigest());
+        assertThrows(IllegalArgumentException.class,()->matrices.readCanonical(selection.canonical(),selection.digest(),wrongTenant));
+        assertEquals(source,original(20L));assertEquals(target,original(21L));
+        assertEquals(attributesBefore,jdbc.queryForList("SELECT * FROM dcc_project_application_attributes"));
+    }
+    @Test void freshCustomProjectionCanPreviewAndSaveOnlyItsReservedContext() throws Exception {
+        freshCustomImport();var source=original(20L);
+        var opened=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L));
+        var resolver=(DccControlledFileApprovalRouteAssigneeResolver)ReflectionTestUtils.getField(workflow,"approvalRouteAssigneeResolver");
+        doThrow(new IllegalArgumentException("CUSTOM_MATRIX_SIGNOFF_REQUIRED：请至少选择一个会签部门")).when(resolver).resolveCustomReserved(any(),any(),any());
+        var preview=previewRequest(21L,false);preview.setApplicationContextKey(opened.applicationContextKey());preview.setSelectedSignoffDepartmentIds(null);
+        preview.setExecutionContract(opened.executionContract());
+        var proof=tx().execute(s->workflow.previewRoute(99L,preview));
+        var save=saveRequest(21L,proof,false);save.setExecutionContract(opened.executionContract());save.setSelectedSignoffDepartmentIds(null);
+        save.setEffectiveMode("DELAYED");save.setEffectiveDate(null);
+        save.setApplicationContextKey(opened.applicationContextKey());save.setExpectedApplicationCustomMatrixDigest(proof.getApplicationCustomMatrixDigest());
+        save.setApplicationCustomMatrixToken(proof.getApplicationCustomMatrixToken());save.setApplicationCustomMatrixPhase("RESERVED");
+        save.setApplicationContextKey(opened.applicationContextKey()+"-other");
+        assertThrows(IllegalArgumentException.class,()->tx().executeWithoutResult(s->workflow.saveWorkingApplication(99L,21L,save)));
+        assertNull(files.selectById(21L).getDraftApprovalSourceMode());
+        save.setApplicationContextKey(opened.applicationContextKey());
+        tx().executeWithoutResult(s->workflow.saveWorkingApplication(99L,21L,save));
+        var reopened=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L));
+        assertEquals("APPLICATION_CUSTOM",files.selectById(21L).getDraftApprovalSourceMode());
+        assertEquals(opened.applicationContextKey(),reopened.applicationContextKey());assertEquals(opened.applicationCustomMatrixDigest(),reopened.applicationCustomMatrixDigest());
+        assertEquals(source,original(20L));
+    }
+    @ParameterizedTest @ValueSource(strings={"PUBLIC_MODE","PUBLIC_BASELINE","ORPHAN_CUSTOM"})
+    void categoryCannotConvertExistingPublicOrUnboundCustomConfiguration(String saved) throws Exception {
+        freshCustomImport();
+        switch(saved){
+            case "PUBLIC_MODE" -> jdbc.update("UPDATE dcc_controlled_file SET draft_approval_source_mode='PUBLIC_MATRIX' WHERE id=21");
+            case "PUBLIC_BASELINE" -> jdbc.update("UPDATE dcc_controlled_file SET draft_approval_matrix_json=? WHERE id=21",canonicalMatrix(1));
+            case "ORPHAN_CUSTOM" -> jdbc.update("UPDATE dcc_controlled_file SET draft_application_context_key='old-application' WHERE id=21");
+        }
+        var before=original(21L);
+        if("ORPHAN_CUSTOM".equals(saved)){
+            assertThrows(IllegalArgumentException.class,()->tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L)));
+            assertThrows(IllegalArgumentException.class,()->tx().execute(s->workflow.readReplacementApplicationAttributes(99L,21L,20L)));
+        }else{
+            assertNull(tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L)).approvalSourceMode());
+            assertNull(tx().execute(s->workflow.readReplacementApplicationAttributes(99L,21L,20L)).approvalSourceMode());
+            assertThrows(IllegalArgumentException.class,()->preview(21L,false));
+        }
+        assertEquals(before,original(21L));
+    }
     static void flag(Object request,Boolean value){
         // Behavioral RED still compiles before the optional field exists; no API substitute.
         if(Arrays.stream(request.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("prepareNewActionBaseline")))
@@ -107,6 +227,34 @@ class DccNewActionBaselinePreparationDatabaseTest extends DccPreparedExecutionIn
         jdbc.update("UPDATE dcc_controlled_file SET change_type='REVISION',revision_base_active_controlled_file_id=20,version_no='A/1-2' WHERE id=22");
         tx().executeWithoutResult(s->{initializer.initialize(99L,21L,22L,null);contracts.inheritPrepared(99L,22L,21L,1);});
     }
+    @Test void editorCanPrepareAnotherRequestersRevisionMatrixWithoutChangingItsApplicant()throws Exception{
+        publicRevisionBody();jdbc.update("UPDATE dcc_controlled_file SET requester_id=88,submitter_id=88 WHERE id=21");
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+        var opened=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L));
+        assertTrue(opened.newActionBaselineRequired());
+        var result=preview(21L,true);var request=saveRequest(21L,result,true);
+        tx().executeWithoutResult(s->workflow.saveWorkingApplication(99L,21L,request));
+        assertFalse(tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L)).newActionBaselineRequired());
+        assertEquals(88L,files.selectById(21L).getRequesterId());assertNull(files.selectById(21L).getProcessInstanceId());
+        when(permissions.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(false);
+        assertThrows(RuntimeException.class,()->tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L)));
+        assertThrows(RuntimeException.class,()->tx().execute(s->contracts.readConfirmedTypeChangeBaseline(99L,files.selectById(21L))));
+    }
+    @ParameterizedTest @ValueSource(strings={"UPLOAD","FORMAL_CANDIDATE","BOUND","CONTROLLED"})
+    void sharedEditorPreparationNeverTakesOverAnUploadOrFormalApplication(String state)throws Exception{
+        publicRevisionBody();jdbc.update("UPDATE dcc_controlled_file SET requester_id=88,submitter_id=88 WHERE id=21");
+        switch(state){
+            case "UPLOAD" -> jdbc.update("UPDATE dcc_controlled_file SET change_type='NEW' WHERE id=21");
+            case "FORMAL_CANDIDATE" -> jdbc.update("UPDATE dcc_controlled_file SET revision_change_type='PARTIAL' WHERE id=21");
+            case "BOUND" -> jdbc.update("UPDATE dcc_controlled_file SET process_instance_id='already-bound' WHERE id=21");
+            case "CONTROLLED" -> jdbc.update("UPDATE dcc_controlled_file SET controlled_time=CURRENT_TIMESTAMP WHERE id=21");
+            default -> throw new AssertionError(state);
+        }
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+        assertThrows(RuntimeException.class,()->tx().execute(s->workflow.readWorkingApplicationAttributes(99L,21L)));
+        assertThrows(RuntimeException.class,()->tx().execute(s->contracts.readConfirmedTypeChangeBaseline(99L,files.selectById(21L))));
+        assertEquals(88L,files.selectById(21L).getRequesterId());
+    }
     @Test void repeatedCheckinCarriesLegitimatePendingNewActionBaselineWithoutInventingMatrix()throws Exception{
         publicRevisionBody();
         jdbc.update("UPDATE dcc_controlled_file SET effective_mode='PRESET_DATE',effective_date='2099-12-20',selected_signoff_department_ids_json='[\"51\"]',distribution_department_ids_json='[]',need_training=0 WHERE id=21");
@@ -126,6 +274,24 @@ class DccNewActionBaselinePreparationDatabaseTest extends DccPreparedExecutionIn
         var sourceBefore=original(21L);var targetBefore=original(22L);
         assertThrows(RuntimeException.class,()->tx().execute(s->contracts.readInheritedDraftFacts(99L,22L,21L,1)));
         assertEquals(sourceBefore,original(21L));assertEquals(targetBefore,original(22L));
+    }
+    @Test void repeatedCheckinCanSaveNewRevisionBaselineWithSupervisorExpectationAndCompareItAfterReopen()throws Exception{
+        publicRevisionBody();nextUnpreparedRevisionBody();
+        var uploadBefore=original(20L);var predecessorBefore=original(21L);
+        var result=preview(22L,true);var request=saveRequest(22L,result,true);
+        request.setExpectedSupervisorSourceDigest("supervisor-digest");request.setSupervisorSourceToken("supervisor-token");
+        var resolver=(DccControlledFileApprovalRouteAssigneeResolver)ReflectionTestUtils.getField(workflow,"approvalRouteAssigneeResolver");
+        var source=mock(DccControlledFileApprovalRouteAssigneeResolver.NativeApprovalSource.class);
+        doReturn(source).when(resolver).resolvePublicNative(any(),any(),any(),any(),any(),any(),any(),any(),any());
+        tx().executeWithoutResult(s->workflow.saveWorkingApplication(99L,22L,request));
+        verify(resolver).requireNativeExpectation(source,"supervisor-digest","supervisor-token");
+        var reopened=tx().execute(s->workflow.readWorkingApplicationAttributes(99L,22L));
+        assertNotNull(reopened.draftApprovalMatrix());assertFalse(reopened.newActionBaselineRequired());
+        assertEquals(request.getChangeDescription(),reopened.changeDescription());
+        assertFalse(tx().execute(s->baselines.preview(99L,previewRequest(22L,false))).changed());
+        currentMatrix(2);
+        assertTrue(tx().execute(s->baselines.preview(99L,previewRequest(22L,false))).changed());
+        assertEquals(uploadBefore,original(20L));assertEquals(predecessorBefore,original(21L));
     }
     DccControlledFileRoutePreviewReqVO previewRequest(Long id,Boolean explicit){
         var file=files.selectById(id);var req=new DccControlledFileRoutePreviewReqVO();req.setControlledFileId(id);req.setCategoryId(2L);req.setDccProjectCodeId(5L);

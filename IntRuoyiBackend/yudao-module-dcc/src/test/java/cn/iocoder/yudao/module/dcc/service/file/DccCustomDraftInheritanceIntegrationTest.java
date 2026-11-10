@@ -109,6 +109,10 @@ class DccCustomDraftInheritanceIntegrationTest extends cn.iocoder.yudao.framewor
         jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status,default_attributes_json,deleted) VALUES(5,1,'G06-A34','G06-A34','ENABLE',?,0)",attributes.encode(actual));
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,dcc_project_code_id,file_type_taxonomy_leaf_id,normalized_file_number,status,deleted) VALUES(10,1,2,3,'SOP','PREPARED-1',5,6,'PREPARED-1','ACTIVE_CHAIN',0)");
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+        when(permissions.hasFilePermission(argThat(file->file!=null
+                &&Objects.equals(file.getTenantId(),1L)&&Objects.equals(file.getMasterId(),10L)
+                &&Objects.equals(file.getDccProjectCodeId(),5L)&&Objects.equals(file.getCategoryId(),2L)),eq(99L),any()))
+                .thenReturn(true);
         engine=org.flowable.engine.ProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration()
                 .setJdbcUrl("jdbc:h2:mem:g06_a34_definition_"+UUID.randomUUID()+";DB_CLOSE_DELAY=-1")
                 .setDatabaseSchemaUpdate("true").setAsyncExecutorActivate(false).buildProcessEngine();

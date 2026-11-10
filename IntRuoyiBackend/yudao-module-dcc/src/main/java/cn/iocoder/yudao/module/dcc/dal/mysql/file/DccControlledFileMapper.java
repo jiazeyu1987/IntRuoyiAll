@@ -26,6 +26,12 @@ import java.util.Map;
  */
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
+    @Select("SELECT COUNT(*) FROM dcc_project_file_reference WHERE tenant_id=#{tenantId} AND master_id=#{masterId}")
+    long countProjectReferences(@Param("tenantId") Long tenantId, @Param("masterId") Long masterId);
+
+    // A current read after the master lock also sees references committed while that lock was awaited.
+    @Select("SELECT id FROM dcc_project_file_reference WHERE tenant_id=#{tenantId} AND master_id=#{masterId} FOR UPDATE")
+    List<Long> selectProjectReferenceIdsForUpdate(@Param("tenantId") Long tenantId, @Param("masterId") Long masterId);
 
     default List<DccControlledFileDO> selectOfflineTrainingCandidates(Long tenantId) {
         return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
@@ -266,6 +272,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                    approved_time,
                    rejected_time,
                    stamped_time,
+                   stamped_file_id,
                    create_time,
                    update_time,
                    creator,

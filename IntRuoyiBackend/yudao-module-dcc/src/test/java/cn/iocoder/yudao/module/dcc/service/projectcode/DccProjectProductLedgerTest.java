@@ -31,6 +31,7 @@ import static org.mockito.Mockito.*;
 
 /** 实际服务/事务/H2统一账本，只有外部账号目录及授权端口替身。 */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,DccProjectProductCreateWriteService.class,
+        DccProjectReviewerRoleService.class,
         cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
         DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class,DccProjectProductCreateFailureService.class,
@@ -43,6 +44,8 @@ import static org.mockito.Mockito.*;
 @org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductActorSupport projectActors;
@@ -52,6 +55,8 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
 
     @Resource DccProjectProductCreateServiceImpl service;
+    @Resource DccProjectProductAuditService productAudit;
+    @Resource DccFolderTemplateService templateService;
     @Resource DccProjectProductCreateStateService state;
     @Resource DccProjectProductCreateWriteService writer;
     @Resource DccProjectProductCreateFailureService failures;
@@ -64,11 +69,20 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @MockitoSpyBean DccProjectFolderMapper folders;
     @Resource GxpAuditPolicyOperationMapper policies;
     @Resource GxpAuditEventMapper events;
+    @Resource GxpAuditLedgerSequenceMapper sequences;
+    @Resource GxpAuditPolicyActivationMapper activations;
     @MockitoSpyBean GxpAuditServiceImpl ledger;
     @MockitoBean AdminUserApi users;
     @MockitoBean PermissionApi permissions;
     @MockitoBean DccProjectAccessService access;
     @BeforeEach void accounts() {
+        DccProjectProductRegressionFixture.roles(reviewerDataSource,permissions);
+        var watermark=new GxpAuditLedgerSequenceDO();watermark.setTenantId(1L);watermark.setNextLedgerSequence(1L);sequences.insert(watermark);
+        var activation=new GxpAuditPolicyActivationDO();activation.setTenantId(1L);activation.setPolicyVersion("B-REV-01-ISOLATED");
+        activation.setPolicyHash("a".repeat(64));activation.setPreviousActivationHash("0".repeat(64));activation.setRequestId("isolated-project-ledger-policy");
+        activation.setActorId(1L);activation.setApprovalReference("isolated-test");activation.setActivatedAtUtc(java.time.LocalDateTime.now());
+        activation.setEffectiveAfterSequence(0L);activation.setCanonicalActivationJson("{}");activation.setActivationHash("b".repeat(64));activations.insert(activation);
+        when(projectActors.canUpdate(1L)).thenReturn(true);
         when(projectActors.isApprover(1L)).thenReturn(true); // Keep formal authority explicit in ledger fixture.
         var leader=new AdminUserRespDTO();leader.setId(7L);leader.setStatus(0);leader.setNickname("正式负责人");
         var existingReviewer=new AdminUserRespDTO();existingReviewer.setId(1L);existingReviewer.setStatus(0);existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
@@ -77,7 +91,8 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
                 .setUsername("actual-applicant-9").setNickname("正式账号9"));
         login(9L);
     }
-    @AfterEach void clear() {SecurityContextHolder.clearContext();}
+    @AfterEach void clear() {DccProjectProductRegressionFixture.cleanup(reviewerDataSource);}
+    Long historical(DccProjectProductCreateReqVO input){return DccProjectProductRegressionFixture.historical(reviewerDataSource,templateService,requests,claims,productAudit,input);}
     void login(Long id) {
         var actor=new LoginUser();actor.setId(id);actor.setTenantId(1L);actor.setUserType(2);
         actor.setInfo(Map.of(LoginUser.INFO_KEY_NICKNAME,"正式账号"+id,LoginUser.INFO_KEY_DEPT_ID,"9"));
@@ -86,7 +101,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     void policy(String operation) {
         var row=new GxpAuditPolicyOperationDO();row.setTenantId(1L);row.setOperationId(operation);row.setPolicyVersion("B-REV-01-ISOLATED");
         row.setSourceType("SERVICE_METHOD");row.setSourceLocator("ISOLATED_TEST");row.setDomain("DCC");row.setSubjectType("DCC_PROJECT_PRODUCT_REQUEST");
-        row.setActionType("UPDATE");row.setReasonPolicy("REQUIRED");row.setSignaturePolicy("NOT_REQUIRED");row.setStatePolicy("BEFORE_AFTER");
+        row.setActionType("UPDATE");row.setReasonPolicy(Set.of("dcc.project-product.review","dcc.project-product.approve","dcc.project-product.complete","dcc.project-product.write-failed").contains(operation)?"APPROVAL_DECISION":"REQUIRED");row.setSignaturePolicy("NOT_REQUIRED");row.setStatePolicy("BEFORE_AFTER");
         row.setRetentionClass("ISOLATED_TEST");row.setTestIds("B-REV-01");row.setOwner("B-test");row.setApplicability("GXP");row.setActive(true);
         policies.insert(row);
     }
@@ -122,7 +137,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
     void reviewDecisionHasRealBeforeAfterAndLedgerFailureRollsBack(boolean approve) {
         policy("dcc.project-product.create");policy("dcc.project-product.review");
-        Long id=service.createRequest(9L,input());login(1L);
+        Long id=historical(input());login(1L);
         service.review(1L,id,"本次审核说明",approve);
         var event=events.selectList().stream().filter(row->"dcc.project-product.review".equals(row.getOperationId())).findFirst().orElseThrow();
         assertEquals("PENDING_REVIEW",event.getBeforeState());assertEquals(approve?"PENDING_APPROVAL":"REJECTED",event.getAfterState());
@@ -132,7 +147,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
     void approvalDecisionHasOwnEventBeforeAssetWriting(boolean approve) {
         policy("dcc.project-product.create");policy("dcc.project-product.review");policy("dcc.project-product.approve");
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核说明",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核说明",true);
         state.markApprovalDecision(1L,id,"本次批准说明",approve);
         var event=events.selectList().stream().filter(row->"dcc.project-product.approve".equals(row.getOperationId())).findFirst().orElseThrow();
         assertEquals("PENDING_APPROVAL",event.getBeforeState());assertEquals(approve?"WRITING":"REJECTED",event.getAfterState());
@@ -140,7 +155,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void completedWriteEventContainsOnlyActuallyPersistedAssets() {
         for(String op:List.of("create","review","approve","complete"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核说明",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核说明",true);
         state.markApprovalDecision(1L,id,"实际批准写入原因",true);writer.writeApprovedRequest(id);
         var event=events.selectList().stream().filter(row->"dcc.project-product.complete".equals(row.getOperationId())).findFirst().orElseThrow();
         assertEquals("WRITING",event.getBeforeState());assertEquals("COMPLETED",event.getAfterState());
@@ -150,7 +165,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void failureAndRetryHaveTheirOwnActualStateEvents() {
         for(String op:List.of("create","review","approve","write-failed","retry"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核说明",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核说明",true);
         state.markApprovalDecision(1L,id,"实际写入意图",true);failures.markWriteFailed(id,"TEST_ERROR","实际目录失败");
         state.markRetryWriting(1L,id,"本次明确重试原因");
         var failure=events.selectList().stream().filter(row->"dcc.project-product.write-failed".equals(row.getOperationId())).findFirst().orElseThrow();
@@ -170,15 +185,17 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
         for(String op:List.of("create","review","approve","complete","write-failed","retry")) {
             if(!missingPolicy || !op.equals(action)) policy("dcc.project-product."+op);
         }
+        // Stub the spy target so MANDATORY advice still runs only inside the actual business transaction.
         if(!missingPolicy) doThrow(new IllegalStateException("统一账本实际append失败"))
-                .when(ledger).append(argThat(command->command!=null && ("dcc.project-product."+action).equals(command.getOperationId())));
+                .when(org.springframework.test.util.AopTestUtils.<GxpAuditServiceImpl>getUltimateTargetObject(ledger))
+                .append(argThat(command->command!=null && ("dcc.project-product."+action).equals(command.getOperationId())));
         var input=input();
         if(action.equals("create")) {
             assertThrows(RuntimeException.class,()->service.createRequest(9L,input));
             assertTrue(requests.selectList().isEmpty());assertTrue(claims.selectList().isEmpty());assertTrue(events.selectList().isEmpty());
             assertFalse(templates.selectById(input.getFolderTemplateId()).getEverUsed());return;
         }
-        Long id=service.createRequest(9L,input);login(1L);
+        Long id=historical(input);login(1L);
         if(!action.equals("review")) service.review(1L,id,"正式审核原因",true);
         if(List.of("complete","write-failed","retry").contains(action)) state.markApprovalDecision(1L,id,"正式批准写入原因",true);
         if(action.equals("retry")) failures.markWriteFailed(id,"ACTUAL_ERROR","已记录实际失败");
@@ -200,7 +217,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void failedAssetsRecordOnlyWriteFailedAndSuccessfulRetryUsesNewIntentAndAttempt() {
         for(String op:List.of("create","review","approve","complete","write-failed","retry"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核批准资料",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核批准资料",true);
         doThrow(new IllegalStateException("目录实际创建失败")).when(folders).insert(any(DccProjectFolderDO.class));
         assertThrows(RuntimeException.class,()->service.approve(1L,id,"批准实际资产创建",true));
         assertEquals("WRITE_FAILED",requests.selectById(id).getStatus());assertTrue(projects.selectList().isEmpty());
@@ -233,10 +250,10 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void rejectedIllegalOrBlankActionsLeaveNoDecisionEventOrPartialState() {
         for(String op:List.of("create","review","approve","write-failed","retry"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);
+        Long id=historical(input());login(1L);
         String original=JsonUtils.toJsonString(requests.selectById(id));
         assertThrows(RuntimeException.class,()->service.review(7L,id,"无审核资格",true));
-        assertThrows(RuntimeException.class,()->service.review(1L,id," ",true));
+        assertThrows(RuntimeException.class,()->service.review(1L,id," ",false));
         assertThrows(RuntimeException.class,()->service.approve(1L,id,"错阶段批准",true));
         assertEquals(1,events.selectList().size());assertEquals(original,JsonUtils.toJsonString(requests.selectById(id)));
         service.review(1L,id,"审核说明",true);state.markApprovalDecision(1L,id,"批准意图",true);
@@ -247,7 +264,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void completionLedgerFailureAfterApprovalProducesOnlyActualFailedAttemptAndCanRetry() {
         for(String op:List.of("create","review","approve","write-failed","retry"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核说明",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核说明",true);
         assertThrows(RuntimeException.class,()->service.approve(1L,id,"批准后尝试正式写入",true));
         assertEquals("WRITE_FAILED",requests.selectById(id).getStatus());
         assertTrue(projects.selectList().isEmpty());assertTrue(products.selectList().isEmpty());assertTrue(relations.selectList().isEmpty());assertTrue(folders.selectList().isEmpty());
@@ -258,7 +275,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     }
     @Test void repeatedFailedAttemptsHaveDistinctStableVersionsAndNeverRewriteEarlierFailures() {
         for(String op:List.of("create","review","approve","complete","write-failed","retry"))policy("dcc.project-product."+op);
-        Long id=service.createRequest(9L,input());login(1L);service.review(1L,id,"审核说明",true);
+        Long id=historical(input());login(1L);service.review(1L,id,"审核说明",true);
         doThrow(new IllegalStateException("目录连续失败")).when(folders).insert(any(DccProjectFolderDO.class));
         assertThrows(RuntimeException.class,()->service.approve(1L,id,"首次批准写入",true));
         var first=events.selectList().stream().filter(event->"dcc.project-product.write-failed".equals(event.getOperationId())).findFirst().orElseThrow();

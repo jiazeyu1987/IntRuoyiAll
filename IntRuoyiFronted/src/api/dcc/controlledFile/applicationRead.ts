@@ -626,7 +626,8 @@ export const saveWorkingApplicationAttributes = async (
 export const getControlledFileApplicationEvidence = async (
   fileId: Identity,
   applicationType: DccApplicationType,
-  bpmRound: string
+  bpmRound: string,
+  bodyReadContext?: string
 ): Promise<ControlledFileApplicationEvidence> => {
   const id = identity(fileId)
   if (
@@ -638,7 +639,7 @@ export const getControlledFileApplicationEvidence = async (
   }
   const result = await request.get<ControlledFileApplicationEvidence>({
     url: `/dcc/controlled-files/${id}/application-evidence`,
-    params: { applicationType, bpmRound }
+    params: { applicationType, bpmRound, ...(bodyReadContext ? { bodyReadContext } : {}) }
   })
   if (
     !result ||
@@ -814,11 +815,13 @@ export const loadDccSelectorPage = async (
 }
 
 export const getControlledFileApplicationRounds = async (
-  fileId: Identity
+  fileId: Identity,
+  bodyReadContext?: string
 ): Promise<ControlledFileApplicationRound[]> => {
   const id = identity(fileId)
   const rows = await request.get<ControlledFileApplicationRound[]>({
     url: `/dcc/controlled-files/${id}/application-rounds`,
+    ...(bodyReadContext ? { params: { bodyReadContext } } : {}),
     ignoreErrorMessage: true
   })
   if (!Array.isArray(rows)) throw new Error('申请轮次响应缺失')
@@ -868,6 +871,7 @@ export const getControlledFileRelationPermissions = async (
 }
 
 interface ProjectBrowserRow extends Omit<SelectorRow, 'latestControlledFileId' | 'currentActiveControlledFileId'> {
+  canEditFile?: boolean
   latestControlledFileId?: Identity | null
   currentActiveControlledFileId?: Identity | null
   fileName: string
@@ -943,7 +947,7 @@ export const loadDccProjectBrowserPage = async (
       folderName: row.projectFolderName || '未记录',
       fileName: row.fileName, fileNumber: row.fileNumber, versionNo: row.versionNo,
       status: row.status, controlled: row.controlled, pendingEffect: row.pendingEffect,
-      executable: row.executable, canPreview: row.canPreview
+      executable: row.executable, canPreview: row.canPreview, canEditFile: row.canEditFile
     }
   })
   return { list, total: response.total }

@@ -53,6 +53,9 @@ import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approv
 @Service
 public class DccRegistrationCertificateApprovalService {
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
+
     private static final String STATUS_SUBMITTED = "SUBMITTED";
     private static final String STATUS_BPM_BOUND = "BPM_BOUND";
     private static final String STATUS_APPROVED = "APPROVED";
@@ -212,6 +215,7 @@ public class DccRegistrationCertificateApprovalService {
         binding.setStatus(BINDING_APPROVED);
         binding.setCompletedAt(decidedAt);
         recordTerminalApprovalKey(binding, command.approvalKey());
+        recordReview(binding, approverId, decidedAt, command.rejectReason());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
         if (isRenewalUploadRequest(request)) {
@@ -256,6 +260,7 @@ public class DccRegistrationCertificateApprovalService {
         binding.setStatus(BINDING_REJECTED);
         binding.setCompletedAt(decidedAt);
         recordTerminalApprovalKey(binding, command.approvalKey());
+        recordReview(binding, approverId, decidedAt, command.rejectReason());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
         if (isRenewalUploadRequest(request)) {
@@ -300,6 +305,7 @@ public class DccRegistrationCertificateApprovalService {
         request.setWithdrawReason(reason.trim());
         request.setCompletedAt(request.getWithdrawnAt());
         requireUpdated(requestMapper.updateById(request));
+        registrationHandlingTasks.recordWithdrawal(tenantId, actorId, requestId, reason.trim());
         if (binding != null) {
             bpmProcessInstanceApi.cancelProcessInstance(actorId, binding.getBpmProcessInstanceId(), reason.trim());
         }
@@ -337,6 +343,7 @@ public class DccRegistrationCertificateApprovalService {
         recordTerminalApprovalKey(binding, command.approvalKey());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
+        registrationHandlingTasks.recordWithdrawal(tenantId, actorId, request.getId(), command.rejectReason().trim());
         return result(request, binding, List.of());
     }
 
@@ -387,6 +394,50 @@ public class DccRegistrationCertificateApprovalService {
                 request.getProjectCodeId(), request.getStatus(), request.getBpmProcessInstanceId(),
                 binding == null ? null : binding.getStatus(), request.getRequestedAt(), request.getCompletedAt(),
                 request.getWithdrawnAt(), request.getWithdrawReason(), request.getRejectReason(), grants);
+    }
+
+    /** Read the exact frozen submission through its native approval binding. */
+    public DccRegistrationCertificateAccessRequestDO requireApprovalDetailRequest(
+            Long tenantId, Long actorId, Long requestId, String processInstanceId) {
+        if (tenantId == null || actorId == null || requestId == null || isBlank(processInstanceId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        var request = requestMapper.selectById(requestId);
+        requireRequestTenant(request, tenantId);
+        var binding = bindingMapper.selectByRequestId(tenantId, requestId);
+        if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)
+                || !Objects.equals(binding.getRequestId(), requestId)
+                || !Objects.equals(binding.getBusinessKey(), BUSINESS_KEY_PREFIX + requestId)
+                || !Objects.equals(binding.getBpmProcessInstanceId(), processInstanceId)
+                || !Objects.equals(request.getBpmProcessInstanceId(), processInstanceId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        if (Objects.equals(actorId, request.getRequesterUserId())) return request;
+        Object frozen = readBindingDetail(binding).get("candidateUserIds");
+        boolean candidate = frozen instanceof Collection<?> values
+                && values.stream().anyMatch(value -> actorId.toString().equals(String.valueOf(value)));
+        String permission = REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())
+                ? UPLOAD_APPROVAL_PERMISSION : APPROVAL_PERMISSION;
+        RoleRespDTO role = roleApi.getRoleByCode(APPROVER_ROLE_CODE);
+        Set<Long> members = role == null || role.getId() == null ? Set.of()
+                : permissionApi.getUserRoleIdListByRoleIds(List.of(role.getId()));
+        if (!candidate || role == null || role.getId() == null || !CommonStatusEnum.isEnable(role.getStatus())
+                || !APPROVER_ROLE_CODE.equals(role.getCode())
+                || !permissionApi.hasAnyPermissionsInRoles(List.of(role.getId()), permission)
+                || members == null || !members.contains(actorId)
+                || permissionApi.hasAnyRoles(actorId, SUPER_ADMIN_ROLE_CODE)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        return request;
+    }
+
+    private void recordReview(DccRegistrationCertificateBpmBindingDO binding, Long reviewerId,
+                              LocalDateTime reviewedAt, String comment) {
+        Map<String, Object> detail = readBindingDetail(binding);
+        detail.put("reviewerUserId", reviewerId);
+        detail.put("reviewedAt", reviewedAt.toString());
+        detail.put("reviewComment", comment);
+        binding.setDetailJson(JsonUtils.toJsonString(detail));
     }
 
     private DccRegistrationCertificateBpmBindingDO requireBinding(
@@ -621,7 +672,10 @@ public class DccRegistrationCertificateApprovalService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
         }
         variables.put("requestOperation", operation);
-        variables.put("certificateNo", requireSummaryText(detail, "certificateNo"));
+        Object certificateNo = detail.get("certificateNo");
+        if (certificateNo != null && !isBlank(String.valueOf(certificateNo))) {
+            variables.put("certificateNo", String.valueOf(certificateNo).trim());
+        }
         variables.put("classification", requireSummaryText(detail, "classification"));
         variables.put("productName", requireSummaryText(detail, "productName"));
         variables.put("ownerCompanyName", requireSummaryText(detail, "ownerCompanyName"));

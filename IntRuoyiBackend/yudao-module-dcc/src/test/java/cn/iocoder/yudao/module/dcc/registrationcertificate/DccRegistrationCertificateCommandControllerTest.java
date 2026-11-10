@@ -33,25 +33,25 @@ class DccRegistrationCertificateCommandControllerTest {
         assertEquals("/dcc/registration-certificates", root.value()[0]);
 
         Method create = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
-                "createDraft", String.class, DccRegistrationCertificateDraftReqVO.class);
+                "createDraft", String.class, DccRegistrationCertificateDraftReqVO.class, jakarta.servlet.http.HttpServletRequest.class);
         assertEquals("/drafts", create.getAnnotation(PostMapping.class).value()[0]);
         assertPermission(create, "dcc:registration-certificate:create");
         assertIdempotencyHeader(create, 0);
 
         Method update = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
-                "updateDraft", Long.class, String.class, DccRegistrationCertificateUpdateDraftReqVO.class);
+                "updateDraft", Long.class, String.class, DccRegistrationCertificateUpdateDraftReqVO.class, jakarta.servlet.http.HttpServletRequest.class);
         assertEquals("/drafts/{id}", update.getAnnotation(PutMapping.class).value()[0]);
         assertPermission(update, "dcc:registration-certificate:update");
         assertIdempotencyHeader(update, 1);
 
         Method delete = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
-                "deleteDraft", Long.class, String.class, Integer.class, Integer.class);
+                "deleteDraft", Long.class, String.class, Integer.class, Integer.class, jakarta.servlet.http.HttpServletRequest.class);
         assertEquals("/drafts/{id}", delete.getAnnotation(DeleteMapping.class).value()[0]);
         assertPermission(delete, "dcc:registration-certificate:delete-draft");
         assertIdempotencyHeader(delete, 1);
 
         Method formalize = DccRegistrationCertificateCommandController.class.getDeclaredMethod(
-                "formalize", Long.class, String.class, DccRegistrationCertificateFormalizeReqVO.class);
+                "formalize", Long.class, String.class, DccRegistrationCertificateFormalizeReqVO.class, jakarta.servlet.http.HttpServletRequest.class);
         assertEquals("/{id}/formalize", formalize.getAnnotation(PostMapping.class).value()[0]);
         assertPermission(formalize, "dcc:registration-certificate:formalize");
         assertIdempotencyHeader(formalize, 1);

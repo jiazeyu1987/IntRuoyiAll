@@ -33,6 +33,23 @@ class GxpAuditPolicyStrictLoaderTest {
     @TempDir
     Path temporaryDirectory;
 
+    @Test
+    void packagedApprovalOpinionBundleRemainsDraftAndLimitsDecisionPolicyToApprovedOperations() {
+        var bundle = new GxpAuditPolicyBundleLoader().load();
+        assertEquals("20261027-approval-opinion-optional", bundle.policyVersion());
+        assertEquals("DRAFT", bundle.status());
+        var expected = java.util.Set.of("signature.record.create", "APPROVAL_CENTER_REVIEW_COMMIT",
+                "dcc.project-product.review", "dcc.project-product.approve", "dcc.project-product.complete",
+                "dcc.project-product.write-failed", "dcc.controlled-file.delayed-effective-confirm");
+        var actual = new java.util.HashSet<String>();
+        for (var operation : bundle.policyNode().path("operations")) {
+            if ("APPROVAL_DECISION".equals(operation.path("reasonPolicy").asText())) {
+                actual.add(operation.path("operationId").asText());
+            }
+        }
+        assertEquals(expected, actual);
+    }
+
     // Given the current packaged input, When loaded, Then retain the existing positive baseline.
     @Test
     void strictFixtureRemainsAnExplicitPositiveBaseline() throws IOException {

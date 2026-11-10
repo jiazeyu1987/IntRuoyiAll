@@ -17,6 +17,24 @@ const lifecycle = moduleFrom(read('src/views/dcc/controlled-file/shared/lifecycl
 const versionDisplay = moduleFrom(read('src/views/dcc/controlled-file/shared/version-display.ts'))
 const presentation = moduleFrom(read('src/views/dcc/controlled-file/browser/presentation.ts'), { '../shared/lifecycle': lifecycle, '../shared/version-display': versionDisplay, '@/utils/formatTime': { formatDateTimeValue: (_value, empty) => empty } })
 const { descriptor } = parse(read('src/views/dcc/controlled-file/browser/index.vue'))
+test('obsolete entry follows exact selected version backend authorization, never status or a legacy flag', () => {
+  for (const row of [{}, { status: 'ACTIVE', canObsolete: true },
+    { actionProjection: { allowedActions: ['PREVIEW'], actionLocked: false } },
+    { actionProjection: { allowedActions: [], actionLocked: true } }]) {
+    assert.equal(presentation.getBrowserRowActionState(row).canObsolete, false)
+  }
+  assert.equal(presentation.getBrowserRowActionState({
+    actionProjection: { allowedActions: ['OBSOLETE'], actionLocked: false }
+  }).canObsolete, true)
+})
+test('browser obsolete entry opens the selected version management page and browser component compiles', () => {
+  const buttons = descriptor.template.content.match(/<el-button\b[\s\S]*?<\/el-button>/g)
+  const button = buttons.find(tag => tag.includes('dcc-controlled-browser-obsolete'))
+  assert.ok(button)
+  assert.match(button, /v-if="getBrowserRowActionState\(getSelectedVersion\(row\)\)\.canObsolete"/)
+  assert.match(button, /@click="openManagement\(getSelectedVersion\(row\)\.id\)"/)
+  assert.doesNotThrow(() => compileScript(descriptor, { id: 'browser-obsolete' }))
+})
 const ast = ts.createSourceFile('browser.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
 const getter = ast.statements.find(n => ts.isVariableStatement(n) && n.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === 'getBrowserCurrentActiveRowSummary'))
 assert.ok(getter)

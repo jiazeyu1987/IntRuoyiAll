@@ -30,6 +30,7 @@ class DccCurrentFileRelationsTest {
         access=mock(DccRelationAccessPolicy.class);files=mock(DccLatestControlledFileResolver.class);related=mock(DccControlledFileRelatedFileMapper.class);
         fileMapper=mock(DccControlledFileMapper.class);masterMapper=mock(DccControlledFileMasterMapper.class);
         when(fileMapper.selectByIdAndTenantForUpdate(any(),any())).thenAnswer(call->fileMapper.selectById((Long)call.getArgument(1)));
+        when(fileMapper.selectById(100L)).thenReturn(DccControlledFileDO.builder().id(100L).tenantId(1L).build());
         service=new DccControlledFileRelatedFileServiceImpl();
         ReflectionTestUtils.setField(service,"relatedFileMapper",related);ReflectionTestUtils.setField(service,"controlledFileMapper",fileMapper);ReflectionTestUtils.setField(service,"controlledFileMasterMapper",masterMapper);
         // Added once implementation introduces its formal dependencies.
@@ -57,6 +58,20 @@ class DccCurrentFileRelationsTest {
         assertEquals(200L,result.get(0).controlledFileId());assertEquals("冻结名称",result.get(0).fileName());
         verify(files,never()).resolveLatest(any());
         assertEquals("A/1",service.listHistoricalRelatedFiles(7L,100L).get(0).getVersionNo());
+    }
+    @Test void historyUsesNativeSignedCompleteSelectionsWithoutSwitchingSourceOrRequestingBody(){
+        dependencies();when(files.resolveSelected(100L)).thenReturn(file(100,10,1,false));
+        when(fileMapper.selectById(100L)).thenReturn(DccControlledFileDO.builder().id(100L).tenantId(1L).processInstanceId("native-round").build());
+        var stages=mock(DccRelationStageSnapshotService.class);
+        ReflectionTestUtils.setField(service,"relationStageSnapshotService",stages);
+        var selected=new DccRelationStageContracts.Selection(20L,200L,1L,"A","会签后补固定名称","A/1","SUPPLEMENT",false);
+        when(stages.readNativeVersionEvidence(7L,100L)).thenReturn(new DccRelationRoundEvidence(1L,100L,10L,1L,"REVISION",1,"native-round",true,null,List.of(),List.of(),List.of(selected),"digest"));
+        var rows=service.listHistoricalRelatedFiles(7L,100L);
+        assertEquals(1,rows.size());assertEquals(200L,rows.get(0).getControlledFileId());
+        assertEquals("SUPPLEMENT",rows.get(0).getOrigin());assertNull(rows.get(0).getRelationId());
+        assertEquals("会签后补固定名称",rows.get(0).getFileName());assertEquals("A/1",rows.get(0).getVersionNo());
+        verify(stages).readNativeVersionEvidence(7L,100L);verifyNoInteractions(related);
+        verify(files,never()).resolveLatest(any());verify(access,never()).assertContentReadable(any(),any());
     }
     @Test void selectedSourceDoesNotSwitchToNewlyControlledPendingSource(){
         dependencies();when(files.resolveSelected(100L)).thenReturn(file(100,10,1,false));

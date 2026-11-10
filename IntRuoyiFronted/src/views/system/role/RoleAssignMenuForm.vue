@@ -118,7 +118,7 @@ const submitForm = async () => {
       roleId: formData.id!,
       menuIds: [
         ...(treeRef.value.getCheckedKeys(false) as unknown as Array<number>), // 获得当前选中节点
-        ...(treeRef.value.getHalfCheckedKeys() as unknown as Array<number>) // 获得半选中的父节点
+        ...(checkStrictly.value ? treeRef.value.getHalfCheckedKeys() : []) // 关闭联动时不提交遗留半选父节点
       ],
       reason: formData.reason.trim(),
       idempotencyKey: createPermissionAuditIdempotencyKey()

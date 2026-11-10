@@ -76,7 +76,7 @@ public class DccRegistrationCertificateBusinessFileAccessProvider implements Bus
         }
         if (request.operation() == BusinessFileAccessOperation.DIRECT_LINK) {
             recordFailure(request, live, "DIRECT_LINK_BLOCKED");
-            return;
+            throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
         }
         if (request.operation() != BusinessFileAccessOperation.PREVIEW
                 && request.operation() != BusinessFileAccessOperation.ONLYOFFICE_PREVIEW) {

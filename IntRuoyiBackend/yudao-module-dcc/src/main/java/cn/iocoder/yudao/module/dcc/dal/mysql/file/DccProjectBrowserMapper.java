@@ -19,6 +19,12 @@ public interface DccProjectBrowserMapper {
           AND folder.project_code_id=f.dcc_project_code_id AND folder.tenant_id=f.tenant_id
           AND folder.deleted=0 AND folder.active=1
         WHERE f.tenant_id=#{tenant} AND f.deleted=0
+          AND f.status != 'REJECTED'
+          AND (f.status != 'SUPERSEDED' OR f.controlled_time IS NOT NULL)
+        <if test="query.browserScope == 'PROJECT_FOLDER'">
+          AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL
+          AND f.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')
+        </if>
         <if test="query.dccProjectCodeId != null">AND f.dcc_project_code_id=#{query.dccProjectCodeId}</if>
         <if test="query.projectFolderId != null">AND folder.id=#{query.projectFolderId}</if>
         <if test="query.status != null and query.status != ''">AND f.status=#{query.status}</if>

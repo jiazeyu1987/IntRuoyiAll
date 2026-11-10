@@ -227,9 +227,9 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void approveRejectAssignEmptyCommentsStillFailWithoutEvidenceWrite() {
-        for(String action:List.of("APPROVE","REJECT","ASSIGN"))
-            for(String comment:new String[]{null,"","   "})
+    void rejectAndAssignmentEmptyCommentsStillFailWithoutEvidenceWrite() {
+        for(String action:List.of("REJECT","ASSIGN"))
+            for(String comment:new String[]{null,"","   ","\u00A0\uFEFF\u3000"})
                 assertServiceException(()->signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,
                         "task-required","MATRIX_REVIEW",action,"secret",comment),CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
         verify(signatureEvidenceService,never()).createEvidence(any());
@@ -266,14 +266,22 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void verifyPasswordAndCreateSignature_blankApproveCommentIsRejectedBeforeEvidenceWrite() {
+    void approveAcceptsOptionalCommentAndRetainsPasswordSignatureAndEvidence() {
         TenantContextHolder.setTenantId(1L);
-        assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
-                        99L, 900L, "task-blank-approve", "MATRIX_REVIEW", "APPROVE", "secret", "   "),
-                CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
-        verify(signatureEvidenceService, never()).createEvidence(any());
-        verify(electronicSignatureService, never()).sign(any());
-        verify(signatureMapper, never()).insert(any(DccControlledFileSignatureDO.class));
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class))).thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L,LocalDateTime.now().withNano(0)));
+        for(String comment:new String[]{null,"","   ","\u00A0\uFEFF\u3000"})
+            assertEquals("MATRIX_REVIEW_APPROVE",signatureVerificationService.verifyPasswordAndCreateSignature(
+                    99L,900L,"task-blank-approve","MATRIX_REVIEW","APPROVE","secret",comment).getMeaningCode());
+        var commands=ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        org.mockito.Mockito.verify(electronicSignatureService,org.mockito.Mockito.times(4)).sign(commands.capture());
+        assertTrue(commands.getAllValues().stream().allMatch(command->"".equals(command.reason()) && "secret".equals(command.credential())));
+        var records=ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        org.mockito.Mockito.verify(signatureMapper,org.mockito.Mockito.times(4)).insert(records.capture());
+        assertTrue(records.getAllValues().stream().allMatch(record->"".equals(record.getComment()) && "VALID".equals(record.getEvidenceStatus())));
     }
 
     @Test

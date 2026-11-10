@@ -45,7 +45,8 @@ export const assertRelationSource = (
   return true
 }
 export interface HistoricalRelationSnapshot {
-  relationId: DetailIdentity
+  relationId?: DetailIdentity | null
+  origin?: 'UPLOAD' | 'SUPPLEMENT'
   controlledFileId: DetailIdentity
   masterId: DetailIdentity
   projectCodeId: DetailIdentity
@@ -64,7 +65,8 @@ type Navigation = Pick<
   | 'folderName'
   | 'canPreview'
 >
-export type DetailRelationRow = FileCandidate & {
+export type DetailRelationRow = Pick<FileCandidate,
+  'tenantId' | 'controlledFileId' | 'masterId' | 'projectId' | 'fileName' | 'fileNumber' | 'versionNo'> & Partial<FileCandidate> & {
   relationId?: string
   projectCodeId: string
   origin?: string
@@ -74,8 +76,11 @@ export type DetailRelationRow = FileCandidate & {
 export const historicalRelationCandidate = (
   snapshot: HistoricalRelationSnapshot,
   navigation: Navigation
-): FileCandidate & { relationId: string; projectCodeId: string } => {
-  detailIdentity(snapshot.relationId)
+): FileCandidate & { relationId?: string; projectCodeId: string } => {
+  // Signed application selections need not have an original upload-relation row.
+  if (snapshot.relationId == null && !['UPLOAD', 'SUPPLEMENT'].includes(snapshot.origin || ''))
+    throw new Error('历史关联快照身份缺失')
+  const relationId = snapshot.relationId == null ? undefined : detailIdentity(snapshot.relationId)
   detailIdentity(snapshot.projectCodeId)
   if (
     detailIdentity(snapshot.controlledFileId) !== navigation.controlledFileId ||
@@ -88,7 +93,7 @@ export const historicalRelationCandidate = (
   return {
     ...snapshot,
     ...navigation,
-    relationId: detailIdentity(snapshot.relationId),
+    relationId,
     projectCodeId: detailIdentity(snapshot.projectCodeId),
     fileName: snapshot.fileName,
     fileNumber: snapshot.fileNumber,

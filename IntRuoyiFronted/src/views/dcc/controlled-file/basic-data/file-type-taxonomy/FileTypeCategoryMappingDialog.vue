@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="visible" title="文件类型对应类别检查" width="620px">
+  <Dialog v-model="visible" title="文件类型对应类别检查" width="min(620px, calc(100vw - 24px))">
     <section v-loading="loading">
       <p>文件类型：{{ typeName }}</p>
       <el-alert v-if="error" :title="error" type="error" :closable="false" />

@@ -252,6 +252,7 @@ public class DccRegistrationCertificateDraftRepository {
                 .id(snapshotId)
                 .versionId(versionId)
                 .revisionNo(1)
+                .factsJson(draft.factsJson())
                 .productName(resolved.productName())
                 .registrantName(trim(draft.registrantName()))
                 .modelSpecification(trim(draft.modelSpecification()))
@@ -263,7 +264,7 @@ public class DccRegistrationCertificateDraftRepository {
                 .entrustedProduction(resolved.productionRelation().entrustedProduction())
                 .selfProduction(resolved.productionRelation().selfProduction())
                 .entrustedEnterprisesJson(JsonUtils.toJsonString(resolved.productionRelation().entrustedEnterprises()))
-                .effectiveAt(draft.effectiveDate().atStartOfDay())
+                .effectiveAt(draft.effectiveDate() == null ? java.time.LocalDateTime.now() : draft.effectiveDate().atStartOfDay())
                 .build();
         snapshot.setTenantId(tenantId);
         return snapshot;

@@ -123,8 +123,9 @@ public class DccApprovalMatrixBaselineService {
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public String initializeDraft(Long actor,DccControlledFileDO file,String token,String applicationContextKey){
         if(file==null||!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
-                ||!Objects.equals(file.getRequesterId(),actor)||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)
+                ||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)
             throw new IllegalArgumentException("APPROVAL_MATRIX_DRAFT_IDENTITY_INVALID");
+        if(!Objects.equals(file.getRequesterId(),actor))executionContracts.requireDraft(actor,file);
         if(file.getDraftApprovalMatrixJson()!=null){
             var original=DccApprovalMatrixSourceService.readCanonical(file.getDraftApprovalMatrixJson());
             if(!Objects.equals(original.getTenantId(),file.getTenantId())||!Objects.equals(original.getCategoryId(),file.getCategoryId()))
@@ -179,7 +180,7 @@ public class DccApprovalMatrixBaselineService {
         return new DccApprovalMatrixSourceService.Source(cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO.builder()
                 .id(baseline.getRouteId()).categoryId(baseline.getCategoryId()).versionNo(baseline.getRouteVersionNo()).actionType("LEGACY").build(),nodes,baseline,canonical);
     }
-    private DccControlledFileDO requireDraft(Long actor,Long id){var file=files.selectById(id);if(file==null||!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())||!Objects.equals(file.getRequesterId(),actor)||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)throw new IllegalArgumentException("APPROVAL_MATRIX_DRAFT_IDENTITY_INVALID");return file;}
+    private DccControlledFileDO requireDraft(Long actor,Long id){var file=files.selectById(id);if(file==null||!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)throw new IllegalArgumentException("APPROVAL_MATRIX_DRAFT_IDENTITY_INVALID");if(!Objects.equals(file.getRequesterId(),actor))executionContracts.requireDraft(actor,file);return file;}
     private DccApprovalMatrixChangeException change(String code,DccApprovalMatrixTokenService.Context context,String original,DccApprovalMatrixBaselineVO before,DccApprovalMatrixBaselineVO after){
         return new DccApprovalMatrixChangeException(code,before,after,tokens.issueBaseline(context,original),
                 tokens.issueConfirmation(context,original,after.getRouteId(),after.getRouteVersionNo(),after.getMatrixDigest()));

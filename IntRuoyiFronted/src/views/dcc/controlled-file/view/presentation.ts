@@ -1,3 +1,5 @@
+const CONTROLLED_PREVIEW_STAMP_COLOR = 'rgba(210, 37, 37, 0.96)'
+export const CONTROLLED_PREVIEW_STAMP_TEXT = '受控'
 import type { ControlledPreviewWatermark } from '@/api/dcc/controlledFile/workflow'
 
 export type ControlledFileTraceabilityScope = 'trace' | 'signature'
@@ -67,10 +69,6 @@ export const getProtectedViewerRenderScale = (containerWidth?: number) => {
   const width = Math.max(containerWidth || 960, 720)
   return Math.max(1.15, Math.min(1.5, width / 840))
 }
-
-export const CONTROLLED_PREVIEW_STAMP_TEXT = '受控'
-
-const CONTROLLED_PREVIEW_STAMP_COLOR = 'rgba(210, 37, 37, 0.96)'
 
 const DEFAULT_WATERMARK_OVERLAY = Object.freeze({
   textColor: '#6b7280',

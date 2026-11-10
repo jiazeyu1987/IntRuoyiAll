@@ -17,6 +17,7 @@ public class DccProjectApplicationSnapshotService {
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper masters;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectApplicationAttributesMapper snapshots;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccControlledFileCategoryPermissionSupport filePermissions;
 
     /** A真实File创建事务立即捕获来源，NULL BPM尚未存在，不能造占位字符串。 */
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
@@ -63,24 +64,31 @@ public class DccProjectApplicationSnapshotService {
         var second=files.selectByIdAndTenantForUpdate(tenant,Math.max(sourceFileId,targetFileId));
         var source=sourceFileId<targetFileId?first:second;
         var target=sourceFileId<targetFileId?second:first;
-        boolean ownerReplacement=source!=null && target!=null && "REVISION".equals(type)
-                && "REPLACEMENT".equals(target.getRevisionChangeType())
+        boolean formalRevision=source!=null && target!=null && "REVISION".equals(type)
+                && ("PARTIAL".equals(target.getRevisionChangeType())||"REPLACEMENT".equals(target.getRevisionChangeType()))
+                && source.getRevisionChangeType()==null && source.getControlledTime()==null && source.getCheckedOutBy()==null
                 && java.util.Objects.equals(sourceFileId,target.getSelectedIterationControlledFileId())
                 && java.util.Objects.equals(source.getRevisionBaseActiveControlledFileId(),target.getRevisionSourceControlledFileId());
-        if(ownerReplacement && !java.util.Objects.equals(source.getRequesterId(),userId))projectAccess.assertProjectOwner(userId,projectId);
+        boolean checkedInWorking=source!=null && target!=null && target.getSelectedIterationControlledFileId()==null
+                && java.util.Objects.equals(sourceFileId,target.getPredecessorControlledFileId())
+                && source.getRevisionChangeType()==null && source.getControlledTime()==null
+                && java.util.Objects.equals(source.getCheckedOutBy(),userId)
+                && filePermissions.hasFilePermission(source,userId,
+                    cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT);
+        if(formalRevision && !java.util.Objects.equals(source.getRequesterId(),userId))projectAccess.assertProjectEditorOrOwner(userId,projectId);
         String expectedChangeType="UPLOAD".equals(type)?"NEW":"REVISION".equals(type)?"REVISION":null;
         if(expectedChangeType==null || source==null || target==null
                 || !java.util.Objects.equals(source.getTenantId(),tenant) || !java.util.Objects.equals(target.getTenantId(),tenant)
                 || !java.util.Objects.equals(source.getDccProjectCodeId(),projectId) || !java.util.Objects.equals(target.getDccProjectCodeId(),projectId)
                 || source.getMasterId()==null || !java.util.Objects.equals(source.getMasterId(),target.getMasterId())
-                || !(java.util.Objects.equals(source.getRequesterId(),userId) || ownerReplacement)
+                || !(java.util.Objects.equals(source.getRequesterId(),userId) || formalRevision || checkedInWorking)
                 || !java.util.Objects.equals(target.getRequesterId(),userId)
                 || !expectedChangeType.equals(source.getChangeType()) || !expectedChangeType.equals(target.getChangeType())
                 || !"WORKING".equals(source.getStatus()) || source.getProcessInstanceId()!=null)throw fail(SNAPSHOT_INVALID);
         var master=masters.selectById(source.getMasterId());
         if(master==null || !java.util.Objects.equals(master.getTenantId(),tenant)
                 || !java.util.Objects.equals(master.getDccProjectCodeId(),projectId)
-                || ownerReplacement && !java.util.Objects.equals(master.getLatestControlledFileId(),target.getRevisionSourceControlledFileId()))throw fail(SNAPSHOT_INVALID);
+                || formalRevision && !java.util.Objects.equals(master.getLatestControlledFileId(),target.getRevisionSourceControlledFileId()))throw fail(SNAPSHOT_INVALID);
         if(!java.util.Objects.equals(rounds.requireDraft(type,sourceFileId),sourceAttributeRound))throw fail(SNAPSHOT_INVALID);
         var existing=snapshots.find(type,targetFileId,targetAttributeRound);
         if(existing==null && (!"WORKING".equals(target.getStatus()) || target.getProcessInstanceId()!=null

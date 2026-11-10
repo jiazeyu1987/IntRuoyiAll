@@ -58,6 +58,7 @@ const setup = overrides => {
     projectFoldersLoading: ref(false), projectFoldersError: ref(''), projectFolders: ref([]), projectFoldersProjectId: ref('5'),
     selectedProjectFolder: ref({ id: '500', name: '逻辑文件夹', projectCodeId: '5', active: true }), projectFolderRequestSequence: 0,
     selectedProjectCode: ref({ id: '5', projectName: '甲项目' }), selectedCategory: ref({ name: '质量文件' }),
+    projectCodeOptions: ref([{ id: 5, projectName: '甲项目' }, { id: 6, projectName: '乙项目' }]), acceptedProjectCodeOption: ref(undefined),
     selectedFileTypeTaxonomyLeafName: ref('作业指导书'), selectedProjectTemplateType: ref({ name: '作业指导书' }),
     selectedUploadRelations: ref([{ fileName: '关联文件.pdf', versionNo: 'B/1', controlledFileId: '8', pendingEffect: true }]), uploadRelationsVisible: ref(false), uploadRelationSource: ref(undefined), loadUploadProjectFolders: async () => {},
     relatedFileRequestSequence: 0, relatedFileKeyword: ref(''), relatedFilePageNo: ref(1), relatedFileTotal: ref(1),

@@ -12,7 +12,8 @@
         <el-input v-model="reason" type="textarea" maxlength="500" placeholder="请填写本次确认原因" />
       </el-form-item>
       <el-form-item label="电子签名密码" required>
-        <el-input v-model="password" type="password" show-password autocomplete="off" placeholder="当前账号密码" />
+        <el-input v-model="password" name="dcc-delayed-effective-signature-password" type="password" show-password
+          autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" placeholder="当前账号密码" />
       </el-form-item>
     </el-form>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -33,11 +34,12 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [result: DelayedEffectiveConfirmationResult] }>()
 const selectedEffectiveTime = ref(''), password = ref(''), reason = ref(''), error = ref('')
+const passwordFocused = ref(false)
 const busy = ref(false), saved = ref(false), idempotencyKey = ref(generateUUID())
 let generation = 0, mounted = true
 watch(() => [props.context.controlledFileId, props.context.taskId, props.context.processInstanceId,
   props.context.attributeRound, props.context.processDefinitionId, props.context.definitionDigest, props.context.versionNo], () => {
-  generation++; selectedEffectiveTime.value = ''; password.value = ''; reason.value = ''; error.value = ''
+  generation++; selectedEffectiveTime.value = ''; password.value = ''; passwordFocused.value = false; reason.value = ''; error.value = ''
   busy.value = false; saved.value = false; idempotencyKey.value = generateUUID()
 }, { flush: 'sync' })
 onBeforeUnmount(() => { mounted = false; generation++; password.value = '' })

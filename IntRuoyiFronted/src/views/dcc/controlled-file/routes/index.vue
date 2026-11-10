@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="route-panel">
     <UnifiedListTemplate
       table-key="dcc.controlledFile.routes.main"
       :query-model="queryParams"
@@ -129,7 +129,8 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <ContentWrap v-if="queryParams.categoryId">
+  <ContentWrap v-if="queryParams.categoryId" class="route-panel route-panel--preview">
+    <h2 class="route-preview-title">派生预览</h2>
     <el-alert
       v-if="routePreviewError"
       class="mb-12px"
@@ -713,9 +714,102 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.route-panel {
+  min-width: 0;
+  margin-bottom: 8px;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+  --el-color-primary: #008f86;
+}
+
+.route-panel :deep(.unified-list-template__query-form) {
+  margin-bottom: 0;
+  padding-bottom: 8px;
+  gap: 8px;
+}
+
+.route-panel :deep(.unified-list-template__query-form .el-form-item) {
+  margin-bottom: 0;
+}
+
+.route-panel :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.route-panel :deep(.unified-list-template__toolbar-actions),
+.route-panel :deep(.unified-list-template__toolbar-actions .el-form-item__content),
+.route-panel :deep(.unified-list-template__toolbar) {
+  width: 100%;
+}
+
+.route-panel :deep(.unified-list-template__toolbar-actions) {
+  margin-left: 0;
+}
+
+.route-panel :deep(.unified-list-template__column-settings) {
+  margin-left: auto;
+}
+
+.route-panel :deep(.el-button:not(.is-link)) {
+  height: 32px;
+  border-radius: 5px;
+}
+
+.route-panel :deep(.el-table) {
+  --el-table-border-color: #e5ecef;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #f0f8f7;
+  font-size: 13px;
+}
+
+.route-panel :deep(.el-table th.el-table__cell) {
+  height: 38px;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.route-panel :deep(.el-table td.el-table__cell) {
+  padding: 5px 0;
+}
+
+.route-panel :deep(.el-table .cell) {
+  line-height: 20px;
+}
+
+.route-panel :deep(.el-pagination) {
+  float: none;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.route-preview-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .route-panel :deep(.unified-list-template__toolbar) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .route-panel :deep(.el-pagination) {
+    justify-content: flex-start;
+  }
+
+  .route-panel :deep(.el-pagination > *) {
+    margin-left: 0;
+  }
+}
+
 .route-category {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 

@@ -17,21 +17,37 @@ import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOpera
 import java.util.List;
 
 public interface DccControlledFileQueryService {
+    boolean canDownloadLibraryOriginal(Long id);
+    boolean isArchivedFile(Long id);
+    java.util.List<java.util.Map<String,Object>> getArchiveProjects(Long actor);
     /** Internal read authority for a checked-out, truly cancelled native revision's source upload. */
     void assertCancelledRevisionCheckinUpload(Long userId, Long fileId, Long categoryId);
     List<DccApplicationRoundSummary> listApplicationRounds(Long userId, Long controlledFileId);
+    List<DccApplicationRoundSummary> listApplicationRounds(Long userId, Long controlledFileId,
+                                                          DccControlledFileBodyReadContext context);
     DccFileRelationPermissions getRelationPermissions(Long userId, Long controlledFileId);
+    DccFileRelationPermissions getProjectReferencePermissions(Long userId, Long projectId, Long folderId, Long controlledFileId);
     DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,
                                                                String applicationType, String bpmRound);
+    DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,
+            String applicationType, String bpmRound, DccControlledFileBodyReadContext context);
     DccControlledFileRevisionOptions getRevisionOptions(Long userId, Long controlledBaselineId);
+    java.util.Map<String, Object> getApplicationRestartContext(Long userId, String processInstanceId);
+    Long prepareApplicationRestart(Long userId, Long controlledFileId);
     PageResult<DccControlledFileSelectorRow> getControlledFileSelectorPage(Long userId, DccControlledFileSelectorQuery query);
     void assertRelationNameVisible(Long userId, Long id);
+    void assertApplicationRoundReadable(Long userId, Long id, String applicationType, String bpmRound,
+                                       DccControlledFileBodyReadContext context);
     void assertRelationContentReadable(Long userId, Long id);
     void assertRelationEditable(Long userId, Long id);
+
+    PageResult<DccControlledFileRespVO> getArchivePage(Long userId, DccControlledFilePageReqVO request);
 
     PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, DccControlledFilePageReqVO reqVO);
 
     PageResult<DccControlledFileRespVO> getControlledFileBrowserPage(Long userId, DccControlledFilePageReqVO reqVO);
+
+    PageResult<DccControlledFileRespVO> getControlledFileWorkingBrowserPage(Long userId, DccControlledFilePageReqVO reqVO);
 
     List<DccControlledFileDO> listControlledFileBrowserCandidates(Long userId, DccControlledFilePageReqVO reqVO);
 
@@ -79,6 +95,13 @@ public interface DccControlledFileQueryService {
     boolean confirmDistributionOfficeBodyOpened(Long userId, Long id, Long distributionId, Long recipientId,
                                                 String viewerToken, String accessEventCode, String watermarkTraceCode,
                                                 String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
+
+    DccControlledFilePreviewMetadataRespVO getAttachmentPreviewMetadata(Long userId, Long id, Long attachmentId,
+            DccControlledFileBodyReadContext context, DccRequestAuditContext auditContext);
+
+    DccControlledFileBinary readAttachmentPreviewFile(Long userId, Long id, Long attachmentId,
+            DccControlledFileBodyReadContext context, String viewerToken, String accessEventCode,
+            String watermarkTraceCode, String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
 
     DccControlledFilePreviewMetadataRespVO getAttachmentPreviewMetadata(Long userId, Long id, Long attachmentId,
                                                                         DccRequestAuditContext auditContext);

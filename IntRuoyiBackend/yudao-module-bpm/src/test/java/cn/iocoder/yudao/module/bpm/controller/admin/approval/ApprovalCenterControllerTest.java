@@ -133,13 +133,13 @@ class ApprovalCenterControllerTest {
 
     @ParameterizedTest
     @MethodSource("blankReviewReasons")
-    void reviewRequestVoRejectsBlankOpinionForBothResults(ApprovalTaskReviewResult result, String reason) {
+    void reviewRequestVoRejectsBlankRejectionReason(ApprovalTaskReviewResult result, String reason) {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var violations = factory.getValidator().validate(reviewRequest(result, reason).setModuleCode(ApprovalModuleCode.BPM));
             assertTrue(!violations.isEmpty());
             assertTrue(violations.stream().allMatch(violation ->
-                    "reasonValid".equals(violation.getPropertyPath().toString())
-                            && "审核意见不能为空".equals(violation.getMessage())));
+                    "rejectReasonValid".equals(violation.getPropertyPath().toString())
+                            && "驳回原因不能为空".equals(violation.getMessage())));
         }
         verifyNoInteractions(approvalCenterService);
     }
@@ -157,9 +157,26 @@ class ApprovalCenterControllerTest {
                     .andExpect(status().isBadRequest()).andReturn();
             MethodArgumentNotValidException ex = assertInstanceOf(MethodArgumentNotValidException.class,
                     mvcResult.getResolvedException());
-            assertEquals("审核意见不能为空", ex.getBindingResult().getFieldError("reasonValid").getDefaultMessage());
+            assertEquals("驳回原因不能为空", ex.getBindingResult().getFieldError("rejectReasonValid").getDefaultMessage());
         }
         verifyNoInteractions(approvalCenterService);
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankApprovalReasons")
+    void reviewEndpointAcceptsBlankApprovalOpinion(ApprovalTaskReviewResult result, String reason) throws Exception {
+        try (LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+             MockedStatic<WebFrameworkUtils> web = mockStatic(WebFrameworkUtils.class)) {
+            validator.afterPropertiesSet();
+            web.when(WebFrameworkUtils::getLoginUserId).thenReturn(100L);
+            standaloneSetup(controller).setValidator(validator).build().perform(
+                    post("/approval-center/tasks/review").contentType(MediaType.APPLICATION_JSON)
+                            .content(new ObjectMapper().writeValueAsString(reviewRequest(result, reason))))
+                    .andExpect(status().isOk());
+        }
+        var command = ArgumentCaptor.forClass(ApprovalTaskReviewCommand.class);
+        verify(reviewFacade).review(eq(100L), command.capture());
+        assertEquals(reason, command.getValue().getReason());
     }
 
     @ParameterizedTest
@@ -198,9 +215,13 @@ class ApprovalCenterControllerTest {
     }
 
     private static Stream<Arguments> blankReviewReasons() {
-        return Stream.of(ApprovalTaskReviewResult.values()).flatMap(result ->
+        return Stream.of(ApprovalTaskReviewResult.REJECT).flatMap(result ->
                 Stream.of(null, "", "  ", " \t\r\n ", "\u2003", "\u2003 \t\r\n\u2003", "\000", "\u2003\000 ",
                                 "\u00a0", "\u202f\u2007", "\uFEFF")
                         .map(reason -> Arguments.of(result, reason)));
+    }
+
+    private static Stream<Arguments> blankApprovalReasons() {
+        return blankReviewReasons().map(args -> Arguments.of(ApprovalTaskReviewResult.APPROVE, args.get()[1]));
     }
 }

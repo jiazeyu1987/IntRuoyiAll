@@ -10,7 +10,7 @@ const clone = v => JSON.parse(JSON.stringify(v))
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve } }
 const flush = async () => { for (let n = 0; n < 15; n++) await Promise.resolve(); await vue.nextTick() }
 function moduleFrom(source, require = id => { throw Error(id) }) {
-  const env = { exports: {}, require, Error, JSON, Set, BigInt, Number, String }
+  const env = { exports: {}, require, Error, JSON, Set, BigInt, Number, String, TextEncoder, TextDecoder, btoa, atob }
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, env)
   return env.exports
 }
@@ -26,6 +26,7 @@ function mount(props, { rounds = async () => clone(rows), evidence = async (id, 
     if (id === './presentation') return { formatControlledFileDateTime: value => value }
     if (id === '../shared/signature-evidence') return { getDccSignatureTaskActionLabel: value => value }
     if (id === './application-round-context') return moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
+    if (id === '@/api/dcc/controlledFile/bodyReadContext') return moduleFrom(read('src/api/dcc/controlledFile/bodyReadContext.ts'))
     if (id === './application-node-records') return moduleFrom(read('src/views/dcc/controlled-file/detail/application-node-records.ts'))
     if (id === './relation-contract') return moduleFrom(read('src/views/dcc/controlled-file/detail/relation-contract.ts'))
     if (id === '../shared/version-display') return moduleFrom(read('src/views/dcc/controlled-file/shared/version-display.ts'))
@@ -104,7 +105,9 @@ function approvalReader(transport) {
   const declaration = source.statements.find(statement => ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => d.name.getText(source) === 'loadApprovalDetail'))
   assert.ok(declaration)
   const helper = moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
+  const body = moduleFrom(read('src/api/dcc/controlledFile/bodyReadContext.ts'))
   const env = { exports: {}, Error, String, Promise, route: { fullPath: '/detail/10?processInstanceId=obsolete-O&taskId=task-O', query: { processInstanceId: 'obsolete-O', taskId: 'task-O' } },
+    ...body,
     resolveDetailReadSelection: require('./dcc-detail-read-test-loader.cjs').resolveDetailReadSelection,
     detailLoadSequence: 1, controlledFileId: vue.ref('10'), fileDetail: vue.ref({ id: '10', processInstanceId: 'native-U' }),
     applicationApprovalRead: vue.ref({ contextKey: 'previous', processInstanceId: 'native-U', taskId: '' }),
@@ -113,8 +116,10 @@ function approvalReader(transport) {
     checkPermi: () => false, TaskApi: { getTaskListByProcessInstanceId: transport }, ProcessInstanceApi: { getApprovalDetail: async () => { throw Error('generic BPM read should be permission-gated') } },
     findCurrentUserTodoTask: rows => rows[0], syncStageProgress() {}, validateApplicationApprovalRead: helper.validateApplicationApprovalRead,
     validateApplicationRoundMappings: helper.validateApplicationRoundMappings, resolveApprovalProgressScope: nativeProgress.resolveApprovalProgressScope,
-    getControlledFileApplicationRounds: async () => [{ controlledFileId: env.controlledFileId.value, applicationType: 'OBSOLETE', bpmRound: env.route.query.processInstanceId, attributeRound: 2 }],
+    getControlledFileApplicationRounds: async () => [{ controlledFileId: env.controlledFileId.value, applicationType: 'OBSOLETE', bpmRound: env.resolveDetailReadSelection('10', env.route.query).bpmRound, attributeRound: 2 }],
     resolveReadSideErrorMessage: cause => cause.message }
+  env.route.query = body.buildDccBodyReadQuery('10', { intent: 'APPROVAL_TASK', controlledFileId: '10',
+    expectedVersionNo: 'A/2', applicationType: 'OBSOLETE', bpmRound: 'obsolete-O', taskId: 'task-O' })
   env.applicationRoundContextKey = { get value() { return JSON.stringify([env.controlledFileId.value, env.route.fullPath]) } }
   env.isCurrentDetailLoad = (sequence, id, route) => sequence === env.detailLoadSequence && id === env.controlledFileId.value && route === env.route.fullPath
   vm.runInNewContext(ts.transpileModule(declaration.getText(source) + '\nexports.load = loadApprovalDetail', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, env)
@@ -177,7 +182,7 @@ test('applicant scope notice preserves native or explicit DCC round, version, no
       contextKey: env.applicationRoundContextKey.value, contextError: selection.blockedReason, showNodeRecords: true, expectedVersionNo: 'A/2' }, { evidence: async () => clone(evidence) })
     try {
       await flush(); assert.equal(p.state.error, ''); assert.deepEqual(clone(p.state.evidence), evidence)
-      assert.deepEqual(p.calls, [['rounds', '10'], ['evidence', '10', 'UPLOAD', 'native-U']])
+      assert.deepEqual(p.calls, [['rounds', '10'], ['evidence', '10', 'UPLOAD', 'native-U', undefined]])
       assert.equal(env.approvalProgressScope.value, undefined); assert.equal(env.stageProgressList.value.length, 0)
     } finally { p.app.unmount() }
   }

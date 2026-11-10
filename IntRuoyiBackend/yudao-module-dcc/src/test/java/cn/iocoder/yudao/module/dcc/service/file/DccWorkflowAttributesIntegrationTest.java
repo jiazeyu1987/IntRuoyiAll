@@ -56,6 +56,8 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
         wire(workflow,"projectApplicationSnapshots",bridge);
         var permissions=mock(DccControlledFileCategoryPermissionSupport.class);
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+        when(permissions.hasFilePermission(any(),any(),any())).thenReturn(true);
+        when(permissions.hasEditableProjectCategory(any(),any(),any())).thenReturn(true);
         wire(workflow,"controlledFileMasterMapper",masters,"projectAccessService",access,"categoryPermissionSupport",permissions,"projectCodeMapper",projects);
         var initializer=new DccWorkingApplicationDraftInitializer();
         wire(initializer,"projectMapper",projects,"masterMapper",masters,"fileMapper",files,"rounds",rounds,"snapshots",bridge,"attributesMapper",snapshots,"projectAccess",access,"categoryPermission",permissions);
@@ -63,6 +65,19 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
     }
     DccProjectApplicationSnapshotService bridge;
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_application_round_link");TenantContextHolder.clear();}
+    @ParameterizedTest @ValueSource(strings={"QMS","GENERAL"})
+    void realWorkflowFreezeKeepsLibraryMarkerWithoutProjectAttributes(String scope) {
+        jdbc.update("UPDATE dcc_project_code SET library_scope=?,default_attributes_json=NULL WHERE id=5",scope);
+        var marker=DccProjectAttributes.forLibrary(scope);
+        new TransactionTemplate(manager).executeWithoutResult(s->{
+            workflow.prepareApplicationDraft(99L,files.selectById(20L),null);
+            bindInitialBpm();workflow.freezeApplicationAttributes(99L,files.selectById(20L),null);
+        });
+        var saved=snapshots.find("UPLOAD",20L,1);
+        assertTrue(saved.getSubmitted());assertEquals(marker,attributes.readValue(saved.getDefaultSourceJson()));
+        assertEquals(marker,attributes.readValue(saved.getActualAttributesJson()));
+        assertNull(jdbc.queryForObject("SELECT default_attributes_json FROM dcc_project_code WHERE id=5",String.class));
+    }
     @Test void actualValuesAndServerDefaultSourceRemainSeparateAfterProjectDefaultsChange() {
         freeze(actual);
         var saved=attributes.readSaved(99L,5L,"UPLOAD",20L,rounds.require("UPLOAD",20L,"opaque-bpm-round"));
@@ -265,6 +280,11 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
         var ticket=mock(cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService.class);
         when(ticket.resolveForBinding(any())).thenReturn(new cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketBoundFile("test-ticket",100L,"SOP.pdf","application/pdf",8L));
         var dates=new DccWorkflowDatePolicy();dates.setZoneId("Asia/Singapore");
+        var compiler=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO();
+        compiler.setId(99L);compiler.setTenantId(1L);compiler.setStatus(0);compiler.setUsername("fixture-compiler");compiler.setNickname("Fixture compiler");
+        var users=mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);when(users.getUser(99L)).thenReturn(compiler);
+        var owners=new DccApprovalFileOwnerSelectionService();wire(owners,"users",users);
+        wire(workflow,"fileOwnerSelection",owners);
         wire(workflow,"categoryMapper",categories,"categoryDirectoryBindingMapper",bindings,"directoryMapper",directories,"projectCodeMapper",projects,
             "fileTypeTaxonomyAdminService",taxonomy,"projectFileTemplateService",mock(cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFileTemplateService.class),
             "nameClaimService",claims,"revisionService",new DccControlledFileRevisionServiceImpl(),"sourceOwnershipService",sources,"fileMapper",physical,

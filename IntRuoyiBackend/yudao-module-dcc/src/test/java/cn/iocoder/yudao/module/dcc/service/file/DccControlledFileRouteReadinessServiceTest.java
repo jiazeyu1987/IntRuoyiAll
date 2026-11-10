@@ -150,6 +150,39 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
         org.mockito.Mockito.verifyNoInteractions(routeAssigneeResolver);
     }
 
+    @Test void obsoleteRouteDoesNotRequireDccMenuPermissionsForResolvedParticipants() {
+        var stages = List.of("SUPERVISOR_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL");
+        var nodes = stages.stream().map(stage -> new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                stages.indexOf(stage), stage, stage, stages.indexOf(stage), "USER", 101L,
+                List.of(101L), "ANY", null, false, List.of(101L))).toList();
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(user(101L, "部门负责人", Set.of(10L))));
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(validImage());
+
+        service.requireReadyObsoleteRoute(resolvedRoute(nodes));
+        for (var stage : stages) service.requireReadyObsoleteParticipants(stage, List.of(101L));
+        org.mockito.Mockito.verifyNoInteractions(permissionApi);
+        assertThrows(ServiceException.class, () -> service.requireReadyResolvedRoute(resolvedRoute(nodes)));
+    }
+
+    @Test void obsoleteParticipantsStillRequireEnabledTenantAccountPostAndSignature() {
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(validImage());
+        for (var account : List.of(user(101L, "停用", Set.of(10L)).setStatus(1),
+                user(101L, "异租户", Set.of(10L)).setTenantId(2L), user(101L, "无岗位", Set.of()))) {
+            when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(account));
+            assertThrows(ServiceException.class, () -> service.requireReadyObsoleteParticipants("MATRIX_APPROVAL", List.of(101L)));
+        }
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(user(101L, "审批人", Set.of(10L))));
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, false));
+        assertThrows(ServiceException.class, () -> service.requireReadyObsoleteParticipants("MATRIX_APPROVAL", List.of(101L)));
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(null);
+        assertThrows(ServiceException.class, () -> service.requireReadyObsoleteParticipants("MATRIX_APPROVAL", List.of(101L)));
+        assertThrows(ServiceException.class, () -> service.requireReadyObsoleteParticipants("DOC_CONTROL_REVIEW", List.of(101L)));
+        org.mockito.Mockito.verifyNoInteractions(permissionApi);
+    }
+
     private AdminUserRespDTO user(Long id, String nickname, Set<Long> postIds) {
         return new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setNickname(nickname).setPostIds(postIds);
     }

@@ -26,6 +26,12 @@ import java.util.stream.Collectors;
 /** Shared file-level detail authorization without a query-service dependency. */
 @Component
 class DccControlledFileDetailAuthorizationGuard {
+    @Resource private DccProjectReferenceReadAccess projectReferenceReadAccess;
+    boolean canReadProjectReference(Long actor, DccControlledFileDO file) {
+        return projectReferenceReadAccess.canRead(actor, file)
+                && hasAuthenticatedActor(actor, file) && matchesMasterIdentity(file);
+    }
+    @Resource private DccArchiveAccessService archiveAccess;
     private final ThreadLocal<DccVerifiedOfficeReadActor> verifiedOfficeReadActor = new ThreadLocal<>();
 
     @Resource
@@ -63,23 +69,33 @@ class DccControlledFileDetailAuthorizationGuard {
                 || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !hasAuthenticatedActor(userId, file)) bodyDenied();
         context.requireFile(file.getId(), file.getVersionNo());
-        if (!assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
+        if (DccArchiveAccessService.isArchived(file)) {
+            if (!archiveAccess.canRead(userId, file)) bodyDenied();
+            return;
+        }
+        if ((context.intent() == DccControlledFileBodyReadContext.Intent.VERSION_HISTORY
+                || context.intent() == DccControlledFileBodyReadContext.Intent.DAILY && "ACTIVE".equals(file.getStatus()))
+                && canReadProjectReference(userId, file)) return;
+        if (!permissionSupport.isLibrary(file.getDccProjectCodeId()) && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())) bodyDenied();
         switch (context.intent()) {
             case DAILY -> {
                 if (!"ACTIVE".equals(file.getStatus()) || file.getActivatedTime() == null) bodyDenied();
                 requireReadableProject(userId, file);
+                if (!canAccessCurrentViewMatrix(userId, file, null)) bodyDenied();
             }
             case VERSION_HISTORY -> {
                 if (!canReadRetainedVersion(userId, file, null)) bodyDenied();
             }
             case AUTHORING -> {
                 if (Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE", "CONTROLLED_PENDING_EFFECTIVE").contains(file.getStatus())) bodyDenied();
-                if (!hasCompilerScope(userId, file)) bodyDenied();
                 requireMasterIdentity(file);
                 if (context.bpmRound() == null) {
                     if (!"WORKING".equals(file.getStatus()) || StrUtil.isNotBlank(file.getProcessInstanceId())
-                            || file.getControlledTime() != null) bodyDenied();
+                            || file.getControlledTime() != null || file.getSourceFileId() == null
+                            || StrUtil.isBlank(file.getSourceSha256())
+                            || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT)) bodyDenied();
                 } else {
+                    if (!hasCompilerScope(userId, file)) bodyDenied();
                     var round = requireExactBodyRound(file, context);
                     if (!Objects.equals(context.bpmRound(), file.getProcessInstanceId())
                             || !Objects.equals(round.startUserId(), userId.toString())) bodyDenied();
@@ -125,16 +141,29 @@ class DccControlledFileDetailAuthorizationGuard {
     }
 
     boolean canReadRetainedVersion(Long userId, DccControlledFileDO file, Map<Long, Boolean> viewMatrixCache) {
+        if (DccArchiveAccessService.isArchived(file)) return archiveAccess.canRead(userId, file);
         if (file == null || file.getId() == null || file.getStatus() == null || Boolean.TRUE.equals(file.getDeleted())
-                || !Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE").contains(file.getStatus())
+                || !(Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE").contains(file.getStatus()) || isRegisteredPendingImport(file))
                 || file.getPublishedFileId() == null || file.getPublishedFileId() <= 0
                 || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !hasAuthenticatedActor(userId, file)
-                || !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())
+                || !permissionSupport.isLibrary(file.getDccProjectCodeId()) && !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())
                 || file.getDccProjectCodeId() == null
                 || !projectAccessService.listReadableProjectIds(userId).contains(file.getDccProjectCodeId())
                 || !matchesMasterIdentity(file)) return false;
-        return hasAuthorizedDirectoryAccess(userId, file) || canAccessCurrentViewMatrix(userId, file, viewMatrixCache);
+        if (isRegisteredPendingImport(file)) {
+            var master = masterMapper.selectById(file.getMasterId());
+            if (!Objects.equals(master.getLatestControlledFileId(), file.getId())
+                    || master.getCurrentActiveControlledFileId() != null) return false;
+        }
+        return canAccessCurrentViewMatrix(userId, file, viewMatrixCache);
+    }
+
+    static boolean isRegisteredPendingImport(DccControlledFileDO file) {
+        if (file == null || !"CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())
+                || !DccControlledFileHistoricalImportService.SOURCE.equals(file.getImportSource())) return false;
+        DccControlledFileHistoricalImportService.requireImportFacts(file);
+        return file.getActivatedTime() == null;
     }
 
     private void requireMasterIdentity(DccControlledFileDO file) {
@@ -204,12 +233,15 @@ class DccControlledFileDetailAuthorizationGuard {
 
     boolean isAllowed(Long userId, DccControlledFileDO file, boolean directoryManager,
                       Map<Long, Boolean> viewMatrixCache) {
+        if (DccArchiveAccessService.isArchived(file)) return archiveAccess.canRead(userId, file);
+        if (canReadProjectReference(userId, file)) return true;
         if (file != null && DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW.getStatus().equals(file.getStatus()))
             return hasCurrentSupervisorTask(userId, file) || hasCurrentCompilerAccess(userId, file);
         if (hasCurrentRunningApprovalTask(userId, file)) {
             return true;
         }
-        if (!assignmentScopeService.isWithinAssignedFileScope(userId, file == null ? null : file.getId())) {
+        if (!(file != null && permissionSupport.isLibrary(file.getDccProjectCodeId()))
+                && !assignmentScopeService.isWithinAssignedFileScope(userId, file == null ? null : file.getId())) {
             return false;
         }
         if (file != null && offlineTraining.canReadProgress(userId, file)) {
@@ -261,8 +293,7 @@ class DccControlledFileDetailAuthorizationGuard {
         String status = file.getStatus();
         if (DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(status)
                 || DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus().equals(status)) {
-            return permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                    DccFileCategoryPermissionActionEnum.DISTRIBUTE);
+            return permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE);
         }
         if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status)
                 || DccControlledFileStatusEnum.FINALIZING.getStatus().equals(status)
@@ -272,13 +303,11 @@ class DccControlledFileDetailAuthorizationGuard {
         }
         if (DccControlledFileStatusEnum.WORKING.getStatus().equals(status)
                 || DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)) {
-            return permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                    DccFileCategoryPermissionActionEnum.UPLOAD);
+            return permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT);
         }
         if (DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)
                 || DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(status)) {
-            return permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                    DccFileCategoryPermissionActionEnum.OBSOLETE);
+            return permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.OBSOLETE);
         }
         return false;
     }
@@ -288,6 +317,7 @@ class DccControlledFileDetailAuthorizationGuard {
         if (userId == null || file == null || file.getCategoryId() == null) {
             return false;
         }
+        if (permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.VIEW)) return true;
         if (viewMatrixCache == null) {
             return viewMatrixAccessService.canAccessCurrentViewMatrix(userId, file);
         }
@@ -394,8 +424,7 @@ class DccControlledFileDetailAuthorizationGuard {
 
     private boolean canSeeObsolete(Long userId, DccControlledFileDO file) {
         return userId != null && userId.equals(file.getRequesterId())
-                || permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.OBSOLETE);
+                || permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.OBSOLETE);
     }
 
     boolean hasCurrentSupervisorTask(Long userId, DccControlledFileDO file) {
@@ -434,7 +463,7 @@ class DccControlledFileDetailAuthorizationGuard {
                 || file.getDccProjectCodeId() == null || file.getSourceFileId() == null || StrUtil.isBlank(file.getSourceSha256())
                 || !projectAccessService.hasProjectEditorOrOwner(userId, file.getDccProjectCodeId())
                 || !projectAccessService.listReadableProjectIds(userId).contains(file.getDccProjectCodeId())
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId, DccFileCategoryPermissionActionEnum.UPLOAD))
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.UPLOAD))
             return false;
         return true;
     }

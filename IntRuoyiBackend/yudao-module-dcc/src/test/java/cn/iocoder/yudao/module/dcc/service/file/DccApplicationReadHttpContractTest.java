@@ -71,7 +71,7 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
     @Test void frozenEvidenceReadsExplicitTypeAndOpaqueRoundWithoutBorrowingApplicant() throws Exception {
         var evidence=new DccControlledFileApplicationEvidence(900L,"B/1","OBSOLETE","real-obsolete-round",2,
                 false,"NOT_RECORDED",null,null,List.of());
-        when(queryService.getApplicationEvidence(99L,900L,"OBSOLETE","real-obsolete-round")).thenReturn(evidence);
+        when(queryService.getApplicationEvidence(99L,900L,"OBSOLETE","real-obsolete-round",null)).thenReturn(evidence);
         try(MockedStatic<SecurityFrameworkUtils> auth=mockStatic(SecurityFrameworkUtils.class)) {
             auth.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             MockMvcBuilders.standaloneSetup(controller).build().perform(get("/dcc/controlled-files/900/application-evidence")
@@ -80,7 +80,7 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
                     .andExpect(jsonPath("$.data.bpmRound").value("real-obsolete-round"))
                     .andExpect(jsonPath("$.data.unavailableReason").value("NOT_RECORDED"))
                     .andExpect(jsonPath("$.data.recorded").value(false));
-            verify(queryService).getApplicationEvidence(99L,900L,"OBSOLETE","real-obsolete-round");
+            verify(queryService).getApplicationEvidence(99L,900L,"OBSOLETE","real-obsolete-round",null);
         }
     }
 
@@ -104,7 +104,7 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
                         "dcc-controlled-file-upload","upload:5:older","deployment-older","b".repeat(64),
                         null,null,true,null,null,DccBoundWorkflowContractResolver.RoundContractStatus.NOT_RECORDED,
                         "HISTORICAL_CONTRACT_NOT_RECORDED"));
-        when(queryService.listApplicationRounds(99L,900L)).thenReturn(List.of(ready,old));
+        when(queryService.listApplicationRounds(99L,900L,null)).thenReturn(List.of(ready,old));
         try (MockedStatic<SecurityFrameworkUtils> auth=mockStatic(SecurityFrameworkUtils.class)) {
             auth.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             MockMvcBuilders.standaloneSetup(controller).build().perform(get("/dcc/controlled-files/900/application-rounds"))
@@ -120,7 +120,7 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
                     .andExpect(jsonPath("$.data[1].flowContract.unavailableReason").value("HISTORICAL_CONTRACT_NOT_RECORDED"))
                     .andExpect(jsonPath("$.data[1].flowContract.flowRule").value(org.hamcrest.Matchers.nullValue()))
                     .andExpect(jsonPath("$.data[1].flowContract.executionContract").value(org.hamcrest.Matchers.nullValue()));
-            verify(queryService).listApplicationRounds(99L,900L);
+            verify(queryService).listApplicationRounds(99L,900L,null);
             verifyNoInteractions(trainingApplicationProgress);
         }
     }
@@ -133,7 +133,7 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
                         "dcc-controlled-file-obsolete","obsolete:5:exact","deployment-obsolete","c".repeat(64),
                         "PUBLIC_MATRIX_NATIVE_V1",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,
                         null,precise,"FORM-EXACT",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));
-        when(queryService.listApplicationRounds(99L,900L)).thenReturn(List.of(row));
+        when(queryService.listApplicationRounds(99L,900L,null)).thenReturn(List.of(row));
         try (MockedStatic<SecurityFrameworkUtils> auth=mockStatic(SecurityFrameworkUtils.class)) {
             auth.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             MockMvcBuilders.standaloneSetup(controller).build().perform(get("/dcc/controlled-files/900/application-rounds"))
@@ -143,7 +143,28 @@ class DccApplicationReadHttpContractTest extends BaseMockitoUnitTest {
                     .andExpect(jsonPath("$.data[0].flowContract.formInstanceId").value(Long.toString(precise)))
                     .andExpect(jsonPath("$.data[0].flowContract.formInstanceCode").value("FORM-EXACT"))
                     .andExpect(jsonPath("$.data[0].flowContract.needTraining").value(org.hamcrest.Matchers.nullValue()));
-            verify(queryService).listApplicationRounds(99L,900L);
+            verify(queryService).listApplicationRounds(99L,900L,null);
+        }
+    }
+
+    @Test void exactTaskReadContextIsForwardedToBothApplicationReaders() throws Exception {
+        var context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                "900","A/2","REVISION","revision-round","actual-task");
+        when(queryService.listApplicationRounds(99L,900L,context)).thenReturn(List.of());
+        var evidence=new DccControlledFileApplicationEvidence(900L,"A/2","REVISION","revision-round",null,
+                false,"NOT_RECORDED",null,null,List.of());
+        when(queryService.getApplicationEvidence(99L,900L,"REVISION","revision-round",context)).thenReturn(evidence);
+        try(MockedStatic<SecurityFrameworkUtils> auth=mockStatic(SecurityFrameworkUtils.class)) {
+            auth.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            var mvc=MockMvcBuilders.standaloneSetup(controller).build();
+            mvc.perform(get("/dcc/controlled-files/900/application-rounds").param("bodyReadContext",context.wire()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(0));
+            mvc.perform(get("/dcc/controlled-files/900/application-evidence").param("bodyReadContext",context.wire())
+                    .param("applicationType","REVISION").param("bpmRound","revision-round"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.bpmRound").value("revision-round"));
+            verify(queryService).listApplicationRounds(99L,900L,context);
+            verify(queryService).getApplicationEvidence(99L,900L,"REVISION","revision-round",context);
+            verify(queryService,never()).listApplicationRounds(99L,900L);
         }
     }
 

@@ -14,7 +14,7 @@ assert.match(upload, /uploadDrawingPdfLoading\.value = false/, 'drawing PDF rese
 assert.match(upload, /uploadDirectoryRequestSeq/, 'directory loading must have a request generation')
 assert.match(upload, /requestSequence !== uploadDirectoryRequestSeq/, 'stale directory responses must be ignored')
 assert.ok(
-  upload.includes('const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\\/[1-9]\\d*)+$/i'),
+  upload.includes('const WINDCHILL_VERSION_PATTERN = /^[A-HJ-NP-Z]+(?:\\/[1-9])+$/i'),
   'controlled upload must accept configured multi-segment versions'
 )
 

@@ -100,12 +100,13 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
     private record DraftContext(DccControlledFileDO file,cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO form,int number,
             cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO attributes) { }
     @Override
-    @Transactional(readOnly=true,rollbackFor=Exception.class)
+    // Reading a draft locks its form and reserved round to prevent concurrent submission.
+    @Transactional(rollbackFor=Exception.class)
     public cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO getObsoleteApplicationDraft(Long actor,Long fileId){
         requireAuthenticatedApplicant(actor);var file=controlledFileMapper.selectById(fileId);
         if(file==null||!java.util.Objects.equals(file.getTenantId(),cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())||Boolean.TRUE.equals(file.getDeleted()))throw exception(CONTROLLED_FILE_NOT_EXISTS);
         if(!Set.of("ACTIVE","CONTROLLED_PENDING_EFFECTIVE").contains(file.getStatus())||file.getControlledTime()==null
-                ||!permissionSupport.hasCategoryPermission(file.getCategoryId(),actor,DccFileCategoryPermissionActionEnum.OBSOLETE))throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+                ||!permissionSupport.hasFilePermission(file, actor, DccFileCategoryPermissionActionEnum.OBSOLETE))throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
         var rows=obsoleteForms.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO>()
                 .eq("tenant_id",file.getTenantId()).eq("applicant_user_id",actor).eq("system_code","DCC").eq("object_type","CONTROLLED_FILE").eq("object_id",fileId.toString())
                 .eq("object_version",file.getVersionNo()).eq("action_code","OBSOLETE").eq("status","DRAFT").isNull("bpm_process_instance_id").eq("deleted",false));
@@ -201,7 +202,7 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
         if(actualForm!=null&&actualForm.getBpmProcessInstanceId()!=null&&!"DRAFT".equals(actualForm.getStatus())){
             var file=controlledFileMapper.selectById(fileId);
             if(file==null||!java.util.Objects.equals(file.getTenantId(),actualForm.getTenantId())||!java.util.Objects.equals(actualForm.getApplicantUserId(),actor)||!java.util.Objects.equals(actualForm.getInstanceCode(),request.getFormInstanceCode())
-                    ||!java.util.Objects.equals(actualForm.getIdempotencyKey(),request.getIdempotencyKey())||!permissionSupport.hasCategoryPermission(file.getCategoryId(),actor,DccFileCategoryPermissionActionEnum.OBSOLETE))throw new IllegalArgumentException("作废提交重放身份/权限不一致");
+                    ||!java.util.Objects.equals(actualForm.getIdempotencyKey(),request.getIdempotencyKey())||!permissionSupport.hasFilePermission(file, actor, DccFileCategoryPermissionActionEnum.OBSOLETE))throw new IllegalArgumentException("作废提交重放身份/权限不一致");
             int number=applicationRoundService.require("OBSOLETE",fileId,actualForm.getBpmProcessInstanceId());if(!Integer.valueOf(number).equals(request.getAttributeRound()))throw new IllegalArgumentException("作废提交重放数字轮不一致");
             var saved=projectAttributesService.readSaved(actor,file.getDccProjectCodeId(),"OBSOLETE",fileId,number);var replay=new DraftContext(file,actualForm,number,saved);requireUnchangedDraftInput(replay,request);
             return draftResponse(formResponse(actualForm),file,number,saved);
@@ -361,8 +362,7 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
         var master=controlledFileMasterMapper.selectByIdForUpdate(identity.getMasterId());
         DccControlledFileDO file=controlledFileMapper.selectByIdAndTenantForUpdate(tenantId,id);
         requireLockedObsoleteIdentity(id,master,file);
-        if(!permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,
-                DccFileCategoryPermissionActionEnum.OBSOLETE)) throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        if(!permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.OBSOLETE)) throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
         Long approvedBy=requireApprovedObsoleteRound(file,userId,reqVO);
         if("OBSOLETE".equals(file.getStatus())) {
             if(!reqVO.getReason().equals(file.getObsoleteReason())) throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
@@ -528,8 +528,7 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
         if(reqVO==null || StrUtil.isBlank(reqVO.getReason())) throw exception(CONTROLLED_FILE_OBSOLETE_REASON_REQUIRED);
         if (!(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.CONTROLLED_PENDING_EFFECTIVE.getStatus().equals(file.getStatus()))
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.OBSOLETE)) {
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.OBSOLETE)) {
             throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
         }
         if (enforcePendingActionGuard) {

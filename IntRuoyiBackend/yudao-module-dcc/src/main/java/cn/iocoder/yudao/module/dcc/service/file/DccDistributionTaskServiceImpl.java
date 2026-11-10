@@ -64,8 +64,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
     private void requireDistributionScope(Long userId,DccControlledFileDO file) {
         Long tenant=TenantContextHolder.getRequiredTenantId();
         if(userId==null || TenantContextHolder.isIgnore() || !Objects.equals(file.getTenantId(),tenant)
-                || !permissionApi.hasAnyRoles(userId,"doc_control") || !permissionApi.hasAnyPermissions(userId,"dcc:controlled-file:distribute")
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.DISTRIBUTE))
+                || !permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.DISTRIBUTE))
             throw new IllegalArgumentException("无本版本文控下发功能或类别资格");
         var user=adminUserApi.getUser(userId);
         if(user==null || !Objects.equals(user.getId(),userId) || !Objects.equals(user.getTenantId(),tenant) || !Integer.valueOf(0).equals(user.getStatus()))

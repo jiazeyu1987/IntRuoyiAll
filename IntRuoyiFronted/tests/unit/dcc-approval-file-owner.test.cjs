@@ -11,23 +11,20 @@ function model() {
   })
   return{...exports,sent}
 }
-test('required owner missing blocks actual signed approve transport',async()=>{
- const m=model(),result=await m.submitDccApprovalAction({fileId:'10',taskId:'task-1',action:'approve',form:{password:'secret',reason:'批准',fileOwnerRequired:true}})
- assert.equal(result.success,false);assert.equal(result.field,'fileOwnerUserId');assert.equal(m.sent.length,0)
+test('approval uses uploader compiler from server without requesting a new person',async()=>{
+ const m=model(),result=await m.submitDccApprovalAction({fileId:'10',taskId:'task-1',action:'approve',form:{password:'secret',reason:'批准'}})
+ assert.equal(result.success,true);assert.equal(m.sent.length,1);assert.equal(Object.hasOwn(m.sent[0],'fileOwnerUserId'),false)
 })
-test('actual approve payload forwards exact selected Long owner and never an unsafe number',async()=>{
+test('stale caller supplied owner fields never enter approval transport',async()=>{
  const m=model()
  await m.submitDccApprovalAction({fileId:'10',taskId:'task-1',action:'approve',form:{password:'secret',reason:'批准',fileOwnerRequired:true,fileOwnerUserId:'9007199254740993'}})
- assert.equal(m.sent[0].fileOwnerUserId,'9007199254740993')
- const invalid=await m.submitDccApprovalAction({fileId:'10',taskId:'task-1',action:'approve',form:{password:'secret',reason:'批准',fileOwnerRequired:true,fileOwnerUserId:9007199254740992}})
- assert.equal(invalid.success,false);assert.equal(m.sent.length,1)
+ assert.equal(Object.hasOwn(m.sent[0],'fileOwnerUserId'),false)
 })
-test('native approval dialog mounts explicit owner choice and history uses frozen identity',()=>{
+test('native approval dialog displays compiler identity without a person picker',()=>{
  const source=fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue','utf8')
- assert.match(source,/<ApprovalFileOwnerPicker\b/)
+ assert.doesNotMatch(source,/<ApprovalFileOwnerPicker\b/)
  assert.match(source,/fileOwnerNicknameSnapshot/)
- assert.match(source,/fileOwnerUserId:\s*requiresFileOwnerSelection\.value/)
- assert.match(source,/fileOwnerRequired:\s*requiresFileOwnerSelection\.value/)
+ assert.match(source,/文件编制人/)
 })
 function picker(readUsers, selected) {
  const vue=require('vue'),{parse,compileScript}=require('vue/compiler-sfc')

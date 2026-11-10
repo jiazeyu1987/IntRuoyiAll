@@ -1,5 +1,5 @@
 <template>
-  <div data-testid="dcc-distribution-rules-tab">
+  <div class="distribution-rules" data-testid="dcc-distribution-rules-tab">
     <el-alert
       v-if="errorMessage"
       class="mb-12px"
@@ -120,7 +120,7 @@
       </template>
     </UnifiedListTemplate>
 
-    <el-drawer v-model="drawerVisible" :title="drawerTitle" size="720px">
+    <el-drawer class="distribution-rules-drawer" v-model="drawerVisible" :title="drawerTitle" size="720px" style="max-width: 100vw">
       <CategoryDepartmentRulesSection
         v-if="drawerMode === 'edit' && selectedCategory"
         title="分发部门规则"
@@ -562,7 +562,114 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.distribution-rules {
+  min-width: 0;
+  padding: 12px;
+  background: #fff;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00736b;
+}
+
 .category-rule-list-template {
-  display: block;
+  min-width: 0;
+}
+
+.distribution-rules :deep(.unified-list-template__query-form) {
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.distribution-rules :deep(.unified-list-template__multi-filter) {
+  flex: 1 1 680px;
+  min-width: 0;
+}
+
+.distribution-rules :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.distribution-rules :deep(.el-button:not(.is-link)) {
+  height: 32px;
+  border-radius: 5px;
+}
+
+.distribution-rules :deep(.el-input__wrapper),
+.distribution-rules :deep(.el-select__wrapper) {
+  min-height: 34px;
+  border-radius: 5px;
+}
+
+.distribution-rules :deep(.unified-list-template__table-shell),
+.distribution-rules :deep(.unified-list-template__table-shell .el-table) {
+  border-radius: 4px;
+  border-color: #dbe3e7;
+}
+
+.distribution-rules :deep(.el-table) {
+  --el-table-border-color: #e5ecef;
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-row-hover-bg-color: #e6f5f2;
+  font-size: 13px;
+}
+
+.distribution-rules :deep(.el-table th.el-table__cell) {
+  height: 40px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.distribution-rules :deep(.el-table td.el-table__cell) {
+  height: 43px;
+  padding: 7px 0;
+}
+
+.distribution-rules :deep(.el-table__row--striped td.el-table__cell) {
+  background: #fafcfc;
+}
+
+.distribution-rules :deep(.el-button.is-link:not(.is-disabled)) {
+  color: #1677b9;
+}
+
+.distribution-rules :deep(.el-pagination) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+@media (max-width: 700px) {
+  .distribution-rules :deep(.unified-list-template__multi-filter),
+  .distribution-rules :deep(.unified-list-template__toolbar-actions) {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .distribution-rules :deep(.table-multi-filter__tabs-row),
+  .distribution-rules :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+  }
+
+  .distribution-rules :deep(.table-multi-filter-field),
+  .distribution-rules :deep(.table-multi-filter-field__value) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .distribution-rules :deep(.table-multi-filter-field__value) {
+    flex: 1 1 160px;
+  }
+
+  .distribution-rules :deep(.el-pagination) {
+    justify-content: flex-start;
+  }
 }
 </style>

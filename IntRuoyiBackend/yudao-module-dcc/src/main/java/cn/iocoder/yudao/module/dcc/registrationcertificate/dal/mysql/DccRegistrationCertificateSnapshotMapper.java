@@ -17,12 +17,12 @@ public interface DccRegistrationCertificateSnapshotMapper {
 
     @Insert("""
             INSERT INTO dcc_registration_certificate_snapshot
-              (version_id, revision_no, source_change_id, product_name, registrant_name,
+              (version_id, revision_no, source_change_id, facts_json, product_name, registrant_name,
                model_specification, structure_composition, intended_use, technical_requirements,
                residence_address, production_address, entrusted_production, self_production,
                entrusted_enterprises_json, effective_at, tenant_id)
             VALUES
-              (#{versionId}, #{revisionNo}, #{sourceChangeId}, #{productName}, #{registrantName},
+              (#{versionId}, #{revisionNo}, #{sourceChangeId}, #{factsJson}, #{productName}, #{registrantName},
                #{modelSpecification}, #{structureComposition}, #{intendedUse}, #{technicalRequirements},
                #{residenceAddress}, #{productionAddress}, #{entrustedProduction}, #{selfProduction},
                #{entrustedEnterprisesJson}, #{effectiveAt}, #{tenantId})
@@ -44,6 +44,7 @@ public interface DccRegistrationCertificateSnapshotMapper {
     @Update("""
             UPDATE dcc_registration_certificate_snapshot
                SET source_change_id = #{snapshot.sourceChangeId},
+                   facts_json = #{snapshot.factsJson},
                    product_name = #{snapshot.productName},
                    registrant_name = #{snapshot.registrantName},
                    model_specification = #{snapshot.modelSpecification},

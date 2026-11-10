@@ -24,6 +24,8 @@ import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -82,6 +84,55 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @BeforeEach
     void setUp() {
         reset(projectCodeService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FDA", "CE"})
+    void foreignFormalCertificateWithoutDomesticNumberCanRequestExactBoundFile(String type) {
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", null, null);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET certificate_no = NULL WHERE id = ?",
+                fixture.versionId());
+        seedTypeSnapshot(fixture.versionId(), 1L, type);
+
+        var result = service.submit(1L, 99L, "foreign-download-" + type,
+                download(fixture.certificateId(), null, List.of(fixture.fileId())));
+
+        assertEquals(List.of(fixture.fileId()), result.businessFileIds());
+        assertEquals("SUBMITTED", result.status());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
+                + "WHERE request_id = ? AND business_file_id = ? AND status = 'REQUESTED'",
+                result.requestId(), fixture.fileId()));
+        assertTrue(!requestMapper.selectById(result.requestId()).getDetailJson().contains("certificateNo"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_grant"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DOMESTIC", "NO_SNAPSHOT", "OTHER_TENANT", "DRAFT_VERSION", "STAGED_FILE"})
+    void missingDomesticNumberDoesNotBypassFormalSnapshotTenantOrFileBoundaries(String boundary) {
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "DRAFT_VERSION".equals(boundary) ? "DRAFT" : "CURRENT",
+                "STAGED_FILE".equals(boundary) ? "STAGED" : "BOUND", null, null);
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_version SET certificate_no = NULL WHERE id = ?",
+                fixture.versionId());
+        if (!"NO_SNAPSHOT".equals(boundary)) {
+            seedTypeSnapshot(fixture.versionId(), "OTHER_TENANT".equals(boundary) ? 2L : 1L,
+                    "DOMESTIC".equals(boundary) ? "DOMESTIC" : "FDA");
+        }
+        ServiceException failure = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
+                "invalid-number-" + boundary, download(fixture.certificateId(), null, List.of(fixture.fileId()))));
+
+        assertEquals(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED.getCode(), failure.getCode());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file"));
+    }
+
+    private void seedTypeSnapshot(Long versionId, Long tenantId, String type) {
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot
+                  (tenant_id, version_id, revision_no, facts_json, product_name, entrusted_production,
+                   self_production, entrusted_enterprises_json, effective_at)
+                VALUES (?, ?, 1, ?, 'Foreign formal product', 0, 0, '[]', ?)
+                """, tenantId, versionId, "{\"certificateType\":\"" + type + "\"}",
+                java.time.LocalDateTime.of(2026, 10, 31, 10, 0));
     }
 
     @Test

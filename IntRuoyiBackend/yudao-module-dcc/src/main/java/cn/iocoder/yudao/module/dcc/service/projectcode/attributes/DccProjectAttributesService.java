@@ -28,10 +28,13 @@ public class DccProjectAttributesService {
         return defaults(requireProject(projectId, false));
     }
     public DccProjectAttributes defaults(DccProjectCodeDO project) {
+        if (project.isLibrary()) return DccProjectAttributes.forLibrary(project.getLibraryScope());
         if (project.getDefaultAttributesJson() == null || project.getDefaultAttributesJson().isBlank()) {
             throw fail(DEFAULTS_MISSING);
         }
-        return readValue(project.getDefaultAttributesJson());
+        var value = readValue(project.getDefaultAttributesJson());
+        if (value.libraryScope() != null) throw fail(INVALID);
+        return value;
     }
     public DccProjectAttributes readValue(String json) {
         if (json == null || json.isBlank()) throw fail(DEFAULTS_MISSING);
@@ -127,6 +130,7 @@ public class DccProjectAttributesService {
         requireKey(type, applicationId, round);
         accessService.assertProjectEditorOrOwner(userId, projectId);
         var project = requireProject(projectId, true); // 串行化同项目草稿写入及提交
+        if (actual == null || !Objects.equals(actual.libraryScope(),project.isLibrary()?project.getLibraryScope():null)) throw fail(INVALID);
         String actualJson = encode(actual);
         var saved = attributesMapper.find(type, applicationId, round);
         if (saved != null) {

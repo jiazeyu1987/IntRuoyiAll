@@ -102,6 +102,7 @@ function panel(file, api, props, options={}) {
     const c={exports:{},require:id=>{
       if(id==='vue')return vue
       if(id==='@/utils/auth')return auth
+      if(id==='@/api/dcc/controlledFile/bodyReadContext')return body
       if(id==='@/api/dcc/controlledFile/applicationRead')return api
       if(id==='@/api/dcc/controlledFile/relations')return {listHistoricalRelations:options.getHistory|| (async()=>[])}
       if(id==='@/api/common/filePreview')return {buildDccControlledFilePreviewSource:(id,context)=>({id,context})}

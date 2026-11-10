@@ -7,6 +7,16 @@ import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminServ
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -34,14 +44,24 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
     private DccRegistrationCertificateProjectCodeFileAssociationService service;
     @Resource
     private JdbcTemplate jdbcTemplate;
+    @MockitoBean private DccRegistrationCertificateAccessPolicyService accessPolicy;
+    @MockitoBean private PermissionApi permissionApi;
+    @MockitoBean private DccRegistrationCertificateBusinessClock businessClock;
+    private MockedStatic<SecurityFrameworkUtils> security;
 
     @BeforeEach
     void cleanRegistrationCertificateTaxonomyPath() {
+        TenantContextHolder.setTenantId(1L);
+        security=mockStatic(SecurityFrameworkUtils.class);
+        security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+        when(businessClock.now()).thenReturn(LocalDateTime.of(2026,10,30,9,0));
+        when(permissionApi.hasAnyPermissions(eq(99L),any(String[].class))).thenReturn(true);
         jdbcTemplate.update("""
                 DELETE FROM dcc_file_type_taxonomy
                  WHERE code IN ('REGISTRATION_CERTIFICATE', 'REGISTRATION_DOSSIER', 'TECHNICAL_DOCUMENT')
                 """);
     }
+    @AfterEach void clearSecurity() {security.close();TenantContextHolder.clear();}
 
     @Test
     void bindVersionRegistrationFileCreatesRegistrationCertificateTaxonomyAndFileProjectClassification() {
@@ -115,6 +135,7 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
         assertEquals("CERT-003", row.getFileNumber());
         assertEquals("注册资料汇编", row.getFileTypeLevel2());
         assertEquals("注册证", row.getFileTypeLevel3());
+        assertEquals(false,row.getCanDownload());
 
         Map<Long, Long> counts = service.countAssociatedFilesByProjectCodeIds(Set.of(503L, 504L, 999L));
         assertEquals(1L, counts.get(503L));
@@ -156,10 +177,10 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_snapshot
                   (id, version_id, revision_no, product_name, registrant_name, entrusted_production,
-                   self_production, entrusted_enterprises_json, effective_at, tenant_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   self_production, entrusted_enterprises_json, effective_at, tenant_id, facts_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, versionId, revisionNo, productName, "Registrant", false, true, "[]",
-                LocalDateTime.of(2021, 3, 1, 9, 0), 1L);
+                LocalDateTime.of(2021, 3, 1, 9, 0), 1L,DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,versionId));
     }
 
     private void seedBoundFile(Long id, String ownerType, Long ownerId, String fileKind,
@@ -190,11 +211,11 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
     private Long seedRegistrationCertificateTaxonomyPath() {
         jdbcTemplate.update("""
                 INSERT INTO dcc_file_type_taxonomy
-                  (id, parent_id, level_no, code, name, active, sort)
+                  (id, parent_id, level_no, code, name, active, sort, tenant_id)
                 VALUES
-                  (9101, 0, 1, 'TECHNICAL_DOCUMENT', '技术文档', true, 1),
-                  (9102, 9101, 2, 'REGISTRATION_DOSSIER', '注册资料汇编', true, 10),
-                  (9103, 9102, 3, 'REGISTRATION_CERTIFICATE', '注册证', true, 1)
+                  (9101, 0, 1, 'TECHNICAL_DOCUMENT', '技术文档', true, 1, 1),
+                  (9102, 9101, 2, 'REGISTRATION_DOSSIER', '注册资料汇编', true, 10, 1),
+                  (9103, 9102, 3, 'REGISTRATION_CERTIFICATE', '注册证', true, 1, 1)
                 """);
         return 9103L;
     }
@@ -222,6 +243,26 @@ class DccRegistrationCertificateProjectCodeFileAssociationServiceTest extends Ba
 
     @TestConfiguration(proxyBeanMethods = false)
     static class DbTestConfiguration {
+        @Bean
+        static org.springframework.beans.factory.config.BeanPostProcessor taxonomyTenantInterceptor() {
+            return new org.springframework.beans.factory.config.BeanPostProcessor() {
+                @Override public Object postProcessAfterInitialization(Object bean,String name) {
+                    if(bean instanceof com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor interceptor) {
+                        interceptor.addInnerInterceptor(new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+                            new com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler() {
+                                @Override public net.sf.jsqlparser.expression.Expression getTenantId() {
+                                    return new net.sf.jsqlparser.expression.LongValue(TenantContextHolder.getRequiredTenantId());
+                                }
+                                @Override public boolean ignoreTable(String table) {
+                                    return !"dcc_file_type_taxonomy".equalsIgnoreCase(table);
+                                }
+                            }));
+                    }
+                    return bean;
+                }
+            };
+        }
+
 
         @Bean
         JdbcTemplate jdbcTemplate(DataSource dataSource) {

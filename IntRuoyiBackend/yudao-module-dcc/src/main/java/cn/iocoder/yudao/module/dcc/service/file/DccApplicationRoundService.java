@@ -36,7 +36,7 @@ public class DccApplicationRoundService {
             throw new IllegalStateException("作废真实表单草稿预留失败");
         return number;
     }
-    @Transactional(propagation=Propagation.MANDATORY,readOnly=true,rollbackFor=Exception.class)
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public int requireObsoleteFormDraft(Long actor,Long fileId,Long formId,String formCode) {
         var context=lockObsoleteForm(actor,fileId,formId,formCode,null);
         var rows=readObsoleteFormRound(context);

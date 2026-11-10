@@ -104,6 +104,9 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
     private final LocalDateTime approvedAt=LocalDateTime.of(2026,10,12,1,0);
     private BpmProcessInstanceStatusEvent actualEnd;
     private boolean failControlled;
+    private boolean rejectMatrix;
+    private boolean rejectMatrixAssigned;
+    private String rejectMatrixConflict;
     private DccDistributionBatchService batches;
     private DccWorkflowDatePolicy dates;
     private LocalDateTime businessNow;
@@ -211,13 +214,6 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
         when(categoryPermissions.hasCategoryPermission(2L,88L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.APPROVE)).thenReturn(true);
         wire(finalization,"permissionApi",permissions,"permissionSupport",categoryPermissions);
         var dccListener=new DccControlledFileStatusListener();wire(dccListener,"finalizationService",finalization);
-        events.addApplicationListener((org.springframework.context.ApplicationListener<BpmProcessInstanceStatusEvent>)event->{
-            if(BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(event.getStatus())){
-                var rejectedTask=engine.getHistoryService().createHistoricTaskInstanceQuery().processInstanceId(event.getId()).includeTaskLocalVariables().singleResult();
-                System.out.println("OFFICIAL_REJECT_WINDOW actor="+event.getActorUserId()+" reason="+event.getReason()+" task="+rejectedTask+
-                        " ended="+(rejectedTask!=null&&rejectedTask.getEndTime()!=null)+" locals="+(rejectedTask==null?null:rejectedTask.getTaskLocalVariables()));
-            }
-        });
         events.addApplicationListener(dccListener);
         events.addApplicationListener((org.springframework.context.ApplicationListener<BpmProcessInstanceStatusEvent>)event->actualEnd=event);
         for(String operation:List.of("dcc.controlled-file.standardization-effective","dcc.controlled-file.control","dcc.controlled-file.activate","dcc.controlled-file.auto-obsolete",
@@ -289,6 +285,24 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
         assertEquals(0,bindingRows.selectList().size());assertNull(files.selectById(20L).getControlledTime());
         assertNull(engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(processId).singleResult());
         assertEquals(88L,actualEnd.getActorUserId());assertEquals(BpmProcessInstanceStatusEnum.REJECT.getStatus(),actualEnd.getStatus());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void realSignedDepartmentRejectAcceptsTheUnassignedLeaderAndAssignedReviewer(boolean assigned)throws Exception{
+        rejectMatrix=true;rejectMatrixAssigned=assigned;prepare(true);
+        assertEquals("REJECTED",files.selectById(20L).getStatus());assertNotNull(files.selectById(20L).getRejectedTime());
+        assertEquals(1,signatures.selectList().stream().filter(s->"MATRIX_REVIEW_REJECT".equals(s.getMeaningCode())).count());
+        assertNull(engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(processId).singleResult());
+        assertEquals(88L,actualEnd.getActorUserId());assertTrue(bindingRows.selectList().isEmpty());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"LEADER","TENANT","FILE","ROUND","TASK","EXECUTION","OBLIGATION","DEPARTMENT","PARTIAL_ASSIGNMENT","ASSIGNEE"})
+    void departmentRejectWithMismatchedFrozenObligationRollsBackActualTaskAndSignature(String conflict)throws Exception{
+        rejectMatrix=true;rejectMatrixConflict=conflict;rejectMatrixAssigned="ASSIGNEE".equals(conflict);
+        assertThrows(RuntimeException.class,()->prepare(true));
+        assertNotNull(engine.getTaskService().createTaskQuery().processInstanceId(processId).taskDefinitionKey("MATRIX_REVIEW").singleResult());
+        assertEquals(0,signatures.selectList().stream().filter(s->"REJECT".equals(s.getActionType())).count());
+        assertNull(files.selectById(20L).getRejectedTime());assertTrue(bindingRows.selectList().isEmpty());
     }
     @Test void lateBatchAcceptAuditFailureRollsActualRelationAndArtifactAndEngineBack()throws Exception{
         prepare(true);jdbc.update("DELETE FROM gxp_audit_policy_operation WHERE operation_id='dcc.distribution.batch.accept'");
@@ -501,12 +515,29 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
             var task=engine.getTaskService().createTaskQuery().processInstanceId(processId).singleResult();assertEquals(stage,task.getTaskDefinitionKey());
             engine.getTaskService().setAssignee(task.getId(),"88");
             tx.executeWithoutResult(s->{
-                if(rejectSupervisor){
-                    files.updateById(DccControlledFileDO.builder().id(20L).status("PENDING_SUPERVISOR_REVIEW").build());
-                    routes.insert(DccControlledFileRouteSnapshotDO.builder().controlledFileId(20L).routeVersionNo(1).stageCode("SUPERVISOR_REVIEW")
-                            .stageNo(0).stageOrder(0).candidateSourceType("USER").candidateSourceId(88L).candidateSourceIds("88").resolvedUserIds("88")
-                            .approveMethod("ANY").requireAllApprovals(false).build());
-                    var rejected=sign(task.getId(),"SUPERVISOR_REVIEW_REJECT","REJECT","actual supervisor rejection");
+                if(rejectSupervisor || rejectMatrix&&"MATRIX_REVIEW".equals(stage)){
+                    files.updateById(DccControlledFileDO.builder().id(20L).status("PENDING_"+stage).build());
+                    routes.insert(DccControlledFileRouteSnapshotDO.builder().controlledFileId(20L).routeVersionNo(1).stageCode(stage)
+                            .stageNo(rejectMatrix?1:0).stageOrder(rejectMatrix?1:0).candidateSourceType(rejectMatrix?"DEPT":"USER")
+                            .candidateSourceId(rejectMatrix?31L:88L).candidateSourceIds(rejectMatrix?"31":"88").resolvedUserIds("88")
+                            .approveMethod(rejectMatrix?"ALL":"ANY").requireAllApprovals(rejectMatrix).build());
+                    if(rejectMatrix){
+                        engine.getTaskService().setVariableLocal(task.getId(),BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"department-31");
+                        var row=DccControlledFileTaskAssigneeSnapshotDO.builder().controlledFileId(20L).tenantId(1L).stageCode(stage).stageNo(1)
+                                .departmentId(31L).leaderUserId(88L).assigneeUserId(88L).obligationId("department-31")
+                                .bpmTaskId(task.getId()).nodeInstanceId(task.getExecutionId()).build();
+                        if(rejectMatrixAssigned){var assigned=sign(task.getId(),"MATRIX_REVIEW_ASSIGN","ASSIGN","real department assignment");
+                            row.setAssignmentSignatureId(assigned.getId());row.setAssignedTime(assigned.getSignedAt());row.setProcessInstanceId(processId);}
+                        if(rejectMatrixConflict!=null)switch(rejectMatrixConflict){
+                            case "LEADER"->row.setLeaderUserId(77L);case "TENANT"->row.setTenantId(2L);case "FILE"->row.setControlledFileId(21L);
+                            case "ROUND"->row.setProcessInstanceId("foreign-round");case "TASK"->row.setBpmTaskId("foreign-task");
+                            case "EXECUTION"->row.setNodeInstanceId("foreign-execution");case "OBLIGATION"->row.setObligationId("foreign-obligation");
+                            case "DEPARTMENT"->row.setDepartmentId(32L);case "PARTIAL_ASSIGNMENT"->row.setAssignmentSignatureId(777L);
+                            case "ASSIGNEE"->row.setAssigneeUserId(77L);
+                        }
+                        assignments.insert(row);
+                    }
+                    var rejected=sign(task.getId(),stage+"_REJECT","REJECT","actual department or supervisor rejection");
                     engine.getTaskService().setVariableLocal(task.getId(),"dccVerifiedSignatureId",rejected.getId());
                     engine.getTaskService().setVariableLocal(task.getId(),"dccVerifiedSignatureActorId",88L);
                     engine.getTaskService().setVariableLocal(task.getId(),"dccVerifiedSignatureAction","REJECT");
@@ -514,7 +545,7 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
                     var model=mock(cn.iocoder.yudao.module.bpm.service.definition.BpmModelService.class);
                     when(model.getBpmnModelByDefinitionId(anyString())).thenAnswer(c->engine.getRepositoryService().getBpmnModel(c.getArgument(0)));
                     wire(actions,"taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"modelService",model,"processInstanceService",processService);
-                    actions.rejectTask(88L,new cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO().setId(task.getId()).setReason("actual supervisor rejection"));
+                    actions.rejectTask(88L,new cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO().setId(task.getId()).setReason("actual department or supervisor rejection"));
                     return;
                 }
                 if("MATRIX_REVIEW".equals(stage)){var assigned=sign(task.getId(),"MATRIX_REVIEW_ASSIGN","ASSIGN","real department assignment");
@@ -536,7 +567,7 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
                 engine.getTaskService().complete(task.getId());
                 if(training&&"DOC_CONTROL_REVIEW".equals(stage))files.updateById(DccControlledFileDO.builder().id(20L).status(DccOfflineTrainingRecordService.STATUS).build());
             });
-            if(rejectSupervisor)break;
+            if(rejectSupervisor || rejectMatrix&&"MATRIX_REVIEW".equals(stage))break;
         }
     }
     private void saveTraining(){login(99L);tx.executeWithoutResult(s->{

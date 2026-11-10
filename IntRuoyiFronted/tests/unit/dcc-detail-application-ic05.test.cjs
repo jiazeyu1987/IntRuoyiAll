@@ -43,17 +43,18 @@ function host(overrides = {}) {
     newActionPreparationEligible: vue.ref(false), preparedNewActionBaseline: vue.ref(false), newActionPreparationFacts: vue.ref(),
     generation: 0, selectionGeneration: 0, working: vue.ref(true), initial: vue.ref(true), opened: vue.ref(false), loading: vue.ref(false), busy: vue.ref(false), error: vue.ref(''), snapshot: vue.ref(), selectedApplicationFile: vue.ref(), revisionOptions: vue.ref(), preparationBlockers: vue.ref([]),
     effectiveMode: vue.ref(null), effectiveDate: vue.ref(null), selectedDepartments: vue.ref([]), selectedDistributionDepartments: vue.ref(null), needTraining: vue.ref(false), description: vue.ref(''), departmentChoiceMissing: vue.ref(false), distributionChoiceMissing: vue.ref(false),
-    departments: vue.ref([]), approvalAccounts: vue.ref([]), approvalGroups: vue.ref([]), approvalCapabilityLimitations: vue.ref([]), approverNames: vue.ref(''), approvalRule: vue.ref(''), canSubmit: vue.ref(false), idempotencyKey: vue.ref('K'), previewSource: vue.ref(), selectedIterationId: vue.ref(''), selectedIntent: vue.ref(), snapshotIntent: vue.ref(), selectionLoading: vue.ref(false), submitted: vue.ref(false),
+    departments: vue.ref([]), approvalAccounts: vue.ref([]), approvalGroups: vue.ref([]), approvalCapabilityLimitations: vue.ref([]), approverNames: vue.ref(''), approvalRule: vue.ref(''), canSubmit: vue.ref(false), revisionSubmitKey: vue.ref(''), revisionSubmitPayload: vue.ref(''), idempotencyKey: vue.ref('K'), previewSource: vue.ref(), selectedIterationId: vue.ref(''), selectedIntent: vue.ref(), snapshotIntent: vue.ref(), selectionLoading: vue.ref(false), submitted: vue.ref(false),
     getWorkingApplicationAttributes: async () => structuredClone(saved), getProjectDefaults: async () => { calls.defaults++; return { ...actual, targetMarkets: ['NMPA'] } },
     getControlledFileRevisionOptions: async id => ({ controlledBaselineId: id, masterId: '1', baselineVersionNo: 'A/1', iterations: [{id:'11',versionNo:'A/1-1',canPartial:true,canReplacement:true,canPreview:true}] }),
+    listHistoricalRelations: async () => [], listCurrentRelations: async id => ({ sourceControlledFileId: id, files: [] }),
     getSimpleDeptList: async () => [{ id: 7, name: '会签甲', status: 0 }, { id: 8, name: '下发乙', status: 0 }], getSimpleUserList: async () => [{ id: 9, nickname: '批准丙', status: 0 }],
     checkControlledFileRouteReadiness: async () => matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [{ stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: ['7'] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ['9'], approveMethod: 'ALL' }] }),
     ...versionDisplay, readApplicationOrdinaryAttachmentExpectation: revisions.readApplicationOrdinaryAttachmentExpectation,
     generateUUID: () => 'K', isWorkflowId: value => value === '11', buildInitialCommand: revisions.buildInitialCommand,
     submitControlledFileWorkingIteration: async (id, payload) => { calls.writes.push({ id, payload }); return '11' }, emit: (...args) => calls.events.push(args), message: { success() {} }, ElMessageBox: { confirm: async content => calls.confirmations.push(content) }, ...overrides
   }
-  c.props.file = { ...savedAttachmentFacts(), ...c.props.file }
-  const code = ['isPublicMatrixExecution', 'applicationProjection', 'applicationFacts', 'applicationSelectionError', 'applicationMatrixScope', 'displaySavedNewAction', 'prepareNewActionBaseline', 'open', 'refreshPanelMatrix', 'preparePanelMatrix', 'confirmation', 'departmentSelectionKey', 'saveAttributes', 'submitInitial'].map(declaration).join('\n') + '\nexports={open,prepareNewActionBaseline,saveAttributes,submitInitial,applicationFacts};'
+  c.props.file = { canEditFile: true, ...savedAttachmentFacts(), ...c.props.file }
+  const code = ['isPublicMatrixExecution', 'applicationProjection', 'applicationFacts', 'applicationSelectionError', 'revisionApplicationBlocker', 'revisionApplicationReady', 'applicationMatrixScope', 'displaySavedNewAction', 'prepareNewActionBaseline', 'open', 'refreshPanelMatrix', 'preparePanelMatrix', 'confirmation', 'departmentSelectionKey', 'saveAttributes', 'readRevisionTargetVersion', 'submitRevision', 'submitInitial'].map(declaration).join('\n') + '\nexports={open,prepareNewActionBaseline,saveAttributes,submitInitial,submitRevision,applicationFacts,revisionApplicationReady,revisionApplicationBlocker};'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, c)
   return { c, calls }
 }
@@ -65,6 +66,22 @@ test('formal saved signature mode and independent lists reopen without reading c
   assert.equal(c.exports.applicationFacts.value.effectiveMode, 'AFTER_STANDARDIZATION_SIGNATURE')
   assert.deepEqual(Array.from(c.exports.applicationFacts.value.selectedDistributionDepartmentIds), ['8'])
 })
+
+for (const intent of ['PARTIAL', 'REPLACEMENT']) {
+  test(`${intent} starts from authoritative work-body options without showing unrelated baseline selections`, async () => {
+    const { c, calls } = host({ working: vue.ref(false),
+      checkControlledFileRouteReadiness: async () => { throw new Error('Must select a work body before preparing its route') },
+      getControlledFileRevisionOptions: async id => ({ controlledBaselineId: id, masterId: '1', baselineVersionNo: 'A/1', iterations: [] }) })
+    await c.exports.open(intent)
+    assert.equal(c.error.value, '')
+    assert.equal(c.selectedIntent.value, intent)
+    assert.equal(c.snapshot.value, undefined)
+    assert.equal(c.effectiveMode.value, null)
+    assert.equal(c.revisionOptions.value.iterations.length, 0)
+    assert.equal(calls.defaults, 0)
+    assert.equal(c.loading.value, false)
+  })
+}
 
 test('IC13 actual saved preview request binds exact file project category action and the same outgoing context', async () => {
   const requests = []
@@ -84,6 +101,35 @@ test('unrecorded saved mode and list remain absent and cannot generate a request
   assert.equal(c.exports.applicationFacts.value, undefined)
   await c.exports.submitInitial(); assert.equal(calls.writes.length, 0)
 })
+
+for (const intent of ['PARTIAL', 'REPLACEMENT']) {
+  test(`${intent} submit readiness follows current choices rather than the saved draft completeness flag`, async () => {
+    const { c } = host({ getWorkingApplicationAttributes: async () => ({ ...saved, effectiveMode: null, canSubmit: false }) })
+    await c.exports.open()
+    c.selectedIntent.value = intent
+    c.selectedIterationId.value = '11'
+    c.revisionOptions.value = { iterations: [{ id: '11', canPartial: true, canReplacement: true }] }
+    assert.equal(c.canSubmit.value, false)
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    c.effectiveMode.value = 'AFTER_STANDARDIZATION_SIGNATURE'
+    assert.equal(c.exports.revisionApplicationReady.value, true)
+    c.effectiveMode.value = null
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    c.effectiveMode.value = 'DELAYED'
+    assert.equal(c.exports.revisionApplicationReady.value, true)
+    c.revisionOptions.value.checkedOutBy = '99'
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    assert.match(c.exports.revisionApplicationBlocker.value, /检出/)
+    c.revisionOptions.value.checkedOutBy = null
+    c.revisionOptions.value.iterations[0][intent === 'PARTIAL' ? 'canPartial' : 'canReplacement'] = false
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    assert.match(c.exports.revisionApplicationBlocker.value, /权限/)
+    c.revisionOptions.value.iterations[0][intent === 'PARTIAL' ? 'canPartial' : 'canReplacement'] = true
+    c.newActionPreparationEligible.value = true
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    assert.match(c.exports.revisionApplicationBlocker.value, /审批配置/)
+  })
+}
 
 test('a formally saved empty signoff draft reopens for correction but cannot submit', async () => {
   const { c, calls } = host({ getWorkingApplicationAttributes: async () => ({ ...saved, selectedSignoffDepartmentIds: [], canSubmit: false, unavailableReason: '本次会签部门尚未填写' }) })
@@ -105,6 +151,7 @@ test('real panel has business choices, independent distribution and honest train
   assert.match(descriptor.template.content, /文控审核后立即生效/); assert.match(descriptor.template.content, /延迟生效/)
   assert.match(descriptor.template.content, /v-model="effectiveMode"/); assert.match(descriptor.template.content, /v-model="selectedDistributionDepartments"/)
   assert.doesNotMatch(descriptor.template.content, /文控上传本次线下培训/)
+  assert.match(descriptor.template.content, /:application-ready="revisionApplicationReady"/)
   compileScript(descriptor, { id: 'ic05-panel' }); assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: file, id: 'ic05-panel' }).errors, [])
 })
 
@@ -328,6 +375,54 @@ const crossActionFacts = () => ({ ...structuredClone(saved), applicationType: 'R
 const crossActionReadiness = () => ({ ...matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [
   { stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: ['7'] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ['9'], approveMethod: 'ALL' }] }, { actionType: 'REVISION' }),
   newActionBaselineRequired: true, newActionBaselinePreparationAllowed: true })
+
+for (const intent of ['PARTIAL', 'REPLACEMENT']) {
+  test(`${intent} explicit approval preparation respects its own persistence boundary`, async () => {
+    let saves = 0
+    const previews = []
+    const { c, calls } = host({ initial: vue.ref(false),
+      getWorkingApplicationAttributes: async () => crossActionFacts(),
+      checkControlledFileRouteReadiness: async request => { previews.push(request); return crossActionReadiness() },
+      saveWorkingApplicationAttributes: async () => { saves++; throw Error('must not save replacement source') } })
+    await c.exports.open(intent)
+    c.snapshotIntent.value = intent
+    c.revisionOptions.value = { ...c.revisionOptions.value, replacementTarget: { versionNo: 'B/1', unavailableReason: null } }
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    c.ElMessageBox.confirm = async () => { throw 'cancel' }
+    await c.exports.prepareNewActionBaseline()
+    assert.equal(c.exports.revisionApplicationReady.value, false)
+    c.ElMessageBox.confirm = async text => calls.confirmations.push(text)
+    await c.exports.prepareNewActionBaseline()
+    assert.equal(c.exports.revisionApplicationReady.value, intent === 'REPLACEMENT', c.error.value)
+    assert.equal(saves, 0)
+    assert.equal(c.snapshot.value.draftApprovalMatrix, null)
+    if (intent === 'PARTIAL') return
+    assert.match(calls.confirmations[0], /提交正式变更时核验并保存/)
+    const command = revisions.buildRevisionCommand('10', '11', intent, '换版说明', 'K', c.exports.applicationFacts.value)
+    await c.exports.submitRevision(command)
+    assert.equal(saves, 0)
+    assert.equal(calls.writes.length, 1)
+    assert.equal(calls.writes[0].payload.revisionChangeType, 'REPLACEMENT')
+    assert.equal(calls.writes[0].payload.approvalMatrixBaselineToken, 'fixture-server-baseline')
+    assert.equal(calls.writes[0].payload.expectedProcessDefinitionId, crossActionFacts().preparedProcessDefinitionId)
+    assert.ok(previews.length >= 3, 'submit must refresh the confirmed approval configuration')
+    assert.ok(previews.every(request => request.prepareNewActionBaseline === true))
+    assert.equal(c.submitted.value, true)
+  })
+}
+
+test('replacement confirmed preparation still rejects a runtime blocker before formal submission', async () => {
+  const { c, calls } = host({ initial: vue.ref(false), getWorkingApplicationAttributes: async () => crossActionFacts(),
+    checkControlledFileRouteReadiness: async () => crossActionReadiness() })
+  await c.exports.open('REPLACEMENT'); c.snapshotIntent.value = 'REPLACEMENT'
+  c.revisionOptions.value.replacementTarget = { versionNo: 'B/1', unavailableReason: null }
+  await c.exports.prepareNewActionBaseline()
+  c.checkControlledFileRouteReadiness = async () => ({ ...crossActionReadiness(), ready: false,
+    blockers: [{ reasonCode: 'APPROVER_UNAVAILABLE', message: '批准账号已停用' }] })
+  const command = revisions.buildRevisionCommand('10', '11', 'REPLACEMENT', '换版说明', 'K', c.exports.applicationFacts.value)
+  await assert.rejects(c.exports.submitRevision(command), /批准账号已停用/)
+  assert.equal(calls.writes.length, 0)
+})
 
 test('IC21 cancellation of explicit new-action preview preserves raw NULL and all input with zero persistence calls', async () => {
   const requests = [], writes = []

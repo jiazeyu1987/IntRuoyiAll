@@ -47,7 +47,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
     }
 
     @Test void exactPairBoundsRealCandidateMastersWithoutChangingTheVersionChain() {
-        var response=query.getControlledFileBrowserPage(99L,request(true));
+        var response=query.getControlledFileWorkingBrowserPage(99L,request(true));
         assertEquals(1,response.getTotal(),"only the exact file's Master may reach this operation browser");
         assertEquals(CURRENT,response.getList().get(0).getId());
         assertTrue(response.getList().get(0).getVersionHistory().stream().allMatch(v->v.getId()!=400L));
@@ -55,24 +55,24 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
 
     @Test void historicalOnlyKeywordIsStillFilteredAfterCanonicalAggregation() {
         var req=request(true);req.setKeyword("OLD-ONLY");
-        assertEquals(0,query.getControlledFileBrowserPage(99L,req).getTotal());
+        assertEquals(0,query.getControlledFileWorkingBrowserPage(99L,req).getTotal());
     }
 
     @Test void exactIdentityDoesNotGrantScopeAndWrongOrHalfIdentityNeverFallsBackToBroadScan() {
         var scope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
         when(scope.isWithinAssignedFileScope(99L,CURRENT)).thenReturn(false);
         when(scope.isWithinAssignedFileScope(99L,300L)).thenReturn(false);
-        assertEquals(0,query.getControlledFileBrowserPage(99L,request(true)).getTotal());
+        assertEquals(0,query.getControlledFileWorkingBrowserPage(99L,request(true)).getTotal());
         var req=request(true);ReflectionTestUtils.setField(req,"workingMasterId",40L);
-        assertThrows(RuntimeException.class,()->query.getControlledFileBrowserPage(99L,req));
+        assertThrows(RuntimeException.class,()->query.getControlledFileWorkingBrowserPage(99L,req));
         ReflectionTestUtils.setField(req,"workingMasterId",null);
-        assertThrows(RuntimeException.class,()->query.getControlledFileBrowserPage(99L,req));
+        assertThrows(RuntimeException.class,()->query.getControlledFileWorkingBrowserPage(99L,req));
         ReflectionTestUtils.setField(req,"workingMasterId",10L);
         jdbc.update("UPDATE dcc_controlled_file SET tenant_id=2 WHERE id=?",CURRENT);
-        assertThrows(RuntimeException.class,()->query.getControlledFileBrowserPage(99L,req));
+        assertThrows(RuntimeException.class,()->query.getControlledFileWorkingBrowserPage(99L,req));
         jdbc.update("UPDATE dcc_controlled_file SET tenant_id=1 WHERE id=?",CURRENT);
         ReflectionTestUtils.setField(req,"workingMasterId",10L);req.setBrowserScope("GLOBAL");
-        assertThrows(RuntimeException.class,()->query.getControlledFileBrowserPage(99L,req));
+        assertThrows(RuntimeException.class,()->query.getControlledFileWorkingBrowserPage(99L,req));
         assertThrows(RuntimeException.class,()->query.getControlledFilePage(99L,request(true)));
     }
 
@@ -86,10 +86,47 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
         var selected=files.selectById(CURRENT);
         var req=request(true);
-        var response=query.getControlledFileBrowserPage(99L,req);
+        var response=query.getControlledFileWorkingBrowserPage(99L,req);
         assertEquals(1,response.getTotal(),"exact operation must retain the returned initial file even without any controlled version");
         assertEquals(CURRENT,response.getList().get(0).getId());
         assertEquals("PENDING_APPLICANT_REWORK",response.getList().get(0).getStatus());
         assertFalse(Boolean.TRUE.equals(response.getList().get(0).getCanPrint()));
+    }
+
+    @Test void workingOnControlledVersionExcludesOtherRejectedAttemptsFromRowsAndVersionOptions() {
+        configureWorkingBrowserPolicyPorts();
+        jdbc.update("UPDATE dcc_controlled_file SET activated_time=controlled_time WHERE id=?",CURRENT);
+        var rejected=new DccControlledFileDO();BeanUtils.copyProperties(files.selectById(CURRENT),rejected);
+        rejected.setId(CURRENT+1);rejected.setVersionNo("B/1");rejected.setStatus("REJECTED");
+        rejected.setControlledTime(null);rejected.setActivatedTime(null);files.insert(rejected);
+
+        var response=query.getControlledFileWorkingBrowserPage(99L,request(true));
+        assertEquals(1,response.getTotal());
+        assertEquals(CURRENT,response.getList().get(0).getId());
+        assertTrue(response.getList().get(0).getVersionHistory().stream().anyMatch(version->version.getId()==CURRENT));
+        assertTrue(response.getList().get(0).getVersionHistory().stream()
+                .noneMatch(version->"REJECTED".equals(version.getStatus())));
+        assertEquals("REJECTED",files.selectById(CURRENT+1).getStatus(),"the application record must remain intact");
+    }
+
+    @Test void explicitlySelectedRejectedApplicationRemainsAvailableForRework() {
+        configureWorkingBrowserPolicyPorts();
+        jdbc.update("DELETE FROM dcc_controlled_file WHERE id=300");
+        jdbc.update("UPDATE dcc_controlled_file SET status='REJECTED',controlled_time=NULL,activated_time=NULL WHERE id=?",CURRENT);
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
+
+        var response=query.getControlledFileWorkingBrowserPage(99L,request(true));
+        assertEquals(1,response.getTotal());
+        assertEquals(CURRENT,response.getList().get(0).getId());
+        assertEquals("REJECTED",response.getList().get(0).getStatus());
+        assertTrue(response.getList().get(0).getVersionHistory().stream()
+                .anyMatch(version->version.getId()==CURRENT && "REJECTED".equals(version.getStatus())));
+    }
+
+    private void configureWorkingBrowserPolicyPorts() {
+        var scope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(null);
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(query,"detailAuthorizationGuard"),"offlineTraining",
+                ReflectionTestUtils.getField(query,"offlineTraining"));
     }
 }

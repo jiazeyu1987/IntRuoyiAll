@@ -65,6 +65,13 @@
       <el-descriptions-item label="文件名称">
         {{ file?.fileName || '-' }}
       </el-descriptions-item>
+      <template v-if="file?.importSource === 'CONTROLLED_IMPORT'">
+        <el-descriptions-item label="上传来源">已受控文件上传</el-descriptions-item>
+        <el-descriptions-item label="原受控时间">{{ formatControlledFileDateTime(file.controlledTime) }}</el-descriptions-item>
+        <el-descriptions-item label="原生效时间">{{ formatControlledFileDateTime(file.effectiveTime) }}</el-descriptions-item>
+        <el-descriptions-item label="本次上传人">{{ file.importedBy || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="本次上传时间">{{ formatControlledFileDateTime(file.importedTime) }}</el-descriptions-item>
+      </template>
       <el-descriptions-item label="产品编号">
         {{ file?.productCode || '-' }}
       </el-descriptions-item>

@@ -43,6 +43,12 @@
         <BusinessMessageContent v-else :description="messageDescription" />
       </section>
 
+      <HandlingTaskPanel v-if="detailData.templateCode === 'DCC_REGISTRATION_HANDLING_TASK' && normalizeTemplateParams(detailData.templateParams)?.handlingTaskId"
+        :key="String(normalizeTemplateParams(detailData.templateParams)?.handlingTaskId)" :task-id="String(normalizeTemplateParams(detailData.templateParams)?.handlingTaskId)" />
+      <ChangeConfirmationsPanel
+        v-if="detailData.templateCode === 'DCC_REGISTRATION_CERTIFICATE_BUSINESS_EVENT' && normalizeTemplateParams(detailData.templateParams)?.eventType === 'CHANGE_APPROVAL_RECORDED'"
+        :message-id="detailData.id" />
+
       <section v-if="templateParamEntries.length" class="notify-message-detail__params">
         <div class="notify-message-detail__section-title">业务信息</div>
         <div class="notify-message-detail__param-grid">
@@ -78,6 +84,7 @@
           <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
           <el-button v-if="dccDistributionNavigation" type="primary" @click="handleContentClick">查看下发文件并签收</el-button>
           <el-button v-if="dccRelationRemediationNavigation" type="primary" data-testid="dcc-relation-remediation-notification-open" @click="navigateToDccRelationRemediation">查看来源受控申请</el-button>
+          <el-button v-if="applicationRestart" type="primary" :loading="restartLoading" data-testid="dcc-application-restart" @click="restartApplication">重新发起本次任务</el-button>
         </div>
       </section>
     </div>
@@ -90,6 +97,10 @@ import { formatDate } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
 import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
+import HandlingTaskPanel from '@/views/dcc/registration-certificate/components/HandlingTaskPanel.vue'
+import ChangeConfirmationsPanel from '@/views/dcc/registration-certificate/components/ChangeConfirmationsPanel.vue'
+import { getControlledFileApplicationRestartContext, prepareControlledFileApplicationRestart,
+  type ControlledFileApplicationRestartContext } from '@/api/dcc/controlledFile/workflow'
 import {
   getNotifyMessageTarget,
   getNotifyMessageTargets,
@@ -111,8 +122,15 @@ const detailLoading = ref(false)
 const detailData = ref({} as NotifyMessageApi.NotifyMessageVO)
 const messageDescription = computed(() => describeNotifyMessage(detailData.value))
 const router = useRouter()
+const message = useMessage()
+const applicationRestart = ref<ControlledFileApplicationRestartContext | null>(null)
+const restartLoading = ref(false)
+let detailGeneration = 0
 
 const resetDialogState = () => {
+  detailGeneration++
+  applicationRestart.value = null
+  restartLoading.value = false
   dialogVisible.value = false
   detailLoading.value = false
   detailData.value = {} as NotifyMessageApi.NotifyMessageVO
@@ -181,6 +199,8 @@ const templateParamLabels: Record<string, string> = {
   moduleName: '来源模块',
   result: '处理结果',
   fileNumber: '文件编号',
+  relatedFileNumber: '您编制的文件',
+  revisedControlledFileId: '升版文件身份',
   versionNo: '发布版本',
   reasonSummaries: '通知原因',
   sourceControlledFileId: '来源受控文件身份',
@@ -213,16 +233,49 @@ const templateParamEntries = computed(() => {
     }))
 })
 
-const hasDetailActions = computed(() => notifyMessageTargets.value.length > 0)
+const hasDetailActions = computed(() => notifyMessageTargets.value.length > 0 || !!applicationRestart.value)
 
 const open = async (data: NotifyMessageApi.NotifyMessageVO) => {
+  const generation = ++detailGeneration
+  restartLoading.value = false
+  applicationRestart.value = null
   dialogVisible.value = true
   detailLoading.value = true
   try {
     detailData.value = data
+    const processId = bpmApprovalNavigation.value?.query.id
+    if (data.templateCode?.startsWith('dcc_') && processId) {
+      const context = await getControlledFileApplicationRestartContext(processId)
+      if (generation === detailGeneration) applicationRestart.value = context
+    }
   } finally {
-    detailLoading.value = false
+    if (generation === detailGeneration) detailLoading.value = false
   }
+}
+
+const restartApplication = async () => {
+  const context = applicationRestart.value, generation = detailGeneration
+  if (!context || restartLoading.value) return
+  restartLoading.value = true
+  try {
+    const query: Record<string, string> = { management: '1', restartApplication: '1' }
+    let fileId = context.controlledFileId
+    if (context.applicationType === 'OBSOLETE') {
+      query.operation = 'obsolete'
+      for (const key of ['reworkSourceFormInstanceId', 'reworkSourceFormInstanceCode', 'reworkSourceBpmProcessInstanceId', 'reworkSourceAttributeRound'] as const) {
+        if (context[key] == null || context[key] === '') throw new Error('原作废申请身份不完整，请重新读取消息详情')
+        query[key] = String(context[key])
+      }
+    } else {
+      fileId = await prepareControlledFileApplicationRestart(fileId)
+      if (context.revisionIntent === 'PARTIAL' || context.revisionIntent === 'REPLACEMENT') query.revisionIntent = context.revisionIntent
+    }
+    if (generation !== detailGeneration) return
+    resetDialogState()
+    await router.push({ path: `/dcc/controlled-file/detail/${fileId}`, query })
+  } catch (error) {
+    if (generation === detailGeneration && error instanceof Error) message.error(error.message)
+  } finally { if (generation === detailGeneration) restartLoading.value = false }
 }
 
 const navigateToShowroomProduct = async () => {

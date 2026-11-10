@@ -76,6 +76,8 @@ public class DccApprovalPrintTemplateServiceImpl implements DccApprovalPrintTemp
     @Resource
     private DccControlledFileQueryService queryService;
     @Resource
+    private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Resource
     private FileMapper fileMapper;
     @Resource
     private FileService fileService;
@@ -111,7 +113,8 @@ public class DccApprovalPrintTemplateServiceImpl implements DccApprovalPrintTemp
 
     @Override
     public DccApprovalPrintRenderedWord exportApprovalWord(Long userId, Long controlledFileId) {
-        DccControlledFileDO file = requireAccessibleControlledFile(userId, controlledFileId);
+        DccControlledFileDO file = requireAccessibleControlledFile(userId, controlledFileId,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DOWNLOAD);
         DccApprovalPrintTemplateDO template = requireActiveTemplate();
         FileDO templateFile = requireTemplateFile(template.getTemplateFileId());
         validateTemplateFileRecord(templateFile);
@@ -124,7 +127,8 @@ public class DccApprovalPrintTemplateServiceImpl implements DccApprovalPrintTemp
 
     @Override
     public DccApprovalPrintHtmlRespVO getApprovalPrintHtml(Long userId, Long controlledFileId) {
-        DccControlledFileDO file = requireAccessibleControlledFile(userId, controlledFileId);
+        DccControlledFileDO file = requireAccessibleControlledFile(userId, controlledFileId,
+                cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.PRINT);
         DccApprovalPrintTemplateDO template = requireActiveTemplate();
         FileDO templateFile = requireTemplateFile(template.getTemplateFileId());
         validateTemplateFileRecord(templateFile);
@@ -138,12 +142,14 @@ public class DccApprovalPrintTemplateServiceImpl implements DccApprovalPrintTemp
         return respVO;
     }
 
-    private DccControlledFileDO requireAccessibleControlledFile(Long userId, Long controlledFileId) {
+    private DccControlledFileDO requireAccessibleControlledFile(Long userId, Long controlledFileId,
+            cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum action) {
         queryService.getControlledFile(userId, controlledFileId);
         DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        if (!permissionSupport.hasFilePermission(file, userId, action)) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         return file;
     }
 

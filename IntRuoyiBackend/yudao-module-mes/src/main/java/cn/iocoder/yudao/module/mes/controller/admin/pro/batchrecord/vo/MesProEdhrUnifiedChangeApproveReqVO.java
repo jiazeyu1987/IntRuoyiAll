@@ -12,7 +12,6 @@ public class MesProEdhrUnifiedChangeApproveReqVO {
     @NotNull(message = "变更申请不能为空")
     private Long changeRequestId;
 
-    @NotBlank(message = "审批意见不能为空")
     private String approvalOpinion;
 
     @NotBlank(message = "签核证据不能为空")

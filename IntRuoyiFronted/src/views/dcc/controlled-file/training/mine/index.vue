@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="training-mine" :body-style="{ padding: '12px' }">
     <UnifiedListTemplate
       class="dcc-training-mine-list-template"
       table-key="dcc.controlledFile.trainingMine.main"
@@ -97,7 +97,7 @@
                   class="training-summary__progress"
                   :percentage="row.trainingSummary.progressPercent"
                   :show-text="false"
-                  :stroke-width="6"
+                  :stroke-width="4"
                 />
                 <div class="training-summary__hint">
                   <span>{{ row.trainingSummary.hintText }}</span>
@@ -291,6 +291,64 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.training-mine {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 6px;
+}
+
+.training-mine :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.training-mine :deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  border-color: #dbe3e7;
+  border-radius: 4px;
+}
+
+.training-mine :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-header-text-color: #52646e;
+  --el-table-border-color: #eaf0f2;
+  --el-table-row-hover-bg-color: #e6f5f2;
+
+  font-size: 13px;
+}
+
+.training-mine :deep(.el-table th.el-table__cell) {
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.training-mine :deep(.el-table td.el-table__cell) {
+  padding: 7px 0;
+}
+
+.training-mine :deep(.el-table .el-button.is-link) {
+  color: #1677b9;
+  font-size: 12px;
+}
+
+.training-mine :deep(.el-progress-bar__inner) {
+  background-color: #008f86;
+}
+
+.training-mine :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .training-summary {
   min-width: 0;
 }
@@ -301,7 +359,8 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   align-items: center;
   gap: 8px;
   color: #172033;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 20px;
 }
 
@@ -312,7 +371,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 }
 
 .training-summary__progress {
-  margin: 7px 0;
+  margin: 5px 0;
 }
 
 .training-summary__hint {

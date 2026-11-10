@@ -642,6 +642,22 @@ test('reference rows honor selected lifecycle filter without inventing a working
     1
   )
 })
+
+test('daily browser retains archived fixed references as download application hints', () => {
+  const merge = load('browser/folder-file-list.ts').buildFolderFileRows
+  for (const status of ['OBSOLETE', 'SUPERSEDED']) {
+    const reference = { reference: { id: '55' }, selectedVersion: {
+      ...selected, status, controlled: false, executable: false, canPreview: false
+    }, referenceProjectCount: 1 }
+    const rows = merge([], [reference], {}, '', 'LATEST_CONTROLLED')
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].reference, reference)
+    assert.equal(rows[0].file.canPreview, false)
+    assert.equal(merge([], [reference], {}, 'different-file', 'LATEST_CONTROLLED').length, 0)
+  }
+  const working = { reference: { id: '56' }, selectedVersion: { ...selected, status: 'WORKING' } }
+  assert.equal(merge([], [working], {}, '', 'LATEST_CONTROLLED').length, 0)
+})
 test('a new detail object for the same file triggers refreshed browse metadata', async () => {
   let calls = 0
   const h = mountRecords(async (id) => {

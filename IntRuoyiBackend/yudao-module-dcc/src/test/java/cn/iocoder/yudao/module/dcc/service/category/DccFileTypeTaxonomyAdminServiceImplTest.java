@@ -102,6 +102,24 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createWithoutCode_atEveryDepthGeneratesDistinctCodeAndKeepsItOnEdit() {
+        Long parentId = null;
+        var codes = new java.util.HashSet<String>();
+        for (int level = 1; level <= 5; level++) {
+            Long id = createTaxonomy(parentId, null, "自动编码第" + level + "级", level);
+            var saved = taxonomyMapper.selectById(id);
+            assertTrue(saved.getCode().matches("FT_[a-f0-9]{32}"));
+            assertTrue(codes.add(saved.getCode()));
+            assertEquals(level, saved.getLevelNo());
+            var update = req(parentId, null, "已编辑第" + level + "级", level);
+            update.setId(id);
+            taxonomyAdminService.updateTaxonomy(update);
+            assertEquals(saved.getCode(), taxonomyMapper.selectById(id).getCode());
+            parentId = id;
+        }
+    }
+
+    @Test
     void createFiveLevelPath_shouldPersistComputedLevelsAndResolvePath() {
         Long level1 = createTaxonomy(null, "TECH", "技术文档", 1);
         Long level2 = createTaxonomy(level1, "PLAN", "设计和开发策划阶段", 2);
@@ -251,6 +269,66 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
         assertServiceException(()->taxonomyAdminService.deleteTaxonomy(id),
                 WRITE_INCOMPLETE,"删除分类");
         assertEquals(id,taxonomyMapper.selectById(id).getId());
+    }
+
+    @Test void customOtherTypeCannotBeRenamedToOrdinaryType() {
+        Long root = createTaxonomy(null, "W03-ROOT", "技术文档", 1);
+        Long stage = createTaxonomy(root, "W03-STAGE", "策划文件", 2);
+        Long other = createTaxonomy(stage, "W03-OTHER", "其他", 3);
+        categoryMapper.insert(cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+                .code("W03-CUSTOM").name("其他").approvalSourceMode("APPLICATION_CUSTOM")
+                .fileTypeTaxonomyId(other).lifecycleStage("PLAN").source("LOCAL").sort(0).active(true).build());
+        var update = req(stage, "W03-OTHER", "普通类型", 3); update.setId(other);
+        assertServiceException(() -> taxonomyAdminService.updateTaxonomy(update),
+                DccCategoryApprovalMatrixAdminErrors.CONFIGURATION_REQUIRED);
+        assertEquals("其他", taxonomyMapper.selectById(other).getName());
+    }
+
+    @Test void publicTypeCannotBeRenamedToOtherWithoutChangingItsApprovalMode() {
+        Long typeId = createTypeWithCategory("普通类型", "PUBLIC_MATRIX");
+        var before = taxonomyMapper.selectById(typeId);
+        var update = req(before.getParentId(), before.getCode(), "其他", 3); update.setId(typeId);
+        assertServiceException(() -> taxonomyAdminService.updateTaxonomy(update),
+                DccCategoryApprovalMatrixAdminErrors.CUSTOM_MATRIX_PUBLIC_FORBIDDEN);
+        assertEquals("普通类型", taxonomyMapper.selectById(typeId).getName());
+        assertEquals("PUBLIC_MATRIX", categoryMapper.selectOne(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO::getFileTypeTaxonomyId,
+                typeId).getApprovalSourceMode());
+    }
+
+    @Test void customOtherCanKeepItsNameAndUpdateMetadata() {
+        Long typeId = createTypeWithCategory("其他", "APPLICATION_CUSTOM");
+        var before = taxonomyMapper.selectById(typeId);
+        var update = req(before.getParentId(), before.getCode(), "其他", 7); update.setId(typeId);
+        update.setRemark("文控修改备注");
+        taxonomyAdminService.updateTaxonomy(update);
+        assertEquals("其他", taxonomyMapper.selectById(typeId).getName());
+        assertEquals("文控修改备注", taxonomyMapper.selectById(typeId).getRemark());
+        assertEquals(7, taxonomyMapper.selectById(typeId).getSort());
+        assertEquals("APPLICATION_CUSTOM", categoryMapper.selectOne(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO::getFileTypeTaxonomyId,
+                typeId).getApprovalSourceMode());
+    }
+
+    @Test void publicTypeCanBeRenamedToAnotherOrdinaryName() {
+        Long typeId = createTypeWithCategory("普通类型", "PUBLIC_MATRIX");
+        var before = taxonomyMapper.selectById(typeId);
+        var update = req(before.getParentId(), before.getCode(), "更名后的普通类型", 3); update.setId(typeId);
+        taxonomyAdminService.updateTaxonomy(update);
+        assertEquals("更名后的普通类型", taxonomyMapper.selectById(typeId).getName());
+        assertEquals("PUBLIC_MATRIX", categoryMapper.selectOne(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO::getFileTypeTaxonomyId,
+                typeId).getApprovalSourceMode());
+    }
+
+    private Long createTypeWithCategory(String name, String mode) {
+        Long root = createTaxonomy(null, "W03-RENAME-ROOT", "更名测试根", 1);
+        Long stage = createTaxonomy(root, "W03-RENAME-STAGE", "策划文件", 2);
+        Long typeId = createTaxonomy(stage, "W03-RENAME-TYPE", name, 3);
+        categoryMapper.insert(cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+                .code("W03-RENAME-CAT").name(name).approvalSourceMode(mode).fileTypeTaxonomyId(typeId)
+                .lifecycleStage("PLAN").source("LOCAL").sort(0).active(true).build());
+        return typeId;
     }
 
     private Long createTaxonomy(Long parentId, String code, String name, int sort) {

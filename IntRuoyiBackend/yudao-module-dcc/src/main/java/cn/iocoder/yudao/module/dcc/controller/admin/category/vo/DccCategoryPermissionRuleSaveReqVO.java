@@ -8,6 +8,7 @@ import lombok.Data;
 public class DccCategoryPermissionRuleSaveReqVO {
 
     @NotBlank(message = "权限动作不能为空")
+    @jakarta.validation.constraints.Pattern(regexp = "EDIT|VIEW", message = "文件权限仅支持编辑或浏览")
     private String actionType;
 
     @NotBlank(message = "授权主体类型不能为空")

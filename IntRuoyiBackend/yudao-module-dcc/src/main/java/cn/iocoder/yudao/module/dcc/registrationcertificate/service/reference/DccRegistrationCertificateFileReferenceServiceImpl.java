@@ -184,9 +184,9 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
 
     private boolean isSupportedFile(DccRegistrationCertificateFileDO file) {
         return OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())
+                && java.util.Set.of(FILE_KIND_REGISTRATION_CERTIFICATE, "CERTIFICATE_ATTACHMENT", "FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind())
                 || OWNER_TYPE_CHANGE.equals(file.getOwnerType())
-                && FILE_KIND_CHANGE_APPROVAL.equals(file.getFileKind());
+                && java.util.Set.of(FILE_KIND_CHANGE_APPROVAL,"CERTIFICATE_ATTACHMENT","FDA_PRODUCT_DESCRIPTION").contains(file.getFileKind());
     }
 
     private Long resolveVersionId(DccRegistrationCertificateFileDO file) {

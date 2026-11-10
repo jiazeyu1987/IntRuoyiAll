@@ -18,7 +18,7 @@ class ApprovalCenterReceiptBindingTest {
         var receipts=mock(ApprovalCenterReceiptService.class);when(receipts.findVerified(eq(4L),anyString())).thenReturn(old);
         var auth=mock(ElectronicSignatureAuthenticationFacade.class);
         var facade=new ApprovalCenterReviewFacade(mock(ApprovalReviewPrepareService.class),receipts,auth,mock(ApprovalCenterReviewExecutor.class));
-        var command=new ApprovalTaskReviewCommand().setModuleCode(ApprovalModuleCode.BPM).setSourceTaskType("EDHR_WORK_TASK").setSourceTaskId("2").setReason("reviewed").setIdempotencyKey(UUID.randomUUID().toString());
+        var command=new ApprovalTaskReviewCommand().setModuleCode(ApprovalModuleCode.BPM).setSourceTaskType("EDHR_WORK_TASK").setSourceTaskId("2").setResult(ApprovalTaskReviewResult.APPROVE).setReason("reviewed").setIdempotencyKey(UUID.randomUUID().toString());
         assertThrows(IllegalArgumentException.class,()->facade.review(4L,command));
         assertThrows(IllegalArgumentException.class,()->ApprovalCenterReviewFacade.requestHash(4L,identity,command));
         verifyNoInteractions(auth);

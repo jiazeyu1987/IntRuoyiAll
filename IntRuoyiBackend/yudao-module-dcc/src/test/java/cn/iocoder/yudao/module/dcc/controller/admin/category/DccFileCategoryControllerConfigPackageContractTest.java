@@ -62,6 +62,19 @@ class DccFileCategoryControllerConfigPackageContractTest extends BaseMockitoUnit
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
 
+    @Mock private cn.iocoder.yudao.module.dcc.service.category.DccFileTypeConfigurationService configurationService;
+
+    @Test void categoryWritesUseTheAtomicTypeConfigurationBoundary() {
+        var request = new cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategorySaveReqVO();
+        when(configurationService.createCategory(request)).thenReturn(90L);
+        assertEquals(90L, controller.createCategory(request).getCheckedData());
+        verify(configurationService).createCategory(request);
+        controller.updateCategory(90L, request);
+        assertEquals(90L, request.getId());
+        verify(configurationService).updateCategory(request);
+        verifyNoInteractions(categoryAdminService);
+    }
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();

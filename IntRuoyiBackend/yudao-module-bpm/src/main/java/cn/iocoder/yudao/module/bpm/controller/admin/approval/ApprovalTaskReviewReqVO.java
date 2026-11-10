@@ -1,8 +1,10 @@
 package cn.iocoder.yudao.module.bpm.controller.admin.approval;
 
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewCommand;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -36,7 +38,7 @@ public class ApprovalTaskReviewReqVO {
     @NotNull(message = "审核结果不能为空")
     private ApprovalTaskReviewResult result;
 
-    @Schema(description = "审核意见或驳回原因，上市放行通过时选填")
+    @Schema(description = "审核意见或驳回原因；驳回时必填")
     private String reason;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -48,12 +50,11 @@ public class ApprovalTaskReviewReqVO {
     private String expectedContentHash;
     private String contentPolicyVersion;
 
-    @AssertTrue(message = "审核意见不能为空")
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    public boolean isReasonValid() {
-        return (moduleCode == ApprovalModuleCode.EDHR && "EDHR_WORK_TASK".equals(sourceTaskType)
-                && result == ApprovalTaskReviewResult.APPROVE)
-                || (reason != null && reason.matches("(?s).*[^\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF].*"));
+    @Schema(hidden = true)
+    @JsonIgnore
+    @AssertTrue(message = "驳回原因不能为空")
+    public boolean isRejectReasonValid() {
+        return result != ApprovalTaskReviewResult.REJECT || !ApprovalReviewReason.normalize(reason).isEmpty();
     }
 
     public ApprovalTaskReviewCommand toCommand() {

@@ -3,11 +3,14 @@
     <slot name="frozen-evidence" ></slot>
     <p>{{ departmentName }}：先签名指派本部门人员，再由被指派人正式会签。本人属于本部门时可以指派本人。</p>
     <UserSelectV2 v-model="selected" clearable placeholder="搜索并选择本部门会签人" :disabled="busy || assigned" :user-options="users.map(user => ({ ...user, nickname: user.name, deptName: user.departmentName }))" />
-    <el-input v-model="reason" placeholder="指派意见" :disabled="busy || assigned" />
-    <el-input v-model="password" type="password" show-password placeholder="当前账号签名密码" :disabled="busy || assigned" />
+    <el-input v-model="reason" type="textarea" :rows="2" name="dcc-signoff-assignment-opinion" autocomplete="off" :readonly="!reasonFocused" @focus="reasonFocused = true" aria-label="指派意见" placeholder="指派意见（选填）" :disabled="busy || assigned" />
+    <el-input v-model="password" type="password" name="dcc-signoff-signature-password" autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" show-password aria-label="当前账号签名密码" placeholder="当前账号签名密码" :disabled="busy || assigned" />
     <slot name="relation-arrangements" :disabled="busy || assigned"></slot>
     <p v-if="error" role="alert">{{ error }}</p>
-    <el-button :loading="busy" :disabled="assigned" @click="submit">签名确认指派</el-button>
+    <div class="mt-12px flex flex-wrap items-center gap-8px">
+      <el-button type="primary" :loading="busy" :disabled="assigned || arrangementsReady === false" @click="submit">签名确认指派</el-button>
+      <slot name="actions"></slot>
+    </div>
     <p v-if="assigned">指派已保存，等待该部门实际会签人独立签名。</p>
   </section>
 </template>
@@ -30,6 +33,8 @@ const emit = defineEmits<{ saved: [context: { fileId: WorkflowId; processInstanc
 const selected = ref<WorkflowId>('')
 const password = ref('')
 const reason = ref('')
+// 签名输入仅在本人聚焦后开放，阻止浏览器把登录账密回填到指派表单。
+const reasonFocused = ref(false), passwordFocused = ref(false)
 const error = ref('')
 const busy = ref(false)
 let requestSequence = 0
@@ -39,6 +44,8 @@ watch(() => [String(props.fileId), props.processInstanceId, props.taskId], () =>
   selected.value = ''
   password.value = ''
   reason.value = ''
+  reasonFocused.value = false
+  passwordFocused.value = false
   error.value = ''
   busy.value = false
 }, { flush: 'sync' })

@@ -25,6 +25,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.*;
 
 @Service
 public class DccControlledFileRevisionServiceImpl implements DccControlledFileRevisionService {
+    @Resource private DccApprovalFileOwnerSelectionService fileOwnerSelection;
     @Resource private DccPublicUploadPlacementService publicUploadPlacementService;
     @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper fileMapper;
     @Resource private DccControlledFileMasterMapper masterMapper;
@@ -71,7 +72,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                 || !Objects.equals(master.getNormalizedFileNumber(),selected.getFileNumber())
                 || StrUtil.isBlank(selected.getSourceOriginalFileName())) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         projectAccessService.assertProjectEditorOrOwner(userId,selected.getDccProjectCodeId());
-        if (!permissionSupport.hasCategoryPermission(selected.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.UPLOAD))
+        if (!permissionSupport.hasFilePermission(selected, userId, DccFileCategoryPermissionActionEnum.UPLOAD))
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         var chain = Objects.requireNonNull(fileMapper.selectListByMasterIdForUpdate(master.getId()),"initial version chain");
         String key = request.getIdempotencyKey().trim();
@@ -190,10 +191,13 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         }
         projectAccessService.assertProjectEditorOrOwner(userId, baseline.getDccProjectCodeId());
         if (intent == DccControlledFileRevisionChangeType.REPLACEMENT) {
-            projectAccessService.assertProjectOwner(userId, baseline.getDccProjectCodeId());
+            projectAccessService.assertProjectEditorOrOwner(userId, baseline.getDccProjectCodeId());
         }
-        if (!permissionSupport.hasCategoryPermission(baseline.getCategoryId(), userId, DccFileCategoryPermissionActionEnum.UPLOAD)) {
+        if (!permissionSupport.hasFilePermission(baseline, userId, DccFileCategoryPermissionActionEnum.EDIT)) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
+        if (!fileMapper.selectProjectReferenceIdsForUpdate(tenant, master.getId()).isEmpty()) {
+            throw exception(CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED);
         }
         var baselineRead = sourceIdentityProjection(baseline);
         var selectedRead = sourceIdentityProjection(selected);
@@ -234,7 +238,6 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                 || !selectedVersion.isWorkingIteration() || !(baseVersion.display().equals(selectedVersion.formal().display())
                     || DccRevisionReworkPolicy.correctionMatchesBaseline(baseline,selected,chain,versionPolicy))
                 || !Objects.equals(baselineId, selected.getRevisionBaseActiveControlledFileId())
-                || !userId.equals(selected.getRequesterId()) && intent != DccControlledFileRevisionChangeType.REPLACEMENT
                 || StrUtil.isBlank(selectedRead.getSourceOriginalFileName())) {
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         }
@@ -308,7 +311,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         DccControlledFilePreparedSource frozen = null;
         DccControlledFilePreparedSource frozenPdf = null;
         try {
-            int sourceAttributeRound = requirePreparedSourceAttributeRound(selected);
+            Integer sourceAttributeRound = requirePreparedSourceAttributeRound(selected);
             frozen = sourceOwnershipService.createVerifiedCopy(selected.getSourceFileId());
             if (!frozen.isolatedCopy() || selected.getSourceSha256() == null || !selected.getSourceSha256().equals(frozen.sourceSha256())) {
                 throw new IllegalStateException("selected working iteration source hash changed");
@@ -346,6 +349,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             target.setPublishedFileId(null); target.setStampedFileId(null); target.setTrainingRecordFileId(null);
             target.setCheckedOutBy(null); target.setCheckedOutTime(null); target.setCheckedOutReason(null);
             target.setRequesterId(userId); target.setSubmitterId(userId);
+            fileOwnerSelection.initializeCompiler(target);
             target.setChangeDescription(request.getChangeDescription().trim());
             target.setNeedTraining(request.getNeedTraining());
             applyApplicationSelection(target, request);
@@ -400,7 +404,8 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         }
     }
 
-    private int requirePreparedSourceAttributeRound(DccControlledFileDO source) {
+    private Integer requirePreparedSourceAttributeRound(DccControlledFileDO source) {
+        if (DccApplicationExecutionContractService.isControlledImport(source)) return null;
         String type = "NEW".equals(source.getChangeType()) ? "UPLOAD"
                 : "REVISION".equals(source.getChangeType()) ? "REVISION" : null;
         if (type == null) throw new IllegalArgumentException("EXECUTION_CONTRACT_SOURCE_ACTION_REQUIRED");
@@ -425,9 +430,11 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         var attributes = request.getProjectAttributes();
         if (attributes != null) {
             attributes.validated();
-            attributes = new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
-                    attributes.targetMarkets().stream().sorted().toList(), attributes.otherMarket(),
-                    attributes.licenseHolder(), attributes.actualManufacturer(), attributes.documentTransfer(), attributes.transferTo());
+            if (attributes.libraryScope() == null) {
+                attributes = new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
+                        attributes.targetMarkets().stream().sorted().toList(), attributes.otherMarket(),
+                        attributes.licenseHolder(), attributes.actualManufacturer(), attributes.documentTransfer(), attributes.transferTo());
+            }
         }
         var departments = request.getSelectedSignoffDepartmentIds();
         if (departments != null) {

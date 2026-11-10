@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.WRITE_INCOMPLETE;
 
 /** 当前基线人员逻辑下验证真实决策/事务，未指定待讨论的正式审核人。 */
-@Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,DccProjectProductCreateWriteService.class,
+@Import({DccProjectReviewerRoleService.class,DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,DccProjectProductCreateWriteService.class,
         cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
         DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class,DccProjectProductCreateFailureService.class,
@@ -36,6 +36,8 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 @org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
 @org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductDecisionPersistenceTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -59,6 +61,7 @@ class DccProjectProductDecisionPersistenceTest extends BaseDbUnitTest {
     @MockitoBean GxpAuditService audit;
     @BeforeEach void accounts() {
         when(projectActors.isApprover(1L)).thenReturn(true); // Explicit external authority port for persistence cases.
+        when(projectActors.canUpdate(1L)).thenReturn(true);
         var leader=new AdminUserRespDTO();leader.setId(7L);leader.setStatus(0);leader.setNickname("正式负责人");
         var existingReviewer=new AdminUserRespDTO();existingReviewer.setId(1L);existingReviewer.setStatus(0);existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
         when(users.getUser(7L)).thenReturn(leader);when(users.getUser(1L)).thenReturn(existingReviewer);
@@ -67,11 +70,54 @@ class DccProjectProductDecisionPersistenceTest extends BaseDbUnitTest {
     Long pendingReview() {
         Long template=templates.save(7L,new DccFolderTemplateService.Save(null,"决策模板",null,true,
                 new DccFolderTemplateStructure(List.of(new DccFolderTemplateStructure.Node("root",null,"正式目录",0))),"测试新增"));
-        var input=new DccProjectProductCreateReqVO();input.setProjectName("决策项目");input.setProjectCode("DECISION-B");
-        input.setProjectLeaderUserId(7L);input.setFolderTemplateId(template);
-        input.setDefaultAttributes(new DccProjectAttributes(List.of("CE"),null,"Y","N","N",null));
-        input.setProductCode("PR-DECISION-B");input.setProductName("决策产品");input.setClassification("一类");input.setCreationReason("正式新建申请原因");
-        return service.createRequest(9L,input);
+        // Historical requests retain the original reviewer/admin contract; new requests use role review.
+        var row=DccProjectProductCreateRequestDO.builder().projectName("决策项目").projectCode("DECISION-B")
+                .projectLeader("正式负责人").projectLeaderUserId(7L).folderTemplateId(template)
+                .folderTemplateSnapshotJson(templates.captureForRequest(template))
+                .defaultAttributesJson(JsonUtils.toJsonString(new DccProjectAttributes(List.of("CE"),null,"Y","N","N",null)))
+                .productCode("PR-DECISION-B").productName("决策产品").classification("一类").creationReason("历史正式申请原因")
+                .status("PENDING_REVIEW").applicantUserId(9L).configuredReviewerUserId(1L)
+                .configuredReviewerUsername("admin").configuredReviewerNickname("显式配置测试审核人")
+                .submittedTime(java.time.LocalDateTime.now()).build();
+        row.setTenantId(1L);requests.insert(row);
+        for(var entry:java.util.Map.of("PROJECT_CODE","DECISION-B","PRODUCT_CODE","PR-DECISION-B","PRODUCT_NAME","决策产品").entrySet()){
+            var claim=DccProjectProductIdentityClaimDO.builder().requestId(row.getId()).identityType(entry.getKey()).identityValue(entry.getValue()).build();claim.setTenantId(1L);claims.insert(claim);
+        }
+        return row.getId();
+    }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings={"   ","\t\n","\u00A0\uFEFF\u3000"})
+    void blankApproveOpinionPersistsActualReviewApprovalAndCompletedAssets(String reason) {
+        Long id=pendingReview();
+        var reviewed=service.review(1L,id,reason,true);
+        assertEquals("PENDING_APPROVAL",reviewed.getStatus());assertEquals("",reviewed.getReviewReason());
+        var completed=service.approve(1L,id,reason,true);
+        assertEquals("COMPLETED",completed.getStatus());assertEquals("",completed.getApprovalReason());
+        assertNotNull(completed.getReviewerUserId());assertNotNull(completed.getApproverUserId());
+        assertEquals(1,projects.selectList().size());assertEquals(1,relations.selectList().size());
+        verify(access).initializeApprovedProjectLeaderOwner(completed.getGeneratedProjectCodeId(),7L,
+                "项目申请审批通过（申请ID：" + id + "），初始化项目负责人OWNER权限");
+    }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})
+    void blankRejectOpinionCannotSaveDecisionAtEitherNode(String reason) {
+        Long id=pendingReview();
+        assertThrows(ServiceException.class,()->service.review(1L,id,reason,false));
+        assertEquals("PENDING_REVIEW",requests.selectById(id).getStatus());
+        service.review(1L,id,null,true);
+        assertThrows(ServiceException.class,()->service.approve(1L,id,reason,false));
+        assertEquals("PENDING_APPROVAL",requests.selectById(id).getStatus());assertTrue(projects.selectList().isEmpty());
+    }
+    @Test void failureOfBlankOpinionApprovedWriteRetainsActualErrorAndAllowsExplicitRetry() {
+        Long id=pendingReview();service.review(1L,id,null,true);state.markApprovalDecision(1L,id,null,true);
+        failures.markWriteFailed(id,"ACTUAL_ERROR","实际目录写入失败");
+        var failed=requests.selectById(id);assertEquals("WRITE_FAILED",failed.getStatus());
+        assertEquals("ACTUAL_ERROR",failed.getWriteErrorCode());assertEquals("实际目录写入失败",failed.getWriteErrorMessage());
+        assertEquals("",failed.getWriteReason());
+        assertThrows(ServiceException.class,()->service.retryWrite(1L,id,null));
+        assertEquals("COMPLETED",service.retryWrite(1L,id,"修复目录后明确重试").getStatus());
     }
     @ParameterizedTest @ValueSource(booleans={true,false})
     void zeroReviewUpdatePreservesOriginalDecisionAndIdentityProtection(boolean approve) {

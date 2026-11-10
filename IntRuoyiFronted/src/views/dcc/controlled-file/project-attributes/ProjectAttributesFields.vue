@@ -1,6 +1,7 @@
 <template>
   <div class="dcc-project-attributes">
     <el-alert v-if="historicalMissing" title="历史未记录" type="info" :closable="false" />
+    <el-alert v-else-if="modelValue.libraryScope" :title="`${modelValue.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库'}：项目属性不适用`" type="info" :closable="false" />
     <template v-else>
       <el-form-item label="目标市场" required>
         <el-checkbox-group :model-value="modelValue.targetMarkets" :disabled="readonly" @update:model-value="marketsChanged">
@@ -10,7 +11,7 @@
       <el-form-item v-if="modelValue.targetMarkets.includes('OTHER')" label="其他市场说明" required>
         <el-input :model-value="modelValue.otherMarket" :disabled="readonly" maxlength="512" @update:model-value="setField('otherMarket', $event)" />
       </el-form-item>
-      <el-form-item v-for="field in identities" :key="field.value" :label="field.label" required>
+      <el-form-item v-for="field in identities" :key="field.value" :label="field.label" label-width="120px" required>
         <el-radio-group :model-value="modelValue[field.value]" :disabled="readonly" @update:model-value="setField(field.value, String($event))">
           <el-radio value="Y">是</el-radio><el-radio value="N">否</el-radio><el-radio value="NA">不适用</el-radio>
         </el-radio-group>

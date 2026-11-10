@@ -20,7 +20,7 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_NOT_EXISTS = new ErrorCode(1_080_000_009, "Controlled file does not exist");
     ErrorCode CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED = new ErrorCode(1_080_000_010, "Current controlled file cannot be withdrawn");
     ErrorCode CONTROLLED_FILE_CATEGORY_DISABLED = new ErrorCode(1_080_000_011, "Controlled file category is disabled");
-    ErrorCode CONTROLLED_FILE_ACCESS_DENIED = new ErrorCode(1_080_000_012, "Current user cannot access this controlled file");
+    ErrorCode CONTROLLED_FILE_ACCESS_DENIED = new ErrorCode(1_080_000_012, "当前账号无权访问此受控文件，请核对文件权限或审批任务");
     ErrorCode CONTROLLED_FILE_STAMP_TYPE_UNSUPPORTED = new ErrorCode(1_080_000_013, "Controlled file type does not support finalization");
     ErrorCode CONTROLLED_FILE_STAMP_GENERATION_FAILED = new ErrorCode(1_080_000_014, "Controlled file finalization failed");
     ErrorCode CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED = new ErrorCode(1_080_000_015, "Current controlled file cannot retry finalization");
@@ -29,7 +29,7 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING = new ErrorCode(1_080_000_018, "Submit request is missing required metadata");
     ErrorCode CONTROLLED_FILE_VERSION_INVALID = new ErrorCode(1_080_000_019, "Controlled file version format is invalid");
     ErrorCode CONTROLLED_FILE_VERSION_NOT_GREATER = new ErrorCode(1_080_000_020, "Controlled file version must be greater than the current chain version");
-    ErrorCode CONTROLLED_FILE_FILE_NUMBER_CONFLICT = new ErrorCode(1_080_000_021, "Controlled file number conflicts with the existing logical document chain");
+    ErrorCode CONTROLLED_FILE_FILE_NUMBER_CONFLICT = new ErrorCode(1_080_000_021, "文件编号已重复：当前项目、文件类型下已存在该编号");
     ErrorCode CONTROLLED_FILE_TASK_PASSWORD_INVALID = new ErrorCode(1_080_000_022, "Controlled file task password verification failed");
     ErrorCode CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED = new ErrorCode(1_080_000_023, "Controlled file signature evidence persistence failed");
     ErrorCode CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED = new ErrorCode(1_080_000_024, "Current user cannot act on this controlled file task");
@@ -172,7 +172,7 @@ public interface ErrorCodeConstants {
     ErrorCode PROJECT_CODE_NOT_EXISTS = new ErrorCode(1_080_000_139, "DCC project code does not exist");
     ErrorCode PROJECT_CODE_DUPLICATE = new ErrorCode(1_080_000_140, "DCC project code already exists");
     ErrorCode PROJECT_CODE_DELETE_REFERENCED = new ErrorCode(1_080_000_141,
-            "DCC project code cannot be deleted because DCC files still reference it");
+            "该项目仍被文控文件引用，无法删除，请先处理关联文件");
     ErrorCode PROJECT_CODE_STATUS_INVALID = new ErrorCode(1_080_000_142, "DCC project code status is invalid");
     ErrorCode PRODUCT_ONBOARDING_NOT_EXISTS = new ErrorCode(1_080_000_191,
             "DCC product onboarding request does not exist");
@@ -582,7 +582,7 @@ public interface ErrorCodeConstants {
     ErrorCode PROJECT_FILE_TEMPLATE_CATEGORY_INVALID = new ErrorCode(1_080_000_340,
             "项目文件模板中的文件分类未绑定唯一启用的正式文件类别");
     ErrorCode DCC_PROJECT_ACCESS_DENIED = new ErrorCode(1_080_000_341,
-            "Current user is not the DCC project owner");
+            "当前用户不具备该项目所需的访问权限");
     ErrorCode CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_342,
             "Controlled file submit idempotency key conflicts with another request");
     ErrorCode CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED = new ErrorCode(1_080_000_343,
@@ -627,4 +627,10 @@ public interface ErrorCodeConstants {
             "本次审批配置发生变化，需要确认后重新提交");
 
     ErrorCode DIRECT_SUPERVISOR_SOURCE_UNAVAILABLE = new ErrorCode(1_080_000_365, "{}");
+    ErrorCode DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE = new ErrorCode(1_080_000_366,
+            "同一授权主体只能保留一条启用的正式权限规则，请选择一个权限级别；OWNER 已包含编辑和浏览，EDIT 已包含浏览");
+    ErrorCode CONTROLLED_FILE_REFERENCES_MUST_BE_CANCELLED = new ErrorCode(1_080_000_368,
+            "源文件仍被引用，请先在引用文件夹中取消指向该文件的全部引用关系，再按源文件升版流程办理");
+    ErrorCode APPROVAL_MATRIX_PUBLIC_SOURCE_MISSING = new ErrorCode(1_080_000_367,
+            "文件类别（{}）缺少可用的公共审批矩阵，请在类别审批矩阵中配置启用且已生效的公共规则；本次申请自定义审批配置不能替代公共规则");
 }

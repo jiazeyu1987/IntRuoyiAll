@@ -56,6 +56,21 @@ class DccDelayedEffectiveConfirmationEvidenceTest {
         var result=verify();assertEquals(signed,ReflectionTestUtils.invokeMethod(result,"signedAt"));assertEquals(selected,ReflectionTestUtils.invokeMethod(result,"selectedEffectiveTime"));
         assertEquals(Long.valueOf(700L),(Long)ReflectionTestUtils.invokeMethod(result,"signatureId"));org.mockito.Mockito.verify(cryptographicVerification).verifySignatureEvidence(700L);
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\t\n","\u00A0\uFEFF\u3000"})
+    void approvedProjectionAllowsOptionalOpinionAndStillVerifiesEvidence(String reason){
+        signature.setComment(reason);
+        assertNotNull(verify());
+        org.mockito.Mockito.verify(cryptographicVerification).verifySignatureEvidence(700L);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"REJECT","ASSIGN"})
+    void otherSignedActionsCannotSupplyDelayedApprovalEvidence(String action){
+        signature.setActionType(action);signature.setComment("");
+        assertThrows(RuntimeException.class,this::verify);
+        verifyNoInteractions(cryptographicVerification);
+    }
     @Test void earlierChoiceIsRejectedWithoutRoundingTheSignature(){signature.setSelectedEffectiveTime(signed.withNano(0));file.setDelayedEffectiveTime(signed.withNano(0));assertThrows(RuntimeException.class,this::verify);}
     @Test void absentSignatureIsRejected(){file.setDelayedEffectiveSignatureId(null);assertThrows(RuntimeException.class,this::verify);}
     @Test void foreignActorCannotConfirmAsOriginalCompiler(){signature.setActorId(88L);assertThrows(RuntimeException.class,this::verify);}

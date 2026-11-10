@@ -16,15 +16,15 @@ const statement=ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationL
 assert.ok(statement)
 const BASE='9223372036854775701',CHILD='9223372036854775702',MASTER='9223372036854775700'
 function open(query,file={id:CHILD,status:'WORKING',versionNo:'A/1-1'}){
- const calls=[],context={...body,...navigation,exports:{},route:{query},message:{error:value=>{throw Error(value)}},
+ const calls=[],context={...body,...navigation,exports:{},browserMode:{value:'working'},route:{query},message:{error:value=>{throw Error(value)}},
   buildBrowserReturnPath:()=>'/dcc/controlled-file/browser',
   buildControlledFileViewerPath:(id,from,returnTo,wire)=>{calls.push({id,from,returnTo,context:JSON.parse(Buffer.from(wire,'base64url').toString('utf8'))});return '/actual-preview'},
   window:{open:()=>({})}}
  vm.runInNewContext(ts.transpileModule(statement.getText(ast)+'\nexports.open=openPreview',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
  context.exports.open(file);assert.equal(calls.length,1);return calls[0].context
 }
-test('a stale selected-file identity does not grant a successor an authoring context',()=>{
- assert.deepEqual(open({workingFileId:BASE,workingMasterId:MASTER}),{intent:'DAILY',controlledFileId:CHILD})
+test('another unsent working body selected in the same working family has its own authoring context',()=>{
+ assert.deepEqual(open({workingFileId:BASE,workingMasterId:MASTER}),{intent:'AUTHORING',controlledFileId:CHILD,expectedVersionNo:'A/1-1'})
 })
 test('the exact selected working identity has its own authoring body context',()=>{
  assert.deepEqual(open({workingFileId:CHILD,workingMasterId:MASTER}),{intent:'AUTHORING',controlledFileId:CHILD,expectedVersionNo:'A/1-1'})
@@ -32,6 +32,11 @@ test('the exact selected working identity has its own authoring body context',()
 test('an exact rejected authoring version retains its actual application round',()=>{
  assert.deepEqual(open({workingFileId:CHILD,workingMasterId:MASTER},{id:CHILD,status:'REJECTED',versionNo:'A/1-1',changeType:'REVISION',processInstanceId:'original-round'}),
   {intent:'AUTHORING',controlledFileId:CHILD,expectedVersionNo:'A/1-1',applicationType:'REVISION',bpmRound:'original-round'})
+})
+for(const status of ['WORKING','REJECTED','PENDING_APPLICANT_REWORK'])
+test(`another BPM-bound ${status} version retains daily context without its exact entry identity`,()=>{
+ assert.deepEqual(open({workingFileId:BASE,workingMasterId:MASTER},{id:CHILD,status,versionNo:'A/1-1',changeType:'REVISION',processInstanceId:'original-round'}),
+  {intent:'DAILY',controlledFileId:CHILD})
 })
 for(const [label,query,status] of [
  ['daily entry',{},'WORKING'],

@@ -600,17 +600,33 @@ const allColumnDisplayFilters2: ListColumnFilterDefinition[] = [
 </script>
 
 <style scoped>
-.followup-management { display: grid; gap: 16px; }
-.management-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.management-header h1 { margin: 0; font-size: 20px; line-height: 28px; color: #172033; }
-.management-filters { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 4px 14px; margin-top: 14px; }
-.filter-actions { display: flex; align-items: flex-end; gap: 8px; padding-bottom: 18px; }
-.expanded-grid { display: grid; gap: 18px; padding: 8px 16px 16px; }
-.expanded-grid h2 { margin: 0 0 8px; font-size: 14px; line-height: 22px; }
+.followup-management { display: grid; gap: 8px; min-width: 0; font-size: 13px; }
+.followup-management :deep(.el-card) { min-width: 0; margin-bottom: 0; border-color: #dbe3e7; border-radius: 6px; }
+.management-filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.management-filters :deep(.el-form-item) { min-width: 0; margin-bottom: 0; }
+.management-filters :deep(.el-form-item__label) { margin-bottom: 4px; font-size: 13px; }
+.management-filters :deep(.el-select) { width: 100%; }
+.management-filters :deep(.el-input__wrapper),
+.management-filters :deep(.el-select__wrapper) { min-height: 34px; }
+.filter-actions { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 8px; }
+.filter-actions :deep(.el-button) { height: 32px; margin-left: 0; }
+.filter-actions :deep(.refresh-action) { margin-left: auto; }
+.filter-actions :deep(.el-button--primary) { --el-button-bg-color: #008f86; --el-button-border-color: #008f86; --el-button-hover-bg-color: #159e95; --el-button-hover-border-color: #159e95; }
+.followup-management :deep(.el-table) { --el-table-header-bg-color: #f5f8f9; --el-table-border-color: #e6ecef; --el-table-row-hover-bg-color: #f0f8f6; font-size: 13px; }
+.followup-management :deep(.el-table__cell) { padding-top: 6px; padding-bottom: 6px; }
+.followup-management :deep(.el-table th.el-table__cell) { font-size: 12px; color: #52646e; }
+.followup-management :deep(.el-button.is-link) { color: #1677b9; }
+.followup-management :deep(.el-alert) { margin-bottom: 8px; }
+.expanded-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 30%); gap: 12px 16px; padding: 8px 12px; background: #fbfcfc; }
+.expanded-grid > section { min-width: 0; }
+.expanded-grid > section:last-child { grid-column: 1 / -1; }
+.expanded-grid h2 { margin: 0 0 6px; font-size: 14px; line-height: 22px; }
+@media (max-width: 1100px) {
+  .management-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .expanded-grid { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 768px) {
-  .management-header { flex-direction: column; }
-  .management-filters { grid-template-columns: 1fr; }
-  .followup-management :deep(.el-table) { min-width: 720px; }
-  .followup-management :deep(.el-card__body) { overflow-x: auto; }
+  .management-filters { grid-template-columns: minmax(0, 1fr); }
+  .followup-management :deep(.el-pagination) { flex-wrap: wrap; justify-content: flex-start; gap: 8px; height: auto; }
 }
 </style>

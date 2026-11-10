@@ -110,6 +110,9 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateSnapshotDO replayed = snapshotMapper.selectById(result.currentSnapshotId());
         assertEquals("Product B", replayed.getProductName());
         assertEquals("Registrant", replayed.getRegistrantName());
+        var replayFacts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(replayed.getFactsJson());
+        assertEquals("CERT-002",replayFacts.getCertificateNo());assertEquals("III",replayFacts.getClassification());
+        assertEquals(LocalDate.of(2031,9,1),replayFacts.getExpiryDate());
         DccRegistrationCertificateVersionDO renewal = versionMapper.selectById(result.currentVersionId());
         assertEquals("CERT-002", renewal.getCertificateNo());
         assertEquals("III", renewal.getClassification());
@@ -260,6 +263,7 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
         assertEquals(1, versionMapper.insert(current));
 
         DccRegistrationCertificateSnapshotDO currentSnapshot = snapshot(current.getId(), "Product A", 1);
+        currentSnapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, currentSnapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(currentSnapshot));
         seedEntrusted(currentSnapshot.getId());
 
@@ -282,6 +286,7 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
         assertEquals(1, versionMapper.insert(pending));
 
         DccRegistrationCertificateSnapshotDO pendingSnapshot = snapshot(pending.getId(), "Product A", 1);
+        pendingSnapshot.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, pendingSnapshot.getVersionId()));
         assertEquals(1, snapshotMapper.insert(pendingSnapshot));
         seedEntrusted(pendingSnapshot.getId());
 
@@ -345,6 +350,7 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
 
     private Long seedChangedCurrentSnapshot(Long currentVersionId, String productName, int revision) {
         DccRegistrationCertificateSnapshotDO changed = snapshot(currentVersionId, productName, revision);
+        changed.setFactsJson(DccRegistrationCertificateTestFacts.domestic(jdbcTemplate, changed.getVersionId()));
         assertEquals(1, snapshotMapper.insert(changed));
         seedEntrusted(changed.getId());
         return changed.getId();

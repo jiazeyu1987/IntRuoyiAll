@@ -19,7 +19,8 @@ class GxpLocalDevelopmentPolicyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "prod", "dev", "test", "local,prod", "local,test"})
+    @ValueSource(strings = {"", "prod", "dev", "test", "local,prod", "local,test",
+            "dcc-local-development,prod", "local,dcc-local-development"})
     void explicitFlagCannotEnableOutsideExclusiveLocalProfile(String profiles) {
         context(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY)
                 .withPropertyValues("spring.profiles.active=" + profiles)
@@ -60,6 +61,13 @@ class GxpLocalDevelopmentPolicyTest {
                     operation.setActive(false);
                     assertTrue(policy.findOperation(2L, operation.getOperationId()).getActive());
                     assertEquals(2L, policy.findOperation(2L, operation.getOperationId()).getTenantId());
+                    assertNotNull(policy.findOperation(1L, "dcc.project-file-placement.bind"));
+                    for (String operationId : java.util.List.of("signature.record.create", "APPROVAL_CENTER_REVIEW_COMMIT",
+                            "dcc.project-product.review", "dcc.project-product.approve", "dcc.project-product.complete",
+                            "dcc.project-product.write-failed", "dcc.controlled-file.delayed-effective-confirm")) {
+                        assertEquals("APPROVAL_DECISION", policy.findOperation(1L, operationId).getReasonPolicy());
+                    }
+                    assertEquals("USER_REQUIRED", policy.findOperation(1L, "dcc.project-product.retry").getReasonPolicy());
                 });
     }
 

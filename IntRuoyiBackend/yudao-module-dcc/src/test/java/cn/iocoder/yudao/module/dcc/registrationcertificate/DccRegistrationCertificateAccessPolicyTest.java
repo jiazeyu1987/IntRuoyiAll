@@ -53,6 +53,8 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
     @Resource
     private DccRegistrationCertificateMapper certificateMapper;
     @Resource
+    private JdbcTemplate jdbcTemplate;
+    @Resource
     private DccRegistrationCertificateVersionMapper versionMapper;
     @Autowired
     private DccRegistrationCertificateFileMapper fileMapper;
@@ -177,7 +179,7 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
         seedGrant(revokedFixture, revokedFixture.fileId(), "DOWNLOAD", "REVOKED", grantedAt, grantedAt.plusHours(24));
         ServiceException revoked = assertThrows(ServiceException.class,
                 () -> accessPolicyService.assertDownloadAllowed(1L, 99L, revokedFixture.fileId(), grantedAt.plusHours(1)));
-        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED.getCode(), revoked.getCode());
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), revoked.getCode());
 
         FormalFixture voidedFixture = seedFormal("VOIDED", "CURRENT", "BOUND");
         seedGrant(voidedFixture, voidedFixture.fileId(), "DOWNLOAD", "ACTIVE", grantedAt, grantedAt.plusHours(24));
@@ -200,6 +202,13 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
                 .classification("II").categoryChanged(false).status(versionStatus).build();
         version.setTenantId(1L);
         assertEquals(1, versionMapper.insert(version));
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot
+                  (tenant_id,version_id,revision_no,product_name,registrant_name,model_specification,
+                   structure_composition,intended_use,technical_requirements,residence_address,production_address,
+                   entrusted_production,self_production,entrusted_enterprises_json,effective_at,facts_json)
+                VALUES (1,?,1,'产品','注册人','型号','结构','用途','要求','住所','生产地址',FALSE,TRUE,'[]',CURRENT_TIMESTAMP,?)
+                """,version.getId(),DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,version.getId()));
         if ("CURRENT".equals(versionStatus)) {
             certificate.setCurrentVersionId(version.getId());
             assertEquals(1, certificateMapper.updateById(certificate));

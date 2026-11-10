@@ -4,8 +4,8 @@ const {descriptor}=parse(fs.readFileSync('src/views/dcc/controlled-file/detail/i
 const decl=(name,required=true)=>{const node=ast.statements.find(n=>ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>d.name.text===name));if(required)assert.ok(node,name);return node?node.getText(ast):''}
 function flowHelper(){const c={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/detail/native-approval-progress.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,c);return c.exports}
 function host(type='OBSOLETE',changes={}){
- const c={exports:{},String,computed:vue.computed,viewerMode:vue.ref(false),isBrowserTraceabilityPage:vue.ref(false),showDetailManagementActions:vue.ref(false),isApprovalUploadHandlingPage:vue.ref(true),isSignoffTask:vue.ref(true),fileDetail:vue.ref({id:'4033',needTraining:true}),approvalProcessInstanceId:vue.ref('actual-obsolete-bpm'),approvalTodoTask:vue.ref({id:'actual-task',processInstanceId:'actual-obsolete-bpm',taskDefinitionKey:'MATRIX_REVIEW',status:1,assigneeUserId:'1'}),approvalProgressScope:vue.ref({fileId:'4033',bpmRound:'actual-obsolete-bpm',applicationType:type}),applicationRoundSelection:vue.ref({primaryBpmRound:'actual-obsolete-bpm',blockedReason:'',lockPrimaryRound:true}),applicationRoundContextKey:vue.ref('actual-context'),applicationApprovalRead:vue.ref({contextKey:'actual-context',processInstanceId:'actual-obsolete-bpm',taskId:'actual-task'}),currentUserId:vue.ref('1'),checkPermi:()=>true,...changes}
- const script=decl('currentApprovalApplicationType',false)+decl('canShowSignoffAssignment',false)+decl('approvalHandlingTrainingText',false)+decl('approvalHandlingProcessText',false)+'\nexports.allowed=canShowSignoffAssignment;exports.training=approvalHandlingTrainingText;exports.process=approvalHandlingProcessText;'
+ const c={exports:{},String,computed:vue.computed,viewerMode:vue.ref(false),isBrowserTraceabilityPage:vue.ref(false),showDetailManagementActions:vue.ref(false),isApprovalUploadHandlingPage:vue.ref(true),isSignoffTask:vue.ref(true),signoffAssignmentState:vue.ref(undefined),fileDetail:vue.ref({id:'4033',needTraining:true}),approvalProcessInstanceId:vue.ref('actual-obsolete-bpm'),approvalTodoTask:vue.ref({id:'actual-task',processInstanceId:'actual-obsolete-bpm',taskDefinitionKey:'MATRIX_REVIEW',status:1,assigneeUserId:'1'}),approvalProgressScope:vue.ref({fileId:'4033',bpmRound:'actual-obsolete-bpm',applicationType:type}),applicationRoundSelection:vue.ref({primaryBpmRound:'actual-obsolete-bpm',blockedReason:'',lockPrimaryRound:true}),applicationRoundContextKey:vue.ref('actual-context'),applicationApprovalRead:vue.ref({contextKey:'actual-context',processInstanceId:'actual-obsolete-bpm',taskId:'actual-task'}),currentUserId:vue.ref('1'),checkPermi:()=>true,...changes}
+ const script=decl('currentApprovalApplicationType',false)+decl('currentApprovalTaskName')+decl('canShowSignoffAssignment',false)+decl('approvalHandlingTrainingText',false)+decl('approvalHandlingProcessText',false)+'\nexports.allowed=canShowSignoffAssignment;exports.taskName=currentApprovalTaskName;exports.training=approvalHandlingTrainingText;exports.process=approvalHandlingProcessText;'
  Object.assign(c,flowHelper())
  if(!Object.hasOwn(changes,'approvalProgressScope'))c.approvalProgressScope.value.flowContract={controlledFileId:'4033',bpmRound:'actual-obsolete-bpm',applicationType:type,status:'READY',processDefinitionId:'exact',deploymentId:'deployment',definitionDigest:'a'.repeat(64),executionContract:'PUBLIC_MATRIX_NATIVE_V1',flowRule:type==='OBSOLETE'?'PUBLIC_V5_OBSOLETE_APPROVAL_END':'PUBLIC_V5_TRAINING_AFTER_DOCUMENT_CONTROL',needTraining:type==='OBSOLETE'?null:true,formInstanceId:type==='OBSOLETE'?'50':null,formInstanceCode:type==='OBSOLETE'?'FORM-50':null}
  vm.runInNewContext(ts.transpileModule(script,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
@@ -14,10 +14,10 @@ function host(type='OBSOLETE',changes={}){
 function renderAssignment(h){
  const find=n=>{if(n.type===1&&n.tag==='DetailSignoffAssignment')return n;for(const ch of [...(n.children||[]),...(n.branches||[])]){const found=find(ch);if(found)return found}}
  const node=find(descriptor.template.ast);assert.ok(node)
- const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const canShowSignoffAssignment=__host.allowed;const fileDetail=__host.c.fileDetail;const approvalProcessInstanceId=__host.c.approvalProcessInstanceId;const approvalTodoTask=__host.c.approvalTodoTask;const isSignoffTask=true;const showDetailManagementActions=false;let signoffAssignmentState;const reloadAll=()=>{};</script>').descriptor,{id:'actual-todo-signoff',inlineTemplate:true})
+ const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const canShowSignoffAssignment=__host.allowed;const fileDetail=__host.c.fileDetail;const approvalProcessInstanceId=__host.c.approvalProcessInstanceId;const approvalTodoTask=__host.c.approvalTodoTask;const isSignoffTask=true;const showDetailManagementActions=false;let signoffAssignmentState;const handleSignoffAssignmentState=()=>{};const handleSignoffAssignmentSaved=()=>{};const reloadAll=()=>{};</script>').descriptor,{id:'actual-todo-signoff',inlineTemplate:true})
  const c={exports:{},require:()=>vue,__host:h};vm.runInNewContext(ts.transpileModule(compiled.content,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,c)
  const renderer=vue.createRenderer({createElement:type=>({type,children:[]}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText(){},setElementText:(n,t)=>{n.text=t},patchProp(){},parentNode:()=>null,nextSibling:()=>null})
- const seen=[];const app=renderer.createApp(c.exports.default);app.component('DetailSignoffAssignment',{props:['fileId','taskId','processInstanceId'],setup:p=>{seen.push({...p});return()=>vue.h('button','原签名指派面板')}});app.mount({children:[]});app.unmount();return seen
+ const seen=[];const app=renderer.createApp(c.exports.default);app.component('el-button',{setup:(_p,ctx)=>()=>vue.h('button',ctx.slots.default?.())});app.component('DetailSignoffAssignment',{props:['fileId','taskId','processInstanceId'],setup:p=>{seen.push({...p});return()=>vue.h('button','原签名指派面板')}});app.mount({children:[]});app.unmount();return seen
 }
 test('actual parent normal center todo renders original assignment for each verified native type without granting management',()=>{
  for(const type of ['UPLOAD','REVISION','OBSOLETE']){const h=host(type);const seen=renderAssignment(h);assert.equal(seen.length,1);assert.equal(h.allowed.value,true);assert.deepEqual(seen[0],{fileId:'4033',taskId:'actual-task',processInstanceId:'actual-obsolete-bpm'});assert.equal(h.c.showDetailManagementActions.value,false)}
@@ -27,8 +27,24 @@ test('actual entry denies readonly, mismatched task/round/file and user or menu 
  for(const read of [undefined,{contextKey:'stale-context',processInstanceId:'actual-obsolete-bpm',taskId:'actual-task'},{contextKey:'actual-context',processInstanceId:'actual-obsolete-bpm',taskId:'another-dept-task'}])assert.equal(host('OBSOLETE',{applicationApprovalRead:vue.ref(read)}).allowed.value,false)
  assert.equal(host('REVISION',{showDetailManagementActions:vue.ref(true),isApprovalUploadHandlingPage:vue.ref(false)}).allowed.value,true)
 })
+test('verified assignment hides the assignment panel from the actual signer',()=>{
+ const h=host('UPLOAD');assert.equal(h.allowed.value,true)
+ h.c.signoffAssignmentState.value={fileId:'4033',taskId:'actual-task',assigned:true}
+ assert.equal(h.allowed.value,false)
+})
+
+test('current task title separates leader assignment and actual review only after exact task state is read',()=>{
+ const h=host('UPLOAD')
+ assert.match(h.taskName.value,/正在核验/)
+ h.c.signoffAssignmentState.value={fileId:'4033',taskId:'actual-task',assigned:false}
+ assert.equal(h.taskName.value,'部门负责人签名指派')
+ h.c.signoffAssignmentState.value={fileId:'4033',taskId:'actual-task',assigned:true}
+ assert.equal(h.taskName.value,'实际会签人会签')
+ h.c.signoffAssignmentState.value={fileId:'4033',taskId:'old-task',assigned:true}
+ assert.match(h.taskName.value,/正在核验/)
+})
 test('actual handling application copy uses current verified obsolete round rather than original file training flag',()=>{
- const obsolete=host('OBSOLETE');assert.match(obsolete.training.value,/无需培训/);assert.match(obsolete.process.value,/会签.*批准.*结束/)
- for(const type of ['UPLOAD','REVISION']){const h=host(type);assert.equal(h.training.value,'需要培训');assert.match(h.process.value,/主管.*会签.*批准.*文控标准化审核.*培训.*受控.*生效.*下发/)}
+ const obsolete=host('OBSOLETE');assert.match(obsolete.training.value,/无需培训/);assert.match(obsolete.process.value,/签名指派.*实际会签人会签.*批准.*结束/)
+ for(const type of ['UPLOAD','REVISION']){const h=host(type);assert.equal(h.training.value,'需要培训');assert.match(h.process.value,/主管.*签名指派.*实际会签人会签.*批准.*文控标准化审核.*培训.*受控.*生效.*下发/)}
  assert.equal(host('OBSOLETE',{approvalProgressScope:vue.ref(undefined)}).training.value,'本次申请身份尚未核验')
 })

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.bpm.approval.content;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.service.*;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProviderRegistry;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.*;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO;
@@ -40,6 +41,7 @@ public class ApprovalCenterReviewExecutor {
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "APPROVAL_CENTER_REVIEW_COMMIT")
     public ApprovalDecisionReceipt execute(Long actor,ApprovalTaskReviewCommand command,AuthenticatedSigner signer,String requestHash) {
+        command.setReason(ApprovalReviewReason.requireValid(command.getResult(),command.getReason()));
         audit.acquireLedgerLock(); var prior=receipts.findVerifiedCurrent(actor,command.getIdempotencyKey());
         if(!Objects.equals(signer.actorId(),actor) || !Objects.equals(signer.operatorId(),actor) || !Objects.equals(signer.tenantId(),TenantContextHolder.getRequiredTenantId()) || !Objects.equals(signer.requestIdentity(),command.getIdempotencyKey())) throw new IllegalArgumentException("APPROVAL_SIGNER_REQUEST_MISMATCH");
         if(prior!=null) { var priorIdentity=ApprovalContentJson.parse(prior.getIdentityJson());if(command.getModuleCode()==null || !command.getModuleCode().name().equals(priorIdentity.path("ownerCode").asText()) || !Objects.equals(command.getSourceTaskType(),priorIdentity.path("sourceTaskType").textValue()) || !Objects.equals(command.getSourceTaskId(),priorIdentity.path("sourceTaskId").textValue()) || !Objects.equals(command.getProcessInstanceId(),priorIdentity.path("processInstanceId").isNull()?null:priorIdentity.path("processInstanceId").textValue()) || !requestHash.equals(prior.getRequestHash())) throw new IllegalArgumentException("APPROVAL_IDEMPOTENCY_CONFLICT"); return receipts.response(prior); }

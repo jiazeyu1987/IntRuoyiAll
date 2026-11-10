@@ -5,6 +5,16 @@ const load = file => { const c = { exports: {}, Error, Date, Intl }; vm.runInNew
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText, c); return c.exports }
 const facts = load('workflow/effective-facts.ts'), versions = load('shared/version-display.ts')
+
+test('controlled import displays its actual source mode and saved timestamps without inventing a native effective date', () => {
+  const saved = { effectiveMode: 'CONTROLLED_IMPORT', effectiveDate: '2026-11-04', effectiveTime: '2026-11-04 21:56:35', activatedTime: '2026-11-04 21:56:35' }
+  const result = facts.effectiveFacts(saved)
+  assert.equal(result.modeText, '已受控文件上传')
+  assert.equal(result.presetDateVisible, false)
+  assert.equal(result.effectiveText, saved.effectiveTime)
+  assert.equal(result.activatedText, saved.activatedTime)
+  assert.throws(() => facts.effectiveFacts({ effectiveMode: 'UNKNOWN' }), /生效方式未识别/)
+})
 test('official epoch datetime displays in Shanghai while fractional signed string remains exact and invalid dates reject', () => {
   assert.equal(facts.formatDelayedEffectiveFact(Date.UTC(2026, 9, 15, 4, 30)), '2026-10-15 12:30:00')
   assert.equal(facts.formatDelayedEffectiveFact('2026-10-15 12:30:00.123456'), '2026-10-15 12:30:00.123456')

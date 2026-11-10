@@ -24,8 +24,9 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <el-tag class="scheme-d-tag" effect="plain" size="small">五级分类</el-tag>
         <el-button
-          class="scheme-d-btn scheme-d-btn--success"
+          class="scheme-d-btn"
           type="primary"
           plain
           @click="openForm('create')"
@@ -49,9 +50,14 @@
           :show-overflow-tooltip="true"
           row-key="id"
           default-expand-all
+          :expand-row-keys="taxonomyExpandedRowKeys"
           :tree-props="taxonomyTreeProps"
+          @expand-change="handleTaxonomyExpandChange"
           @header-dragend="handleTaxonomyHeaderDragend"
         >
+          <el-table-column label="序号" prop="rowNumber" type="index" :width="getTaxonomyColumnWidthString('rowNumber', 72)" align="center">
+            <template #default="{ row }">{{ taxonomyRowNumberMap.get(row.id) }}</template>
+          </el-table-column>
           <el-table-column
             label="分类名称"
             prop="name"
@@ -117,6 +123,7 @@
           <el-table-column
             label="操作"
             prop="actions"
+            class-name="taxonomy-actions-cell"
             fixed="right"
             :width="getTaxonomyColumnWidthString('actions', 290)"
             align="center"
@@ -150,7 +157,8 @@
               >
                 删除
               </el-button>
-              <el-button v-if="row.id && row.levelNo >= 3" link type="primary"
+              <el-button
+                v-if="row.id && row.levelNo >= 3" link type="primary"
                 v-hasPermi="['dcc:controlled-file:category:manage']"
                 @click="mappingDialogRef?.open(row.id, row.name)">
                 检查对应类别
@@ -163,7 +171,8 @@
   </ContentWrap>
 
   <FileTypeCategoryMappingDialog ref="mappingDialogRef" />
-  <Dialog v-model="formVisible" class="scheme-d-form-control" :title="formTitle" width="640px">
+  <CategoryMatrixDialog ref="matrixDraftRef" @draft="matrixDraft = $event" />
+  <Dialog v-model="formVisible" class="scheme-d-form-control taxonomy-form" :title="formTitle" width="min(640px, calc(100vw - 24px))">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -183,12 +192,40 @@
           placeholder="不选择则创建一级分类"
         />
       </el-form-item>
-      <el-form-item label="分类编码" prop="code">
-        <el-input v-model="formData.code" maxlength="64" :disabled="rootCreateMode" placeholder="请输入分类编码" />
+      <el-form-item v-if="formType === 'update'" label="分类编码" prop="code">
+        <el-input v-model="formData.code" readonly />
       </el-form-item>
       <el-form-item label="分类名称" prop="name">
         <el-input v-model="formData.name" maxlength="128" placeholder="请输入分类名称" />
       </el-form-item>
+      <el-form-item v-if="formType === 'create' && newNodeLevel >= 3 && newNodeLevel < 5" label="节点用途">
+        <el-checkbox v-model="pathNodeOnly">仅建立分类路径节点（不可用于文件申请）</el-checkbox>
+      </el-form-item>
+      <template v-if="requiresMatrix">
+        <el-form-item label="存储目录" required>
+          <el-tree-select v-model="storageDirectoryId" :data="storageDirectories" :props="storageDirectoryProps"
+            node-key="id" check-strictly filterable default-expand-all placeholder="请选择启用的存储目录" />
+          <p class="text-[var(--el-text-color-secondary)]">用于归档此文件类型的正式文件，项目文件夹仍在上传时选择。</p>
+        </el-form-item>
+        <el-form-item label="审批矩阵" required>
+          <el-radio-group v-model="matrixMode">
+            <el-radio-button label="existing">复制已有矩阵</el-radio-button>
+            <el-radio-button label="new">新增矩阵</el-radio-button>
+            <el-radio-button v-if="formData.name.trim() === '其他'" label="custom">本次自定义（其他）</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="matrixMode === 'existing'" label="已有矩阵" required>
+          <el-select v-model="matrixSourceCategoryId" filterable placeholder="请选择已配置的生效矩阵">
+            <el-option v-for="matrix in matrixOptions" :key="matrix.categoryId" :value="matrix.categoryId" :label="`${matrix.name} · V${matrix.routeVersionNo}`" />
+          </el-select>
+          <p class="text-[var(--el-text-color-secondary)]">复制规则并绑定新类型，后续由文控独立维护。</p>
+        </el-form-item>
+        <el-form-item v-else-if="matrixMode === 'new'" label="新矩阵" required>
+          <el-button @click="matrixDraftRef?.openDraft(formData.name, matrixDraft)">配置审批矩阵</el-button>
+          <el-tag v-if="matrixDraft" type="success">已配置 {{ matrixDraft.rules.length }} 条规则</el-tag>
+        </el-form-item>
+        <el-alert v-else title="后续每次申请填写本次自定义矩阵，不创建公共审批矩阵。" type="info" :closable="false" />
+      </template>
       <el-form-item label="启用状态" prop="active">
         <el-radio-group v-model="formData.active">
           <el-radio-button :label="true">启用</el-radio-button>
@@ -206,7 +243,7 @@
       <div class="scheme-d-dialog-footer">
         <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
         <el-button
-          class="scheme-d-btn scheme-d-btn--success"
+          class="scheme-d-btn"
           type="primary"
           :loading="formLoading"
           @click="submitForm"
@@ -223,10 +260,13 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import FileTypeCategoryMappingDialog from './FileTypeCategoryMappingDialog.vue'
+import CategoryMatrixDialog from '../../categories/components/CategoryMatrixDialog.vue'
+import { getCategoryReviewMatrixRows, type ControlledFileCategoryReviewMatrixRowVO, type ControlledFileCategoryApprovalMatrixSaveReqVO } from '@/api/dcc/controlledFile/fileCategories'
 import type { FormRules } from 'element-plus'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { handleTree } from '@/utils/tree'
+import { getDirectoryTree, type ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directories'
 import {
   createFileTypeTaxonomy,
   deleteFileTypeTaxonomy,
@@ -249,6 +289,7 @@ const taxonomyQuickFilterDefinitions: TableQuickFilterDefinition[] = [
 ]
 
 const taxonomyDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'rowNumber', label: '序号', width: 72, hideable: false, business: false },
   { key: 'name', label: '分类名称', minWidth: 220, hideable: false },
   { key: 'code', label: '分类编码', minWidth: 150 },
   { key: 'levelNo', label: '层级', width: 82 },
@@ -286,8 +327,28 @@ const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const rootCreateMode = ref(false)
 const formRef = ref()
+const matrixDraftRef = ref<InstanceType<typeof CategoryMatrixDialog>>()
+const matrixMode = ref<'existing' | 'new' | 'custom'>('existing')
+const matrixSourceCategoryId = ref<number>()
+const matrixDraft = ref<ControlledFileCategoryApprovalMatrixSaveReqVO>()
+const matrixOptions = ref<ControlledFileCategoryReviewMatrixRowVO[]>([])
+const pathNodeOnly = ref(false)
+const storageDirectoryId = ref<number>()
+const storageDirectories = ref<ControlledFileDirectoryVO[]>([])
+const storageDirectoryProps = { label: 'name', children: 'children', disabled: (row: ControlledFileDirectoryVO) => !row.active }
+const newNodeLevel = computed(() => (rows.value.find(row => row.id === formData.parentId)?.levelNo || 0) + 1)
+const requiresMatrix = computed(() => formType.value === 'create' && newNodeLevel.value >= 3 && !pathNodeOnly.value)
 const mappingDialogRef = ref<InstanceType<typeof FileTypeCategoryMappingDialog>>()
 const rows = ref<DccFileTypeTaxonomyVO[]>([])
+const collapsedTaxonomyIds = reactive(new Set<number>())
+const taxonomyExpandedRowKeys = computed(() =>
+  rows.value.filter((row) => row.id != null && !collapsedTaxonomyIds.has(row.id)).map((row) => row.id!)
+)
+const handleTaxonomyExpandChange = (row: DccFileTypeTaxonomyVO, expanded: boolean) => {
+  if (row.id == null) return
+  if (expanded) collapsedTaxonomyIds.delete(row.id)
+  else collapsedTaxonomyIds.add(row.id)
+}
 const query = reactive<{
   pageNo: number
   pageSize: number
@@ -321,7 +382,6 @@ const formData = reactive<TaxonomyFormData>({
 })
 
 const formRules = reactive<FormRules>({
-  code: [{ required: true, message: '分类编码不能为空', trigger: 'blur' }],
   name: [{ required: true, message: '分类名称不能为空', trigger: 'blur' }],
   active: [{ required: true, message: '启用状态不能为空', trigger: 'change' }],
   sort: [{ required: true, message: '排序不能为空', trigger: 'change' }]
@@ -339,31 +399,6 @@ const taxonomyTreeProps = {
   children: 'children'
 }
 
-const padNumber = (value: number, length = 2) => String(value).padStart(length, '0')
-
-const buildRootTaxonomyCode = () => {
-  const now = new Date()
-  const codeBase = [
-    'FT_ROOT_',
-    now.getFullYear(),
-    padNumber(now.getMonth() + 1),
-    padNumber(now.getDate()),
-    padNumber(now.getHours()),
-    padNumber(now.getMinutes()),
-    padNumber(now.getSeconds()),
-    padNumber(now.getMilliseconds(), 3)
-  ].join('')
-  const existingCodes = new Set(rows.value.map((row) => String(row.code || '').toUpperCase()))
-  if (!existingCodes.has(codeBase)) {
-    return codeBase
-  }
-  let suffix = 2
-  while (existingCodes.has(`${codeBase}_${suffix}`)) {
-    suffix += 1
-  }
-  return `${codeBase}_${suffix}`
-}
-
 const isRootTaxonomy = (row: DccFileTypeTaxonomyVO) => !row.parentId || row.parentId <= 0
 
 const resolveNextRootTaxonomySort = () => {
@@ -376,18 +411,7 @@ const resolveNextRootTaxonomySort = () => {
 
 const applyRootCreateDefaults = () => {
   formData.parentId = undefined
-  formData.code = buildRootTaxonomyCode()
   formData.sort = resolveNextRootTaxonomySort()
-}
-
-const ensureRootCreateDefaults = () => {
-  formData.parentId = undefined
-  if (!formData.code.trim()) {
-    formData.code = buildRootTaxonomyCode()
-  }
-  if (!Number.isFinite(formData.sort)) {
-    formData.sort = resolveNextRootTaxonomySort()
-  }
 }
 
 const taxonomyPathMap = computed(() => {
@@ -439,6 +463,18 @@ const paginatedTreeRows = computed(() => {
   return filteredTreeRows.value.slice(start, start + query.pageSize)
 })
 
+const taxonomyRowNumberMap = computed(() => {
+  const numbers = new Map<DccFileTypeTaxonomyVO['id'], number>()
+  const visit = (treeRows: DccFileTypeTaxonomyVO[]) => {
+    for (const row of treeRows) {
+      numbers.set(row.id, numbers.size + 1)
+      if (row.id != null && !collapsedTaxonomyIds.has(row.id)) visit(row.children || [])
+    }
+  }
+  visit(paginatedTreeRows.value)
+  return numbers
+})
+
 watch(taxonomyTotal, (total) => {
   if (total > 0 && (query.pageNo - 1) * query.pageSize >= total) {
     query.pageNo = 1
@@ -457,6 +493,11 @@ const parentOptions = computed(() =>
 const formTitle = computed(() => (formType.value === 'create' ? '新增文件分类' : '编辑文件分类'))
 
 const resetForm = () => {
+  storageDirectoryId.value = undefined
+  pathNodeOnly.value = false
+  matrixMode.value = 'existing'
+  matrixSourceCategoryId.value = undefined
+  matrixDraft.value = undefined
   formData.id = undefined
   formData.parentId = undefined
   formData.code = ''
@@ -477,7 +518,7 @@ const loadData = async () => {
   }
 }
 
-const openForm = (
+const openForm = async (
   type: 'create' | 'update',
   row?: DccFileTypeTaxonomyVO,
   parent?: DccFileTypeTaxonomyVO
@@ -503,22 +544,45 @@ const openForm = (
     formData.parentId = parent.id
   }
   formVisible.value = true
+  if (requiresMatrix.value) {
+    matrixOptions.value = []
+    formLoading.value = true
+    try {
+      storageDirectories.value = handleTree(await getDirectoryTree())
+      matrixOptions.value = (await getCategoryReviewMatrixRows({ active: true, configured: true }))
+        .filter(row => row.routeVersionNo && row.effectiveTime && new Date(row.effectiveTime).getTime() <= Date.now())
+    } finally { formLoading.value = false }
+  }
 }
 
 const submitForm = async () => {
-  if (rootCreateMode.value) {
-    ensureRootCreateDefaults()
-  }
   const valid = await formRef.value?.validate()
   if (!valid) {
+    return
+  }
+  if (matrixMode.value === 'custom' && formData.name.trim() !== '其他') matrixMode.value = 'existing'
+  if (requiresMatrix.value && !storageDirectoryId.value) {
+    message.warning('请选择启用的存储目录')
+    return
+  }
+  if (requiresMatrix.value && ((matrixMode.value === 'existing' && !matrixSourceCategoryId.value) ||
+      (matrixMode.value === 'new' && !matrixDraft.value))) {
+    message.warning('请先选择已有审批矩阵或配置新矩阵')
     return
   }
   formLoading.value = true
   try {
     const payload = {
+      ...(formType.value === 'create' && pathNodeOnly.value ? { pathNodeOnly: true } : {}),
+      ...(requiresMatrix.value ? {
+        directoryBinding: { directoryId: storageDirectoryId.value!, active: true },
+        approvalSourceMode: matrixMode.value === 'custom' ? 'APPLICATION_CUSTOM' as const : 'PUBLIC_MATRIX' as const,
+        ...(matrixMode.value === 'existing' ? { matrixSourceCategoryId: matrixSourceCategoryId.value } : {}),
+        ...(matrixMode.value === 'new' ? { approvalMatrix: matrixDraft.value } : {})
+      } : {}),
       id: formData.id,
       parentId: formData.parentId || null,
-      code: formData.code.trim(),
+      ...(formType.value === 'update' ? { code: formData.code } : {}),
       name: formData.name.trim(),
       active: formData.active,
       sort: formData.sort,
@@ -576,6 +640,116 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.scheme-d-basic-data-page--dcc-file-type-taxonomy,
+.taxonomy-form {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  --scheme-d-primary: #008f86;
+  --scheme-d-border: #dbe3e7;
+  min-width: 0;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__query-form) {
+  gap: 8px;
+  padding: 0 0 8px;
+  border: 0;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__multi-filter) {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__toolbar) {
+  gap: 8px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__table-shell) {
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-table th.el-table__cell) {
+  height: 36px;
+  padding: 4px 0;
+  background: #f5f8f9;
+  color: #52646e;
+  font-size: 12px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-table td.el-table__cell) {
+  height: 34px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.taxonomy-actions-cell .cell) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  white-space: normal;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.taxonomy-actions-cell .el-button) {
+  margin: 0;
+  padding: 0;
+  min-height: 24px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-input__wrapper),
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-select__wrapper),
+.taxonomy-form :deep(.el-input__wrapper),
+.taxonomy-form :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.taxonomy-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
+  height: auto;
+}
+
+@media (max-width: 700px) {
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-table-fixed-column--right) {
+    position: static !important;
+  }
+
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.el-table-fixed-column--right::before) {
+    box-shadow: none;
+  }
+
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.unified-list-template__toolbar-actions) {
+    max-width: 100%;
+  }
+
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.table-multi-filter__condition-row),
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.table-multi-filter-field) {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scheme-d-basic-data-page--dcc-file-type-taxonomy :deep(.table-multi-filter-field__value) {
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .taxonomy-form :deep(.el-input-number) {
+    max-width: 100%;
+  }
+}
+
 :deep(.dcc-file-type-taxonomy-resizable-table .el-table__header-wrapper th.el-table__cell) {
   position: relative;
 }
@@ -593,6 +767,6 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
 }
 
 :deep(.dcc-file-type-taxonomy-resizable-table .el-table__header-wrapper th.el-table__cell:hover::after) {
-  border-right-color: #1677ff;
+  border-right-color: var(--el-color-primary);
 }
 </style>

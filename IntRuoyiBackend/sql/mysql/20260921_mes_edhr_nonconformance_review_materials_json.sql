@@ -16,3 +16,4 @@ SET @ddl := IF(@column_exists = 0,
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260921_mes_edhr_nonconformance_review_material_preview; type=schema; riskLevel=medium

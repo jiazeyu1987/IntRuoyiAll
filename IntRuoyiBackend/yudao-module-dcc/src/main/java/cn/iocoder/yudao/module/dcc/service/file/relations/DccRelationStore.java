@@ -17,6 +17,55 @@ public class DccRelationStore {
     public DccRelationStore(JdbcTemplate jdbc, GxpAuditService audit) { this.jdbc = jdbc; this.audit = audit; }
     public JdbcTemplate jdbc() { return jdbc; }
 
+    /** Import has no approval round: its real initial snapshot is empty, never a synthetic BPM event. */
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void initializeControlledImportRelations(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file,Long actor) {
+        Long tenant=cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                || !cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.isControlledImport(file)
+                || actor==null || actor<=0 || !actor.equals(file.getImportedBy()) || !tenant.equals(file.getTenantId())
+                || file.getMasterId()==null || file.getId()==null || !"ACTIVE".equals(file.getStatus()))
+            throw new DccRelationFailure("DCC_CONTROLLED_IMPORT_RELATION_SOURCE_INVALID");
+        lockMaster(tenant,file.getMasterId());
+        Long identity=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dcc_controlled_file f
+                JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id AND m.deleted=0
+                  AND m.latest_controlled_file_id=f.id AND m.current_active_controlled_file_id=f.id
+                  AND m.dcc_project_code_id=f.dcc_project_code_id AND m.category_id=f.category_id
+                  AND m.file_type_taxonomy_leaf_id=f.file_type_taxonomy_id
+                JOIN dcc_controlled_file_source_ownership o ON o.tenant_id=f.tenant_id AND o.controlled_file_id=f.id
+                  AND o.source_file_id=f.source_file_id AND o.source_sha256=f.source_sha256
+                  AND o.ownership_type='CONTROLLED_IMPORT' AND o.claimed_by=f.imported_by AND o.deleted=0
+                WHERE f.tenant_id=? AND f.master_id=? AND f.id=? AND f.deleted=0 AND f.status='ACTIVE'
+                  AND f.import_source='CONTROLLED_IMPORT' AND f.effective_mode='CONTROLLED_IMPORT'
+                  AND f.imported_by=? AND f.imported_time=? AND f.controlled_time=? AND f.effective_time=?
+                  AND f.activated_time=? AND f.published_time IS NOT NULL
+                  AND f.read_only_file_id IS NOT NULL AND f.source_file_id IS NOT NULL
+                  AND f.imported_time=f.controlled_time AND f.imported_time=f.effective_time
+                  AND f.imported_time=f.activated_time
+                  AND f.change_type='NEW' AND f.revision_change_type='INITIAL'
+                  AND f.process_instance_id IS NULL AND f.predecessor_controlled_file_id IS NULL
+                  AND f.effective_signature_id IS NULL AND f.prepared_workflow_contract IS NULL
+                  AND f.prepared_process_definition_id IS NULL AND f.prepared_definition_digest IS NULL
+                """,Long.class,tenant,file.getMasterId(),file.getId(),actor,file.getImportedTime(),
+                file.getControlledTime(),file.getEffectiveTime(),file.getActivatedTime());
+        if(!Long.valueOf(1).equals(identity)) throw new DccRelationFailure("DCC_CONTROLLED_IMPORT_RELATION_SOURCE_INVALID");
+        // This import entry accepts no related-file selection. Nonempty rows are an inconsistent snapshot.
+        Long selected=jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_related_file WHERE tenant_id=? AND controlled_file_id=? AND deleted=0",
+                Long.class,tenant,file.getId());
+        Long current=jdbc.queryForObject("SELECT COUNT(*) FROM dcc_current_file_relation WHERE tenant_id=? AND source_master_id=?",
+                Long.class,tenant,file.getMasterId());
+        if(!Long.valueOf(0).equals(selected) || !Long.valueOf(0).equals(current)
+                || !jdbc.queryForList("SELECT controlled_file_id FROM dcc_current_file_relation_set WHERE tenant_id=? AND source_master_id=? FOR UPDATE",
+                    Long.class,tenant,file.getMasterId()).isEmpty())
+            throw new DccRelationFailure("DCC_CONTROLLED_IMPORT_RELATION_ALREADY_INITIALIZED");
+        if(jdbc.update("INSERT INTO dcc_current_file_relation_set (tenant_id,source_master_id,controlled_file_id) VALUES (?,?,?)",
+                tenant,file.getMasterId(),file.getId())!=1) throw new DccRelationFailure("DCC_RELATION_CURRENT_SET_WRITE_FAILED");
+        audit("dcc.relation.controlled-import","CONTROLLED_IMPORT:"+file.getId(),"受控导入建立正式初始关联集合",
+                null,Map.of("tenantId",tenant,"masterId",file.getMasterId(),"controlledFileId",file.getId(),
+                        "importedBy",actor,"importedTime",file.getImportedTime(),"relatedMasterIds",List.of()));
+    }
+
     /** Stabilize B-owned facts before invoking B's authority checks; no duplicate permission rules. */
     public void lockReferenceContext(Long tenantId,Long projectId,Long folderId){
         jdbc.queryForList("SELECT id FROM dcc_project_code WHERE tenant_id=? AND id=? AND deleted=0 FOR UPDATE",

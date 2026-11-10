@@ -340,6 +340,43 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE event_type = 'CERTIFICATE_VOIDED' AND certificate_id = 1001"));
     }
 
+    @Test
+    void rejectedChangeResubmitsExactFilesWithSeparateHistoryAndIdempotentReplay() throws Exception {
+        seedCurrentCertificate();
+        when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(9002L,9003L);
+        Long source=service.submitChangeForApproval(command("rejected-source",3,Map.of("PRODUCT_NAME","Product B"),null,null,null,null));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='REJECTED',reject_reason='补充材料',completed_at=TIMESTAMP '2026-08-17 10:00:00' WHERE id=?",source);
+        service.rejectChangeRequest(1L,55L,source);
+        Long sourceFile=longValue("SELECT business_file_id FROM dcc_registration_certificate_access_request_file WHERE request_id=?",source);
+        var infra=new cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO();infra.setConfigId(1L);infra.setPath("rejected-source.pdf");
+        when(fileService.getFile(9002L)).thenReturn(infra);
+        when(fileService.getFileContent(1L,"rejected-source.pdf")).thenReturn(changeFile("rejected-source").getBytes());
+        var retry=new DccRegistrationCertificateChangeCommand(1L,99L,"change-retry","trace-retry",1001L,3,
+                LocalDate.of(2026,8,17),Map.of("PRODUCT_NAME","Product B"),null,null,null,null,null,null,
+                null,java.util.List.of(),java.util.List.of(),source,java.util.List.of(sourceFile));
+        Long resubmitted=service.submitChangeForApproval(retry);
+        assertEquals(resubmitted,service.submitChangeForApproval(retry));
+        assertEquals("REJECTED",text("SELECT status FROM dcc_registration_certificate_access_request_file WHERE request_id=?",source));
+        assertEquals("REQUESTED",text("SELECT status FROM dcc_registration_certificate_access_request_file WHERE request_id=?",resubmitted));
+        assertEquals(3001L,longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id=1001"));
+        assertEquals(2,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request WHERE certificate_id=1001"));
+        assertEquals(2,count("SELECT COUNT(DISTINCT business_file_id) FROM dcc_registration_certificate_access_request_file"));
+        assertEquals("rejected-source.pdf",text("SELECT f.original_name FROM dcc_registration_certificate_access_request_file rf JOIN dcc_registration_certificate_file f ON f.id=rf.business_file_id WHERE rf.request_id=?",resubmitted));
+    }
+
+    @Test
+    void rejectedChangeCannotBeResubmittedByAnotherActor() {
+        seedCurrentCertificate();
+        Long source=service.submitChangeForApproval(command("actor-source",3,Map.of("PRODUCT_NAME","Product B"),null,null,null,null));
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status='REJECTED',reject_reason='补充材料',completed_at=TIMESTAMP '2026-08-17 10:00:00' WHERE id=?",source);
+        service.rejectChangeRequest(1L,55L,source);
+        var retry=new DccRegistrationCertificateChangeCommand(1L,66L,"actor-retry","trace",1001L,3,
+                LocalDate.of(2026,8,17),Map.of("PRODUCT_NAME","Product B"),null,null,null,null,null,changeFile("new"),
+                null,java.util.List.of(),java.util.List.of(),source,java.util.List.of());
+        assertCode(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT.getCode(),()->service.submitChangeForApproval(retry));
+        assertEquals(1,count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request WHERE certificate_id=1001"));
+    }
+
     private DccRegistrationCertificateChangeCommand command(String key, Integer rowVersion,
                                                             Map<String, String> values, String other,
                                                             Boolean entrusted, String entrustedJson,
@@ -382,10 +419,10 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                   (id, tenant_id, version_id, revision_no, product_name, registrant_name,
                    model_specification, structure_composition, intended_use, technical_requirements,
                    residence_address, production_address, entrusted_production, self_production,
-                   entrusted_enterprises_json, effective_at)
+                   entrusted_enterprises_json, effective_at, facts_json)
                 VALUES (3001, 1, 2001, 1, 'Product A', 'Registrant', 'Model', 'Structure',
-                        'Use', 'Requirements', 'Residence', 'Production', FALSE, TRUE, '[]', ?)
-                """, LocalDateTime.of(2021, 3, 1, 9, 0));
+                        'Use', 'Requirements', 'Residence', 'Production', FALSE, TRUE, '[]', ?, ?)
+                """, LocalDateTime.of(2021, 3, 1, 9, 0),DccRegistrationCertificateTestFacts.domestic(jdbcTemplate,2001L));
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_file
                   (id, tenant_id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,

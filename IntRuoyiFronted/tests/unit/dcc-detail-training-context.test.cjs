@@ -129,3 +129,15 @@ test('repeated training confirmation binds once and an old response cannot compl
   assert.equal(state.calls.successes.length, 0)
   assert.equal(state.env.applicantTrainingRecordDialog.visible, true)
 })
+
+test('reselect clears a previous upload error and an in-flight confirmation cannot replace its ticket', async () => {
+  const state = handlers(async (_file, _purpose, context) => ticket(context.sessionId))
+  state.env.applicantTrainingRecordDialog.inlineError = 'Current user cannot act on this controlled file task'
+  await state.upload(selected, [selected])
+  assert.equal(state.env.applicantTrainingRecordDialog.inlineError, '')
+  const previous = state.env.applicantTrainingRecordDialog.file
+  state.env.applicantTrainingRecordDialog.submitting = true
+  await state.upload(selected, [selected])
+  assert.equal(state.calls.uploads.length, 1)
+  assert.equal(state.env.applicantTrainingRecordDialog.file, previous)
+})

@@ -23,13 +23,14 @@ export const formatDelayedEffectiveFact = (value: string | number | null | undef
 /** Displays saved facts only; unknown historical mode is independent of its original calendar date. */
 export const effectiveFacts = (facts: EffectiveFacts) => {
   const mode = facts.effectiveMode
-  if (mode != null && mode !== 'AFTER_STANDARDIZATION_SIGNATURE' && mode !== 'PRESET_DATE' && mode !== 'DELAYED') {
+  if (mode != null && mode !== 'AFTER_STANDARDIZATION_SIGNATURE' && mode !== 'PRESET_DATE' && mode !== 'DELAYED' && mode !== 'CONTROLLED_IMPORT') {
     throw new Error('生效方式未识别，请核对正式版本记录')
   }
   return {
     modeText: mode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控标准化签名后生效'
-      : mode === 'DELAYED' ? '延迟生效' : mode === 'PRESET_DATE' ? '按预设日期生效' : '未记录',
-    presetDateVisible: mode !== 'AFTER_STANDARDIZATION_SIGNATURE' && mode !== 'DELAYED',
+      : mode === 'DELAYED' ? '延迟生效' : mode === 'PRESET_DATE' ? '按预设日期生效'
+      : mode === 'CONTROLLED_IMPORT' ? '已受控文件上传' : '未记录',
+    presetDateVisible: mode == null || mode === 'PRESET_DATE',
     delayedEffectiveText: formatDelayedEffectiveFact(facts.delayedEffectiveTime) ?? '尚未确认',
     delayedConfirmedText: formatDelayedEffectiveFact(facts.delayedEffectiveConfirmedAt) ?? '尚未签名确认',
     effectiveText: facts.effectiveTime || (mode == null ? '未记录' : '尚未生效'),

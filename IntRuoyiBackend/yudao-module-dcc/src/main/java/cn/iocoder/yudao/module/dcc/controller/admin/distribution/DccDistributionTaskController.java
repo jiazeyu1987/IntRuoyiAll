@@ -34,21 +34,21 @@ public class DccDistributionTaskController {
 
     @PostMapping("/automatic-retry")
     @Operation(summary="按精确版本批次重试服务端自动下发，不接受客户端名册")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:distribute', 'dcc:controlled-file:edit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.distribution.vo.DccAutomaticDistributionResultRespVO> retryAutomaticDistribution(
             @Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.distribution.vo.DccAutomaticDistributionRetryReqVO request) {
         return success(distributionTaskService.retryAutomaticDistribution(getLoginUserId(),request));
     }
     @GetMapping("/automatic-result")
     @Operation(summary="文控读取准确版本下发批次或真实失败状态")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:distribute', 'dcc:controlled-file:edit')")
     public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.distribution.vo.DccAutomaticDistributionResultRespVO> getAutomaticDistributionResult(@RequestParam("controlledFileId") Long fileId) {
         return success(distributionTaskService.getAutomaticDistributionResult(getLoginUserId(),fileId));
     }
 
     @GetMapping("/recipient-receipts")
     @Operation(summary = "文控查看精确版本逐人发送与签收事实")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:distribute')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:distribute', 'dcc:controlled-file:edit')")
     public CommonResult<List<DccDistributionRecipientReceiptRespVO>> getRecipientReceipts(@RequestParam("controlledFileId") Long controlledFileId) {
         return success(distributionTaskService.getDistributionRecipientReceipts(getLoginUserId(), controlledFileId));
     }

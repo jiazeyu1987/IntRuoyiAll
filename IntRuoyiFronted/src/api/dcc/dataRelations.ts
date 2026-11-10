@@ -3,7 +3,7 @@ import request from '@/config/axios'
 export interface DccDataRelationCreateReqVO {
   productCatalogId: number | string
   projectCodeId: number | string
-  registrationCertificateId: number | string
+  registrationCertificateId?: number | string | null
   relationRemark?: string | null
 }
 
@@ -11,7 +11,7 @@ export interface DccDataRelationRespVO {
   id: number
   productCatalogId: number
   projectCodeId: number
-  registrationCertificateId: number
+  registrationCertificateId?: number | null
   relationStatus: 'CONFIRMED'
   relationSource: 'MANUAL'
   relationRemark?: string | null

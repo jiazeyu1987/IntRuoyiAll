@@ -77,6 +77,7 @@ class DccProjectFormalCombinationTest extends BaseDbUnitTest {
     @Resource cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectApplicationSnapshotController snapshotController;
     @Resource cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectAttributesController projectController;
     @MockitoBean AdminUserApi users;
+    @MockitoBean cn.iocoder.yudao.module.dcc.service.file.DccControlledFileCategoryPermissionSupport filePermissions;
     @MockitoBean PermissionApi permissions;
     @MockitoBean DeptApi departments;
     @MockitoBean PostApi posts;
@@ -86,7 +87,12 @@ class DccProjectFormalCombinationTest extends BaseDbUnitTest {
     @MockitoBean DccRelationAccessPolicy sourceAccess;
 
     @BeforeEach void accounts() {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users (id bigint PRIMARY KEY, tenant_id bigint NOT NULL, status integer NOT NULL, username varchar(64) NOT NULL, nickname varchar(128) NOT NULL, deleted bit DEFAULT 0)");
+        jdbc.update("INSERT INTO gxp_audit_ledger_sequence (tenant_id,next_ledger_sequence) SELECT 1,1 WHERE NOT EXISTS (SELECT 1 FROM gxp_audit_ledger_sequence WHERE tenant_id=1)");
+        String policyHash=cn.hutool.crypto.digest.DigestUtil.sha256Hex("B-I05-TEST");
+        jdbc.update("INSERT INTO gxp_audit_policy_activation (tenant_id,policy_version,policy_hash,request_id,actor_id,approval_reference,activated_at_utc,effective_after_sequence,canonical_activation_json,activation_hash) SELECT 1,'B-I05-TEST',?,'B-I05-fixture',7,'ISOLATED_TEST',CURRENT_TIMESTAMP,0,'{}',? WHERE NOT EXISTS (SELECT 1 FROM gxp_audit_policy_activation WHERE tenant_id=1)",policyHash,policyHash);
         for (long id : new long[]{1,7,8,9}) {
+            jdbc.update("MERGE INTO system_users (id,tenant_id,status,username,nickname,deleted) KEY(id) VALUES(?,1,0,?,?,0)",id,"b-combination-"+id,"账号"+id);
             when(users.getUser(id)).thenReturn(new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0)
                     .setUsername("b-combination-"+id).setNickname("账号"+id));
             when(permissions.getUserRoleIdListByUserId(id)).thenReturn(Set.of());

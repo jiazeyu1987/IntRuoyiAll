@@ -341,9 +341,13 @@ service.interceptors.response.use(
       console.log('err' + error) // for debug
     }
     let { message } = error
+    const responseData = error.response?.data as { msg?: unknown } | undefined
     const { t } = useI18n()
     const ignoreErrorMessage = (error.config as RequestCustomConfig | undefined)?.ignoreErrorMessage === true
-    if (message === 'Network Error') {
+    if (typeof responseData?.msg === 'string' && responseData.msg.trim()) {
+      message = responseData.msg
+      error.message = message
+    } else if (message === 'Network Error') {
       message = t('sys.api.errorMessage')
     } else if (message.includes('timeout')) {
       message = t('sys.api.apiTimeoutMessage')

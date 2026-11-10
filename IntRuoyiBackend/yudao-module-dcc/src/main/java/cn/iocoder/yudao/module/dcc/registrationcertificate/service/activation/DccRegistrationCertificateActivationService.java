@@ -155,6 +155,16 @@ public class DccRegistrationCertificateActivationService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
         }
         DccRegistrationCertificateSnapshotDO copy = copySnapshot(source, command.pendingVersionId());
+        var pendingFacts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(
+                requireSnapshot(command.pendingVersionId(),REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT).getFactsJson());
+        var replayFacts=cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(source.getFactsJson());
+        if(!Objects.equals(pendingFacts.getCertificateType(),replayFacts.getCertificateType()))
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
+        replayFacts.setCertificateNo(pendingFacts.getCertificateNo());replayFacts.setClassification(pendingFacts.getClassification());
+        replayFacts.setFirstObtainedDate(pendingFacts.getFirstObtainedDate());replayFacts.setApprovalDate(pendingFacts.getApprovalDate());
+        replayFacts.setEffectiveDate(pendingFacts.getEffectiveDate());replayFacts.setExpiryDate(pendingFacts.getExpiryDate());
+        replayFacts.setCertificateStatus(pendingFacts.getCertificateStatus());
+        copy.setFactsJson(replayFacts.toJson());
         copy.setSourceChangeId(latestChange.id());
         copy.setEffectiveAt(businessClock.now());
         requireSingle(snapshotMapper.insert(copy), REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
@@ -385,6 +395,7 @@ public class DccRegistrationCertificateActivationService {
                 .versionId(pendingVersionId)
                 .revisionNo(source.getRevisionNo())
                 .sourceChangeId(source.getSourceChangeId())
+                .factsJson(source.getFactsJson())
                 .productName(source.getProductName())
                 .registrantName(source.getRegistrantName())
                 .modelSpecification(source.getModelSpecification())

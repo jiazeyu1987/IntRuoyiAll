@@ -377,6 +377,25 @@ class ApprovalCenterServiceImplTest {
         verifyNoInteractions(permissionApi, signatureRecordService);
     }
 
+    @ParameterizedTest
+    @MethodSource("blankApprovalReasons")
+    void reviewTaskAllowsBlankApprovalOpinionThroughSignatureAndProvider(
+            ApprovalTaskReviewResult result, String reason) {
+        AtomicReference<ApprovalTaskReviewContext> captured = new AtomicReference<>();
+        var provider = reviewProvider(ApprovalModuleCode.MES_FEEDBACK, user -> true, captured::set);
+        when(signatureRecordService.recordReviewSignature(any())).thenReturn(ApprovalSignatureRecordResult.builder()
+                .signatureImageFileUrl("/signature.png").subjectId("subject").evidenceHash("hash").build());
+        var service = new ApprovalCenterServiceImpl(new ApprovalTaskProviderRegistry(List.of(provider)),
+                permissionApi, adminUserApi, signatureRecordService);
+
+        service.reviewTask(100L, new ApprovalTaskReviewCommand().setModuleCode(ApprovalModuleCode.MES_FEEDBACK)
+                .setSourceTaskType("MES_PRO_FEEDBACK").setSourceTaskId("9001").setResult(result)
+                .setReason(reason).setSignaturePassword("secret"));
+
+        verify(signatureRecordService).recordReviewSignature(captured.get());
+        assertEquals("", captured.get().getReason());
+    }
+
     @Test
     void reviewTaskRequiresSignaturePasswordBeforeProviderDispatch() {
         AtomicBoolean dispatched = new AtomicBoolean(false);
@@ -557,10 +576,14 @@ class ApprovalCenterServiceImplTest {
     }
 
     private static Stream<Arguments> blankReviewReasons() {
-        return Stream.of(ApprovalTaskReviewResult.values()).flatMap(result ->
+        return Stream.of(ApprovalTaskReviewResult.REJECT).flatMap(result ->
                 Stream.of(null, "", "  ", " \t\r\n ", "\u2003", "\u2003 \t\r\n\u2003", "\000", "\u2003\000 ",
                                 "\u00a0", "\u202f\u2007", "\uFEFF")
                         .map(reason -> Arguments.of(result, reason)));
+    }
+
+    private static Stream<Arguments> blankApprovalReasons() {
+        return blankReviewReasons().map(args -> Arguments.of(ApprovalTaskReviewResult.APPROVE, args.get()[1]));
     }
 
     private static Stream<Arguments> validReviewRoutes() {

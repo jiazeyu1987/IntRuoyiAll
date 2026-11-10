@@ -19,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.context.annotation.Import;
@@ -466,6 +468,96 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         assertEquals(0L, auditEventMapper.selectCount());
     }
 
+    @ParameterizedTest
+    @MethodSource("approvalDecisionOperations")
+    void approvalDecisionPolicyPersistsBlankOpinionOnlyForExplicitApproval(String operation, String field) {
+        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(), new GxpAuditPolicyBundleLoader());
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
+        ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
+        try {
+            int index = 0;
+            for (String reason : java.util.Arrays.asList(null, "", " \t\r\n", "\u2003", "\u00a0\u202f\u2007", "\uFEFF", "\000")) {
+                var input = command(operation, "approval-empty-" + index++);
+                input.setReason(reason);
+                input.setSignatureRecordId("501");
+                input.setSignatureContentHash("a".repeat(64));
+                input.getAfterState().setCanonicalJson("{\"" + field + "\":\"APPROVE\"}");
+                var result = gxpAuditService.append(input);
+                var event = auditEventMapper.selectById(result.eventId());
+                assertEquals("", event.getReason());
+                assertEquals(reason, input.getReason());
+                assertEquals(policy.eventPolicyVersion(), event.getPolicyVersion());
+            }
+            assertEquals(7L, auditEventMapper.selectCount());
+        } finally {
+            ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("approvalDecisionOperations")
+    void approvalDecisionPolicyRejectsBlankRejectionAndUnprovenApprovalWithoutWrites(String operation, String field) {
+        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(), new GxpAuditPolicyBundleLoader());
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
+        ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
+        try {
+            for (String decision : List.of("REJECT", "APPROVED", "", "MISSING")) {
+                for (String reason : java.util.Arrays.asList(null, "", " \t\r\n\u2003\u00a0\u202f\u2007\uFEFF\000")) {
+                    var input = command(operation, "rejected-empty");
+                    input.setReason(reason);
+                    input.setSignatureRecordId("501");
+                    input.getAfterState().setCanonicalJson("MISSING".equals(decision) ? "{}"
+                            : "{\"" + field + "\":\"" + decision + "\"}");
+                    assertServiceException(() -> gxpAuditService.append(input), GXP_AUDIT_REASON_REQUIRED, operation);
+                }
+            }
+            assertEquals(0L, auditEventMapper.selectCount());
+            assertEquals(1L, ledgerSequenceMapper.selectById(1L).getNextLedgerSequence());
+        } finally {
+            ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);
+        }
+    }
+
+    @Test
+    void activatedUserRequiredPolicyStillRejectsBlankOpinionForApproval() {
+        var input = command("signature.record.create", "old-policy-still-required");
+        input.setReason("\u00a0\uFEFF");
+        input.setSignatureRecordId("501");
+        input.getAfterState().setCanonicalJson("{\"actionCode\":\"APPROVE\"}");
+        assertServiceException(() -> gxpAuditService.append(input), GXP_AUDIT_REASON_REQUIRED, "signature.record.create");
+        assertEquals(0L, auditEventMapper.selectCount());
+    }
+
+    @Test
+    void activatedDecisionPolicyAllowsOnlyRegisteredApprovalOperation() {
+        insertPolicy("dcc.project-product.review", "DCC", "DCC_PROJECT_PRODUCT_REQUEST", "REVIEW",
+                "APPROVAL_DECISION", "NONE");
+        var approved = command("dcc.project-product.review", "activated-decision-policy");
+        approved.setReason(null);
+        approved.getAfterState().setCanonicalJson("{\"approvalResult\":\"APPROVE\"}");
+        var result = gxpAuditService.append(approved);
+        assertEquals("", auditEventMapper.selectById(result.eventId()).getReason());
+        assertNull(approved.getReason());
+
+        insertPolicy("test.unrelated", "TEST", "TEST", "UPDATE", "APPROVAL_DECISION", "NONE");
+        var unrelated = command("test.unrelated", "not-an-approval-operation");
+        unrelated.setReason("");
+        unrelated.getAfterState().setCanonicalJson("{\"approvalResult\":\"APPROVE\"}");
+        assertServiceException(() -> gxpAuditService.append(unrelated), GXP_AUDIT_REASON_REQUIRED, "test.unrelated");
+        assertEquals(1L, auditEventMapper.selectCount());
+    }
+
+    private static java.util.stream.Stream<Arguments> approvalDecisionOperations() {
+        return java.util.stream.Stream.of(
+                Arguments.of("signature.record.create", "actionCode"),
+                Arguments.of("APPROVAL_CENTER_REVIEW_COMMIT", "action"),
+                Arguments.of("dcc.project-product.review", "approvalResult"),
+                Arguments.of("dcc.project-product.approve", "approvalResult"),
+                Arguments.of("dcc.project-product.complete", "approvalResult"),
+                Arguments.of("dcc.project-product.write-failed", "approvalResult"),
+                Arguments.of("dcc.controlled-file.delayed-effective-confirm", "approvalResult"));
+    }
+
     @Test
     void append_shouldRejectMissingBeforeAfterSnapshot() {
         GxpAuditCommand command = command("edhr.execution.field.update", "idem-5");
@@ -546,14 +638,16 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     @Test
     void localPolicyWorksWithoutFormalActivationButStillRequiresExistingLedger() {
         policyActivationMapper.selectList().forEach(row -> policyActivationMapper.deleteById(row.getId()));
-        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(), new GxpAuditPolicyBundleLoader());
+        var environment = GxpLocalDevelopmentPolicyTest.localEnvironment();
+        var policy = new GxpLocalDevelopmentPolicy(environment, new GxpAuditPolicyBundleLoader());
         Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
         ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
         try {
-            assertNotNull(gxpAuditService.append(command("mes.work-task.notify", "local-no-activation")).eventId());
+            var result = gxpAuditService.append(command("dcc.project-file-placement.bind", "local-no-activation"));
+            assertEquals(policy.eventPolicyVersion(), auditEventMapper.selectById(result.eventId()).getPolicyVersion());
             assertEquals(0L, policyActivationMapper.selectCount());
             ledgerSequenceMapper.deleteById(1L);
-            assertThrows(RuntimeException.class, () -> gxpAuditService.append(command("mes.work-task.notify", "local-no-ledger")));
+            assertThrows(RuntimeException.class, () -> gxpAuditService.append(command("dcc.project-file-placement.bind", "local-no-ledger")));
             assertEquals(1L, auditEventMapper.selectCount());
         } finally {
             ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);

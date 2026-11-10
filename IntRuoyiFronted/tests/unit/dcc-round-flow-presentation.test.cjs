@@ -24,17 +24,17 @@ const facts = { fileId: '10', fileBpmRound: 'A', needTraining: false, status: 'P
 test('the exact per-round contract selects v5 document-before-training and preserves the proven old sequence', () => {
   const h = helper()
   const keys = value => Array.from(h.buildNativeApprovalProgress(scope(value), facts, []), row => row.stageCode)
-  assert.deepEqual(keys(flow()), ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_REVIEW',
+  assert.deepEqual(keys(flow()), ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW_ASSIGN', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_REVIEW',
     'APPLICANT_TRAINING_RECORD', 'CONTROLLED', 'DISTRIBUTED'])
   assert.deepEqual(keys(flow(true, 'LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL')),
-    ['MATRIX_REVIEW', 'MATRIX_APPROVAL', 'APPLICANT_TRAINING_RECORD', 'DOC_CONTROL_REVIEW', 'CONTROLLED', 'DISTRIBUTED'])
+    ['MATRIX_REVIEW_ASSIGN', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'APPLICANT_TRAINING_RECORD', 'DOC_CONTROL_REVIEW', 'CONTROLLED', 'DISTRIBUTED'])
   assert.equal(keys(flow(false)).includes('APPLICANT_TRAINING_RECORD'), false)
 })
 test('obsolete uses the exact form rule and ends at approval without document, training or dispatch stages', () => {
   const h = helper()
   const obsolete = scope(flow(null, 'PUBLIC_V5_OBSOLETE_APPROVAL_END', 'OBSOLETE'))
   assert.deepEqual(Array.from(h.buildNativeApprovalProgress(obsolete, facts, []), row => row.stageCode),
-    ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW', 'MATRIX_APPROVAL'])
+    ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW_ASSIGN', 'MATRIX_REVIEW', 'MATRIX_APPROVAL'])
 })
 test('unavailable or malformed flow metadata cannot turn into a guessed old native diagram', () => {
   const h = helper()
@@ -51,6 +51,7 @@ test('historical A completion and training choice never borrow current B status,
     controlledTime: 'B-control', activatedTime: 'B-activate', distributedTime: 'B-dispatch'
   }, [{ id: 'actual-A-review', processInstanceId: 'A', taskDefinitionKey: 'MATRIX_REVIEW', status: 2 }])
   assert.equal(stages.find(row => row.stageCode === 'MATRIX_REVIEW').isCompleted, true)
+  assert.equal(stages.find(row => row.stageCode === 'MATRIX_REVIEW_ASSIGN').isCompleted, true)
   for (const key of ['APPLICANT_TRAINING_RECORD', 'CONTROLLED', 'DISTRIBUTED']) {
     const stage = stages.find(row => row.stageCode === key)
     assert.equal(stage.isCompleted, false)
@@ -80,7 +81,7 @@ test('handling and signature dialog flow text consume the same exact selected co
   const h = helper()
   assert.equal(typeof h.getNativeApprovalProcessText, 'function')
   const text = h.getNativeApprovalProcessText(scope())
-  assert.match(text, /主管.*会签.*批准.*文控.*培训.*受控.*生效.*下发/)
+  assert.match(text, /主管.*签名指派.*实际会签人会签.*批准.*文控.*培训.*受控.*生效.*下发/)
   assert.match(h.getNativeApprovalProcessText(scope(flow(true, 'LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL'))), /培训.*文控/)
   assert.match(h.getNativeApprovalProcessText({ ...scope(), flowContract: undefined }), /未记录/)
 })

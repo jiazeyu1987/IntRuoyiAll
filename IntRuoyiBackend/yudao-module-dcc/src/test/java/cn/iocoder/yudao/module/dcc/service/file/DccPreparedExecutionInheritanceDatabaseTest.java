@@ -68,6 +68,7 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status,default_attributes_json,deleted) VALUES(5,1,'PREPARED','PREPARED','ENABLE',?,0)",attributes.encode(actual));
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,dcc_project_code_id,file_type_taxonomy_leaf_id,normalized_file_number,status,deleted) VALUES(10,1,2,3,'SOP','PREPARED-1',5,6,'PREPARED-1','ACTIVE_CHAIN',0)");
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+        when(permissions.hasFilePermission(any(),any(),any())).thenReturn(true);
         engine=ProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration().setJdbcUrl("jdbc:h2:mem:w05_inherit_engine_"+UUID.randomUUID()+";DB_CLOSE_DELAY=-1")
                 .setDatabaseSchemaUpdate("true").setAsyncExecutorActivate(false).buildProcessEngine();
         Path root=Path.of("").toAbsolutePath();while(root!=null&&!Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
@@ -104,7 +105,8 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
         var info=new cn.iocoder.yudao.module.bpm.dal.dataobject.definition.BpmProcessDefinitionInfoDO();
         when(definitions.getProcessDefinitionInfo(anyString())).thenReturn(info);when(definitions.canUserStartProcessDefinition(info,99L)).thenReturn(true);
         var service=spy(new BpmProcessInstanceServiceImpl());wire(service,"runtimeService",engine.getRuntimeService(),"processDefinitionService",definitions,
-                "adminUserApi",mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class));
+                "adminUserApi",mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class),
+                "approvalProcessOwnershipService",mock(cn.iocoder.yudao.module.bpm.approval.service.ownership.ApprovalProcessOwnershipService.class));
         doReturn(new cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmApprovalDetailRespVO().setActivityNodes(new ArrayList<>())).when(service).getApprovalDetail(eq(99L),any());
         var api=new cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApiImpl();wire(api,"processInstanceService",service);
         var workflow=new DccControlledFileWorkflowServiceImpl();wire(workflow,"executionContracts",contracts,"bpmProcessInstanceApi",api,
@@ -124,6 +126,23 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
         return tx().execute(s->ReflectionTestUtils.invokeMethod(contracts,"inheritPrepared",99L,id,source.getSourceApplicationId(),source.getSourceApplicationRound()));}
     Map<String,Object> original(Long id){var row=jdbc.queryForMap("SELECT * FROM dcc_controlled_file WHERE id=?",id);
         row.replaceAll((key,value)->value instanceof byte[] bytes?HexFormat.of().formatHex(bytes):value);return row;}
+    @Test void anotherEditorWithoutUploadInheritsAndReplaysAnInitialUploadWorkingBody(){
+        prepareRoot();copy(21L,20L);var sourceBefore=original(20L);
+        when(permissions.hasFilePermission(any(),eq(98L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD))).thenReturn(false);
+        when(permissions.hasFilePermission(any(),eq(98L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(true);
+        int sourceRound=rounds.requireDraft("UPLOAD",20L);
+        tx().executeWithoutResult(status->{
+            var inherited=contracts.inheritPrepared(98L,21L,20L,sourceRound);
+            assertEquals(exactId,inherited.processDefinitionId());
+            assertEquals(inherited,contracts.verifyInheritedPrepared(98L,21L,20L,sourceRound));
+            assertTrue(contracts.readInheritedDraftFacts(98L,21L,20L,sourceRound).sameApplicationType());
+            assertNull(contracts.readInheritedCustomDraft(98L,21L,20L,sourceRound));
+        });
+        assertEquals(sourceBefore,original(20L));assertEquals(99L,files.selectById(21L).getRequesterId());
+        verify(permissions,never()).hasFilePermission(any(),eq(98L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD));
+        jdbc.update("UPDATE dcc_controlled_file SET revision_change_type='INITIAL',selected_iteration_controlled_file_id=20 WHERE id=21");
+        assertThrows(IllegalArgumentException.class,()->tx().execute(status->contracts.verifyInheritedPrepared(98L,21L,20L,sourceRound)));
+    }
     @Test void consecutiveCopiesInheritTheExactPreparedRootWithoutChangingItsHistoryOrUsingLatest(){
         prepareRoot();var before=original(20L);copy(21L,20L);var first=inherit(21L);copy(22L,21L);
         String latest=deploy(legacyXml.replace("name=\"培训等待\"","name=\"新图\""));var second=inherit(22L);
@@ -146,7 +165,7 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
         verify(definitions,never()).getActiveProcessDefinition(anyString());
     }
     @Test void absentAuthoritativeRootIsRejectedWithZeroPreparedWrites(){copy(21L,20L);assertThrows(RuntimeException.class,()->inherit(21L));assertNull(files.selectById(21L).getPreparedWorkflowContract());}
-    @ParameterizedTest @ValueSource(strings={"TENANT","MASTER","PROJECT","TYPE","CATEGORY","ROUND","CYCLE","PARTIAL","ACTOR"})
+    @ParameterizedTest @ValueSource(strings={"TENANT","MASTER","PROJECT","TYPE","CATEGORY","ROUND","CYCLE","PARTIAL","ACTOR_NO_EDIT"})
     void mismatchedOrCorruptSourceNeverPreparesTarget(String kind){
         prepareRoot();copy(21L,20L);
         switch(kind){
@@ -158,7 +177,10 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
             case "ROUND"->jdbc.update("UPDATE dcc_project_application_attributes SET source_application_round=99 WHERE application_id=21");
             case "CYCLE"->{jdbc.update("UPDATE dcc_controlled_file SET prepared_workflow_contract=NULL,prepared_process_definition_id=NULL,prepared_definition_digest=NULL,predecessor_controlled_file_id=21 WHERE id=20");jdbc.update("UPDATE dcc_project_application_attributes SET source_application_id=21,source_application_round=1 WHERE application_id=20");}
             case "PARTIAL"->jdbc.update("UPDATE dcc_controlled_file SET prepared_definition_digest=NULL WHERE id=20");
-            case "ACTOR"->jdbc.update("UPDATE dcc_controlled_file SET requester_id=88 WHERE id=21");
+            case "ACTOR_NO_EDIT"->{
+                jdbc.update("UPDATE dcc_controlled_file SET requester_id=88 WHERE id=21");
+                when(permissions.hasFilePermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(false);
+            }
         }
         assertThrows(RuntimeException.class,()->inherit(21L));assertNull(files.selectById(21L).getPreparedWorkflowContract());
     }
@@ -274,7 +296,10 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
             case "PREDECESSOR"->jdbc.update("UPDATE dcc_controlled_file SET predecessor_controlled_file_id=22 WHERE id=21");
             case "SELECTED_VERSION"->jdbc.update("UPDATE dcc_controlled_file SET selected_iteration_version_no='A/2' WHERE id=21");
             case "HASH"->jdbc.update("UPDATE dcc_controlled_file SET source_sha256=? WHERE id=21","b".repeat(64));
-            case "PERMISSION"->when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(false);
+            case "PERMISSION"->{
+                when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(false);
+                when(permissions.hasFilePermission(any(),any(),any())).thenReturn(false);
+            }
         }
         var before=original(21L);assertThrows(RuntimeException.class,()->verifyExisting(21L,20L,conflict.equals("ROUND")?99:1));assertEquals(before,original(21L));
     }

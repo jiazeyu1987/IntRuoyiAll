@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 @Component
 public class DccControlledFileVersionPolicy {
 
-    private static final Pattern FIRST_SEGMENT_PATTERN = Pattern.compile("[A-Z]+");
+    private static final Pattern FIRST_SEGMENT_PATTERN = Pattern.compile("[A-HJ-NP-Z]+");
     private static final Pattern NUMERIC_SEGMENT_PATTERN = Pattern.compile("[1-9][0-9]*");
 
     private final DccControlledFileVersionPolicyProperties properties;
@@ -32,8 +32,8 @@ public class DccControlledFileVersionPolicy {
             return initial().display();
         }
         VersionNumber parsed = parse(requestedVersion);
-        if (parsed == null || parsed.isWorkingIteration() || !parsed.isFirstMinorIteration()) {
-            throw new IllegalArgumentException("initial version must be the first configured minor iteration");
+        if (parsed == null || parsed.isWorkingIteration()) {
+            throw new IllegalArgumentException("initial version must use revision letters excluding I/O and slash numbers from 1 to 9");
         }
         return parsed.display();
     }
@@ -72,7 +72,7 @@ public class DccControlledFileVersionPolicy {
             }
             try {
                 int value = Integer.parseInt(split[i]);
-                if (majorIdentitySegmentCount() == 1 && split.length == 2 && value > 9) return null;
+                if (value > 9) return null;
             } catch (NumberFormatException ex) { return null; }
             segments.add(split[i]);
         }
@@ -181,6 +181,7 @@ public class DccControlledFileVersionPolicy {
         for (int i = next.length - 1; i >= 0; i--) {
             if (next[i] != 'Z') {
                 next[i]++;
+                if (next[i] == 'I' || next[i] == 'O') next[i]++;
                 return new String(next);
             }
             next[i] = 'A';
@@ -281,7 +282,7 @@ public class DccControlledFileVersionPolicy {
         }
 
         public VersionNumber nextMinor() {
-            if (majorIdentitySegmentCount == 1 && segments.size() == 2 && iterationNo() == 9) return nextMajor();
+            if (iterationNo() == 9) return nextMajor();
             List<String> next = new ArrayList<>(segments);
             if (next.size() <= majorIdentitySegmentCount) {
                 next.add("1");

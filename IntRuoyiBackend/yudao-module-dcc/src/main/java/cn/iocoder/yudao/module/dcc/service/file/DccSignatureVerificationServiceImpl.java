@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileSignatureModeEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
@@ -94,8 +95,9 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
     }
     private DccUnifiedSignatureResult createSignature(Long actorId, Long controlledFileId, String taskId,
             String processInstanceId, String stageCode, String actionType, String password, String comment,LocalDateTime selectedEffectiveTime,Integer attributeRound) {
-        String reasonText = "DISTRIBUTION".equals(stageCode) && "DISTRIBUTION_ACK".equals(actionType)
-                ? StrUtil.trimToEmpty(comment) : requireReasonText(comment);
+        String reasonText = "APPROVE".equals(actionType)
+                || "DISTRIBUTION".equals(stageCode) && "DISTRIBUTION_ACK".equals(actionType)
+                ? ApprovalReviewReason.normalize(comment) : requireReasonText(ApprovalReviewReason.normalize(comment));
         electronicSignatureAuthorizationService.validateElectronicSignatureEnabled(actorId);
         String meaningCode = resolveMeaningCode(stageCode, actionType);
         AdminUserDO user = adminUserService.getUser(actorId);

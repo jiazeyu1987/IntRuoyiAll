@@ -9,6 +9,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix="dcc.approval-matrix.baseline-token")
 public class DccApprovalMatrixTokenProperties {
     private String signingSecret;
+    /** Retired keys may verify frozen evidence only; new submissions use signingSecret. */
+    private java.util.List<String> recordedVerificationSecrets = java.util.List.of();
+    public java.util.List<byte[]> recordedVerificationKeys() {
+        return recordedVerificationSecrets.stream().map(secret -> {
+            if (secret == null || secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32)
+                throw new IllegalStateException("recorded matrix verification key must contain at least 32 UTF-8 bytes");
+            return secret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }).toList();
+    }
     public byte[] requireSigningKey(){
         if(signingSecret==null || signingSecret.isBlank())
             throw new IllegalStateException("dcc.approval-matrix.baseline-token.signing-secret is required");

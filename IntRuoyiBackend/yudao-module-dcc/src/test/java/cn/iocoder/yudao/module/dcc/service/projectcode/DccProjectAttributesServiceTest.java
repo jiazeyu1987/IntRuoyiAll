@@ -30,6 +30,40 @@ class DccProjectAttributesServiceTest extends BaseDbUnitTest {
                 .status("ENABLE").defaultAttributesJson(service.encode(defaults())).build();
         project.setTenantId(1L); projectMapper.insert(project); return project;
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"QMS","GENERAL"})
+    void libraryDraftKeepsExplicitScopeWithoutAnyProjectDefaultsOrFields(String scope) {
+        var library = DccProjectCodeDO.builder().libraryScope(scope).projectCode("LIB-"+scope)
+                .projectName(scope).status("ENABLE").build();
+        library.setTenantId(1L); projectMapper.insert(library);
+        var marker = DccProjectAttributes.forLibrary(scope);
+        assertEquals(marker, service.initialize(7L,library.getId(),"UPLOAD"));
+        for (String type : List.of("UPLOAD","REVISION","OBSOLETE")) {
+            var draft = service.beginDraft(7L,library.getId(),type,800L,1);
+            assertEquals(marker,service.readValue(draft.getDefaultSourceJson()));
+            assertEquals(marker,service.readValue(draft.getActualAttributesJson()));
+            assertNull(service.readValue(draft.getActualAttributesJson()).targetMarkets());
+            assertTrue(service.freeze(7L,library.getId(),type,800L,1).getSubmitted());
+            assertEquals(marker,service.readValue(service.forkForRework(7L,library.getId(),type,800L,1).getActualAttributesJson()));
+        }
+        assertNull(projectMapper.selectById(library.getId()).getDefaultAttributesJson());
+        assertThrows(RuntimeException.class,()->service.saveDraft(7L,library.getId(),"UPLOAD",801L,1,defaults()));
+        assertThrows(RuntimeException.class,()->service.saveDraft(7L,library.getId(),"UPLOAD",801L,1,
+                DccProjectAttributes.forLibrary("QMS".equals(scope)?"GENERAL":"QMS")));
+        assertNull(attributesMapper.find("UPLOAD",801L,1));
+    }
+    @Test void projectRejectsLibraryMarkerAndLibraryMarkerRejectsProjectFields() {
+        var project = project();
+        for (String scope : List.of("QMS","GENERAL")) {
+            assertThrows(RuntimeException.class,()->service.saveDraft(7L,project.getId(),"UPLOAD",802L,1,DccProjectAttributes.forLibrary(scope)));
+            assertThrows(RuntimeException.class,()->service.encode(new DccProjectAttributes(List.of("FDA"),null,"Y","N","N",null,scope)));
+        }
+        assertThrows(RuntimeException.class,()->DccProjectAttributes.forLibrary("PROJECT"));
+        assertNull(attributesMapper.find("UPLOAD",802L,1));
+        project.setDefaultAttributesJson(service.encode(DccProjectAttributes.forLibrary("QMS")));
+        projectMapper.updateById(project);
+        assertThrows(RuntimeException.class,()->service.initialize(7L,project.getId(),"UPLOAD"));
+    }
     @Test void uploadUsesDefaultsAndSavesManualActual() { threePaths("UPLOAD"); }
     @Test void revisionUsesProjectDefaultsInsteadOfPreviousVersion() { threePaths("REVISION"); }
     @Test void obsoleteHasIndependentApplicationSnapshotAndNoFileWrite() { threePaths("OBSOLETE"); }

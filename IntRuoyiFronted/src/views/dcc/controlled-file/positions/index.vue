@@ -113,12 +113,17 @@
     </UnifiedListTemplate>
 </ContentWrap>
 
-  <Dialog v-model="createDialogVisible" title="新增审批角色" width="520px">
+  <Dialog
+    v-model="createDialogVisible"
+    class="positions-dialog"
+    title="新增审批角色"
+    width="min(520px, calc(100vw - 24px))"
+  >
     <el-form
       ref="createFormRef"
       :model="createFormData"
       :rules="createFormRules"
-      label-width="88px"
+      label-width="108px"
     >
       <el-form-item label="审批角色名称" prop="name">
         <el-input
@@ -147,8 +152,13 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="dialogVisible" :title="dialogTitle" width="920px">
-    <div class="mb-12px flex items-center justify-between">
+  <Dialog
+    v-model="dialogVisible"
+    class="positions-dialog"
+    :title="dialogTitle"
+    width="min(920px, calc(100vw - 24px))"
+  >
+    <div class="position-assignment-toolbar">
       <div class="text-13px text-[var(--el-text-color-secondary)]">
         当前审批角色：{{ currentPosition?.name || '-' }}
       </div>
@@ -560,15 +570,100 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
 </script>
 
 <style scoped>
+.positions-surface,
+.positions-dialog {
+  --el-color-primary: #008f86;
+  --el-color-primary-light-3: #4db1aa;
+  --el-color-primary-light-5: #80c7c2;
+  --el-color-primary-light-7: #b3ddd9;
+  --el-color-primary-light-8: #cce9e7;
+  --el-color-primary-light-9: #e6f5f2;
+  --el-color-primary-dark-2: #00726b;
+  min-width: 0;
+}
+
+.positions-surface {
+  margin-bottom: 8px;
+}
+
+.positions-surface :deep(.el-card__body) {
+  padding: 12px !important;
+}
+
+.positions-surface :deep(.el-table),
+.positions-dialog :deep(.el-table) {
+  --el-table-header-bg-color: #f5f8f9;
+  --el-table-border-color: #dbe3e7;
+  font-size: 13px;
+}
+
+.positions-surface :deep(.el-table__cell),
+.positions-dialog :deep(.el-table__cell) {
+  padding: 5px 0;
+}
+
+.positions-surface :deep(th.el-table__cell),
+.positions-dialog :deep(th.el-table__cell) {
+  height: 36px;
+  font-size: 12px;
+}
+
+.position-filter-control {
+  width: 190px;
+}
+
+.position-filter-control--state {
+  width: 160px;
+}
+
 .position-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
+  gap: 8px 16px;
+}
+
+.position-toolbar :deep(.el-form-item) {
+  margin: 0;
+  min-width: 0;
+}
+
+.position-toolbar :deep(.el-form-item__content) {
+  min-width: 0;
+}
+
+.position-actions {
+  flex-basis: 100%;
+}
+
+.position-actions :deep(.el-form-item__content) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.position-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.position-assignment-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.position-assignment-toolbar > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .position-summary {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
 }
 
