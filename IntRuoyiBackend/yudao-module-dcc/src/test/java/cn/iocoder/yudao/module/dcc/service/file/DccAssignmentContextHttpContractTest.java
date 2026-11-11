@@ -17,7 +17,7 @@ class DccAssignmentContextHttpContractTest {
         ReflectionTestUtils.setField(controller,"signoffAssignments",assignments);
         when(assignments.assignmentContext(99L,9007199254740993L,"exact-task")).thenReturn(new DccSignoffAssignmentContext(
                 9007199254740993L,"real-round","exact-task","frozen-obligation",DccControlledFileProcessDefinitionKeys.UPLOAD,9007199254740995L,"Quality",99L,false,true,
-                List.of(new DccSignoffAssignmentContext.AssigneeOption(9007199254740997L,"Signer"))));
+                List.of(new DccSignoffAssignmentContext.AssigneeOption(9007199254740997L,"Signer","signer.account"))));
         try(var auth=mockStatic(SecurityFrameworkUtils.class)){
             auth.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             MockMvcBuilders.standaloneSetup(controller).build()
@@ -26,7 +26,8 @@ class DccAssignmentContextHttpContractTest {
                     .andExpect(jsonPath("$.data.departmentId").value("9007199254740995"))
                     .andExpect(jsonPath("$.data.obligationId").value("frozen-obligation"))
                     .andExpect(jsonPath("$.data.processDefinitionKey").value(DccControlledFileProcessDefinitionKeys.UPLOAD))
-                    .andExpect(jsonPath("$.data.assigneeOptions[0].id").value("9007199254740997"));
+                    .andExpect(jsonPath("$.data.assigneeOptions[0].id").value("9007199254740997"))
+                    .andExpect(jsonPath("$.data.assigneeOptions[0].username").value("signer.account"));
         }
     }
 }

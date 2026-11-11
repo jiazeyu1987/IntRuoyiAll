@@ -1,7 +1,7 @@
 <template>
   <ContentWrap class="upload-page">
     <div class="upload-header">
-      <div class="text-14px font-600">{{ pageTitle }}</div>
+      <div class="text-20px font-600">{{ pageTitle }}</div>
       <el-tag v-if="isExternalReview" type="warning">外来文件评审</el-tag>
     </div>
     <el-form
@@ -26,6 +26,7 @@
             <el-radio-button value="PROJECT">项目</el-radio-button><el-radio-button value="QMS">QMS 文件</el-radio-button><el-radio-button value="GENERAL">通用文件</el-radio-button>
           </el-radio-group>
         </el-form-item>
+        <div v-if="!isExternalReview" class="upload-scope-project-row" :class="{ 'upload-scope-project-row--library': isLibraryUpload }">
         <el-form-item v-if="!isExternalReview && !isLibraryUpload" label="DCC项目" prop="dccProjectCodeId">
           <el-select
             v-model="formData.dccProjectCodeId"
@@ -54,8 +55,23 @@
               </span>
             </el-option>
           </el-select>
-          <div class="text-12px text-[var(--el-text-color-secondary)]">绿色可选；红色资料不全或无上传权限，将鼠标移到项目代码可查看原因。</div>
+          <el-popover trigger="click" placement="bottom" content="绿色可选；红色资料不全或无上传权限，将鼠标移到项目代码可查看原因。"><template #reference><el-button link type="primary">选择说明</el-button></template></el-popover>
         </el-form-item>
+
+        <el-form-item v-if="!isExternalReview" label="项目文件夹" prop="projectFolderId">
+          <div class="w-full">
+            <el-tree-select
+              v-model="formData.projectFolderId" :data="projectFolderTree" node-key="id"
+              :props="{ label: 'name', children: 'children', disabled: (node) => !node.active }"
+              check-strictly :loading="projectFoldersLoading" :disabled="!formData.dccProjectCodeId || submitLoading || projectAttributesLoading"
+              @visible-change="handleProjectFolderVisibleChange"
+              :placeholder="projectFoldersLoading ? '目录加载中…' : '请选择项目文件夹'" class="!w-460px" />
+
+            <el-alert v-if="projectFoldersError" :title="projectFoldersError" type="error" :closable="false" />
+            <span v-else-if="formData.dccProjectCodeId && !projectFoldersLoading && !projectFolders.length">项目尚未生成独立目录</span>
+          </div>
+        </el-form-item>
+        </div>
           <el-alert
             v-if="!isExternalReview && projectCodeOptionsError"
             class="mt-8px !w-560px"
@@ -69,132 +85,22 @@
             ref="projectAttributesPanel"
             :key="projectAttributesPanelKey"
             action="UPLOAD"
+            collapsible
             :saved-snapshot="projectAttributesRestoreSnapshot"
             :readonly="submitLoading"
             @change="captureProjectAttributes"
             @restore-defaults="captureProjectAttributes"
           />
         </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="项目文件夹" prop="projectFolderId">
-          <div class="w-full">
-            <el-tree-select
-              v-model="formData.projectFolderId" :data="projectFolderTree" node-key="id"
-              :props="{ label: 'name', children: 'children', disabled: (node) => !node.active }"
-              check-strictly :loading="projectFoldersLoading" :disabled="!formData.dccProjectCodeId || submitLoading"
-              placeholder="请选择项目文件夹" class="!w-460px" />
-            <el-button class="ml-8px" :loading="projectFoldersLoading"
-              :disabled="!formData.dccProjectCodeId || submitLoading" @click="refreshUploadProjectFolders()">刷新目录</el-button>
-            <el-alert v-if="projectFoldersError" :title="projectFoldersError" type="error" :closable="false" />
-            <span v-else-if="formData.dccProjectCodeId && !projectFoldersLoading && !projectFolders.length">项目尚未生成独立目录</span>
-          </div>
-        </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="登记说明" prop="projectFolderChangeReason">
-          <el-input
-            v-model="formData.projectFolderChangeReason" maxlength="500" show-word-limit
-            placeholder="选填：文件归入此项目文件夹的说明" :disabled="submitLoading" class="!w-560px" />
-        </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="关联文件">
-          <div class="w-full">
-            <el-button
-              :disabled="!selectedProjectFolder || projectFoldersLoading || Boolean(projectFoldersError) || submitLoading"
-              @click="openUploadRelations">关联</el-button>
-            <span class="ml-8px">已选 {{ selectedUploadRelations.length }} 个文件</span>
-            <div class="mt-8px"><el-tag v-for="file in selectedUploadRelations" :key="file.masterId" class="mr-6px">
-              {{ file.fileName }} · {{ file.versionNo }}{{ file.pendingEffect ? ' · 待生效' : '' }}
-            </el-tag></div>
-          </div>
-        </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="文件类型" prop="fileTypeTaxonomyId">
-          <div class="w-full">
-            <el-select
-              v-model="formData.fileTypeTaxonomyId" class="!w-560px" clearable filterable
-              :loading="fileTypeOptionsLoading || categoryOptionsLoading" :disabled="!formData.dccProjectCodeId || submitLoading || fileTypeOptionsLoading || categoryOptionsLoading || Boolean(categoryOptionsError)"
-              placeholder="请选择启用的文件类型" @change="handleFileTypeTaxonomyChange">
-              <el-option v-for="option in uploadFileTypeOptions" :key="option.id" :value="option.id" :label="option.names.join(' / ')" :disabled="Boolean(option.uploadBlocker) || option.approvalSourceMode === null" />
-            </el-select>
-            <el-alert v-if="fileTypeOptionsError" :title="fileTypeOptionsError" type="error" :closable="false" />
-            <el-alert v-if="fileTypeCategoryError" :title="fileTypeCategoryError" type="error" :closable="false" />
-          </div>
-        </el-form-item>
-        <el-form-item v-if="isExternalReview" label="文件类别" prop="categoryId">
-          <div class="w-full">
-            <el-select
-              v-model="formData.categoryId"
-              class="!w-360px"
-              clearable
-              filterable
-              placeholder="请选择文件类别"
-              @change="handleCategoryChange"
-            >
-              <el-option
-                v-for="item in availableCategories"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id as number"
-              />
-              <template #empty>
-                <div class="px-12px py-8px text-12px text-[var(--el-text-color-secondary)]">
-                  {{ categorySelectEmptyText }}
-                </div>
-              </template>
-            </el-select>
-            <el-alert
-              v-if="categoryPreflightMessage"
-              class="mt-8px !w-560px"
-              type="warning"
-              :closable="false"
-              show-icon
-              :title="categoryPreflightMessage"
-            />
-          </div>
-        </el-form-item>
-        <el-form-item v-else label="文件类别" prop="categoryId">
-          <div class="w-full">
-            <div
-              data-testid="dcc-upload-category-leaf-display"
-              class="!w-360px rounded-6px border border-[#dbe3ef] bg-[#f8fafc] px-12px py-9px text-13px text-[#172033]"
-            >
-              {{ selectedFileTypeTaxonomyLeafName || '请先选择文件分类' }}
-            </div>
-          </div>
-        </el-form-item>
-        <CustomApplicationMatrixEditor v-if="!isExternalReview && isCustomApprovalSource"
-          :model-value="formData.applicationCustomMatrix ?? null" :selected-signoff-department-ids="formData.selectedSignoffDepartmentIds?.map(String) ?? null"
-          approval-source-mode="APPLICATION_CUSTOM" :departments="signoffDepartments" :users="approvalUsers"
-          :disabled="submitLoading" :loading="signoffDepartmentsLoading || approvalUsersLoading"
-          :directory-error="signoffDepartmentsError || approvalUsersError"
-          @update:model-value="handleCustomMatrixChange" @update:selected-signoff-department-ids="handleCustomDepartmentsChange" />
-        <el-form-item v-if="!isExternalReview && !isCustomApprovalSource" label="会签部门" required data-testid="dcc-upload-signoff-departments">
-          <div class="w-full">
-            <el-select
-              v-model="formData.selectedSignoffDepartmentIds" multiple filterable class="!w-560px"
-              :loading="signoffDepartmentsLoading" :disabled="!formData.categoryId || submitLoading || signoffDepartmentsLoading"
-              placeholder="选择本次会签部门，可增加或删除" @change="refreshRouteReadiness">
-              <el-option v-for="department in signoffDepartments" :key="department.id" :value="department.id" :label="department.name" />
-            </el-select>
-            <el-alert v-if="signoffDepartmentsError" :title="signoffDepartmentsError" type="error" :closable="false" class="mt-8px" />
-            <el-button v-if="signoffDepartmentsError" link @click="loadSignoffDepartments">重新读取部门</el-button>
-          </div>
-        </el-form-item>
-        <el-form-item
-          v-if="!isCustomApprovalSource" label="批准人" data-testid="dcc-upload-matrix-approvers">
-          <div class="w-full">
-            <span v-if="approvalUsersLoading">正在读取启用账号目录...</span>
-            <el-alert v-else-if="uploadApproverError" :title="uploadApproverError" type="error" :closable="false" />
-            <template v-else-if="uploadApprovers">
-              <div v-for="account in uploadApprovers.accounts" :key="account.id">
-                {{ account.name }}{{ account.deptName ? `（${account.deptName}）` : '' }} · 账号ID {{ account.id }}
-              </div>
-              <div class="mt-6px text-12px">{{ uploadApprovers.rule }}；人员由本次文件类型的审批矩阵带出。</div>
-              <div v-for="group in uploadApprovers.groups" :key="group.sourceNodeId" class="mt-6px text-12px" data-testid="dcc-upload-approval-rule-group">
-                原批准组 {{ group.sourceNodeId }}：{{ group.summary }}
-              </div>
-              <div v-for="(limitation, index) in uploadApprovers.capabilityLimitations" :key="index" class="mt-6px text-12px">运行能力说明：{{ limitation }}</div>
-            </template>
-            <span v-else>请选择文件类型并等待正式审批路线预检</span>
-            <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
-          </div>
-        </el-form-item>
+
+
+
+
+
+
+
+
+
         <el-form-item v-if="!isNormalNewUpload && uploadDirectoryTree" label="提交目录" prop="directoryId">
           <div class="w-full">
             <template v-if="uploadDirectoryTree.leafBinding">
@@ -226,344 +132,637 @@
         </el-form-item>
       </section>
 
+            <section class="upload-section upload-section--file" data-testid="dcc-upload-section-file">
+              <div class="upload-section__title">文件信息</div>
+              <el-form-item v-if="isExternalReview" label="文件名称" prop="fileName">
+                <el-input
+                  v-model="formData.fileName"
+                  class="!w-420px"
+                  clearable
+                  placeholder="请输入文件名称"
+                  @input="handleFileNameInput"
+                  @clear="handleFileNameClear"
+                />
+              </el-form-item>
+              <el-form-item v-else label="文件名称" prop="fileName">
+                <div class="w-full">
+                  <div class="upload-field-value" role="textbox" aria-readonly="true">
+                    {{ formData.fileName || '选择主文件后显示完整文件名称' }}
+                  </div>
+                  <div v-if="projectTemplateFileOptions.length" class="mt-6px text-12px">
+                    项目模板参考名称：{{
+                      projectTemplateFileOptions.map((item) => item.value).join('、')
+                    }}（仅供参考，不限制上传）
+                  </div>
+                  <el-alert
+                    v-if="projectFileTemplateError"
+                    :title="projectFileTemplateError"
+                    type="warning"
+                    :closable="false"
+                  />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="!isExternalReview" label="文件类型" prop="fileTypeTaxonomyId">
+                <div class="w-full">
+                  <el-select
+                    v-model="formData.fileTypeTaxonomyId"
+                    class="!w-full"
+                    clearable
+                    filterable
+                    :loading="fileTypeOptionsLoading || categoryOptionsLoading"
+                    :disabled="
+                      !formData.dccProjectCodeId ||
+                      submitLoading ||
+                      fileTypeOptionsLoading ||
+                      categoryOptionsLoading ||
+                      Boolean(categoryOptionsError)
+                    "
+                    placeholder="请选择启用的文件类型"
+                    @change="handleFileTypeTaxonomyChange"
+                  >
+                    <el-option
+                      v-for="option in uploadFileTypeOptions"
+                      :key="option.id"
+                      :value="option.id"
+                      :label="option.names.join(' / ')"
+                      :disabled="Boolean(option.uploadBlocker) || option.approvalSourceMode === null"
+                    />
+                  </el-select>
+                  <el-alert v-if="fileTypeOptionsError" :title="fileTypeOptionsError" type="error" :closable="false" />
+                  <el-alert
+                    v-if="fileTypeCategoryError"
+                    :title="fileTypeCategoryError"
+                    type="error"
+                    :closable="false"
+                  />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="isExternalReview" label="文件类别" prop="categoryId">
+                <div class="w-full">
+                  <el-select
+                    v-model="formData.categoryId"
+                    class="!w-360px"
+                    clearable
+                    filterable
+                    placeholder="请选择文件类别"
+                    @change="handleCategoryChange"
+                  >
+                    <el-option
+                      v-for="item in availableCategories"
+                      :key="item.id"
+                      :label="item.name"
+                      :value="item.id as number"
+                    />
+                    <template #empty>
+                      <div class="px-12px py-8px text-12px text-[var(--el-text-color-secondary)]">
+                        {{ categorySelectEmptyText }}
+                      </div>
+                    </template>
+                  </el-select>
+                  <el-alert
+                    v-if="categoryPreflightMessage"
+                    class="mt-8px !w-560px"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                    :title="categoryPreflightMessage"
+                  />
+                </div>
+              </el-form-item>
+              <el-form-item v-else label="文件类别" prop="categoryId">
+                <div class="w-full">
+                  <div data-testid="dcc-upload-category-leaf-display" class="upload-field-value">
+                    {{
+                      selectedCategory?.name ||
+                      (fileTypeOptionsLoading || categoryOptionsLoading ? '正在匹配…' : '请先选择文件类型')
+                    }}
+                    <span class="upload-field-hint">（自动匹配）</span>
+                  </div>
+                </div>
+              </el-form-item>
+              <div class="upload-file-pair">
+                <el-form-item label="文件编号" prop="fileNumber">
+                  <div class="w-full">
+                    <el-input v-model="formData.fileNumber" class="!w-280px" placeholder="例如 SOP-001" />
+                    <div
+                      v-if="formData.fileNumber"
+                      data-testid="dcc-upload-current-version-panel"
+                      class="upload-current-version"
+                    >
+                      <div class="font-600">受控版本</div>
+                      <el-skeleton v-if="currentVersionLookupLoading" :rows="2" animated />
+                      <template v-else-if="currentVersionLookupError">
+                        <el-alert :closable="false" :title="currentVersionLookupError" type="error" show-icon />
+                      </template>
+                      <template v-else-if="currentVersionInfo?.matched">
+                        <div class="font-600 text-[var(--el-text-color-primary)]">
+                          {{ currentVersionInfo.fileName || '-' }} · {{ currentVersionInfo.currentVersionNo || '-' }}
+                        </div>
+                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                          文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
+                        </div>
+                        <el-alert
+                          class="mt-8px"
+                          :closable="false"
+                          type="error"
+                          show-icon
+                          title="文件编号已重复：当前项目、文件类型下已存在该编号"
+                        />
+                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                          产品：{{ currentVersionInfo.productName || currentVersionInfo.productCode || '-' }}；
+                          修改中：{{ currentVersionInfo.modifying ? '是' : '否' }}
+                        </div>
+                        <el-alert
+                          v-if="currentVersionProjectionBlockReason"
+                          class="mt-8px"
+                          :closable="false"
+                          :title="currentVersionProjectionBlockReason"
+                          type="warning"
+                          show-icon
+                        />
+                        <el-alert
+                          v-if="isRequestedVersionDuplicate"
+                          class="mt-8px"
+                          :closable="false"
+                          :title="versionDuplicatePreflightMessage"
+                          type="error"
+                          show-icon
+                        />
+                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                          原版本路径：{{ currentVersionInfo.originalFilePath || '-' }}
+                        </div>
+                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                          源文件路径：{{ currentVersionInfo.sourceFilePath || '-' }}
+                        </div>
+                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                          受控文件路径：{{
+                            currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-'
+                          }}
+                        </div>
+                      </template>
+                      <template v-else>未查询到同编号受控版本，将创建新的受控文件主档，并按新建规则校验。</template>
+                    </div>
+                  </div>
+                </el-form-item>
+                <el-form-item
+                  :label="isExternalReview ? '版本号' : '初始版本号'"
+                  prop="versionNo"
+                  :error="submitFieldErrors.versionNo"
+                >
+                  <div class="w-full">
+                    <el-input
+                      v-model="formData.versionNo"
+                      class="!w-220px"
+                      :placeholder="isExternalReview ? '例如 V1.0' : '例如 A/1、B/9'"
+                    />
+                    <div v-if="!isExternalReview" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+                      格式：修订字母/数字，如 A/1；字母不含 I、O，数字 1～9。
+                    </div>
+                  </div>
+                </el-form-item>
+              </div>
+              <el-form-item label="产品编号" prop="productCode">
+                <div class="w-full">
+                  <div class="upload-field-value">{{ formData.productCode || '选择 DCC 项目后读取正式产品编码' }}</div>
+                  <div
+                    v-if="isProductRequiredForSelectedCategory && !isRequiredProjectCodeBound"
+                    data-testid="dcc-upload-product-code-binding-hint"
+                    class="mt-6px text-12px"
+                    :class="productCodeBindingHintClass"
+                  >
+                    {{ productCodeBindingHintText }}
+                  </div>
+                  <div
+                    v-if="projectProduct"
+                    data-testid="dcc-upload-project-product-identity"
+                    class="mt-6px text-12px text-[var(--el-text-color-secondary)]"
+                  >
+                    产品名称：{{ projectProduct.productName || '未绑定正式产品' }}
+                    <details class="upload-product-details">
+                      <summary>查看详情</summary>
+                      <div>
+                        来源：{{ formatProjectProductSource(projectProduct.source) }}
+                        <span v-if="projectProduct.productMasterId">
+                          ；产品主数据ID：{{ projectProduct.productMasterId }}
+                        </span>
+                        <span v-if="projectProduct.productCatalogId">
+                          ；产品目录ID：{{ projectProduct.productCatalogId }}；关系ID：{{
+                            projectProduct.productRelationId
+                          }}；创建申请ID：{{ projectProduct.productCreateRequestId }}
+                        </span>
+                      </div>
+                    </details>
+                  </div>
+                  <div v-if="projectProductLoading" class="mt-6px text-12px">正在读取正式项目产品...</div>
+                  <div v-if="projectProductError" class="mt-6px text-12px text-[var(--el-color-danger)]">
+                    {{ projectProductError }}
+                  </div>
+                </div>
+              </el-form-item>
+              <el-form-item v-if="!isExternalReview" label="登记说明" prop="projectFolderChangeReason">
+                <div class="w-full">
+                  <el-input
+                    v-model="formData.projectFolderChangeReason"
+                    maxlength="500"
+                    show-word-limit
+                    placeholder="选填：文件归入此项目文件夹的说明"
+                    :disabled="submitLoading"
+                    class="!w-560px"
+                  />
+                  <div class="upload-field-hint">选填，最多 500 字</div>
+                </div>
+              </el-form-item>
+              <div class="upload-file-pair">
+                <el-form-item v-if="!isExternalReview" label="关联文件">
+                  <div class="w-full">
+                    <el-button
+                      :disabled="
+                        !selectedProjectFolder || projectFoldersLoading || Boolean(projectFoldersError) || submitLoading
+                      "
+                      @click="openUploadRelations"
+                    >
+                      选择已有文件
+                    </el-button>
+                    <div class="upload-field-hint">选择已有文件建立关联</div>
+                    <span class="ml-8px">已选 {{ selectedUploadRelations.length }} 个文件</span>
+                    <div class="mt-8px">
+                      <el-tag v-for="file in selectedUploadRelations" :key="file.masterId" class="mr-6px">
+                        {{ file.fileName }} · {{ file.versionNo }}{{ file.pendingEffect ? ' · 待生效' : '' }}
+                      </el-tag>
+                    </div>
+                  </div>
+                </el-form-item>
+                <el-form-item label="附件">
+                  <div class="w-full">
+                    <el-upload
+                      ref="attachmentUploadRef"
+                      action="#"
+                      multiple
+                      :auto-upload="false"
+                      :disabled="submitLoading || projectAttributesLoading"
+                      :file-list="attachmentFileList"
+                      :on-change="handleAttachmentFileChange"
+                      :before-remove="handleBeforeAttachmentRemove"
+                      :on-remove="handleAttachmentRemove"
+                      data-testid="dcc-upload-attachment-files"
+                    >
+                      <el-button plain :loading="uploadAttachmentLoading">
+                        <Icon icon="ep:paperclip" class="mr-5px" />
+                        选择附件
+                      </el-button>
+                    </el-upload>
+                    <div class="upload-field-hint">上传补充材料，主文件在右侧上传</div>
+                    <el-alert
+                      v-if="attachmentUploadBlockMessage"
+                      data-testid="dcc-upload-attachment-upload-state"
+                      class="mt-12px"
+                      type="warning"
+                      :closable="false"
+                      show-icon
+                      :title="attachmentUploadBlockMessage"
+                    />
+                    <div
+                      v-if="attachmentUploads.length"
+                      class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
+                    >
+                      <div class="font-600 text-[var(--el-text-color-primary)]">已上传附件</div>
+                      <div
+                        v-for="upload in attachmentUploads"
+                        :key="upload.uid"
+                        class="mt-6px flex flex-wrap items-center gap-8px text-[var(--el-text-color-secondary)]"
+                      >
+                        <Icon icon="ep:paperclip" />
+                        <span class="text-[var(--el-text-color-primary)]">{{ upload.fileName }}</span>
+                        <span>{{ upload.contentType || '-' }} · {{ formatPreviewFileSize(upload.fileSize) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </el-form-item>
+              </div>
+            </section>
 
+            <section class="upload-section upload-section--approval" data-testid="dcc-upload-section-approval">
+              <div class="upload-section__title">审批与下发</div>
+              <div class="upload-approval-row">
+                <el-form-item
+                  v-if="!isExternalReview"
+                  label="会签部门"
+                  required
+                  data-testid="dcc-upload-signoff-departments"
+                >
+                  <div class="w-full">
+                    <el-select
+                      v-model="formData.selectedSignoffDepartmentIds"
+                      multiple
+                      filterable
+                      class="!w-560px"
+                      :loading="signoffDepartmentsLoading"
+                      :disabled="!formData.categoryId || submitLoading || signoffDepartmentsLoading"
+                      placeholder="选择本次会签部门，可增加或删除"
+                      @change="
+                        isCustomApprovalSource
+                          ? handleCustomDepartmentsChange($event.map(String))
+                          : refreshRouteReadiness()
+                      "
+                    >
+                      <el-option
+                        v-for="department in signoffDepartments"
+                        :key="department.id"
+                        :value="department.id"
+                        :label="department.name"
+                      />
+                    </el-select>
+                    <el-alert
+                      v-if="signoffDepartmentsError"
+                      :title="signoffDepartmentsError"
+                      type="error"
+                      :closable="false"
+                      class="mt-8px"
+                    />
+                    <el-button v-if="signoffDepartmentsError" link @click="loadSignoffDepartments"
+                      >重新读取部门</el-button
+                    >
+                  </div>
+                </el-form-item>
+                <el-form-item
+                  v-if="!isExternalReview"
+                  label="下发部门"
+                  data-testid="dcc-upload-distribution-departments"
+                >
+                  <div class="w-full">
+                    <el-select
+                      v-model="formData.selectedDistributionDepartmentIds"
+                      multiple
+                      filterable
+                      class="!w-560px"
+                      :loading="signoffDepartmentsLoading"
+                      :disabled="
+                        !formData.categoryId ||
+                        submitLoading ||
+                        signoffDepartmentsLoading ||
+                        formData.selectedDistributionDepartmentIds === undefined
+                      "
+                      placeholder="选择本次下发部门，可独立增加或删除"
+                    >
+                      <el-option
+                        v-for="department in signoffDepartments"
+                        :key="department.id"
+                        :value="department.id"
+                        :label="department.name"
+                      />
+                    </el-select>
+                    <div class="mt-6px text-12px">首次按会签部门带出，可独立调整</div>
+                  </div>
+                </el-form-item>
+              </div>
+              <CustomApplicationMatrixEditor
+                v-if="!isExternalReview && isCustomApprovalSource"
+                data-testid="dcc-upload-custom-matrix"
+                :model-value="formData.applicationCustomMatrix ?? null"
+                :selected-signoff-department-ids="formData.selectedSignoffDepartmentIds?.map(String) ?? null"
+                approval-source-mode="APPLICATION_CUSTOM"
+                :show-signoff-departments="false"
+                :departments="signoffDepartments"
+                :users="approvalUsers"
+                :disabled="submitLoading"
+                :loading="signoffDepartmentsLoading || approvalUsersLoading"
+                :directory-error="signoffDepartmentsError || approvalUsersError"
+                @update:model-value="handleCustomMatrixChange"
+                @update:selected-signoff-department-ids="handleCustomDepartmentsChange"
+              />
+              <div class="upload-approval-row">
+                <el-form-item label="批准人" data-testid="dcc-upload-matrix-approvers">
+                  <div class="w-full">
+                    <span v-if="approvalUsersLoading">正在读取启用账号目录...</span>
+                    <el-alert
+                      v-else-if="uploadApproverError"
+                      :title="uploadApproverError"
+                      type="error"
+                      :closable="false"
+                    />
+                    <template v-else-if="uploadApprovers">
+                      <span v-for="(account, index) in uploadApprovers.accounts" :key="account.id">
+                        {{ index ? '、' : '' }}{{ account.name }}{{ account.deptName ? `（${account.deptName}）` : '' }}
+                      </span>
+                    </template>
+                    <span v-else>请选择文件类型并等待正式审批路线预检</span>
+                    <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
+                  </div>
+                </el-form-item>
+                <el-form-item label="审批路线状态" label-width="108px">
+                  <div data-testid="dcc-upload-route-readiness" class="upload-approval-status">
+                    <span v-if="routeReadinessLoading">正在校验审批路线</span>
+                    <span v-else-if="!routeReadiness && !routeReadinessError">等待审批路线预检</span>
+                    <span
+                      v-if="
+                        routeReadiness &&
+                        !(routeReadiness.ready && uploadApprovers && !uploadApproverError && !approvalUsersLoading)
+                      "
+                      >实际 {{ routeReadiness.nodes.length }} 个节点</span
+                    >
+                    <el-alert
+                      v-if="routeReadinessError"
+                      type="error"
+                      :closable="false"
+                      show-icon
+                      :title="routeReadinessError"
+                    />
+                    <el-alert
+                      v-else-if="routeReadiness && !routeReadiness.ready"
+                      type="error"
+                      :closable="false"
+                      show-icon
+                      title="审批路线尚未就绪"
+                    >
+                      <template #default>
+                        <ul class="upload-readiness-blockers">
+                          <li
+                            v-for="blocker in routeReadiness.blockers"
+                            :key="`${blocker.reasonCode}-${blocker.stageNo || 0}-${blocker.userId || 0}`"
+                          >
+                            <span
+                              >阶段：<template v-if="blocker.stageNo != null">#{{ blocker.stageNo }} · </template
+                              >{{ blocker.stageName || blocker.stageCode || '阶段未记录' }}</span
+                            >
+                            <span
+                              >；人员：{{ blocker.userName || '姓名未记录' }}（账号ID：{{
+                                blocker.userId ?? '未记录'
+                              }}）</span
+                            >
+                            <span>；原因：{{ blocker.message }}</span>
+                          </li>
+                        </ul>
+                      </template>
+                    </el-alert>
+                    <span
+                      v-else-if="
+                        !routeReadinessLoading &&
+                        routeReadiness?.ready &&
+                        uploadApprovers &&
+                        !uploadApproverError &&
+                        !approvalUsersLoading
+                      "
+                      class="text-[var(--el-color-success)]"
+                    >
+                      审批路线已就绪，共 {{ routeReadiness.nodes.length }} 个节点
+                    </span>
+                    <span v-else-if="routeReadiness?.ready && !routeReadinessLoading">审批人员尚未就绪</span>
+                  </div>
+                  <el-popover placement="bottom" :width="560" :popper-style="{ maxWidth: 'calc(100vw - 32px)' }" trigger="click">
+                    <template #reference><el-button link type="primary">查看详情</el-button></template>
+                    <div class="upload-approval-details">
+                      <div class="w-full">
+                        <span v-if="approvalUsersLoading">正在读取启用账号目录...</span>
+                        <el-alert
+                          v-else-if="uploadApproverError"
+                          :title="uploadApproverError"
+                          type="error"
+                          :closable="false"
+                        />
+                        <template v-else-if="uploadApprovers">
+                          <div v-for="account in uploadApprovers.accounts" :key="account.id">
+                            {{ account.name }}{{ account.deptName ? `（${account.deptName}）` : '' }} · 账号ID
+                            {{ account.id }}
+                          </div>
+                          <div class="mt-6px text-12px">
+                            {{ uploadApprovers.rule }}；{{ isCustomApprovalSource ? '人员来自本次自定义审批配置。' : '人员由本次文件类型的审批矩阵带出。' }}
+                          </div>
+                          <div
+                            v-for="group in uploadApprovers.groups"
+                            :key="group.sourceNodeId"
+                            class="mt-6px text-12px"
+                            data-testid="dcc-upload-approval-rule-group"
+                          >
+                            原批准组 {{ group.sourceNodeId }}：{{ group.summary }}
+                          </div>
+                          <div
+                            v-for="(limitation, index) in uploadApprovers.capabilityLimitations"
+                            :key="index"
+                            class="mt-6px text-12px"
+                          >
+                            运行能力说明：{{ limitation }}
+                          </div>
+                        </template>
+                        <span v-else>请选择文件类型并等待正式审批路线预检</span>
+                        <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
+                      </div>
+                      <ol v-if="routeReadiness">
+                        <li v-for="(node, index) in routeReadiness.nodes" :key="index">
+                          {{ node.stageName || node.stageCode }}
+                        </li>
+                      </ol>
+                    </div>
+                  </el-popover>
+                </el-form-item>
+              </div>
+              <el-form-item
+                v-if="!isExternalReview"
+                label="生效方式"
+                prop="effectiveMode"
+                data-testid="dcc-upload-effective-mode"
+              >
+                <div>
+                  <el-radio-group v-model="formData.effectiveMode" @change="handleEffectiveModeChange">
+                    <el-radio value="AFTER_STANDARDIZATION_SIGNATURE" :disabled="isExternalReview"
+                      >文控审核后立即生效</el-radio
+                    >
+                    <el-radio value="DELAYED">延迟生效</el-radio>
+                  </el-radio-group>
+                  <el-popover trigger="click" placement="top" :width="360">
+                    <template #reference><el-button link type="primary">查看生效规则</el-button></template>
+                    <p>文控审核后立即生效：由本轮文控标准化审核的真实电子签名时间记录生效事实；受控且已生效后才日常可用并下发。</p>
+                    <p>延迟生效：文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认。</p>
+                  </el-popover>
+                </div>
+              </el-form-item>
+              <el-form-item v-if="isExternalReview" label="生效日期" prop="effectiveDate">
+                <el-date-picker
+                  v-model="formData.effectiveDate"
+                  class="!w-220px"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  placeholder="请选择生效日期"
+                />
+              </el-form-item>
+              <el-form-item v-if="!isExternalReview" label="培训要求" prop="needTraining">
+                <el-radio-group v-model="formData.needTraining" data-testid="dcc-upload-need-training">
+                  <el-radio :value="true">需要培训</el-radio>
+                  <el-radio :value="false">不需要培训</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="提交备注（选填）" label-width="124px" prop="remark">
+                <el-input
+                  v-model="formData.remark"
+                  type="textarea"
+                  :rows="2"
+                  class="!w-560px"
+                  placeholder="请输入本次受控文件提交说明"
+                />
+              </el-form-item>
+            </section>
+      <!-- 正式审批阻断原因仍直接展示，完整校验列表由底栏展开。 -->
 
-      <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
-        <div class="upload-section__title">提交前校验</div>
-
-        <div data-testid="dcc-upload-route-readiness" class="mb-12px">
-          <el-alert
-            v-if="routeReadinessError"
-            type="error"
-            :closable="false"
-            show-icon
-            :title="routeReadinessError"
-          />
-          <el-alert
-            v-else-if="routeReadiness && !routeReadiness.ready"
-            type="error"
-            :closable="false"
-            show-icon
-            title="审批路线尚未就绪"
-          >
-            <template #default>
-              <ul class="upload-readiness-blockers">
-                <li v-for="blocker in routeReadiness.blockers" :key="`${blocker.reasonCode}-${blocker.stageNo || 0}-${blocker.userId || 0}`">
-                  <span>阶段：<template v-if="blocker.stageNo != null">#{{ blocker.stageNo }} · </template>{{ blocker.stageName || blocker.stageCode || '阶段未记录' }}</span>
-                  <span>；人员：{{ blocker.userName || '姓名未记录' }}（账号ID：{{ blocker.userId ?? '未记录' }}）</span>
-                  <span>；原因：{{ blocker.message }}</span>
-                </li>
-              </ul>
-            </template>
-          </el-alert>
-          <el-alert
-            v-else-if="routeReadiness?.ready && uploadApprovers && !uploadApproverError && !approvalUsersLoading"
-            type="success"
-            :closable="false"
-            show-icon
-            :title="`审批路线已就绪，共 ${routeReadiness.nodes.length} 个节点`"
-          />
-        </div>
-        <div class="upload-preflight-grid">
-          <div
-            v-for="check in uploadPreflightChecks"
-            :key="check.key"
-            class="upload-preflight-card"
-            :class="{ 'is-ok': check.ok, 'is-warning': check.warning, 'is-error': !check.ok && !check.warning }"
-          >
-            <div class="upload-preflight-card__header">
-              <span>{{ check.label }}</span>
-              <el-tag size="small" :type="check.ok ? 'success' : check.warning ? 'warning' : 'danger'">
-                {{ check.status }}
-              </el-tag>
-            </div>
-            <div class="upload-preflight-card__description">{{ check.description }}</div>
-          </div>
-        </div>
-      </section>
           </div>
 
           <div
             class="upload-workbench__column upload-workbench__column--side"
             data-testid="dcc-upload-right-column"
           >
-          <section class="upload-section upload-section--file" data-testid="dcc-upload-section-file">
-        <div class="upload-section__title">文件信息</div>
-        <el-form-item v-if="isExternalReview" label="文件名称" prop="fileName">
-          <el-input
-            v-model="formData.fileName"
-            class="!w-420px"
-            clearable
-            placeholder="请输入文件名称"
-            @input="handleFileNameInput"
-            @clear="handleFileNameClear"
-          />
-        </el-form-item>
-        <el-form-item v-else label="文件名称" prop="fileName">
-          <div class="w-full">
-            <el-input v-model="formData.fileName" class="!w-420px" readonly placeholder="选择原件后显示完整文件名称" />
-            <div v-if="projectTemplateFileOptions.length" class="mt-6px text-12px">项目模板参考名称：{{ projectTemplateFileOptions.map(item => item.value).join('、') }}（仅供参考，不限制上传）</div>
-            <el-alert v-if="projectFileTemplateError" :title="projectFileTemplateError" type="warning" :closable="false" />
-          </div>
-        </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="下发部门" data-testid="dcc-upload-distribution-departments">
-          <div class="w-full">
-            <el-select v-model="formData.selectedDistributionDepartmentIds" multiple filterable class="!w-560px"
-              :loading="signoffDepartmentsLoading" :disabled="!formData.categoryId || submitLoading || signoffDepartmentsLoading || formData.selectedDistributionDepartmentIds === undefined"
-              placeholder="选择本次下发部门，可独立增加或删除">
-              <el-option v-for="department in signoffDepartments" :key="department.id" :value="department.id" :label="department.name" />
-            </el-select>
-            <div class="mt-6px text-12px">首次从文件类型默认会签部门复制；两份名单独立调整。受控且已生效后向所选下发部门全部人员下发。</div>
-          </div>
-        </el-form-item>
-        <el-form-item label="文件编号" prop="fileNumber">
-          <el-input
-            v-model="formData.fileNumber"
-            class="!w-280px"
-            placeholder="例如 SOP-001"
-          />
-        </el-form-item>
-        <el-form-item v-if="formData.fileNumber" label="受控版本">
-          <div
-            data-testid="dcc-upload-current-version-panel"
-            class="w-full rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
-          >
-            <el-skeleton v-if="currentVersionLookupLoading" :rows="2" animated />
-            <template v-else-if="currentVersionLookupError">
-              <el-alert
-                :closable="false"
-                :title="currentVersionLookupError"
-                type="error"
-                show-icon
-              />
-            </template>
-            <template v-else-if="currentVersionInfo?.matched">
-              <div class="font-600 text-[var(--el-text-color-primary)]">
-                {{ currentVersionInfo.fileName || '-' }} · {{ currentVersionInfo.currentVersionNo || '-' }}
+            <section class="upload-section upload-section--main-file" data-testid="dcc-upload-main-file-panel">
+              <div class="upload-section__title">文件上传与预览</div>
+              <el-form-item label-width="0" prop="file">
+                <div class="w-full">
+                  <div class="upload-main-file-info">
+                  <div v-if="fileList.length" class="upload-main-file-summary">
+                    <Icon icon="ep:document" :size="28" />
+                    <div class="upload-main-file-summary__text">
+                      <div class="font-600">{{ fileList[0].name }}</div>
+                      <div class="text-12px text-[var(--el-text-color-secondary)]">
+                        {{ fileList[0].name.split('.').pop()?.toUpperCase() }} · {{ formatPreviewFileSize(fileList[0].size ?? previewUpload?.fileSize) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="upload-main-file-actions">
+                    <el-upload
+                      ref="uploadRef" action="#" :accept="EDITABLE_SOURCE_ACCEPT" :auto-upload="false"
+                      :disabled="submitLoading || projectAttributesLoading || uploadPreviewLoading"
+                      :limit="1" :file-list="fileList" :show-file-list="false"
+                      :on-change="handleFileChange" :before-remove="handleBeforeFileRemove"
+                      :on-remove="handleFileRemove" :on-exceed="handleFileExceed"
+                    >
+                      <el-button type="primary" plain :loading="uploadPreviewLoading">
+                        <Icon icon="ep:upload" class="mr-5px" />{{ fileList.length ? '更换文件' : '选择文件' }}
+                      </el-button>
+                    </el-upload>
+                    <el-button v-if="fileList.length" :disabled="submitLoading || projectAttributesLoading || uploadPreviewLoading" @click="removeMainFile">移除</el-button>
+                  </div>
+                  </div>
+                  <div v-if="!fileList.length" class="mt-8px text-12px text-[var(--el-text-color-secondary)]">选择本次提交的主文件，可在下方预览并继续填写左侧信息。</div>
+                </div>
+              </el-form-item>
+              <div class="upload-preview-panel" v-loading="uploadPreviewLoading" element-loading-text="正在加载主文件预览">
+                <el-alert v-if="uploadPreviewError" data-testid="dcc-upload-preview-error" type="error" :closable="false" show-icon :title="uploadPreviewError" />
+                <ProtectedPdfViewer
+                  v-else-if="previewFileBlob && previewUpload" :key="previewUpload.uploadTicket"
+                  compact :preview-blob="previewFileBlob" :preview-kind="previewUpload.previewKind"
+                  :onlyoffice-base-url="previewUpload.onlyofficeBaseUrl" :onlyoffice-document-url="previewUpload.onlyofficeDocumentUrl"
+                  :preview-unavailable-reason="previewUpload.previewUnavailableReason" :title="previewUpload.fileName"
+                  :watermark="previewUpload.watermark || null"
+                />
+                <div v-else-if="!uploadPreviewLoading" class="upload-preview-empty">选择主文件后在此预览</div>
               </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
-              </div>
-              <el-alert
-                class="mt-8px" :closable="false" type="error" show-icon
-                title="文件编号已重复：当前项目、文件类型下已存在该编号"
-              />
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                产品：{{ currentVersionInfo.productName || currentVersionInfo.productCode || '-' }}；
-                修改中：{{ currentVersionInfo.modifying ? '是' : '否' }}
-              </div>
-              <el-alert
-                v-if="currentVersionProjectionBlockReason"
-                class="mt-8px"
-                :closable="false"
-                :title="currentVersionProjectionBlockReason"
-                type="warning"
-                show-icon
-              />
-              <el-alert
-                v-if="isRequestedVersionDuplicate"
-                class="mt-8px"
-                :closable="false"
-                :title="versionDuplicatePreflightMessage"
-                type="error"
-                show-icon
-              />
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                原版本路径：{{ currentVersionInfo.originalFilePath || '-' }}
-              </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                源文件路径：{{ currentVersionInfo.sourceFilePath || '-' }}
-              </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                受控文件路径：{{ currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-' }}
-              </div>
-            </template>
-            <template v-else>
-              未查询到同编号受控版本，将创建新的受控文件主档，并按新建规则校验。
-            </template>
-          </div>
-        </el-form-item>
-        <el-form-item label="产品编号" prop="productCode">
-          <el-input
-            v-model="formData.productCode"
-            class="!w-420px"
-            readonly
-            placeholder="选择 DCC 项目后读取正式产品编码"
-          />
-          <div
-            v-if="isProductRequiredForSelectedCategory"
-            data-testid="dcc-upload-product-code-binding-hint"
-            class="mt-6px text-12px"
-            :class="productCodeBindingHintClass"
-          >
-            {{ productCodeBindingHintText }}
-          </div>
-          <div v-if="projectProduct" data-testid="dcc-upload-project-product-identity" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            产品：{{ projectProduct.productName || '未绑定正式产品' }}；来源：{{ formatProjectProductSource(projectProduct.source) }}
-            <span v-if="projectProduct.productMasterId">；产品主数据ID：{{ projectProduct.productMasterId }}</span>
-            <span v-if="projectProduct.productCatalogId">；产品目录ID：{{ projectProduct.productCatalogId }}；关系ID：{{ projectProduct.productRelationId }}；创建申请ID：{{ projectProduct.productCreateRequestId }}</span>
-          </div>
-          <div v-if="projectProductLoading" class="mt-6px text-12px">正在读取正式项目产品...</div>
-          <div v-if="projectProductError" class="mt-6px text-12px text-[var(--el-color-danger)]">{{ projectProductError }}</div>
-        </el-form-item>
-        <el-form-item :label="isExternalReview ? '版本号' : '初始版本号'" prop="versionNo" :error="submitFieldErrors.versionNo">
-          <el-input
-            v-model="formData.versionNo"
-            class="!w-220px"
-            :placeholder="isExternalReview ? '例如 V1.0' : '例如 A/1、B/9'"
-          />
-          <div v-if="!isExternalReview" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            初始版本号使用“修订字母/数字”格式，字母不能包含 I、O，数字为 1～9；检入只生成工作小版本，正式局部变更或换版变更须单独提交审批。
-          </div>
-        </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="生效方式" prop="effectiveMode" data-testid="dcc-upload-effective-mode">
-          <div>
-            <el-radio-group v-model="formData.effectiveMode" @change="handleEffectiveModeChange">
-              <el-radio value="AFTER_STANDARDIZATION_SIGNATURE" :disabled="isExternalReview">文控审核后立即生效</el-radio>
-              <el-radio value="DELAYED">延迟生效</el-radio>
-            </el-radio-group>
-            <div v-if="formData.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE'" class="mt-6px text-12px">由本轮文控标准化审核的真实电子签名时间记录生效事实；受控且已生效后才日常可用并下发。</div>
-            <div v-if="formData.effectiveMode === 'DELAYED'" class="mt-6px text-12px">文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认。</div>
-          </div>
-        </el-form-item>
-        <el-form-item v-if="isExternalReview" label="生效日期" prop="effectiveDate">
-          <el-date-picker
-            v-model="formData.effectiveDate"
-            class="!w-220px"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择生效日期"
-          />
-        </el-form-item>
-        <el-form-item label="提交备注" prop="remark">
-          <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="3"
-            class="!w-560px"
-            placeholder="请输入本次受控文件提交说明"
-          />
-        </el-form-item>
-      </section>
+            </section>
 
-          <section class="upload-section upload-section--approval" data-testid="dcc-upload-section-approval">
-        <div class="upload-section__title">培训要求</div>
-        <el-form-item v-if="!isExternalReview" label-width="0" prop="needTraining">
-          <el-radio-group v-model="formData.needTraining" data-testid="dcc-upload-need-training">
-            <el-radio :value="true">需要培训</el-radio>
-            <el-radio :value="false">不需要培训</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </section>
-
-          <section class="upload-section upload-section--attachment" data-testid="dcc-upload-section-attachment">
-        <div class="upload-section__title">文件上传</div>
-        <el-form-item label="文件上传" prop="file">
-          <div class="w-full">
-            <el-upload
-              ref="uploadRef"
-              action="#"
-              :accept="EDITABLE_SOURCE_ACCEPT"
-              :auto-upload="false"
-              :disabled="submitLoading || projectAttributesLoading"
-              :limit="1"
-              :file-list="fileList"
-              :on-change="handleFileChange"
-              :before-remove="handleBeforeFileRemove"
-              :on-remove="handleFileRemove"
-              :on-exceed="handleFileExceed"
-            >
-              <el-button type="primary" plain :loading="uploadPreviewLoading">
-                <Icon icon="ep:upload" class="mr-5px" />
-                选择文件
-              </el-button>
-            </el-upload>
-            <el-alert
-              v-if="uploadPreviewError"
-              data-testid="dcc-upload-preview-error"
-              class="mt-12px"
-              type="error"
-              :closable="false"
-              show-icon
-              :title="uploadPreviewError"
-            />
-            <div
-              v-if="previewUpload"
-              class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
-            >
-              <div class="font-600 text-[var(--el-text-color-primary)]">
-                预览文件：{{ previewUpload.fileName }}
-              </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                {{ previewUpload.contentType }} · {{ formatPreviewFileSize(previewUpload.fileSize) }}
-              </div>
-            </div>
-            <div v-if="previewFileBlob && previewUpload" class="upload-preview-panel mt-12px">
-              <div class="mb-8px text-15px font-600">提交前预览</div>
-              <ProtectedPdfViewer
-                :preview-blob="previewFileBlob"
-                :preview-kind="previewUpload.previewKind"
-                :onlyoffice-base-url="previewUpload.onlyofficeBaseUrl"
-                :onlyoffice-document-url="previewUpload.onlyofficeDocumentUrl"
-                :preview-unavailable-reason="previewUpload.previewUnavailableReason"
-                :title="previewUpload?.fileName || previewFileBlob?.name || '受控文件预览'"
-                :watermark="previewUpload?.watermark || null"
-              />
-            </div>
-          </div>
-        </el-form-item>
-        <el-form-item label="附件">
-          <div class="w-full">
-            <el-upload
-              ref="attachmentUploadRef"
-              action="#"
-              multiple
-              :auto-upload="false"
-              :disabled="submitLoading || projectAttributesLoading"
-              :file-list="attachmentFileList"
-              :on-change="handleAttachmentFileChange"
-              :before-remove="handleBeforeAttachmentRemove"
-              :on-remove="handleAttachmentRemove"
-              data-testid="dcc-upload-attachment-files"
-            >
-              <el-button plain :loading="uploadAttachmentLoading">
-                <Icon icon="ep:paperclip" class="mr-5px" />
-                选择附件
-              </el-button>
-            </el-upload>
-            <el-alert
-              v-if="attachmentUploadBlockMessage"
-              data-testid="dcc-upload-attachment-upload-state"
-              class="mt-12px"
-              type="warning"
-              :closable="false"
-              show-icon
-              :title="attachmentUploadBlockMessage"
-            />
-            <div
-              v-if="attachmentUploads.length"
-              class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
-            >
-              <div class="font-600 text-[var(--el-text-color-primary)]">已上传附件</div>
-              <div
-                v-for="upload in attachmentUploads"
-                :key="upload.uid"
-                class="mt-6px flex flex-wrap items-center gap-8px text-[var(--el-text-color-secondary)]"
-              >
-                <Icon icon="ep:paperclip" />
-                <span class="text-[var(--el-text-color-primary)]">{{ upload.fileName }}</span>
-                <span>{{ upload.contentType || '-' }} · {{ formatPreviewFileSize(upload.fileSize) }}</span>
-              </div>
-            </div>
-          </div>
-        </el-form-item>
-      </section>
 
 
           </div>
         </div>
 
         <section class="upload-submit-bar" data-testid="dcc-upload-section-submit">
+          <div class="upload-submit-bar__summary" aria-live="polite">
+            <span :class="{ 'text-green-700': uploadPreflightSummary.passed }">{{ uploadPreflightSummary.text }}</span>
+            <el-button link type="primary" @click="preflightDetailsVisible = true">查看校验详情</el-button>
+          </div>
           <el-form-item>
             <el-button v-if="!isExternalReview" :loading="submitLoading" :disabled="uploadSubmitted || hasUnreadyAttachmentUploads" @click="saveUploadDraft">保存申请草稿</el-button>
             <el-button
@@ -579,6 +778,32 @@
         </section>
       </div>
     </el-form>
+    <el-dialog v-model="preflightDetailsVisible" title="提交前校验详情" width="680px" append-to-body class="upload-preflight-dialog">
+      <p aria-live="polite">{{ uploadPreflightSummary.text }}</p>
+      <ul class="upload-preflight-list" data-testid="dcc-upload-preflight-panel">
+        <li v-for="check in sortedUploadPreflightChecks" :key="check.key" class="upload-preflight-row">
+          <div class="upload-preflight-row__header">
+            <strong>{{ check.label }}</strong>
+            <el-tag size="small" :type="check.ok ? 'success' : check.pending || check.warning ? 'warning' : 'danger'">{{ check.status }}</el-tag>
+          </div>
+          <details v-if="check.ok">
+            <summary>查看说明</summary>
+            <p>{{ check.description }}</p>
+          </details>
+          <template v-else>
+            <p>{{ check.description }}</p>
+            <ul v-if="check.key === 'approval-chain' && routeReadiness && !routeReadiness.ready">
+              <li v-for="(blocker, index) in routeReadiness.blockers" :key="index">
+                {{ blocker.stageName || blocker.stageCode }} {{ blocker.userName }}：{{ blocker.message }}
+              </li>
+            </ul>
+            <p class="upload-preflight-row__help">处理方式：{{ preflightRemedy(check.key) }}</p>
+            <el-button link type="primary" @click="locatePreflightField(check.key)">定位到对应字段</el-button>
+          </template>
+        </li>
+      </ul>
+      <template #footer><el-button @click="preflightDetailsVisible = false">返回填写</el-button></template>
+    </el-dialog>
     <DccFileSelector
       v-if="uploadRelationSource" v-model="uploadRelationsVisible" :source="uploadRelationSource"
       purpose="relations" :directories="uploadRelationDirectories" :selected="selectedUploadRelations"
@@ -588,7 +813,7 @@
 
 <script lang="ts" setup>
 import { h, onActivated } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, genFileId } from 'element-plus'
 import ProjectApplicationAttributes from '../project-attributes/ProjectApplicationAttributes.vue'
 import DccFileSelector from '../relations/DccFileSelector.vue'
 import type { SelectorSource, DirectoryNode } from '../relations/DccFileSelector.vue'
@@ -613,7 +838,7 @@ import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { buildControlledFileViewerPath } from '../view/presentation'
 import { buildSubmittedApplicationRoute } from '../shared/submitted-application-navigation'
 import type { AttributeSnapshot } from '../project-attributes/state'
-import type { FormRules, UploadFiles, UploadProps, UploadUserFile } from 'element-plus'
+import type { FormItemContext, FormRules, UploadFiles, UploadProps, UploadRawFile, UploadUserFile } from 'element-plus'
 import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
@@ -691,7 +916,7 @@ interface UploadNameSuggestionItem {
 
 const formRef = ref()
 const projectAttributesPanel = ref<{
-  selectProject: (projectId: string | number) => Promise<boolean>
+  selectProject: (projectId: string | number, discardConfirmed?: boolean) => Promise<boolean>
   getSnapshot: () => AttributeSnapshot
 }>()
 const projectAttributesPanelKey = ref(0)
@@ -1559,6 +1784,9 @@ const ensureUploadNameOptionsLoaded = async () => {
 }
 
 const uploadProjectAttributesEdited = ref(false)
+const autoUploadDepartmentSelections = ref<{ signoff: string[]; distribution: string[] }>({ signoff: [], distribution: [] })
+const hasEditedUploadDepartments = (selected: Array<string | number> | undefined, defaults: string[]) =>
+  selected !== undefined && JSON.stringify(selected.map(String).sort()) !== JSON.stringify([...defaults].sort())
 const uploadProjectAttributesKey = (attributes: AttributeSnapshot['actual']) => JSON.stringify({
   targetMarkets: [...attributes.targetMarkets].sort(),
   licenseHolder: attributes.licenseHolder,
@@ -1579,9 +1807,10 @@ const hasUploadApplicationInput = () => Boolean(
   formData.applicationCustomMatrix?.approverUserId || formData.applicationCustomMatrix?.documentControlUserId
   ||
   formData.projectFolderId || formData.projectFolderChangeReason?.trim() || formData.fileName?.trim()
-  || formData.fileNumber?.trim() || formData.remark?.trim() || formData.effectiveDate || formData.needTraining
-  || formData.effectiveMode || formData.relatedControlledFileIds?.length || formData.selectedSignoffDepartmentIds?.length
-  || formData.selectedDistributionDepartmentIds?.length
+  || formData.fileNumber?.trim() || formData.fileTypeTaxonomyId || formData.relatedControlledFileIds?.length
+  || formData.versionNo !== createInitialUploadDraft().versionNo
+  || hasEditedUploadDepartments(formData.selectedSignoffDepartmentIds, autoUploadDepartmentSelections.value.signoff)
+  || hasEditedUploadDepartments(formData.selectedDistributionDepartmentIds, autoUploadDepartmentSelections.value.distribution)
   || (formData.projectAttributes && uploadProjectAttributesEdited.value)
   || fileList.value.length || attachmentFileList.value.length
 )
@@ -1593,7 +1822,7 @@ const handleProjectCodeChange = async () => {
   const previousProjectId = acceptedProjectCodeId.value
   projectAttributesLoading.value = true
   try {
-    if (requestedProjectId !== previousProjectId && previousProjectId != null && (hasUploadApplicationInput() || requestedProjectId == null)) {
+    if (requestedProjectId !== previousProjectId && hasUploadApplicationInput()) {
       await message.confirm('切换项目会清除已选文件夹、文件、编号、关联及本次部门选择，是否继续？', '确认切换项目')
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
     }
@@ -1608,7 +1837,7 @@ const handleProjectCodeChange = async () => {
       projectAttributesRestoreSnapshot.value = undefined
     } else {
       if (!projectAttributesPanel.value) throw new Error('项目属性组件尚未就绪')
-      const accepted = await projectAttributesPanel.value.selectProject(requestedProjectId)
+      const accepted = await projectAttributesPanel.value.selectProject(requestedProjectId, true)
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
       if (!accepted) {
         formData.dccProjectCodeId = previousProjectId
@@ -1708,6 +1937,10 @@ const refreshUploadProjectFolders = async (changedProjectId = formData.dccProjec
   if (submitLoading.value || changedProjectId == null
     || String(changedProjectId) !== String(formData.dccProjectCodeId)) return
   await loadUploadProjectFolders(changedProjectId)
+}
+
+const handleProjectFolderVisibleChange = async (visible: boolean) => {
+  if (visible && !projectAttributesLoading.value) await refreshUploadProjectFolders()
 }
 
 defineExpose({ refreshUploadProjectFolders })
@@ -1860,6 +2093,7 @@ interface UploadPreflightCheck {
   description: string
   ok: boolean
   warning?: boolean
+  pending?: boolean
 }
 
 const normalizePreflightVersionNo = (value?: string | null) => String(value || '').trim().toUpperCase()
@@ -1933,6 +2167,8 @@ const approvalChainPreflightText = computed(() => {
     return '正在校验全部审批人岗位、文控权限、电子签名授权和有效签名图片。'
   }
   if (approvalUsersLoading.value) return '正在读取启用账号并核对矩阵批准人。'
+  if (!isExternalReview.value && signoffDepartmentsLoading.value) return '正在读取会签部门目录。'
+  if (!isExternalReview.value && signoffDepartmentsError.value) return signoffDepartmentsError.value
   if (approvalUsersError.value || uploadApproverError.value) return approvalUsersError.value || uploadApproverError.value
   if (routeReadinessError.value) {
     return routeReadinessError.value
@@ -1948,7 +2184,9 @@ const approvalChainPreflightText = computed(() => {
 
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = routeReadiness.value?.ready === true && Boolean(uploadApprovers.value)
+    && !routeReadinessLoading.value && !routeReadinessError.value
     && !approvalUsersLoading.value && !approvalUsersError.value && !uploadApproverError.value
+    && (isExternalReview.value || (!signoffDepartmentsLoading.value && !signoffDepartmentsError.value))
   const hasDirectoryLanding = isNormalNewUpload.value
     ? Boolean(selectedProjectFolder.value && !projectFoldersLoading.value && !projectFoldersError.value
       && String(selectedProjectFolder.value.projectCodeId) === String(formData.dccProjectCodeId))
@@ -1969,9 +2207,9 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
       ? versionBlockingReason
       : currentVersionInfo.value?.matched
         ? `受控版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
-        : versionReady
+        : versionReady && currentVersionInfo.value
           ? '未发现同编号受控版本，将按新建编号继续校验。'
-          : '请输入文件编号和版本号后检查是否重复。'
+          : versionReady ? '等待文件编号和版本查询完成；请先确认项目和文件类型已选择。' : '请输入文件编号和版本号后检查是否重复。'
 
   return [
     {
@@ -1981,11 +2219,12 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
         ? '检查中'
         : versionBlockingReason
           ? '需处理'
-        : versionReady
+        : versionReady && currentVersionInfo.value
           ? '可提交'
-          : '待填写',
+          : versionReady ? '待检查' : '待填写',
       description: versionDescription,
-      ok: versionReady && isVersionNoFormatValid.value && !currentVersionLookupLoading.value && !versionBlockingReason,
+      ok: versionReady && Boolean(currentVersionInfo.value) && !currentVersionLookupLoading.value && !versionBlockingReason,
+      pending: currentVersionLookupLoading.value || (versionReady && !currentVersionInfo.value && !versionBlockingReason),
       warning: !versionReady || currentVersionLookupLoading.value
     },
     {
@@ -2009,25 +2248,28 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     {
       key: 'approval-chain',
       label: '审批人链路',
-      status: routeReadinessLoading.value
+      status: routeReadinessLoading.value || approvalUsersLoading.value || signoffDepartmentsLoading.value
         ? '检查中'
         : selectedCategory.value
           ? (hasApprovalChain ? '已就绪' : '不完整')
           : (isExternalReview.value ? '待选择' : '待匹配'),
       description: approvalChainPreflightText.value,
       ok: hasApprovalChain,
+      pending: routeReadinessLoading.value || approvalUsersLoading.value || signoffDepartmentsLoading.value
+        || (Boolean(selectedCategory.value) && !routeReadiness.value && !routeReadinessError.value && !approvalUsersError.value && !signoffDepartmentsError.value),
       warning: !selectedCategory.value || routeReadinessLoading.value
     },
     {
       key: 'controlled-browser-directory',
       label: isNormalNewUpload.value ? '项目存储文件夹' : '受控浏览目录',
-      status: isNormalNewUpload.value ? (hasDirectoryLanding ? '已选择' : '待选择') : (hasDirectoryLanding ? '可落位' : '待落位'),
+      status: projectFoldersLoading.value ? '检查中' : isNormalNewUpload.value ? (hasDirectoryLanding ? '已选择' : '待选择') : (hasDirectoryLanding ? '可落位' : '待落位'),
       description: isNormalNewUpload.value
-        ? `项目文件夹：${selectedProjectFolder.value?.name || '未选择'}。实际存储位置由系统提交时按正式配置确定。`
+        ? projectFoldersError.value || (projectFoldersLoading.value ? '正在读取项目文件夹，请等待检查完成。' : `项目文件夹：${selectedProjectFolder.value?.name || '未选择'}。实际存储位置由系统提交时按正式配置确定。`)
         : hasDirectoryLanding
         ? `最终受控浏览目录：${selectedUploadDirectoryPath.value}`
         : '请选择最终提交目录，确保发布后可以落位到受控浏览目录。',
       ok: hasDirectoryLanding,
+      pending: isNormalNewUpload.value && projectFoldersLoading.value,
       warning: !formData.categoryId
     },
     {
@@ -2040,6 +2282,42 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     }
   ]
 })
+
+const preflightDetailsVisible = ref(false)
+const sortedUploadPreflightChecks = computed(() => [...uploadPreflightChecks.value].sort((a, b) => Number(a.ok) - Number(b.ok)))
+const uploadPreflightSummary = computed(() => {
+  const checks = uploadPreflightChecks.value
+  const pending = checks.filter(check => check.pending).length
+  const incomplete = checks.filter(check => !check.ok && !check.pending).length
+  if (pending) return { passed: false, text: `校验尚未完成，${pending}项待检查或检查中${incomplete ? `，还有${incomplete}项待完善` : ''}` }
+  if (incomplete) return { passed: false, text: `还有${incomplete}项待完善` }
+  return { passed: true, text: `${checks.filter(check => check.ok).length}项校验通过` }
+})
+const preflightRemedy = (key: string) => {
+  switch (key) {
+    case 'file-version': return '填写文件编号和符合格式的版本号；查询失败时重试，编号重复时更换编号或使用原有升版流程。'
+    case 'effective-date': return '选择生效方式，按对应要求填写或清除生效日期。'
+    case 'category-selection': return '选择文件类型以匹配文件类别；外来文件请选择文件类别。'
+    case 'approval-chain': return '核对文件类型、会签部门或自定义审批配置；账号、岗位、权限及签名异常请联系对应人员或管理员处理，读取失败时使用字段旁的重试入口。'
+    case 'controlled-browser-directory': return '选择当前项目下的有效文件夹或最终提交目录；目录读取失败时重新读取并处理错误。'
+    default: return '先确认文件类别和存储目录；正文访问仍按正式浏览权限校验，权限配置问题请联系管理员。'
+  }
+}
+const locatePreflightField = async (key: string) => {
+  const prop = key === 'file-version' ? (versionFormatPreflightMessage.value || !formData.versionNo ? 'versionNo' : 'fileNumber')
+    : key === 'effective-date' ? (isExternalReview.value ? 'effectiveDate' : 'effectiveMode')
+    : key === 'category-selection' || key === 'approval-chain' || key === 'controlled-browser-permission-scope'
+      ? (isExternalReview.value ? 'categoryId' : 'fileTypeTaxonomyId')
+      : isNormalNewUpload.value ? 'projectFolderId' : 'directoryId'
+  preflightDetailsVisible.value = false
+  await nextTick()
+  const field: FormItemContext | undefined = formRef.value?.fields?.find((item: FormItemContext) => item.prop === prop)
+  const target: HTMLElement | undefined = key === 'approval-chain' && selectedCategory.value && !isExternalReview.value
+    ? formRef.value?.$el?.querySelector(isCustomApprovalSource.value ? '[data-testid="dcc-upload-custom-matrix"]' : '[data-testid="dcc-upload-signoff-departments"]')
+    : field?.$el
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target?.querySelector<HTMLElement>('input, button, [tabindex="0"]')?.focus({ preventScroll: true })
+}
 
 const loadApprovalUsers = async () => {
   const token = ++approvalUsersRequestSeq
@@ -2180,10 +2458,15 @@ const refreshRouteReadiness = async () => {
           throw new Error(matrixRuntimeBlockerMessage(initialResponse) || '审批矩阵或流程准备来源已变化，请重新校验')
         if (matrix !== ensureUploadApprovalMatrix() || (defaultRequest && !defaultMatrix.accept(defaultRequest, initialResponse))) return false
         const initial = initialUploadDepartmentSelection(initialResponse)
-        if (formData.selectedDistributionDepartmentIds === undefined)
+        if (formData.selectedDistributionDepartmentIds === undefined) {
           formData.selectedDistributionDepartmentIds = initial.selectedDistributionDepartmentIds
+          autoUploadDepartmentSelections.value.distribution = [...initial.selectedDistributionDepartmentIds].map(String)
+        }
       }
-      if (selectedDepartments === undefined) formData.selectedSignoffDepartmentIds = resolvedDepartments
+      if (selectedDepartments === undefined) {
+        formData.selectedSignoffDepartmentIds = resolvedDepartments
+        autoUploadDepartmentSelections.value.signoff = [...resolvedDepartments].map(String)
+      }
       else if (JSON.stringify([...selectedDepartments].sort()) !== JSON.stringify([...resolvedDepartments].sort()))
         throw new Error('审批预检返回的会签部门与本次选择不一致')
     }
@@ -2292,8 +2575,26 @@ const refreshRejectedUploadMatrix = async (cause: unknown) => {
   })
 }
 
-const handleFileExceed: UploadProps['onExceed'] = () => {
-  message.error('只允许上传一个文件')
+const handleFileExceed: UploadProps['onExceed'] = async (files) => {
+  const raw = files[0] as UploadRawFile | undefined
+  if (!raw || files.length !== 1) {
+    message.error('只允许上传一个文件')
+    return
+  }
+  const validation = validateControlledFileSelection([{ name: raw.name, type: raw.type }])
+  if (!validation.valid) {
+    uploadPreviewError.value = validation.message || '文件校验失败'
+    message.error(uploadPreviewError.value)
+    return
+  }
+  raw.uid = genFileId()
+  await handleFileChange({ name: raw.name, uid: raw.uid, size: raw.size, status: 'ready', raw },
+    [{ name: raw.name, uid: raw.uid, size: raw.size, status: 'ready', raw }])
+}
+
+const removeMainFile = () => {
+  const selected = fileList.value[0]
+  if (selected) uploadRef.value?.handleRemove(selected)
 }
 
 const captureUploadSelectionContext = () => JSON.stringify({
@@ -2322,7 +2623,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
     return
   }
   if (!(await cleanupTemporaryUploadTicket(previewUpload.value))) {
-    if (requestSeq === sourceUploadRequestSeq) uploadRef.value?.clearFiles()
+    if (requestSeq === sourceUploadRequestSeq) fileList.value = [...fileList.value]
     return
   }
   if (requestSeq !== sourceUploadRequestSeq || selectionContext !== captureUploadSelectionContext()) return
@@ -2524,18 +2825,93 @@ const captureUploadSubmissionContext = () => JSON.stringify({
   users: approvalUsers.value, departments: signoffDepartments.value
 })
 
-const confirmUploadApplication = (rows: UploadConfirmationRow[]) => ElMessageBox.confirm(
-  h('div', { 'data-testid': 'dcc-upload-submit-confirmation', style: 'max-height:65vh;overflow:auto' }, [
-    ...rows.map(row => h('div', { style: 'margin-bottom:8px;overflow-wrap:anywhere' }, [
-      h('strong', `${row.label}：`), h('span', row.value)
-    ])),
-    h('p', '生效与受控分别记录；日常可用及自动下发须同时满足受控且已生效。'),
-    h('p', '再次确认后才提交审批；取消保留已填写内容。')
-  ]), '确认提交', {
-    confirmButtonText: '确认提交', cancelButtonText: '取消', type: 'warning',
-    modalClass: 'app-confirm-message-box-overlay', customClass: 'dcc-upload-submit-confirmation'
-  }
-)
+const confirmUploadApplication = (rows: UploadConfirmationRow[], submit: () => Promise<void>) => {
+  const failure = ref('')
+  let submitting = false
+  const field = (row: UploadConfirmationRow) => h('div', { class: 'upload-confirm-field' }, [
+    h('span', { class: 'upload-confirm-label' }, row.label), h('span', { class: 'upload-confirm-value' }, row.value)
+  ])
+  const fields = (labels: string[]) => labels.flatMap(label => rows.filter(row => row.label === label).map(field))
+  const details = (title: string, content: ReturnType<typeof h>[]) => h('details', [h('summary', title), ...content])
+  const section = (title: string, content: ReturnType<typeof h>[]) => h('section', [h('h3', title), ...content])
+  const fileName = rows.find(row => row.label === '完整文件名称（含后缀）')!.value
+  const nameCharacters = Array.from(fileName)
+  const extension = fileName.lastIndexOf('.') > 0 ? fileName.slice(fileName.lastIndexOf('.')) : ''
+  const tailLength = Math.min(nameCharacters.length, Math.max(12, Array.from(extension).length))
+  const materials = rows.filter(row => ['关联文件', '附件'].includes(row.label) && row.items?.length).map(row =>
+    h('div', { class: 'upload-confirm-material' }, [
+      h('div', { class: 'upload-confirm-label' }, `${row.label}（${row.items!.length}）`),
+      h('ul', row.items!.map(name => h('li', name)))
+    ]))
+  const remark = rows.find(row => row.label === '提交备注')
+  if (remark && !remark.empty) materials.push(field(remark))
+  const approvalDetails = details('审批详情', [
+    ...fields(['批准人账号', '批准规则', '审批来源', '文控审核人', '本次自定义矩阵']),
+    ...rows.filter(row => row.label.startsWith('原批准组 ')).map(row =>
+      field(row))
+  ])
+  const storageLocation = ['项目', '存储文件夹'].flatMap(label => rows.filter(row => row.label === label).map(row => row.value)).join(' / ')
+  const effectRules = details('生效及下发规则', fields(['生效日期', '预设生效日期', '延迟生效确认', '生效时间', '下发范围']))
+  return ElMessageBox.confirm(h({ render: () =>
+    h('div', { 'data-testid': 'dcc-upload-submit-confirmation' }, [
+      failure.value ? h('div', { role: 'alert', class: 'upload-confirm-error' }, [
+        h('div', failure.value), h('div', '请按提示处理后重试；如需修改填写内容，请选择“返回修改”。')
+      ]) : null,
+      h('div', { class: 'upload-confirm-file-summary' }, [
+        h('svg', { class: 'upload-confirm-file-icon', viewBox: '0 0 48 56', fill: 'none', 'aria-hidden': 'true' }, [
+          h('path', { d: 'M8 2h22l12 12v36a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4ZM30 2v12h12M14 29h18M14 39h18', stroke: 'currentColor', 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+        ]),
+        h('div', { class: 'upload-confirm-file-text' }, [
+          h('div', { class: 'upload-confirm-name', title: fileName, 'aria-label': fileName }, [
+            h('span', { class: 'upload-confirm-name-start' }, nameCharacters.slice(0, -tailLength).join('')),
+            h('span', { class: 'upload-confirm-name-end' }, nameCharacters.slice(-tailLength).join(''))
+          ]),
+          h('div', { class: 'upload-confirm-identity' }, fields(['文件编号', '初始版本号', '版本号']))
+        ])
+      ]),
+      h('div', { class: 'upload-confirm-columns' }, [
+        section('存储与生效', [
+          ...(storageLocation ? [field({ label: '存储位置', value: storageLocation })] : []),
+          ...fields(['文件类型', '文件类别', '生效方式']),
+          ...rows.filter(row => row.label === '培训').map(row => field({ ...row, label: '培训要求' })),
+          effectRules
+        ]),
+        section('审批与下发', [...fields(['会签部门', '批准人', '下发部门']), approvalDetails])
+      ]),
+      h('div', { class: 'upload-confirm-supplement' }, materials.length ? materials : [h('div', '无补充材料')]),
+      details('其他提交信息', fields(['编制人', '直属主管', '目标市场', '注册／生产身份', '文件转移']))
+    ])
+  }), '确认提交', {
+    confirmButtonText: '确认提交', cancelButtonText: '返回修改',
+    showClose: false,
+    closeOnClickModal: false, closeOnPressEscape: false,
+    modalClass: 'app-confirm-message-box-overlay', customClass: 'dcc-upload-submit-confirmation',
+    beforeClose: async (action, instance, done) => {
+      if (submitting) return
+      if (action !== 'confirm') { done(); return }
+      submitting = true
+      failure.value = ''
+      instance.confirmButtonLoading = true
+      instance.confirmButtonText = '提交中'
+      instance.showCancelButton = false
+      try {
+        await submit()
+        instance.action = 'confirm'
+        done()
+      } catch (error) {
+        const feedback = buildSubmitFailureFeedback(error, '受控文件提交失败，请查看错误提示后重试', formData.processType)
+        applySubmitFailureFeedback(submitFieldErrors, feedback)
+        failure.value = !isExternalReview.value && isApprovalMatrixStaleError(error)
+          ? await refreshRejectedUploadMatrix(error) : feedback.message
+      } finally {
+        submitting = false
+        instance.confirmButtonLoading = false
+        instance.confirmButtonText = '确认提交'
+        instance.showCancelButton = true
+      }
+    }
+  })
+}
 
 const saveUploadDraft = async () => {
   if (isExternalReview.value || submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value
@@ -2715,27 +3091,23 @@ const submitForm = async () => {
       route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value })
     const confirmedContext = currentContext()
     try {
-      await confirmUploadApplication(summary)
+      await confirmUploadApplication(summary, async () => {
+        if (projectAttributesLoading.value || approvalUsersLoading.value || routeReadinessLoading.value
+          || currentContext() !== confirmedContext) {
+          throw new Error('项目、文件或申请信息已变化，请返回修改并重新核对后提交')
+        }
+        if (!isExternalReview.value) buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveTodayDate())
+        if (!isExternalReview.value && JSON.stringify(draft.approvalMatrixSelection)
+          !== JSON.stringify(ensureUploadApprovalMatrix().selection('SUBMIT')))
+          throw new Error('直属主管来源或审批准备已变化，请返回修改并重新核对后提交')
+        validateUploadTickets(preview, drawingPdf, attachments)
+        await uploadSubmitterService.submit(draft, preview, drawingPdf, attachments)
+        uploadSubmitted.value = true
+      })
     } catch (error) {
       if (error === 'cancel' || error === 'close') return
       throw error
     }
-    if (projectAttributesLoading.value || approvalUsersLoading.value || routeReadinessLoading.value
-      || currentContext() !== confirmedContext) {
-      throw new Error('项目、文件或申请信息已变化，请核对后重新提交')
-    }
-    if (!isExternalReview.value) buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveTodayDate())
-    if (!isExternalReview.value && JSON.stringify(draft.approvalMatrixSelection)
-      !== JSON.stringify(ensureUploadApprovalMatrix().selection('SUBMIT')))
-      throw new Error('直属主管来源或审批准备已变化，请重新核对并确认')
-    validateUploadTickets(preview, drawingPdf, attachments)
-    await uploadSubmitterService.submit(
-      draft,
-      preview,
-      drawingPdf,
-      attachments
-    )
-    uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
     try { await router.push({ name: 'DccControlledFileBrowser' }) }
     catch (navigationError) {
@@ -2849,9 +3221,206 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.upload-scope-project-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.upload-scope-project-row > :deep(.el-alert) { grid-column: 1 / -1; }
+.upload-scope-project-row--library { grid-template-columns: minmax(0, 1fr); }
+
 :global(.dcc-upload-submit-confirmation) {
-  width: min(720px, calc(100vw - 32px));
+  width: min(920px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  display: inline-flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: 12px;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__content) {
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 15px;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__header),
+:global(.dcc-upload-submit-confirmation .el-message-box__btns) {
+  flex-shrink: 0;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__title) {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__message) {
+  width: 100%;
+  min-width: 0;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__btns) {
+  border-top: 1px solid var(--el-border-color);
+  margin-top: 20px;
+  padding-top: 20px;
+  gap: 12px;
+}
+
+:global(.dcc-upload-submit-confirmation .el-message-box__btns .el-button) {
+  min-width: 112px;
+  height: 40px;
+  font-size: 15px;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-columns) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  margin: 28px 0 24px;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-columns section + section) {
+  padding-left: 24px;
+  border-left: 1px solid var(--el-border-color);
+}
+
+:global(.dcc-upload-submit-confirmation section) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:global(.dcc-upload-submit-confirmation h3) {
+  margin: 0 0 20px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-field) {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 12px;
+  margin: 14px 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-label) {
+  color: var(--el-text-color-regular);
+  font-weight: 400;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-value) {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-file-summary) {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: var(--el-fill-color-light);
+  border-radius: 10px;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-file-icon) {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 50px;
+  color: var(--el-text-color-secondary);
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-file-text) {
+  flex: 1;
+  min-width: 0;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-name) {
+  display: flex;
+  min-width: 0;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-name-start) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-name-end) {
+  flex-shrink: 0;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-identity) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 24px;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-identity .upload-confirm-field) {
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 8px 0 0;
+}
+
+:global(.dcc-upload-submit-confirmation summary) {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  font-weight: 500;
+  margin: 18px 0 0;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-supplement) {
+  border-top: 1px solid var(--el-border-color);
+  padding-top: 18px;
+  overflow-wrap: anywhere;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-material) {
+  margin-bottom: 12px;
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-material ul) {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  :global(.dcc-upload-submit-confirmation) {
+    padding: 16px;
+  }
+
+  :global(.dcc-upload-submit-confirmation .upload-confirm-columns) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :global(.dcc-upload-submit-confirmation .upload-confirm-columns section + section) {
+    padding-left: 0;
+    padding-top: 20px;
+    border-left: 0;
+    border-top: 1px solid var(--el-border-color);
+  }
+}
+
+:global(.dcc-upload-submit-confirmation .upload-confirm-error) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--el-color-danger);
+  background: var(--el-color-danger-light-9);
+  padding: 12px;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 .upload-readiness-blockers {
@@ -2871,103 +3440,194 @@ onBeforeUnmount(() => {
 
 .upload-form {
   min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .upload-workbench {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
 }
 
 .upload-workbench__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
+  grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+  gap: 16px;
+  align-items: stretch;
   min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .upload-workbench__column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 16px;
 }
 
 .upload-section {
   min-width: 0;
-  padding: 12px;
+  flex-shrink: 0;
+  padding: 14px;
   border: 1px solid #dbe3e7;
   border-radius: 6px;
   background: #ffffff;
 }
 
 
+.upload-approval-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.upload-approval-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.upload-approval-details {
+  max-height: 55vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .upload-approval-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .upload-section__title {
-  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dbe3e7;
+  margin-bottom: 12px;
   color: #172033;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 20px;
 }
 
 .upload-submit-bar {
   display: flex;
-  justify-content: flex-end;
-  padding: 8px 12px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
   border: 1px solid #dbe3e7;
   border-radius: 6px;
   background: #f7f9fc;
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 6%);
 }
 
-.upload-preflight-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.upload-submit-bar__summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.upload-preflight-card {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid #f1b8b8;
-  border-radius: 6px;
-  background: #fffafa;
+.upload-preflight-list {
+  max-height: 60vh;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
 }
 
-.upload-preflight-card.is-ok {
-  border-color: #b7dfc7;
-  background: #f7fcf8;
+.upload-preflight-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--el-border-color-light);
+  overflow-wrap: anywhere;
 }
 
-.upload-preflight-card.is-warning {
-  border-color: #f0d49a;
-  background: #fffaf0;
+.upload-preflight-row p {
+  margin: 8px 0;
+  line-height: 1.6;
 }
 
-.upload-preflight-card__header {
+.upload-preflight-row__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #172033;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 20px;
 }
 
-.upload-preflight-card__description {
-  color: #4b5563;
-  font-size: 12px;
-  line-height: 18px;
-  word-break: break-word;
+.upload-preflight-row summary {
+  margin-top: 8px;
+  cursor: pointer;
+  color: var(--el-color-primary);
+}
+
+.upload-preflight-row__help {
+  color: var(--el-text-color-secondary);
+}
+
+.upload-main-file-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upload-main-file-summary { flex: 1; min-width: 160px; }
+
+.upload-main-file-summary,
+.upload-main-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.upload-main-file-summary__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .upload-preview-panel {
-  max-height: 420px;
-  overflow: auto;
+  height: clamp(320px, calc(100vh - 320px), 760px);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 1001px) {
+  .upload-workbench__column--side { overflow: hidden; }
+  .upload-section--main-file {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .upload-section--main-file > .el-form-item,
+  .upload-section--main-file > .upload-section__title { flex-shrink: 0; }
+  .upload-preview-panel {
+    flex: 1;
+    height: auto;
+  }
+}
+
+.upload-preview-empty {
+  padding: 48px 12px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
 }
 
 .upload-form :deep(.el-form-item) {
@@ -2981,13 +3641,14 @@ onBeforeUnmount(() => {
 .upload-form :deep(.el-form-item__label) {
   min-height: 32px;
   color: #263247;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 32px;
   padding-right: 10px;
 }
 
 .upload-form :deep(.el-form-item__content) {
   min-width: 0;
+  line-height: 22px;
 }
 
 .upload-form :deep(.el-select),
@@ -3015,17 +3676,32 @@ onBeforeUnmount(() => {
 @media (max-width: 1000px) {
   .upload-workbench__grid {
     grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
-}
 
-@media (max-width: 720px) {
-  .upload-preflight-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .upload-workbench__column {
+    overflow: visible;
   }
 }
 
 .upload-page :deep(.el-card__body) {
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.upload-page {
+  height: calc(100dvh - var(--top-tool-height, 50px) - var(--tags-view-height, 35px) - var(--app-content-padding, 20px) * 2);
+  margin-bottom: 0;
+}
+
+.upload-header {
+  flex-shrink: 0;
+  margin-bottom: 10px;
 }
 
 .upload-form {
@@ -3089,5 +3765,46 @@ onBeforeUnmount(() => {
   .upload-submit-bar :deep(.el-button + .el-button) {
     margin-left: 0;
   }
+}
+
+.upload-file-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.upload-file-pair :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.upload-field-value {
+  min-height: 32px;
+  line-height: 32px;
+  overflow-wrap: anywhere;
+}
+
+.upload-field-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.upload-current-version {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.upload-product-details summary {
+  width: fit-content;
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .upload-file-pair { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

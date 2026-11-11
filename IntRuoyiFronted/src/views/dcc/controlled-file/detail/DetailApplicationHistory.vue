@@ -1,13 +1,11 @@
 <template>
   <ContentWrap class="dcc-detail-surface" v-loading="loading" data-testid="dcc-detail-application-history">
-    <p class="font-600">{{ lockPrimaryRound ? '本次申请信息' : '申请轮次与冻结证据' }}</p>
+    <p class="font-600">申请信息</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <p v-if="lockPrimaryRound && !contextError"
-      >当前办理轮次：{{ primaryBpmRound }}；本面板展示该轮冻结证据。</p
-    >
     <el-select
+      v-if="!lockPrimaryRound && rounds.length > 1"
       :model-value="selectedKey"
-      placeholder="选择申请轮次"
+      placeholder="查看历史申请"
       :disabled="loading || lockPrimaryRound || Boolean(contextError)"
       @change="selectRound"
     >
@@ -15,27 +13,33 @@
         v-for="round in rounds"
         :key="roundKey(round)"
         :value="roundKey(round)"
-        :label="`${applicationLabel(round.applicationType)} · 属性第 ${round.attributeRound} 轮 · BPM ${round.bpmRound}`"
+        :label="`${applicationLabel(round.applicationType, round.revisionChangeType)} · ${formatControlledFileDateTime(round.applicationTime)}`"
       />
     </el-select>
-    <el-empty v-if="!loading && !error && !rounds.length" description="没有已绑定的正式申请轮次" />
+    <p v-if="!loading && !error && !rounds.length">暂无申请信息</p>
     <section v-if="evidence" v-loading="evidenceLoading" class="mt-12px">
-      <p
-        >文件 #{{ evidence.controlledFileId }} ·
-        {{ getDccVersionDisplayText(evidence.versionNo) }} ·
-        {{ applicationLabel(evidence.applicationType) }} · BPM {{ evidence.bpmRound }} · 属性第
-        {{ evidence.attributeRound }} 轮</p
-      >
-      <template v-if="evidence.recorded && evidence.actualAttributes && evidence.defaultSource">
-        <ProjectAttributesFields :model-value="evidence.actualAttributes" readonly />
-        <el-collapse
-          ><el-collapse-item title="本轮默认来源（只读）" name="default-source">
-            <ProjectAttributesFields
-              :model-value="evidence.defaultSource"
-              readonly
-            /> </el-collapse-item
-        ></el-collapse>
-      </template>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="申请类型">{{ applicationLabel(evidence.applicationType, selectedRound?.revisionChangeType) }}</el-descriptions-item>
+        <el-descriptions-item label="申请时间">{{ formatControlledFileDateTime(selectedRound?.applicationTime) }}</el-descriptions-item>
+        <template v-if="evidence.applicationType === 'REVISION'">
+          <el-descriptions-item label="变更类型">{{ applicationLabel('REVISION', selectedRound?.revisionChangeType) }}</el-descriptions-item>
+          <el-descriptions-item label="来源文件版本">{{ getDccVersionDisplayText(selectedRound?.revisionSourceVersionNo) }}</el-descriptions-item>
+          <el-descriptions-item label="变更说明" :span="2">{{ selectedRound?.changeDescription || '未记录' }}</el-descriptions-item>
+        </template>
+      </el-descriptions>
+      <el-descriptions v-if="evidence.recorded && evidence.actualAttributes" :column="2" border class="mt-12px">
+        <template v-if="evidence.actualAttributes.libraryScope">
+          <el-descriptions-item label="适用范围" :span="2">{{ evidence.actualAttributes.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库' }}，项目属性不适用</el-descriptions-item>
+        </template>
+        <template v-else>
+          <el-descriptions-item label="目标市场" :span="2">{{ evidence.actualAttributes.targetMarkets.map(market => marketLabels[market]).join('、') }}</el-descriptions-item>
+          <el-descriptions-item v-if="evidence.actualAttributes.otherMarket" label="其他市场说明" :span="2">{{ evidence.actualAttributes.otherMarket }}</el-descriptions-item>
+          <el-descriptions-item label="注册人身份">{{ identityLabels[evidence.actualAttributes.licenseHolder || ''] || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="生产方身份">{{ identityLabels[evidence.actualAttributes.actualManufacturer || ''] || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="文件转移">{{ identityLabels[evidence.actualAttributes.documentTransfer || ''] || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item v-if="evidence.actualAttributes.documentTransfer === 'Y'" label="转移至">{{ evidence.actualAttributes.transferTo }}</el-descriptions-item>
+        </template>
+      </el-descriptions>
       <el-alert
         v-else
         :title="
@@ -46,96 +50,7 @@
         type="info"
         :closable="false"
       />
-      <section v-if="showNodeRecords" class="mt-16px" data-testid="dcc-application-node-records">
-        <p class="font-600">前序节点记录</p>
-        <el-table :data="evidence.nodeRecords" empty-text="本轮暂无已发生的节点记录" border>
-          <el-table-column label="节点" min-width="150"
-            ><template #default="{ row }">{{
-              row.nodeName || row.stageCode
-            }}</template></el-table-column
-          >
-          <el-table-column label="办理人" min-width="150"
-            ><template #default="{ row }">{{
-              row.actorNicknameSnapshot ||
-              row.actorUsernameSnapshot ||
-              (row.actorId ? `账号 #${row.actorId}` : '未记录')
-            }}</template></el-table-column
-          >
-          <el-table-column label="部门" min-width="140"
-            ><template #default="{ row }">{{
-              row.actorDeptNameSnapshot || '未记录'
-            }}</template></el-table-column
-          >
-          <el-table-column label="动作及结果" min-width="160"
-            ><template #default="{ row }"
-              >{{
-                row.actionType === 'TASK_COMPLETED'
-                  ? '任务完成'
-                  : getDccSignatureTaskActionLabel(row.actionType)
-              }}
-              · {{ row.result || '结果未记录' }}</template
-            ></el-table-column
-          >
-          <el-table-column label="意见" min-width="200"
-            ><template #default="{ row }">{{ getDccSignatureOpinionLabel(row.comment) }}</template></el-table-column
-          >
-          <el-table-column label="时间" min-width="175"
-            ><template #default="{ row }">{{
-              formatControlledFileDateTime(row.occurredAt)
-            }}</template></el-table-column
-          >
-          <el-table-column label="电子签名" min-width="150"
-            ><template #default="{ row }">{{
-              row.signatureId
-                ? `#${row.signatureId} · ${row.signatureEvidenceStatus || '状态未记录'}`
-                : '未记录'
-            }}</template></el-table-column
-          >
-          <el-table-column label="指派对象" min-width="160"
-            ><template #default="{ row }">{{
-              row.assignmentTarget
-                ? `${row.assignmentTarget.nickname || `账号 #${row.assignmentTarget.userId}`} · 部门义务：${row.assignmentTarget.obligationDepartmentName || '未记录'}`
-                : '不适用'
-            }}</template></el-table-column
-          >
-          <el-table-column label="已确认业务内容" min-width="240"
-            ><template #default="{ row }"
-              ><p v-for="field in row.confirmedFields" :key="field.field"
-                >{{ field.label }}：{{ field.value ?? '未记录' }}</p
-              ><span v-if="!row.confirmedFields.length">未记录</span></template
-            ></el-table-column
-          >
-        </el-table>
-      </section>
-      <el-table :data="evidence.signatures" aria-label="所选申请轮次签名">
-        <el-table-column prop="id" label="签名记录" min-width="100" />
-        <el-table-column prop="actorNicknameSnapshot" label="签名人" min-width="100">
-          <template #default="{ row }">{{ row.actorNicknameSnapshot || '未记录' }}</template>
-        </el-table-column>
-        <el-table-column label="签名动作" min-width="120"
-          ><template #default="{ row }">{{
-            getDccSignatureTaskActionLabel(row.actionType)
-          }}</template></el-table-column
-        >
-        <el-table-column prop="actorDeptNameSnapshot" label="部门" min-width="100" />
-        <el-table-column prop="signedAt" label="服务器签名时间" min-width="180">
-          <template #default="{ row }">{{ formatControlledFileDateTime(row.signedAt) }}</template>
-        </el-table-column>
-        <el-table-column prop="processInstanceId" label="BPM 轮次" min-width="180" />
-      </el-table>
-      <DetailRelationStageEvidence
-        v-if="evidence.relationEvidence"
-        :evidence="evidence.relationEvidence"
-        :tenant-id="evidence.relationEvidence.tenantId"
-        :file-id="String(evidence.controlledFileId)"
-        :application-type="evidence.applicationType"
-        :bpm-round="evidence.bpmRound"
-        :attribute-round="evidence.relationEvidence.attributeRound"
-        :context-key="selectedKey"
-        :signature-facts="evidence.signatures"
-        :node-records="evidence.nodeRecords"
-      />
-      <p v-else>本申请轮次的关联阶段证据未记录。</p>
+      <DetailApprovalRecords v-if="showNodeRecords" :evidence="evidence" />
     </section>
     <el-alert
       v-else-if="evidenceLoading"
@@ -146,7 +61,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import {
   getControlledFileApplicationRounds,
@@ -157,11 +72,9 @@ import type {
   ControlledFileApplicationEvidence,
   DccApplicationType
 } from '@/api/dcc/controlledFile/applicationRead'
-import ProjectAttributesFields from '../project-attributes/ProjectAttributesFields.vue'
-import DetailRelationStageEvidence from './DetailRelationStageEvidence.vue'
+import DetailApprovalRecords from './DetailApprovalRecords.vue'
 import { formatControlledFileDateTime } from './presentation'
 import { validateApplicationRoundMappings } from './application-round-context'
-import { getDccSignatureTaskActionLabel, getDccSignatureOpinionLabel } from '../shared/signature-evidence'
 import { validateApplicationNodeRecords } from './application-node-records'
 import { detailIdentity } from './relation-contract'
 import type { DetailRelationApplicationSelection } from './relation-contract'
@@ -197,8 +110,13 @@ const roundKey = (round: ControlledFileApplicationRound) =>
     round.bpmRound,
     round.attributeRound
   ])
-const applicationLabel = (type: DccApplicationType) =>
-  ({ UPLOAD: '初始上传', REVISION: '升版申请', OBSOLETE: '作废申请' })[type]
+const selectedRound = computed(() => rounds.value.find(round => roundKey(round) === selectedKey.value))
+const marketLabels: Record<string, string> = { NMPA: 'NMPA 国内', CE: 'CE 欧盟', FDA: 'FDA', MADSAP: 'MDSAP', OTHER: '其他', NA: '不适用' }
+const identityLabels: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
+const applicationLabel = (type: DccApplicationType, revisionChangeType?: string | null) =>
+  type === 'REVISION'
+    ? (revisionChangeType === 'PARTIAL' ? '局部变更' : revisionChangeType === 'REPLACEMENT' ? '换版变更' : '变更类型未记录')
+    : ({ UPLOAD: '初始上传', OBSOLETE: '作废申请' })[type]
 const selectRound = async (key: string) => {
   const token = ++selectionGeneration,
     context = generation,
@@ -317,7 +235,10 @@ watch(
           if (matching.length === 1) await selectRound(roundKey(matching[0]))
         } else if (props.lockPrimaryRound)
           throw new Error('当前办理轮次尚未核验，不能读取其他申请属性')
-        else rounds.value = validated
+        else {
+          rounds.value = validated
+          if (validated.length === 1) await selectRound(roundKey(validated[0]))
+        }
       }
     } catch (cause) {
       if (isCurrent()) error.value = cause instanceof Error ? cause.message : String(cause)

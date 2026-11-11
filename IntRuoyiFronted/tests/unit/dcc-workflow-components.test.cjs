@@ -132,3 +132,47 @@ test('assignment component refuses incomplete file and workflow round context', 
     assert.match(panel.state.error, /任务上下文缺失/)
   } finally { panel.app.unmount() }
 })
+
+
+test('assignment locates the invalid field and never writes before required input is valid', async () => {
+  let writes = 0
+  const panel = mountAssignment(async () => { writes++; return true })
+  const locations = [], focused = []
+  panel.state.formElement = { querySelector: selector => ({
+    scrollIntoView: () => locations.push(selector),
+    querySelector: () => ({ focus: () => focused.push(selector) })
+  }) }
+  try {
+    panel.state.selected = ''
+    await panel.state.submit(); await vue.nextTick()
+    assert.match(panel.state.fieldErrors.selected, /本部门/)
+    assert.match(locations.at(-1), /selected/)
+    panel.state.selected = '99'; panel.state.password = ''
+    await panel.state.submit(); await vue.nextTick()
+    assert.match(panel.state.fieldErrors.password, /当前登录密码/)
+    assert.match(locations.at(-1), /password/)
+    assert.equal(focused.length, 2)
+    assert.equal(writes, 0)
+  } finally { panel.app.unmount() }
+})
+
+test('pending assignment rejects duplicate and reject-dialog submissions, and failure preserves signed choices', async () => {
+  const pending = deferred(), writes = []
+  const panel = mountAssignment(request => { writes.push(request); return pending.promise })
+  try {
+    panel.props.blocked = true; await vue.nextTick()
+    await panel.state.submit(); assert.equal(writes.length, 0)
+    panel.props.blocked = false; await vue.nextTick()
+    const submitted = panel.state.submit()
+    assert.equal(panel.state.busy, true)
+    await panel.state.submit(); assert.equal(writes.length, 1)
+    pending.reject('签名密码错误，请重新输入')
+    await submitted
+    assert.equal(panel.state.busy, false)
+    assert.equal(panel.state.selected, '99')
+    assert.equal(panel.state.reason, '指派本人')
+    assert.equal(panel.state.password, 'test-credential')
+    assert.equal(panel.state.fieldErrors.password, '签名密码错误，请重新输入')
+    assert.equal(panel.saved(), 0)
+  } finally { panel.app.unmount() }
+})

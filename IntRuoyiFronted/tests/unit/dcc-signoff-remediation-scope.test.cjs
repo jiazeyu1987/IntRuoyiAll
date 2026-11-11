@@ -43,7 +43,7 @@ test('actual NEW and obsolete signed assignment do not read inapplicable remedia
     let signing
     try {
       await drain()
-      assert.deepEqual(h.reads, [])
+      assert.deepEqual(h.reads, ['history'], 'Only fixed relation names are read; remediation remains inapplicable')
       assert.equal(h.panel.state.ready, true)
       signing = mount('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue', { fileId: h.context.controlledFileId, processInstanceId: 'bpm-round', taskId: 'task-id', departmentName: '质量部', users: h.context.assigneeOptions, assigned: false, arrangementsReady: h.panel.state.ready, save: h.panel.state.saveAssignment }, { './workflow-actions': actions })
       signing.state.selected = '7'; signing.state.password = 'unit-only'; signing.state.reason = '真实指派意见'

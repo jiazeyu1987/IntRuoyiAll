@@ -1,5 +1,5 @@
 <template>
-  <div class="onlyoffice-viewer-shell">
+  <div class="onlyoffice-viewer-shell" :class="{ 'onlyoffice-viewer-shell--compact': compact }">
     <el-alert
       v-if="errorMessage"
       :closable="false"
@@ -61,7 +61,7 @@
         <div v-if="wheelZoomArmed" class="onlyoffice-viewer-frame__wheel-mask">
           滚轮缩放已激活
         </div>
-        <div class="onlyoffice-viewer-frame__scroll">
+        <div class="onlyoffice-viewer-frame__scroll" :class="{ 'onlyoffice-viewer-frame__scroll--transformed': previewZoomValue !== DEFAULT_ZOOM_VALUE || previewRotationDegrees !== 0 }">
           <div class="onlyoffice-viewer-frame__viewport" :style="viewportStyle">
             <div class="onlyoffice-viewer-frame__scaler" :style="scalerStyle">
               <div
@@ -107,6 +107,7 @@ declare global {
 }
 
 const props = defineProps<{
+  compact?: boolean
   baseUrl?: string
   documentUrl?: string
   documentTitle?: string
@@ -130,6 +131,7 @@ const errorMessage = ref('')
 const mountRef = ref<HTMLDivElement>()
 const stageRef = ref<HTMLDivElement>()
 const stageWidth = ref(0)
+const stageHeight = ref(VIEWER_STAGE_HEIGHT)
 let stageResizeObserver: ResizeObserver | null = null
 const previewZoomValue = ref(DEFAULT_ZOOM_VALUE)
 const previewRotationDegrees = ref(0)
@@ -168,8 +170,8 @@ const viewportStyle = computed(() => {
   const quarterTurn = previewRotationDegrees.value % 180 !== 0
   const width = stageWidth.value || stageRef.value?.clientWidth || 0
   return {
-    width: `${Math.ceil((quarterTurn ? VIEWER_STAGE_HEIGHT : width) * previewZoomValue.value / 100)}px`,
-    height: `${Math.ceil((quarterTurn ? width : VIEWER_STAGE_HEIGHT) * previewZoomValue.value / 100)}px`
+    width: `${Math.ceil((quarterTurn ? stageHeight.value : width) * previewZoomValue.value / 100)}px`,
+    height: `${Math.ceil((quarterTurn ? width : stageHeight.value) * previewZoomValue.value / 100)}px`
   }
 })
 const scalerStyle = computed(() => {
@@ -177,7 +179,7 @@ const scalerStyle = computed(() => {
   const width = stageWidth.value || stageRef.value?.clientWidth || 0
   return {
     width: `${width}px`,
-    height: `${VIEWER_STAGE_HEIGHT}px`,
+    height: `${stageHeight.value}px`,
     transform: `translate(-50%, -50%) rotate(${previewRotationDegrees.value}deg) scale(${zoomScale})`
   }
 })
@@ -311,13 +313,19 @@ const resetView = () => {
   previewRotationDegrees.value = 0
 }
 
+defineExpose({ previewZoomValue, canZoomOut, canZoomIn, decreaseZoom, increaseZoom, rotatePreview, resetView })
+
 watch(stageRef, (element) => {
   stageResizeObserver?.disconnect()
   if (viewerUnmounted) return
   stageWidth.value = element?.clientWidth || 0
+  stageHeight.value = props.compact ? (element?.clientHeight || VIEWER_STAGE_HEIGHT) : VIEWER_STAGE_HEIGHT
   if (!element) return
   stageResizeObserver = new ResizeObserver(() => {
-    if (!viewerUnmounted && stageRef.value === element) stageWidth.value = element.clientWidth
+    if (!viewerUnmounted && stageRef.value === element) {
+      stageWidth.value = element.clientWidth
+      stageHeight.value = props.compact ? element.clientHeight : VIEWER_STAGE_HEIGHT
+    }
   })
   stageResizeObserver.observe(element)
 })
@@ -385,7 +393,7 @@ const mountEditor = async () => {
       document: {
         fileType: extension,
         key: buildDocumentKey(documentUrl),
-        title: documentTitle || 'Office 受控预览',
+        title: props.compact ? '受控预览' : documentTitle || 'Office 受控预览',
         url: documentUrl,
         permissions: onlyOfficeReadOnlyPermissions
       },
@@ -402,7 +410,8 @@ const mountEditor = async () => {
           comments: false,
           compactHeader: true,
           compactToolbar: true,
-          help: false
+          help: false,
+          ...(props.compact ? { zoom: -2 } : {})
         }
       },
       events: {
@@ -425,7 +434,7 @@ const mountEditor = async () => {
           emit('error', { documentUrl, message })
         }
       },
-      type: 'desktop',
+      type: props.compact ? 'embedded' : 'desktop',
       width: '100%',
       height: '100%'
     })
@@ -624,5 +633,39 @@ onBeforeUnmount(() => {
 .onlyoffice-viewer-frame__watermark-title span:last-child {
   color: #fdba74;
   font-weight: 700;
+}
+
+.onlyoffice-viewer-shell--compact,
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame {
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+}
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame__stage {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame__scroll { overflow: hidden; }
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame__scroll--transformed { overflow: auto; }
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame__overlay { inset: 0; }
+.onlyoffice-viewer-shell--compact .onlyoffice-viewer-frame__watermark {
+  position: static;
+  flex-shrink: 0;
+  max-width: none;
+  padding: 4px 8px;
+  border-radius: 0;
+  background: #f8fafc;
+  color: #4b5563;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 </style>

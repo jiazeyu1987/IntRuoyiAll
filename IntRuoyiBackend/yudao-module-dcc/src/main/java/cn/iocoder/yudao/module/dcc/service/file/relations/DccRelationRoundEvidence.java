@@ -16,5 +16,11 @@ public record DccRelationRoundEvidence(
     public DccRelationRoundEvidence {
         originalUploadSelections=List.copyOf(originalUploadSelections);stages=List.copyOf(stages);completeSelections=List.copyOf(completeSelections);
     }
-    public record StageEvidence(Saved snapshot,String signatureEvidenceStatus,boolean signatureIdentityMatches) {}
+    public record StageEvidence(Saved snapshot,String signatureEvidenceStatus,boolean signatureIdentityMatches,
+                                java.util.Map<String,String> assigneeNames) {
+        public StageEvidence { assigneeNames=java.util.Map.copyOf(assigneeNames); }
+        public StageEvidence(Saved snapshot,String status,boolean matches) {
+            this(snapshot,status,matches,java.util.Map.of());
+        }
+    }
 }

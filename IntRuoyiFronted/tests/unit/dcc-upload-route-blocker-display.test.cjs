@@ -23,6 +23,7 @@ const source = `<template>${readiness.loc.source}</template><script setup>
 const values = __values
 const routeReadiness = values.routeReadiness
 const routeReadinessError = values.routeReadinessError
+const routeReadinessLoading = values.routeReadinessLoading
 const uploadApprovers = values.uploadApprovers
 const uploadApproverError = values.uploadApproverError
 const approvalUsersLoading = values.approvalUsersLoading
@@ -36,7 +37,7 @@ function render(values) {
   } }).outputText, { exports, require: id => {
     assert.equal(id, 'vue')
     return vue
-  }, __values: { routeReadinessError: '', uploadApprovers: {}, uploadApproverError: '', approvalUsersLoading: false, ...values } })
+  }, __values: { routeReadinessLoading: false, routeReadinessError: '', uploadApprovers: {}, uploadApproverError: '', approvalUsersLoading: false, ...values } })
   const renderer = vue.createRenderer({
     createElement: type => ({ type, children: [], props: {}, parent: null }),
     createText: text => ({ text, parent: null }), createComment: text => ({ comment: text, parent: null }),
@@ -122,4 +123,21 @@ test('blocker identities and reasons stay text content instead of creating suppl
     assert.equal(view.elements('script').length, 0)
     assert.equal(view.elements('img').length, 0)
   } finally { view.close() }
+})
+
+
+test('approval summary does not claim readiness while checking or resolving people', () => {
+  for (const values of [
+    { routeReadinessLoading: true },
+    { routeReadiness: { ready: true, nodes: [{ stageNo: 1 }, { stageNo: 2 }], blockers: [] }, approvalUsersLoading: true },
+    { routeReadiness: { ready: true, nodes: [{ stageNo: 1 }, { stageNo: 2 }], blockers: [] }, uploadApproverError: '批准人无效' }
+  ]) {
+    const view = render(values)
+    try {
+      assert.doesNotMatch(view.text, /审批路线已就绪/)
+      assert.match(view.text, values.routeReadinessLoading ? /正在校验审批路线/ : /实际 2 个节点/)
+    } finally { view.close() }
+  }
+  const waiting = render({})
+  try { assert.match(waiting.text, /等待审批路线预检/) } finally { waiting.close() }
 })

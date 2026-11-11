@@ -49,7 +49,7 @@ function host(overrides = {}) {
     listHistoricalRelations: async () => [], listCurrentRelations: async id => ({ sourceControlledFileId: id, files: [] }),
     getSimpleDeptList: async () => [{ id: 7, name: '会签甲', status: 0 }, { id: 8, name: '下发乙', status: 0 }], getSimpleUserList: async () => [{ id: 9, nickname: '批准丙', status: 0 }],
     checkControlledFileRouteReadiness: async () => matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [{ stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: ['7'] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ['9'], approveMethod: 'ALL' }] }),
-    ...versionDisplay, readApplicationOrdinaryAttachmentExpectation: revisions.readApplicationOrdinaryAttachmentExpectation,
+    ...versionDisplay, sameApplicationProjectAttributes: revisions.sameApplicationProjectAttributes, readApplicationOrdinaryAttachmentExpectation: revisions.readApplicationOrdinaryAttachmentExpectation,
     generateUUID: () => 'K', isWorkflowId: value => value === '11', buildInitialCommand: revisions.buildInitialCommand,
     submitControlledFileWorkingIteration: async (id, payload) => { calls.writes.push({ id, payload }); return '11' }, emit: (...args) => calls.events.push(args), message: { success() {} }, ElMessageBox: { confirm: async content => calls.confirmations.push(content) }, ...overrides
   }

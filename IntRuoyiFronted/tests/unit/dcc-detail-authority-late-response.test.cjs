@@ -198,6 +198,9 @@ test('loaded history rounds cannot issue an evidence read after raw authority ch
   },{fileId:FILE,expectedVersionNo:'A/1',contextKey:'same',readAuthority:()=>authority})
   try{
     await drain();assert.equal(h.state.rounds.length,1)
+    assert.equal(calls.length,1, 'the only formal round is initially read under the original authority')
+    assert.equal(h.events.at(-1).bpmRound, round.bpmRound)
+    calls.length=0;h.events.length=0
     authority='actor99:tenant32';await h.state.selectRound(h.state.roundKey(round))
     assert.equal(calls.length,0)
     assert.ok(h.events.every(value=>value===null))

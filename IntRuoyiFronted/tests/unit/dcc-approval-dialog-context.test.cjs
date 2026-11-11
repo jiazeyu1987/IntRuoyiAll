@@ -172,3 +172,24 @@ test('reopening a signature dialog clears the credential and locks autofill unti
   p.env.actionDialog.passwordFocused=true; await p.closeActionDialog(true)
   assert.equal(p.env.actionDialog.passwordFocused,false)
 })
+
+test('busy supervisor submission ignores repeated clicks and keeps opinion after failure', async () => {
+  for (const mode of ['approve', 'reject']) {
+    const gate = deferred(), p = parent({ failGate: gate })
+    p.env.approvalTodoTask.value.taskDefinitionKey = 'SUPERVISOR_REVIEW'
+    p.env.actionDialog.mode = mode
+    p.env.actionDialog.form.reason = mode === 'reject' ? '请补充文件内容' : '内容核对完成'
+    const opinion = p.env.actionDialog.form.reason
+    const signing = p.submitActionDialog()
+    await flush()
+    assert.equal(p.env.actionDialog.submitting, true)
+    await p.submitActionDialog()
+    assert.equal(p.sent.length, 1)
+    gate.resolve()
+    await signing
+    assert.equal(p.env.actionDialog.visible, true)
+    assert.equal(p.env.actionDialog.submitting, false)
+    assert.equal(p.env.actionDialog.form.reason, opinion)
+    assert.match(p.env.actionDialog.inlineError, /original signature rejected/)
+  }
+})

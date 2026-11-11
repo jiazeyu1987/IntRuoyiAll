@@ -54,6 +54,7 @@ function mount(options = {}) {
   const component = moduleOf(
     compileScript(desc, { id: 'g11-history', inlineTemplate: Boolean(options.inline) }).content,
     {
+      '@/api/dcc/controlledFile/bodyReadContext': require('./dcc-detail-read-test-loader.cjs').body,
       '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => null },
       '@/api/dcc/controlledFile/applicationRead': {
         getControlledFileApplicationRounds: async (file) => {
@@ -168,7 +169,7 @@ test('real parent receives initial null and verified exact selected application 
     await c.state.selectRound(c.state.roundKey(rows()[0]))
     assert.deepEqual(c.events, [null, null, rows()[0]])
     assert.equal(c.state.evidence.versionNo, 'A/1-2')
-    assert.deepEqual(c.calls.at(-1), ['evidence', id, 'REVISION', 'round-1'])
+    assert.deepEqual(c.calls.at(-1), ['evidence', id, 'REVISION', 'round-1', undefined])
   } finally {
     c.app.unmount()
   }
@@ -269,14 +270,14 @@ test('unmount clears a previously verified selection and suppresses late reads',
   c.app.unmount()
   assert.equal(c.events.at(-1), null)
 })
-test('real History template displays draft while evidence raw version and selected identity remain unchanged', async () => {
+test('real History template shows application information without raw draft identity and keeps exact selection', async () => {
   const c = mount({
     inline: true,
     props: { primaryBpmRound: 'round-1', lockPrimaryRound: true, showNodeRecords: false }
   })
   try {
     await drain()
-    assert.match(c.visible(), /草稿/)
+    assert.match(c.visible(), /申请信息/)
     assert.doesNotMatch(c.visible(), /A\/1-2/)
     assert.deepEqual(c.events.at(-1), rows()[0])
   } finally {

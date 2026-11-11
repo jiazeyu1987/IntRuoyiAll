@@ -2,7 +2,7 @@
   <div class="dcc-project-attributes">
     <el-alert v-if="historicalMissing" title="历史未记录" type="info" :closable="false" />
     <el-alert v-else-if="modelValue.libraryScope" :title="`${modelValue.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库'}：项目属性不适用`" type="info" :closable="false" />
-    <template v-else>
+    <div v-else class="dcc-project-attributes__fields">
       <el-form-item label="目标市场" required>
         <el-checkbox-group :model-value="modelValue.targetMarkets" :disabled="readonly" @update:model-value="marketsChanged">
           <el-checkbox v-for="item in markets" :key="item.value" :value="item.value">{{ item.label }}</el-checkbox>
@@ -24,7 +24,7 @@
       <el-form-item v-if="modelValue.documentTransfer === 'Y'" label="转移至" required>
         <el-input :model-value="modelValue.transferTo" :disabled="readonly" maxlength="512" @update:model-value="setField('transferTo', $event)" />
       </el-form-item>
-    </template>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -33,7 +33,7 @@ const props = defineProps<{ modelValue: ProjectAttributes; readonly?: boolean; h
 const emit = defineEmits<{ 'update:modelValue': [value: ProjectAttributes] }>()
 const markets = [
   { value: 'NMPA', label: 'NMPA 国内' }, { value: 'CE', label: 'CE 欧盟' },
-  { value: 'FDA', label: 'FDA' }, { value: 'MADSAP', label: 'MADSAP' },
+  { value: 'FDA', label: 'FDA' }, { value: 'MADSAP', label: 'MDSAP' },
   { value: 'OTHER', label: '其他' }, { value: 'NA', label: '不适用' }
 ]
 const identities = [
@@ -53,3 +53,7 @@ const transferChanged = (value: string | number | boolean | undefined) => {
   emit('update:modelValue', changeTransfer(props.modelValue, String(value)))
 }
 </script>
+<style scoped>
+.dcc-project-attributes__fields { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.dcc-project-attributes__fields > :deep(.el-form-item) { width: 100%; margin: 0; }
+</style>

@@ -94,6 +94,18 @@ test('saved custom accounts and departments render unchanged without automatic s
   } finally { h.app.unmount() }
 })
 
+test('upload may place signoff beside distribution while custom actor editing and validation remain intact', async () => {
+  const h = await mount({ showSignoffDepartments: false })
+  try {
+    assert.equal(nodes(h.root, n => n.type === 'selector' && n.props['data-testid'] === 'dcc-custom-signoff-departments').length, 0)
+    await h.choose('dcc-custom-approver', '99')
+    assert.equal(h.api.validate('SUBMIT').applicationCustomMatrix.approverUserId, '99')
+    h.props.selectedSignoffDepartmentIds = []
+    await vue.nextTick()
+    assert.throws(() => h.api.validate('SUBMIT'), /请至少选择一个会签部门/)
+  } finally { h.app.unmount() }
+})
+
 test('template account edit/clear emits one scoped immutable choice and leaves directories and other fields intact', async () => {
   const original = matrix(), users = [{ id: APPROVER, name: '甲' }, { id: CONTROL, name: '乙' }, { id: '99', name: '丙' }]
   const h = await mount({ modelValue: original, users })

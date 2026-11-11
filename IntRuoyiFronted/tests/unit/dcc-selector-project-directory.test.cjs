@@ -51,6 +51,47 @@ function mount(transport, overrides = {}) {
   app.directive('loading', {}); app.mount(root)
   return { app, props, queries, root, state: () => app._instance.subTree.component.setupState }
 }
+test('supplemental selector has fixed business columns and confirms only its local multi-file selection', async () => {
+  const first = { ...candidate, projectId: P, canPreview: true }
+  const second = { ...first, masterId: '52', controlledFileId: '53', fileName: '补充二.pdf', versionNo: 'C/2' }
+  const confirmed = [first], writes = [], queries = []
+  const m = mount(async () => [folder(F, P, '同名folder')], {
+    purpose: 'relations', supplemental: true, selected: confirmed,
+    loadPage: async query => { queries.push(clone(query)); return { list: [first, second], total: 2 } },
+    persist: async rows => { writes.push(clone(rows)); confirmed.splice(0, confirmed.length, ...rows) },
+    'onUpdate:modelValue': open => { m.props.modelValue = open }
+  })
+  const click = async label => { await nodes(m.root, n => n.type === 'el-button' && content(n) === label)[0].props.onClick(); await tick() }
+  try {
+    m.props.modelValue = true; await tick()
+    assert.equal(find(m.root, 'el-dialog').props.title, '补充关联文件')
+    assert.ok(content(m.root).includes('源.pdf · S · A/1'))
+    const table = find(m.root, 'el-table')
+    assert.equal(table.props['data-user-table-column-explicit'], '')
+    assert.deepEqual(nodes(table, n => n.type === 'el-table-column').map(n => n.props.label),
+      ['选择', '文件名称', '文件编号', '来源项目', '文件夹', '受控版本', '状态', '正文'])
+    assert.ok(find(m.root, 'el-tree'))
+    assert.deepEqual(nodes(m.root, n => n.type === 'el-tab-pane').map(n => n.props.label), ['项目目录', '本项目搜索'])
+    assert.deepEqual(queries.at(-1), { keyword: '', pageNo: 1, pageSize: 20, projectId: P, folderId: F })
+    const tabs = find(m.root, 'el-tabs')
+    tabs.props['onUpdate:modelValue']('global'); await tabs.props.onTabChange(); await tick()
+    const search = find(m.root, 'el-input')
+    search.props['onUpdate:modelValue']('补充二'); await search.props.onKeyup({ key: 'Enter' }); await tick()
+    assert.deepEqual(queries.at(-1), { keyword: '补充二', pageNo: 1, pageSize: 20, projectId: P })
+    assert.ok(content(m.root).includes('已选 1 项'))
+    nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
+    assert.ok(content(m.root).includes('已选 2 项')); assert.ok(content(m.root).includes('补充二.pdf · C/2'))
+    await click('取消'); assert.equal(writes.length, 0); assert.deepEqual(confirmed, [first])
+    m.props.modelValue = true; await tick()
+    nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
+    const tag = nodes(m.root, n => n.type === 'el-tag' && content(n).includes(first.fileName))[0]
+    tag.props.onClose(); await tick()
+    assert.ok(content(m.root).includes('已选 1 项'))
+    await click('确认关联'); assert.deepEqual(writes, [[second]]); assert.deepEqual(confirmed, [second])
+    assert.equal(m.props.modelValue, false)
+  } finally { m.app.unmount() }
+})
+
 test('cross-project directory loader uses real server project pages/Long folders and invalidates closed responses', async () => {
   const calls = [], pending = deferred(), api = modules(async q => { calls.push(q); if (q.url === '/dcc/project-codes/page') return { list: [project(B, 'B')], total: 41 }; if (q.url.includes(B)) return pending.promise; return [folder(F, P, '同名folder')] })
   const { SelectorProjectDirectoryState } = api.load('views/dcc/controlled-file/relations/selector-project-directory.ts')

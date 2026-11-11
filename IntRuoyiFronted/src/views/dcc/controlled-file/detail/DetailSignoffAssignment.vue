@@ -2,31 +2,44 @@
   <ContentWrap v-loading="loading">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <SignoffAssignmentPanel
+      ref="assignmentPanelRef"
       v-if="context && !context.assigned && context.canAssign"
       :key="contextKey"
       :file-id="context.controlledFileId"
       :process-instance-id="context.processInstanceId"
       :task-id="context.taskId"
-      :department-name="context.departmentName || `部门 #${context.departmentId}（名称未记录）`"
+      :department-name="context.departmentName || `部门代码：${context.departmentId}`"
       :users="context.assigneeOptions"
       :assigned="context.assigned"
+      :blocked="blocked"
       :arrangements-ready="ready && context.canAssign && !supplementLoading && !supplementVisible"
       :save="saveAssignment"
       @saved="onSaved"
     >
-      <template #actions>
-        <slot name="actions"></slot>
+      <template #actions="{ disabled }">
+        <slot name="actions" :disabled="disabled"></slot>
       </template>
       <template #relation-arrangements="{ disabled }">
         <div v-if="canSupplement">
           <el-button :disabled="disabled || supplementLoading" :loading="supplementLoading" @click="openSupplement">
-            补充关联
+            补充关联文件
           </el-button>
           <el-alert v-if="supplementError" :title="supplementError" type="error" :closable="false" />
-          <p>本次后补 {{ supplementalFiles.length }} 个；仅确认的名单随本次指派签名保存，原上传关联保持不变。</p>
-          <el-tag v-for="file in supplementalFiles" :key="file.masterId">
-            {{ file.fileName }} · {{ file.versionNo }}
-          </el-tag>
+          <p>本次补充：{{ supplementalFiles.length }} 个；已确认文件随本次指派签名保存。</p>
+          <ul v-if="supplementalFiles.length" class="m-0 pl-20px">
+            <li v-for="file in supplementalFiles" :key="file.masterId">{{ file.fileName }} · {{ file.versionNo }}</li>
+          </ul>
+          <p v-else>尚未确认补充文件</p>
+        </div>
+        <p v-else-if="ready">本环节不支持补充关联文件</p>
+        <p v-if="error">原有关联文件或整改安排读取失败，请处理上方错误后重新打开当前任务。</p>
+        <p v-else-if="!ready">原有关联文件正在加载，请稍候核对。</p>
+        <div v-else>
+          <p>原有关联文件：{{ relations.length }} 个</p>
+          <ul v-if="relations.length" class="m-0 pl-20px">
+            <li v-for="file in relations" :key="file.masterId">{{ file.fileName }} · {{ file.versionNo }}</li>
+          </ul>
+          <p v-else>无原有关联文件</p>
         </div>
         <DetailRelationArrangements
           v-if="context.processDefinitionKey === 'dcc-controlled-file-revision'"
@@ -45,6 +58,7 @@
       v-model="supplementVisible"
       :source="supplementSource"
       purpose="relations"
+      supplemental
       :directories="[]"
       :selected="supplementalFiles"
       :load-page="loadSupplementPage"
@@ -77,7 +91,9 @@ import {
   type SignoffAssignment,
   type ArrangementCommand
 } from '../workflow/workflow-actions'
-const props = defineProps<{ fileId: number | string; processInstanceId: string; taskId: string }>()
+const props = defineProps<{ fileId: number | string; processInstanceId: string; taskId: string; blocked?: boolean }>()
+const assignmentPanelRef = ref<InstanceType<typeof SignoffAssignmentPanel>>()
+defineExpose({ scrollToForm: () => assignmentPanelRef.value?.scrollToForm() })
 const emit = defineEmits<{
   saved: []
   state: [value: { fileId: string; taskId: string; assigned: boolean | undefined }]
@@ -101,6 +117,11 @@ const contextKey = computed(() =>
   JSON.stringify([String(props.fileId), props.processInstanceId, props.taskId])
 )
 let generation = 0
+const relationList = (history: Array<{ masterId: string | number; fileName: string; versionNo: string }>) => {
+  if (!Array.isArray(history) || history.some(row => !isWorkflowId(row.masterId) || !row.fileName || !row.versionNo))
+    throw new Error('本次审阅关联版本快照不完整')
+  return history.map(row => ({ masterId: String(row.masterId), fileName: row.fileName, versionNo: row.versionNo }))
+}
 onBeforeUnmount(() => {
   generation++
 })
@@ -139,6 +160,9 @@ watch(
       if (result.assigned) return
       if (!result.assigned && !result.canAssign) throw new Error('当前任务不允许本账号指派')
       if (result.processDefinitionKey !== 'dcc-controlled-file-revision') {
+        const history = await listHistoricalRelations(result.controlledFileId)
+        if (token !== generation) return
+        relations.value = relationList(history)
         ready.value = true
         return
       }
@@ -148,16 +172,7 @@ watch(
         listRelationArrangements(result.controlledFileId, result.processInstanceId)
       ])
       if (token !== generation) return
-      if (
-        !Array.isArray(history) ||
-        history.some((row) => !isWorkflowId(row.masterId) || !row.fileName || !row.versionNo)
-      )
-        throw new Error('本次审阅关联版本快照不完整')
-      relations.value = history.map((row) => ({
-        masterId: String(row.masterId),
-        fileName: row.fileName,
-        versionNo: row.versionNo
-      }))
+      relations.value = relationList(history)
       users.value = people.map((person) => {
         if (!isWorkflowId(person.id) || !person.nickname) throw new Error('整改负责人目录身份缺失')
         return { id: String(person.id), name: person.nickname }

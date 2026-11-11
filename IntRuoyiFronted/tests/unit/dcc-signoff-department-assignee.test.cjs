@@ -15,8 +15,8 @@ function moduleFrom(source, dependencies = {}) {
   return context.exports
 }
 const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
-const renderer = () => vue.createRenderer({ createElement: type => ({ type, children: [] }), createText: text => ({ text }),
-  createComment: () => ({}), insert: (node, parent) => parent.children.push(node), remove() {}, setText() {},
+const renderer = () => vue.createRenderer({ querySelector: () => ({ children: [] }), createElement: type => ({ type, children: [] }), createText: text => ({ text }),
+  createComment: () => ({}), querySelector: () => ({ children: [] }), insert: (node, parent) => parent.children.push(node), remove() {}, setText() {},
   setElementText(node, text) { node.text = text }, patchProp() {}, parentNode: () => null, nextSibling: () => null })
 function mount(file, props, dependencies = {}, inlineTemplate = false) {
   const component = moduleFrom(compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate }).content, dependencies).default
@@ -88,7 +88,7 @@ test('actual component template has one department candidate selector and no ALL
   const app = renderer().createApp(component, { fileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
     departmentName: 'A部门', users: [{ id: '99', name: '本人' }], assigned: false, save: async () => true,
     loadAllUsers: async () => [{ id: '200', name: 'B部门人员' }] })
-  for (const name of ['ElSelect', 'ElOption', 'ElInput', 'ElButton']) app.component(name, {
+  for (const name of ['ElSelect', 'ElOption', 'ElInput', 'ElButton', 'ElForm', 'ElFormItem']) app.component(name, {
     props: ['value', 'label'], setup(props, { slots }) {
       mounted.push(name)
       if (name === 'ElOption') { values.push(props.value); optionLabels.push(props.label) }
@@ -124,6 +124,20 @@ test('department member and self can each sign but a selection removed from curr
   } finally { panel.app.unmount() }
 })
 
+test('candidate labels distinguish duplicate names with accounts and retain account-only names', async () => {
+  const panel = assignment()
+  try {
+    panel.props.users = [
+      { id: '99', name: '张三', username: 'zhang.a' },
+      { id: '100', name: '张三', username: 'zhang.b' },
+      { id: '101', name: 'reviewer101', username: 'reviewer101' },
+      { id: '102', name: '李四', username: 'li.si' }
+    ]
+    await vue.nextTick()
+    assert.deepEqual(panel.props.users.map(panel.state.userLabel), ['张三（zhang.a）', '张三（zhang.b）', 'reviewer101', '李四'])
+  } finally { panel.app.unmount() }
+})
+
 test('actual detail save refuses an injected user outside the exact department context', async () => {
   const writes = [], peopleReads = []
   const context = { controlledFileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
@@ -133,7 +147,7 @@ test('actual detail save refuses an injected user outside the exact department c
     { fileId: '10', processInstanceId: 'round-a', taskId: 'task-a' }, {
       '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => context },
       '@/api/dcc/controlledFile/workflowLifecycle': { assignWorkflowSignoff: async (...args) => { writes.push(args); return true } },
-      '@/api/dcc/controlledFile/relations': {},
+      '@/api/dcc/controlledFile/relations': { listHistoricalRelations: async () => [] },
       '@/api/system/user': { getSimpleUserList: async () => { peopleReads.push(true); return [] } },
       '../workflow/workflow-actions': actions
     })

@@ -61,6 +61,7 @@ function mount(availability) {
   const relation = mod(read('src/views/dcc/controlled-file/detail/relation-contract.ts'))
   const compile = compileScript(desc, { id: 'selected-source' }),
     component = mod(compile.content, {
+      '@/api/dcc/controlledFile/bodyReadContext': require('./dcc-detail-read-test-loader.cjs').body,
       '@/utils/auth': { getTenantId: () => 1, getVisitTenantId: () => null },
       '@/api/common/filePreview': require('./dcc-fixed-version-preview-test-loader.cjs')().common,
       '@/api/dcc/controlledFile/applicationRead': {

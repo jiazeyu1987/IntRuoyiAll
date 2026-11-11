@@ -1504,7 +1504,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     || row.getAttributeRound() == null || row.getAttributeRound() < 1
                     || !identities.add(row.getApplicationType() + ":" + row.getAttributeRound()))
                 throw new IllegalStateException("已登记申请轮次身份不完整或重复");
-            applicationHistoryGuard.require(file,row.getApplicationType(),row.getBpmRound());
+            var history = applicationHistoryGuard.require(file,row.getApplicationType(),row.getBpmRound());
+            row.setApplicationTime(history.getStartTime());
+            if ("REVISION".equals(row.getApplicationType())) {
+                row.setRevisionChangeType(file.getRevisionChangeType());
+                row.setRevisionSourceVersionNo(file.getRevisionSourceVersionNo());
+                row.setChangeDescription(file.getChangeDescription());
+            }
         }
         for (var row : rows) {
             var flow = roundFlowContracts.resolveRoundFlowContract(file, row);

@@ -23,7 +23,7 @@ test('actual historical unbound project never borrows product name or code and k
   assert.equal(projectText({projectName:'正式项目甲',projectCode:null,productName:'产品乙'}),'正式项目甲')
 })
 test('actual DCC project descriptions subtree renders project facts while original product and navigation identity remain',()=>{
-  const find=n=>{if(n.type===1&&n.tag==='el-descriptions-item'&&n.props.some(p=>p.type===6&&p.name==='label'&&p.value?.content==='DCC 项目'))return n;for(const child of n.children||[]){const found=find(child);if(found)return found}}
+  const find=n=>{if(n.type===1&&n.tag==='el-descriptions-item'&&n.props.some(p=>p.type===6&&p.name==='label'&&p.value?.content==='项目'))return n;for(const child of n.children||[]){const found=find(child);if(found)return found}}
   const node=find(descriptor.template.ast);assert.ok(node)
   const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const currentDccProjectCodeText=__value;</script>').descriptor,{id:'actual-project-facts',inlineTemplate:true})
   const c={exports:{},require:()=>vue,__value:projectText({dccProjectCodeId:'271',projectName:'正式项目甲',projectCode:'PROJECT-A',productName:'产品乙',productCode:'PRODUCT-B'})}
@@ -32,7 +32,7 @@ test('actual DCC project descriptions subtree renders project facts while origin
   const app=renderer.createApp(c.exports.default);app.component('el-descriptions-item',{setup:(_p,ctx)=>()=>vue.h('section',ctx.slots.default?.())});const root={children:[]};app.mount(root)
   const text=n=>(n.text||'')+(n.children||[]).map(text).join('')
   try{assert.equal(text(root),'正式项目甲 / PROJECT-A')}finally{app.unmount()}
-  assert.ok(descriptor.template.content.includes("fileDetail?.productCode || '-'") )
+  assert.ok(descriptor.template.content.includes("fileDetail?.productCode || '未记录'") )
   assert.ok(descriptor.template.content.includes('openDccProjectCode(fileDetail.dccProjectCodeId)'))
   assert.ok(descriptor.template.content.includes('未绑定 DCC 项目代码'))
 })

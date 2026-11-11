@@ -60,6 +60,7 @@ function mount(name, props, deps) {
   const { descriptor } = parse(read(file))
   const compiled = compileScript(descriptor, { id: name })
   deps = {
+    '@/api/dcc/controlledFile/bodyReadContext': require('./dcc-detail-read-test-loader.cjs').body,
     '@/api/common/filePreview': require('./dcc-fixed-version-preview-test-loader.cjs')().common,
     './application-node-records': mod(
       read('src/views/dcc/controlled-file/detail/application-node-records.ts')
@@ -150,7 +151,8 @@ function application(
         fileTypeTaxonomyId: 40,
         status: 'ACTIVE',
         versionNo: 'A/1',
-        title: '说明.pdf'
+        title: '说明.pdf',
+        canEditFile: true
       }
     },
     {
@@ -170,6 +172,7 @@ function application(
           { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: [60] }
         ]
       },
+      '@/api/dcc/controlledFile/relations': { listHistoricalRelations: async () => [], listCurrentRelations: async id => ({ sourceControlledFileId: id, files: [] }) },
       '@/api/dcc/controlledFile/projectAttributes': {
         getProjectDefaults: async () => attrs('NMPA')
       },
@@ -392,7 +395,7 @@ test('selected saved body shows CE default/FDA actual and a late previous draft 
     })
   try {
     await p.state.open()
-    assert.deepEqual(clone(p.state.snapshot.actual), attrs('NMPA'))
+    assert.equal(p.state.snapshot, undefined, 'controlled baseline must wait for an explicit working body selection')
     const first = p.state.selectIteration('12')
     await p.state.selectIteration('13')
     pending.resolve(draft('12'))
@@ -675,9 +678,10 @@ test('detail exposes exact revision attempts and source identity, and reads actu
   assert.match(history, /getControlledFileApplicationRounds/)
   assert.match(
     history,
-    /getControlledFileApplicationEvidence\(\s*round\.controlledFileId,\s*round\.applicationType,\s*round\.bpmRound\s*\)/
+    /getControlledFileApplicationEvidence\(\s*round\.controlledFileId,\s*round\.applicationType,\s*round\.bpmRound\s*,\s*props\.bodyReadContext/
   )
-  assert.match(history, /evidence\.signatures/)
+  assert.match(history, /<DetailApprovalRecords[^>]+:evidence="evidence"/)
+  assert.match(read('src/views/dcc/controlled-file/detail/approval-records.ts'), /evidence\.signatures/)
 })
 const metadata = (id, patch = {}) => ({
   controlledFileId: id,

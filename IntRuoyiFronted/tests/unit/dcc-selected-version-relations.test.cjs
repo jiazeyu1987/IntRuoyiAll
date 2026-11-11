@@ -146,6 +146,7 @@ function moduleOf(source, deps = {}) {
   )(exports, (id) => {
     if (id === 'vue') return vue
     if (id in deps) return deps[id]
+    if (id === '../shared/signature-evidence') return moduleOf(fs.readFileSync(path.join(root, 'src/views/dcc/controlled-file/shared/signature-evidence.ts'), 'utf8'))
     if (id.endsWith('.vue'))
       return { __esModule: true, default: { render: () => vue.h('unused-viewer') } }
     throw Error('unexpected import ' + id)
@@ -248,10 +249,12 @@ function mount(options = {}) {
           vue.h(tag, attrs, slots.default?.())
     })
   app.directive('loading', {})
+  let renderedRows
   app.component('el-table', {
     props: ['data'],
     setup: (props, { slots }) => {
-      vue.provide('rows', vue.toRef(props, 'data'))
+      renderedRows = vue.toRef(props, 'data')
+      vue.provide('rows', renderedRows)
       return () => vue.h('table', {}, slots.default?.())
     }
   })
@@ -277,7 +280,8 @@ function mount(options = {}) {
     state: host.$.subTree.component.setupState,
     app,
     preview,
-    visible: () => text(tree)
+    visible: () => text(tree),
+    renderedRows: () => renderedRows.value
   }
 }
 test('exact approval evidence shows frozen names without everyday target rights; body still rejects', async () => {
@@ -373,7 +377,8 @@ test('real compiled Vue template renders frozen X/1 and no current-version secti
   }
 })
 test('selected exact application reads complete upload, supplement and remediation evidence instead of version history', async () => {
-  const c = mount({ inline: true, props: { applicationSelection: selection } })
+  const frozenEvidence = evidence(), before = JSON.stringify(frozenEvidence)
+  const c = mount({ inline: true, props: { applicationSelection: selection }, getEvidence: async () => frozenEvidence })
   try {
     await drain()
     assert.deepEqual(
@@ -381,17 +386,13 @@ test('selected exact application reads complete upload, supplement and remediati
       [['evidence', file.id, 'REVISION', 'round-A1']]
     )
     assert.equal(c.calls.filter((row) => ['history', 'current'].includes(row[0])).length, 0)
-    for (const text of [
-      '上传X',
-      '后补Z',
-      '原上传选择',
-      '本次补充',
-      '负责人 71',
-      '2026-10-16 12:00:00',
-      '签名证据异常',
-      '当时负责人'
-    ])
-      assert.ok(c.visible().includes(text), text)
+    for (const text of ['上传X', '后补Z']) assert.ok(c.visible().includes(text), text)
+    for (const internal of ['原上传选择', '本次补充', '负责人 71', '签名投影']) assert.ok(!c.visible().includes(internal), internal)
+    assert.equal(frozenEvidence.relationEvidence.stages[0].signatureEvidenceStatus, 'INVALID')
+    assert.equal(frozenEvidence.relationEvidence.stages[0].snapshot.members[1].assigneeUserId, '71')
+    assert.equal(JSON.stringify(frozenEvidence), before, 'display consolidation must not rewrite signed evidence')
+    assert.equal(c.renderedRows().length, 2)
+    assert.equal(new Set(c.renderedRows().map(row => row.controlledFileId)).size, 2)
   } finally {
     c.app.unmount()
   }
@@ -736,7 +737,7 @@ test('explicit unresolved application context never falls back to the version sn
   }
 })
 
-test('working source displays draft while formal request identity and version validation stay exact', async () => {
+test('working source is not repeated in the relation list while requests and fixed versions stay exact', async () => {
   const c = mount({
     inline: true,
     props: { file: { ...file, versionNo: 'A/1-2' } },
@@ -749,7 +750,7 @@ test('working source displays draft while formal request identity and version va
   })
   try {
     await drain()
-    assert.match(c.visible(), /草稿/)
+    assert.match(c.visible(), /关联文件/)
     assert.doesNotMatch(c.visible(), /A\/1-2/)
     assert.match(c.visible(), /X\/1/)
     assert.deepEqual(c.calls, [

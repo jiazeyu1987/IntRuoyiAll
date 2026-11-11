@@ -14,7 +14,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText, helpers)
 const names = ['handleFileChange', 'handleAttachmentFileChange', 'handleAttachmentRemove',
-  'handleFileRemove',
+  'handleFileRemove', 'handleBeforeFileRemove', 'resetSelectedPreview', 'handleFileExceed', 'removeMainFile',
   'handleBeforeAttachmentRemove', 'findAttachmentUploadAttempt', 'nextAttachmentUploadGeneration',
   'isCurrentAttachmentUpload', 'syncAttachmentUploadLoading', 'resetAttachmentUploads']
 const handlers = ast.statements.filter(s => s.declarationList?.declarations.some(d => names.includes(d.name.text)))
@@ -24,7 +24,7 @@ const selection = (name, uid) => ({ uid, name, status: 'ready', raw: { name } })
 function host() {
   let session = 0
   const c = {
-    exports: {}, ...helpers.exports, calls: [], errors: [], cleaned: [],
+    genFileId: () => ++session, exports: {}, ...helpers.exports, calls: [], errors: [], cleaned: [],
     submitLoading: ref(false), uploadSubmitted: ref(false), projectAttributesLoading: ref(false),
     isExternalReview: ref(false), sourceUploadRequestSeq: 0, uploadSessionId: 'initial',
     uploadPreviewLoading: ref(false), uploadPreviewError: ref(''), previewFileBlob: ref(null),
@@ -48,20 +48,22 @@ function host() {
     return { uploadTicket: `${purpose}-${file.name}`, sessionId: context.sessionId,
       fileName: file.name, previewKind: /\.pdf$/i.test(file.name) ? 'PDF' : 'OFFICE' }
   } }
-  vm.runInNewContext(ts.transpileModule(handlers + '\nexports.removeSource=handleFileRemove;exports.source=handleFileChange;exports.attachment=handleAttachmentFileChange;exports.remove=handleAttachmentRemove;exports.beforeRemove=handleBeforeAttachmentRemove', {
+  vm.runInNewContext(ts.transpileModule(handlers + '\nexports.replace=handleFileExceed;exports.beforeRemoveSource=handleBeforeFileRemove;exports.removeSource=handleFileRemove;exports.source=handleFileChange;exports.attachment=handleAttachmentFileChange;exports.remove=handleAttachmentRemove;exports.beforeRemove=handleBeforeAttachmentRemove', {
     compilerOptions: { target: ts.ScriptTarget.ES2022 }
   }).outputText, c)
   return c
 }
 
-test('upload section renders only original and attachments', () => {
-  const section = descriptor.template.content.match(/<section[^>]*data-testid="dcc-upload-section-attachment"[\s\S]*?<\/section>/)[0]
-  assert.deepEqual([...section.matchAll(/<el-form-item label="([^"]+)"/g)].map(m => m[1]), ['文件上传', '附件'])
-  assert.doesNotMatch(section, /可编辑版本|普通附件|必须上传不可编辑/)
-  assert.doesNotMatch(section, /上传文件原件，在线浏览为只读模式|源文件为 DWG|可一次选择多个附件/)
-  assert.doesNotMatch(section, /图纸文件|DRAWING_PDF/)
-  const attachment = section.slice(section.indexOf('label="附件"'))
-  assert.doesNotMatch(attachment, /:disabled="[^"]*(?:!previewUpload|uploadPreviewLoading)/)
+test('main file preview is separate from supplementary attachments', () => {
+  const panel = descriptor.template.content.match(/<section[^>]*data-testid="dcc-upload-main-file-panel"[\s\S]*?<\/section>/)[0]
+  assert.match(panel, /prop="file"/)
+  assert.match(panel, /:show-file-list="false"/)
+  assert.match(panel, /更换文件/)
+  assert.match(panel, /@click="removeMainFile"/)
+  assert.match(panel, /compact :preview-blob/)
+  assert.doesNotMatch(panel, /ref="attachmentUploadRef"/)
+  const attachment = descriptor.template.content.match(/<el-upload[\s\S]*?ref="attachmentUploadRef"[\s\S]*?<\/el-upload>/)[0]
+  assert.doesNotMatch(attachment.slice(attachment.lastIndexOf('<el-upload')), /:disabled="[^"]*(?:!previewUpload|uploadPreviewLoading)/)
   const compiled = compileTemplate({ source: descriptor.template.content, filename: 'upload.vue', id: 'single-source' })
   assert.deepEqual(compiled.errors, [])
 })
@@ -131,4 +133,46 @@ test('unsupported source types fail visibly before an upload request', async () 
   assert.equal(c.calls.length, 0)
   assert.equal(c.errors.length, 1)
   assert.match(c.errors[0], /仅支持/)
+})
+
+
+test('replacement button updates summary, filename and preview without clearing user fields', async () => {
+  const c = host(), first = selection('first.docx', 1)
+  c.formData.remark = 'keep remark'
+  c.formData.fileNumber = 'SOP-001'
+  await c.exports.source(first, [first])
+  await c.exports.replace([{ name: 'second.xlsx', size: 2048 }])
+  assert.equal(c.previewUpload.value.fileName, 'second.xlsx')
+  assert.equal(c.previewFileBlob.value.name, 'second.xlsx')
+  assert.equal(c.formData.fileName, 'second.xlsx')
+  assert.equal(c.fileList.value[0].size, 2048)
+  assert.equal(c.formData.remark, 'keep remark')
+  assert.equal(c.formData.fileNumber, 'SOP-001')
+})
+
+test('invalid replacement keeps the existing main file and reports the actual validation error', async () => {
+  const c = host(), first = selection('first.docx', 1)
+  await c.exports.source(first, [first])
+  await c.exports.replace([{ name: 'program.exe', size: 2 }])
+  assert.equal(c.calls.length, 1)
+  assert.equal(c.previewUpload.value.fileName, 'first.docx')
+  assert.match(c.uploadPreviewError.value, /仅支持/)
+})
+
+test('removal clears only file preview state after ticket cleanup succeeds', async () => {
+  const c = host(), first = selection('first.docx', 1)
+  c.formData.remark = 'keep remark'
+  await c.exports.source(first, [first])
+  c.cleanupTemporaryUploadTicket = async () => false
+  assert.equal(await c.exports.beforeRemoveSource(), false)
+  assert.equal(c.previewUpload.value.fileName, first.name)
+  c.cleanupTemporaryUploadTicket = async () => true
+  assert.equal(await c.exports.beforeRemoveSource(), true)
+  c.exports.removeSource()
+  assert.equal(c.fileList.value.length, 0)
+  assert.equal(c.previewUpload.value, undefined)
+  assert.equal(c.previewFileBlob.value, null)
+  assert.equal(c.uploadPreviewError.value, '')
+  assert.equal(c.formData.remark, 'keep remark')
+  assert.equal(c.formData.fileName, first.name)
 })

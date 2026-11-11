@@ -44,7 +44,7 @@ const setup = overrides => {
     resolveTodayDate: () => '2026-10-11',
     hasUploadApplicationInput: () => true, hasTemporaryUploadState: () => false,
     cleanupCurrentUploadSession: async () => true, projectAttributesRestoreSnapshot: ref(undefined),
-    h: require('vue').h,
+    h: require('vue').h, ref,
     formData: { dccProjectCodeId: 5, fileTypeTaxonomyId: '4', processType: 'CONTROLLED_FILE', changeType: 'NEW', categoryId: 2,
       directoryId: 3, relatedControlledFileIds: [8], projectAttributes: structuredClone(attributes), effectiveMode: 'PRESET_DATE', effectiveDate: '2099-12-20',
       fileNumber: 'SOP-001', versionNo: 'A/1', needTraining: true,
@@ -53,6 +53,7 @@ const setup = overrides => {
     routeReadinessSelectionKey: ref(signoffModel.exports.signoffRequestKey(2, ['7'], 'CONTROLLED_FILE')),
     routeReadinessRequestSeq: 0, signoffSelectionCategoryKey: signoffModel.exports.signoffCategoryKey(2,'CONTROLLED_FILE'),
     selectedFileTypeTaxonomyPath: ref({ approvalSourceMode: 'PUBLIC_MATRIX' }), isCustomApprovalSource: ref(false),
+    isLibraryUpload: ref(false), libraryScope: ref('PROJECT'),
     isExternalReview: ref(false), isNormalNewUpload: ref(true), projectAttributesPanel: ref({ getSnapshot: () => snapshot(5), selectProject: async () => true }),
     projectAttributesPanelKey: ref(0), acceptedProjectCodeId: ref(5), projectAttributesLoading: ref(false), projectAttributesSelectionSequence: 0,
     projectFoldersLoading: ref(false), projectFoldersError: ref(''), projectFolders: ref([]), projectFoldersProjectId: ref('5'),
@@ -82,7 +83,19 @@ const setup = overrides => {
     message: { confirm: async content => { calls.confirmed++; calls.confirmations.push(content) }, warning: text => calls.errors.push(text), error: text => calls.errors.push(text), success: text => calls.success.push(text) },
     buildSubmitFailureFeedback: error => ({ message: error.message }), applySubmitFailureFeedback() {}, ...overrides
   }
-  state.ElMessageBox = { confirm: (...args) => state.message.confirm(...args) }
+  state.ElMessageBox = { confirm: async (content, title, options) => {
+    await state.message.confirm(content.type?.render ? content.type.render() : content, title, options)
+    if (!options?.beforeClose) return
+    const instance = {}; let closed = false
+    await options.beforeClose('confirm', instance, () => { closed = true })
+    if (!closed) {
+      const alert = content.type.render().children.find(node => node?.props?.role === 'alert')
+      const read = node => typeof node === 'string' ? node : Array.isArray(node?.children) ? node.children.map(read).join(' ') : String(node?.children || '')
+      calls.errors.push(read(alert))
+      // A failed confirmation stays open; this harness returns to the form after recording the alert.
+      throw 'cancel'
+    }
+  } }
   return { state, calls }
 }
 const evaluate = (state, source, exported) => {
@@ -343,7 +356,7 @@ test('actual clicked confirmation renders required formal facts and independent 
   assert.equal(calls.confirmed, 1)
   const read = node => typeof node === 'string' ? node : Array.isArray(node?.children) ? node.children.map(read).join(' ') : String(node?.children || '')
   const text = read(calls.confirmations[0])
-  for (const expected of ['甲项目', '逻辑文件夹', '作业指导书', 'SOP.PDF', 'SOP-001', 'A/1', '2099-12-20', 'CE', '注册人：否', '生产方：是', '文件转移：否', '关联文件.pdf', 'B/1', '质量', '批准甲', '9223372036854775709', '需要培训', '生效与受控分别记录', '全部人员']) assert.ok(text.includes(expected), expected)
+  for (const expected of ['甲项目', '逻辑文件夹', '作业指导书', 'SOP.PDF', 'SOP-001', 'A/1', '2099-12-20', 'CE', '注册人：否', '生产方：是', '文件转移：否', '关联文件.pdf', 'B/1', '质量', '批准甲', '9223372036854775709', '需要培训', '同时满足受控且已生效', '全部人员']) assert.ok(text.includes(expected), expected)
 })
 
 test('confirmation rejects actual attribute panel changes even if formData is not updated', async () => {

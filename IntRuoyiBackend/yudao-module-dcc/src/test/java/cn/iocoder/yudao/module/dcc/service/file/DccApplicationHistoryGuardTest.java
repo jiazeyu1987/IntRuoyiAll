@@ -8,6 +8,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 class DccApplicationHistoryGuardTest {
+    @Test void verifiedHistoryKeepsTheActualSubmissionTime() {
+        var file=DccControlledFileDO.builder().id(20L).tenantId(1L).requesterId(99L).build();
+        var historic=mock(HistoricProcessInstance.class);
+        when(historic.getId()).thenReturn("actual");when(historic.getTenantId()).thenReturn("1");
+        when(historic.getStartUserId()).thenReturn("99");when(historic.getBusinessKey()).thenReturn("20");
+        when(historic.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.REVISION);
+        var submittedAt=new java.util.Date(1794402000000L);when(historic.getStartTime()).thenReturn(submittedAt);
+        var processes=mock(BpmProcessInstanceService.class);when(processes.getHistoricProcessInstance("actual")).thenReturn(historic);
+        var guard=new DccApplicationHistoryGuard();DccWorkflowSelectedIterationDatabaseTest.wire(guard,"processes",processes);
+        assertSame(submittedAt,guard.require(file,"REVISION","actual").getStartTime());
+    }
     @ParameterizedTest @ValueSource(strings={"TENANT","APPLICANT","BUSINESS","DEFINITION"})
     void nativeContentHistoryCannotBorrowForeignIdentity(String invalid) {
         var file=DccControlledFileDO.builder().id(20L).tenantId(1L).requesterId(99L).versionNo("A/2").build();

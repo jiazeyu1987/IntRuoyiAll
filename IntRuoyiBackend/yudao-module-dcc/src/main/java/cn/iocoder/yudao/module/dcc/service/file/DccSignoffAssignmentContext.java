@@ -9,5 +9,5 @@ public record DccSignoffAssignmentContext(
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long departmentId, String departmentName,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long assigneeUserId,
         boolean assigned, boolean canAssign, List<AssigneeOption> assigneeOptions) {
-    public record AssigneeOption(@JsonFormat(shape=JsonFormat.Shape.STRING) Long id,String name) {}
+    public record AssigneeOption(@JsonFormat(shape=JsonFormat.Shape.STRING) Long id,String name,String username) {}
 }

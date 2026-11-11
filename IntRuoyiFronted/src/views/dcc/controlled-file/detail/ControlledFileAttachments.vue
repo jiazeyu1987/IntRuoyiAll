@@ -1,18 +1,18 @@
 <template>
   <section data-testid="dcc-detail-attachments" class="mb-16px min-w-0 w-full">
-    <div class="mb-12px flex items-center justify-between gap-12px">
+    <div v-if="!compact || validationError || attachments.length" class="mb-12px flex items-center justify-between gap-12px">
       <div class="text-15px font-600">文件附件</div>
       <el-tag size="small" type="info">共 {{ validationError ? '—' : attachments.length }} 个</el-tag>
     </div>
     <el-alert v-if="validationError || actionError" :title="validationError || actionError" type="error" :closable="false" class="mb-12px" />
     <el-table v-if="!validationError && attachments.length" :data="attachments" border class="w-full" table-layout="auto">
       <el-table-column prop="fileName" label="附件名称" min-width="220" show-overflow-tooltip />
-      <el-table-column label="用途" min-width="90"><template #default="{ row }">{{ attachmentPurposeText(row) }}</template></el-table-column>
-      <el-table-column label="上传人" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentUploaderText(row) }}</template></el-table-column>
-      <el-table-column label="上传时间" min-width="150"><template #default="{ row }">{{ attachmentUploadTimeText(row) }}</template></el-table-column>
-      <el-table-column label="首次提交轮次" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentRoundText(row) }}</template></el-table-column>
-      <el-table-column label="类型" min-width="90" show-overflow-tooltip><template #default="{ row }">{{ row.contentType || row.previewKind || '未记录' }}</template></el-table-column>
-      <el-table-column label="大小" min-width="85"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="用途" min-width="90"><template #default="{ row }">{{ attachmentPurposeText(row) }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="上传人" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentUploaderText(row) }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="上传时间" min-width="150"><template #default="{ row }">{{ attachmentUploadTimeText(row) }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="首次提交轮次" min-width="120" show-overflow-tooltip><template #default="{ row }">{{ attachmentRoundText(row) }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="类型" min-width="90" show-overflow-tooltip><template #default="{ row }">{{ row.contentType || row.previewKind || '未记录' }}</template></el-table-column>
+      <el-table-column v-if="!compact" label="大小" min-width="85"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
       <el-table-column label="操作" min-width="135" fixed="right">
         <template #default="{ row }">
           <el-button v-if="!['OFFICE', 'DOWNLOAD_ONLY'].includes(row.previewKind || '')" link type="primary" @click="preview(row)">在线查看</el-button>
@@ -21,7 +21,7 @@
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-else-if="!validationError && file" :image-size="72" description="暂无文件附件" />
+    <p v-else-if="!validationError && file" class="text-13px text-[var(--el-text-color-secondary)]">{{ compact ? '无附件' : '暂无文件附件' }}</p>
     <el-dialog v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close>
       <ProtectedPdfViewer v-if="previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName || '附件预览'" />
     </el-dialog>
@@ -39,7 +39,7 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean }>()
 const userStore = useUserStoreWithOut()
 const actionError = ref(''), downloading = ref(''), selected = ref<ControlledFileAttachmentVO>(), previewVisible = ref(false)
 const validationError = computed(() => {

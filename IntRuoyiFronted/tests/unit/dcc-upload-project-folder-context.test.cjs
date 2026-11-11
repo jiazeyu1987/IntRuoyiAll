@@ -4,18 +4,19 @@ const block=(start,end)=>source.slice(source.indexOf(start),source.indexOf(end,s
 const ref=value=>({value}),computed=fn=>({get value(){return fn()}})
 const treeExports={};new Function('exports',ts.transpileModule(fs.readFileSync(path.join(root,'src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(treeExports)
 const oldFolder={id:'500',projectCodeId:'5',parentId:'0',name:'质量',sortOrder:0,active:true}
-test('project folder has one refresh button and invokes the handler without a DOM event as project identity',()=>{
+test('project folder refreshes automatically on opening and shows its loading state without a refresh button',()=>{
  const field=source.match(/<el-form-item[^>]*label="项目文件夹"[\s\S]*?<\/el-form-item>/)[0]
- assert.equal((field.match(/刷新目录/g)||[]).length,1)
- assert.match(field,/@click="refreshUploadProjectFolders\(\)"/)
+ assert.equal((field.match(/刷新目录/g)||[]).length,0)
+ assert.match(field,/@visible-change="handleProjectFolderVisibleChange"/)
+ assert.match(field,/:loading="projectFoldersLoading"/)
 })
 function setup(overrides={}){
   const state={formData:{dccProjectCodeId:'5',projectFolderId:'500',relatedControlledFileIds:['1']},projectFolders:ref([oldFolder]),projectFoldersProjectId:ref('5'),projectFoldersLoading:ref(false),projectFoldersError:ref(''),projectFolderRequestSequence:0,
     approvalMatrixState:ref(),approvalMatrixScopeKey:'',routeReadinessRequestSeq:0,routeReadiness:ref(),routeReadinessSelectionKey:ref(''),signoffSelectionCategoryKey:'',
-    projectAttributesSelectionSequence:0,acceptedProjectCodeId:ref('5'),projectAttributesLoading:ref(false),projectAttributesPanelKey:ref(0),projectAttributesPanel:ref({selectProject:async()=>true}),
+    projectCodeOptions:ref([]),acceptedProjectCodeOption:ref(),isLibraryUpload:ref(false),projectAttributesSelectionSequence:0,acceptedProjectCodeId:ref('5'),projectAttributesLoading:ref(false),projectAttributesPanelKey:ref(0),projectAttributesPanel:ref({selectProject:async()=>true}),
     message:{confirm:async()=>{},error:()=>{},warning:()=>{}},defineExpose(){},hasUploadApplicationInput:()=>false,hasTemporaryUploadState:()=>false,cleanupCurrentUploadSession:async()=>true,projectAttributesRestoreSnapshot:ref(),selectedUploadRelations:ref([]),uploadRelationsVisible:ref(false),uploadRelationSource:ref(),resetProjectFileTemplateSelection(){},applyDccProjectCodeProductNumber(){},loadProjectFileTemplate:async()=>{},getProjectFolders:async()=>[],computed,buildProjectFolderTree:treeExports.buildProjectFolderTree}
   Object.assign(state,overrides)
-  const code=block('const handleProjectCodeChange =','const buildUploadRelationSource =')+'\nreturn {handleProjectCodeChange,projectFolderTree,selectedProjectFolder,loadUploadProjectFolders,refreshUploadProjectFolders}'
+  const code=block('const handleProjectCodeChange =','const buildUploadRelationSource =')+'\nreturn {handleProjectCodeChange,projectFolderTree,selectedProjectFolder,loadUploadProjectFolders,refreshUploadProjectFolders,handleProjectFolderVisibleChange}'
   const compiled=ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
   const handlers=new Function(...Object.keys(state),compiled)(...Object.values(state))
   return {state,handlers}
@@ -33,6 +34,13 @@ test('same-project folder refresh invalidates projection while pending and prese
  release([oldFolder]);await pending
  assert.equal(state.formData.projectFolderId,'500');assert.equal(handlers.selectedProjectFolder.value.id,'500')
  assert.deepEqual(state.formData.projectAttributes,{targetMarkets:['CE']});assert.deepEqual(state.formData.selectedSignoffDepartmentIds,['8']);assert.deepEqual(state.formData.selectedDistributionDepartmentIds,['9'])
+})
+
+test('every reopening reads the current directory, closing does not fetch, and errors remain visible',async()=>{
+ let calls=0; const {state,handlers}=setup({submitLoading:ref(false),getProjectFolders:async()=>{calls++;if(calls===3)throw new Error('目录读取无权限');return [oldFolder]}})
+ await handlers.handleProjectFolderVisibleChange(false);assert.equal(calls,0)
+ await handlers.handleProjectFolderVisibleChange(true);await handlers.handleProjectFolderVisibleChange(true);assert.equal(calls,2)
+ await handlers.handleProjectFolderVisibleChange(true);assert.equal(state.projectFoldersError.value,'目录读取无权限');assert.equal(state.projectFoldersLoading.value,false)
 })
 test('deleted or disabled selected folder is cleared and reported without guessing a replacement',async()=>{
  for(const rows of [[],[{...oldFolder,active:false}]]){

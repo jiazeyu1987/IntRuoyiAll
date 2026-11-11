@@ -2,6 +2,8 @@
   <div
     v-loading="loading"
     class="protected-viewer-shell"
+    :class="{ 'protected-viewer-shell--compact': compact, 'protected-viewer-shell--expanded': expanded }"
+    @keyup.esc="expanded = false"
     @copy="blockPreviewInteraction"
     @cut="blockPreviewInteraction"
     @paste="blockPreviewInteraction"
@@ -11,10 +13,10 @@
   >
     <div class="protected-viewer-toolbar">
       <div>
-        <div class="protected-viewer-title">{{ title || '受控文件预览' }}</div>
+        <div class="protected-viewer-title">{{ compact ? '提交前预览' : (title || '受控文件预览') }}</div>
       </div>
       <div class="protected-viewer-toolbar__actions">
-        <span v-if="registeredPreviewVisible" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
+        <span v-if="registeredPreviewVisible && !hideReadingDetails" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
           本次预览登记时间：{{ registeredPreviewLabel }}
         </span>
         <div
@@ -29,7 +31,16 @@
       </div>
     </div>
 
-    <div v-if="readingSupported" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
+    <div v-if="compact" class="protected-viewer-compact-tools" data-testid="upload-preview-toolbar">
+      <el-button size="small" aria-label="缩小" :disabled="!compactCanZoomOut" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.decreaseZoom() : handleZoomOut()">缩小</el-button>
+      <span aria-live="polite">{{ compactZoomPercent }}%</span>
+      <el-button size="small" aria-label="放大" :disabled="!compactCanZoomIn" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.increaseZoom() : handleZoomIn()">放大</el-button>
+      <el-button size="small" @click="expanded = !expanded">{{ expanded ? '退出放大预览' : '放大预览' }}</el-button>
+      <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="旋转" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.rotatePreview() : handleRotateRight()">旋转</el-button>
+      <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="复原" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.resetView() : handleResetViewerTransform()">复原</el-button>
+    </div>
+
+    <div v-if="readingSupported && !hideReadingDetails" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
       <template v-if="readingSummary">
         <span>累计有效阅读时间：{{ readingSummary.accumulatedSeconds }} 秒</span>
         <span>首次打开：{{ formatReadingOpenedAt(readingSummary.firstOpenedAt) }}</span>
@@ -84,7 +95,7 @@
       </div>
       <div v-if="pageEntries.length" ref="viewerFrameRef" class="protected-viewer-frame protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -163,7 +174,7 @@
     <template v-else-if="resolvedPreviewKind === 'IMAGE'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -235,7 +246,7 @@
     <template v-else-if="resolvedPreviewKind === 'VIDEO'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -341,7 +352,7 @@
             <span role="status" aria-live="polite">{{ textSearchMessage }}</span>
           </div>
         </div>
-        <div v-if="canTransformPreview" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
+        <div v-if="canTransformPreview && !compact" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
           <span class="protected-viewer-transform-controls__status">{{ viewerZoomPercent }}% / {{ viewerRotationDegrees }}°</span>
           <div class="protected-viewer-transform-controls__grid">
             <el-button size="small" :disabled="viewerZoomPercent >= MAX_VIEWER_ZOOM_PERCENT" aria-label="放大" @click="handleZoomIn">放大</el-button>
@@ -382,6 +393,8 @@
 
     <template v-else-if="resolvedPreviewKind === 'OFFICE'">
       <OnlyOfficeReadOnlyViewer
+        ref="officeViewerRef"
+        :compact="compact"
         :key="renderVersion"
         :base-url="resolvedOnlyOfficeBaseUrl"
         :document-url="resolvedOnlyOfficeDocumentUrl"
@@ -452,7 +465,17 @@ const props = defineProps<{
   previewUnavailableReason?: string
   watermark?: ControlledPreviewWatermark | null
   title?: string
+  compact?: boolean
+  hideReadingDetails?: boolean
 }>()
+const expanded = ref(false)
+const officeViewerRef = ref<InstanceType<typeof OnlyOfficeReadOnlyViewer>>()
+const compactZoomPercent = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? (officeViewerRef.value?.previewZoomValue ?? 100) : viewerZoomPercent.value)
+const compactCanZoomOut = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? officeViewerRef.value?.canZoomOut : canTransformPreview.value && !loading.value && !errorMessage.value && viewerZoomPercent.value > MIN_VIEWER_ZOOM_PERCENT)
+const compactCanZoomIn = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? officeViewerRef.value?.canZoomIn : canTransformPreview.value && !loading.value && !errorMessage.value && viewerZoomPercent.value < MAX_VIEWER_ZOOM_PERCENT)
 const emit = defineEmits<{
   opened: [event: { source: OnlineFilePreviewSource; metadata: ControlledFilePreviewMetadataVO }]
 }>()
@@ -1479,6 +1502,32 @@ watch(
 </script>
 
 <style scoped>
+.protected-viewer-compact-tools {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  background: var(--el-bg-color);
+}
+
+.protected-viewer-shell--compact :deep(.onlyoffice-viewer-toolbar) {
+  display: none;
+}
+
+.protected-viewer-shell--expanded {
+  position: fixed;
+  inset: 20px;
+  z-index: 3000;
+  padding: 16px;
+  overflow: auto;
+  background: var(--el-bg-color);
+  box-shadow: 0 0 0 20px rgb(0 0 0 / 40%);
+}
+
 .protected-viewer-shell {
   min-width: 0;
   max-width: 100%;
@@ -1949,4 +1998,18 @@ watch(
     white-space: normal;
   }
 }
+
+.protected-viewer-shell--compact {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.protected-viewer-shell--compact > .protected-viewer-toolbar,
+.protected-viewer-shell--compact > .protected-viewer-compact-tools { flex-shrink: 0; }
+.protected-viewer-shell--compact > :deep(.onlyoffice-viewer-shell) { flex: 1; min-height: 0; }
+.protected-viewer-shell--compact > .protected-viewer-frame { flex: 1; min-height: 0; overflow: auto; }
+.protected-viewer-shell--compact .protected-viewer-toolbar { padding-bottom: 6px; margin-bottom: 0; }
+.protected-viewer-shell--compact.protected-viewer-shell--expanded { height: auto; }
 </style>

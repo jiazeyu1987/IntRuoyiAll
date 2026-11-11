@@ -1,6 +1,7 @@
 <template>
+  <ContentWrap v-if="followup || followupLoadError" class="dcc-detail-surface">
   <section data-testid="dcc-detail-publication-followup" aria-labelledby="dcc-followup-title">
-    <header class="followup-heading">
+    <header v-if="followup" class="followup-heading">
       <div>
         <h2 id="dcc-followup-title">发布后续</h2>
         <p v-if="followup">{{ followup.fileNumber }} / {{ followup.versionNo }}</p>
@@ -17,10 +18,10 @@
       title="发布后续加载失败"
       :description="followupLoadError"
     />
+    <el-button v-if="followupLoadError" class="mt-8px" @click="loadFollowup">重新加载</el-button>
     <div v-loading="followupLoading" class="followup-body">
-      <el-empty v-if="!followupLoading && !followupLoadError && !followup" description="暂无发布后续记录" />
-      <template v-else-if="followup">
-        <section class="followup-section" aria-labelledby="dcc-visibility-title">
+      <template v-if="followup">
+        <section v-if="followup.visibilityRules.length" class="followup-section" aria-labelledby="dcc-visibility-title">
           <h3 id="dcc-visibility-title">业务可见范围</h3>
           <el-table :data="followup.visibilityRules" empty-text="暂无可见范围快照" size="small">
             <el-table-column label="来源" min-width="180" prop="sourceSummary" />
@@ -39,7 +40,7 @@
           </el-table>
         </section>
 
-        <section class="followup-section" aria-labelledby="dcc-notification-title">
+        <section v-if="followup.notificationDeliveries.length" class="followup-section" aria-labelledby="dcc-notification-title">
           <h3 id="dcc-notification-title">通知发送</h3>
           <el-table :data="followup.notificationDeliveries" empty-text="无通知收件人" size="small">
             <el-table-column label="收件人" min-width="150">
@@ -56,7 +57,7 @@
           </el-table>
         </section>
 
-        <section class="followup-section" aria-labelledby="dcc-impact-title">
+        <section v-if="followup.impactTasks.length" class="followup-section" aria-labelledby="dcc-impact-title">
           <h3 id="dcc-impact-title">影响评估</h3>
           <el-table :data="followup.impactTasks" empty-text="无需评估关联文件" size="small">
             <el-table-column label="相关文件" min-width="220">
@@ -80,6 +81,7 @@
           </el-table>
         </section>
         <section
+          v-if="followup.timeline.length"
           class="followup-section"
           data-testid="dcc-detail-publication-timeline"
           aria-labelledby="dcc-publication-timeline-title"
@@ -90,6 +92,7 @@
       </template>
     </div>
   </section>
+  </ContentWrap>
 </template>
 
 <script lang="ts" setup>
@@ -146,7 +149,11 @@ const loadFollowup = async () => {
       ? { bodyReadContext: serializeDccBodyReadContext(props.controlledFileId, selection.bodyReadContext) }
       : { processInstanceId: selection?.bpmRound, taskId: selection?.taskId, applicationType: selection?.applicationType }
     const result = await getPublicationFollowupByFile(props.controlledFileId, params)
-    if (sequence === loadSequence) followup.value = result
+    if (sequence !== loadSequence) return
+    if (result && String(result.publishedControlledFileId) !== props.controlledFileId) {
+      throw new Error('发布后续记录与当前查看版本不一致，请刷新页面后重试')
+    }
+    followup.value = result
   } catch (error) {
     if (sequence !== loadSequence) return
     followup.value = null
