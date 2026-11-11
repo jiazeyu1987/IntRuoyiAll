@@ -49,7 +49,7 @@ assert.match(
 )
 assert.match(
   profileIndex,
-  /<MyNotifyMessageList\s+class="profile-notify-message-tab"\s+embedded\s+:active="activeName === \'notifyMessage\'"\s+@read-status-change="handleUnreadNotifyMessageRefresh"\s*\/>/,
+  /<MyNotifyMessageList\s+v-if="activeName === \'notifyMessage\'"\s+class="profile-notify-message-tab"\s+embedded\s+:active="activeName === \'notifyMessage\'"\s+@read-status-change="handleUnreadNotifyMessageRefresh"\s*\/>/,
   '个人中心“我的站内信”Tab 必须以嵌入模式渲染列表，并在已读状态变化后刷新红点。'
 )
 assert.match(profileIndex, /<el-tab-pane name="notifyMessage" lazy>/, '站内信列表必须仅在首次切换时挂载。')
@@ -102,7 +102,7 @@ assert.match(
   '我的站内信列表必须继续调用真实我的站内信分页接口。'
 )
 assert.match(notifyList, /notifyTableRef\.value\?\.doLayout\(\)/, '嵌入页切换为可见后必须重新计算站内信表格布局。')
-assert.match(notifyList, /watch\(\(\) => props\.active[\s\S]*refreshTableLayout\(\)/, '个人中心切换到站内信时必须重新布局表格。')
+assert.match(notifyList, /watch\(\s*\(\) => props\.active[\s\S]*refreshTableLayout\(\)/, '个人中心切换到站内信时必须重新布局表格。')
 assert.match(notifyList, /await refreshTableLayout\(\)/, '站内信首屏数据加载后必须重新布局表格。')
 assert.match(notifyList, /handoffPanelRef\.value\?\.refreshLayout\(\)/, '生产交接表格也必须重新计算隐藏页签中的列宽。')
 assert.match(
@@ -139,3 +139,5 @@ assert.match(
 )
 
 console.log('PASS: profile notify message tab static contract')
+
+assert.doesNotMatch(profileIndex, /ReleaseOutcomeRecovery/, '放行结果补发必须并入站内信列表，不能保留底部独立区域。')

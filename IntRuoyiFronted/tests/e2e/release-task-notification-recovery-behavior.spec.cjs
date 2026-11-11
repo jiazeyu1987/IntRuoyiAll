@@ -14,7 +14,7 @@ const listUrl = '/mes/pro/production-release-task-notification/list'
 const retryUrl = '/mes/pro/production-release-task-notification/retry'
 const tick = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); await vue.nextTick() }
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
-const receipt = (extra = {}) => ({ id: '9007199254741001', workTaskId: '2735', userId: '347', status: 'FAILED', rowVersion: 4, attemptCount: 2, lastAttemptAt: '2026-10-03 16:00:00', sentAt: null, systemMessageId: null, lastErrorSummary: '通知模板当前不可用', ...extra })
+const receipt = (extra = {}) => ({ id: '9007199254741001', workTaskId: '2735', userId: '347', status: 'FAILED', retryAllowed: true, rowVersion: 4, attemptCount: 2, lastAttemptAt: '2026-10-03 16:00:00', sentAt: null, systemMessageId: null, lastErrorSummary: '通知模板当前不可用', ...extra })
 const formalRelease = () => ({ releaseTransactionId: '226', batchExecutionId: '900000001225', releaseApprovalWorkTaskId: '2735', releaseStatus: 'RELEASED' })
 const node = (type, text = '') => ({ type, text, props: {}, children: [], parent: null, get parentNode() { return this.parent } })
 const detach = item => { if (item.parent) { const children = item.parent.children; children.splice(children.indexOf(item), 1); item.parent = null } }
@@ -65,7 +65,7 @@ function installPermission(app, userStore) {
 }
 
 function createHarness({ props = { workTaskId: '2735' }, rows, list, release, retry, userId = '347', permissions = [queryPermission] } = {}) {
-  const queries = [], posts = []
+  const queries = [], posts = [], deliveryChanges = []
   const userStore = vue.reactive({ getUser: { id: userId }, permissions: new Set(permissions) })
   const sourceProps = vue.reactive({ ...props })
   const request = {
@@ -82,7 +82,7 @@ function createHarness({ props = { workTaskId: '2735' }, rows, list, release, re
     }
   }
   const actualComponent = loadActualComponent(request, userStore)
-  const app = renderer.createApp({ setup: () => () => vue.h(actualComponent, sourceProps) })
+  const app = renderer.createApp({ setup: () => () => vue.h(actualComponent, { ...sourceProps, onDeliveryChange: () => deliveryChanges.push(true) }) })
   const passthrough = tag => ({ setup: (props, { attrs, slots }) => () => vue.h(tag, attrs, slots.default?.()) })
   app.component('ElButton', passthrough('button'))
   app.component('ElInput', {
@@ -119,7 +119,7 @@ function createHarness({ props = { workTaskId: '2735' }, rows, list, release, re
     await tick()
   }
   return {
-    queries, posts, userStore, sourceProps, find, click,
+    queries, posts, deliveryChanges, userStore, sourceProps, find, click,
     text: () => textOf(container),
     setReason: async value => { const input = find('data-release-task-notification-reason'); assert.ok(input); input.props.onInput({ target: { value } }); await tick() },
     open: () => click('data-release-task-notification-entry'),
@@ -185,7 +185,7 @@ for (const status of ['FAILED', 'PENDING']) {
 }
 
 test('NOTIFY-UI01 SENT and another recipient never expose an enabled retry action', async () => {
-  const h = createHarness({ rows: [receipt({ id: '100', status: 'SENT', systemMessageId: '999' }), receipt({ id: '101', userId: '348' })] })
+  const h = createHarness({ rows: [receipt({ id: '100', status: 'SENT', systemMessageId: '999' }), receipt({ id: '101', userId: '348', retryAllowed: false })] })
   try {
     await h.open()
     for (const id of ['100', '101']) { const button = h.find('data-release-task-notification-retry', id); assert.ok(!button || button.props.disabled) }
@@ -346,5 +346,35 @@ test('NOTIFY-UI01 false acknowledgement remains visible and queries receipts wit
     assert.equal(h.posts.length, 1)
     assert.equal(h.queries.length, 2)
     assert.match(h.text(), /未收到明确的投递结果/)
+  } finally { h.unmount() }
+})
+
+
+test('站内信补发完成后保留回执弹窗，关闭时通知统一列表刷新', async () => {
+  let sent = false
+  const h = createHarness({ list: async () => [receipt({ status: sent ? 'SENT' : 'FAILED' })], retry: async () => { sent = true; return true } })
+  try {
+    await h.open()
+    await h.click('data-release-task-notification-retry', receipt().id)
+    await h.setReason('重新投递放行结果')
+    await h.click('data-release-task-notification-submit-retry')
+    assert.deepEqual(h.deliveryChanges, [])
+    assert.match(h.text(), /已送达/)
+    await h.click('data-release-task-notification-close')
+    assert.deepEqual(h.deliveryChanges, [true])
+  } finally { h.unmount() }
+})
+
+test('站内信补发失败时显示原失败原因，关闭后再刷新统一列表', async () => {
+  const h = createHarness({ retry: async () => { throw new Error('正式通知发送失败') } })
+  try {
+    await h.open()
+    await h.click('data-release-task-notification-retry', receipt().id)
+    await h.setReason('重试投递')
+    await h.click('data-release-task-notification-submit-retry')
+    assert.match(h.text(), /正式通知发送失败/)
+    assert.deepEqual(h.deliveryChanges, [])
+    await h.click('data-release-task-notification-close')
+    assert.deepEqual(h.deliveryChanges, [true])
   } finally { h.unmount() }
 })

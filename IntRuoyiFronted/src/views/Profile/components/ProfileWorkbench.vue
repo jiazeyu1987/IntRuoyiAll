@@ -1,12 +1,5 @@
 <template>
   <div class="profile-workbench">
-    <div v-if="operationEntries.length" class="profile-workbench__operations" data-testid="profile-role-operations">
-      <div class="profile-workbench__operations-title">岗位操作入口</div>
-      <div class="profile-workbench__operation" v-for="entry in operationEntries" :key="entry.key">
-        <div><strong>{{ entry.title }}</strong><p>{{ entry.description }}</p></div>
-        <el-button type="primary" plain @click="router.push(entry.path)">{{ entry.action }}</el-button>
-      </div>
-    </div>
     <el-alert
       v-if="loadErrorMessages.length"
       class="profile-workbench__alert"
@@ -217,42 +210,6 @@ type TodoTaskType = string
 const TODO_TABLE_KEY = 'profile.workbench.todo'
 const router = useRouter()
 const userStore = useUserStore()
-
-// These are operation entrances, not inferred or fabricated pending tasks.
-// The destination keeps its existing responsibility, permission and state checks.
-const operationEntries = computed(() => {
-  const allowed = (permission: string) => userStore.permissions.has('*:*:*') || userStore.permissions.has(permission)
-  const entries: { key: string; title: string; description: string; action: string; path: string }[] = []
-  if (allowed('mes:pro-edhr-deviation:query') && allowed('mes:pro-edhr-deviation:create')) {
-    entries.push({ key: 'deviation-create', title: '偏差发现与发起', action: '去发起偏差',
-      description: '选择尚未上市放行的正式批记录，填写偏差事实、等级依据及紧急措施，指定接收调查人员后使用本人签名发起；后续调查、纠正、签署和关闭从各责任人的待办进入。',
-      path: '/mes/pro/feedback/edhr-deviation' })
-  }
-  if (allowed('mes:pro-feedback:query') && allowed('mes:pro-edhr-batch-execution:query')) {
-    entries.push({ key: 'production', title: '一线生产填写', action: '去填写生产',
-      description: '选择本人负责的活跃订单及工序，填写生产数量、用料和记录，使用本人签名提交后形成初始分配与生产进度；生产组长仍须签名复核，完工前须具备正式复核记录。',
-      path: '/mes/pro/feedback/edhr-batch-production-fill' })
-    if (userStore.permissions.has('*:*:*') || userStore.roles.some(role => ['pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission'].includes(role))) {
-      entries.push({ key: 'pqc', title: '一线PQC首检与巡检', action: '去检验',
-        description: '选择本人负责的活跃订单，按规程完成首检；需要巡检时先创建巡检轮次，再逐项填写并签名提交，待PQC组长复核。',
-        path: '/mes/pro/feedback/edhr-batch-pqc-fill' })
-    }
-  }
-  if (allowed('mes:pro-process-pool-team-leader:query')) {
-    entries.push({ key: 'production-review', title: '生产组长复核', action: '去复核生产',
-      description: '在生产报工中查看本人负责工序的真实提交，核对数量、用料和原始记录后签名复核；退回时填写原因。',
-      path: '/mes/pro/process-pool/production-leader' })
-    entries.push({ key: 'production-complete', title: '生产完工与放行资料指派', action: '去处理活跃订单',
-      description: '进入活跃订单核对生产、检验双进度；均达到100%后按页面校验办理完工。PQC生产放行后，指派来料、灭菌、成品检验报告及记录的补件人员。',
-      path: '/mes/pro/process-pool/production-leader?workbenchTab=activeOrder' })
-  }
-  if (allowed('mes:pro-process-pool-pqc-leader:query')) {
-    entries.push({ key: 'pqc-review', title: 'PQC组长复核', action: '去复核检验',
-      description: '核对本人负责的首检、巡检原始结果和抽样记录，逐项签名复核；复核通过后计入检验进度。',
-      path: '/mes/pro/process-pool/pqc-leader' })
-  }
-  return entries
-})
 
 const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
 
@@ -703,11 +660,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.profile-workbench__operations { margin-bottom: 12px; padding: 12px; border: 1px solid var(--el-border-color-light); border-radius: 6px; }
-.profile-workbench__operations-title { margin-bottom: 8px; font-weight: 600; }
-.profile-workbench__operation { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; }
-.profile-workbench__operation + .profile-workbench__operation { border-top: 1px solid var(--el-border-color-lighter); }
-.profile-workbench__operation p { margin: 4px 0 0; color: var(--el-text-color-secondary); line-height: 1.5; }
 .profile-workbench {
   color: #172033;
   display: flex;

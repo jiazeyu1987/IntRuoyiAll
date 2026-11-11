@@ -81,6 +81,7 @@ const props = defineProps<{
   batchExecutionId?: string | number
   releaseTransactionId?: string | number
 }>()
+const emit = defineEmits<{ (e: 'delivery-change'): void }>()
 const userStore = useUserStore()
 const canQuery = computed(() => userStore.permissions.has('*:*:*') ||
   userStore.permissions.has('mes:pro-edhr-work-task:query'))
@@ -99,6 +100,7 @@ const statusLabels = { PENDING: '待投递', FAILED: '投递失败', SENT: '已�
 let mounted = true
 let generation = 0
 let querySequence = 0
+let deliveryChanged = false
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error)
 const exactId = (value: unknown) => {
@@ -235,7 +237,10 @@ const submitRetry = async () => {
     pendingDeliveryIds.delete(receipt.id)
     if (current(token)) {
       await refresh(token)
-      if (current(token)) retrying.value = false
+      if (current(token)) {
+        retrying.value = false
+        deliveryChanged = true
+      }
     }
   }
 }
@@ -246,7 +251,15 @@ const refreshCurrent = async () => {
   else await refresh(generation)
 }
 
-watch(visible, value => { if (!value) invalidate() }, { flush: 'sync' })
+watch(visible, value => {
+  if (!value) {
+    invalidate()
+    if (deliveryChanged) {
+      deliveryChanged = false
+      emit('delivery-change')
+    }
+  }
+}, { flush: 'sync' })
 watch(() => [props.workTaskId, props.batchExecutionId, props.releaseTransactionId, actorId.value, canQuery.value], () => {
   visible.value = false
   invalidate()

@@ -1,7 +1,12 @@
 <template>
   <div class="my-notify-message-list" :class="{ 'my-notify-message-list--embedded': embedded }">
-    <ActiveOrderHandoffPanel v-if="canReadActiveOrderHandoffs" ref="handoffPanelRef" hide-when-empty />
+    <ActiveOrderHandoffPanel
+      v-if="canReadActiveOrderHandoffs"
+      ref="handoffPanelRef"
+      hide-when-empty
+    />
     <component :is="contentWrapper" class="my-notify-message-list__section">
+      <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <UnifiedListTemplate
         single-line-toolbar
         table-key="system.notify.my-message"
@@ -30,6 +35,7 @@
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
+          <el-button :loading="loading" @click="getList">刷新</el-button>
           <el-button @click="handleUpdateAll">
             <Icon icon="ep:reading" class="mr-5px" /> 全部阅读
           </el-button>
@@ -43,7 +49,7 @@
             data-user-table-column-explicit
             data-user-table-key="system.notify.my-message"
             :data="resolveRows(list)"
-            row-key="id"
+            row-key="rowKey"
             border
             :stripe="true"
             :show-overflow-tooltip="true"
@@ -62,8 +68,15 @@
               align="center"
               prop="createTime"
               :width="getNotifyColumnWidthString('createTime', 200)"
-              :formatter="dateFormatter"
-            />
+            >
+              <template #default="scope">
+                {{
+                  scope.row.kind === 'recovery'
+                    ? '尚未送达'
+                    : dateFormatter(scope.row, scope.column, scope.row.createTime)
+                }}
+              </template>
+            </el-table-column>
 
             <el-table-column
               v-if="isNotifyColumnVisible('templateContent')"
@@ -73,36 +86,53 @@
               :min-width="getNotifyColumnMinWidthString('templateContent', 280)"
             >
               <template #default="scope">
-                <button
-                  v-if="hasNotifyMessageTarget(scope.row)"
-                  type="button"
-                  class="my-notify-message-list__content-link"
-                  role="link"
-                  :title="scope.row.templateContent || '-'"
-                  aria-label="打开消息内容"
-                  @click.stop="handleNotifyContentClick(scope.row)"
-                >
-                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
-                </button>
                 <span
-                  v-else
+                  v-if="scope.row.kind === 'recovery'"
                   class="my-notify-message-list__content-text"
-                  :title="scope.row.templateContent || '-'"
                 >
-                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
+                  {{ scope.row.templateContent }}
                 </span>
-                <BusinessMessageContext :fields="describeNotifyMessage(scope.row).fields" />
+                <template v-else>
+                  <button
+                    v-if="hasNotifyMessageTarget(scope.row)"
+                    type="button"
+                    class="my-notify-message-list__content-link"
+                    role="link"
+                    :title="scope.row.templateContent || '-'"
+                    aria-label="打开消息内容"
+                    @click.stop="handleNotifyContentClick(scope.row)"
+                  >
+                    <BusinessMessageContent
+                      :description="describeNotifyMessage(scope.row)"
+                      :show-context="false"
+                    />
+                  </button>
+                  <span
+                    v-else
+                    class="my-notify-message-list__content-text"
+                    :title="scope.row.templateContent || '-'"
+                  >
+                    <BusinessMessageContent
+                      :description="describeNotifyMessage(scope.row)"
+                      :show-context="false"
+                    />
+                  </span>
+                  <BusinessMessageContext :fields="describeNotifyMessage(scope.row).fields" />
+                </template>
               </template>
             </el-table-column>
             <el-table-column
               v-if="isNotifyColumnVisible('readStatus')"
-              label="是否已读"
+              label="消息状态"
               align="center"
               prop="readStatus"
               :width="getNotifyColumnWidthString('readStatus', 160)"
             >
               <template #default="scope">
-                <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.readStatus" />
+                <el-tag v-if="scope.row.kind === 'recovery'" type="warning">待补发</el-tag>
+                <el-tag v-else :type="scope.row.readStatus ? 'info' : 'success'">
+                  {{ scope.row.readStatus ? '已读' : '未读' }}
+                </el-tag>
               </template>
             </el-table-column>
 
@@ -114,7 +144,14 @@
               :width="getNotifyColumnWidthString('operation', 160)"
             >
               <template #default="scope">
+                <ReleaseTaskNotificationEntry
+                  v-if="scope.row.kind === 'recovery'"
+                  :work-task-id="scope.row.workTaskId"
+                  @delivery-change="handleDeliveryChange"
+                  >查看回执并补发</ReleaseTaskNotificationEntry
+                >
                 <el-button
+                  v-else
                   link
                   :type="scope.row.readStatus ? 'primary' : 'success'"
                   @click="openDetail(scope.row)"
@@ -135,10 +172,8 @@
 
 <script lang="ts" setup>
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
-import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import type { TableInstance } from 'element-plus'
-import { DICT_TYPE, getBoolDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import MyNotifyMessageDetail from '../MyNotifyMessageDetail.vue'
@@ -148,8 +183,18 @@ import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
+import { useUserStore } from '@/store/modules/user'
+import { listOwnPendingReleaseOutcomes } from '@/api/mes/pro/productionRelease/notification'
+import ReleaseTaskNotificationEntry from '@/views/mes/pro/production-release/components/ReleaseTaskNotificationEntry.vue'
+import { loadInboxPage, toInboxMessages, toInboxRecoveries, type InboxRow } from '../notifyInbox'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
 import {
   getNotifyMessageTarget,
   hasNotifyMessageTarget,
@@ -175,6 +220,8 @@ const props = withDefaults(
 
 const message = useMessage() // 消息
 const router = useRouter()
+const userStore = useUserStore()
+const canReadReleaseOutcomes = computed(() => hasPermission(['mes:pro-edhr-work-task:query']))
 const notifyTableRef = ref<TableInstance>()
 const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
 const refreshTableLayout = async () => {
@@ -183,26 +230,32 @@ const refreshTableLayout = async () => {
   notifyTableRef.value?.doLayout()
   await handoffPanelRef.value?.refreshLayout()
 }
-watch(() => props.active, (active) => {
-  if (active) void refreshTableLayout()
-}, { flush: 'post' })
+watch(
+  () => props.active,
+  (active) => {
+    if (active) void refreshTableLayout()
+  },
+  { flush: 'post' }
+)
 
 const NOTIFY_TABLE_KEY = 'system.notify.my-message'
 
 const embedded = computed(() => props.embedded)
 const contentWrapper = computed(() => (props.embedded ? 'div' : 'ContentWrap'))
-const canReadActiveOrderHandoffs = computed(() => hasPermission([
-  'mes:pro-feedback:query',
-  'mes:pro-process-pool-team-leader:query',
-  'mes:pro-edhr-nonconformance-review:query',
-  'mes:pro-edhr-work-task:query'
-]))
+const canReadActiveOrderHandoffs = computed(() =>
+  hasPermission([
+    'mes:pro-feedback:query',
+    'mes:pro-process-pool-team-leader:query',
+    'mes:pro-edhr-nonconformance-review:query',
+    'mes:pro-edhr-work-task:query'
+  ])
+)
 
 const notifyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'templateNickname', label: '发送人', width: 180 },
   { key: 'createTime', label: '发送时间', width: 200 },
   { key: 'templateContent', label: '消息内容', minWidth: 280 },
-  { key: 'readStatus', label: '是否已读', width: 160 },
+  { key: 'readStatus', label: '消息状态', width: 160 },
   { key: 'operation', label: '操作', width: 160, hideable: false, business: false }
 ]
 const {
@@ -218,24 +271,27 @@ const {
 
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
-const list = ref<NotifyMessageApi.NotifyMessageVO[]>([]) // 列表的数据
+const list = ref<InboxRow[]>([]) // 已送达站内信和本人待补发通知共用列表
+const loadError = ref('')
+let loadSequence = 0
 const readTimeByMessageId = ref<Record<number, Date>>({})
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  readStatus: undefined
+  readStatus: undefined as boolean | string | undefined
 })
 
 const notifyQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
     key: 'readStatus',
-    label: '是否已读',
+    label: '消息状态',
     type: 'select',
     queryParamKey: 'readStatus',
-    options: getBoolDictOptions(DICT_TYPE.INFRA_BOOLEAN_STRING).map((dict) => ({
-      label: dict.label,
-      value: dict.value as string | number | boolean
-    }))
+    options: [
+      { label: '未读', value: false },
+      { label: '已读', value: true },
+      ...(canReadReleaseOutcomes.value ? [{ label: '待补发', value: 'pending' }] : [])
+    ]
   }
 ])
 
@@ -257,16 +313,61 @@ const mergeReadTimeOverrides = (
 
 /** 查询列表 */
 const getList = async () => {
+  const sequence = ++loadSequence
+  if (!props.active) return
   loading.value = true
+  loadError.value = ''
+  list.value = []
+  total.value = 0
+  const params = { ...queryParams }
   try {
-    const data = await NotifyMessageApi.getMyNotifyMessagePage(queryParams)
-    list.value = mergeReadTimeOverrides(data.list)
+    const pending =
+      canReadReleaseOutcomes.value &&
+      (params.readStatus === undefined || params.readStatus === 'pending')
+        ? toInboxRecoveries(await listOwnPendingReleaseOutcomes())
+        : []
+    const data = await loadInboxPage(pending, params, async (pagination) => {
+      const page = await NotifyMessageApi.getMyNotifyMessagePage(pagination)
+      return { ...page, list: mergeReadTimeOverrides(page.list) }
+    })
+    if (sequence !== loadSequence) return
+    const lastPage = Math.max(1, Math.ceil(data.total / params.pageSize))
+    if (params.pageNo > lastPage) {
+      queryParams.pageNo = lastPage
+      await getList()
+      return
+    }
+    list.value = data.list
     total.value = data.total
     await refreshTableLayout()
+  } catch (error) {
+    if (sequence === loadSequence)
+      loadError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
+const handleDeliveryChange = async () => {
+  await getList()
+  emit('read-status-change')
+}
+watch(
+  () => [props.active, userStore.getUser.id, canReadReleaseOutcomes.value],
+  (values, previous) => {
+    if (previous && values[1] !== previous[1]) readTimeByMessageId.value = {}
+    if (props.active) void getList()
+    else {
+      loadSequence += 1
+      list.value = []
+      total.value = 0
+      loadError.value = ''
+      loading.value = false
+    }
+  }
+)
+onBeforeUnmount(() => {
+  loadSequence += 1
+})
 const notifyQuickFilter = useTableQuickFilter(
   NOTIFY_TABLE_KEY,
   notifyQuickFilterDefinitions,
@@ -315,7 +416,9 @@ const handleReadOne = async (
   }
   await getList()
   emit('read-status-change')
-  const updatedData = list.value.find((item) => item.id === id)
+  const updatedData = list.value.find((item) => item.kind === 'message' && item.id === id) as
+    | NotifyMessageApi.NotifyMessageVO
+    | undefined
   if (updatedData && !updatedData.readTime) {
     updatedData.readStatus = true
     updatedData.readTime = readAt
@@ -341,7 +444,7 @@ const handleUpdateAll = async () => {
   const readAt = new Date()
   readTimeByMessageId.value = list.value.reduce(
     (result, item) => {
-      if (!item.readStatus) {
+      if (item.kind === 'message' && !item.readStatus) {
         result[item.id] = readAt
       }
       return result
@@ -367,18 +470,41 @@ onActivated(() => {
 
 const loadColumnFilterRows0 = async () => {
   const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    NotifyMessageApi.getMyNotifyMessagePage({ ...params, ...pagination })
-  )
-  return mergeReadTimeOverrides(rows)
+  const actor = userStore.getUser.id
+  const sequence = loadSequence
+  const [rows, pending] = await Promise.all([
+    params.readStatus === 'pending'
+      ? Promise.resolve([])
+      : loadAllListPages<NotifyMessageApi.NotifyMessageVO>((pagination) =>
+          NotifyMessageApi.getMyNotifyMessagePage({ ...params, ...pagination })
+        ),
+    canReadReleaseOutcomes.value &&
+    (params.readStatus === undefined || params.readStatus === 'pending')
+      ? listOwnPendingReleaseOutcomes()
+      : Promise.resolve([])
+  ])
+  if (!props.active || actor !== userStore.getUser.id || sequence !== loadSequence) {
+    throw new Error('站内信查询条件已变化，请重新查询')
+  }
+  return [
+    ...(params.readStatus === undefined || params.readStatus === 'pending'
+      ? toInboxRecoveries(pending)
+      : []),
+    ...toInboxMessages(mergeReadTimeOverrides(rows))
+  ]
 }
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
     key: 'readStatus',
-    label: '是否已读',
+    label: '消息状态',
     type: 'select',
-    options: listColumnDictOptions(DICT_TYPE.INFRA_BOOLEAN_STRING)
+    getValue: (row: InboxRow) => (row.kind === 'recovery' ? 'pending' : row.readStatus),
+    options: [
+      { label: '待补发', value: 'pending' },
+      { label: '已读', value: true },
+      { label: '未读', value: false }
+    ]
   }
 ])
 </script>

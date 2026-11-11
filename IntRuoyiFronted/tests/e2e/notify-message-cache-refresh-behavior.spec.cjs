@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..')
 const read = file => parse(fs.readFileSync(path.join(root, file), 'utf8')).descriptor
 const listSource = read('src/views/system/notify/my/components/MyNotifyMessageList.vue').scriptSetup.content
 const ast = ts.createSourceFile('notify.ts', listSource, ts.ScriptTarget.Latest, true)
-const names = new Set(['loading', 'total', 'list', 'readTimeByMessageId', 'queryParams', 'mergeReadTimeOverrides', 'getList', 'wasDeactivated'])
+const names = new Set(['loading', 'total', 'list', 'readTimeByMessageId', 'queryParams', 'mergeReadTimeOverrides', 'getList', 'wasDeactivated', 'loadError', 'loadSequence'])
 const selected = ast.statements.filter(statement =>
   (ts.isVariableStatement(statement) && statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast)))) ||
   (ts.isExpressionStatement(statement) && /^on(Mounted|Activated|Deactivated)\(/.test(statement.getText(ast)))
@@ -28,8 +28,12 @@ function harness() {
   const Notify = vue.defineComponent({
     name: 'ActualNotifyListLifecycle',
     setup() {
-      const context = { ...vue, NotifyMessageApi: api }
-      const state = Function(...Object.keys(context), `${js}; return { loading, list, total };`)(...Object.values(context))
+      const inboxModule = { exports: {} }
+      const inboxSource = fs.readFileSync(path.join(root, 'src/views/system/notify/my/notifyInbox.ts'), 'utf8')
+      Function('exports', ts.transpileModule(inboxSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(inboxModule.exports)
+      const context = { ...vue, NotifyMessageApi: api, ...inboxModule.exports,
+        props: { active: true }, canReadReleaseOutcomes: { value: false }, refreshTableLayout: async () => {} }
+      const state = Function(...Object.keys(context), `${js}; return { loading, list, total, loadError };`)(...Object.values(context))
       instances.push(state)
       return () => vue.h('section', state.list.value.map(row => vue.h('span', String(row.id))))
     }
@@ -66,7 +70,7 @@ function harness() {
 }
 async function flush() {
   await vue.nextTick()
-  await Promise.resolve()
+  for (let i = 0; i < 20; i++) await Promise.resolve()
   await vue.nextTick()
 }
 
@@ -75,7 +79,7 @@ test('ordinary uncached route loads once on mount', async () => {
   const app = h.mount(() => vue.h(h.Notify))
   await flush()
   assert.equal(h.calls.length, 1)
-  assert.deepEqual(h.instances[0].list.value, [{ id: 4609 }])
+  assert.deepEqual(h.instances[0].list.value.map(row => row.id), [4609])
   app.unmount()
 })
 
@@ -117,7 +121,7 @@ test('actual Profile tab condition loads on entering and remounts when entering 
   await flush()
   assert.equal(h.calls.length, 2)
   assert.equal(h.instances.length, 2)
-  assert.deepEqual(h.instances[1].list.value, [{ id: 4618 }])
+  assert.deepEqual(h.instances[1].list.value.map(row => row.id), [4618])
   app.unmount()
 })
 
@@ -131,8 +135,9 @@ test('failed cached refresh exposes the original error and ends loading without 
   h.setFailure(failure)
   visible.value = true
   await flush()
-  assert.deepEqual(h.errors, [failure])
+  assert.deepEqual(h.errors, [])
+  assert.equal(h.instances[0].loadError.value, failure.message)
   assert.equal(h.instances[0].loading.value, false)
-  assert.deepEqual(h.instances[0].list.value, [{ id: 4609 }])
+  assert.deepEqual(h.instances[0].list.value, [])
   app.unmount()
 })
