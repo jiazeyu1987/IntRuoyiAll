@@ -222,6 +222,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     private MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long routeProcessId, int target) {
         return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(101L).activeOrderId(10L).workOrderId(30L)
                 .routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .erpFixedQuantitySnapshot(BigDecimal.valueOf(target)).productionQuantityFactorSnapshot(BigDecimal.ONE)
                 .plannedQuantitySnapshot(BigDecimal.valueOf(target)).build();
     }
 

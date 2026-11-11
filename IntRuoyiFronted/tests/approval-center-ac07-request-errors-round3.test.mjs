@@ -86,6 +86,7 @@ const network = (ports = {}) => {
 const definitions = [
   ['src/api/approval-center/index.ts', 'reviewApprovalTask', [{}]],
   ['src/api/approval-center/index.ts', 'getApprovalCenterModules', []],
+  ['src/api/approval-center/index.ts', 'getApprovalTodoCount', []],
   ['src/api/approval-center/index.ts', 'getApprovalTaskPage', [{}]],
   ['src/api/approval-center/index.ts', 'getApprovalTaskTimeline', [{}]],
   ['src/api/mes/pro/productionRelease/index.ts', 'approvePqcProductionRelease', [{}]],
@@ -141,7 +142,7 @@ const badgeStoreHarness = (ports = {}) => {
   const runtime = { defineStore, ref: vueRef, computed, watch, effectScope, Error, Object, String, Number, Date, JSON,
     createApprovalInvalidationState, createApprovalBadgeLoader, store: pinia, useUserStore: () => user,
     getAccessToken: () => auth.accessToken, getTenantId: () => auth.tenantId, getVisitTenantId: () => '',
-    getApprovalTaskPage: loadApi('src/api/approval-center/index.ts', n.request).getApprovalTaskPage }
+    getApprovalTodoCount: loadApi('src/api/approval-center/index.ts', n.request).getApprovalTodoCount }
   const invalidationSource = withoutImports(read('src/store/modules/approvalCenterInvalidation.ts')).replace(/export const /g, 'const ')
   run(invalidationSource + '\nObject.assign(globalThis, { useApprovalCenterInvalidationStore })', runtime)
   const badgeSource = withoutImports(read('src/store/modules/approvalTodoBadge.ts')).replace(/export const /g, 'const ')
@@ -163,7 +164,9 @@ test('actual Pinia badge store forwards loader captured current predicate and co
   assert.equal(item.config.ignoreErrorMessage, true)
   assert.equal(typeof item.config.isRequestContextCurrent, 'function'); assert.equal(item.config.isRequestContextCurrent(), true)
   assert.equal(h.n.all.length, 1)
-  item.success({ list: [], total: 23 }); await Promise.all([one, two])
+  assert.equal(item.config.url, '/approval-center/tasks/todo-count')
+  assert.equal(item.config.params, undefined)
+  item.success(23); await Promise.all([one, two])
   assert.equal(h.badge.todoTotal, 23); assert.equal(h.badge.loaded, true); assert.equal(h.badge.error, ''); assert.equal(h.badge.loading, false)
   assert.ok(h.badge.lastLoadedAt > 0); assert.equal(h.n.notices.length, 0)
 })
@@ -182,11 +185,11 @@ for (const context of ['session', 'tenant', 'revision', 'reset']) for (const kin
     assert.equal(oldItem.config.isRequestContextCurrent(), false)
     const current = h.badge.refreshTodoTotal(), newItem = await h.n.next()
     h.badge.error = 'current pending error'
-    if (kind === 'unauthorized') oldItem.unauthorized(); else if (kind === 'success') oldItem.success({ list: [], total: 7 }); else oldItem.fail(kind)
+    if (kind === 'unauthorized') oldItem.unauthorized(); else if (kind === 'success') oldItem.success(7); else oldItem.fail(kind)
     await old
     assert.equal(h.badge.loading, true); assert.equal(h.badge.error, 'current pending error'); assert.equal(h.badge.loaded, false)
     assert.equal(h.n.notices.length, 0); assert.deepEqual(h.authEffects, []); assert.equal(h.n.all.length, 2)
-    newItem.success({ list: [], total: 91 }); await current
+    newItem.success(91); await current
     assert.equal(h.badge.todoTotal, 91); assert.equal(h.badge.loaded, true); assert.equal(h.badge.loading, false); assert.equal(h.badge.error, '')
   })
 }
@@ -208,7 +211,7 @@ for (const context of ['session', 'tenant', 'revision', 'reset']) for (const ref
     oldItem.unauthorized(); await flush(); assert.deepEqual(refreshEffects, ['refresh'])
     h.change(context)
     const current = h.badge.refreshTodoTotal(), newItem = await h.n.next()
-    newItem.success({ list: [], total: 93 }); await current
+    newItem.success(93); await current
     const state = { ...h.badge.$state }
     if (refreshFailure) failRefresh(Error('refresh failed'))
     else finishRefresh({ data: { code: 200, data: { accessToken: 'late-access', refreshToken: 'late-refresh' } } })
@@ -245,8 +248,8 @@ const handlerHarness = (target = 'center', n = network()) => {
     detail: ref({ id: 11, executionId: 11, processInstanceId: 'bpm1', approvalSnapshotId: 12, approvalSnapshotHash: 'hash', bpmTaskId: 'task1', batchExecutionId: 4, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true }),
     workTaskId: ref('11'), actionDialogVisible: ref(true), approvalActionGuard: guard, resolveActionDisabledReason: () => '', buildSignatureTimePayload: () => ({}),
     props: { readonly: false }, selectedCritical: ref([{ id: 11, batchExecutionId: 4 }]), isCriticalOpen: () => true,
-    batchNcrLoading: ref(false), batchNcrVisible: ref(true), batchNcrGuard: guard, batchNcrForm: { nonconformanceReason: 'reason', signaturePassword: 'pw', remark: '' },
-    ncrCreateLoading: ref(false), ncrCreateVisible: ref(true), ncrCreateGuard: guard, ncrCreateError: ref(''), ncrCreateForm: { nonconformanceReason: 'reason', signaturePassword: 'pw', remark: '', idempotencyKey: 'request1' },
+    batchNcrLoading: ref(false), batchNcrVisible: ref(true), batchNcrGuard: guard, batchNcrForm: { qaReviewerUserId: 7, nonconformanceReason: 'reason', signaturePassword: 'pw', remark: '' },
+    ncrCreateLoading: ref(false), ncrCreateVisible: ref(true), ncrCreateGuard: guard, ncrCreateError: ref(''), ncrCreateForm: { qaReviewerUserId: 7, nonconformanceReason: 'reason', signaturePassword: 'pw', remark: '', idempotencyKey: 'request1' },
     releaseReturnSubmitting: ref(false), releaseReturnError: ref(''), releaseReturnDialogVisible: ref(true), releaseReturnGuard: guard,
     releaseReturnForm: { rejectReason: 'reason' }, workbench: ref({ releaseSummary: { releaseTransactionId: '11' } }),
     canReturnRelease: ref(true), ensureViewedReleaseStageWritable: () => true, buildReleaseIdempotencyKey: () => 'request1',
@@ -339,11 +342,11 @@ for (const context of ['current', 'session', 'route']) for (const kind of ['busi
 for (const action of ['handleDispose', 'submitCreateReview']) for (const context of ['current', 'session', 'route', 'dialog']) for (const kind of ['business', 'http', 'timeout', 'network']) {
   test(`production QA ${action} including actual context watchers: ${context}/${kind}`, async () => {
     const h = handlerHarness(), r = h.runtime, watchers = []
-    Object.assign(r, { selectedReview: ref({ id: 11 }), selectedReviewReadOnly: ref(false), reviewDialogVisible: ref(true), createDialogVisible: ref(true),
+    Object.assign(r, { selectedReview: ref({ id: 11 }), selectedReviewReadOnly: ref(false), canDisposeSelectedReview: ref(true), assigningReviewer: ref(false), reviewDialogVisible: ref(true), createDialogVisible: ref(true),
       reviewContextGeneration: 0, createContextGeneration: 0, listRequestSequence: 0, materialContextGeneration: 0,
       disposeLoading: ref(false), createLoading: ref(false), listLoading: ref(false), activeOrderCandidatesLoading: ref(false), materialUploadsPending: ref(0),
       disposeForm: { reviewMaterialUrls: ['material'], reviewMaterialEvents: [], reviewOpinion: 'reason', signaturePassword: 'pw' },
-      errorText: ref(''), buildReviewMaterials: () => [{ fileId: 12, url: 'material' }], selectedActiveOrderId: ref(4), entryForm: { nonconformanceReason: 'reason' },
+      errorText: ref(''), buildReviewMaterials: () => [{ fileId: 12, url: 'material' }], selectedActiveOrderId: ref(4), entryForm: { qaReviewerUserId: 7, nonconformanceReason: 'reason' },
       watch: (_getter, callback) => watchers.push(callback) })
     const file = 'src/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue'
     run(extract(file, ['invalidateCreateContext', 'invalidateReviewContext', action]), r)

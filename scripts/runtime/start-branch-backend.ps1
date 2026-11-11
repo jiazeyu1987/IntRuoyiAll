@@ -14,6 +14,18 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\branch-runtime-profile.ps1"
 
+function Get-BackendJarSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try { return [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '') }
+        finally { $sha256.Dispose() }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function Import-IntAuthServiceToken {
     param([Parameter(Mandatory = $true)][string]$Path)
     if (-not [System.IO.File]::Exists($Path)) {
@@ -72,10 +84,10 @@ if ($LASTEXITCODE -ne 0) {
 $runtimeDirectory = Join-Path $repoRoot ("output\runtime\{0}\backend-{1}" -f $profile.Name, [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $runtimeDirectory | Out-Null
 $runtimeJarPath = Join-Path $runtimeDirectory 'yudao-server-exec.jar'
-$sourceHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
+$sourceHash = Get-BackendJarSha256 -Path $jarPath
 Copy-Item -LiteralPath $jarPath -Destination $runtimeJarPath
-if ((Get-FileHash -LiteralPath $runtimeJarPath -Algorithm SHA256).Hash -ne $sourceHash -or
-    (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash -ne $sourceHash) {
+if ((Get-BackendJarSha256 -Path $runtimeJarPath) -ne $sourceHash -or
+    (Get-BackendJarSha256 -Path $jarPath) -ne $sourceHash) {
     throw 'Backend package changed while preparing the runtime copy. Start again after packaging completes.'
 }
 & python (Join-Path $PSScriptRoot 'backend-package.py') verify --root $backendRoot

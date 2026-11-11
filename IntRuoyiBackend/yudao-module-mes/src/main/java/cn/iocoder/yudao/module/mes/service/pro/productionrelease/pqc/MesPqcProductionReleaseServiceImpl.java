@@ -151,7 +151,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         var tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         var outcome = signatureAuthentication.authenticate(new cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest(
                 tenant, "SYSTEM_USER", actorUserId, actorUserId, java.util.UUID.randomUUID().toString(), command.getSignaturePassword()));
-        if (outcome.signer() == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("签名认证失败：" + outcome.rejectionCode());
+        if (outcome.signer() == null) {
+            var failure = blocker(MesReleaseFlowBlockerType.SIGNATURE_AUTHENTICATION_FAILED,
+                    null, "SYSTEM_USER", String.valueOf(actorUserId),
+                    "签名认证失败：" + outcome.rejectionCode(), "请更正签名认证信息后重新提交");
+            // Authentication audit has committed independently; no release decision transaction started.
+            attachRejectedDecision(failure, actorUserId, command, "NOT_STARTED");
+            throw failure;
+        }
         var roleFailure = new java.util.concurrent.atomic.AtomicReference<MesProductionReleaseRoleResolutionException>();
         var decisionFailure = new java.util.concurrent.atomic.AtomicReference<MesReleaseFlowBlockerException>();
         try {
@@ -190,8 +197,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private void attachRejectedDecision(MesReleaseFlowBlockerException failure, Long actorUserId,
                                        MesPqcProductionReleaseApproveCommand command) {
+        attachRejectedDecision(failure, actorUserId, command, "ROLLED_BACK");
+    }
+
+    private void attachRejectedDecision(MesReleaseFlowBlockerException failure, Long actorUserId,
+                                       MesPqcProductionReleaseApproveCommand command, String outcome) {
         failure.getFailure().setRejectedDecision(new MesReleaseFlowFailureRespVO.RejectedDecision()
-                .setOutcome("ROLLED_BACK").setApplicationId(String.valueOf(command.getApplicationId()))
+                .setOutcome(outcome).setApplicationId(String.valueOf(command.getApplicationId()))
                 .setWorkTaskId(String.valueOf(command.getPqcReleaseWorkTaskId()))
                 .setActorId(String.valueOf(actorUserId)).setExpectedVersion(command.getExpectedVersion())
                 .setIdempotencyKey(command.getIdempotencyKey())

@@ -315,12 +315,56 @@
         </include>
     </sql>
 
-    <!-- Restrict ranking before the window function, rather than ranking unrelated reports. -->
+    <!-- Keep the latest-review lookup mergeable so the outer event key limits review reads. -->
     <sql id="SubmissionReviewFilterScope">
+        <if test="_parameter.containsKey('reqVO') and reqVO.eventType == 'PQC_INSPECTION' and reqVO.eventIds != null">
+            <choose>
+                <when test="reqVO.eventIds.size() > 0">
+                    AND review_log.event_id IN (
+                        SELECT scope_event.id FROM mes_pro_process_pool_event scope_event
+                        WHERE scope_event.tenant_id = review_log.tenant_id
+                          AND scope_event.deleted = 0 AND scope_event.event_type = 'PQC_INSPECTION'
+                          AND (
+                            scope_event.id IN
+                            <foreach collection="reqVO.eventIds" item="scopeEventId" open="(" separator="," close=")">
+                                #{scopeEventId}
+                            </foreach>
+                            OR (
+                                JSON_VALID(scope_event.raw_payload)
+                                AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(scope_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
+                                AND JSON_UNQUOTE(JSON_EXTRACT(scope_event.raw_payload, '$.pqcSubmissionGroupId')) IN (
+                                    SELECT JSON_UNQUOTE(JSON_EXTRACT(authorized_event.raw_payload, '$.pqcSubmissionGroupId'))
+                                    FROM mes_pro_process_pool_event authorized_event
+                                    WHERE authorized_event.tenant_id = scope_event.tenant_id
+                                      AND authorized_event.deleted = 0
+                                      AND authorized_event.event_type = 'PQC_INSPECTION'
+                                      AND authorized_event.id IN
+                                      <foreach collection="reqVO.eventIds" item="groupScopeEventId" open="(" separator="," close=")">
+                                          #{groupScopeEventId}
+                                      </foreach>
+                                      AND JSON_VALID(authorized_event.raw_payload)
+                                )
+                            )
+                          )
+                    )
+                </when>
+                <otherwise>AND 1 = 0</otherwise>
+            </choose>
+        </if>
         <if test="_parameter.containsKey('reqVO') and reqVO.eventType == 'PRODUCTION_SUBMIT'">
             AND review_log.event_id IN (
                 SELECT scope_event.id FROM mes_pro_process_pool_event scope_event
                 WHERE scope_event.deleted = 0 AND scope_event.event_type = 'PRODUCTION_SUBMIT'
+                  AND scope_event.tenant_id = review_log.tenant_id
+                <if test="reqVO.employeeUserId != null">
+                    AND scope_event.actual_employee_id = #{reqVO.employeeUserId}
+                </if>
+                <if test="reqVO.employeeUserIds != null and reqVO.employeeUserIds.size() > 0">
+                    AND scope_event.actual_employee_id IN
+                    <foreach collection="reqVO.employeeUserIds" item="scopeEmployeeId" open="(" separator="," close=")">
+                        #{scopeEmployeeId}
+                    </foreach>
+                </if>
                 <if test="reqVO.processIds != null and reqVO.processIds.size() > 0">
                     AND scope_event.process_id IN
                     <foreach collection="reqVO.processIds" item="scopeProcessId" open="(" separator="," close=")">
@@ -444,20 +488,24 @@
                        review_log.leader_type,
                        review_log.review_status,
                        review_log.review_remark,
-                       review_log.reviewed_at,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY review_log.tenant_id, review_log.event_id
-                           ORDER BY review_log.reviewed_at DESC, review_log.id DESC
-                       ) AS review_rank
+                       review_log.reviewed_at
                 FROM mes_pro_process_pool_submission_review review_log
                 WHERE review_log.deleted = 0
+                  AND review_log.id = (
+                      SELECT latest_review.id
+                      FROM mes_pro_process_pool_submission_review latest_review
+                      WHERE latest_review.tenant_id = review_log.tenant_id
+                        AND latest_review.event_id = review_log.event_id
+                        AND latest_review.deleted = 0
+                      ORDER BY latest_review.reviewed_at DESC, latest_review.id DESC
+                      LIMIT 1
+                  )
                 <include refid="${reviewScope}"/>
             ) ranked_review
             LEFT JOIN mes_pro_process_pool_event review_event
               ON review_event.id = ranked_review.event_id
              AND review_event.tenant_id = ranked_review.tenant_id
              AND review_event.deleted = 0
-            WHERE ranked_review.review_rank = 1
     </sql>
 
     <sql id="LatestSubmissionReviewJoin">
@@ -508,7 +556,7 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH'">
+        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView == 'HISTORY' or reqVO.allocationView == 'WORKBENCH'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
         WHERE <include refid="TimelineFilters"/>

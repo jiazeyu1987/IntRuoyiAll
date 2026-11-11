@@ -14,6 +14,16 @@ import org.springframework.context.annotation.Configuration;
 public class MesWebConfiguration {
 
     @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<cn.iocoder.yudao.module.mes.framework.web.core.filter.MesWorkflowFailureLogFilter> mesWorkflowFailureLogFilter(
+            cn.iocoder.yudao.framework.web.config.WebProperties properties,
+            cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkflowInteractionLog log) {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(
+                new cn.iocoder.yudao.module.mes.framework.web.core.filter.MesWorkflowFailureLogFilter(properties, log));
+        registration.setOrder(cn.iocoder.yudao.framework.common.enums.WebFilterOrderEnum.API_ACCESS_LOG_FILTER + 1);
+        return registration;
+    }
+
+    @Bean
     public org.springframework.boot.web.servlet.FilterRegistrationBean<cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter> edhrDecisionRequestLogMetadataFilter(
             cn.iocoder.yudao.framework.web.config.WebProperties properties,
             org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrReleaseController> releases,

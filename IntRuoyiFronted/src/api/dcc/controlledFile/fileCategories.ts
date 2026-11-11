@@ -362,6 +362,10 @@ export const deleteFileCategory = async (id: number) => {
   return await request.delete({ url: `/dcc/file-categories/${id}` })
 }
 
+export const disableFileCategory = async (id: number) => {
+  return await request.put({ url: `/dcc/file-categories/${id}/disable` })
+}
+
 export const bindCategoryDirectory = async (
   id: number,
   data: ControlledFileCategoryDirectoryBindingReqVO

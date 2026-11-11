@@ -18,6 +18,13 @@ import static org.mockito.ArgumentMatchers.any;
 final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
     static void stubAuthenticatedResources(MesProFrontlineFeedbackSubmitServiceImpl service,
             MesProductionAuthenticatedSignatureService productionSignatures) {
+        var capacity = Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService.class);
+        Mockito.lenient().when(capacity.evaluate(any())).thenReturn(
+                new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService.Capacity(
+                        null, java.math.BigDecimal.ZERO, java.math.BigDecimal.ONE, java.math.BigDecimal.ONE, new java.math.BigDecimal("1000000")));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"quantityCapacityService",capacity);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"quantityDrafts",Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityDraftService.class));
         var system = Mockito.mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
         var employee = Mockito.mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
         Mockito.lenient().when(system.identityDomain()).thenReturn("SYSTEM_USER");

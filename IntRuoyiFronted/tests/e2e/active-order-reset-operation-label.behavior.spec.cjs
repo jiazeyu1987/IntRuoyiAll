@@ -23,3 +23,10 @@ test('unrecognized operation remains an explicit contract error', () => {
   assert.throws(() => format({ operationType: 'UNRECOGNIZED_OPERATION' }),
     /ACTIVE_ORDER_OPERATION_LABEL_UNMAPPED/)
 })
+
+test('execution facts preserve the Chinese process and inspection round', () => {
+  assert.equal(format({ operationType: 'PRODUCTION_SUBMIT', operationName: '提交生产记录：大包装' }), '提交生产记录：大包装')
+  assert.equal(format({ operationType: 'PQC_REVIEW', operationName: '复核过程检验记录：中大包装（第3轮巡检）' }), '复核过程检验记录：中大包装（第3轮巡检）')
+  assert.equal(format({ operationType: 'PQC_PATROL_CANCEL', operationName: '撤销巡检轮次（第2轮）' }), '撤销巡检轮次（第2轮）')
+  assert.equal(format({ operationType: 'REVERSE_TRACE_QUERY', operationName: '反查关联批次' }), '反查关联批次')
+})

@@ -238,13 +238,17 @@ public class MesActiveOrderDossierCompletionService {
             throw new IllegalStateException("资料任务操作者与当前登录身份或租户不一致");
     }
     private void audit(MesProEdhrWorkTaskDO task, Long actor, String operation, String action, Long attachmentId) {
+        var actorUser = adminUserApi.getUser(actor);
+        if (actorUser == null || actorUser.getNickname() == null || actorUser.getNickname().isBlank())
+            throw new IllegalStateException("资料操作日志缺少操作人姓名");
         var metadata = new java.util.LinkedHashMap<String,Object>();
         metadata.put("activeOrderId", task.getBusinessScopeId()); metadata.put("categoryKey", task.getReviewSourceType());
         metadata.put("assigneeUserId", task.getAssigneeUserId()); metadata.put("attachmentId", attachmentId);
         operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand().setRequestId(java.util.UUID.randomUUID().toString())
                 .setPermissionDecision("ALLOW").setObjectType("ACTIVE_ORDER_DOSSIER")
                 .setObjectId(String.valueOf(task.getBusinessScopeId())).setWorkTaskId(task.getId())
-                .setOperationType(operation).setActionName(action).setActorUserId(actor).setResultStatus("SUCCESS")
+                .setOperationType(operation).setActionName(action + "：" + categoryLabel(task.getReviewSourceType()))
+                .setActorUserId(actor).setActorUsername(actorUser.getNickname()).setResultStatus("SUCCESS")
                 .setMetadataJson(JsonUtils.toJsonString(metadata)).setOccurredAt(LocalDateTime.now()));
     }
     public record TaskDetail(Long workTaskId, Long activeOrderId, Long applicationId, String categoryKey,

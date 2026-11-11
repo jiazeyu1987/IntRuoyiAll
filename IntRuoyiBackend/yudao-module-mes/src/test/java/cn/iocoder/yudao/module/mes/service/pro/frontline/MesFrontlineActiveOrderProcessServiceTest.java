@@ -78,7 +78,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
         assertEquals(301L, process.workstationId());
         assertEquals("WS-OLD", process.workstationCode());
         assertEquals(new BigDecimal("1.500000"), process.productionQuantityFactor());
-        assertEquals(new BigDecimal("150.000000"), process.targetQuantity());
+        assertEquals(new BigDecimal("100.000000"), process.targetQuantity());
         assertEquals(new BigDecimal("0.000000"), process.submittedQuantity());
         assertEquals(Boolean.FALSE, process.checkFlag());
     }
@@ -174,6 +174,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(FROZEN_ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
+                .erpFixedQuantitySnapshot(new BigDecimal("100.000000"))
                 .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
                 .plannedQuantitySnapshot(new BigDecimal("150.000000"))
                 .build();
@@ -190,6 +191,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .processId(PROCESS_ID)
                 .processCodeSnapshot("ER0C9BD936FFAE")
                 .processNameSnapshot("粗洗工序")
+                .erpFixedQuantitySnapshot(new BigDecimal("100.000000"))
                 .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
                 .plannedQuantitySnapshot(new BigDecimal("150.000000"))
                 .build();

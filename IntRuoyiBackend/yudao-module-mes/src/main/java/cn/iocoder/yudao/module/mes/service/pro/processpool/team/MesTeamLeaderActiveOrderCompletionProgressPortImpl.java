@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED;
 
 /** Reads the dual completion gate from the locked production/PQC source tables. */
 @Service
@@ -90,7 +91,14 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
             BigDecimal conservativeProgress =
                     MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
                             productionEvents, allocations);
-            if (conservativeProgress.compareTo(snapshot.getPlannedQuantitySnapshot()) >= 0) {
+            var range = MesProductionQuantityRange.of(snapshot);
+            BigDecimal maximumQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                    activeOrder, snapshot, productionEvents, allocations);
+            if (maximumQuantity.compareTo(range.upper()) > 0) {
+                throw exception(PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED, activeOrder.getWorkOrderId(),
+                        snapshot.getProcessId(), maximumQuantity, range.upper());
+            }
+            if (conservativeProgress.compareTo(range.lower()) >= 0) {
                 productionComplete++;
             }
         }

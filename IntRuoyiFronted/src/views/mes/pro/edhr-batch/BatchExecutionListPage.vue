@@ -1,4 +1,5 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <ContentWrap class="edhr-record-viewport">
     <div class="edhr-batch-page">
       <UnifiedListTemplate
@@ -283,7 +284,7 @@
       </UnifiedListTemplate>
     </div>
 
-    <Dialog class="edhr-detail-surface" title="上市放行确认" v-model="releaseDialogVisible" width="560px" :fullscreen="false">
+    <Dialog class="edhr-detail-surface" title="上市放行确认" v-model="releaseDialogVisible" width="560px" :fullscreen="false" :before-close="beforeMarketReleaseDialogClose">
       <template #title><div class="edhr-detail-heading"><h2>上市放行确认</h2></div></template>
       <el-alert
         v-if="releaseTransactionMissing"
@@ -326,7 +327,7 @@
       <template v-else-if="releaseCompletedReadOnly && releaseContext">
         <el-alert
           title="该正式任务已完成上市放行。"
-          description="当前为已完成信息，只可查看历史批记录，无需重复签批。"
+          description="当前为已完成信息，无需重复签批。"
           type="success"
           :closable="false"
           show-icon
@@ -342,18 +343,23 @@
                   {{ releaseContext.releaseCode || releaseContext.releaseTransactionId }}
                 </dd>
               </div>
-              <div>
+              <div v-if="releaseContext.approvedAt">
                 <dt>完成时间</dt>
                 <dd>
                   {{ formatEdhrDateTime(releaseContext.approvedAt) }}
                 </dd>
               </div>
-              <div>
+              <div v-if="releaseContext.approvalOpinion">
                 <dt>放行意见</dt>
                 <dd>
                   {{ releaseContext.approvalOpinion }}
                 </dd>
               </div>
+              <template v-if="confirmedMarketReceipt">
+                <div><dt>正式回执编号</dt><dd>{{ confirmedMarketReceipt.receiptId }}</dd></div>
+                <div><dt>电子签名编号</dt><dd>{{ confirmedMarketReceipt.signatureId }}</dd></div>
+                <div><dt>签署时间</dt><dd>{{ confirmedMarketReceipt.committedAt }}</dd></div>
+              </template>
             </dl>
           </section>
         </div>
@@ -378,9 +384,17 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="releaseDialogVisible = false">取 消</el-button>
+        <el-button :disabled="releaseLoading" @click="releaseDialogVisible = false">取 消</el-button>
+        <MarketReleaseReceipt
+          v-if="releaseResultUncertain && releaseContext?.releaseTransactionId"
+          :release-transaction-id="releaseContext.releaseTransactionId"
+          :idempotency-key="releaseForm.idempotencyKey"
+          :source-task-id="String(releaseContext.releaseApprovalWorkTaskId)"
+          :prepare-id="uncertainPrepareId"
+          @confirmed="confirmMarketReceipt"
+        />
         <el-button
-          v-if="!releasePreview && releaseContext?.releaseTransactionId && !releaseCompletedReadOnly"
+          v-if="!releasePreview && releaseContext?.releaseTransactionId && !releaseCompletedReadOnly && !releaseResultUncertain"
           :disabled="releaseContextLoading || releaseLoading"
           @click="refreshReleasePreview"
         >重新预览</el-button>
@@ -396,7 +410,7 @@
           v-else-if="releaseContext?.releaseTransactionId"
           type="primary"
           :loading="releaseLoading"
-          :disabled="releaseContextLoading || !releasePreview"
+          :disabled="releaseContextLoading || !releasePreview || releaseResultUncertain"
           @click="submitRelease"
         >
           确认上市放行
@@ -832,6 +846,10 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
+const workflowLog=useWorkflowInteractionLog('MARKET_RELEASE')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
@@ -859,7 +877,8 @@ import {
   type EdhrRehearsalReadinessItem,
   type EdhrRehearsalReadinessResult
 } from '@/api/mes/pro/edhr/batchExecution'
-import { getApprovalReviewPreview, reviewApprovalTask, type ApprovalReviewPreview } from '@/api/approval-center'
+import { getApprovalReviewPreview, reviewApprovalTask, type ApprovalReviewPreview, type ApprovalDecisionReceipt } from '@/api/approval-center'
+import MarketReleaseReceipt from './components/MarketReleaseReceipt.vue'
 import {
   getEdhrRelease,
   getEdhrReleasePage,
@@ -937,6 +956,7 @@ const readinessUserLoading = ref(false)
 const loadError = ref('')
 const voidError = ref('')
 const releaseError = ref('')
+watch(releaseError,value=>{if(value)workflowLog.blocked()})
 const rejectError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
@@ -1637,7 +1657,10 @@ type MarketReleaseRouteContext = {
 }
 
 let marketReleaseRouteGeneration = 0
-const marketReleaseWrites = new Map<string, { status: 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }>()
+const marketReleaseWrites = new Map<string, { status: 'WRITING' | 'CONFIRMED' | 'UNCERTAIN'; idempotencyKey: string; prepareId: string }>()
+const releaseResultUncertain = ref(false)
+const uncertainPrepareId = ref<string>()
+const confirmedMarketReceipt = ref<ApprovalDecisionReceipt>()
 
 const marketReleaseWriteScope = (context: EdhrReleaseRowVO) => JSON.stringify([
   approvalInvalidation.syncSession().key, context.releaseTransactionId, context.releaseApprovalWorkTaskId
@@ -1645,8 +1668,10 @@ const marketReleaseWriteScope = (context: EdhrReleaseRowVO) => JSON.stringify([
 
 const isDefinitiveMarketReleaseFailure = (error: unknown) => {
   if (!error || typeof error !== 'object') return false
-  const candidate = error as { code?: unknown; response?: unknown }
-  return candidate.response != null || (typeof candidate.code === 'number' && Number.isFinite(candidate.code))
+  const candidate = error as { code?: unknown }
+  // Only explicit application validation/authorization failures prove that this request was rejected.
+  // A gateway response or server error can arrive after the decision has committed.
+  return typeof candidate.code === 'number' && ([400, 401, 403, 404, 422].includes(candidate.code) || candidate.code >= 1_000_000_000)
 }
 
 const resetMarketReleaseDialog = () => {
@@ -1659,6 +1684,9 @@ const resetMarketReleaseDialog = () => {
   releaseContextLoading.value = false
   releaseLoading.value = false
   releaseError.value = ''
+  releaseResultUncertain.value = false
+  uncertainPrepareId.value = undefined
+  confirmedMarketReceipt.value = undefined
   releaseForm.password = ''
   releaseForm.reason = ''
   releaseForm.idempotencyKey = ''
@@ -1768,9 +1796,19 @@ const openReleaseDialog = async (
       releaseTransactionMissing.value = true
       return
     }
+    if (context.releaseStatus === 'RELEASED') releaseCompletedReadOnly.value = true
+    const priorWrite = marketReleaseWrites.get(marketReleaseWriteScope(context))
+    if (priorWrite && priorWrite.status !== 'CONFIRMED') {
+      releaseResultUncertain.value = true
+      releaseForm.idempotencyKey = priorWrite.idempotencyKey
+      uncertainPrepareId.value = priorWrite.prepareId
+      releaseError.value = '原签署结果尚待核验，请核验原回执，勿重复签署。'
+      return
+    }
     if (!releaseCompletedReadOnly.value) {
       if (!context.releaseApprovalWorkTaskId) throw new Error('缺少正式上市放行任务，无法预览签署资料。')
-      const preview = await getApprovalReviewPreview({ moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(context.releaseApprovalWorkTaskId) })
+      // This preview reads the complete production, inspection and dossier evidence.
+      const preview = await getApprovalReviewPreview({ moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(context.releaseApprovalWorkTaskId) }, { timeout: 180000 })
       if (!isCurrent()) return
       if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) {
         throw new Error('放行资料预览不完整，请重新打开后核对。')
@@ -1830,8 +1868,31 @@ const openPqcReleasePending = async () => {
   }
 }
 
+const beforeMarketReleaseDialogClose = (done: () => void) => {
+  if (!releaseLoading.value) done()
+}
+
+const confirmMarketReceipt = (receipt: ApprovalDecisionReceipt) => {
+  const context = releaseContext.value
+  if (!context || receipt.idempotencyKey !== releaseForm.idempotencyKey || receipt.prepareId !== uncertainPrepareId.value ||
+      receipt.resultCode !== 'APPROVE' || receipt.resultingStatus !== 'RELEASED') return
+  const state = marketReleaseWrites.get(marketReleaseWriteScope(context))
+  if (!state || state.idempotencyKey !== receipt.idempotencyKey || state.prepareId !== receipt.prepareId) return
+  state.status = 'CONFIRMED'
+  context.releaseStatus = 'RELEASED'
+  releaseCompletedReadOnly.value = true
+  confirmedMarketReceipt.value = receipt
+  releaseResultUncertain.value = false
+  releaseError.value = ''
+  releaseForm.password = ''
+  approvalInvalidation.publishEdhrSuccess(approvalInvalidation.captureEdhrSuccess({
+    sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(context.releaseApprovalWorkTaskId)
+  }))
+}
+
 const submitRelease = async () => {
   if (!releaseDialogVisible.value || releaseLoading.value || releaseContextLoading.value) return
+  if (releaseResultUncertain.value) return
   if (releaseCompletedReadOnly.value || releaseContext.value?.releaseStatus === 'RELEASED') {
     releaseError.value = '该正式任务已完成上市放行，请查看历史批记录。'
     return
@@ -1856,7 +1917,7 @@ const submitRelease = async () => {
     releaseError.value = '本次正式事务已提交或结果尚未确认，请只读核对正式回执；禁止重复提交。'
     return
   }
-  const writeState = { status: 'WRITING' as 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }
+  const writeState = { status: 'WRITING' as 'WRITING' | 'CONFIRMED' | 'UNCERTAIN', idempotencyKey: releaseForm.idempotencyKey, prepareId: preview.prepareId }
   marketReleaseWrites.set(scopeKey, writeState)
   const generation = marketReleaseRouteGeneration
   const routeKey = route.fullPath
@@ -1884,7 +1945,7 @@ const submitRelease = async () => {
       expectedSubjectVersion: preview.content.subjectVersion,
       expectedContentHash: preview.content.contentHash,
       contentPolicyVersion: preview.content.contentPolicyVersion
-    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    }, { timeout: 180000, ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     if (!receipt || typeof receipt !== 'object' || receipt.idempotencyKey !== releaseForm.idempotencyKey ||
       receipt.prepareId !== preview.prepareId || !receipt.receiptId || !receipt.signatureId) {
       throw new Error('放行回执未确认成功，请保留当前请求并核对正式结果。')
@@ -1905,7 +1966,13 @@ const submitRelease = async () => {
     if (!writeSucceeded) {
       if (isDefinitiveMarketReleaseFailure(error)) {
         if (marketReleaseWrites.get(scopeKey) === writeState) marketReleaseWrites.delete(scopeKey)
-      } else writeState.status = 'UNCERTAIN'
+      } else {
+        writeState.status = 'UNCERTAIN'
+        if (isCurrent()) {
+          releaseResultUncertain.value = true
+          uncertainPrepareId.value = preview.prepareId
+        }
+      }
     }
     if (!isCurrent()) return
     releaseForm.password = ''

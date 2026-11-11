@@ -1,4 +1,7 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
+  <ProductionQuantityDrafts v-if="!isPqcMode && !hasReturnNotification" ref="quantityDraftList" @restore="restoreQuantityDraft" />
+  <el-alert v-if="quantityDraftId && !isPqcMode" type="warning" :closable="false" :title="quantityDraftMessage" data-production-quantity-blocked />
   <section
     ref="frontlinePanelRef"
     class="frontline-operator-panel"
@@ -622,6 +625,7 @@
             >
               <div class="top-label">工序</div>
               <div class="top-value">{{ selectedProcessLabel }}</div>
+              <div v-if="productionQuantityRangeLabel" data-production-quantity-range>{{ productionQuantityRangeLabel }}</div>
               <div
                 v-if="selectedProductionProcessSubmittedQuantityLabel"
                 class="frontline-production-process-submitted"
@@ -747,7 +751,7 @@
                   v-if="activePicker === 'order' && option.activeOrder"
                   class="frontline-order-picker-option"
                 >
-                  <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
+                  <span v-if="option.activeOrder.readBlocked" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
                   <span class="frontline-order-picker-option__row">
                     <span>编码</span>
                     <strong class="frontline-order-picker-option__value is-code" data-frontline-production-order-option-code>
@@ -1442,7 +1446,7 @@
               v-if="activePicker === 'order' && option.activeOrder"
               class="frontline-order-picker-option"
             >
-              <span v-if="option.activeOrder.readBlocked" class="frontline-order-picker-option__blocked-reason" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
+              <span v-if="option.activeOrder.readBlocked" class="frontline-order-picker-option__blocked-reason" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-code>
                 <span>编码</span>
                 <strong class="frontline-order-picker-option__value is-code">
@@ -1503,6 +1507,10 @@ v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled=
 </template>
 
 <script setup lang="ts">
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import ProductionQuantityDrafts from '@/views/mes/pro/processpool/components/ProductionQuantityDrafts.vue'
+import type { ProductionQuantityDraft } from '@/api/mes/pro/feedback/quantityDraft'
+import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
 import { cloneDeep } from 'lodash-es'
@@ -1780,6 +1788,8 @@ const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
 })
 
 const message = useMessage()
+const workflowLog = useWorkflowInteractionLog(() => props.mode === 'pqc' ? 'PQC' : 'PRODUCTION')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 
 const FRONTLINE_OTHER_OPTION_VALUE = '__FRONTLINE_OTHER__'
 const FRONTLINE_OTHER_OPTION_LABEL = '其他（手动输入）'
@@ -1896,6 +1906,7 @@ const resolveErrorMessage = (error: unknown) => {
 }
 const showFrontlineError = (error: unknown) => {
   frontlineErrorMessage.value = resolveErrorMessage(error)
+  workflowLog.blocked()
 }
 const clearFrontlineError = () => {
   frontlineErrorMessage.value = ''
@@ -1906,6 +1917,9 @@ const createProductionSubmitDraftKey = () =>
   `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 const FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH = 128
 const productionSubmitDraftKey = ref(createProductionSubmitDraftKey())
+const quantityDraftId = ref<number>()
+const quantityDraftMessage = ref('')
+const quantityDraftList = ref<InstanceType<typeof ProductionQuantityDrafts>>()
 let productionFormalSubmitConfirmationResolver: ((confirmed: boolean) => void) | undefined
 const activePicker = ref<PickerType>()
 const activeOrderKeyword = ref('')
@@ -2120,6 +2134,11 @@ const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
 })
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
+const productionQuantityRangeLabel = computed(() => {
+  const process = deviceState.selectedProcess
+  if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.productionQuantityFactor === undefined) return ''
+  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；累计上限 ${formatProductionQuantity(process.targetQuantity * process.productionQuantityFactor)}`
+})
 
 const productionSopFileUrl = ref('')
 const productionSopLoading = ref(false)
@@ -3687,6 +3706,90 @@ const resetProductionSubmissionDraft = () => {
 const handleResetProduction = () => {
   if (productionSubmitReadPending.value || productionSubmitWritePending.value || payloadLoading.value) return
   resetProductionSubmissionDraft()
+  quantityDraftId.value = undefined
+  quantityDraftMessage.value = ''
+}
+
+const restoreQuantityDraft = async (saved: ProductionQuantityDraft) => {
+  try {
+    const request = JSON.parse(saved.requestJson) as ProFrontlineFeedbackSubmitReqVO
+    const order = deviceState.activeOrderOptions.find(item => String(item.activeOrderId) === String(saved.activeOrderId))
+    if (!order) throw new Error('草稿原订单已不可填写，请先由组长核对订单状态。')
+    await handleSelectActiveOrder(order, { routeProcessId: saved.routeProcessId, processId: saved.processId })
+    const employee = deviceState.employeeOptions.find(item =>
+      String(item.userId) === String(saved.employeeId) &&
+      (item.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE') === saved.identityDomain
+    )
+    if (!employee) throw new Error('草稿签名员工已不在当前工序的可选范围，未恢复填写。')
+    await handleSelectEmployee(employee)
+    const selectedProcess = deviceState.selectedProcess
+    if (String(deviceState.selectedActiveOrder?.activeOrderId) !== String(saved.activeOrderId) ||
+        !isFrontlineProductionProcess(selectedProcess) || String(selectedProcess.processId) !== String(saved.processId) ||
+        String(selectedProcess.routeProcessId) !== String(saved.routeProcessId) ||
+        String(context.actualEmployeeId) !== String(saved.employeeId) ||
+        (deviceState.selectedEmployee?.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE') !== saved.identityDomain) {
+      throw new Error('当前订单、工序或员工与草稿不一致，未恢复填写。')
+    }
+    resetProductionSubmissionDraft()
+    const clearance = request.rawPayload?.clearanceConfirmations
+    for (const confirmation of FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS) {
+      productionClearanceConfirmationDraft[confirmation.key] = Array.isArray(clearance) && clearance.some(
+        item => item?.key === confirmation.key && item?.confirmed === true
+      )
+    }
+    for (const material of request.materialDetails || []) {
+      const key = String(material.materialId)
+      const state = productionMaterialDrafts[key]
+      if (!state) throw new Error(`草稿物料 ${material.materialId} 不属于当前冻结工序`)
+      state.outputQuantity = material.outputQuantity
+      state.defectQuantities = Object.fromEntries(configuredDefectReasons.value.map(reason => [reason.key,
+        (material.lossDetails || []).find(loss => loss.reasonId === reason.reasonId)?.quantity || 0]))
+      state.selectedDeviceKeys = []
+      state.deviceParameters = {}
+      state.deviceMeteringValidity = {}
+      for (const selected of material.selectedDevices || []) {
+        const device = findProductionDeviceCardById(selected.deviceId)
+        if (!device) throw new Error(`草稿设备 ${selected.deviceId} 不属于当前冻结工序`)
+        state.selectedDeviceKeys.push(device.key)
+        state.deviceMeteringValidity[device.key] = selected.inMeteringValidityPeriod
+        state.deviceParameters[device.key] = {}
+        for (const reading of material.deviceParameterReadings || []) {
+          if (reading.deviceId !== selected.deviceId) continue
+          const parameter = device.parameters.find(item => item.parameterCode === reading.parameterCode)
+          if (!parameter) throw new Error(`草稿设备参数 ${reading.parameterCode} 不属于当前冻结配置`)
+          state.deviceParameters[device.key][reading.parameterCode] = isBooleanParameter(parameter)
+            ? reading.value === 1 : reading.textValue ?? reading.value
+        }
+      }
+      state.selectedDeviceKey = state.selectedDeviceKeys[0]
+    }
+    if (selectedProductionMaterialKey.value) restoreProductionMaterialDraft(selectedProductionMaterialKey.value)
+    if (!(request.materialDetails || []).length) {
+      productionDraft.outputQuantity = request.feedbackPayload.outputQuantity
+      for (const reason of configuredDefectReasons.value) {
+        productionDefectDraft[reason.key] = request.feedbackPayload.lossDetails?.find(loss => loss.reasonId === reason.reasonId)?.quantity || 0
+      }
+      selectedProductionDeviceKeys.value = []
+      for (const selected of request.feedbackPayload.selectedDevices || []) {
+        const device = findProductionDeviceCardById(selected.deviceId)
+        if (!device) throw new Error(`草稿设备 ${selected.deviceId} 不属于当前冻结工序`)
+        selectedProductionDeviceKeys.value.push(device.key)
+        deviceMeteringValidityDraft[device.key] = selected.inMeteringValidityPeriod
+        deviceParameterDraft[device.key] = {}
+        for (const reading of request.feedbackPayload.deviceParameterReadings || []) {
+          if (reading.deviceId !== selected.deviceId) continue
+          const parameter = device.parameters.find(item => item.parameterCode === reading.parameterCode)
+          if (!parameter) throw new Error(`草稿设备参数 ${reading.parameterCode} 不属于当前冻结配置`)
+          deviceParameterDraft[device.key][reading.parameterCode] = isBooleanParameter(parameter)
+            ? reading.value === 1 : reading.textValue ?? reading.value
+        }
+      }
+      selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
+    }
+    quantityDraftId.value = saved.id
+    quantityDraftMessage.value = saved.status === 'BLOCKED' ? '草稿已恢复，等待组长签署处理；本次尚未形成正式报工。' : `组长已处理：${saved.reviewReason}。请核对订单和数量，重新签名提交。`
+    clearFrontlineError()
+  } catch (error) { showFrontlineError(error) }
 }
 
 const normalizePqcQuantity = (value?: number) => {
@@ -5576,6 +5679,7 @@ const handleProductionFormalSubmit = async () => {
         productionSignaturePassword.value = ''
       }
     })()
+    formalPayload.quantityDraftId = quantityDraftId.value
 
     if (!productionSubmitReceipts.begin(key)) return
     writeStarted = true
@@ -5583,12 +5687,26 @@ const handleProductionFormalSubmit = async () => {
     payloadLoading.value = true
     const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', formalPayload.processPoolContext.activeOrderId)
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvent.session.key) })
+    if (submitResult.submissionStatus === 'QUANTITY_BLOCKED') {
+      if (!isCurrent()) return
+      quantityDraftId.value = submitResult.quantityDraftId
+      quantityDraftMessage.value = submitResult.quantityBlockMessage || '本次填写已拦截，请生产组长核对处理后重新提交。'
+      showFrontlineError(quantityDraftMessage.value)
+      await quantityDraftList.value?.load()
+      return
+    }
+    if (submitResult.submissionStatus !== 'SUBMITTED' || !submitResult.processPoolEventId) {
+      throw new Error('生产提交未返回有效正式回执，请核对后再操作。')
+    }
     approvalInvalidation.publishEdhrSuccess(approvalEvent)
     writeSucceeded = true
     const finish = () => {
       try { rememberProductionMaterialDeviceDrafts(materialDetails) }
       catch (memoryError) { message.warning(`报工已成功，但默认设备和参数记忆保存失败：${resolveErrorMessage(memoryError)}`) }
       resetProductionSubmissionDraft()
+      quantityDraftId.value = undefined
+      quantityDraftMessage.value = ''
+      void quantityDraftList.value?.load()
       openProductionSubmitSuccessDialog()
       showParameterAuditWarning(submitResult)
       clearFrontlineError()

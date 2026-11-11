@@ -92,6 +92,22 @@ class MesReportAllocationCommandServiceTest {
         });
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectById(9001L))
+                .thenReturn(workOrder(9001L, "SOURCE"));
+        org.mockito.Mockito.lenient().when(activeOrderMapper.selectByIdForUpdate(8101L))
+                .thenReturn(activeOrder(8101L, 9001L));
+        org.mockito.Mockito.lenient().when(targetService.requireTarget(any(MesProcessPoolActiveOrderDO.class),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> new MesTeamLeaderOrderProcessTarget(call.getArgument(1), call.getArgument(2),
+                        new BigDecimal("300"), BigDecimal.ONE, new BigDecimal("300")));
+        org.mockito.Mockito.lenient().when(targetService.requireUniqueTargetForProcess(
+                any(MesProcessPoolActiveOrderDO.class), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> new MesTeamLeaderOrderProcessTarget(
+                        call.getArgument(0, MesProcessPoolActiveOrderDO.class).getId() - 3000L,
+                        call.getArgument(1), new BigDecimal("300"), BigDecimal.ONE, new BigDecimal("300")));
+        org.mockito.Mockito.lenient().when(signatureService.recordFieldChangeSignature(any()))
+                .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult()
+                        .setSignatureId(9902L).setActorId(3001L).setPasswordVerified(true).setSignedAt(LocalDateTime.now()));
         MesProductionDisplayedContextFixture.attach(service);
         org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(),
                 org.mockito.ArgumentMatchers.eq("PROCESS_POOL_EVENT"), org.mockito.ArgumentMatchers.eq(1001L),
@@ -119,6 +135,9 @@ class MesReportAllocationCommandServiceTest {
         return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                 .routeProcessId(routeProcessId)
                 .processId(6001L)
+                .erpFixedQuantitySnapshot(new BigDecimal("300"))
+                .productionQuantityFactorSnapshot(BigDecimal.ONE)
+                .plannedQuantitySnapshot(new BigDecimal("300"))
                 .overagePercentSnapshot(new BigDecimal("1000"))
                 .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}")
                 .build();
@@ -171,7 +190,7 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
-    void frontlineInitialAllocationMustUseSubmittedEventContextWithoutTargetProjection() {
+    void frontlineInitialAllocationMustValidateTheExactSubmittedFrozenProcess() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
@@ -186,7 +205,7 @@ class MesReportAllocationCommandServiceTest {
         when(stateMapper.updateById(state)).thenReturn(1);
         service.createInitialAllocation(1001L, 8101L, new BigDecimal("300"));
 
-        verify(targetService, never()).requireTarget(activeOrder, 5001L, 6001L);
+        verify(targetService).requireTarget(activeOrder, 5001L, 6001L);
         verify(targetService, never()).requireUniqueTargetForProcess(activeOrder, 6001L);
         ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> allocationCaptor =
                 ArgumentCaptor.forClass(Collection.class);
@@ -235,8 +254,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L), activeOrder(8103L, 9003L)));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9003L))).thenReturn(List.of(
-                workOrder(9001L, "A"), workOrder(9003L, "C")));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9003L))).thenReturn(List.of(workOrder(9003L, "C")));
         when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8103L), 6001L))
                 .thenReturn(List.of());
         when(targetService.requireUniqueTargetForProcess(activeOrder(8103L, 9003L), 6001L))
@@ -252,7 +270,7 @@ class MesReportAllocationCommandServiceTest {
 
         MesReportAllocationSnapshot snapshot = MesProductionDisplayedContextFixture.save(service, saveCommand(1,
                 List.of(MesReportAllocationSaveLine.builder().activeOrderId(8103L)
-                        .allocatedQuantity(new BigDecimal("100")).build())));
+                        .allocatedQuantity(new BigDecimal("300")).build())));
 
         assertEquals(2, snapshot.getVersion());
         assertEquals(List.of(8103L), snapshot.getLines().stream()
@@ -299,7 +317,7 @@ class MesReportAllocationCommandServiceTest {
                 .thenReturn(List.of());
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
-                        BigDecimal.ZERO, new BigDecimal("300")));
+                        BigDecimal.ONE, new BigDecimal("300")));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
                 .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
@@ -309,7 +327,7 @@ class MesReportAllocationCommandServiceTest {
         when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
 
         MesProductionDisplayedContextFixture.save(service, saveCommand(0, List.of(MesReportAllocationSaveLine.builder()
-                .activeOrderId(8101L).allocatedQuantity(new BigDecimal("100")).build())));
+                .activeOrderId(8101L).allocatedQuantity(new BigDecimal("300")).build())));
 
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
@@ -347,10 +365,10 @@ class MesReportAllocationCommandServiceTest {
                 .thenReturn(List.of());
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
-                        BigDecimal.ZERO, new BigDecimal("300")));
+                        BigDecimal.ONE, new BigDecimal("300")));
         MesReportAllocationSaveCommand command = saveCommand(0, List.of(
                 MesReportAllocationSaveLine.builder().activeOrderId(8101L)
-                        .allocatedQuantity(new BigDecimal("100")).build()));
+                        .allocatedQuantity(new BigDecimal("300")).build()));
         command.setSignaturePassword(" ");
 
         ServiceException ex = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command));
@@ -365,7 +383,7 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
-    void shouldPersistRequestedAllocationBeyondOrderProcessRemainingWithoutTruncation() throws Exception {
+    void shouldRejectAllocationAboveTheFrozenCoefficientCeiling() throws Exception {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(0).build();
@@ -388,29 +406,16 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("100"),
                         BigDecimal.ONE, new BigDecimal("100")));
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
-                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
-        when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(stateMapper.updateById(state)).thenReturn(1);
-        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
-        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
-
-        MesReportAllocationSnapshot snapshot = MesProductionDisplayedContextFixture.save(service, saveCommand(0, List.of(
-                MesReportAllocationSaveLine.builder().activeOrderId(8101L)
-                        .allocatedQuantity(new BigDecimal("80")).build())));
-
-        assertAmount("80", snapshot.getTotalAllocatedQuantity());
-        assertAmount("0", snapshot.getUnallocatedQuantity());
-        ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> insertedCaptor =
-                ArgumentCaptor.forClass(Collection.class);
-        verify(allocationMapper).insertBatch(insertedCaptor.capture());
-        assertAmount("80", insertedCaptor.getValue().iterator().next().getAllocatedQuantity());
-        MesReportAllocationSnapshotLine line = snapshot.getLines().get(0);
-        assertAmount("60", (BigDecimal) line.getClass().getMethod("getOverageQuantity").invoke(line));
-        assertEquals(Boolean.TRUE, line.getClass().getMethod("getNeedsAdjustment").invoke(line));
-        verify(quantityFragmentService).rebuildForVersion(event, 1, List.copyOf(insertedCaptor.getValue()));
-        verify(completionService).reconcileAffectedAllocations(event, List.copyOf(insertedCaptor.getValue()));
+        when(activeOrderProcessSnapshotMapper.selectListByActiveOrderAndProcessForUpdate(8101L, 6001L))
+                .thenReturn(List.of(frozenSnapshot(5101L).setErpFixedQuantitySnapshot(new BigDecimal("100"))
+                        .setPlannedQuantitySnapshot(new BigDecimal("100"))));
+        when(eventMapper.selectBatchIds(Set.of(999L))).thenReturn(List.of(event().setId(999L).setReportOutputQuantity(new BigDecimal("80"))));
+        ServiceException failure = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service,
+                saveCommand(0, List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L)
+                        .allocatedQuantity(new BigDecimal("80")).build()))));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED.getCode(), failure.getCode());
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+        org.mockito.Mockito.verifyNoInteractions(signatureService);
     }
 
     @Test
@@ -694,7 +699,7 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
-    void shouldUseAllocationModeAsAuditReasonWhenReviewRemarkIsBlank() {
+    void shouldRequireAnExplicitReasonForAllocationChanges() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(0).build();
@@ -703,7 +708,7 @@ class MesReportAllocationCommandServiceTest {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
         when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
-        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(allocation(7101L,8101L,9001L,5101L,"100")));
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
@@ -711,81 +716,52 @@ class MesReportAllocationCommandServiceTest {
                 .thenReturn(List.of());
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
-                        BigDecimal.ZERO, new BigDecimal("300")));
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
-                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
-        when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(stateMapper.updateById(state)).thenReturn(1);
-        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
-        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
-
-        MesReportAllocationSaveCommand command = MesReportAllocationSaveCommand.builder()
-                .eventId(1001L).leaderUserId(3001L).leaderType("PRODUCTION").expectedVersion(0)
-                .idempotencyKey("req-no-reason").allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
-                .reason(null).signaturePassword("leader-password").allocations(List.of(MesReportAllocationSaveLine.builder()
-                        .activeOrderId(8101L).allocatedQuantity(new BigDecimal("100")).build())).build();
-        MesProductionDisplayedContextFixture.save(service, command);
-
-        ArgumentCaptor<Collection<MesProcessPoolReportAllocationAdjustmentAuditDO>> auditCaptor =
-                ArgumentCaptor.forClass(Collection.class);
-        verify(auditMapper).insertBatch(auditCaptor.capture());
-        assertEquals("FIFO自动分配", auditCaptor.getValue().iterator().next().getAdjustmentReason());
+                        BigDecimal.ONE, new BigDecimal("300")));
+        MesReportAllocationSaveCommand command = saveCommand(0, List.of(
+                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(new BigDecimal("300")).build()));
+        command.setReason(null);
+        assertThrows(IllegalArgumentException.class, () -> MesProductionDisplayedContextFixture.save(service, command));
+        org.mockito.Mockito.verifyNoInteractions(signatureService);
+        verify(allocationMapper, never()).insertBatch(anyCollection());
     }
 
     @Test
-    void shouldAllowEmptyEditableAllocationAndPreserveEntirePoolAsRemainder() {
-        MesProProcessPoolEventDO event = event();
-        MesProcessPoolReportAllocationDO oldA = allocation(7101L, 8101L, 9001L, 5101L, "100");
-        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
-                .id(7201L).eventId(1001L).currentVersion(1).build();
-        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
-        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
-        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
-        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(oldA));
-        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
-        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
-        when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
-        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(stateMapper.updateById(state)).thenReturn(1);
-
-        MesReportAllocationSnapshot snapshot = MesProductionDisplayedContextFixture.save(service, saveCommand(1, List.of()));
-
-        assertAmount("0", snapshot.getTotalAllocatedQuantity());
-        assertAmount("300", snapshot.getUnallocatedQuantity());
-        verify(quantityFragmentService).rebuildForVersion(event, 2, List.of());
-        verify(completionService).reconcileAffectedAllocations(event, List.of(oldA));
+    void shouldRejectDeletingTheEntireOriginalQuantity() {
+        var submitted = event();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(submitted);
+        when(poolQuantityService.requirePoolQuantity(submitted)).thenReturn(new BigDecimal("300"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(
+                allocation(7101L,8101L,9001L,5101L,"300")));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L,9001L)));
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> MesProductionDisplayedContextFixture.save(service, saveCommand(1, List.of())));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), failure.getCode());
+        verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+        org.mockito.Mockito.verifyNoInteractions(signatureService, quantityFragmentService, completionService);
     }
+
 
     @Test
-    void shouldTreatNullAndZeroAllocationQuantitiesAsZeroWhenSaving() {
-        MesProProcessPoolEventDO event = event();
-        MesProcessPoolReportAllocationDO oldA = allocation(7101L, 8101L, 9001L, 5101L, "100");
-        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
-                .id(7201L).eventId(1001L).currentVersion(1).build();
-        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
-        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
-        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
-        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(oldA));
-        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
-        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
-        when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
-        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
-        when(stateMapper.updateById(state)).thenReturn(1);
-
-        MesReportAllocationSnapshot snapshot = MesProductionDisplayedContextFixture.save(service, saveCommand(1, List.of(
-                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(null).build(),
-                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(BigDecimal.ZERO).build())));
-
-        assertAmount("0", snapshot.getTotalAllocatedQuantity());
-        assertAmount("300", snapshot.getUnallocatedQuantity());
-        verify(quantityFragmentService).rebuildForVersion(event, 2, List.of());
-        verify(completionService).reconcileAffectedAllocations(event, List.of(oldA));
+    void shouldRejectReplacingTheOriginalQuantityWithNullOrZero() {
+        var submitted = event();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(submitted);
+        when(poolQuantityService.requirePoolQuantity(submitted)).thenReturn(new BigDecimal("300"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(
+                allocation(7101L,8101L,9001L,5101L,"300")));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L,9001L)));
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> MesProductionDisplayedContextFixture.save(service, saveCommand(1, List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(null).build(), MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(BigDecimal.ZERO).build()))));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), failure.getCode());
+        verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+        org.mockito.Mockito.verifyNoInteractions(signatureService, quantityFragmentService, completionService);
     }
+
 
     @Test
     void manualFullAllocationSameAsCurrentMustStillReconcileCompletionProgress() {
@@ -923,9 +899,13 @@ class MesReportAllocationCommandServiceTest {
             when(owners.submissionIdentity(event)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",4001L,9001L));
             when(owners.initiatorSnapshot(3001L,null)).thenReturn(java.util.Map.of("domain","SYSTEM_USER","id",3001L,"name","原生产组长"));
             var work=workOrder(9001L,"WO-9001");work.setTenantId(1L);when(workOrderMapper.selectById(9001L)).thenReturn(work);
-            var routes=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper.class);when(routes.selectById(5001L)).thenReturn(MesProRouteProcessDO.builder().id(5001L).routeId(98L).processId(6001L).build());
-            var processes=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper.class);when(processes.selectById(6001L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(6001L).name("正式生产工序").build());
-            for(var entry:java.util.Map.of("tasks",tasks,"orders",activeOrderMapper,"events",eventMapper,"reviews",reviewMapper,"owners",owners,"workOrders",workOrderMapper,"routeProcesses",routes,"processes",processes,"audit",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffAudit.class),"delivery",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeliveryService.class)).entrySet())ReflectionTestUtils.setField(handoff,entry.getKey(),entry.getValue());
+            var snapshots=org.mockito.Mockito.mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
+            var processSnapshot = frozenSnapshot(5001L).setProcessNameSnapshot("正式生产工序").setRouteId(98L)
+                    .setActiveOrderId(8101L).setWorkOrderId(9001L).setRouteVersionId(7002L);
+            processSnapshot.setTenantId(1L);
+            when(snapshots.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                    processSnapshot));
+            for(var entry:java.util.Map.of("tasks",tasks,"orders",activeOrderMapper,"events",eventMapper,"reviews",reviewMapper,"owners",owners,"workOrders",workOrderMapper,"processSnapshots",snapshots,"audit",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffAudit.class),"delivery",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeliveryService.class)).entrySet())ReflectionTestUtils.setField(handoff,entry.getKey(),entry.getValue());
             ReflectionTestUtils.setField(service,"handoffService",handoff);
             var displayed = MesProductionDisplayedContextFixture.displayed(service,1001L);
             assertEquals(7401L,service.rejectProductionSubmission(1001L,3001L,"数量与现场不符","reject-pass", displayed));
@@ -1049,7 +1029,10 @@ class MesReportAllocationCommandServiceTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"completion","application","released","ncr"})
     void frozenSharedAIsPreservedWhileLegalBChanges(String freeze) {
-        var source=event().setWorkOrderId(9005L);var a=allocation(7101L,8101L,9001L,5101L,"100");var b=allocation(7102L,8103L,9003L,5301L,"80");
+        var source=event().setWorkOrderId(9005L);
+        when(workOrderMapper.selectById(9005L)).thenReturn(workOrder(9005L,"SOURCE"));
+        when(activeOrderMapper.selectByIdForUpdate(8105L)).thenReturn(activeOrder(8105L,9005L));
+        var a=allocation(7101L,8101L,9001L,5101L,"100");var b=allocation(7102L,8103L,9003L,5301L,"80");
         source.setRawPayload(source.getRawPayload().replace("\"workOrderId\":9001","\"workOrderId\":9005")
                 .replace("\"activeOrderId\":8101","\"activeOrderId\":8105"));
         String originalA=JsonUtils.toJsonString(a);
@@ -1057,7 +1040,7 @@ class MesReportAllocationCommandServiceTest {
         if("released".equals(freeze))orderA.setActiveStatus("ARCHIVED");
         var state=MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build();
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(source);
-        when(poolQuantityService.requirePoolQuantity(source)).thenReturn(new BigDecimal("300"));
+        when(poolQuantityService.requirePoolQuantity(source)).thenReturn(new BigDecimal("220"));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(a,b));
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(orderB));
@@ -1088,9 +1071,9 @@ class MesReportAllocationCommandServiceTest {
             when(authorityOrders.selectByIdForUpdate(9005L)).thenReturn(workOrder(9005L,"C"));
             ReflectionTestUtils.setField(service,"nonconformanceReviewService",authority);
         }
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9003L))).thenReturn(List.of(workOrder(9003L,"B")));
+        when(workOrderMapper.selectListByIdsForUpdate(org.mockito.ArgumentMatchers.argThat(ids -> ids.contains(9003L)))).thenAnswer(call -> call.<List<Long>>getArgument(0).stream().map(id -> workOrder(id,"ORDER")).toList());
         when(workOrderMapper.selectListByIds(List.of(9001L,9003L))).thenReturn(List.of(workOrder(9001L,"A"),workOrder(9003L,"B")));
-        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8103L),6001L)).thenReturn(List.of(b));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(org.mockito.ArgumentMatchers.argThat(ids -> ids.contains(8103L)),org.mockito.ArgumentMatchers.eq(6001L))).thenReturn(List.of(b));
         when(targetService.requireUniqueTargetForProcess(orderB,6001L)).thenReturn(
                 new MesTeamLeaderOrderProcessTarget(5301L,6001L,new BigDecimal("300"),BigDecimal.ONE,new BigDecimal("300")));
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
@@ -1108,7 +1091,7 @@ class MesReportAllocationCommandServiceTest {
             verify(reads,org.mockito.Mockito.times(1)).selectFirstBlockingByWorkOrderId(9003L);
             verify(reads,org.mockito.Mockito.times(1)).selectFirstBlockingByWorkOrderId(9005L);
         }
-        assertEquals(originalA,JsonUtils.toJsonString(a));assertEquals(2,result.getVersion());assertAmount("220",result.getTotalAllocatedQuantity());assertAmount("80",result.getUnallocatedQuantity());
+        assertEquals(originalA,JsonUtils.toJsonString(a));assertEquals(2,result.getVersion());assertAmount("220",result.getTotalAllocatedQuantity());assertAmount("0",result.getUnallocatedQuantity());
         assertEquals(7101L,result.getLines().get(0).getAllocationId());assertEquals("ncr".equals(freeze),result.getLines().get(0).getEditable());
         ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> changed=ArgumentCaptor.forClass(Collection.class);
         verify(quantityFragmentService).rebuildPreservingAllocations(org.mockito.ArgumentMatchers.eq(source),org.mockito.ArgumentMatchers.eq(2),changed.capture(),org.mockito.ArgumentMatchers.eq(List.of(a)));
@@ -1127,7 +1110,7 @@ class MesReportAllocationCommandServiceTest {
         var orderA = activeOrder(8101L,9001L);
         var orderB = activeOrder(8103L,9003L);
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(source);
-        when(poolQuantityService.requirePoolQuantity(source)).thenReturn(new BigDecimal("100"));
+        when(poolQuantityService.requirePoolQuantity(source)).thenReturn(new BigDecimal("70"));
         var state=MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build();
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L))
@@ -1135,7 +1118,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(orderA,orderB));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L,9003L)))
                 .thenReturn(List.of(workOrder(9001L,"A"),workOrder(9003L,"B")));
-        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8103L),6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(org.mockito.ArgumentMatchers.argThat(ids -> ids.contains(8103L)),org.mockito.ArgumentMatchers.eq(6001L)))
                 .thenReturn("new".equals(change) ? List.of() : List.of(b));
         when(targetService.requireUniqueTargetForProcess(orderB,6001L)).thenReturn(
                 new MesTeamLeaderOrderProcessTarget(5301L,6001L,new BigDecimal("100"),BigDecimal.ONE,new BigDecimal("100")));
@@ -1320,6 +1303,8 @@ class MesReportAllocationCommandServiceTest {
             if (java.util.Objects.equals(call.getArgument(0), frozenWork)) throw new IllegalStateException("frozen");
             return null;
         }).when(authority).ensureWorkOrderNotFrozen(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.eq("生产报工复核"));
+        when(targetService.requireUniqueTargetForProcess(activeOrder(8102L,9002L),6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5201L,6001L,new BigDecimal("300"),BigDecimal.ONE,new BigDecimal("300")));
         var command=saveCommand(1,List.of(MesReportAllocationSaveLine.builder().activeOrderId(8102L).allocatedQuantity(new BigDecimal("300")).build()));
         command.setExpectedReview(MesProductionDisplayedContextFixture.displayed(service,1001L));
         assertThrows(IllegalStateException.class,()->service.save(command));
@@ -1371,7 +1356,7 @@ class MesReportAllocationCommandServiceTest {
         return MesProProcessPoolEventDO.builder().id(1001L).eventType("PRODUCTION_SUBMIT")
                 .eventIdempotencyKey("P0-SUBMIT-F2-20260814-001").workOrderId(9001L)
                 .deviceAccountId(9001L).reportOutputQuantity(new BigDecimal("300"))
-                .rawPayload("{\"activeOrderId\":8101,\"workOrderId\":9001,\"routeProcessId\":5001,"
+                .rawPayload("{\"activeOrderProcess\":{\"activeOrderId\":8101},\"activeOrderId\":8101,\"workOrderId\":9001,\"routeProcessId\":5001,"
                         + "\"processId\":6001,\"outputQuantity\":300,\"lossQuantity\":0,"
                         + "\"lossDetails\":[],\"materialDetails\":[],\"deviceParameterReadings\":[],"
                         + "\"fieldValues\":{\"OUTPUT_QUANTITY\":300,\"SCRAP_QUANTITY\":0}}")
@@ -1391,11 +1376,13 @@ class MesReportAllocationCommandServiceTest {
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId) {
         return MesProcessPoolActiveOrderDO.builder().id(id).leaderUserId(3001L).workOrderId(workOrderId)
+                .dccProjectCodeId(100L).routeId(7001L).routeVersionId(7002L)
                 .activeStatus("ACTIVE").businessStatus("ACTIVE").build();
     }
 
     private static MesProWorkOrderDO workOrder(Long id, String code) {
-        return MesProWorkOrderDO.builder().id(id).code(code).quantity(new BigDecimal("300")).build();
+        return MesProWorkOrderDO.builder().id(id).code(code).productId(111L).materialSpecification("S")
+                .quantity(new BigDecimal("300")).build();
     }
 
     private static MesProcessPoolReportAllocationDO allocation(Long id, Long activeOrderId, Long workOrderId,

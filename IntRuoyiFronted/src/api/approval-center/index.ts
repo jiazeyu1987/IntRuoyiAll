@@ -10,6 +10,16 @@ export interface ApprovalDecisionReceipt {
   resultingStatus: string
   committedAt: string
 }
+export const getApprovalReviewReceipt = async (params: {
+  moduleCode: ApprovalModuleCode
+  sourceTaskType: string
+  sourceTaskId: string
+  idempotencyKey: string
+  prepareId?: string
+}, options?: { isRequestContextCurrent?: () => boolean }) => await request.get<ApprovalDecisionReceipt | null>({
+  url: '/approval-center/tasks/review-receipt', params, timeout: 60000, ignoreErrorMessage: true,
+  isRequestContextCurrent: options?.isRequestContextCurrent
+})
 export interface ApprovalReviewPreview {
   prepareId: string
   expiresAt: string
@@ -24,8 +34,8 @@ export interface ApprovalReviewPreview {
     attachments: Array<{ fileId: string; fileName: string; version: string; sha256: string; fileSize: string; contentType: string; readUrl: string }>
   }
 }
-export const getApprovalReviewPreview = async (data: { moduleCode: ApprovalModuleCode; sourceTaskType: string; sourceTaskId: string; processInstanceId?: string }) =>
-  await request.post<ApprovalReviewPreview>({ url: '/approval-center/tasks/review-preview', data })
+export const getApprovalReviewPreview = async (data: { moduleCode: ApprovalModuleCode; sourceTaskType: string; sourceTaskId: string; processInstanceId?: string }, options?: { timeout: number }) =>
+  await request.post<ApprovalReviewPreview>({ url: '/approval-center/tasks/review-preview', data, ...options })
 
 export type ApprovalTaskViewType = 'TODO' | 'DONE' | 'MY_INITIATED' | 'CC'
 
@@ -169,6 +179,14 @@ export const getApprovalCenterModules = async (options?: { ignoreErrorMessage?: 
   })
 }
 
+export const getApprovalTodoCount = async (options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }) => {
+  return await request.get<number>({
+    url: '/approval-center/tasks/todo-count',
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent
+  })
+}
+
 export const getApprovalTaskPage = async (params: ApprovalTaskPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<ApprovalTaskSummaryVO[]>>({
     ignoreErrorMessage: options?.ignoreErrorMessage,
@@ -189,12 +207,13 @@ export const getApprovalTaskTimeline = async (params: ApprovalTaskTimelineReqVO,
   })
 }
 
-export const reviewApprovalTask = async (data: ApprovalTaskReviewReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+export const reviewApprovalTask = async (data: ApprovalTaskReviewReqVO, options?: { timeout?: number; ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<boolean | ApprovalDecisionReceipt>({
     ignoreErrorMessage: options?.ignoreErrorMessage,
     isRequestContextCurrent: options?.isRequestContextCurrent,
     isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/approval-center/tasks/review',
+    timeout: options?.timeout,
     data
   })
 }

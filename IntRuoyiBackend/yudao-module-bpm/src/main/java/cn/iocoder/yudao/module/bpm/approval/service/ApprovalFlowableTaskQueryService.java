@@ -36,7 +36,11 @@ public class ApprovalFlowableTaskQueryService {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public PageResult<Task> todo(ApprovalTaskQueryContext context,String projection) {
         Map<String,Object> p=parameters(context,projection,false); verify(p);
-        long count=mapper.count(p); List<String> ids=mapper.window(p);
+        long count=mapper.count(p);
+        if (ApprovalQueryWindow.from(context).limit() == 0 || count == 0) {
+            return new PageResult<>(List.of(), count);
+        }
+        List<String> ids=mapper.window(p);
         if(ids.isEmpty()) return new PageResult<>(List.of(),count);
         var rows=tasks.createTaskQuery().taskIds(new HashSet<>(ids)).taskTenantId((String)p.get("tenantText"))
                 .active().includeProcessVariables().includeTaskLocalVariables().list();

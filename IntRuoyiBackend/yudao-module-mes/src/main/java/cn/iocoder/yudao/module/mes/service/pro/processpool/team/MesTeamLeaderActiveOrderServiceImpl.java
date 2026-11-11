@@ -3538,7 +3538,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         resolveConservativeProcessProgressQuantities(activeOrder, snapshots,
                                 allocations, productionEvents);
                 List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> processRemainingQuantities =
-                        resolveProcessRemainingQuantities(activeOrder, snapshots, progressQuantityByProcess);
+                        resolveProcessRemainingQuantities(activeOrder, snapshots, progressQuantityByProcess,
+                                productionEvents, allocations);
                 int quantityConflictProcessCount = (int) processRemainingQuantities.stream()
                         .filter(item -> Boolean.TRUE.equals(item.getQuantityConflict()))
                         .count();
@@ -3598,7 +3599,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private static List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> resolveProcessRemainingQuantities(
             MesProcessPoolActiveOrderDO activeOrder,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
-            Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess) {
+            Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess,
+            List<MesProProcessPoolEventDO> productionEvents,
+            List<MesProcessPoolReportAllocationDO> allocations) {
         return snapshots.stream()
                 .map(snapshot -> {
                     BigDecimal plannedQuantity = snapshot.getPlannedQuantitySnapshot();
@@ -3609,11 +3612,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             new ActiveOrderProcessIdentity(activeOrder.getId(), snapshot.getRouteProcessId(),
                                     snapshot.getProcessId()),
                             BigDecimal.ZERO);
-                    BigDecimal remainingQuantity = plannedQuantity.subtract(allocatedQuantity);
+                    BigDecimal remainingQuantity = MesProductionQuantityRange.of(snapshot).lower().subtract(allocatedQuantity);
                     if (remainingQuantity.compareTo(BigDecimal.ZERO) < 0) {
                         remainingQuantity = BigDecimal.ZERO.setScale(plannedQuantity.scale(), RoundingMode.UNNECESSARY);
                     }
-                    BigDecimal overageQuantity = allocatedQuantity.subtract(plannedQuantity);
+                    BigDecimal maximumQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                            activeOrder, snapshot, productionEvents, allocations);
+                    BigDecimal overageQuantity = maximumQuantity.subtract(plannedQuantity);
                     if (overageQuantity.compareTo(BigDecimal.ZERO) < 0) {
                         overageQuantity = BigDecimal.ZERO.setScale(plannedQuantity.scale(), RoundingMode.UNNECESSARY);
                     }
@@ -3646,7 +3651,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
             }
-            targets.put(identity, plannedQuantity);
+            targets.put(identity, MesProductionQuantityRange.of(snapshot).lower());
         }
         return targets;
     }

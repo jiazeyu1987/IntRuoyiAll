@@ -71,6 +71,7 @@ import java.util.stream.Stream;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -371,6 +372,21 @@ class MesFrontlinePqcContextServiceTest {
         assertTrue(candidate.readBlockReason().contains("缺少冻结抽样证据"));
         assertTrue(candidate.readBlockReason().contains("7001"));
         assertNull(task.getInspectionSamplingPlanJson());
+    }
+
+    @Test
+    void frozenWorkOrderRemainsVisibleButCannotEnterPqcFilling() {
+        prepareActiveOrderList(routeVersion());
+        MesProWorkOrderDO order = workOrder(WORK_ORDER_ID).setTemporaryFrozen(true);
+        when(workOrderMapper.selectListByIds(any())).thenReturn(List.of(order));
+
+        MesFrontlineActiveOrderCandidate blocked = service.listActiveOrders().get(0);
+        assertEquals(ACTIVE_ORDER_ID, blocked.activeOrderId());
+        assertTrue(blocked.readBlocked());
+        assertEquals("生产工单已冻结或作废，暂不可填写PQC", blocked.readBlockReason());
+
+        order.setTemporaryFrozen(false);
+        assertFalse(service.listActiveOrders().get(0).readBlocked());
     }
 
     @Test

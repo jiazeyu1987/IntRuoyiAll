@@ -149,6 +149,11 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
         List<ApprovalTaskSummary> nativeTasks = new ArrayList<>(projectApplications.list(context));
         nativeTasks.addAll(offlineTraining.list(context));
+        if (context.getViewType() == ApprovalTaskViewType.TODO
+                && cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).limit() == 0) {
+            var files = centerQuery.todo(context, "DCC_TASK");
+            return new PageResult<>(List.of(), Math.addExact(files.getTotal(), nativeTasks.size()));
+        }
         if (nativeTasks.isEmpty()) {
             return switch (context.getViewType()) {
                 case TODO -> pageTodo(context);

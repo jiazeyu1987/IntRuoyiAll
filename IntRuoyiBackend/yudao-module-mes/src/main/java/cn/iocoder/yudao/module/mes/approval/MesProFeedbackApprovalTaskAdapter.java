@@ -125,6 +125,8 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
         List<MesProFeedbackDO> ordered = candidates.values().stream()
                 .sorted(Comparator.comparing(MesProFeedbackDO::getId).reversed()).toList();
         Map<Long, MesFeedbackFormalReviewProjection.Fact> formal = formalReviewProjection.read(ordered);
+        var window = cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        long total = 0;
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
         for (MesProFeedbackDO row : ordered) {
             MesFeedbackFormalReviewProjection.Fact fact = formal.get(row.getId());
@@ -135,9 +137,11 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
                     && !context.isGlobalView()
                     && !Objects.equals(context.getLoginUserId(), fact.reviewed()
                     ? fact.reviewerId() : row.getApproveUserId())) continue;
-            summaries.add(fact == null ? toSummary(row) : toFormalSummary(row, fact));
+            total++;
+            if (window.limit() > 0) summaries.add(fact == null ? toSummary(row) : toFormalSummary(row, fact));
         }
-        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
+        if (window.limit() == 0) return new PageResult<>(List.of(), total);
+        return window.slice(
                 cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
     }
 

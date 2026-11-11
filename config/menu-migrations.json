@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/WorkflowInteractionLog.vue",
+      "kind": "page",
+      "value": "mes/pro/processpool/components/WorkflowInteractionLog",
+      "reason": "生产、检验和放行现有页面中的内部日志弹窗，仅查询当前已认证人员本人最近失败与取消记录；不新增菜单、路由、权限标识、角色或套餐授权。服务端从登录会话确定操作人，不接受其他用户编号。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlinePqcNumericEntry.vue",
       "kind": "page",
       "value": "mes/pro/feedback/FrontlinePqcNumericEntry",
@@ -136,7 +142,7 @@
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesFixedTestOrderDataController.java",
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:maintain",
-      "reason": "生产组长活跃订单的数据按钮复用现有工作台维护权限，并校验测试模式与当前登录租户，仅补齐固定测试订单单据；未新增菜单、页面路由、权限标识、角色或租户套餐授权。"
+      "reason": "生产组长活跃订单的数据、数据2按钮复用现有工作台维护权限，并校验测试模式与当前登录租户，分别补齐两套固定测试订单及关联单据；未新增菜单、页面路由、权限标识、角色或租户套餐授权。"
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java",
@@ -196,7 +202,7 @@
       "source": "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:maintain",
-      "reason": "人员管理新增名单导入内部弹窗，复用生产组长人员维护权限，仅导入当前组长班组，不新增独立页面、菜单、权限或套餐授权。"
+      "reason": "人员管理名单导入内部弹窗及活跃订单的数据、数据2按钮复用生产组长维护权限；名单仅导入当前组长班组，测试单据生成受测试模式限制，不新增独立页面、菜单、权限或套餐授权。"
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java",
@@ -3373,6 +3379,30 @@
       "kind": "router",
       "value": "1783c5e404b59cdcaf2ce9da86b5631f36cd1da129420f49c274ecd9c4abe9f3",
       "reason": "合并 int_main 与 int_qms 的现有路由：保留主线生产工作台与规程导航，受控文件详情补充重启申请、重启结果和受控导入结果三个内部跳转条件。详情复用现有提交及导入权限，服务端继续校验租户、原申请人、失败轮次和项目编辑权限；不新增菜单、权限标识或角色及租户套餐授权。受控导入沿用已登记的 20261102_dcc_controlled_import_edit_permissions.sql。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "历史追溯内的本人正式签署回执弹窗复用审批中心查询权限，仍要求该批次上市放行查询权限；服务只读核验原租户、签署人、任务、原幂等键和回执证据，不新增菜单、路由、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:query",
+      "reason": "历史追溯内的本人回执弹窗复用该批次上市放行查询权限及审批中心查询权限，原事务读取沿用既有权限与数据范围；不新增菜单、路由、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesProductionQuantityDraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "超限草稿为既有生产组长工作台内部组件，复用活跃订单查询及生产提交复核权限；服务按租户、原负责组长、员工范围、草稿版本及电子签名校验，不新增菜单、权限或角色及套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesProductionQuantityDraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:review",
+      "reason": "超限草稿为既有生产组长工作台内部组件，复用活跃订单查询及生产提交复核权限；服务按租户、原负责组长、员工范围、草稿版本及电子签名校验，不新增菜单、权限或角色及套餐授权。"
     }
   ]
 }

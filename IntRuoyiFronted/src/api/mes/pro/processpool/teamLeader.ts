@@ -1358,12 +1358,20 @@ export const pushGeneratedTeamLeaderActiveOrderRelease = async (
 
 export interface TeamLeaderTestDataRespVO {
   workOrderCode: string
-  documents: Array<{ name: string; createdCount: number; deletedCount: number; skippedCount: number }>
+  documents: Array<{ name: string; createdCount: number; deletedCount: number; skippedCount: number; repairedCount: number }>
 }
 
 export const prepareFixedTestOrderData = async () => {
   return await request.post<TeamLeaderTestDataRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-data',
+    timeout: 150000,
+    ignoreErrorMessage: true
+  })
+}
+
+export const prepareSecondFixedTestOrderData = async () => {
+  return await request.post<TeamLeaderTestDataRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-data-2',
     timeout: 150000,
     ignoreErrorMessage: true
   })

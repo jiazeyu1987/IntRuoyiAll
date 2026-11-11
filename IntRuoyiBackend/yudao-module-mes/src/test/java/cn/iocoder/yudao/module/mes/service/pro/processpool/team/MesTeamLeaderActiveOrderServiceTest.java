@@ -538,6 +538,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .routeId(7001L).routeVersionId(7002L).erpFixedQuantitySnapshot(new BigDecimal("60")).build();
         var snapshot = MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(8101L)
                 .workOrderId(9001L).routeId(7001L).routeVersionId(7002L).routeProcessId(5001L).processId(6001L)
+                .erpFixedQuantitySnapshot(new BigDecimal("60")).productionQuantityFactorSnapshot(BigDecimal.ONE)
                 .plannedQuantitySnapshot(new BigDecimal("60")).overagePercentSnapshot(BigDecimal.ZERO)
                 .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}").build();
         var allocation = MesProcessPoolReportAllocationDO.builder().id(7101L).activeOrderId(8101L)
@@ -3227,6 +3228,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .routeProcessId(5000L + index)
                         .processId(6000L + index)
                         .productionConfigSnapshotJson("{\"outputMaterialIds\":[1001]}")
+                        .erpFixedQuantitySnapshot(new BigDecimal("200.000000"))
+                        .productionQuantityFactorSnapshot(BigDecimal.ONE)
                         .plannedQuantitySnapshot(new BigDecimal("200.000000"))
                         .build())
                 .toList();
@@ -3242,6 +3245,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .routeVersionId(448L)
                 .routeProcessId(routeProcessId)
                 .processId(processId)
+                .erpFixedQuantitySnapshot(new BigDecimal(plannedQuantity))
+                .productionQuantityFactorSnapshot(BigDecimal.ONE)
                 .plannedQuantitySnapshot(new BigDecimal(plannedQuantity))
                 .productionConfigSnapshotJson("{\"outputMaterialIds\":[1001]}")
                 .build();
@@ -3259,6 +3264,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .routeProcessId(928600L + index)
                         .processId(6000L + index)
                         .productionConfigSnapshotJson("{\"outputMaterialIds\":[1001]}")
+                        .erpFixedQuantitySnapshot(new BigDecimal("200.000000"))
+                        .productionQuantityFactorSnapshot(BigDecimal.ONE)
                         .plannedQuantitySnapshot(new BigDecimal("200.000000"))
                         .build())
                 .toList();

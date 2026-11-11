@@ -833,6 +833,44 @@ class ApprovalCenterServiceImplTest {
         };
     }
 
+    @Test
+    void todoCountUsesOnlyVisibleTodoProvidersAndDoesNotEnrichRows() {
+        var visible = pagedProvider(ApprovalModuleCode.EDHR,
+                rows(ApprovalModuleCode.EDHR, "todo", 23, LocalDateTime.now()), context -> {
+                    assertEquals(100L, context.getLoginUserId());
+                    assertEquals(ApprovalTaskViewType.TODO, context.getViewType());
+                    assertFalse(context.isGlobalView());
+                });
+        var hidden = provider(ApprovalModuleCode.DCC, Set.of(ApprovalTaskViewType.TODO),
+                List.of(summary("hidden", LocalDateTime.now())), id -> false);
+        var doneOnly = provider(ApprovalModuleCode.SHOWROOM, Set.of(ApprovalTaskViewType.DONE),
+                List.of(summary("done", LocalDateTime.now())), id -> true);
+        var service = new ApprovalCenterServiceImpl(new ApprovalTaskProviderRegistry(List.of(visible, hidden, doneOnly)),
+                permissionApi, adminUserApi, signatureRecordService);
+        assertEquals(23L, service.getTodoCount(100L));
+        verifyNoInteractions(adminUserApi, signatureRecordService);
+    }
+
+    @Test
+    void todoCountPreservesAdminScopeAndExactTotalsBeyondWindow() {
+        when(permissionApi.hasAnyRoles(100L, RoleCodeEnum.APPROVAL_ADMIN.getCode())).thenReturn(true);
+        var first = pagedProvider(ApprovalModuleCode.EDHR,
+                rows(ApprovalModuleCode.EDHR, "todo", 317, LocalDateTime.now()), context -> assertTrue(context.isGlobalView()));
+        var second = inconsistentTotalProvider(ApprovalModuleCode.DCC, 81L);
+        var service = new ApprovalCenterServiceImpl(new ApprovalTaskProviderRegistry(List.of(first, second)),
+                permissionApi, adminUserApi, signatureRecordService);
+        assertEquals(398L, service.getTodoCount(100L));
+        verifyNoInteractions(adminUserApi, signatureRecordService);
+    }
+
+    @Test
+    void todoCountRejectsInvalidCountInsteadOfReportingZero() {
+        var provider = inconsistentTotalProvider(ApprovalModuleCode.EDHR, -1L);
+        var service = new ApprovalCenterServiceImpl(new ApprovalTaskProviderRegistry(List.of(provider)),
+                permissionApi, adminUserApi, signatureRecordService);
+        assertThrows(IllegalStateException.class, () -> service.getTodoCount(100L));
+    }
+
     private static ApprovalTaskSummary summary(String id, LocalDateTime taskCreatedAt) {
         return ApprovalTaskSummary.builder()
                 .id(id)

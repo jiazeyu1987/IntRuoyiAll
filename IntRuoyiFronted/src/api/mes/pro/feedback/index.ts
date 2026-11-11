@@ -188,6 +188,7 @@ export interface ProFrontlineProcessPoolContextReqVO {
 }
 
 export interface ProFrontlineFeedbackSubmitReqVO {
+  quantityDraftId?: number
   materialDetails: ProFrontlineFeedbackMaterialReqVO[]
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
   recordbookPayload?: ProFrontlineRecordbookPayloadReqVO
@@ -204,6 +205,9 @@ export interface ProFrontlineFeedbackSubmitReqVO {
 }
 
 export interface ProFrontlineFeedbackSubmitRespVO {
+  submissionStatus: 'SUBMITTED' | 'QUANTITY_BLOCKED'
+  quantityDraftId?: number
+  quantityBlockMessage?: string
   feedbackId: number
   recordbookEntryId?: number
   recordbookEventId?: number
@@ -251,6 +255,8 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationCode?: string
   workstationName?: string
   submittedQuantity: number
+  targetQuantity?: number
+  productionQuantityFactor?: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 

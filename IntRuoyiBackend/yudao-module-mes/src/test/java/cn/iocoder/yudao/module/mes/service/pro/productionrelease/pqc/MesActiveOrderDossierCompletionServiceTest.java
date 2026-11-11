@@ -51,6 +51,8 @@ class MesActiveOrderDossierCompletionServiceTest {
     private MesProcessPoolActiveOrderDO order;
 
     @BeforeEach void setup() {
+        when(users.getUser(anyLong())).thenAnswer(call -> new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(call.getArgument(0)).setNickname("测试操作人"));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "deadlineService", deadlines);
         login(7L, 1L);
         order = new MesProcessPoolActiveOrderDO().setId(10L).setLeaderUserId(7L).setWorkOrderId(20L).setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
@@ -135,6 +137,8 @@ class MesActiveOrderDossierCompletionServiceTest {
         var auditCommand = ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
         verify(audit).recordInCallerTransaction(auditCommand.capture());
         assertTrue(auditCommand.getValue().getMetadataJson().contains("99"));
+        assertEquals("测试操作人", auditCommand.getValue().getActorUsername());
+        assertTrue(auditCommand.getValue().getActionName().contains("资料"));
     }
     @Test void otherUploaderDoesNotCloseAssignedResponsibility() {
         when(tasks.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(task(8L)));

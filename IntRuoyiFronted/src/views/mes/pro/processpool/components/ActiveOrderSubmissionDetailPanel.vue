@@ -1489,13 +1489,13 @@
                   <th>结果</th>
                   <th>发生时间</th>
                 </tr>
-                <template v-for="fact in detail.operationFacts" :key="fact.id">
+                <template v-for="fact in detail.operationFacts" :key="`${fact.sourceType}:${fact.operationType}:${fact.id}`">
                   <tr
                     data-active-order-operation-fact
                     :data-active-order-operation-type="fact.operationType"
                   >
                     <td>{{ formatActiveOrderOperationType(fact) }}</td>
-                    <td>{{ fact.actorName }}</td>
+                    <td>{{ fact.actorName }}<div v-if="fact.actorUserId" class="text-xs text-gray-500">用户编号：{{ fact.actorUserId }}</div></td>
                     <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
                     <td>{{ formatDateTime(fact.occurredAt) }}</td>
                   </tr>
@@ -2470,6 +2470,8 @@ const isReadableChineseOperationText = (value?: string) => {
 
 const formatActiveOrderOperationType = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
   const operationName = String(fact.operationName || '').trim()
+  if (['PRODUCTION_SUBMIT', 'PRODUCTION_REVIEW', 'PQC_SUBMIT', 'PQC_REVIEW'].includes(fact.operationType)
+      && isReadableChineseOperationText(operationName)) return operationName
   if (activeOrderOperationNameLabels[operationName]) {
     return activeOrderOperationNameLabels[operationName]
   }

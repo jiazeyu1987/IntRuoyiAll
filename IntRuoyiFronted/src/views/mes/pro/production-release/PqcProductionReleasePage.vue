@@ -1,4 +1,5 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <ContentWrap>
     <ActiveOrderDetailLayout v-if="detailVisible" data-pqc-production-release-order-detail>
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
@@ -165,6 +166,7 @@
       data-pqc-production-release-dialog
       title="确认生产放行"
       width="540px"
+      :before-close="beforeReleaseDialogClose"
     >
       <div v-if="selectedRow" class="pqc-release-dialog">
         <el-descriptions :column="1" border>
@@ -237,7 +239,7 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button @click="releaseDialogVisible = false">{{
+        <el-button :disabled="releaseSubmitting" @click="releaseDialogVisible = false">{{
           releaseResult ? '关闭' : '取消'
         }}</el-button>
         <el-button
@@ -256,6 +258,10 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
+const workflowLog=useWorkflowInteractionLog('PQC_RELEASE')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -305,6 +311,7 @@ const activeView = ref<MesPqcProductionReleasePageReqVO['viewStatus']>(PQC_RELEA
 const releaseDialogVisible = ref(false)
 const releaseSubmitting = ref(false)
 const releaseError = ref('')
+watch(releaseError,value=>{if(value)workflowLog.blocked()})
 const selectedRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const releaseResult = ref<MesPqcProductionReleaseDecisionRespVO>()
 const releaseOutcomeUncertain = ref(false)
@@ -629,6 +636,9 @@ const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 let releaseDialogGeneration = 0
+const beforeReleaseDialogClose = (done: () => void) => {
+  if (!releaseSubmitting.value) done()
+}
 const releaseRequestScopeKey = (row: MesPqcProductionReleasePageItemRespVO) =>
   JSON.stringify([approvalInvalidation.syncSession().key, row.applicationId, row.pqcReleaseWorkTaskId])
 
@@ -739,12 +749,16 @@ const confirmedReleaseRejection = (error: unknown, request: FrozenPqcReleaseRequ
   const failure = (error as any)?.details
   const receipt = failure?.rejectedDecision
   const blockers = failure?.blockers
-  if (receipt?.outcome !== 'ROLLED_BACK' || receipt.applicationId !== request.applicationId ||
+  if (!receipt || !['NOT_STARTED', 'ROLLED_BACK'].includes(receipt.outcome) || receipt.applicationId !== request.applicationId ||
     receipt.workTaskId !== request.pqcReleaseWorkTaskId || receipt.actorId !== request.actorId ||
     receipt.expectedVersion !== request.expectedVersion || receipt.idempotencyKey !== request.idempotencyKey ||
     receipt.payloadHash !== request.payloadHash || !Array.isArray(blockers) || blockers.length !== 1 ||
     typeof blockers[0]?.blockerType !== 'string' || !blockers[0].blockerType.trim() ||
     typeof blockers[0]?.reason !== 'string' || !blockers[0].reason.trim()) return
+  if (receipt.outcome === 'NOT_STARTED') {
+    if (blockers[0].blockerType !== 'SIGNATURE_AUTHENTICATION_FAILED') return
+    return `${blockers[0].reason}。本次未提交放行，请更正后重新签名提交。`
+  }
   return blockers[0].blockerType === 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED'
     ? `${blockers[0].reason}。请为管理者代表角色分配启用账号后重新放行。`
     : `${blockers[0].reason}。本次放行已回滚，请更正后重新签名提交。`

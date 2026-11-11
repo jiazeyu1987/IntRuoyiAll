@@ -21,6 +21,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertPojoEq
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 @Import(ApiAccessLogServiceImpl.class)
 public class ApiAccessLogServiceImplTest extends BaseDbUnitTest {
@@ -30,6 +31,39 @@ public class ApiAccessLogServiceImplTest extends BaseDbUnitTest {
 
     @Resource
     private ApiAccessLogMapper apiAccessLogMapper;
+
+    @Test
+    public void summaryPageKeepsExactFiltersOrderAndTotalWithoutLoadingBodies() {
+        ApiAccessLogDO first = randomPojo(ApiAccessLogDO.class, o -> {
+            o.setUserId(2233L);
+            o.setRequestParams("original request");
+            o.setResponseBody("original response");
+        });
+        apiAccessLogMapper.insert(first);
+        ApiAccessLogDO latest = cloneIgnoreId(first, o -> o.setOperateName("最近的中文操作"));
+        apiAccessLogMapper.insert(latest);
+        apiAccessLogMapper.insert(cloneIgnoreId(first, o -> o.setUserId(3344L)));
+        ApiAccessLogPageReqVO query = new ApiAccessLogPageReqVO();
+        query.setUserId(2233L);
+        query.setPageSize(1);
+        PageResult<ApiAccessLogDO> page = apiAccessLogService.getApiAccessLogSummaryPage(query);
+        assertEquals(2, page.getTotal());
+        assertEquals(1, page.getList().size());
+        ApiAccessLogDO summary = page.getList().get(0);
+        assertEquals(latest.getId(), summary.getId());
+        assertEquals("最近的中文操作", summary.getOperateName());
+        assertNull(summary.getRequestParams());
+        assertNull(summary.getResponseBody());
+        assertNull(summary.getUserAgent());
+        query.setPageNo(2);
+        assertEquals(first.getId(), apiAccessLogService.getApiAccessLogSummaryPage(query).getList().get(0).getId());
+        // Detail and export continue reading their original full records.
+        assertEquals("original request", apiAccessLogService.getApiAccessLog(latest.getId()).getRequestParams());
+        query.setPageSize(cn.iocoder.yudao.framework.common.pojo.PageParam.PAGE_SIZE_NONE);
+        PageResult<ApiAccessLogDO> export = apiAccessLogService.getApiAccessLogPage(query);
+        assertEquals(2, export.getTotal());
+        assertEquals("original response", export.getList().get(0).getResponseBody());
+    }
 
     @Test
     public void testGetApiAccessLogPage() {

@@ -19,21 +19,52 @@ import static org.mockito.Mockito.*;
 class MesActiveOrderHandoffLifecycleTest {
  MesActiveOrderHandoffService service;MesActiveOrderHandoffTaskMapper tasks;MesProcessPoolActiveOrderMapper orders;MesProProcessPoolEventMapper events;MesProcessPoolSubmissionReviewMapper reviews;MesActiveOrderHandoffOwnerResolver owners;MesActiveOrderHandoffDeliveryService delivery;MesProProcessPoolEventRevisionMapper revisions;MesSignedReturnCorrectionResolver corrections;
  MesProcessPoolActiveOrderDO order;MesProProcessPoolEventDO event;
+ MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshots;MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot;
  @BeforeEach void fixture(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffService();
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));tasks=mock(MesActiveOrderHandoffTaskMapper.class);orders=mock(MesProcessPoolActiveOrderMapper.class);events=mock(MesProProcessPoolEventMapper.class);reviews=mock(MesProcessPoolSubmissionReviewMapper.class);owners=mock(MesActiveOrderHandoffOwnerResolver.class);delivery=mock(MesActiveOrderHandoffDeliveryService.class);revisions=mock(MesProProcessPoolEventRevisionMapper.class);corrections=mock(MesSignedReturnCorrectionResolver.class); }
  for(var entry:Map.of("tasks",tasks,"orders",orders,"events",events,"reviews",reviews,"owners",owners,"delivery",delivery,"revisions",revisions,"correctionResolver",corrections).entrySet())ReflectionTestUtils.setField(service,entry.getKey(),entry.getValue());ReflectionTestUtils.setField(service,"audit",mock(MesActiveOrderHandoffAudit.class));ReflectionTestUtils.setField(service,"pqcTasks",mock(MesPqcInspectionTaskMapper.class));
- var workOrders=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);var routeProcesses=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper.class);var processes=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper.class);
- ReflectionTestUtils.setField(service,"workOrders",workOrders);ReflectionTestUtils.setField(service,"routeProcesses",routeProcesses);ReflectionTestUtils.setField(service,"processes",processes);
+ var workOrders=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);processSnapshots=mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
+ ReflectionTestUtils.setField(service,"workOrders",workOrders);ReflectionTestUtils.setField(service,"processSnapshots",processSnapshots);
  var wo=cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(274L).code("EDHR-413").build();wo.setTenantId(1L);when(workOrders.selectById(274L)).thenReturn(wo);
- var rp=cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO.builder().id(91L).routeId(98L).processId(15L).build();when(routeProcesses.selectById(91L)).thenReturn(rp);
- when(processes.selectById(15L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(15L).name("组装").build());
+ processSnapshot=MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(413L).workOrderId(274L).routeId(98L).routeVersionId(301L).routeProcessId(91L).processId(15L).processNameSnapshot("组装（冻结名称）").build();processSnapshot.setTenantId(1L);
+ when(processSnapshots.selectListByActiveOrderId(413L)).thenReturn(List.of(processSnapshot));
  when(owners.initiatorSnapshot(anyLong(),any())).thenAnswer(i->Map.<String,Object>of("domain","SYSTEM_USER","id",i.<Long>getArgument(0),"name","实际发起人"));
- order=MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(274L).routeId(98L).leaderUserId(341L).activeStatus("ACTIVE").build();order.setTenantId(1L);when(orders.selectByIdForUpdate(413L)).thenReturn(order);when(orders.selectById(413L)).thenReturn(order);
+ order=MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(274L).routeId(98L).routeVersionId(301L).leaderUserId(341L).activeStatus("ACTIVE").build();order.setTenantId(1L);when(orders.selectByIdForUpdate(413L)).thenReturn(order);when(orders.selectById(413L)).thenReturn(order);
  event=MesProProcessPoolEventDO.builder().id(176L).eventType("PRODUCTION_SUBMIT").actualEmployeeId(342L).signatureUserId(342L).signatureId(901L).deviceAccountId(1L).routeProcessId(91L).rawPayload("{\"activeOrderId\":413}").build();event.setTenantId(1L);when(events.selectById(176L)).thenReturn(event);
  when(tasks.insert(any(MesActiveOrderHandoffTaskDO.class))).thenReturn(1);when(owners.productionLeader(order)).thenReturn(341L);when(owners.submissionProductionLeader(event,order)).thenReturn(341L);
+ when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",342L,342L));
   ReflectionTestUtils.setField(service,"deadlineService",mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrTaskDeadlineService.class));
   ReflectionTestUtils.setField(owners,"handoffTasks",tasks);ReflectionTestUtils.setField(owners,"orders",orders);
   when(owners.frozenPqcReviewers(any(),any())).thenCallRealMethod();
+ }
+ @Test void routeUpgradeKeepsOriginalProcessIdentityAndNameForHandoff() {
+  service.productionSubmitted(413L,176L,342L);
+  var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  var frozen=JsonUtils.parseTree(captured.getValue().getResponsibilitySnapshotJson());
+  assertEquals(91L,captured.getValue().getRouteProcessId());assertEquals(15L,frozen.path("processId").longValue());
+  assertEquals(301L,frozen.path("routeVersionId").longValue());assertEquals("组装（冻结名称）",frozen.path("processName").asText());
+ }
+ @Test void handoffRejectsProcessFromAnotherFrozenVersion() {
+  processSnapshot.setRouteVersionId(302L);
+  assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,342L));
+  verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
+ }
+ @Test void handoffRejectsCrossTenantFrozenProcess() {
+  processSnapshot.setTenantId(2L);
+  assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,342L));
+  verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));
+ }
+ @Test void handoffRejectsProcessFromAnotherWorkOrder() {
+  processSnapshot.setWorkOrderId(275L);
+  assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,342L));
+  verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));
+ }
+ @Test void handoffRejectsMissingOrAmbiguousFrozenProcess() {
+  when(processSnapshots.selectListByActiveOrderId(413L)).thenReturn(List.of());
+  assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,342L));
+  when(processSnapshots.selectListByActiveOrderId(413L)).thenReturn(List.of(processSnapshot,processSnapshot));
+  assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,342L));
+  verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));
  }
  @Test void crossTeamSubmissionAssignsOnlyItsOwnLeaderWithoutConsumingOriginalTeamHandoff() {
   when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",342L,342L));
@@ -275,11 +306,10 @@ class MesActiveOrderHandoffLifecycleTest {
   assertEquals("OWN_RETURN_CORRECTION",JsonUtils.parseTree(c.getValue().getResponsibilitySnapshotJson()).path("correctionOrigin").asText());verify(corrections).verifyRevision(event,previous,revision,344L);
  }
  @org.junit.jupiter.params.ParameterizedTest
- @org.junit.jupiter.params.provider.ValueSource(strings={"callerTask","orderCycle","orderWorkOrder","orderRoute","orderTenant","taskTenant","stageId","stageProcess","stageRoute","missingStage"})
+ @org.junit.jupiter.params.provider.ValueSource(strings={"callerTask","orderCycle","orderWorkOrder","orderRoute","orderTenant","taskTenant","missingQaProcess","productionProcess","taskRoute","missingRegulation"})
  void pqcStageMismatchStopsBeforeHandoffWrites(String defect){
   var source=pqcSource();when(owners.originalActor(event)).thenReturn(344L);
-  var routeMapper=(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper)ReflectionTestUtils.getField(service,"routeProcesses");
-  var rp=routeMapper.selectById(91L);Long callerTask=55L;
+  Long callerTask=55L;
   switch(defect){
    case "callerTask" -> callerTask=56L;
    case "orderCycle" -> order.setId(414L);
@@ -287,10 +317,10 @@ class MesActiveOrderHandoffLifecycleTest {
    case "orderRoute" -> order.setRouteId(99L);
    case "orderTenant" -> order.setTenantId(2L);
    case "taskTenant" -> source.setTenantId(2L);
-   case "stageId" -> rp.setId(92L);
-   case "stageProcess" -> source.setProcessId(16L);
-   case "stageRoute" -> rp.setRouteId(99L);
-   case "missingStage" -> when(routeMapper.selectById(91L)).thenReturn(null);
+   case "missingQaProcess" -> source.setQaProcessId(null);
+   case "productionProcess" -> source.setProcessId(16L);
+   case "taskRoute" -> source.setRouteId(99L);
+   case "missingRegulation" -> source.setRegulationVersionId(null);
    default -> throw new IllegalArgumentException(defect);
   }
   Long actualCaller=callerTask;assertThrows(RuntimeException.class,()->service.pqcSubmitted(actualCaller,176L,344L));

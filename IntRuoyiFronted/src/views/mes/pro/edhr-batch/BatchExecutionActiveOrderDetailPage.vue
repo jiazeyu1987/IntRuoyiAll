@@ -1,4 +1,5 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <ContentWrap>
     <ActiveOrderDetailLayout data-edhr-batch-active-order-detail-page>
       <div class="edhr-batch-active-order-detail">
@@ -39,6 +40,7 @@
         />
         </div>
         <BatchReverseTracePanel
+          @operation-blocked="workflowLog.blocked"
           v-model:visible="reverseTraceVisible"
           :anchor-batch-execution-id="batchExecutionId"
           :restore-key="reverseTraceRestoreKey"
@@ -56,6 +58,10 @@ import { useRoute, useRouter } from 'vue-router'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '@/views/mes/pro/processpool/components/ActiveOrderDetailLayout.vue'
 import BatchReverseTracePanel from './components/BatchReverseTracePanel.vue'
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
+const workflowLog = useWorkflowInteractionLog('MARKET_RELEASE')
+const { saveError: workflowLogSaveError, saving: workflowLogSaving } = workflowLog
 import { canReverseTrace, readReverseTraceState, reverseTraceHistoryPath } from './reverseTraceState'
 import { getEdhrBatchActiveOrderDetail, getEdhrBatchActiveOrderProductionMaterialLists, type EdhrRouteId } from '@/api/mes/pro/edhr/batchExecution'
 import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'

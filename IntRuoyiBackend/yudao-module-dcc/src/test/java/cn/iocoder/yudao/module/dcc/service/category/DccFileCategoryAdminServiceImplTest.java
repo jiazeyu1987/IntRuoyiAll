@@ -349,6 +349,50 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void disableCategory_legacyCategoryWithoutTaxonomy_preservesConfigurationAndReferences() {
+        DccFileCategoryDO category = createCategory("LEGACY-OTHER", "其他", "LOCAL", true, 9);
+        DccFileDirectoryDO directory = createDirectory("LEGACY-ROOT", "历史目录", null, 1);
+        bindingMapper.insert(DccCategoryDirectoryBindingDO.builder().id(randomLongId())
+                .categoryId(category.getId()).directoryId(directory.getId()).active(true).build());
+        permissionRuleMapper.insert(DccFileCategoryPermissionRuleDO.builder().id(randomLongId())
+                .categoryId(category.getId()).actionType("VIEW").subjectType("USER")
+                .subjectId(99L).active(true).build());
+        controlledFileMasterMapper.insert(DccControlledFileMasterDO.builder().id(randomLongId())
+                .categoryId(category.getId()).fileName("history.pdf").fileNumber("HIST-001")
+                .status("ACTIVE").build());
+        DccFileCategoryDO beforeDisable = categoryMapper.selectById(category.getId());
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            categoryAdminService.disableCategory(category.getId());
+            categoryAdminService.disableCategory(category.getId());
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+
+        DccFileCategoryDO saved = categoryMapper.selectById(category.getId());
+        assertFalse(saved.getActive());
+        org.assertj.core.api.Assertions.assertThat(saved).usingRecursiveComparison()
+                .ignoringFields("active", "updateTime", "updater").isEqualTo(beforeDisable);
+        assertEquals(1, bindingMapper.selectCount(DccCategoryDirectoryBindingDO::getCategoryId, category.getId()));
+        assertEquals(1, permissionRuleMapper.selectCount(DccFileCategoryPermissionRuleDO::getCategoryId, category.getId()));
+        assertEquals(1, controlledFileMasterMapper.selectCount(DccControlledFileMasterDO::getCategoryId, category.getId()));
+        verifyNoInteractions(fileTypeTaxonomyAdminService, intAuthFileCategoryClient);
+    }
+
+    @Test
+    void disableCategory_otherTenant_doesNotChangeCategory() {
+        DccFileCategoryDO category = createCategory("OTHER-TENANT", "其他", "LOCAL", true, 1);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(2L);
+        try {
+            assertServiceException(() -> categoryAdminService.disableCategory(category.getId()),
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+        assertTrue(categoryMapper.selectById(category.getId()).getActive());
+    }
+
+    @Test
     void deleteCategory_whenChildCategoryExists_failFast() {
         DccFileCategoryDO parent = createCategory("LOCAL-PARENT", "Parent", "LOCAL", true, 1);
         createCategory("LOCAL-CHILD", "Child", "LOCAL", true, 2, parent.getId());

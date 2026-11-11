@@ -78,6 +78,11 @@ function closeHandler() {
   closing.value = true
 }
 
+function requestClose(close: () => void, event: MouseEvent) {
+  window.dispatchEvent(new CustomEvent('workflow-dialog-close-request', { detail: event.currentTarget }))
+  close()
+}
+
 function closedHandler() {
   closing.value = false
 }
@@ -118,7 +123,7 @@ function closedHandler() {
             icon="ep:close"
             hover-color="var(--el-color-primary)"
             color="var(--el-color-info)"
-            @click.stop="close"
+            @click.stop="requestClose(close, $event)"
           />
         </div>
       </div>

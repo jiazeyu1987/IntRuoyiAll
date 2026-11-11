@@ -15,6 +15,9 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProFrontlineFeedbackSubmitReqVO {
 
+    @Schema(description = "生产组长已处理的超限草稿编号；不能代替最新数量校验")
+    private Long quantityDraftId;
+
     @Schema(description = "报工载荷", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
     @NotNull(message = "报工载荷不能为空")

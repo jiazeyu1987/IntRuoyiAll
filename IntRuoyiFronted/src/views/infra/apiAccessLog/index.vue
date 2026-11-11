@@ -90,6 +90,7 @@
 
   <!-- 列表 -->
   <ContentWrap>
+    <el-alert v-if="queryError" :title="queryError" type="error" :closable="false" show-icon class="mb-10px" />
     <el-table v-loading="loading" :data="list">
       <el-table-column label="日志编号" align="center" prop="id" width="100" fix="right" />
       <el-table-column label="用户编号" align="center" prop="userId" />
@@ -153,6 +154,8 @@ import download from '@/utils/download'
 import { formatDate } from '@/utils/formatTime'
 import * as ApiAccessLogApi from '@/api/infra/apiAccessLog'
 import ApiAccessLogDetail from './ApiAccessLogDetail.vue'
+import { getTenantId } from '@/utils/auth'
+import { useUserStore } from '@/store/modules/user'
 
 defineOptions({ name: 'InfraApiAccessLog' })
 
@@ -174,16 +177,40 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
+const queryError = ref('')
+let querySequence = 0
+let pendingQueryKey = ''
+let reloadOnActivate = false
+const userStore = useUserStore()
+const queryOwner = () => `${getTenantId()}:${userStore.getUser.id}`
+onBeforeUnmount(() => { querySequence++ })
+onDeactivated(() => { querySequence++; loading.value = false; reloadOnActivate = true })
+onActivated(() => { if (reloadOnActivate) { reloadOnActivate = false; void getList() } })
 
 /** 查询列表 */
 const getList = async () => {
+  const owner = queryOwner()
+  const params = { ...queryParams, beginTime: [...queryParams.beginTime] }
+  const key = JSON.stringify([owner, params])
+  if (loading.value && pendingQueryKey === key) return
+  const sequence = ++querySequence
+  pendingQueryKey = key
+  const current = () => sequence === querySequence && owner === queryOwner()
   loading.value = true
+  queryError.value = ''
+  list.value = []
   try {
-    const data = await ApiAccessLogApi.getApiAccessLogPage(queryParams)
+    const data = await ApiAccessLogApi.getApiAccessLogPage(params, current)
+    if (!current()) return
     list.value = data.list
     total.value = data.total
+  } catch (error) {
+    if (current()) {
+      total.value = 0
+      queryError.value = error instanceof Error ? error.message : '访问日志查询失败，请重试。'
+    }
   } finally {
-    loading.value = false
+    if (current()) { loading.value = false; pendingQueryKey = '' }
   }
 }
 

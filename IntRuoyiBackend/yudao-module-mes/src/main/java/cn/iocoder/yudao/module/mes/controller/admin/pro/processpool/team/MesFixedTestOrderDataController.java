@@ -19,9 +19,16 @@ public class MesFixedTestOrderDataController {
     private final MesFixedTestOrderDataService dataService;
 
     @PostMapping("/active-order/simulation/test-data")
-    @Operation(summary = "按芋道源码删除并重建固定测试订单的领料单、补料单和生产用料清单")
+    @Operation(summary = "补齐固定测试订单来源单据，跳过已有数据")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<MesFixedTestOrderDataService.Result> prepare() {
         return success(dataService.prepare(SecurityFrameworkUtils.getLoginUserId()));
+    }
+
+    @PostMapping("/active-order/simulation/test-data-2")
+    @Operation(summary = "补齐第二套固定测试订单及关联单据，跳过已有数据")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesFixedTestOrderDataService.Result> prepareSecond() {
+        return success(dataService.prepareSecond(SecurityFrameworkUtils.getLoginUserId()));
     }
 }

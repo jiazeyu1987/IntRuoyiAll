@@ -1,4 +1,6 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
+  <ProductionQuantityDrafts v-if="isProductionLeader" leader />
   <ContentWrap v-if="!showPqcModuleTabs && !showProductionModuleTabs">
     <div class="team-leader-workbench__header">
       <div>
@@ -1635,6 +1637,7 @@
         />
         <el-button class="app-test-button"
           v-if="testModeEnabled"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
           :loading="activeOrderTestResetSubmitting && !activeOrderTestDataSubmitting"
           :disabled="activeOrderTestResetBlocked"
@@ -1649,16 +1652,30 @@
           v-if="testModeEnabled"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
-          :loading="activeOrderTestDataSubmitting"
+          :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 1"
           :disabled="activeOrderTestResetBlocked"
           title="补齐固定测试订单的生产订单、领料单、补料单和生产用料清单，已有数据跳过"
           data-team-leader-prepare-fixed-test-data
-          @click="handlePrepareFixedTestOrderData"
+          @click="handlePrepareFixedTestOrderData(1)"
         >
           <Icon icon="ep:document-add" class="mr-5px" />
           数据
         </el-button>
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="warning"
+          :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 2"
+          :disabled="activeOrderTestResetBlocked"
+          title="补齐第二套独立生产订单及关联单据，已有数据跳过；修复本工具生成且尚未投产的用料单关联"
+          data-team-leader-prepare-second-test-data
+          @click="handlePrepareFixedTestOrderData(2)"
+        >
+          <Icon icon="ep:document-add" class="mr-5px" />
+          数据2
+        </el-button>
         <el-button
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="primary"
           :disabled="activeOrderTestResetSubmitting"
           data-team-leader-open-active-order-dialog
@@ -3701,9 +3718,9 @@
             {{ formatAllocationOrderProductionQuantity(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="生产系数" width="90" align="right">
+        <el-table-column label="累计上限" width="110" align="right">
           <template #default="{ row }">
-            {{ formatAllocationOrderProductionCoefficient(row) }}
+            {{ formatAllocationOrderProductionCeiling(row) }}
           </template>
         </el-table-column>
         <el-table-column label="分配数量" min-width="340">
@@ -4181,6 +4198,11 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowInteractionLog from './components/WorkflowInteractionLog.vue'
+import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
+import {useWorkflowInteractionLog} from './workflowInteractionLog'
+const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
 import { type ListColumnFilterDefinition, loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
@@ -4241,6 +4263,7 @@ import {
   cleanupLatestTeamLeaderSimulationActiveOrder,
   resetFixedSimulationActiveOrder,
   prepareFixedTestOrderData,
+  prepareSecondFixedTestOrderData,
   previewTeamLeaderDataCleanup,
   executeTeamLeaderDataCleanup,
   simulateStage1ActiveOrderCompletion,
@@ -4584,6 +4607,7 @@ const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
 const activeOrderTestDataSubmitting = ref(false)
+const activeOrderTestDataSet = ref<1 | 2>(1)
 const activeOrderTestDataReceipt = ref<{ success: boolean; message: string }>()
 const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
@@ -5124,8 +5148,16 @@ const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
   return activeOrderOptions.value.find((order) => Number(order.workOrderId) === workOrderId)
 }
 
-const resolveActiveOrderFormalQuantity = (order?: TeamLeaderActiveOrderRespVO) => {
-  const quantity = Number(order?.erpFixedQuantitySnapshot)
+const resolveActiveOrderProcessCeiling = (
+  order?: TeamLeaderActiveOrderRespVO,
+  event = reviewEvent.value
+) => {
+  const matches = order?.processRemainingQuantities?.filter(item =>
+    String(item.processId) === String(event?.processId) &&
+    String(item.routeProcessId) === String(event?.routeProcessId)
+  ) ?? []
+  if (matches.length !== 1) return undefined
+  const quantity = Number(matches[0].plannedQuantity)
   return Number.isFinite(quantity) && quantity > 0 ? quantity : undefined
 }
 
@@ -5138,7 +5170,7 @@ const resolveProductionReportOverageQuantity = (event: ProcessPoolTimelineEventV
       ? unallocatedQuantity
       : outputQuantity
   }
-  const orderQuantity = resolveActiveOrderFormalQuantity(findReportSelectedActiveOrder(event))
+  const orderQuantity = resolveActiveOrderProcessCeiling(findReportSelectedActiveOrder(event), event)
   return orderQuantity === undefined ? outputQuantity : Math.max(0, outputQuantity - orderQuantity)
 }
 
@@ -7296,7 +7328,7 @@ const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftL
   if (line.needsAdjustment && persistedOverageQuantity > 0) return persistedOverageQuantity
   const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
   if (allocatedQuantity === 0) return 0
-  const orderQuantity = resolveActiveOrderFormalQuantity(findAllocationActiveOrder(line))
+  const orderQuantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
   return orderQuantity === undefined
     ? allocatedQuantity
     : Math.max(0, allocatedQuantity - orderQuantity)
@@ -7331,20 +7363,9 @@ const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocatio
   return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
 }
 
-const formatAllocationOrderProductionCoefficient = (line: TeamLeaderReportAllocationDraftLine) => {
-  const order = findAllocationActiveOrder(line)
-  if (!order) {
-    return '--'
-  }
-  const value = order.productionCoefficient
-  if (value === undefined || value === null || String(value).trim() === '') {
-    return '1.0'
-  }
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) {
-    return String(value)
-  }
-  return parsed.toFixed(3).replace(/\.?0+$/, '')
+const formatAllocationOrderProductionCeiling = (line: TeamLeaderReportAllocationDraftLine) => {
+  const quantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
+  return quantity === undefined ? '--' : formatTraceQuantity(quantity)
 }
 
 const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
@@ -9144,6 +9165,10 @@ const submitReview = async () => {
     ElMessage.error('退回复核必须填写复核说明')
     return
   }
+  if (mode === 'ALLOCATION' && !reviewForm.reviewRemark.trim()) {
+    ElMessage.error('重新分配必须填写分配说明，明确更正原因及数量归属')
+    return
+  }
   reviewSubmitting.value = true
   let writeCompleted = false
   try {
@@ -10554,23 +10579,27 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
-const handlePrepareFixedTestOrderData = async () => {
+const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
   if (activeOrderTestResetBlocked.value) return
+  activeOrderTestDataSet.value = dataSet
   activeOrderTestDataSubmitting.value = true
   // Share the existing mutation lock with reset and all active-order actions.
   activeOrderTestResetSubmitting.value = true
   activeOrderTestDataReceipt.value = undefined
   try {
-    const result = await prepareFixedTestOrderData()
+    const result = await (dataSet === 2 ? prepareSecondFixedTestOrderData() : prepareFixedTestOrderData())
     if (!result?.workOrderCode?.trim() || result.documents?.length !== 4 ||
       result.documents.some(row => !row.name || !Number.isInteger(row.createdCount) || row.createdCount < 0 ||
-        row.deletedCount !== 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0)) {
+        row.deletedCount !== 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0 ||
+        !Number.isInteger(row.repairedCount) || row.repairedCount < 0)) {
       throw new Error('数据回执不完整，请核对单据后再操作')
     }
-    const message = '数据补齐完成：' + result.documents
-      .map(row => `${row.name}新增${row.createdCount}条、跳过已有${row.skippedCount}条`).join('；')
+    const label = dataSet === 2 ? '数据2' : '数据'
+    const message = `${label}补齐完成（生产订单：${result.workOrderCode}）：` + result.documents
+      .map(row => `${row.name}新增${row.createdCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条`).join('；')
     activeOrderTestDataReceipt.value = { success: true, message }
-    ElMessage.success('数据补齐完成，已有数据已跳过')
+    ElMessage.success(result.documents.some(row => row.repairedCount > 0)
+      ? `${label}补齐完成，错误用料单关联已修复` : `${label}补齐完成，已有数据已跳过`)
   } catch (error) {
     const message = resolveErrorMessage(error, '数据补齐失败，请核对单据')
     activeOrderTestDataReceipt.value = { success: false, message }
@@ -10584,9 +10613,16 @@ const handlePrepareFixedTestOrderData = async () => {
 const handleResetFixedSimulationActiveOrder = async () => {
   if (activeOrderTestResetBlocked.value) return
   activeOrderTestResetSubmitting.value = true
-  activeOrderTestResetReceipt.value = undefined
+  let writeStarted = false
   let writeCompleted = false
   try {
+    await ElMessageBox.confirm(
+      '将清理固定测试工单的生产、PQC及下游放行数据，并重新加入活跃订单。此操作不可恢复，是否继续？',
+      '重置固定测试订单',
+      { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
+    )
+    activeOrderTestResetReceipt.value = undefined
+    writeStarted = true
     const result = await resetFixedSimulationActiveOrder()
     if (!result?.workOrderCode?.trim() || !/^[1-9]\d*$/.test(String(result.activeOrderId))) {
       throw new Error('重置回执缺少正式工单号或活跃订单身份，请刷新核对后再操作')
@@ -10605,6 +10641,12 @@ const handleResetFixedSimulationActiveOrder = async () => {
       `本轮测试数据已清理，原工单已重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
     )
   } catch (error) {
+    if (!writeStarted) {
+      if (error !== 'cancel' && error !== 'close') {
+        ElMessage.error(resolveErrorMessage(error, '无法确认重置，请重新打开确认窗口'))
+      }
+      return
+    }
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
     // Known prerequisite failures roll back; transport failures remain uncertain.
     const errorCode = Number((error as { code?: number | string })?.code)

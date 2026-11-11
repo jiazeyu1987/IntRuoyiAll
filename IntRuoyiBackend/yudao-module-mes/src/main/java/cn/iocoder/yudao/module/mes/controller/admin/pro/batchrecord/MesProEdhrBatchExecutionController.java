@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
+import io.swagger.v3.oas.annotations.Operation;
+
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -139,6 +141,7 @@ public class MesProEdhrBatchExecutionController {
     }
 
     @GetMapping("/active-order-detail")
+    @Operation(summary = "查看批次关联活跃订单详情")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
             @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,

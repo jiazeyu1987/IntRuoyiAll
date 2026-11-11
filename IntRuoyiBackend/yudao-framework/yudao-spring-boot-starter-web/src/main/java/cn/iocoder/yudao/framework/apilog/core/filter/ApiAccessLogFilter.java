@@ -50,7 +50,8 @@ import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString
 @Slf4j
 public class ApiAccessLogFilter extends ApiRequestFilter {
 
-    private static final String[] SANITIZE_KEYS = new String[]{"password", "token", "accessToken", "refreshToken"};
+    private static final String[] SANITIZE_KEYS = new String[]{"password", "signaturePassword", "currentPassword",
+            "oldPassword", "newPassword", "confirmPassword", "token", "accessToken", "refreshToken"};
 
     private final String applicationName;
 
@@ -209,7 +210,7 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
 
     // ========== 请求和响应的脱敏逻辑，移除类似 password、token 等敏感字段 ==========
 
-    private static String sanitizeMap(Map<String, ?> map, String[] sanitizeKeys) {
+    public static String sanitizeMap(Map<String, ?> map, String[] sanitizeKeys) {
         if (CollUtil.isEmpty(map)) {
             return null;
         }
@@ -220,18 +221,18 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
         return JsonUtils.toJsonString(map);
     }
 
-    private static String sanitizeJson(String jsonString, String[] sanitizeKeys) {
+    public static String sanitizeJson(String jsonString, String[] sanitizeKeys) {
         if (StrUtil.isEmpty(jsonString)) {
             return null;
         }
         try {
-            JsonNode rootNode = JsonUtils.parseTree(jsonString);
+            JsonNode rootNode = JsonUtils.getObjectMapper().readTree(jsonString);
             sanitizeJson(rootNode, sanitizeKeys);
             return JsonUtils.toJsonString(rootNode);
         } catch (Exception e) {
-            // 脱敏失败的情况下，直接忽略异常，避免影响用户请求
-            log.error("[sanitizeJson][脱敏({}) 发生异常]", jsonString, e);
-            return jsonString;
+            // Never persist or print an unparsed payload: it can contain signing credentials.
+            log.error("[sanitizeJson][请求内容无法脱敏，已省略请求内容] exceptionType={}", e.getClass().getName());
+            return "{\"日志内容状态\":\"脱敏失败，未记录请求内容\"}";
         }
     }
 
@@ -241,17 +242,17 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
         }
         String jsonString = toJsonString(commonResult);
         try {
-            JsonNode rootNode = JsonUtils.parseTree(jsonString);
+            JsonNode rootNode = JsonUtils.getObjectMapper().readTree(jsonString);
             sanitizeJson(rootNode.get("data"), sanitizeKeys); // 只处理 data 字段，不处理 code、msg 字段，避免错误被脱敏掉
             return JsonUtils.toJsonString(rootNode);
         } catch (Exception e) {
-            // 脱敏失败的情况下，直接忽略异常，避免影响用户请求
-            log.error("[sanitizeJson][脱敏({}) 发生异常]", jsonString, e);
-            return jsonString;
+            log.error("[sanitizeJson][响应内容无法脱敏，已省略响应内容] exceptionType={}", e.getClass().getName());
+            return "{\"日志内容状态\":\"脱敏失败，未记录响应内容\"}";
         }
     }
 
     private static void sanitizeJson(JsonNode node, String[] sanitizeKeys) {
+        if (node == null) return;
         // 情况一：数组，遍历处理
         if (node.isArray()) {
             for (JsonNode childNode : node) {

@@ -106,6 +106,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 @Validated
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
     @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderActionLog actionLog;
+    @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
@@ -271,6 +273,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 }
                 readBlockReason = ex.getMessage();
             }
+            if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+                readBlockReason = "生产工单已冻结或作废，暂不可填写PQC";
+            }
             candidates.add(new MesFrontlineActiveOrderCandidate(activeOrder.getId(),
                     workOrder.getId(), workOrder.getCode(),
                     workOrder.getName(), workOrder.getProductId(), item.getCode(), item.getName(),
@@ -350,6 +355,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (count == 0) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "当前订单没有启用巡检的检验工序");
         }
+        actionLog.record(loginUserId, activeOrderId, "PQC_PATROL_CREATE", Map.of("roundNo", round, "taskCount", count));
         return round;
     }
 
@@ -393,6 +399,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     .setTaskStatus("CANCELLED").setCancelReason("确认撤销第 " + roundNo + " 轮巡检").setCancelledBy(loginUserId)
                     .setCancelledAt(cancelledAt)) != 1) throw new IllegalStateException("巡检撤销失败");
         }
+        actionLog.record(loginUserId, activeOrderId, "PQC_PATROL_CANCEL", Map.of("roundNo", roundNo, "taskCount", tasks.size()));
     }
 
     @Override
@@ -426,6 +433,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 throw new IllegalStateException("巡检恢复失败");
             }
         }
+        actionLog.record(loginUserId, activeOrderId, "PQC_PATROL_RESTORE", Map.of("roundNo", roundNo, "taskCount", tasks.size()));
     }
 
     @Override
@@ -466,6 +474,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             count++;
         }
         if (count == 0) throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "当前订单没有开启末检的检验工序");
+        actionLog.record(loginUserId, activeOrderId, "PQC_FINAL_CREATE", Map.of("taskCount", count));
     }
 
     @Override

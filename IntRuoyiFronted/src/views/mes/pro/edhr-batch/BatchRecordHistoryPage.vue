@@ -1,4 +1,5 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <ContentWrap class="edhr-record-viewport">
     <div
       class="edhr-history-standard-list"
@@ -65,6 +66,10 @@
                     data-edhr-history-reverse-trace
                     @click="openReverseTrace(row)"
                   >反查关联批次</el-button>
+                  <MarketReleaseReceipt
+                    v-if="row.releaseTransactionId && hasPermission(['bpm:task:query']) && hasPermission(['mes:pro-edhr-release:query'])"
+                    :release-transaction-id="row.releaseTransactionId"
+                  />
                 </template>
                 <el-tag v-else-if="column.key === 'statusLabel'" data-edhr-history-batch-status>{{
                   row.statusLabel
@@ -92,6 +97,7 @@
         show-icon
       />
       <BatchReverseTracePanel
+        @operation-blocked="workflowLog.blocked"
         v-model:visible="reverseTraceVisible"
         :anchor-batch-execution-id="reverseTraceBatchExecutionId"
         :restore-key="reverseTraceRestoreKey"
@@ -119,7 +125,12 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 
 import BatchIntegrityCheck from './components/BatchIntegrityCheck.vue'
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
+const workflowLog = useWorkflowInteractionLog('MARKET_RELEASE')
+const { saveError: workflowLogSaveError, saving: workflowLogSaving } = workflowLog
 import BatchReverseTracePanel from './components/BatchReverseTracePanel.vue'
+import MarketReleaseReceipt from './components/MarketReleaseReceipt.vue'
 import { canReverseTrace, readReverseTraceState } from './reverseTraceState'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { loadHistoryPage } from './historyPagination'

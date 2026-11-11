@@ -163,7 +163,7 @@
                   prop="actions"
                   align="center"
                   fixed="right"
-                  :width="getCategoryColumnWidthString('actions', 220)"
+                  :width="getCategoryColumnWidthString('actions', 270)"
                 >
                   <template #default="{ row }">
                     <el-button
@@ -181,6 +181,16 @@
                       v-hasPermi="['dcc:controlled-file:category:manage']"
                     >
                       编辑
+                    </el-button>
+                    <el-button
+                      v-if="row.active"
+                      link
+                      type="warning"
+                      :disabled="loading"
+                      @click="handleDisable(row)"
+                      v-hasPermi="['dcc:controlled-file:category:manage']"
+                    >
+                      停用
                     </el-button>
                     <el-button
                       link
@@ -269,6 +279,7 @@ import type { ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directo
 import { getDirectoryTree } from '@/api/dcc/controlledFile/directories'
 import {
   deleteFileCategory,
+  disableFileCategory,
   getFileCategoryList,
   type ControlledFileCategoryVO
 } from '@/api/dcc/controlledFile/fileCategories'
@@ -480,7 +491,7 @@ const categoryDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'directory', label: '绑定目录', minWidth: 180 },
   { key: 'fileTypeTaxonomy', label: '默认文件分类', minWidth: 240 },
   { key: 'governance', label: '治理摘要', minWidth: 260 },
-  { key: 'actions', label: '操作', width: 220, hideable: false }
+  { key: 'actions', label: '操作', width: 270, hideable: false }
 ]
 
 const {
@@ -613,6 +624,24 @@ const openCategoryUploadPolicyDialog = async (row: ControlledFileCategoryVO) => 
     throw new Error('类别上传策略弹窗组件加载失败')
   }
   dialogRef.open(row)
+}
+
+const handleDisable = async (row: ControlledFileCategoryVO) => {
+  if (loading.value) return
+  loading.value = true
+  try {
+    try {
+      await message.confirm(`确认停用文件类别“${row.name}”（${row.code}）吗？停用后保留历史文件与治理配置。`)
+    } catch (action) {
+      if (action === 'cancel' || action === 'close') return
+      throw action
+    }
+    await disableFileCategory(row.id)
+    message.success('停用成功')
+    await loadData()
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleDelete = async (row: ControlledFileCategoryVO) => {

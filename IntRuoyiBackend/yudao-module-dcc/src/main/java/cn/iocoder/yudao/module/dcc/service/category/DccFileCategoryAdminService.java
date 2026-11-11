@@ -11,6 +11,7 @@ import java.util.Map;
 public interface DccFileCategoryAdminService {
     Long createCategory(DccFileCategorySaveReqVO reqVO);
     void updateCategory(DccFileCategorySaveReqVO reqVO);
+    void disableCategory(Long id);
     void deleteCategory(Long id);
     DccFileCategoryDO getCategory(Long id);
     /** Returns only categories with an explicit valid approval source; never repairs unknown stored values. */

@@ -71,6 +71,19 @@ public final class MesOutputMaterialProgressCalculator {
                 .setScale(scale(snapshot), RoundingMode.HALF_UP);
     }
 
+    /** Actual per-output totals, including CURRENT submissions awaiting leader review. */
+    public static Map<Long, BigDecimal> cumulativeOutputQuantities(
+            MesProcessPoolActiveOrderDO order, MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<MesProProcessPoolEventDO> events, Collection<MesProcessPoolReportAllocationDO> allocations) {
+        List<Long> materialIds = parseRequiredOutputMaterialIds(order, snapshot);
+        Map<Long, BigDecimal> quantitiesByEvent = currentAllocationQuantityByEventId(order, snapshot, allocations);
+        if (materialIds.isEmpty()) {
+            calculateFormalAllocationProgressWithoutOutputMaterials(order, snapshot, events, quantitiesByEvent);
+            return Map.of();
+        }
+        return calculateMaterialQuantities(order, snapshot, materialIds, events, quantitiesByEvent);
+    }
+
     /** 将本次报工实际包含的各物料剩余量反算为可分配的正式进度池数量。 */
     public static BigDecimal calculateAvailableAllocationQuantity(
             MesProcessPoolActiveOrderDO activeOrder,

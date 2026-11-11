@@ -39,6 +39,11 @@ public class MesFixedTestOrderInitializer {
     /** Creates only missing order data inside the reset transaction. */
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void createWorkOrderIfMissing(Long actor) {
+        createWorkOrderIfMissing(actor, MesFixedTestOrderDataSet.FIRST);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void createWorkOrderIfMissing(Long actor, MesFixedTestOrderDataSet dataSet) {
         Long tenant = TenantContextHolder.getTenantId();
         if (tenant == null || tenant <= 0 || actor == null || actor <= 0 || TenantContextHolder.isIgnore())
             throw blocked("固定测试工单创建需要明确的当前租户和操作人");
@@ -46,13 +51,19 @@ public class MesFixedTestOrderInitializer {
         if (jdbc.queryForList("SELECT id FROM system_tenant WHERE id=? AND deleted=0 FOR UPDATE", Long.class, tenant).size() != 1)
             throw blocked("当前租户不存在，不能创建测试工单");
         List<Map<String, Object>> existing = jdbc.queryForList(
-                "SELECT id FROM mes_pro_work_order WHERE tenant_id=? AND deleted=0 AND code=? FOR UPDATE", tenant, WORK_ORDER_CODE);
+                "SELECT * FROM mes_pro_work_order WHERE tenant_id=? AND deleted=0 AND code=? FOR UPDATE", tenant, dataSet.workOrderCode());
         if (existing.size() > 1) throw blocked("当前租户指定测试工单不唯一");
-        if (!existing.isEmpty()) return;
+        if (!existing.isEmpty()) {
+            if (dataSet == MesFixedTestOrderDataSet.SECOND
+                    && !MARKER.equals(existing.get(0).get("remark")))
+                throw blocked("数据2生产订单号已被其他订单占用，保留原订单");
+            return;
+        }
 
         MesFixedTestOrderReferenceGraph graph = new MesFixedTestOrderReferenceGraph(jdbc, tenant, actor);
         Map<String, Object> source = one(graph.sourceRows("mes_pro_work_order", "code=?", WORK_ORDER_CODE), "固定测试工单");
         Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.putAll(dataSet.workOrderOverrides());
         for (var reference : Map.of("product_id", "mes_md_item", "client_id", "mes_md_client", "vendor_id", "mes_md_vendor").entrySet())
             overrides.put(reference.getKey(), orderReference(graph, tenant, reference.getValue(), source.get(reference.getKey())));
         overrides.put("status", MesProWorkOrderStatusEnum.CONFIRMED.getStatus());

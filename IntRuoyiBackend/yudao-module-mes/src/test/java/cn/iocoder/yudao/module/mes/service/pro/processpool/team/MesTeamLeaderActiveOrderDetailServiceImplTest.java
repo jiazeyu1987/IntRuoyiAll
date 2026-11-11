@@ -75,6 +75,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 // Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesTeamLeaderActiveOrderDetailServiceImplTest {
+    @Mock private MesPackagingLeaderAccess packagingAccess;
     @Test
     void replenishmentGroupingCountsEachSourceLineOnce() {
         var material = new MesMdItemDO().setId(100L).setCode("TEST-MATERIAL");
@@ -877,6 +878,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @BeforeEach void verifiedPortFixture() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", packagingAccess);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "marketReleaseAccess", marketReleaseAccess);
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "businessReviewMapper", businessReviewMapper);
@@ -888,6 +890,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
             event.setTenantId(1L);
             event.setActualEmployeeId(3001L);
             event.setDeviceAccountId(3001L);
+            event.setServerSubmitTime(LocalDateTime.parse("2026-08-13T08:10:00"));
             event.setSignatureId(eventId + 10000L);
             event.setEventIdempotencyKey("fixture-original-" + eventId);
             var original = detailReadMapper.selectByActiveOrderId(8101L).stream()
@@ -911,7 +914,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
             var review = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO()
                     .setId(eventId + 30000L).setEventId(eventId).setReviewSignatureId(eventId + 20000L)
                     .setLeaderUserId(3001L).setLeaderType(eventId < 7100L ? "PRODUCTION" : "PQC")
-                    .setReviewStatus("APPROVED");
+                    .setReviewStatus("APPROVED").setReviewedAt(LocalDateTime.parse("2026-08-13T08:20:00"));
             review.setTenantId(1L);
             return List.of(review);
         });

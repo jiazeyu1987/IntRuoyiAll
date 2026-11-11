@@ -277,6 +277,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setReworkSource(resolveReworkSource(activeOrder));
         attachPickListMetadata(detail, activeOrderId);
         attachPqcProductionRelease(detail, application, signaturePurpose);
+        List<MesTeamLeaderActiveOrderDetail.OperationFact> operationFacts = new ArrayList<>(detail.getOperationFacts());
+        if (signatureId == null) operationFacts.addAll(MesActiveOrderExecutionOperationFacts.project(detail));
+        operationAuditEventMapper.selectListByObject("WORK_ORDER_PREPARATION", String.valueOf(activeOrder.getWorkOrderId()))
+                .forEach(event -> operationFacts.add(toActionOperationFact(event)));
+        detail.setOperationFacts(operationFacts.stream().sorted(Comparator.comparing(
+                MesTeamLeaderActiveOrderDetail.OperationFact::getOccurredAt, Comparator.reverseOrder())).toList());
         return detail;
     }
 
@@ -529,6 +535,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private MesTeamLeaderActiveOrderDetail.OperationFact toOperationFact(
             MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        if (event != null && "ACTIVE_ORDER_ACTION".equals(event.getObjectType())) {
+            if (!String.valueOf(activeOrderId).equals(event.getObjectId()))
+                throw new IllegalStateException("操作日志与活跃订单不一致");
+            return toActionOperationFact(event);
+        }
         if (event != null && "ACTIVE_ORDER_DOSSIER".equals(event.getObjectType())) {
             return toDossierOperationFact(event, activeOrderId);
         }
@@ -629,7 +640,25 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setOperationType(event.getOperationType())
                 .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
                 .setSourceType(event.getObjectType()).setSourceId(event.getObjectId())
-                .setActorUserId(event.getActorUserId()).setActorName("用户ID：" + event.getActorUserId())
+                .setActorUserId(event.getActorUserId()).setActorName(event.getActorUsername() == null
+                        ? "用户ID：" + event.getActorUserId() : event.getActorUsername())
+                .setResultStatus(event.getResultStatus()).setOccurredAt(event.getOccurredAt());
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toActionOperationFact(MesProEdhrOperationAuditEventDO event) {
+        if (event.getId() == null || event.getActorUserId() == null || event.getActorUsername() == null
+                || event.getActorUsername().isBlank() || event.getOccurredAt() == null
+                || event.getAuditHash() == null || !event.getAuditHash().matches("[a-f0-9]{64}")
+                || event.getActionName() == null || !event.getActionName().matches(".*[\\p{IsHan}].*"))
+            throw new IllegalStateException("操作日志缺少操作人、中文动作、时间或审计凭证");
+        var metadata = JSON.parseObject(event.getMetadataJson());
+        String name = event.getActionName();
+        if (metadata != null && metadata.getInteger("roundNo") != null)
+            name += "（第" + metadata.getInteger("roundNo") + "轮）";
+        return new MesTeamLeaderActiveOrderDetail.OperationFact().setId(event.getId())
+                .setSourceType(event.getObjectType()).setSourceId(event.getObjectId())
+                .setOperationType(event.getOperationType()).setOperationName(name)
+                .setActorUserId(event.getActorUserId()).setActorName(event.getActorUsername())
                 .setResultStatus(event.getResultStatus()).setOccurredAt(event.getOccurredAt());
     }
 

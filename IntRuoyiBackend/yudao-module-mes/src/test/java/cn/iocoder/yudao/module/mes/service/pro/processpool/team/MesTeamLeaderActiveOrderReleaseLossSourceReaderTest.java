@@ -99,6 +99,21 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     @Test
+    void signedReallocationUsesItsOwnTimeAndRetainsOriginalApproval() {
+        var corrected = allocation().setCreatedVersion(2)
+                .setConfirmedAt(review().getReviewedAt().plusHours(1));
+        when(allocationMapper.selectListByActiveOrderIdForUpdate(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(corrected));
+        var writer = new MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(
+                reader, null, null, null, null, null, null, null, null, null, null);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer,
+                "productionSignatureEvidenceService", signatureEvidenceService);
+        var plan = writer.plan(command().setConfirmNoReplenishmentInfo(true));
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals(review().getReviewedAt().plusHours(1), corrected.getConfirmedAt());
+    }
+
+    @Test
     void crossOrderFeedbackMustStillBelongToItsSourceEvent() {
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(List.of(1001L)))
                 .thenReturn(List.of(event("{}").setWorkOrderId(9000L)));

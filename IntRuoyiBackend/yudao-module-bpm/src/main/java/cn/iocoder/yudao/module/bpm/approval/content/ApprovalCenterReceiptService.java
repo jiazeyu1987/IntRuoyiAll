@@ -21,6 +21,20 @@ public class ApprovalCenterReceiptService {
     public BpmApprovalReviewReceiptDO findVerifiedCurrent(Long actor,String key) {
         return verify(actor,mapper.selectExactCurrent(TenantContextHolder.getRequiredTenantId(),key));
     }
+    public ApprovalDecisionReceipt findDecisionReceipt(Long actor, String key, String moduleCode,
+            String sourceTaskType, String sourceTaskId, String prepareId) {
+        var row = verify(actor, mapper.selectExactForActor(TenantContextHolder.getRequiredTenantId(), key, actor));
+        // Absence is an unconfirmed result, never a failed decision or permission to repeat the write.
+        if (row == null) return null;
+        var identity = ApprovalContentJson.parse(row.getIdentityJson());
+        if (!Objects.equals(moduleCode, identity.path("ownerCode").asText())
+                || !Objects.equals(sourceTaskType, identity.path("sourceTaskType").asText())
+                || !Objects.equals(sourceTaskId, identity.path("sourceTaskId").asText())
+                || (prepareId != null && !Objects.equals(prepareId, row.getPrepareId()))) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "签署回执与本次任务或预览不一致。");
+        }
+        return response(row);
+    }
     private BpmApprovalReviewReceiptDO verify(Long actor,BpmApprovalReviewReceiptDO row) {
         if (row == null) return null;
         if (!Objects.equals(row.getActorId(), actor) || !Objects.equals(row.getOperatorId(), actor) || !Objects.equals(row.getTenantId(),TenantContextHolder.getRequiredTenantId()) || !"AC_REVIEW_V1".equals(row.getRequestHashVersion()) || !Objects.equals(row.getReceiptRecordHash(), recordHash(row)) || !Objects.equals(row.getPreviewContentHash(),ApprovalContentJson.hash(row.getCanonicalBusinessContentJson()))) throw new IllegalStateException("APPROVAL_RECEIPT_INTEGRITY_FAILED");

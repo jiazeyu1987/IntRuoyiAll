@@ -325,7 +325,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                     .selectListByActiveOrderAndProcessForUpdate(activeOrder.getId(), target.processId()).stream()
                     .filter(row -> Objects.equals(row.getRouteProcessId(), target.routeProcessId()))
                     .findFirst().orElse(null);
-            if (snapshot == null || snapshot.getOveragePercentSnapshot() == null) {
+            if (snapshot == null) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
                         "reportConfirmation.frozenProcessSnapshot activeOrderId=" + activeOrder.getId());
             }
@@ -344,8 +344,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                     .allocatedQuantity(requestedByActiveOrder.get(activeOrder.getId())).build());
             BigDecimal maximum = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
                     activeOrder, snapshot, events, projected);
-            BigDecimal limit = target.plannedQuantity().multiply(
-                    BigDecimal.ONE.add(snapshot.getOveragePercentSnapshot().movePointLeft(2)));
+            BigDecimal limit = MesProductionQuantityRange.of(snapshot).upper();
             if (maximum.compareTo(limit) > 0) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, activeOrder.getId());
             }

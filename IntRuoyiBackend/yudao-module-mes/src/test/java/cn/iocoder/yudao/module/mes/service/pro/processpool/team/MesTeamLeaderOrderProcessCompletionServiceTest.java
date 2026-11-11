@@ -290,7 +290,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
-    void shouldPreserveConfirmedOverageAndCapFormalScheduleProgressAtTarget() {
+    void shouldRejectConfirmedQuantityAboveFrozenCeilingBeforeWritingProgress() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
         MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "190");
@@ -300,27 +300,12 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         stubProcessProgress("200", "210");
-        stubFormalSchedule("200", "200");
-        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
-
-        service.applyConfirmedAllocations(event, List.of(confirmedLine));
-
-        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
-                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
-        verify(completionMapper).insert(completionCaptor.capture());
-        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
-        assertAmount("200", saved.getTargetQuantity());
-        assertAmount("210", saved.getConfirmedQuantity());
-        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
-        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
-                saved.getBackfillStatus());
-        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("200.000000"),
-                new BigDecimal("0.000000"), new BigDecimal("100.000000"));
-        verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("200.000000"),
-                new BigDecimal("200.000000"), new BigDecimal("0.000000"), new BigDecimal("100.000000"),
-                MesProScheduleOrderStatusEnum.FINISHED.getStatus());
-        verify(completionMapper, never()).updateById(any(MesProcessPoolOrderProcessCompletionDO.class));
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(), failure.getCode());
+        verify(completionMapper, never()).insert(any(MesProcessPoolOrderProcessCompletionDO.class));
+        verify(scheduleOrderProcessMapper, never()).updateProgress(any(), any(), any(), any());
     }
 
     @Test
@@ -411,7 +396,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
-    void shouldPreserveAdjustableFrontlineOverageAndCapFormalScheduleProgressAtTarget() {
+    void shouldRetainHistoricalOverageForCorrectionWithoutMarkingTheProcessCompleted() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO frontlineAllocation = allocation(9001L, "10")
                 .setAllocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED);
@@ -433,7 +418,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
         assertAmount("6", saved.getTargetQuantity());
         assertAmount("10", saved.getConfirmedQuantity());
-        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS, saved.getCompletionStatus());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
                 saved.getBackfillStatus());
         verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("6.000000"),
@@ -526,6 +511,8 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private void stubSingleOutputProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
                                           Long processId, MesProProcessPoolEventDO triggerEvent,
                                           List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        MesTeamLeaderOrderProcessTarget frozenTarget = orderProcessTargetService.requireTarget(
+                activeOrderId, workOrderId, routeProcessId, processId);
         when(activeOrderMapper.selectAllByWorkOrderIdForUpdate(workOrderId)).thenReturn(List.of(
                 MesProcessPoolActiveOrderDO.builder().id(activeOrderId).workOrderId(workOrderId)
                         .routeId(triggerEvent.getRouteId()).activeStatus("ACTIVE").build()));
@@ -536,7 +523,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                         .routeId(triggerEvent.getRouteId())
                         .routeProcessId(routeProcessId)
                         .processId(processId)
-                        .plannedQuantitySnapshot(BigDecimal.ONE)
+                        .erpFixedQuantitySnapshot(frozenTarget.erpFixedQuantity())
+                        .productionQuantityFactorSnapshot(frozenTarget.productionQuantityFactor())
+                        .plannedQuantitySnapshot(frozenTarget.plannedQuantity())
                         .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}")
                         .build());
         when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, triggerEvent.getRouteId()))
@@ -646,6 +635,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrderId)).thenReturn(List.of(
                 MesProScheduleOrderProcessDO.builder().id(scheduleProcessId).scheduleOrderId(scheduleOrderId)
                         .routeProcessId(routeProcessId).processId(6001L).enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
                         .plannedQuantity(new BigDecimal(plannedQuantity)).reportedQuantity(BigDecimal.ZERO)
                         .remainingQuantity(new BigDecimal(plannedQuantity)).build()));
     }
@@ -675,6 +665,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .routeId(7001L)
                 .routeProcessId(routeProcessId)
                 .processId(6001L)
+                .erpFixedQuantitySnapshot(new BigDecimal(plannedQuantity)).productionQuantityFactorSnapshot(BigDecimal.ONE)
                 .plannedQuantitySnapshot(new BigDecimal(plannedQuantity))
                 .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}")
                 .build();
@@ -711,6 +702,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .enabled(Boolean.TRUE)
+                .productionQuantityFactor(BigDecimal.ONE)
                 .plannedQuantity(new BigDecimal(plannedQuantity))
                 .reportedQuantity(BigDecimal.ZERO)
                 .remainingQuantity(new BigDecimal(plannedQuantity))
@@ -722,7 +714,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     private static MesTeamLeaderOrderProcessTarget target(String plannedQuantity) {
-        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("300"),
-                new BigDecimal("3.000000"), new BigDecimal(plannedQuantity));
+        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal(plannedQuantity),
+                BigDecimal.ONE, new BigDecimal(plannedQuantity));
     }
 }

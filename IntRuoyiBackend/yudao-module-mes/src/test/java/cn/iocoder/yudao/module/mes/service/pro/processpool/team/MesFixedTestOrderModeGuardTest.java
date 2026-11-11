@@ -35,7 +35,7 @@ class MesFixedTestOrderModeGuardTest {
         SecurityContextHolder.clearContext();
     }
 
-    @Test void enabledRequiresNoRolesOrMaintenancePermission() {
+    @Test void modeSwitchChecksIdentityAndConfigurationIndependentlyOfEndpointPermission() {
         when(config.getConfigValueByKey(MesFixedTestOrderModeGuard.TEST_MODE_KEY)).thenReturn("true");
         assertDoesNotThrow(() -> guard.requireEnabled(3001L));
         assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().isEmpty());
@@ -81,22 +81,39 @@ class MesFixedTestOrderModeGuardTest {
         verifyNoInteractions(config);
     }
 
-    @Test void endpointMethodSecurityAllowsAuthenticatedUserWithoutAuthorities() {
+    @Test void endpointMethodSecurityRejectsEmployeeBeforeResetAndAllowsMaintenancePermission() {
         var service = mock(MesTeamLeaderActiveOrderService.class);
         when(service.resetFixedSimulationActiveOrder(3001L)).thenReturn(
                 MesTeamLeaderActiveOrderTestResetResult.builder().workOrderId(201L).activeOrderId(101L).build());
         var target = constructWithMocks(MesProcessPoolTeamLeaderController.class);
         ReflectionTestUtils.setField(target, "activeOrderService", service);
-        var factory = new ProxyFactory(target);
-        factory.addAdvisor(AuthorizationManagerBeforeMethodInterceptor.preAuthorize());
-        var controller = (MesProcessPoolTeamLeaderController) factory.getProxy();
-        assertDoesNotThrow(controller::resetFixedSimulationActiveOrder);
-        verify(service).resetFixedSimulationActiveOrder(3001L);
-        clearInvocations(service);
-        SecurityContextHolder.clearContext();
-        assertThrows(org.springframework.security.core.AuthenticationException.class,
-                controller::resetFixedSimulationActiveOrder);
-        verifyNoInteractions(service);
+        var permissionApi = mock(cn.iocoder.yudao.framework.common.biz.system.permission.PermissionCommonApi.class);
+        try (var beans = new org.springframework.context.support.GenericApplicationContext()) {
+            beans.registerBean("ss", cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkServiceImpl.class,
+                    () -> new cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkServiceImpl(permissionApi));
+            beans.refresh();
+            var handler = new org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler();
+            handler.setApplicationContext(beans);
+            var manager = new org.springframework.security.authorization.method.PreAuthorizeAuthorizationManager();
+            manager.setExpressionHandler(handler);
+            var factory = new ProxyFactory(target);
+            factory.addAdvisor(AuthorizationManagerBeforeMethodInterceptor.preAuthorize(manager));
+            var controller = (MesProcessPoolTeamLeaderController) factory.getProxy();
+
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    controller::resetFixedSimulationActiveOrder);
+            verifyNoInteractions(service);
+
+            when(permissionApi.hasAnyPermissions(3001L, "mes:pro-process-pool-team-leader:maintain")).thenReturn(true);
+            assertDoesNotThrow(controller::resetFixedSimulationActiveOrder);
+            verify(service).resetFixedSimulationActiveOrder(3001L);
+            clearInvocations(service);
+
+            SecurityContextHolder.clearContext();
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    controller::resetFixedSimulationActiveOrder);
+            verifyNoInteractions(service);
+        }
     }
 
     private static <T> T constructWithMocks(Class<T> type) {

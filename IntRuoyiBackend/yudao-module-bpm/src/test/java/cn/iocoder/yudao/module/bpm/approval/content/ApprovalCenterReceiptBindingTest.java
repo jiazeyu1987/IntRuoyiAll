@@ -62,7 +62,8 @@ class ApprovalCenterReceiptBindingTest {
                         .setSourceTaskType("EDHR_WORK_TASK").setSourceTaskId("2").setResult(result)
                         .setReason(" ").setIdempotencyKey(UUID.randomUUID().toString());
                 var error = assertThrows(IllegalArgumentException.class, () -> facade.review(4L, command));
-                assertEquals("APPROVAL_REVIEW_REASON_INVALID", error.getMessage());
+                assertEquals(result == ApprovalTaskReviewResult.REJECT
+                        ? "APPROVAL_REVIEW_REASON_REQUIRED" : "APPROVAL_REVIEW_REASON_INVALID", error.getMessage());
                 verifyNoInteractions(auth, executor);
             }
         }

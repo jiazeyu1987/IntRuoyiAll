@@ -217,7 +217,9 @@
           <el-table v-if="evidenceResponse.items?.length" :data="evidenceResponse.items" border>
             <el-table-column prop="conditionId" label="条件" width="80" />
             <el-table-column prop="sourceStage" label="来源环节" width="110" />
-            <el-table-column prop="sourceAction" label="来源动作" width="150" />
+            <el-table-column prop="sourceAction" label="来源动作" width="150">
+              <template #default="{ row }">{{ formatReverseTraceAction(row.sourceAction) }}</template>
+            </el-table-column>
             <el-table-column prop="sourceIdentity" label="来源身份" min-width="150" show-overflow-tooltip />
             <el-table-column prop="sourceRef" label="来源引用" min-width="180" show-overflow-tooltip />
             <el-table-column label="记录上下文" min-width="220" show-overflow-tooltip>
@@ -254,6 +256,7 @@ import { useWindowSize } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { formatReverseTraceAction } from '../reverseTraceActionLabels'
 import type { EdhrBatchExecutionPageReqVO } from '@/api/mes/pro/edhr/batchExecution'
 import {
   canReverseTrace, reverseTraceIdentity, copyReverseTraceState, revokeReverseTraceSnapshot, revokeReverseTraceStates,
@@ -280,7 +283,10 @@ const props = defineProps<{
   restoreKey?: string
   historyListState?: EdhrBatchExecutionPageReqVO
 }>()
-const emit = defineEmits<{ (event: 'update:visible', visible: boolean): void }>()
+const emit = defineEmits<{
+  (event: 'update:visible', visible: boolean): void
+  (event: 'operation-blocked', action: string): void
+}>()
 const router = useRouter()
 const route = useRoute()
 const permissionDenied = ref(false)
@@ -720,7 +726,7 @@ const resetConditions = () => {
 
 const runQuery = async (page = 1, reuse = false) => {
   if (!authorized.value || catalogError.value || !catalog.value?.catalogVersion || !conditions.value.length || !reverseTraceIdentity()) return
-  if (!validateConditions()) return
+  if (!validateConditions()) { emit('operation-blocked','反查条件校验未通过'); return }
   const snapshot = successfulQuery.value
   const previousHash = queryResponse.value?.queryHash
   if (reuse && (!snapshot || !previousHash || dirty.value)) return
@@ -759,6 +765,7 @@ const runQuery = async (page = 1, reuse = false) => {
       successfulQuery.value = copyReverseTraceState(response.normalizedQuery)
     } else {
       clearResults()
+      emit('operation-blocked','反查来源校验未通过')
     }
     queryResponse.value = copyReverseTraceState(response)
     resultPage.value = request.pageNo
@@ -769,6 +776,7 @@ const runQuery = async (page = 1, reuse = false) => {
     if (rejectRevokedPermission(errorValue) || task !== querySequence) return
     clearResults()
     blockedReason.value = errorValue instanceof Error ? errorValue.message : '反查查询失败，请重试。'
+    emit('operation-blocked','反查查询未完成')
   } finally {
     if (sequence === requestSequence.value && task === querySequence) querying.value = false
   }
@@ -798,6 +806,7 @@ const loadEvidence = async (targetBatchExecutionId: string, page = 1) => {
       || !Number.isSafeInteger(response.total) || response.total! < 0
     // A formal rejection invalidates the shared snapshot even if a newer page request is pending.
     if (response.evidenceStatus === 'BLOCKED' || snapshotInvalid) {
+      emit('operation-blocked','反查命中记录校验未通过')
       revokeReverseTraceSnapshot(request, request.queryHash)
       rememberedKey = undefined
       invalidate()
@@ -814,6 +823,7 @@ const loadEvidence = async (targetBatchExecutionId: string, page = 1) => {
     if (rejectRevokedPermission(errorValue) || task !== evidenceSequence) return
     evidenceResponse.value = undefined
     blockedReason.value = errorValue instanceof Error ? errorValue.message : '命中记录加载失败，请重试。'
+    emit('operation-blocked','反查命中记录未读取完成')
   } finally {
     if (sequence === requestSequence.value && task === evidenceSequence) loadingEvidence.value = false
   }

@@ -58,6 +58,17 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             req.setSubmissionReviewStatus("REJECTED");
             assertEquals(1, productionCount(db, params));
             assertEquals(List.of("103:0:原始记录暂无修改"), productionPageRows(db, params));
+            try (var st = db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET actual_employee_id=7");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET actual_employee_id=8 WHERE id=102");
+            }
+            req.setSubmissionReviewStatus(null); req.setAllocationView("WORKBENCH");
+            req.setEmployeeUserIds(Set.of(7L));
+            assertEquals(1, productionCount(db, params));
+            assertEquals(List.of("101:0:原始记录暂无修改"), productionPageRows(db, params));
+            req.setEmployeeUserIds(null); req.setEmployeeUserId(8L);
+            assertEquals(1, productionCount(db, params));
+            assertEquals(List.of("102:2:原始记录已修改 1 次"), productionPageRows(db, params));
         }
     }
 
@@ -178,6 +189,58 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
         try (var statement = db.prepareStatement(count.getSql() + " AND pool_event.tenant_id = 1")) {
             bind(statement, count, params);
             try (var result = statement.executeQuery()) { result.next(); assertEquals(total, result.getLong(1)); }
+        }
+    }
+
+    @Test
+    void reviewScopeKeepsExcludedGroupMembersWithoutGrantingAccessToThem() throws Exception {
+        try (Connection db = database()) {
+            event(db, 1, 101, "g"); event(db, 1, 102, "g");
+            event(db, 1, 103, null); event(db, 1, 104, "unrelated");
+            event(db, 2, 201, "g");
+            review(db, 1, 301, 101, "REJECTED");
+            review(db, 1, 304, 104, "REJECTED");
+            review(db, 2, 401, 201, "REJECTED");
+            var params = request(null, 1, 20);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            req.setEventIds(Set.of(102L, 103L));
+            // The excluded rejected member still determines the group representative;
+            // neither it nor the authorized pending sibling may leak into this page.
+            assertScopedRows(db, params, 1, List.of("103:PENDING"));
+            req.setSubmissionReviewStatus("PENDING");
+            assertScopedRows(db, params, 1, List.of("103:PENDING"));
+            req.setEventIds(Set.of(101L, 102L, 103L));
+            req.setSubmissionReviewStatus(null);
+            assertScopedRows(db, params, 2, List.of("103:PENDING", "101:REJECTED"));
+            correction(db, 1, 501, 101, 301, 901L);
+            req.setEventIds(Set.of(102L, 103L));
+            assertScopedRows(db, params, 2, List.of("103:PENDING", "102:PENDING"));
+        }
+    }
+
+    @Test
+    void currentAndHistoryCountsKeepReleaseAndReviewFilters() throws Exception {
+        try (Connection db = database()) {
+            productionPageSchema(db);
+            event(db, 1, 101, null); event(db, 1, 102, null); event(db, 1, 103, null);
+            review(db, 1, 201, 101, "APPROVED"); review(db, 1, 202, 102, "APPROVED");
+            try (var st = db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET feedback_source_type='MES_PQC_INSPECTION_TASK',pqc_task_id=id");
+                st.executeUpdate("INSERT INTO mes_pqc_inspection_task(id,tenant_id,active_order_id) VALUES(101,1,11),(102,1,12),(103,1,13)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_release_application(tenant_id,active_order_id,release_transaction_id) VALUES(1,12,22)");
+                st.executeUpdate("INSERT INTO mes_pro_edhr_release_transaction(id,tenant_id,release_status) VALUES(22,1,'RELEASED')");
+            }
+            var params = request(null, 1, 20);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            req.setEventIds(Set.of(101L, 102L, 103L));
+            req.setPqcFormView("CURRENT");
+            assertEquals(2, productionCount(db, params));
+            req.setSubmissionReviewStatus("APPROVED");
+            assertEquals(1, productionCount(db, params));
+            req.setSubmissionReviewStatus(null); req.setPqcFormView("HISTORY");
+            assertEquals(2, productionCount(db, params));
+            req.setEventIds(Set.of());
+            assertEquals(0, productionCount(db, params));
         }
     }
 

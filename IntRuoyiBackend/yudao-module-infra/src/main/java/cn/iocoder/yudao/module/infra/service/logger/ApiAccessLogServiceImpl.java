@@ -51,6 +51,11 @@ public class ApiAccessLogServiceImpl implements ApiAccessLogService {
     }
 
     @Override
+    public PageResult<ApiAccessLogDO> getApiAccessLogSummaryPage(ApiAccessLogPageReqVO pageReqVO) {
+        return apiAccessLogMapper.selectSummaryPage(pageReqVO);
+    }
+
+    @Override
     public PageResult<ApiAccessLogDO> getApiAccessLogPage(ApiAccessLogPageReqVO pageReqVO) {
         return apiAccessLogMapper.selectPage(pageReqVO);
     }

@@ -81,6 +81,16 @@ class DccFileCategoryControllerConfigPackageContractTest extends BaseMockitoUnit
     }
 
     @Test
+    void disableCategory_requiresExistingManagementPermissionAndOnlyDisables() throws Exception {
+        var method = DccFileCategoryController.class.getMethod("disableCategory", Long.class);
+        assertEquals("@ss.hasPermission('dcc:controlled-file:category:manage')",
+                method.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value());
+        assertTrue(controller.disableCategory(907249L).getCheckedData());
+        verify(categoryAdminService).disableCategory(907249L);
+        verifyNoInteractions(configurationService, approvalMatrixAdminService, permissionAdminService);
+    }
+
+    @Test
     void getCategoryList_projectsCurrentUserUploadPermission() {
         LoginUser loginUser = new LoginUser();
         loginUser.setId(99L);

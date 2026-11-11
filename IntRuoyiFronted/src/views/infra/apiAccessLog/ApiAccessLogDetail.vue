@@ -1,6 +1,8 @@
 <template>
   <Dialog v-model="dialogVisible" :max-height="500" :scroll="true" title="详情" width="800">
-    <el-descriptions :column="1" border>
+    <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" show-icon />
+    <div v-loading="detailLoading" :style="detailLoading ? { minHeight: '160px' } : undefined">
+    <el-descriptions v-if="detailData" :column="1" border>
       <el-descriptions-item label="日志主键" min-width="120">
         {{ detailData.id }}
       </el-descriptions-item>
@@ -49,6 +51,7 @@
         <dict-tag :type="DICT_TYPE.INFRA_OPERATE_TYPE" :value="detailData.operateType" />
       </el-descriptions-item>
     </el-descriptions>
+    </div>
   </Dialog>
 </template>
 
@@ -56,22 +59,39 @@
 import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import * as ApiAccessLog from '@/api/infra/apiAccessLog'
+import { getTenantId } from '@/utils/auth'
+import { useUserStore } from '@/store/modules/user'
 
 defineOptions({ name: 'ApiAccessLogDetail' })
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const detailLoading = ref(false) // 表单地加载中
-const detailData = ref({} as ApiAccessLog.ApiAccessLogVO) // 详情数据
+const detailData = ref<ApiAccessLog.ApiAccessLogVO>()
+const detailError = ref('')
+const userStore = useUserStore()
+const detailOwner = () => `${getTenantId()}:${userStore.getUser.id}`
+let detailSequence = 0
+watch(dialogVisible, (visible) => { if (!visible) { detailSequence++; detailData.value = undefined } })
+onBeforeUnmount(() => { detailSequence++ })
 
 /** 打开弹窗 */
 const open = async (data: ApiAccessLog.ApiAccessLogVO) => {
   dialogVisible.value = true
-  // 设置数据
+  const sequence = ++detailSequence
+  const owner = detailOwner()
+  const current = () => sequence === detailSequence && dialogVisible.value && owner === detailOwner()
+  detailData.value = undefined
+  detailError.value = ''
   detailLoading.value = true
   try {
-    detailData.value = data
+    const detail = await ApiAccessLog.getApiAccessLog(data.id, current)
+    if (!current()) return
+    if (!detail || String(detail.id) !== String(data.id)) throw new Error('日志详情与所选记录不一致，请重新查询。')
+    detailData.value = detail
+  } catch (error) {
+    if (current()) detailError.value = error instanceof Error ? error.message : '日志详情读取失败，请重试。'
   } finally {
-    detailLoading.value = false
+    if (current()) detailLoading.value = false
   }
 }
 

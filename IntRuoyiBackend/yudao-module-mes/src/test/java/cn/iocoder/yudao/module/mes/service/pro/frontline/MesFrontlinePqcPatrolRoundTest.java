@@ -36,6 +36,9 @@ class MesFrontlinePqcPatrolRoundTest {
             Object dependency = mock(type); dependencies.put(type, dependency); return dependency;
         }).toArray();
         service = spy((MesFrontlinePqcContextServiceImpl) constructor.newInstance(args));
+        var actionLog = mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderActionLog.class);
+        dependencies.put(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderActionLog.class, actionLog);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "actionLog", actionLog);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "roundReleaseStateService", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService.class));
         doReturn(mock(MesFrontlineEmployeeCandidate.class)).when(service).requirePqcEmployee(10L, 10L);
         order = MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).routeId(3L).routeVersionId(4L)
@@ -63,6 +66,8 @@ class MesFrontlinePqcPatrolRoundTest {
         assertThrows(ServiceException.class, () -> service.createPatrolRound(10L, 1L, 2));
         assertEquals(6, tasks.size());
         assertEquals(Set.of(1,2,3), tasks.stream().map(MesPqcInspectionTaskDO::getRoundNo).collect(java.util.stream.Collectors.toSet()));
+        verify(dependency(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderActionLog.class), times(3))
+                .record(eq(10L), eq(1L), eq("PQC_PATROL_CREATE"), anyMap());
         for (var task : tasks) {
             assertEquals("PATROL", task.getInspectionRuleKey()); assertEquals("PATROL", task.getShiftCode());
             assertEquals("PENDING", task.getTaskStatus());

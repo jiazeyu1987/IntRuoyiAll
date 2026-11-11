@@ -1209,6 +1209,8 @@ public interface ErrorCodeConstants {
             "报工确认分配总数必须等于本次报工数量：{}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH = new ErrorCode(1_040_760_313,
             "活跃订单当前工序剩余数量不足，无法确认分配：{}");
+    ErrorCode PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED = new ErrorCode(1_040_760_417,
+            "工单{}的工序{}累计生产数量{}超过生产数量×生产系数上限{}，请由生产组长先更正归属");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED = new ErrorCode(1_040_760_314,
             "报工确认缺少有效报工数量：{}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE = new ErrorCode(1_040_760_315,

@@ -33,6 +33,8 @@ public class ApprovalCenterController {
     private cn.iocoder.yudao.module.bpm.approval.content.ApprovalReviewPreviewService reviewPreviewService;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReviewFacade reviewFacade;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService receiptService;
 
     public ApprovalCenterController(ApprovalCenterService approvalCenterService) {
         this.approvalCenterService = approvalCenterService;
@@ -50,6 +52,13 @@ public class ApprovalCenterController {
     @PreAuthorize("@ss.hasPermission('bpm:task:query')")
     public CommonResult<PageResult<ApprovalTaskSummary>> getTaskPage(@Valid ApprovalTaskPageReqVO reqVO) {
         return success(approvalCenterService.getTaskPage(getLoginUserId(), reqVO.toQuery()));
+    }
+
+    @GetMapping("/tasks/todo-count")
+    @Operation(summary = "获取统一审批中心待办数量")
+    @PreAuthorize("@ss.hasPermission('bpm:task:query')")
+    public CommonResult<Long> getTodoCount() {
+        return success(approvalCenterService.getTodoCount(getLoginUserId()));
     }
 
     @GetMapping("/tasks/timeline")
@@ -75,5 +84,15 @@ public class ApprovalCenterController {
             @Valid @RequestBody ApprovalTaskReviewPreviewReqVO request) {
         return success(reviewPreviewService.preview(getLoginUserId(), request.getModuleCode(),
                 request.getSourceTaskType(), request.getSourceTaskId(), request.getProcessInstanceId()));
+    }
+
+    @GetMapping("/tasks/review-receipt")
+    @Operation(summary = "只读核验本人原签署请求的正式回执")
+    @PreAuthorize("@ss.hasPermission('bpm:task:query')")
+    public CommonResult<cn.iocoder.yudao.module.bpm.approval.content.ApprovalDecisionReceipt> getReviewReceipt(
+            @Valid ApprovalReceiptQueryReqVO request) {
+        return success(receiptService.findDecisionReceipt(getLoginUserId(), request.getIdempotencyKey(),
+                request.getModuleCode().name(), request.getSourceTaskType(), request.getSourceTaskId(),
+                request.getPrepareId()));
     }
 }

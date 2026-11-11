@@ -24,14 +24,17 @@ public class MesSubmissionBusinessIdentityReader {
                 || !Objects.equals(event.getTenantId(), TenantContextHolder.getRequiredTenantId()))
             throw new IllegalStateException("ORIGINAL_BUSINESS_EVENT_IDENTITY_MISSING");
         cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO review = null;
+        var history = reviews.selectListByEventId(eventId).stream().filter(row ->
+                Objects.equals(row.getTenantId(), event.getTenantId()) && Objects.equals(row.getEventId(), eventId)).toList();
         if (reviewSignatureId != null) {
-            var matches = reviews.selectListByEventId(eventId).stream().filter(row ->
-                    Objects.equals(row.getTenantId(), event.getTenantId()) && Objects.equals(row.getEventId(), eventId)
-                            && Objects.equals(row.getReviewSignatureId(), reviewSignatureId)).toList();
+            var matches = history.stream().filter(row -> Objects.equals(row.getReviewSignatureId(), reviewSignatureId)).toList();
             if (matches.size() != 1) throw new IllegalStateException("ORIGINAL_BUSINESS_REVIEW_IDENTITY_MISSING");
             review = matches.get(0);
         }
-        return project(event, reviewSignatureId, review);
+        var projected = JSON.parseObject(project(event, reviewSignatureId, review));
+        projected.put("reviewHistory", history.stream().map(row -> JSON.parseObject(
+                project(event, row.getReviewSignatureId(), row))).toList());
+        return projected.toJSONString();
     }
 
     static String project(MesProProcessPoolEventDO event, Long reviewSignatureId) {
@@ -48,11 +51,13 @@ public class MesSubmissionBusinessIdentityReader {
         result.put("operatorId", text(event.getDeviceAccountId()));
         result.put("tenantId", text(event.getTenantId()));
         result.put("signatureId", text(event.getSignatureId()));
+        result.put("submittedAt", event.getServerSubmitTime() == null ? null : event.getServerSubmitTime().toString());
         result.put("payloadHash", cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()));
         result.put("reviewSignatureId", text(reviewSignatureId));
         result.put("reviewId", review == null ? null : text(review.getId()));
         result.put("reviewActorId", review == null ? null : text(review.getLeaderUserId()));
         result.put("reviewStatus", review == null ? null : review.getReviewStatus());
+        result.put("reviewedAt", review == null || review.getReviewedAt() == null ? null : review.getReviewedAt().toString());
         result.put("leaderType", review == null ? null : review.getLeaderType());
         result.put("identityDomain", "PQC_INSPECTION".equals(event.getEventType()) ? "SYSTEM_USER"
                 : payload == null ? null : payload.getString("signatureIdentityDomain"));

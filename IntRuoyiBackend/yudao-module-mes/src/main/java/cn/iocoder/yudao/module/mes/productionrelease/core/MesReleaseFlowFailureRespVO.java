@@ -14,7 +14,8 @@ public class MesReleaseFlowFailureRespVO {
     private List<MesReleaseFlowBlocker> blockers;
     private RejectedDecision rejectedDecision;
 
-    /** Returned only after the decision transaction has rolled back successfully. */
+    /** The decision transaction was NOT_STARTED or completed rollback (ROLLED_BACK).
+     * Authentication attempt auditing is independent of the decision transaction. */
     @Data
     @Accessors(chain = true)
     public static class RejectedDecision {

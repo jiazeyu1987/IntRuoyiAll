@@ -99,6 +99,10 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
             default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: SHOWROOM does not support "
                     + context.getViewType());
         };
+        if (cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).limit() == 0) {
+            return new PageResult<>(List.of(), rows.stream()
+                    .filter(request -> matchesKeyword(request, context.getKeyword())).count());
+        }
         List<ApprovalTaskSummary> summaries = rows.stream()
                 .filter(request -> matchesKeyword(request, context.getKeyword()))
                 .map(this::toSummary)

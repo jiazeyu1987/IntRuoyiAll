@@ -41,8 +41,7 @@ public class MesActiveOrderHandoffService {
     @Resource private MesSignedReturnCorrectionResolver correctionResolver;
     @Resource private MesProcessPoolReportAllocationMapper allocations;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
-    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper routeProcesses;
-    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper processes;
+    @Resource private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshots;
 
     @Transactional(readOnly=true,propagation=Propagation.SUPPORTS)
     public List<MesActiveOrderHandoffTaskDO> listOwnTasks(Long actor) {
@@ -439,11 +438,21 @@ public class MesActiveOrderHandoffService {
         require(workOrder!=null&&Objects.equals(workOrder.getTenantId(),tenant())&&workOrder.getCode()!=null&&!workOrder.getCode().isBlank(),"交接缺少正式工单编码");
         String processLabel="整单";Long processId=null;
         if(routeProcessId!=null) {
-            var routeProcess=routeProcesses.selectById(routeProcessId);
-            require(routeProcess!=null&&Objects.equals(routeProcess.getRouteId(),order.getRouteId()),"交接工序不属于当轮正式路线");
-            var process=processes.selectById(routeProcess.getProcessId());
-            require(process!=null&&process.getName()!=null&&!process.getName().isBlank(),"交接缺少正式工序名称");
-            processId=process.getId();processLabel=process.getName();
+            // Publishing a new route replaces live nodes; an in-flight order keeps its frozen nodes.
+            var matching=processSnapshots.selectListByActiveOrderId(order.getId()).stream()
+                    .filter(snapshot->Objects.equals(snapshot.getRouteProcessId(),routeProcessId)).toList();
+            require(matching.size()==1,"交接工序不属于当轮正式路线");
+            var snapshot=matching.get(0);
+            require(Objects.equals(snapshot.getTenantId(),tenant())
+                    &&Objects.equals(snapshot.getActiveOrderId(),order.getId())
+                    &&Objects.equals(snapshot.getWorkOrderId(),order.getWorkOrderId())
+                    &&Objects.equals(snapshot.getRouteId(),order.getRouteId())
+                    &&order.getRouteVersionId()!=null
+                    &&Objects.equals(snapshot.getRouteVersionId(),order.getRouteVersionId())
+                    &&snapshot.getProcessId()!=null&&snapshot.getProcessId()>0,
+                    "交接工序不属于当轮正式路线");
+            require(snapshot.getProcessNameSnapshot()!=null&&!snapshot.getProcessNameSnapshot().isBlank(),"交接缺少正式工序名称");
+            processId=snapshot.getProcessId();processLabel=snapshot.getProcessNameSnapshot();
         }
         boolean originalSubmission="PROCESS_POOL_EVENT".equals(source)&&type.endsWith("_REVIEW");
         var initiatorIdentity=owners.initiatorSnapshot(initiator,originalSubmission?event(sourceId):null);
@@ -452,6 +461,7 @@ public class MesActiveOrderHandoffService {
         responsibility.put("activeOrderId",order.getId());responsibility.put("sourceType",source);responsibility.put("sourceId",sourceId);responsibility.put("roundId",round);
         responsibility.put("workOrderId",order.getWorkOrderId());responsibility.put("workOrderCode",workOrder.getCode());
         responsibility.put("routeProcessId",routeProcessId);responsibility.put("processId",processId);responsibility.put("processName",processLabel);
+        if(routeProcessId!=null) responsibility.put("routeVersionId",order.getRouteVersionId());
         if(Set.of("PROCESS_POOL_EVENT",EVENT_SIGNED_REVISION).contains(source)&&Set.of("PQC_REVIEW","PQC_RETURN").contains(type)) {
             var pqc=owners.pqcTask(event(sourceId));
             responsibility.put("pqcTaskId",pqc.getId());responsibility.put("qaProcessId",pqc.getQaProcessId());

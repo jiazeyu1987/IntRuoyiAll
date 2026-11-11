@@ -320,7 +320,7 @@ public class MesProcessPoolTeamLeaderController {
 
     @PostMapping("/active-order/simulation/test-reset")
     @Operation(summary = "重置固定活跃订单测试数据并重新加入")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<MesTeamLeaderActiveOrderTestResetRespVO> resetFixedSimulationActiveOrder() {
         MesTeamLeaderActiveOrderTestResetResult result = activeOrderService
                 .resetFixedSimulationActiveOrder(SecurityFrameworkUtils.getLoginUserId());
@@ -671,7 +671,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @PostMapping("/active-order/release/push-generated")
-    @Operation(summary = "P3推送P2生成记录至PQC生产放行")
+    @Operation(summary = "完成活跃订单并申请生产放行")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:release-apply')")
     public CommonResult<MesTeamLeaderActiveOrderReleaseApplyRespVO> pushGeneratedActiveOrderRelease(
             @Valid @RequestBody MesTeamLeaderActiveOrderReleaseApplyReqVO reqVO) {
