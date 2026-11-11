@@ -57,7 +57,7 @@ const openReceipt = async () => {
     let taskId = props.sourceTaskId
     let evidenceHash: string | undefined
     if (!key) {
-      const context = await getEdhrRelease(transactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+      const context = await getEdhrRelease(transactionId, { timeout: 60000, ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       if (String(context.releaseTransactionId) !== transactionId || String(context.approvedBy) !== actor) {
         throw new Error('只能核验本人签署的该笔上市放行回执。')

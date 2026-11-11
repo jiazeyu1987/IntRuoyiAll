@@ -17,7 +17,7 @@ function harness({result=valid(),props={},release={}}={}) {
   const ctx={props:{releaseTransactionId:'295',idempotencyKey:'original',sourceTaskId:'3006',prepareId:'prepare',...props},
     visible:ref(false),loading:ref(false),error:ref(''),receipt:ref(null),mounted:true,userStore:{getUser:{id:7}},
     identity:()=>ctx.session+'|'+JSON.stringify(ctx.props),session:'168:7',
-    getEdhrRelease:async id=>{calls.push(['release',id]);return {releaseTransactionId:'295',approvedBy:'7',approvalIdempotencyKey:'original',releaseApprovalWorkTaskId:'3006',releaseStatus:'RELEASED',approvalSignoffEvidenceHash:'hash',...release}},
+    getEdhrRelease:async (id,options)=>{ctx.releaseOptions=options;calls.push(['release',id]);return {releaseTransactionId:'295',approvedBy:'7',approvalIdempotencyKey:'original',releaseApprovalWorkTaskId:'3006',releaseStatus:'RELEASED',approvalSignoffEvidenceHash:'hash',...release}},
     getApprovalReviewReceipt:async query=>{calls.push(['receipt',query]);return result},emit:(...args)=>emitted.push(args)}
   const open = Function(...Object.keys(ctx),code+';return openReceipt;')(...Object.values(ctx))
   return {ctx,calls,emitted,open}
@@ -43,6 +43,26 @@ test('history reads original transaction and refuses another signer',async()=>{
 test('history uses persisted original key without creating a new request',async()=>{
   const h=harness({props:{idempotencyKey:undefined,sourceTaskId:undefined,prepareId:undefined}})
   await h.open();assert.equal(h.calls[1][1].idempotencyKey,'original');assert.equal(h.emitted.length,1)
+})
+
+test('receipt context uses its explicit read budget and request identity guard',async()=>{
+  const h=harness({props:{idempotencyKey:undefined,sourceTaskId:undefined,prepareId:undefined}})
+  await h.open();assert.equal(h.ctx.releaseOptions.timeout,60000)
+  assert.equal(h.ctx.releaseOptions.isRequestContextCurrent(),true)
+  h.ctx.session='169:7';assert.equal(h.ctx.releaseOptions.isRequestContextCurrent(),false)
+})
+
+test('release context transport forwards the per-request budget without changing other callers',async()=>{
+  const source=fs.readFileSync(path.resolve(__dirname,'../src/api/mes/pro/edhr/release.ts'),'utf8')
+  const apiAst=ts.createSourceFile('release.ts',source,ts.ScriptTarget.Latest,true)
+  const apiDeclaration=apiAst.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>d.name.getText(apiAst)==='getEdhrRelease'))
+  const apiCode=ts.transpileModule(apiDeclaration.getText(apiAst).replace(/^export\s+/,''),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+  const calls=[],guard=()=>true
+  const get=Function('request',apiCode+';return getEdhrRelease;')({get:async options=>{calls.push(options);return {releaseTransactionId:'295'}}})
+  await get('295',{timeout:60000,isRequestContextCurrent:guard,ignoreErrorMessage:true})
+  assert.equal(calls[0].url,'/mes/pro/edhr-release/get');assert.deepEqual(calls[0].params,{id:'295'})
+  assert.equal(calls[0].timeout,60000);assert.equal(calls[0].isRequestContextCurrent,guard)
+  await get('295');assert.equal(calls[1].timeout,undefined)
 })
 test('history rejects a receipt whose evidence differs from the released transaction',async()=>{
   const h=harness({props:{idempotencyKey:undefined,sourceTaskId:undefined,prepareId:undefined},release:{approvalSignoffEvidenceHash:'other'}})

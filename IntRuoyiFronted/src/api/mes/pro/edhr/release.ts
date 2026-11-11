@@ -174,8 +174,9 @@ export const getEdhrReleasePage = async (params: EdhrReleasePageReqVO, options?:
   })
 }
 
-export const getEdhrRelease = async (id: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+export const getEdhrRelease = async (id: string, options?: { timeout?: number; ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrReleaseRowVO>({
+    timeout: options?.timeout,
     ignoreErrorMessage: options?.ignoreErrorMessage,
     isRequestContextCurrent: options?.isRequestContextCurrent,
     isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
