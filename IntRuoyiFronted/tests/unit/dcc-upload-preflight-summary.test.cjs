@@ -10,6 +10,7 @@ const page = fs.readFileSync('src/views/dcc/controlled-file/upload/index.vue', '
 function setup() {
   const context = {
     ref, reactive, computed, nextTick,
+    previewUpload: ref({ fileName: '正文.docx' }), uploadPreviewLoading: ref(false), uploadPreviewError: ref(''),
     formData: reactive({ fileNumber: 'SOP-07', versionNo: 'A/1', dccProjectCodeId: '7', categoryId: '8' }),
     formRef: ref({ fields: [] }),
     routeReadiness: ref({ ready: true, nodes: [], blockers: [] }), uploadApprovers: ref({}),
@@ -35,9 +36,9 @@ function setup() {
   return context
 }
 
-test('all six actual checks pass; changes immediately update count and put failures first', () => {
+test('all seven actual checks pass; changes immediately update count and put failures first', () => {
   const c = setup()
-  assert.equal(c.uploadPreflightSummary.value.text, '6项校验通过')
+  assert.equal(c.uploadPreflightSummary.value.text, '7项校验通过')
   c.effectiveSelectionValidation.value = { valid: false }
   c.existingUploadIdentityBlockReason.value = '文件编号已重复'
   assert.equal(c.uploadPreflightSummary.value.text, '还有2项待完善')
@@ -61,7 +62,26 @@ test('debounced, running, failed and completed number lookups cannot prematurely
   assert.equal(c.uploadPreflightChecks.value[0].description, '查询服务失败')
   c.currentVersionLookupError.value = ''
   c.currentVersionInfo.value = { matched: false }
-  assert.equal(c.uploadPreflightSummary.value.text, '6项校验通过')
+  assert.equal(c.uploadPreflightSummary.value.text, '7项校验通过')
+})
+
+test('missing, uploading and rejected main files cannot report all checks passed and locate the upload field', async () => {
+  const c = setup(), calls = []
+  c.previewUpload.value = undefined
+  assert.equal(c.uploadPreflightSummary.value.text, '还有1项待完善')
+  c.uploadPreviewLoading.value = true
+  assert.match(c.uploadPreflightSummary.value.text, /1项待检查或检查中/)
+  c.uploadPreviewLoading.value = false
+  c.uploadPreviewError.value = '文件名称已被占用'
+  assert.equal(c.sortedUploadPreflightChecks.value[0].key, 'main-file')
+  assert.equal(c.sortedUploadPreflightChecks.value[0].description, '文件名称已被占用')
+  assert.equal(c.uploadPreflightSummary.value.passed, false)
+  c.formRef.value.fields = [{ prop: 'file', $el: { scrollIntoView: () => calls.push('file'), querySelector: () => null } }]
+  await c.locatePreflightField('main-file')
+  assert.deepEqual(calls, ['file'])
+  c.uploadPreviewError.value = ''
+  c.previewUpload.value = { fileName: '新正文.docx' }
+  assert.equal(c.uploadPreflightSummary.value.text, '7项校验通过')
 })
 
 test('loading and stale readiness never count as approval success; folder failure remains visible', () => {

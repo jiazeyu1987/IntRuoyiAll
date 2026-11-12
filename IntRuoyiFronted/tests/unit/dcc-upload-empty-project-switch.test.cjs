@@ -13,7 +13,7 @@ function setup({ library = false, cancel = false } = {}) {
   const context = {
     exports: {}, ref, reactive: value => value, isExternalReview: ref(false), isLibraryUpload: ref(library),
     DEFAULT_MANUAL_VERSION_NO: 'A/1', DEFAULT_CONTROLLED_INITIAL_VERSION_NO: 'A/1',
-    resolveProcessTypeByRoute: () => 'CONTROLLED_FILE', libraryScope: ref('GENERAL'),
+    resolveProcessTypeByRoute: () => 'CONTROLLED_FILE', libraryScope: ref('GENERAL'), acceptedLibraryScope: library ? 'GENERAL' : 'PROJECT',
     acceptedProjectCodeId: ref('5'), acceptedProjectCodeOption: ref(), projectCodeOptions: ref([{ id: '6' }]),
     projectAttributesSelectionSequence: 0, projectAttributesLoading: ref(false),
     projectAttributesRestoreSnapshot: ref(), projectAttributesPanelKey: ref(0),

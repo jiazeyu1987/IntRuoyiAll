@@ -53,7 +53,7 @@ const setup = overrides => {
     routeReadinessSelectionKey: ref(signoffModel.exports.signoffRequestKey(2, ['7'], 'CONTROLLED_FILE')),
     routeReadinessRequestSeq: 0, signoffSelectionCategoryKey: signoffModel.exports.signoffCategoryKey(2,'CONTROLLED_FILE'),
     selectedFileTypeTaxonomyPath: ref({ approvalSourceMode: 'PUBLIC_MATRIX' }), isCustomApprovalSource: ref(false),
-    isLibraryUpload: ref(false), libraryScope: ref('PROJECT'),
+    isLibraryUpload: ref(false), libraryScope: ref('PROJECT'), acceptedLibraryScope: 'PROJECT',
     isExternalReview: ref(false), isNormalNewUpload: ref(true), projectAttributesPanel: ref({ getSnapshot: () => snapshot(5), selectProject: async () => true }),
     projectAttributesPanelKey: ref(0), acceptedProjectCodeId: ref(5), projectAttributesLoading: ref(false), projectAttributesSelectionSequence: 0,
     projectFoldersLoading: ref(false), projectFoldersError: ref(''), projectFolders: ref([]), projectFoldersProjectId: ref('5'),

@@ -80,7 +80,7 @@
             show-icon
             :title="projectCodeOptionsError"
           />
-        <el-form-item v-if="!isExternalReview && !isLibraryUpload" label="申请属性">
+        <el-form-item v-if="!isExternalReview" v-show="!isLibraryUpload" label="申请属性">
           <ProjectApplicationAttributes
             ref="projectAttributesPanel"
             :key="projectAttributesPanelKey"
@@ -1826,7 +1826,8 @@ const handleProjectCodeChange = async () => {
       await message.confirm('切换项目会清除已选文件夹、文件、编号、关联及本次部门选择，是否继续？', '确认切换项目')
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
     }
-    const previousSnapshot = hasTemporaryUploadState() ? projectAttributesPanel.value?.getSnapshot() : undefined
+    const previousSnapshot = acceptedLibraryScope === 'PROJECT' && hasTemporaryUploadState()
+      ? projectAttributesPanel.value?.getSnapshot() : undefined
     if (requestedProjectId == null) {
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
       delete formData.projectAttributes
@@ -2279,6 +2280,15 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
       description: controlledBrowserPermissionScopeText.value,
       ok: Boolean(selectedCategory.value && hasDirectoryLanding),
       warning: !selectedCategory.value || !hasDirectoryLanding
+    },
+    {
+      key: 'main-file',
+      label: '主文件上传',
+      status: uploadPreviewLoading.value ? '检查中' : uploadPreviewError.value ? '需处理' : previewUpload.value ? '已上传' : '待选择',
+      description: uploadPreviewError.value || (uploadPreviewLoading.value ? '正在上传并校验主文件，请等待完成。' : previewUpload.value ? `已上传主文件：${previewUpload.value.fileName}。` : '请选择主文件并完成上传校验。'),
+      ok: Boolean(previewUpload.value) && !uploadPreviewLoading.value && !uploadPreviewError.value,
+      pending: uploadPreviewLoading.value,
+      warning: !previewUpload.value
     }
   ]
 })
@@ -2295,6 +2305,7 @@ const uploadPreflightSummary = computed(() => {
 })
 const preflightRemedy = (key: string) => {
   switch (key) {
+    case 'main-file': return '按上传错误提示处理主文件；重名文件请使用原有升版或引用流程，重新选择文件后等待上传完成。'
     case 'file-version': return '填写文件编号和符合格式的版本号；查询失败时重试，编号重复时更换编号或使用原有升版流程。'
     case 'effective-date': return '选择生效方式，按对应要求填写或清除生效日期。'
     case 'category-selection': return '选择文件类型以匹配文件类别；外来文件请选择文件类别。'
@@ -2304,7 +2315,8 @@ const preflightRemedy = (key: string) => {
   }
 }
 const locatePreflightField = async (key: string) => {
-  const prop = key === 'file-version' ? (versionFormatPreflightMessage.value || !formData.versionNo ? 'versionNo' : 'fileNumber')
+  const prop = key === 'main-file' ? 'file'
+    : key === 'file-version' ? (versionFormatPreflightMessage.value || !formData.versionNo ? 'versionNo' : 'fileNumber')
     : key === 'effective-date' ? (isExternalReview.value ? 'effectiveDate' : 'effectiveMode')
     : key === 'category-selection' || key === 'approval-chain' || key === 'controlled-browser-permission-scope'
       ? (isExternalReview.value ? 'categoryId' : 'fileTypeTaxonomyId')
@@ -2819,7 +2831,7 @@ const captureUploadSubmissionContext = () => JSON.stringify({
   actor: uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()),
   form: Object.fromEntries(Object.entries(formData).filter(([key]) => key !== 'approvalMatrixSelection')), preview: previewUpload.value,
   attachments: resolveReadyAttachmentUploads(), relations: selectedUploadRelations.value,
-  attributes: isExternalReview.value ? undefined : projectAttributesPanel.value?.getSnapshot(),
+  attributes: isExternalReview.value || isLibraryUpload.value ? undefined : projectAttributesPanel.value?.getSnapshot(),
   project: selectedProjectCode.value, product: projectProduct.value, folder: selectedProjectFolder.value,
   fileType: selectedFileTypeTaxonomyLeafName.value, category: selectedCategory.value,
   users: approvalUsers.value, departments: signoffDepartments.value
