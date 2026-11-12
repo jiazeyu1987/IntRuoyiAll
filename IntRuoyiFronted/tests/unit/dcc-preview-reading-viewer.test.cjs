@@ -342,3 +342,23 @@ test('late start after actor change cannot restore owner or send old stop under 
   assert.equal(r.stops().length,0);assert.equal(r.timers.size,0)
   assert.match(r.api.errorMessage.value,/用户|租户|身份/);await r.unmount()
 })
+
+
+test('PDF fits narrow, expanded and rotated containers while zoom and reset remain relative to width', async () => {
+  const r = load({kind: 'PDF'})
+  await r.load()
+  const page = {width: 1200, height: 1600}
+  for (const width of [260, 700, 1500]) {
+    r.api.pdfAvailableWidth.value = width
+    r.api.handleResetViewerTransform()
+    assert.equal(r.api.getPdfPageViewportStyle(page).width, `${width}px`)
+    r.api.handleRotateRight()
+    assert.equal(r.api.getPdfPageViewportStyle(page).width, `${width}px`)
+    assert.ok(r.api.getPdfPreviewTransformStyle(page).transform.includes('rotate(90deg)'))
+    r.api.handleZoomIn()
+    assert.equal(r.api.getPdfPageViewportStyle(page).width, `${Math.ceil(width * 1.25)}px`)
+    r.api.handleResetViewerTransform()
+    assert.equal(r.api.getPdfPageViewportStyle(page).width, `${width}px`)
+  }
+  await r.unmount()
+})

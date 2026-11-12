@@ -101,9 +101,31 @@ test('supervisor has a current task section and keeps its actions in the fixed b
   assert.match(page.template.content, /<SupervisorReviewActions v-if="isSupervisorReviewPage"/)
   const overview = page.template.content.indexOf('dcc-approval-upload-view')
   const body = page.template.content.indexOf('dcc-approval-upload-file-preview')
-  const application = page.template.content.indexOf('<DetailApplicationHistory')
+  const application = page.template.content.indexOf('<DetailApplicationHistory', body)
   const relations = page.template.content.indexOf('<DetailRelationsPanel')
   assert.ok(overview < body && body < application && application < relations)
+})
+
+test('verified countersigner has the approval label while assignment verification stays explicit', () => {
+  const page = parse(fs.readFileSync(path.join(root, 'index.vue'), 'utf8')).descriptor
+  const ast = ts.createSourceFile('page.ts', page.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const statement = ast.statements.find(s => ts.isVariableStatement(s)
+    && s.declarationList.declarations.some(d => d.name.getText(ast) === 'currentApprovalTaskName'))
+  const env = { computed: vue.computed, approvalTodoTask: vue.ref({ id: 't1' }),
+    isSignoffTask: vue.ref(true), currentApprovalApplicationType: vue.ref('REVISION'),
+    signoffAssignmentState: vue.ref({ fileId: '101', taskId: 't1', assigned: true }),
+    fileDetail: vue.ref({ id: '101' }), resolveDccStageDisplayName: () => '直属主管审核' }
+  vm.runInNewContext(ts.transpileModule(statement.getText(ast) + '\nglobalThis.name = currentApprovalTaskName',
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, env)
+  assert.equal(env.name.value, '会签批准')
+  env.signoffAssignmentState.value.assigned = false
+  assert.equal(env.name.value, '部门负责人签名指派')
+  env.signoffAssignmentState.value.taskId = 'stale-task'
+  assert.match(env.name.value, /正在核验指派状态/)
+  env.isSignoffTask.value = false
+  assert.equal(env.name.value, '直属主管审核')
+  assert.match(page.template.content, /已完成 \{\{ actualSignoffStage\?\.completionText/)
+  assert.match(page.template.content, /<SupervisorReviewActions v-if="isActualSignoffReviewPage"[^>]*approve-text="批准通过"/)
 })
 
 

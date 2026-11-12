@@ -80,7 +80,7 @@
         :style="{ backgroundImage: watermarkBackground }"
       ></div>
       <div
-        v-if="watermarkDetail"
+        v-if="watermarkDetail && !hideTraceDetails"
         class="onlyoffice-viewer-frame__watermark"
       >
         <div class="onlyoffice-viewer-frame__watermark-title">
@@ -107,6 +107,7 @@ declare global {
 }
 
 const props = defineProps<{
+  hideTraceDetails?: boolean
   compact?: boolean
   baseUrl?: string
   documentUrl?: string

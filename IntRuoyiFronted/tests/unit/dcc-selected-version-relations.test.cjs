@@ -345,6 +345,84 @@ const drain = async () => {
   await vue.nextTick()
 }
 
+test('approval related MJMJ keeps AB/1 name, number and body even when AB/2 exists', async () => {
+  const frozen = {
+    ...snapshot(),
+    fileName: '项目三个属性静态分析报告-20261011.txt',
+    fileNumber: 'MJMJ',
+    versionNo: 'AB/1'
+  }
+  const options = {
+    props: { applicationSelection: selection, bodyReadContext: {
+      intent: 'APPROVAL_TASK', controlledFileId: file.id, expectedVersionNo: file.versionNo,
+      applicationType: selection.applicationType, bpmRound: selection.bpmRound, taskId: 'task-1'
+    } },
+    getEvidence: async () => {
+      const result = evidence()
+      result.relationEvidence.completeSelections = [{
+        ...selected('31', '300', frozen.fileName),
+        fileNumber: frozen.fileNumber, versionNo: frozen.versionNo
+      }]
+      return result
+    },
+    getMetadata: async id => {
+      assert.equal(id, '31', 'must never resolve the current or latest target ID 32')
+      return { ...metadata(id), versionNo: 'AB/1', fileName: '后来重命名.txt',
+        fileNumber: 'NEW-MJMJ', currentActiveControlledFileId: '32', latestControlledFileId: '32' }
+    }
+  }
+  const display = mount({ ...options, inline: true })
+  try {
+    await drain()
+    for (const value of [frozen.fileName, 'MJMJ', 'AB/1', '查看固定版本'])
+      assert.ok(display.visible().includes(value), value)
+    assert.doesNotMatch(display.visible(), /后来重命名|NEW-MJMJ|AB\/2/)
+  } finally { display.app.unmount() }
+  const c = mount(options)
+  try {
+    await drain()
+    await c.state.openPreview(c.state.files[0])
+    assert.equal(c.state.error, '')
+    const source = c.state.previewSource
+    const meta = await c.preview.common.getOnlineFilePreviewMetadata(source)
+    await c.preview.common.previewOnlineFileWithWatermark(source, meta)
+    const request = c.preview.calls.metadata[0]
+    assert.match(request.url, /\/31\/preview-metadata$/)
+    const wire = request.params.bodyReadContext
+    assert.deepEqual(JSON.parse(Buffer.from(wire, 'base64url')), {
+      intent: 'VERSION_HISTORY', controlledFileId: '31', expectedVersionNo: 'AB/1'
+    })
+    assert.equal(c.preview.calls.binary[0].config.headers['X-DCC-Body-Read-Context'], wire)
+    assert.match(c.preview.calls.binary[0].url, /\/31\/preview$/)
+    assert.deepEqual(c.calls.filter(call => call[0] === 'metadata'), [['metadata', '31']])
+    assert.doesNotMatch(c.visible(), /后来重命名|NEW-MJMJ|AB\/2/)
+  } finally { c.app.unmount() }
+})
+
+test('AB/1 authority failure never retries the newer version or opens a body', async () => {
+  let opening = false
+  const c = mount({
+    getHistory: async () => [{ ...snapshot(), versionNo: 'AB/1' }],
+    getMetadata: async id => {
+      assert.ok([file.id, '31'].includes(id))
+      if (id === file.id) return metadata(id)
+      if (opening) throw Error('AB/1 正文权限已撤销')
+      return { ...metadata(id), versionNo: 'AB/1', latestControlledFileId: '32' }
+    }
+  })
+  try {
+    await drain()
+    opening = true
+    await c.state.openPreview(c.state.files[0])
+    assert.equal(c.state.error, 'AB/1 正文权限已撤销')
+    assert.equal(c.state.previewSource, undefined)
+    assert.equal(c.state.previewId, '')
+    assert.equal(c.preview.calls.metadata.length, 0)
+    assert.equal(c.preview.calls.binary.length, 0)
+    assert.ok(c.calls.every(call => call[1] !== '32'))
+  } finally { c.app.unmount() }
+})
+
 test('history A/1 loads only its snapshot; current A/2 and target X/2 are never requested', async () => {
   const c = mount()
   try {

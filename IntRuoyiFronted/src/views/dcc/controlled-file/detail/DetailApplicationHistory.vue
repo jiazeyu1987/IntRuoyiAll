@@ -28,14 +28,22 @@
             <el-descriptions-item label="注册人身份">{{ identityLabels[evidence.actualAttributes.licenseHolder || ''] || '未记录' }}</el-descriptions-item>
             <el-descriptions-item label="生产方身份">{{ identityLabels[evidence.actualAttributes.actualManufacturer || ''] || '未记录' }}</el-descriptions-item>
             <el-descriptions-item label="文件转移">{{ identityLabels[evidence.actualAttributes.documentTransfer || ''] || '未记录' }}</el-descriptions-item>
-            <el-descriptions-item v-if="evidence.actualAttributes.otherMarket" label="其他市场说明" :span="3">{{ evidence.actualAttributes.otherMarket }}</el-descriptions-item>
-            <el-descriptions-item v-if="evidence.actualAttributes.documentTransfer === 'Y'" label="转移至" :span="3">{{ evidence.actualAttributes.transferTo }}</el-descriptions-item>
           </template>
+        </template>
+        <template v-else>
+          <el-descriptions-item label="目标市场">未记录</el-descriptions-item>
+          <el-descriptions-item label="注册人身份">未记录</el-descriptions-item>
+          <el-descriptions-item label="生产方身份">未记录</el-descriptions-item>
+          <el-descriptions-item label="文件转移">未记录</el-descriptions-item>
         </template>
         <template v-if="evidence.applicationType === 'REVISION'">
           <el-descriptions-item label="变更类型">{{ applicationLabel('REVISION', selectedRound?.revisionChangeType) }}</el-descriptions-item>
           <el-descriptions-item label="来源文件版本">{{ getDccVersionDisplayText(selectedRound?.revisionSourceVersionNo) }}</el-descriptions-item>
-          <el-descriptions-item label="变更说明" :span="3">{{ selectedRound?.changeDescription || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="变更说明">{{ selectedRound?.changeDescription || '未记录' }}</el-descriptions-item>
+        </template>
+        <template v-if="evidence.recorded && evidence.actualAttributes && !evidence.actualAttributes.libraryScope">
+          <el-descriptions-item v-if="evidence.actualAttributes.otherMarket" label="其他市场说明" :span="3">{{ evidence.actualAttributes.otherMarket }}</el-descriptions-item>
+          <el-descriptions-item v-if="evidence.actualAttributes.documentTransfer === 'Y'" label="转移至" :span="3">{{ evidence.actualAttributes.transferTo }}</el-descriptions-item>
         </template>
       </el-descriptions>
       <el-alert

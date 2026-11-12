@@ -16,6 +16,12 @@ export const approvalResultLabel = (row: Pick<ControlledFileApplicationNodeRecor
     ADD_SIGN: '已加签', SIGN_ADDED: '已加签' })[row.actionType] || '结果未记录'
 }
 
+export const approvalNodeLabel = (row: Pick<ControlledFileApplicationNodeRecord, 'actionType' | 'stageCode' | 'nodeName'>): string => {
+  if (['ASSIGN', 'ASSIGNED'].includes(row.actionType)) return '部门负责人签名指派'
+  if (row.stageCode === 'MATRIX_REVIEW') return '实际会签人会签'
+  return row.nodeName || '审批环节名称未记录'
+}
+
 export const buildApprovalRecords = (evidence: ControlledFileApplicationEvidence) => {
   validateApplicationNodeRecords(evidence)
   const rows = evidence.nodeRecords.map(row => ({

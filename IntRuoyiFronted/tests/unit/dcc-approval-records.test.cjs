@@ -41,6 +41,16 @@ test('numeric BPM task results and unknown signature states are readable without
   assert.equal(api.approvalResultLabel({ actionType: 'TASK_COMPLETED', result: '7' }), '审批通过中')
   assert.equal(api.approvalSignatureStatus('INTERNAL'), '状态未记录')
 })
+
+test('assignment and actual signoff use separate names while other stages keep their historical name', () => {
+  for (const actionType of ['ASSIGN', 'ASSIGNED']) {
+    assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_REVIEW', nodeName: '会签指派与实际签名' }), '部门负责人签名指派')
+  }
+  for (const actionType of ['APPROVE', 'REJECT', 'RETURN', 'TASK_COMPLETED']) {
+    assert.equal(api.approvalNodeLabel({ actionType, stageCode: 'MATRIX_REVIEW', nodeName: '会签指派与实际签名' }), '实际会签人会签')
+  }
+  assert.equal(api.approvalNodeLabel({ actionType: 'APPROVE', stageCode: 'DOC_CONTROL_REVIEW', nodeName: '文控标准化审核' }), '文控标准化审核')
+})
 test('empty records use text and related files are listed in one place without machine tracing', () => {
   const history = fs.readFileSync('src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue', 'utf8')
   const records = fs.readFileSync('src/views/dcc/controlled-file/detail/DetailApprovalRecords.vue', 'utf8')
@@ -96,6 +106,41 @@ test('compiled Vue renders empty text and connects inline confirmations to the e
   assert.equal((await render(assigned)).split('会签义务部门：').length - 1, 1)
   assigned.nodeRecords[0].assignmentTarget = null
   assert.equal((await render(assigned)).split('会签义务部门：').length - 1, 1)
+  assigned.nodeRecords[0] = { ...assigned.nodeRecords[0], actionType: 'APPROVE', nodeName: '会签指派与实际签名',
+    comment: '3', actorDeptNameSnapshot: '实际会签人所在部门', occurredAt: '2026-11-12 17:21:22', signatureEvidenceStatus: 'INVALID', confirmedFields: [] }
+  const actual = await render(assigned)
+  for (const fact of ['实际会签人会签', '实际会签人所在部门', '已通过', '>3<', '2026-11-12 17:21:22', '校验失败']) assert.ok(actual.includes(fact), fact)
+  assert.doesNotMatch(actual, /会签指派与实际签名|被指派会签人：|会签义务部门：/)
+  assert.equal(assigned.signatures[0].actorNicknameSnapshot, '张三')
+})
+
+test('wrapped primary cells reserve the same height and observers are cleaned up', () => {
+  const { parse, compileScript } = require('vue/compiler-sfc')
+  const filename = 'src/views/dcc/controlled-file/detail/DetailApprovalRecords.vue'
+  const { descriptor } = parse(fs.readFileSync(filename, 'utf8'), { filename })
+  const script = compileScript(descriptor, { id: 'alignment', inlineTemplate: true })
+  const heights = [24, 72], cells = heights.map(height => ({ style: {}, firstElementChild: { getBoundingClientRect: () => ({ height }) } }))
+  const root = { querySelectorAll: selector => selector === 'tbody tr'
+    ? [{ querySelectorAll: () => cells }] : cells.map(cell => cell.firstElementChild) }
+  const hooks = {}, observed = []
+  let callback, disconnected = 0
+  const vue = { ...require('vue'), ref: () => ({ value: root }), onMounted: fn => { hooks.mount = fn },
+    onUpdated: fn => { hooks.update = fn }, onBeforeUnmount: fn => { hooks.unmount = fn } }
+  const context = { exports: {}, ResizeObserver: class {
+    constructor(fn) { callback = fn }
+    observe(cell) { observed.push(cell) }
+    disconnect() { disconnected++ }
+  }, require: id => id === 'vue' ? vue : id === './approval-records' ? api : {} }
+  vm.runInNewContext(ts.transpileModule(script.content, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, context)
+  context.exports.default.setup({ evidence: evidence() }, { expose() {} })
+  hooks.mount()
+  assert.equal(observed.length, 2)
+  assert.deepEqual(cells.map(cell => cell.style.minHeight), ['72px', '72px'])
+  cells[1].firstElementChild.getBoundingClientRect = () => ({ height: 24 })
+  callback()
+  assert.deepEqual(cells.map(cell => cell.style.minHeight), ['24px', '24px'])
+  hooks.update(); hooks.unmount()
+  assert.equal(disconnected, 3)
 })
 
 

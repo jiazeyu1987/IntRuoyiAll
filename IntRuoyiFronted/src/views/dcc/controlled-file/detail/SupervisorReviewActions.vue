@@ -2,12 +2,12 @@
   <div ref="spacer" :style="{ height: `${height}px` }" aria-hidden="true"></div>
   <div ref="bar" class="supervisor-review-actions" :style="{ left: `${left}px`, width: `${width}px` }" data-testid="dcc-supervisor-review-actions" role="region" :aria-label="`${taskName || '审核'}操作`">
     <div class="supervisor-review-actions__task">
-      <strong>当前审核任务：{{ taskName || '直属主管审核' }}</strong>
-      <div role="status" aria-live="polite">{{ blockedReason || (loading ? '正在校验审核条件' : error || blockerText || '审核条件已满足，请确认审核结果并电子签名') }}</div>
+      <strong>当前任务：{{ taskName || '直属主管审核' }}</strong>
+      <div v-if="blockedReason || loading || error || blockerText" role="status" aria-live="polite">{{ blockedReason || (loading ? '正在校验审核条件' : error || blockerText) }}</div>
       <el-button v-if="!blockedReason && !loading && (error || !readiness?.ready)" link type="primary" :disabled="submitting" @click="loadReadiness">处理后重新校验</el-button>
     </div>
     <div class="supervisor-review-actions__buttons">
-      <el-button type="primary" :loading="submitting" :disabled="!canApprove" @click="$emit('approve')">审核通过</el-button>
+      <el-button type="primary" :loading="submitting" :disabled="!canApprove" @click="$emit('approve')">{{ approveText || '审核通过' }}</el-button>
       <el-button type="danger" plain :disabled="!canReject" @click="$emit('reject')">驳回</el-button>
     </div>
   </div>
@@ -22,6 +22,7 @@ const props = defineProps<{
   fileId: string
   taskId: string
   taskName: string
+  approveText?: string
   contextKey: string
   blockedReason: string
   submitting: boolean
@@ -80,7 +81,7 @@ onBeforeUnmount(() => { generation++; observer?.disconnect() })
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--el-border-color);
   background: var(--el-bg-color);
   box-shadow: 0 -2px 12px rgb(0 0 0 / 8%);
@@ -88,6 +89,6 @@ onBeforeUnmount(() => { generation++; observer?.disconnect() })
 .supervisor-review-actions__task { min-width: 0; line-height: 1.7; overflow-wrap: anywhere; }
 .supervisor-review-actions__buttons { display: flex; flex-shrink: 0; }
 @media (max-width: 640px) {
-  .supervisor-review-actions { flex-wrap: wrap; padding: 12px; }
+  .supervisor-review-actions { flex-wrap: wrap; padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
 }
 </style>

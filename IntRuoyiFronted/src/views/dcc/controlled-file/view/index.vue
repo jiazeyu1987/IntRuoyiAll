@@ -1,6 +1,7 @@
 <template>
   <div
     v-loading="loading"
+    ref="viewerShellRef"
     class="protected-viewer-shell"
     :class="{ 'protected-viewer-shell--compact': compact, 'protected-viewer-shell--expanded': expanded, 'protected-viewer-shell--review': reviewToolbar }"
     @keyup.esc="expanded = false"
@@ -138,7 +139,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -155,7 +156,7 @@
           <div class="protected-viewer-page__header">第 {{ page.pageNumber }} / {{ pageEntries.length }} 页</div>
           <div class="protected-viewer-page__canvas-wrap">
             <div class="protected-viewer-page__canvas-viewport" :style="getPdfPageViewportStyle(page)">
-              <div class="protected-viewer-transform-stage" :style="pdfPreviewTransformStyle">
+              <div class="protected-viewer-transform-stage" :style="getPdfPreviewTransformStyle(page)">
                 <canvas
                   :ref="(element) => bindCanvasRef(page.pageNumber, element)"
                   class="protected-viewer-canvas"
@@ -217,7 +218,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -266,7 +267,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -306,7 +307,7 @@
     <template v-else-if="resolvedPreviewKind === 'AUDIO'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--audio">
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -367,7 +368,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -400,6 +401,7 @@
       <OnlyOfficeReadOnlyViewer
         ref="officeViewerRef"
         :compact="compact"
+        :hide-trace-details="hideReadingDetails"
         :key="renderVersion"
         :base-url="resolvedOnlyOfficeBaseUrl"
         :document-url="resolvedOnlyOfficeDocumentUrl"
@@ -421,6 +423,11 @@
       v-else-if="!loading && !errorMessage"
       description="暂无可预览的文件内容"
     />
+    <details v-if="hideReadingDetails && watermarkDetail" class="protected-viewer-trace-details">
+      <summary>预览追溯信息</summary>
+      <div>{{ watermarkDetail }}</div>
+      <div v-if="registeredPreviewVisible">本次预览登记时间：{{ registeredPreviewLabel }}</div>
+    </details>
   </div>
 </template>
 
@@ -442,6 +449,7 @@ import {
   buildPreviewWatermarkDetail,
   getPreviewWatermarkBadgeLabel,
   getProtectedViewerRenderScale,
+  getProtectedPdfFitScale,
   resolveViewerErrorMessage,
   shouldBlockPreviewShortcut
 } from './presentation'
@@ -475,6 +483,10 @@ const props = defineProps<{
   hideReadingDetails?: boolean
 }>()
 const expanded = ref(false)
+const viewerShellRef = ref<HTMLDivElement>()
+const pdfAvailableWidth = ref(0)
+let pdfResizeObserver: ResizeObserver | null = null
+
 const officeViewerRef = ref<InstanceType<typeof OnlyOfficeReadOnlyViewer>>()
 const compactZoomPercent = computed(() => resolvedPreviewKind.value === 'OFFICE'
   ? (officeViewerRef.value?.previewZoomValue ?? 100) : viewerZoomPercent.value)
@@ -671,10 +683,12 @@ const viewerScale = computed(() => viewerZoomPercent.value / 100)
 const previewTransform = computed(
   () => `scale(${viewerScale.value}) rotate(${viewerRotationDegrees.value}deg)`
 )
-const pdfPreviewTransformStyle = computed(() => ({
-  transform: previewTransform.value,
+const getPdfScale = (page: { width: number; height: number }) =>
+  viewerScale.value * getProtectedPdfFitScale(page.width, page.height, pdfAvailableWidth.value, viewerRotationDegrees.value)
+const getPdfPreviewTransformStyle = (page: { width: number; height: number }) => ({
+  transform: `translate(-50%, -50%) scale(${getPdfScale(page)}) rotate(${viewerRotationDegrees.value}deg)`,
   transformOrigin: 'center center'
-}))
+})
 const flatPreviewViewportStyle = computed(() => getPdfPageViewportStyle(flatPreviewSize.value))
 const flatPreviewTransformStyle = computed(() => ({
   width: `${flatPreviewContainerWidth.value}px`,
@@ -1125,7 +1139,7 @@ const handleResetViewerTransform = () => {
 }
 
 const getPdfPageViewportStyle = (page: { width: number; height: number }) => {
-  const scale = viewerScale.value
+  const scale = resolvedPreviewKind.value === 'PDF' ? getPdfScale(page) : viewerScale.value
   const isQuarterTurn = viewerRotationDegrees.value % 180 !== 0
   const width = isQuarterTurn ? page.height : page.width
   const height = isQuarterTurn ? page.width : page.height
@@ -1446,6 +1460,15 @@ const handleWindowKeydown = (event: KeyboardEvent) => {
 
 onMounted(() => {
   previewUnmounted = false
+  if (viewerShellRef.value) {
+    const measure = () => {
+      // Reserve both frame and canvas wrapper padding, borders and scrollbar.
+      pdfAvailableWidth.value = Math.max(1, (viewerFrameRef.value?.clientWidth || viewerShellRef.value!.clientWidth) - 64)
+    }
+    pdfResizeObserver = new ResizeObserver(measure)
+    pdfResizeObserver.observe(viewerShellRef.value)
+    measure()
+  }
   window.addEventListener('keydown', handleWindowKeydown, true)
   window.addEventListener('focus', handleReadingActivityChange)
   window.addEventListener('blur', handleReadingActivityChange)
@@ -1476,6 +1499,7 @@ const handleOfficeError = (event: { documentUrl: string; message: string }) => {
 
 onBeforeUnmount(() => {
   previewUnmounted = true
+  pdfResizeObserver?.disconnect()
   renderVersion.value += 1
   void resetPreviewState()
   clearRegisteredPreview()
@@ -1788,6 +1812,13 @@ watch(
   transition: width 0.16s ease, height 0.16s ease;
 }
 
+.protected-viewer-page__canvas-viewport > .protected-viewer-transform-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+}
+
 .protected-viewer-transform-stage {
   position: relative;
   display: inline-flex;
@@ -2020,5 +2051,8 @@ watch(
 .protected-viewer-shell--compact.protected-viewer-shell--expanded { height: auto; }
 .protected-viewer-shell--review { height: auto; }
 .protected-viewer-shell--review .review-preview-badge { margin-left: auto; }
-.protected-viewer-shell--review > .protected-viewer-frame { max-height: 75vh; }
+.protected-viewer-shell--review > .protected-viewer-frame { max-height: 75vh; padding-bottom: 24px; }
+.protected-viewer-shell--review > :deep(.onlyoffice-viewer-shell) { flex: none; height: 75vh; min-height: 360px; }
+.protected-viewer-trace-details { flex-shrink: 0; margin-top: 8px; padding: 8px 0; color: var(--el-text-color-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.protected-viewer-trace-details summary { cursor: pointer; }
 </style>
