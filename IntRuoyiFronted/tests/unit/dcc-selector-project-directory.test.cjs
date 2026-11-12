@@ -80,12 +80,16 @@ test('supplemental selector has fixed business columns and confirms only its loc
     assert.deepEqual(queries.at(-1), { keyword: '补充二', pageNo: 1, pageSize: 20, projectId: P })
     assert.ok(content(m.root).includes('已选 1 项'))
     nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
-    assert.ok(content(m.root).includes('已选 2 项')); assert.ok(content(m.root).includes('补充二.pdf · C/2'))
+    assert.ok(content(m.root).includes('已选 2 项'))
+    const selectedRow = nodes(m.root, n => n.props?.class === 'selected-file' && content(n).includes(second.fileName))[0]
+    assert.ok(selectedRow, '确认前必须展示已选文件名称')
+    assert.ok(content(selectedRow).includes(`文件编号：${second.fileNumber}`))
+    assert.ok(content(selectedRow).includes('关联版本：C/2'))
     await click('取消'); assert.equal(writes.length, 0); assert.deepEqual(confirmed, [first])
     m.props.modelValue = true; await tick()
     nodes(m.root, n => n.type === 'el-checkbox')[1].props.onChange(true); await tick()
-    const tag = nodes(m.root, n => n.type === 'el-tag' && content(n).includes(first.fileName))[0]
-    tag.props.onClose(); await tick()
+    const remove = nodes(m.root, n => n.type === 'el-button' && n.props['aria-label'] === `移除 ${first.fileName}`)[0]
+    remove.props.onClick(); await tick()
     assert.ok(content(m.root).includes('已选 1 项'))
     await click('确认关联'); assert.deepEqual(writes, [[second]]); assert.deepEqual(confirmed, [second])
     assert.equal(m.props.modelValue, false)

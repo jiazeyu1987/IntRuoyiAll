@@ -1,6 +1,6 @@
 <template>
   <div ref="spacer" :style="{ height: `${height}px` }" aria-hidden="true"></div>
-  <div ref="bar" class="supervisor-review-actions" :style="{ left: `${left}px`, width: `${width}px` }" data-testid="dcc-supervisor-review-actions" role="region" aria-label="主管审核操作">
+  <div ref="bar" class="supervisor-review-actions" :style="{ left: `${left}px`, width: `${width}px` }" data-testid="dcc-supervisor-review-actions" role="region" :aria-label="`${taskName || '审核'}操作`">
     <div class="supervisor-review-actions__task">
       <strong>当前审核任务：{{ taskName || '直属主管审核' }}</strong>
       <div role="status" aria-live="polite">{{ blockedReason || (loading ? '正在校验审核条件' : error || blockerText || '审核条件已满足，请确认审核结果并电子签名') }}</div>

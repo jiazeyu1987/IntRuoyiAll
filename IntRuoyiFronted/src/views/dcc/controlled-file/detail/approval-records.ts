@@ -8,7 +8,7 @@ export const approvalSignatureStatus = (status?: string | null): string => ({
 
 export const approvalResultLabel = (row: Pick<ControlledFileApplicationNodeRecord, 'result' | 'actionType'>): string => {
   if (row.actionType === 'TASK_COMPLETED') return ({
-    '-2': '跳过', '-1': '未开始', '0': '待审批', '1': '审批中', '2': '审批通过', '3': '审批不通过', '4': '已取消',
+    '-2': '跳过', '-1': '未开始', '0': '待审批', '1': '审批中', '2': '已通过', '3': '审批不通过', '4': '已取消',
     '5': '已退回', '7': '审批通过中'
   })[row.result || ''] || '结果未记录'
   return ({ ASSIGN: '已指派', ASSIGNED: '已指派', APPROVE: '已通过', APPROVED: '已通过', REJECT: '已驳回',

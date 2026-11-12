@@ -34,7 +34,10 @@ const scheduleUpdate = () => {
   frame = requestAnimationFrame(update)
 }
 const navigate = (index: number) => {
-  props.sections[index].element()?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const element = props.sections[index].element()
+  if (!element) return
+  active.value = index
+  element.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 onMounted(() => {
   window.addEventListener('scroll', scheduleUpdate, true)

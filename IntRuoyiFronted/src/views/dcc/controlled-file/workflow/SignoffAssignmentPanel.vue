@@ -2,7 +2,7 @@
   <section ref="formElement" class="signoff-assignment-form" aria-label="部门负责人签名指派" tabindex="-1">
     <h3>部门负责人签名指派</h3>
     <slot name="frozen-evidence" ></slot>
-    <el-form label-position="top">
+    <el-form label-position="left" label-width="180px" class="signoff-assignment-fields">
       <el-form-item label="所属部门">
         <span>{{ departmentName }}</span>
       </el-form-item>
@@ -129,7 +129,9 @@ const submit = async () => {
 </script>
 
 <style scoped>
-.signoff-assignment-form { scroll-margin-top: 24px; }
+.signoff-assignment-form { max-width: 1120px; margin: 0 auto; scroll-margin-top: 72px; }
+.signoff-assignment-form h3 { margin: 0 0 24px; font-size: 18px; }
+.signoff-assignment-fields :deep(.el-form-item) { margin-bottom: 24px; }
 .signoff-assignment-actions {
   position: fixed;
   right: 0;
@@ -147,4 +149,9 @@ const submit = async () => {
   box-shadow: 0 -3px 12px rgb(0 0 0 / 6%);
 }
 .signoff-assignment-actions > span { margin-right: auto; }
+@media (max-width: 640px) {
+  .signoff-assignment-fields :deep(.el-form-item) { display: block; }
+  .signoff-assignment-fields :deep(.el-form-item__label) { width: auto !important; display: block; }
+  .signoff-assignment-actions > span { flex-basis: 100%; }
+}
 </style>

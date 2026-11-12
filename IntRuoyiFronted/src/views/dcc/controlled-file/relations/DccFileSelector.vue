@@ -36,8 +36,24 @@
       </section>
     </div>
     <slot name="confirmation-fields"></slot>
-    <div class="selected"><strong>已选 {{ state.selected.length }} 项</strong><el-tag v-for="row in state.selected" :key="row.masterId" :closable="!state.saving" @close="state.remove(row.masterId)">{{ row.fileName }} · {{ row.versionNo }} · {{ state.label(row) }}</el-tag></div>
-    <template #footer><el-button :disabled="state.saving" @click="close">取消</el-button><el-button type="primary" :loading="state.saving" @click="confirm">{{ confirmLabel }}</el-button></template>
+    <div class="selected">
+      <strong>已选 {{ state.selected.length }} 项</strong>
+      <template v-if="supplemental">
+      <div v-for="row in state.selected" :key="row.masterId" class="selected-file">
+        <span class="selected-file__name">{{ row.fileName }}</span>
+        <span>文件编号：{{ row.fileNumber }}</span>
+        <span>关联版本：{{ row.versionNo }}</span>
+        <el-button link type="primary" :disabled="state.saving" :aria-label="`移除 ${row.fileName}`" @click="state.remove(row.masterId)">移除</el-button>
+      </div>
+      </template>
+      <template v-else>
+        <el-tag v-for="row in state.selected" :key="row.masterId" :closable="!state.saving" @close="state.remove(row.masterId)">{{ row.fileName }} · {{ row.versionNo }} · {{ state.label(row) }}</el-tag>
+      </template>
+    </div>
+    <template #footer>
+      <span v-if="supplemental" class="confirmation-hint">确认后返回指派页，所选文件随本次指派签名保存。</span>
+      <el-button :disabled="state.saving" @click="close">取消</el-button><el-button type="primary" :loading="state.saving" @click="confirm">{{ confirmLabel }}</el-button>
+    </template>
   </el-dialog>
 </template>
 <script setup lang="ts">
@@ -124,4 +140,11 @@ aside { border-right: 1px solid var(--el-border-color); max-height: 440px; overf
 .search { display: flex; gap: 8px; margin-bottom: 12px; }
 .selected { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 .selected .el-tag { height: auto; min-height: 24px; white-space: normal; overflow-wrap: anywhere; }
+.selected-file { box-sizing: border-box; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 12px; border: 1px solid var(--el-border-color); border-radius: 4px; overflow-wrap: anywhere; }
+.selected-file__name { flex: 1; min-width: 180px; }
+.selected-file .el-button { margin-left: auto; }
+.confirmation-hint { float: left; margin: 8px 12px 8px 0; color: var(--el-text-color-secondary); }
+@media (max-width: 768px) {
+  .confirmation-hint { float: none; display: block; text-align: left; }
+}
 </style>

@@ -7,7 +7,8 @@ const base = 'src/views/dcc/controlled-file/'
 const read = file => fs.readFileSync(base + file, 'utf8')
 
 test('all changed view templates, scripts and styles compile', () => {
-  for (const file of ['detail/index.vue', 'detail/ReviewSectionNavigation.vue',
+  for (const file of ['detail/index.vue', 'detail/ReviewSectionNavigation.vue', 'relations/DccFileSelector.vue',
+    'detail/DetailSignoffAssignment.vue', 'workflow/SignoffAssignmentPanel.vue',
     'detail/ControlledFileAttachments.vue', 'view/index.vue', 'shared/ControlledFileBasicInfoPanel.vue']) {
     const { descriptor, errors } = parse(read(file), { filename: file })
     assert.deepEqual(errors, [], file)
@@ -44,7 +45,7 @@ test('preview entry and attachment status live in its toolbar with controlled hi
 })
 
 function navigation() {
-  const clicks = [], tops = [0, 200, 500, 700], hooks = {}
+  const clicks = [], tops = [0, 200, 500, 700, 900], hooks = {}
   const container = { scrollHeight: 1000, clientHeight: 500, scrollTop: 0, parentElement: null }
   const props = { sections: tops.map((_, index) => ({ label: String(index), element: () => ({
     getBoundingClientRect: () => ({ top: tops[index] }), scrollIntoView: options => clicks.push({ index, options })
@@ -73,6 +74,25 @@ test('navigation scrolls to the actual section; highlight follows scrolling and 
   assert.equal(h.state.active.value, 2)
   h.container.scrollTop = 500
   h.state.update()
-  assert.equal(h.state.active.value, 3)
+  assert.equal(h.state.active.value, 4)
   assert.match(read('detail/ReviewSectionNavigation.vue'), /border-bottom-color: #008577; color: #008577/)
+})
+
+test('both review stages have the same five live anchors, including an empty relations section', () => {
+  const page = parse(read('detail/index.vue')).descriptor
+  const ast = ts.createSourceFile('page.ts', page.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const names = ['reviewOverviewRef', 'reviewBodyRef', 'reviewTaskRef', 'reviewApplicationRef', 'reviewRelationsRef', 'reviewSections']
+  const code = ast.statements.filter(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => names.includes(d.name.getText(ast)))).map(s => s.getText(ast)).join('\n')
+  const env = { ref: vue.ref }
+  vm.runInNewContext(ts.transpileModule(code + '\nglobalThis.sections = reviewSections; globalThis.refs = [reviewOverviewRef, reviewBodyRef, reviewTaskRef, reviewApplicationRef, reviewRelationsRef]', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, env)
+  assert.deepEqual(Array.from(env.sections, section => section.label), ['文件概览', '正文与附件', '当前任务', '申请与审批', '关联文件'])
+  env.refs.forEach((ref, index) => { ref.value = { anchor: index }; assert.equal(env.sections[index].element().anchor, index) })
+  assert.match(page.template.content, /<ReviewSectionNavigation v-if="isApprovalUploadHandlingPage" :sections="reviewSections"/)
+  assert.match(page.template.content, /ref="reviewRelationsRef"[\s\S]*?<DetailRelationsPanel[\s\S]*?<ContentWrap v-else-if="isApprovalUploadHandlingPage"/)
+  assert.doesNotMatch(page.template.content, /填写指派信息/)
+  assert.match(page.template.content, /ref="reviewRelationsRef"[^>]*'review-section--last': isApprovalUploadHandlingPage/)
+  assert.match(page.styles[0].content, /\.review-section--last\s*\{\s*min-height: calc\(100vh - 240px\)/)
+  const h = navigation()
+  for (let index = 0; index < 5; index++) { h.state.navigate(index); assert.equal(h.clicks.at(-1).index, index); assert.equal(h.state.active.value, index) }
+  h.tops[2] = 80; h.tops[3] = 110; h.state.update(); assert.equal(h.state.active.value, 0)
 })

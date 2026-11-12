@@ -94,13 +94,41 @@ test('page denies approval for missing permission, stale detail, wrong task and 
   assert.match(env.reason.value, /申请轮次不一致/)
 })
 
-test('supervisor uses the fixed action bar instead of the middle action panel', () => {
+test('supervisor has a current task section and keeps its actions in the fixed bar', () => {
   const page = parse(fs.readFileSync(path.join(root, 'index.vue'), 'utf8')).descriptor
-  assert.match(page.template.content, /<ContentWrap\s+v-if="!isSupervisorReviewPage"[^>]+data-testid="dcc-approval-upload-action-panel"/)
+  assert.match(page.template.content, /<section ref="reviewTaskRef" class="review-section">[\s\S]*?data-testid="dcc-approval-upload-action-panel"/)
+  assert.match(page.template.content, /<div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage"[^>]*class="mt-14px flex flex-wrap gap-8px"/)
   assert.match(page.template.content, /<SupervisorReviewActions v-if="isSupervisorReviewPage"/)
   const overview = page.template.content.indexOf('dcc-approval-upload-view')
   const body = page.template.content.indexOf('dcc-approval-upload-file-preview')
   const application = page.template.content.indexOf('<DetailApplicationHistory')
   const relations = page.template.content.indexOf('<DetailRelationsPanel')
   assert.ok(overview < body && body < application && application < relations)
+})
+
+
+test('actual countersign requires verified assignment and current permitted task before enabling fixed operations', () => {
+  const descriptor = parse(fs.readFileSync(path.join(root, 'index.vue'), 'utf8')).descriptor
+  const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
+  const names = ['isActualSignoffReviewPage', 'signoffReviewBlockedReason']
+  const declarations = ast.statements.filter(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => names.includes(d.name.getText(ast))))
+  const permitted = vue.ref(true)
+  const env = { computed: vue.computed, isApprovalUploadHandlingPage: vue.ref(true), isSignoffTask: vue.ref(true),
+    signoffReadyForReview: vue.ref(true), approvalLoading: vue.ref(false), checkPermi: () => permitted.value,
+    isWorkingBrowserDetailCurrent: vue.ref(true), approvalProgressError: vue.ref(''), applicationRoundSelection: vue.ref({ blockedReason: '' }) }
+  vm.runInNewContext(ts.transpileModule(declarations.map(s => s.getText(ast)).join('\n') +
+    '\nglobalThis.active = isActualSignoffReviewPage; globalThis.reason = signoffReviewBlockedReason', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, env)
+  assert.equal(env.active.value, true)
+  assert.equal(env.reason.value, '')
+  env.signoffReadyForReview.value = false
+  assert.equal(env.active.value, false)
+  assert.match(env.reason.value, /指派状态尚未核验/)
+  env.signoffReadyForReview.value = true
+  permitted.value = false
+  assert.match(env.reason.value, /缺少会签权限/)
+  permitted.value = true; env.isWorkingBrowserDetailCurrent.value = false
+  assert.match(env.reason.value, /上下文已变化/)
+  env.isWorkingBrowserDetailCurrent.value = true; env.applicationRoundSelection.value.blockedReason = '轮次错误'
+  assert.equal(env.reason.value, '轮次错误')
+  assert.match(descriptor.template.content, /<SupervisorReviewActions v-if="isActualSignoffReviewPage"[\s\S]*?:blocked-reason="signoffReviewBlockedReason"[\s\S]*?@approve="openActionDialog\('approve'\)" @reject="openActionDialog\('reject'\)"/)
 })

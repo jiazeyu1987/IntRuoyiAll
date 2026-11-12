@@ -25,9 +25,9 @@
             补充关联文件
           </el-button>
           <el-alert v-if="supplementError" :title="supplementError" type="error" :closable="false" />
-          <p>本次补充：{{ supplementalFiles.length }} 个；已确认文件随本次指派签名保存。</p>
+          <p>本次补充 {{ supplementalFiles.length }} 个。已确认的文件随本次指派签名保存，原有关联继续保留。</p>
           <ul v-if="supplementalFiles.length" class="m-0 pl-20px">
-            <li v-for="file in supplementalFiles" :key="file.masterId">{{ file.fileName }} · {{ file.versionNo }}</li>
+            <li v-for="file in supplementalFiles" :key="file.masterId">{{ file.fileName }} · 文件编号：{{ file.fileNumber }} · 关联版本：{{ file.versionNo }}</li>
           </ul>
           <p v-else>尚未确认补充文件</p>
         </div>
