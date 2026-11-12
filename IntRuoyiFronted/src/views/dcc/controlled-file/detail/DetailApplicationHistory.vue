@@ -18,30 +18,28 @@
     </el-select>
     <p v-if="!loading && !error && !rounds.length">暂无申请信息</p>
     <section v-if="evidence" v-loading="evidenceLoading" class="mt-12px">
-      <el-descriptions :column="2" border>
+      <el-descriptions :column="3" border class="application-information">
         <el-descriptions-item label="申请类型">{{ applicationLabel(evidence.applicationType, selectedRound?.revisionChangeType) }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">{{ formatControlledFileDateTime(selectedRound?.applicationTime) }}</el-descriptions-item>
+        <template v-if="evidence.recorded && evidence.actualAttributes">
+          <el-descriptions-item v-if="evidence.actualAttributes.libraryScope" label="适用范围">{{ evidence.actualAttributes.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库' }}，项目属性不适用</el-descriptions-item>
+          <template v-else>
+            <el-descriptions-item label="目标市场">{{ evidence.actualAttributes.targetMarkets.map(market => marketLabels[market]).join('、') }}</el-descriptions-item>
+            <el-descriptions-item label="注册人身份">{{ identityLabels[evidence.actualAttributes.licenseHolder || ''] || '未记录' }}</el-descriptions-item>
+            <el-descriptions-item label="生产方身份">{{ identityLabels[evidence.actualAttributes.actualManufacturer || ''] || '未记录' }}</el-descriptions-item>
+            <el-descriptions-item label="文件转移">{{ identityLabels[evidence.actualAttributes.documentTransfer || ''] || '未记录' }}</el-descriptions-item>
+            <el-descriptions-item v-if="evidence.actualAttributes.otherMarket" label="其他市场说明" :span="3">{{ evidence.actualAttributes.otherMarket }}</el-descriptions-item>
+            <el-descriptions-item v-if="evidence.actualAttributes.documentTransfer === 'Y'" label="转移至" :span="3">{{ evidence.actualAttributes.transferTo }}</el-descriptions-item>
+          </template>
+        </template>
         <template v-if="evidence.applicationType === 'REVISION'">
           <el-descriptions-item label="变更类型">{{ applicationLabel('REVISION', selectedRound?.revisionChangeType) }}</el-descriptions-item>
           <el-descriptions-item label="来源文件版本">{{ getDccVersionDisplayText(selectedRound?.revisionSourceVersionNo) }}</el-descriptions-item>
-          <el-descriptions-item label="变更说明" :span="2">{{ selectedRound?.changeDescription || '未记录' }}</el-descriptions-item>
-        </template>
-      </el-descriptions>
-      <el-descriptions v-if="evidence.recorded && evidence.actualAttributes" :column="2" border class="mt-12px">
-        <template v-if="evidence.actualAttributes.libraryScope">
-          <el-descriptions-item label="适用范围" :span="2">{{ evidence.actualAttributes.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库' }}，项目属性不适用</el-descriptions-item>
-        </template>
-        <template v-else>
-          <el-descriptions-item label="目标市场" :span="2">{{ evidence.actualAttributes.targetMarkets.map(market => marketLabels[market]).join('、') }}</el-descriptions-item>
-          <el-descriptions-item v-if="evidence.actualAttributes.otherMarket" label="其他市场说明" :span="2">{{ evidence.actualAttributes.otherMarket }}</el-descriptions-item>
-          <el-descriptions-item label="注册人身份">{{ identityLabels[evidence.actualAttributes.licenseHolder || ''] || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="生产方身份">{{ identityLabels[evidence.actualAttributes.actualManufacturer || ''] || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="文件转移">{{ identityLabels[evidence.actualAttributes.documentTransfer || ''] || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item v-if="evidence.actualAttributes.documentTransfer === 'Y'" label="转移至">{{ evidence.actualAttributes.transferTo }}</el-descriptions-item>
+          <el-descriptions-item label="变更说明" :span="3">{{ selectedRound?.changeDescription || '未记录' }}</el-descriptions-item>
         </template>
       </el-descriptions>
       <el-alert
-        v-else
+        v-if="!evidence.recorded || !evidence.actualAttributes"
         :title="
           evidence.unavailableReason === 'NOT_FROZEN'
             ? '本轮属性尚未提交冻结'
@@ -255,3 +253,16 @@ onBeforeUnmount(() => {
   emit('selection-change', null)
 })
 </script>
+<style scoped>
+.application-information :deep(.el-descriptions__table) {
+  table-layout: fixed;
+}
+
+.application-information :deep(.el-descriptions__label) {
+  width: 11.5%;
+}
+
+.application-information :deep(.el-descriptions__content) {
+  overflow-wrap: anywhere;
+}
+</style>

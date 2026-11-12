@@ -17,7 +17,7 @@ const evidence = (round) => ({
   versionNo: 'A/1-2',
   recorded: true,
   defaultSource: {},
-  actualAttributes: {},
+  actualAttributes: { targetMarkets: ['NMPA'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' },
   nodeRecords: [],
   relationEvidence: null,
   signatures: [{ id: '71', processInstanceId: round.bpmRound }]
