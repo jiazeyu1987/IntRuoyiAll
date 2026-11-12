@@ -323,23 +323,32 @@
       />
     </ContentWrap>
 
+    <ReviewSectionNavigation v-if="isSupervisorReviewPage" :sections="supervisorReviewSections" />
     <template v-if="isApprovalUploadHandlingPage">
+      <section ref="reviewOverviewRef" class="review-section">
       <ContentWrap class="dcc-detail-surface mt-16px" data-testid="dcc-approval-upload-view">
-        <el-descriptions title="文件概览" :column="2" border data-testid="dcc-approval-file-overview">
+        <el-descriptions title="文件概览" :column="reviewOverviewColumns" border data-testid="dcc-approval-file-overview">
           <el-descriptions-item label="项目">{{ currentDccProjectCodeText }}</el-descriptions-item>
           <el-descriptions-item label="存储文件夹">{{ fileDetail?.projectFolderName || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="文件分类">{{ categoryNameMap.get(fileDetail?.categoryId || 0) || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="编制人">{{ fileDetail?.fileOwnerNicknameSnapshot || fileDetail?.fileOwnerUsernameSnapshot || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="产品编号">{{ fileDetail?.productCode || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="产品名称">{{ fileDetail?.productName || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="编制人">{{ fileDetail?.fileOwnerNicknameSnapshot || fileDetail?.fileOwnerUsernameSnapshot || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="培训要求">{{ approvalHandlingTrainingText }}</el-descriptions-item>
-          <el-descriptions-item v-if="fileDetail?.effectiveMode" label="申请生效方式">{{ effectiveFacts(fileDetail).modeText }}</el-descriptions-item>
-          <el-descriptions-item v-if="fileDetail?.effectiveDate" label="预设生效日期">{{ fileDetail.effectiveDate }}</el-descriptions-item>
-          <el-descriptions-item label="提交备注" :span="2">{{ fileDetail?.remark || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="申请生效方式">
+            {{ fileDetail?.effectiveMode ? effectiveFacts(fileDetail).modeText : '未记录' }}
+            <span v-if="fileDetail?.effectiveDate">（预设生效日期：{{ fileDetail.effectiveDate }}）</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="提交备注">{{ fileDetail?.remark || '无' }}</el-descriptions-item>
         </el-descriptions>
-        <section class="dcc-approval-upload-preview mt-16px min-w-0 w-full" data-testid="dcc-approval-upload-file-preview">
+      </ContentWrap>
+      </section>
+      <section ref="reviewBodyRef" class="review-section">
+      <ContentWrap class="dcc-detail-surface">
+        <section class="dcc-approval-upload-preview min-w-0 w-full" data-testid="dcc-approval-upload-file-preview">
           <div class="mb-10px text-15px font-600">正文与附件</div>
           <el-alert v-if="detailBodyPreviewState.error" :title="detailBodyPreviewState.error" type="error" :closable="false" show-icon />
+          <div ref="reviewBodyContentRef"></div>
           <ProtectedPdfViewer
             v-if="detailBodyPreviewState.source"
             ref="approvalBodyViewerRef"
@@ -348,11 +357,16 @@
             title="正文"
             compact
             hide-reading-details
-          />
-          <ControlledFileAttachments class="mt-12px" compact :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+            review-toolbar
+          >
+            <template #document-entry>
+              <el-button size="small" type="primary" plain @click="reviewBodyContentRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })">主文档</el-button>
+              <ControlledFileAttachments compact toolbar :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+            </template>
+          </ProtectedPdfViewer>
         </section>
       </ContentWrap>
-
+      </section>
 
       <ContentWrap
         v-if="!isSupervisorReviewPage"
@@ -493,7 +507,8 @@
         :save="saveDelayedConfirmation" @saved="reloadAll" />
     </ContentWrap>
 
-    <div v-if="isApprovalUploadHandlingPage" class="mb-12px text-15px font-600" data-testid="dcc-approval-application-heading">申请与审批</div>
+    <section ref="reviewApplicationRef" :class="{ 'review-section': isSupervisorReviewPage }">
+    <div v-if="isApprovalUploadHandlingPage && !isSupervisorReviewPage" class="mb-12px text-15px font-600" data-testid="dcc-approval-application-heading">申请与审批</div>
     <DetailApplicationHistory
       v-if="fileDetail?.id && hasRelationApplicationContext" :key="relationApplicationContextKey" :file-id="fileDetail.id"
       :expected-version-no="fileDetail.versionNo"
@@ -505,9 +520,11 @@
       :context-error="applicationRoundSelection.blockedReason"
       :lock-primary-round="applicationRoundSelection.lockPrimaryRound" show-node-records
       @selection-change="onApplicationSelectionChange" />
+    </section>
     <el-alert
       v-if="relationApplicationSelectionError" :title="relationApplicationSelectionError"
       type="error" :closable="false" />
+    <section ref="reviewRelationsRef" :class="{ 'review-section': isSupervisorReviewPage }">
     <DetailRelationsPanel
       v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
       :key="String(fileDetail.id)" :file="fileDetail"
@@ -516,6 +533,7 @@
       :body-read-context="detailReadSelectionState.selection?.bodyReadContext || (detailBodyPreviewState.context?.intent !== 'DAILY' ? detailBodyPreviewState.context : undefined)"
       :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
 
+    </section>
     <PublicationFollowupPanel v-if="fileDetail && isWorkingBrowserDetailCurrent && !detailReadSelectionState.error"
       :controlled-file-id="controlledFileId" :read-selection="detailReadSelectionState.selection" />
 
@@ -2771,6 +2789,8 @@ import { attachmentPurposeText, attachmentUploaderText, attachmentUploadTimeText
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
 import SupervisorReviewActions from './SupervisorReviewActions.vue'
+import ReviewSectionNavigation from './ReviewSectionNavigation.vue'
+import { useWindowSize } from '@vueuse/core'
 import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, requireDelayedConfirmationRound, type ApplicationApprovalRead } from './application-round-context'
 import { getControlledFileApplicationRounds, getControlledFileApplicationProgress } from '@/api/dcc/controlledFile/applicationRead'
 import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, getNativeApprovalProcessText, resolveSignatureDuty, resolveRecordedSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
@@ -3559,6 +3579,19 @@ const isApprovalUploadHandlingPage = computed(
     String(route.query.handling || '') === 'approval' &&
     String(route.query.from || '') === 'approval-center'
 )
+const reviewOverviewRef = ref<HTMLElement>()
+const reviewBodyRef = ref<HTMLElement>()
+const reviewBodyContentRef = ref<HTMLElement>()
+const reviewApplicationRef = ref<HTMLElement>()
+const reviewRelationsRef = ref<HTMLElement>()
+const supervisorReviewSections = [
+  { label: '文件概览', element: () => reviewOverviewRef.value },
+  { label: '正文与附件', element: () => reviewBodyRef.value },
+  { label: '申请与审批', element: () => reviewApplicationRef.value },
+  { label: '关联文件', element: () => reviewRelationsRef.value }
+]
+const { width: reviewWindowWidth } = useWindowSize()
+const reviewOverviewColumns = computed(() => reviewWindowWidth.value >= 1200 ? 3 : reviewWindowWidth.value >= 768 ? 2 : 1)
 const isSupervisorReviewPage = computed(() => isApprovalUploadHandlingPage.value
   && (approvalTodoTask.value?.taskDefinitionKey === 'SUPERVISOR_REVIEW'
     || fileDetail.value?.status === 'PENDING_SUPERVISOR_REVIEW'))
@@ -7669,6 +7702,10 @@ watch(
 </script>
 
 <style scoped>
+.review-section { min-width: 0; scroll-margin-top: 64px; }
+.review-section :deep(.el-descriptions__cell) { overflow-wrap: anywhere; }
+.review-section :deep(.el-descriptions__label) { white-space: nowrap; }
+
 .dcc-detail-surface {
   --el-color-primary: #008f86;
   --el-color-primary-light-3: #4db1aa;

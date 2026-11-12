@@ -2,7 +2,7 @@
   <div
     v-loading="loading"
     class="protected-viewer-shell"
-    :class="{ 'protected-viewer-shell--compact': compact, 'protected-viewer-shell--expanded': expanded }"
+    :class="{ 'protected-viewer-shell--compact': compact, 'protected-viewer-shell--expanded': expanded, 'protected-viewer-shell--review': reviewToolbar }"
     @keyup.esc="expanded = false"
     @copy="blockPreviewInteraction"
     @cut="blockPreviewInteraction"
@@ -11,7 +11,7 @@
     @dragstart="blockPreviewInteraction"
     @scroll.capture="handlePdfScroll"
   >
-    <div class="protected-viewer-toolbar">
+    <div v-if="!reviewToolbar" class="protected-viewer-toolbar">
       <div>
         <div class="protected-viewer-title">{{ compact ? '提交前预览' : (title || '受控文件预览') }}</div>
       </div>
@@ -32,12 +32,17 @@
     </div>
 
     <div v-if="compact" class="protected-viewer-compact-tools" data-testid="upload-preview-toolbar">
+      <slot v-if="reviewToolbar" name="document-entry"></slot>
       <el-button size="small" aria-label="缩小" :disabled="!compactCanZoomOut" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.decreaseZoom() : handleZoomOut()">缩小</el-button>
       <span aria-live="polite">{{ compactZoomPercent }}%</span>
       <el-button size="small" aria-label="放大" :disabled="!compactCanZoomIn" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.increaseZoom() : handleZoomIn()">放大</el-button>
       <el-button size="small" @click="expanded = !expanded">{{ expanded ? '退出放大预览' : '放大预览' }}</el-button>
       <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="旋转" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.rotatePreview() : handleRotateRight()">旋转</el-button>
       <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="复原" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.resetView() : handleResetViewerTransform()">复原</el-button>
+      <div v-if="reviewToolbar && resolvedWatermarkText" class="protected-preview-badge review-preview-badge" data-testid="protected-preview-badge">
+        <span>{{ resolvedWatermarkLabel }}</span>
+        <span class="protected-preview-badge__hint">禁止截图/外传</span>
+      </div>
     </div>
 
     <div v-if="readingSupported && !hideReadingDetails" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
@@ -466,6 +471,7 @@ const props = defineProps<{
   watermark?: ControlledPreviewWatermark | null
   title?: string
   compact?: boolean
+  reviewToolbar?: boolean
   hideReadingDetails?: boolean
 }>()
 const expanded = ref(false)
@@ -2012,4 +2018,7 @@ watch(
 .protected-viewer-shell--compact > .protected-viewer-frame { flex: 1; min-height: 0; overflow: auto; }
 .protected-viewer-shell--compact .protected-viewer-toolbar { padding-bottom: 6px; margin-bottom: 0; }
 .protected-viewer-shell--compact.protected-viewer-shell--expanded { height: auto; }
+.protected-viewer-shell--review { height: auto; }
+.protected-viewer-shell--review .review-preview-badge { margin-left: auto; }
+.protected-viewer-shell--review > .protected-viewer-frame { max-height: 75vh; }
 </style>

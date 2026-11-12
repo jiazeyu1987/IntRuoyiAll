@@ -1,5 +1,14 @@
 <template>
-  <section data-testid="dcc-detail-attachments" class="mb-16px min-w-0 w-full">
+  <section data-testid="dcc-detail-attachments" :class="toolbar ? 'attachment-toolbar-entry' : 'mb-16px min-w-0 w-full'">
+    <template v-if="toolbar">
+      <el-alert v-if="validationError" :title="validationError" type="error" :closable="false" />
+      <el-button v-else-if="attachments.length" size="small" @click="listVisible = true">附件（{{ attachments.length }}）</el-button>
+      <span v-else-if="file" class="text-13px text-[var(--el-text-color-secondary)]">无附件</span>
+    </template>
+    <el-dialog v-if="toolbar" v-model="listVisible" title="文件附件" width="720px" append-to-body>
+      <ControlledFileAttachments :file="file" :body-read-context="bodyReadContext" :context-error="contextError" compact />
+    </el-dialog>
+    <template v-if="!toolbar">
     <div v-if="!compact || validationError || attachments.length" class="mb-12px flex items-center justify-between gap-12px">
       <div class="text-15px font-600">文件附件</div>
       <el-tag size="small" type="info">共 {{ validationError ? '—' : attachments.length }} 个</el-tag>
@@ -25,6 +34,7 @@
     <el-dialog v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close>
       <ProtectedPdfViewer v-if="previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName || '附件预览'" />
     </el-dialog>
+    </template>
   </section>
 </template>
 <script setup lang="ts">
@@ -39,7 +49,8 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean }>()
+const listVisible = ref(false)
 const userStore = useUserStoreWithOut()
 const actionError = ref(''), downloading = ref(''), selected = ref<ControlledFileAttachmentVO>(), previewVisible = ref(false)
 const validationError = computed(() => {
@@ -68,6 +79,7 @@ const downloadFingerprint = (file?: ControlledFileVO): string => JSON.stringify(
 ])
 let generation = 0
 watch(() => [props.file, props.bodyReadContext, downloadFingerprint(props.file)], () => {
+  listVisible.value = false
   generation++; selected.value = undefined; previewVisible.value = false; actionError.value = ''; downloading.value = ''
 }, { flush: 'sync' })
 onBeforeUnmount(() => {
