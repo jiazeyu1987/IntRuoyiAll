@@ -1816,9 +1816,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .sorted()
                 .toList();
         if (CollUtil.isNotEmpty(assignedUserIds)) {
-            if (assignedUserIds.size() != enabledAssignedUserIds.size()
-                    || enabledAssignedUserIds.size() < BATCH_RECORD_ATTACHMENT_MIN_USERS
-                    || enabledAssignedUserIds.size() > BATCH_RECORD_ATTACHMENT_MAX_USERS) {
+            // The default selection size applies only to an unassigned role.
+            // Preserve an explicit assignment made by the tenant administrator.
+            if (assignedUserIds.size() != enabledAssignedUserIds.size()) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
             }
             return enabledAssignedUserIds;
