@@ -285,6 +285,7 @@
                   ></div
                 >
                 <el-select
+                  v-if="group.equipmentRequired !== false"
                   v-model="group.selectionMode"
                   :data-issue-field="`selection-${g}`"
                   aria-label="设备选择方式"
@@ -293,8 +294,19 @@
                     label="多选设备"
                     value="MULTIPLE"
                 /></el-select>
+                <el-switch
+                  :model-value="group.equipmentRequired !== false"
+                  :aria-label="`需要设备${g + 1}`"
+                  active-text="需要设备"
+                  @change="(required) => toggleGroupEquipment(g, required)"
+                />
+                <p v-if="group.equipmentRequired === false" class="empty-note">
+                  已关闭：本组设备及专属参数保留在草稿中，不参与试填和发布。可重新开启或撤销。
+                </p>
                 <div
-                  v-for="(equipment, e) in group.equipmentOptions"
+                  v-for="(equipment, e) in group.equipmentRequired === false
+                    ? []
+                    : group.equipmentOptions"
                   :key="e"
                   class="equipment-row"
                   :data-issue-field="`equipment-${g}-${e}`"
@@ -330,12 +342,16 @@
                   <el-button text type="danger" @click="removeEquipment(g, e)">删除</el-button>
                 </div>
                 <p
-                  v-if="group.equipmentOptions?.some((equipment) => !equipment.code?.trim())"
+                  v-if="
+                    group.equipmentRequired !== false &&
+                    group.equipmentOptions?.some((equipment) => !equipment.code?.trim())
+                  "
                   class="error-text"
                   >缺少设备编号，请从设备列表选择。</p
                 >
                 <p
                   v-if="
+                    group.equipmentRequired !== false &&
                     !deviceLoading &&
                     !deviceError &&
                     !published &&
@@ -521,7 +537,8 @@
                 ><el-tag v-if="process.value.criticalProcess" size="small" type="warning"
                   >关键 / 特殊</el-tag
                 ><p v-for="(group, g) in process.value.equipmentGroups" :key="g"
-                  >设备：{{
+                  >{{ group.equipmentRequired === false ? '已关闭（不发布）设备：' : '设备：'
+                  }}{{
                     group.equipmentOptions
                       ?.map((device) => `${device.code} ${device.name}`)
                       .join('、')
@@ -559,7 +576,11 @@
 </template>
 
 <script setup lang="ts">
-import { getRouteProjectOptions } from '@/api/mes/pro/route'
+import {
+  getSimpleParserProjects,
+  getSimpleParserProject,
+  type SimpleParserProject
+} from '@/api/mes/pro/batchrecordreport/simpleParserProjects'
 import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
@@ -577,7 +598,6 @@ import { CraftApi, type Craft, type CraftParameter } from '@/api/mes/pro/craft'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
-import { getProjectCode, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
 import type {
   BatchRecordTotalRecognitionJson as Recognition,
   BatchRecordTotalRecognitionMaterial as Material,
@@ -607,7 +627,7 @@ const message = useMessage(),
   router = useRouter()
 const projectId = ref<number>()
 const workshopId = ref<number>()
-const projects = ref<(DccProjectCodeRespVO & { occupied?: boolean })[]>([])
+const projects = ref<(SimpleParserProject & { occupied?: boolean })[]>([])
 const projectLoading = ref(false)
 const selectedProject = computed(() => projects.value.find((p) => p.id === projectId.value))
 let projectQuery = 0
@@ -615,7 +635,10 @@ async function searchProjects(keyword = '') {
   const query = ++projectQuery
   projectLoading.value = true
   try {
-    const list = await getRouteProjectOptions(keyword)
+    const list = (await getSimpleParserProjects(keyword)).map((project) => ({
+      ...project,
+      occupied: project.routeOccupied
+    }))
     if (query !== projectQuery) return
     const selected = selectedProject.value
     projects.value =
@@ -695,7 +718,7 @@ const issues = computed(() => {
     }
     const codes = new Set<string>()
     process.value.equipmentGroups?.forEach((group, g) =>
-      group.equipmentOptions?.forEach((equipment, e) => {
+      (group.equipmentRequired === false ? [] : group.equipmentOptions)?.forEach((equipment, e) => {
         if (equipment.code && codes.has(equipment.code))
           result.push({
             process: index,
@@ -754,8 +777,14 @@ async function focusIssue() {
     : target?.querySelector<HTMLElement>('input, textarea, button, [tabindex="0"]')
   )?.focus({ preventScroll: true })
 }
-const errorText = (e: unknown) =>
-  e instanceof Error ? e.message : typeof e === 'string' ? e : '操作失败，请按提示重试'
+const errorText = (e: unknown) => {
+  if (e instanceof Error && 'code' in e && Number(e.code) === 1080000341) {
+    const project = selectedProject.value
+    const label = project ? `项目“${project.projectCode}／${project.projectName}”` : '所选项目'
+    return `当前账号没有${label}的访问权限。请联系本租户管理员，在“DCC项目代码”中找到该项目，点击“权限”分配项目访问权限后重试。`
+  }
+  return e instanceof Error ? e.message : typeof e === 'string' ? e : '操作失败，请按提示重试'
+}
 const actionLabel = (action: string) => (action === 'CREATE' ? '新建' : '使用已有')
 const controlLabel = (control?: string) =>
   ({ number: '数字', select: '下拉选择', text: '文字', input: '文字' })[control || ''] ||
@@ -894,7 +923,7 @@ async function importWord(upload: UploadFile) {
         )
       )
     filename.value = restored ? restored.filename : upload.raw.name
-    routeName.value = restored ? restored.routeName : `${result.product.name || '生产记录'}工艺流程`
+    routeName.value = restored ? restored.routeName : `${selectedProject.value!.projectName}工艺流程`
     requestId.value = crypto.randomUUID()
     selectedId.value = processes.value[0]?.id || ''
     mode.value = 'edit'
@@ -1039,6 +1068,11 @@ async function removeGroup(index: number) {
         .filter(([key]) => Number(key) !== index)
         .map(([key, value]) => [Number(key) > index ? Number(key) - 1 : Number(key), value])
     )
+  })
+}
+function toggleGroupEquipment(index: number, required: boolean) {
+  mutate(() => {
+    current.value.value.equipmentGroups![index].equipmentRequired = required
   })
 }
 function addEquipment(index: number) {
@@ -1254,12 +1288,17 @@ function output(): Recognition {
   }
 }
 function buildRequest(): SimpleParserRequest {
+  const project = selectedProject.value
+  if (!project) throw new Error('请先选择所属项目')
   return {
     requestId: requestId.value,
     projectId: projectId.value!,
     workshopId: workshopId.value!,
     routeName: routeName.value.trim(),
-    recognitionJson: output() as unknown as Record<string, unknown>,
+    recognitionJson: {
+      ...output(),
+      product: { ...recognition.value!.product, name: project.projectName }
+    } as unknown as Record<string, unknown>,
     processSelections: processes.value.map((process, processIndex) => ({
       processIndex,
       processId: process.processId,
@@ -1320,7 +1359,7 @@ async function restoreDraft() {
     }
     const draft = JSON.parse(text) as SimpleDraft
     if (!draft.project?.id) throw new Error('草稿缺少所属项目，请选择项目后重新导入 Word')
-    const project = await getProjectCode(draft.project.id)
+    const project = await getSimpleParserProject(draft.project.id)
     if (project.status !== 'ENABLE') throw new Error('草稿所属项目已停用，无法恢复')
     if (
       draft.version !== 1 ||
@@ -1338,7 +1377,7 @@ async function restoreDraft() {
     recognition.value = result
     processes.value = draft.processes
     filename.value = draft.filename
-    routeName.value = draft.routeName || `${result.product.name || '生产记录'}工艺流程`
+    routeName.value = draft.routeName || `${project.projectName}工艺流程`
     requestId.value = draft.requestId || crypto.randomUUID()
     published.value = draft.published as SimpleParserResult | undefined
     publishPreview.value = published.value

@@ -17,10 +17,8 @@
       @update:quick-filter-state="quickFilter.updateState"
       @quick-filter-query="quickFilter.applyQuickFilter"
       @sort-change="handleSortChange"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="rows = $event"
-      :list-rows="rows"
-      @column-filter-reset="load"
+      server-filter
+      :server-filter-query="load"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -53,7 +51,7 @@
         <el-form-item label="发现位置"><el-input v-model="createForm.discoveryLocation" maxlength="255" /></el-form-item>
         <el-form-item label="紧急措施"><el-input v-model="createForm.emergencyAction" type="textarea" :rows="2" maxlength="4000" /></el-form-item>
         <el-form-item label="接收调查人员" prop="receiverId"><UserSelectV2 v-model="createForm.receiverId" placeholder="请选择负责接收并调查偏差的人员" @change="value => createForm.receiverName = value?.nickname || ''" /></el-form-item>
-        <el-form-item label="签名凭据" prop="signaturePassword"><el-input v-model="createForm.signaturePassword" type="password" show-password autocomplete="new-password" /></el-form-item>
+        <el-form-item label="签名凭据" prop="signaturePassword"><SignatureCredentialInput v-model="createForm.signaturePassword" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="createVisible = false">取消</el-button><el-button type="primary" :loading="createLoading" @click="submitCreate">签名并发起</el-button></template>
     </el-dialog>
@@ -63,7 +61,7 @@
         <el-form-item label="不合格原因" required><el-input v-model="batchNcrForm.nonconformanceReason" type="textarea" :rows="4" maxlength="500" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="batchNcrForm.remark" type="textarea" :rows="2" maxlength="500" /></el-form-item>
         <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="batchNcrForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
-        <el-form-item label="签名凭据" required><el-input v-model="batchNcrForm.signaturePassword" type="password" show-password autocomplete="new-password" /></el-form-item>
+        <el-form-item label="签名凭据" required><SignatureCredentialInput v-model="batchNcrForm.signaturePassword" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="batchNcrVisible = false">取消</el-button><el-button type="danger" :loading="batchNcrLoading" @click="submitBatchNcr">签名并发起</el-button></template>
     </el-dialog>
@@ -71,7 +69,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { createDeviation, getDeviationBatchOptions, getDeviationPage, type DeviationBatchOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
@@ -108,7 +107,7 @@ onBeforeUnmount(resetBatchNcrContext)
 const total = ref(0)
 const detailVisible = ref(false)
 const detailId = ref<number>()
-const query = reactive({ pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
+const query = reactive({ listFilters: undefined as string | undefined, pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
 const formatTime = (value?: string | number | null) => {
   if (value == null || value === '') return '--'
   const formatted = dayjs(value)
@@ -267,18 +266,6 @@ const applyHistoryEntry = () => {
 }
 watch(() => route.query.deviationId, applyHistoryEntry)
 onMounted(() => { applyHistoryEntry(); void load() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    ...query,
-    initiatedAtStart: query.initiatedAt?.[0],
-    initiatedAtEnd: query.initiatedAt?.[1]
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getDeviationPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

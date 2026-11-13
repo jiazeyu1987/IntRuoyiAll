@@ -9,7 +9,8 @@ export interface NotifyMessageVO {
   id: number
   userId: number
   userType: number
-  templateId: number
+  templateId: number | null
+  sourceTemplateId?: number | null
   templateCode: string
   templateNickname: string
   templateContent: string

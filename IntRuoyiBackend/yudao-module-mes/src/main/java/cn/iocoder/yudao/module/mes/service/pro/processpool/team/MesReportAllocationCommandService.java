@@ -212,7 +212,7 @@ public class MesReportAllocationCommandService {
         var projectedMaximum = calculateAllocatedMaterialMaximum(activeOrder, initialTarget, event,
                 outputQuantity, otherAllocations, true);
         assertWithinFrozenOverageLimit(activeOrderId, initialTarget.routeProcessId(), initialTarget.processId(),
-                initialTarget.plannedQuantity(), projectedMaximum, true);
+                projectedMaximum, true);
         MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, event.getDeviceAccountId());
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
         if (!current.isEmpty() || state.getCurrentVersion() == null || state.getCurrentVersion() != 0) {
@@ -813,9 +813,9 @@ public class MesReportAllocationCommandService {
             targets.put(order.getId(), target);
             BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(
                     order, target, event, entry.getValue(), allocatedElsewhere, true);
-            assertWithinFrozenOverageLimit(order.getId(), target.routeProcessId(), target.processId(),
-                    target.plannedQuantity(), totalForOrder, true);
-            BigDecimal overage = totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO);
+            BigDecimal limit = assertWithinFrozenOverageLimit(order.getId(), target.routeProcessId(), target.processId(),
+                    totalForOrder, true);
+            BigDecimal overage = totalForOrder.subtract(limit).max(BigDecimal.ZERO);
             overageByActiveOrderId.put(order.getId(), overage);
         }
         return new AllocationValidation(targets, overageByActiveOrderId);
@@ -1114,10 +1114,9 @@ public class MesReportAllocationCommandService {
                     activeOrder, event.getProcessId());
             BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(activeOrder, target, event,
                     currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO), allocatedElsewhere, false);
-            assertWithinFrozenOverageLimit(activeOrderId, target.routeProcessId(), target.processId(),
-                    target.plannedQuantity(), totalForOrder, false);
-            result.put(activeOrderId,
-                    totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO));
+            BigDecimal limit = assertWithinFrozenOverageLimit(activeOrderId, target.routeProcessId(), target.processId(),
+                    totalForOrder, false);
+            result.put(activeOrderId, totalForOrder.subtract(limit).max(BigDecimal.ZERO));
         }
         return result;
     }
@@ -1145,8 +1144,8 @@ public class MesReportAllocationCommandService {
         return MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(order, frozen, events, projected);
     }
 
-    private void assertWithinFrozenOverageLimit(Long activeOrderId, Long routeProcessId, Long processId,
-                                                BigDecimal plannedQuantity, BigDecimal submittedQuantity,
+    private BigDecimal assertWithinFrozenOverageLimit(Long activeOrderId, Long routeProcessId, Long processId,
+                                                BigDecimal submittedQuantity,
                                                 boolean forUpdate) {
         var frozen = requireFrozenProcessSnapshot(activeOrderId, routeProcessId, processId, forUpdate);
         BigDecimal limit = MesProductionQuantityRange.of(frozen).upper();
@@ -1154,6 +1153,7 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED,
                     submittedQuantity, limit, routeProcessId, processId);
         }
+        return limit;
     }
 
     private MesProcessPoolActiveOrderProcessSnapshotDO requireFrozenProcessSnapshot(

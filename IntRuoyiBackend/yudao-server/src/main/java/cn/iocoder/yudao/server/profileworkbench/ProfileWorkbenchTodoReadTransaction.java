@@ -49,7 +49,7 @@ public class ProfileWorkbenchTodoReadTransaction {
             long hiddenCount = checkedCount(source, q.partition("hidden"), start);
             // All partitions share this transaction's snapshot. Without filters, the
             // visible/hidden count is already known; sorting does not change it.
-            long selected = q.getTaskType() == null && q.getFilterField() == null
+            long selected = q.getTaskType() == null && q.getFilterField() == null && (q.getListFilters() == null || q.getListFilters().isBlank())
                 ? ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)
                 : checkedCount(source, q, start);
             if (hiddenCount > all || selected > ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)) throw SOURCE_CONTRACT_INVALID.exception();

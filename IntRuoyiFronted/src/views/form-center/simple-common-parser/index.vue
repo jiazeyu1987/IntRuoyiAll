@@ -1,14 +1,18 @@
 <template>
   <ContentWrap class="simple-parser-layout" v-loading="busy" :element-loading-text="busyText">
     <SimpleParserHeader
+      v-model:project-id="projectId"
       :requires-project="false"
+      show-project
       title="简易通用解析"
       import-accept=".doc,.docx"
-      :projects="[]"
+      :projects="projects"
+      :project-loading="projectLoading"
       :busy="busy"
       :has-content="!!draft"
       :published="published"
       publish-permission="mes:qc-template:update"
+      @search="searchProjects"
       @import="importWord"
       @export="exportWord"
       @save="saveLocal"
@@ -260,7 +264,10 @@
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
                   label="巡检检验水平 / AQL"
-                  ><SamplingRuleEditor v-model:inspection-level="item.inspectionLevel" v-model:aql="item.aql" /></el-form-item>
+                  ><SamplingRuleEditor
+                    v-model:inspection-level="item.inspectionLevel"
+                    v-model:aql="item.aql"
+                /></el-form-item>
               </div>
               <p
                 v-if="
@@ -272,7 +279,19 @@
               <el-form-item label="检验器具及设备要求"
                 ><el-input v-model="item.inspectionTool" data-issue-field="inspectionTool"
               /></el-form-item>
-              <el-form-item ref="equipmentEditor" label="选择设备编号（名称自动带出）">
+              <el-form-item label="需要设备">
+                <el-switch
+                  :model-value="needsEquipment(item)"
+                  aria-label="需要设备"
+                  @change="toggleEquipment"
+                />
+                <span>关闭后保留检验要求，无需绑定设备或填写编号。</span>
+              </el-form-item>
+              <el-form-item
+                v-if="needsEquipment(item)"
+                ref="equipmentEditor"
+                label="选择设备编号（名称自动带出）"
+              >
                 <el-select
                   :model-value="item.equipmentOptions.map((e) => e.equipmentId)"
                   multiple
@@ -289,7 +308,9 @@
                   />
                 </el-select>
               </el-form-item>
-              <el-button @click="applyEquipment">应用到相同器具要求的项目</el-button>
+              <el-button :disabled="!needsEquipment(item)" @click="applyEquipment"
+                >应用到相同器具要求的项目</el-button
+              >
               <el-form-item label="不合格处理要求"
                 ><el-input
                   v-model="item.failureRule"
@@ -382,7 +403,8 @@
               ><p v-if="i.failureRule">不合格处理：{{ i.failureRule }}</p
               ><p
                 >抽样：{{ i.samplingPlanText }}；首检
-                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatInspectionLevel(i) }}</p
+                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检
+                {{ formatInspectionLevel(i) }}</p
               ><p
                 v-if="
                   i.applicableInspectionTypes.includes('PATROL') && /AQL/i.test(i.samplingPlanText)
@@ -390,9 +412,11 @@
                 >{{ MATRIX_SAMPLING_RULE }}</p
               ><p
                 >设备：{{
-                  i.equipmentOptions
-                    .map((e) => `${e.equipmentNumber} / ${e.equipmentName}`)
-                    .join('、') || i.inspectionTool
+                  i.equipmentRequired === false
+                    ? '无需设备'
+                    : i.equipmentOptions
+                        .map((e) => `${e.equipmentNumber} / ${e.equipmentName}`)
+                        .join('、') || i.inspectionTool
                 }}</p
               ><p v-if="i.equipmentUnboundReason"
                 >器具未绑定原因：{{ i.equipmentUnboundReason }}</p
@@ -435,9 +459,18 @@ import ParserRegulationResult from '../parser/components/ParserRegulationResult.
 import type { UploadFile } from 'element-plus'
 import { SimpleCommonParserApi } from '@/api/mes/qc/template/simpleCommonParser'
 import { QcTemplateApi, type QaInspectionRegulationPublishedVersionVO } from '@/api/mes/qc/template'
-import { MATRIX_SAMPLING_RULE, nextVersion, formatInspectionLevel } from '../parser/simplePqc'
+import {
+  needsEquipment,
+  MATRIX_SAMPLING_RULE,
+  nextVersion,
+  formatInspectionLevel
+} from '../parser/simplePqc'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
+import {
+  getSimpleParserProjects,
+  type SimpleParserProject
+} from '@/api/mes/pro/batchrecordreport/simpleParserProjects'
 import { useUserStore } from '@/store/modules/user'
 import { validateCommonDraft, type DraftIssue } from './draft'
 import type { SimpleCommonDraft as Draft } from '@/api/mes/qc/template/simpleCommonParser'
@@ -453,6 +486,28 @@ const draft = ref<Draft>()
 const machinery = ref<DvMachineryVO[]>([])
 const busy = ref(false)
 const error = ref('')
+const projectId = ref<number>()
+const projects = ref<SimpleParserProject[]>([])
+const projectLoading = ref(false)
+let projectQuery = 0
+async function searchProjects(keyword = '') {
+  const query = ++projectQuery
+  projectLoading.value = true
+  try {
+    const candidates = await getSimpleParserProjects(keyword)
+    if (query !== projectQuery) return
+    const selected = projects.value.find((project) => project.id === projectId.value)
+    projects.value =
+      selected && !candidates.some((project) => project.id === selected.id)
+        ? [selected, ...candidates]
+        : candidates
+  } catch (cause) {
+    if (query === projectQuery) error.value = `项目列表加载失败：${String(cause)}`
+  } finally {
+    if (query === projectQuery) projectLoading.value = false
+  }
+}
+void searchProjects()
 const published = ref(false)
 const publishedResult = ref<QaInspectionRegulationPublishedVersionVO>()
 const resultVisible = ref(false)
@@ -569,14 +624,14 @@ async function importWord(upload: UploadFile) {
           'MES_QA_COMMON'
         )
       : null
-    const parsed = restored
-      ? restored.draft
-      : await SimpleCommonParserApi.parse(upload.raw!)
+    const parsed = restored ? restored.draft : await SimpleCommonParserApi.parse(upload.raw!)
     if (restored) {
       const versions = await QcTemplateApi.listCommonRegulationReleasedVersions()
       parsed.versionNo = nextVersion(
         parsed.versionNo,
-        versions.filter((v) => v.commonRegulationCode === parsed.regulationCode.trim()).map((v) => v.versionNo)
+        versions
+          .filter((v) => v.commonRegulationCode === parsed.regulationCode.trim())
+          .map((v) => v.versionNo)
       )
       parsed.expectedDraftRevision = 0
     }
@@ -680,6 +735,13 @@ function transferItem(pi: number) {
   itemIndex.value = draft.value!.processes[pi].items.length - 1
   normalize()
 }
+function toggleEquipment(required: boolean) {
+  item.value!.equipmentRequired = required
+  if (!required) {
+    item.value!.equipmentOptions = []
+    item.value!.equipmentUnboundReason = undefined
+  }
+}
 function selectEquipment(ids: number[]) {
   item.value!.equipmentOptions = ids.map((id, index) => {
     const m = machinery.value.find((m) => m.id === id)
@@ -693,14 +755,18 @@ function selectEquipment(ids: number[]) {
       sort: index + 1
     }
   })
-  if (ids.length) item.value!.equipmentUnboundReason = undefined
+  if (ids.length) {
+    item.value!.equipmentRequired = true
+    item.value!.equipmentUnboundReason = undefined
+  }
 }
 async function applyEquipment() {
   const matches = draft
     .value!.processes.flatMap((p) => p.items)
-    .filter((i) => i.inspectionTool === item.value!.inspectionTool)
+    .filter((i) => i.equipmentRequired !== false && i.inspectionTool === item.value!.inspectionTool)
   await message.confirm(`将当前设备选择应用到器具要求完全相同的 ${matches.length} 个项目？`)
   matches.forEach((i) => {
+    i.equipmentRequired = item.value!.equipmentRequired
     i.equipmentOptions = copy(item.value!.equipmentOptions)
     if (i.equipmentOptions.length) i.equipmentUnboundReason = undefined
   })
@@ -723,6 +789,7 @@ function saveLocal() {
     localStorage.setItem(
       storageKey(),
       JSON.stringify({
+        projectId: projectId.value,
         draft: draft.value,
         published: published.value,
         publishedResult: publishedResult.value,
@@ -748,6 +815,10 @@ async function restoreLocal() {
     if (saved.published && !saved.publishedResult?.publishedVersionId)
       throw new Error('已发布草稿缺少正式结果，请重新导入文档后发布')
     await loadResources()
+    projects.value = await getSimpleParserProjects()
+    if (saved.projectId && !projects.value.some((project) => project.id === saved.projectId))
+      throw new Error('草稿参考项目不存在或已停用，请重新选择项目')
+    projectId.value = saved.projectId
     draft.value = saved.draft
     delete draft.value!.dccProjectCodeId
     viewMode.value = 'edit'

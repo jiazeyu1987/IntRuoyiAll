@@ -54,7 +54,7 @@ class MesDeviationTransferEligibilityTest {
         var row = new MesProEdhrDeviationDO().setId(1L).setBatchExecutionId(2L).setLevel("CRITICAL").setStatus("OPEN");
         var page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<MesProEdhrDeviationDO>();
         page.setRecords(java.util.List.of(row)); page.setTotal(1L);
-        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any());
+        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any(), any());
         when(batches.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(java.util.List.of(new MesProEdhrBatchExecutionDO().setId(2L).setStatus(status)));
         var response = service.getPage(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationPageReqVO()).getList().get(0);
@@ -74,7 +74,7 @@ class MesDeviationTransferEligibilityTest {
                 row(7L, null, "OPEN", "CRITICAL"));
         var page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<MesProEdhrDeviationDO>();
         page.setRecords(rows); page.setTotal(107L);
-        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any());
+        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any(), any());
         when(batches.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(java.util.List.of(
                 new MesProEdhrBatchExecutionDO().setId(2L).setStatus(20),
                 new MesProEdhrBatchExecutionDO().setId(3L).setStatus(20)));
@@ -114,7 +114,7 @@ class MesDeviationTransferEligibilityTest {
     @Test void emptyPageDoesNotQueryAssociations() {
         var page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<MesProEdhrDeviationDO>();
         page.setRecords(java.util.List.of()); page.setTotal(0L);
-        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any());
+        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any(), any());
         assertTrue(service.getPage(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationPageReqVO()).getList().isEmpty());
         verifyNoInteractions(batches, reviews);
     }
@@ -122,7 +122,7 @@ class MesDeviationTransferEligibilityTest {
     @Test void multiplePendingReviewsStillFailInsteadOfBeingSilentlyDeduplicated() {
         var page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<MesProEdhrDeviationDO>();
         page.setRecords(java.util.List.of(row(1L, 2L, "OPEN", "CRITICAL"))); page.setTotal(1L);
-        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any());
+        doReturn(page).when(deviations).selectPageByTenant(any(), eq(71L), any(), any(), any(), any(), any(), any(), any(), any(), any());
         when(batches.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(java.util.List.of(new MesProEdhrBatchExecutionDO().setId(2L).setStatus(20)));
         when(reviews.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))

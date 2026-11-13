@@ -20,10 +20,11 @@
       @quick-filter-query="applyPickListQuickFilter"
       @column-change="savePickListColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
     >
       <template #actions>
         <SyncByCodeButton sync-type="PRODUCTION_PICK_LIST" code-label="生产领料单号" :on-synced="handleCodeSynced" />
@@ -240,10 +241,10 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
 
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
@@ -426,10 +427,12 @@ const pickListQuickFilterDefinitions: TableQuickFilterDefinition[] = [
 ]
 
 const route = useRoute()
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ErpProductionPickListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -452,16 +455,13 @@ const {
   saveConfig: savePickListColumnConfig
 } = useUserTableColumns(PICK_LIST_TABLE_KEY, pickListDefaultColumns)
 
-async function getList() {
-  loading.value = true
-  try {
-    const data = await ErpProductionPickListApi.getPage(queryParams)
+const getList = () => listRequest.run(
+  () => ErpProductionPickListApi.getPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 const {
   state: pickListQuickFilterState,
@@ -483,13 +483,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpProductionPickListApi.getPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
 const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(

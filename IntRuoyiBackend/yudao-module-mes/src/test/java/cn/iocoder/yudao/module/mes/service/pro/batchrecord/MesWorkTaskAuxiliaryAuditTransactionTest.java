@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
@@ -52,7 +53,7 @@ import static org.mockito.Mockito.*;
  * Only template lookup/formatting is an explicit external seam. */
 class MesWorkTaskAuxiliaryAuditTransactionTest {
     static final String CLAIM = "system_entitlement_claim", GRANT = "system_entitlement_grant";
-    static final String SPECIAL = "system_entitlement_audit_event", MESSAGE = "system_notify_message";
+    static final String SPECIAL = "system_entitlement_audit_event", MESSAGE = "system_tenant_notify_message";
     static final String EVENT = "gxp_audit_event", POLICY = "MES_EDHR_FILLER_MINIMAL";
     static final String ENT = "mes.work-task.entitlement", NOTIFY = "mes.work-task.notify";
     JdbcTemplate jdbc;
@@ -75,6 +76,8 @@ class MesWorkTaskAuxiliaryAuditTransactionTest {
                 GxpAuditEventRelationDO.class, GxpAuditLedgerSequenceDO.class,
                 GxpAuditPolicyActivationDO.class, GxpAuditPolicyOperationDO.class)) table(row);
         jdbc.execute("CREATE TABLE parent_marker(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE system_users (id BIGINT PRIMARY KEY,tenant_id BIGINT NOT NULL,status INT NOT NULL,username VARCHAR(64),nickname VARCHAR(64),deleted BOOLEAN DEFAULT FALSE)");
+        jdbc.update("INSERT INTO system_users (id,tenant_id,status,username,nickname) VALUES (101,1,0,'operator','operator')");
         var config = new MybatisConfiguration();
         config.setMapUnderscoreToCamelCase(true);
         var plugin = new MybatisPlusInterceptor();
@@ -87,7 +90,7 @@ class MesWorkTaskAuxiliaryAuditTransactionTest {
                 SystemEntitlementAuditEventMapper.class, SystemEntitlementPolicyMapper.class, MenuMapper.class,
                 NotifyMessageMapper.class, GxpAuditEventMapper.class, GxpAuditEventRelationMapper.class,
                 GxpAuditLedgerSequenceMapper.class, GxpAuditPolicyActivationMapper.class,
-                GxpAuditPolicyOperationMapper.class)) config.addMapper(m);
+                GxpAuditPolicyOperationMapper.class, AdminUserMapper.class)) config.addMapper(m);
         var factory = new MybatisSqlSessionFactoryBean();
         factory.setDataSource(ds); factory.setConfiguration(config);
         session = new SqlSessionTemplate(Objects.requireNonNull(factory.getObject()));

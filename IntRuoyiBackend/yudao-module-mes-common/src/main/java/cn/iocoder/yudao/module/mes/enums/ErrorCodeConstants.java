@@ -582,6 +582,14 @@ public interface ErrorCodeConstants {
             "此活跃订单的检验规程来源快照无效，请联系组长核对订单。");
     ErrorCode PRO_PQC_SAMPLING_EVIDENCE_REQUIRED = new ErrorCode(1_040_506_117,
             "此活跃订单的巡检任务缺少冻结抽样证据，无法填写。请联系组长核对，或选择新建的活跃订单；activeOrderId={}, taskId={}");
+    ErrorCode PRO_PQC_SCRAP_QUANTITY_REQUIRED = new ErrorCode(1_040_506_118,
+            "PQC 损耗数量不能为空，请填写损耗数量");
+    ErrorCode PRO_PQC_SCRAP_QUANTITY_NEGATIVE = new ErrorCode(1_040_506_119,
+            "PQC 损耗数量不能小于 0，当前损耗数量为 {}");
+    ErrorCode PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL = new ErrorCode(1_040_506_120,
+            "PQC 损耗数量（{}）不能大于实际检验数量（{}），请核对后提交");
+    ErrorCode PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES = new ErrorCode(1_040_506_121,
+            "PQC 损耗数量（{}）不能小于不合格样本数（{}，按样本序号去重），请核对检验结果和损耗数量后提交");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

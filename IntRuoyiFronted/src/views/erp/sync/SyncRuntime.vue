@@ -180,9 +180,7 @@
               <el-button link type="primary" @click="openJobPage(row.handlerName)"
                 >任务配置</el-button
               >
-              <el-button link type="primary" @click="openJobLogPage(row.handlerName)"
-                >执行日志</el-button
-              >
+              
             </template>
           </el-table-column>
         </el-table>
@@ -208,10 +206,11 @@
       @quick-filter-query="runFilter.applyQuickFilter"
       @column-change="saveRunColumns"
       @pagination="getRunList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getRunList"
+      server-filter
+      :server-filter-query="getRunList"
+
+
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -332,7 +331,8 @@
   </div>
 </template>
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 const activeList = ref('history')
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -415,7 +415,8 @@ const syncTypes = [
   { type: 'BOM', label: '产品 BOM', handlerName: 'kingdeeBomSyncJob' }
 ]
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const watermarkLoading = ref(false)
 const list = ref<ErpKingdeeSyncRunVO[]>([])
 const total = ref(0)
@@ -433,6 +434,7 @@ const productionOrderDialogVisible = ref(false)
 const productionOrderSubmitting = ref(false)
 const productionOrderFormRef = ref<FormInstance>()
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   syncType: undefined,
@@ -494,16 +496,13 @@ const getWatermarks = async () => {
   }
 }
 
-const getRunList = async () => {
-  loading.value = true
-  try {
-    const data = await ErpKingdeeSyncApi.getRunPage(queryParams)
+const getRunList = () => listRequest.run(
+  () => ErpKingdeeSyncApi.getRunPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 const getList = async () => {
   await Promise.all([getWatermarks(), getRunList()])
@@ -562,9 +561,7 @@ const openJobPage = (handlerName: string) => {
   push({ name: 'InfraJob', query: { handlerName } })
 }
 
-const openJobLogPage = (handlerName: string) => {
-  push({ name: 'InfraJobLog', query: { handlerName } })
-}
+
 
 
 const runFilters: TableQuickFilterDefinition[] = [
@@ -646,26 +643,19 @@ const runFilter = useTableQuickFilter('erp.sync.runs', runFilters, queryParams, 
 
 onMounted(getList)
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpKingdeeSyncApi.getRunPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
     key: 'syncType',
     label: '同步类型',
-    type: 'text',
-    getValue: (row) => [getSyncTypeLabel(row.syncType)].join(' ')
+    type: 'select',
+    options: syncTypes.map(item => ({label: item.label, value: item.type}))
   },
   {
     key: 'status',
     label: '状态',
-    type: 'text',
-    getValue: (row) => [getStatusLabel(row.status)].join(' ')
+    type: 'select',
+    options: [10,20,30,40].map(value => ({label: getStatusLabel(value), value}))
   }
 ])
 </script>

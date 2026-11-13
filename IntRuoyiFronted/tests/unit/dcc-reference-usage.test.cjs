@@ -48,6 +48,7 @@ function modules(transport = async () => response()) {
       if (name === '@/config/axios')
         return {
           default: {
+            post: async (options) => { calls.push(options); return transport(options) },
             get: async (options) => {
               calls.push(options)
               return transport(options)
@@ -212,4 +213,29 @@ test('summary API validates exact source/tenant/Master and never accepts a maste
       modules(async () => bad).api.getProjectReferenceUsage(context.sourceControlledFileId)
     )
   }
+})
+
+test('batch usage uses one bounded request and preserves every exact Long identity', async () => {
+  const ids = [context.sourceControlledFileId, '9223372036854775702']
+  const { api, calls } = modules(() => ids.map((selectedControlledFileId, i) => ({
+    tenantId: context.tenantId, selectedControlledFileId, masterId: String(BigInt(context.masterId) + BigInt(i)),
+    referenceProjectCount: i, referenced: i > 0
+  })))
+  const values = await api.getProjectReferenceUsageBatch(ids)
+  assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0].data, { selectedFileIds: ids })
+  assert.equal(values.length, 2)
+  assert.equal(values[1].referenceProjectCount, 1)
+})
+test('batch usage rejects omissions, duplicates and a response for another exact version', async () => {
+  for (const result of [[], [{ tenantId: '1', selectedControlledFileId: '99', masterId: context.masterId,
+    referenceProjectCount: 0, referenced: false }]]) {
+    const { api } = modules(() => result)
+    await assert.rejects(api.getProjectReferenceUsageBatch([context.sourceControlledFileId]))
+  }
+  const { api, calls } = modules()
+  await assert.rejects(api.getProjectReferenceUsageBatch([context.sourceControlledFileId, context.sourceControlledFileId]))
+  await assert.rejects(api.getProjectReferenceUsageBatch([]))
+  await assert.rejects(api.getProjectReferenceUsageBatch(Array.from({ length: 201 }, (_, i) => String(i + 1))))
+  assert.equal(calls.length, 0)
 })

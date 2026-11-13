@@ -380,7 +380,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     }
 
     @Test
-    void shouldPersistManualAllocationWithinFrozenProductionFactor() {
+    void shouldPersistManualAllocationWithinFrozenLossCoefficient() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
@@ -399,7 +399,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .productionQuantityFactorSnapshot(new BigDecimal("1.7"))
                         .plannedQuantitySnapshot(new BigDecimal("170"))
                         .overagePercentSnapshot(new BigDecimal("70"))
-                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+                        .productionConfigSnapshotJson("{\"lossCoefficient\":1.7,\"outputMaterialIds\":[]}").build()));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
             return 1;

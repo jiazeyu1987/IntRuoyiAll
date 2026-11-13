@@ -208,7 +208,8 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         return new MesFrontlineActiveOrderProcess(activeOrder.getId(), activeOrder.getRouteId(), routeVersion.getId(),
                 routeCode, routeName, snapshot.getRouteProcessId(), snapshot.getProcessId(), processCode, processName,
                 node.getInteger("sort"), workstationId, normalize(node.getString("workstationCode")),
-                normalize(node.getString("workstationName")), snapshot.getProductionQuantityFactorSnapshot(),
+                normalize(node.getString("workstationName")),
+                cn.iocoder.yudao.module.mes.service.pro.route.MesRouteLossCoefficient.frozen(snapshot.getProductionConfigSnapshotJson()),
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityRange.of(snapshot).lower(), submittedQuantity,
                 Boolean.TRUE.equals(node.getBoolean("checkFlag")));
     }

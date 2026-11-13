@@ -1,10 +1,5 @@
 <template>
   <div class="my-notify-message-list" :class="{ 'my-notify-message-list--embedded': embedded }">
-    <ActiveOrderHandoffPanel
-      v-if="canReadActiveOrderHandoffs"
-      ref="handoffPanelRef"
-      hide-when-empty
-    />
     <component :is="contentWrapper" class="my-notify-message-list__section">
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <UnifiedListTemplate
@@ -28,10 +23,9 @@
         @column-change="saveNotifyColumnConfig"
         @column-reset="resetNotifyColumnConfig"
         @pagination="getList"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="list = $event"
-        :list-rows="list"
-        @column-filter-reset="getList"
+        server-filter
+        :server-filter-query="getList"
+        :query-loading="loading"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
@@ -171,7 +165,7 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { buildListColumnFilters, filterListColumns, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import type { TableInstance } from 'element-plus'
 import { dateFormatter } from '@/utils/formatTime'
@@ -181,7 +175,6 @@ import BusinessMessageContent from '@/components/BusinessMessageContent/Business
 import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
 import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
 import { listOwnPendingReleaseOutcomes } from '@/api/mes/pro/productionRelease/notification'
@@ -223,12 +216,10 @@ const router = useRouter()
 const userStore = useUserStore()
 const canReadReleaseOutcomes = computed(() => hasPermission(['mes:pro-edhr-work-task:query']))
 const notifyTableRef = ref<TableInstance>()
-const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
 const refreshTableLayout = async () => {
   if (!props.active) return
   await nextTick()
   notifyTableRef.value?.doLayout()
-  await handoffPanelRef.value?.refreshLayout()
 }
 watch(
   () => props.active,
@@ -242,14 +233,6 @@ const NOTIFY_TABLE_KEY = 'system.notify.my-message'
 
 const embedded = computed(() => props.embedded)
 const contentWrapper = computed(() => (props.embedded ? 'div' : 'ContentWrap'))
-const canReadActiveOrderHandoffs = computed(() =>
-  hasPermission([
-    'mes:pro-feedback:query',
-    'mes:pro-process-pool-team-leader:query',
-    'mes:pro-edhr-nonconformance-review:query',
-    'mes:pro-edhr-work-task:query'
-  ])
-)
 
 const notifyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'templateNickname', label: '发送人', width: 180 },
@@ -278,6 +261,7 @@ const readTimeByMessageId = ref<Record<number, Date>>({})
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   readStatus: undefined as boolean | string | undefined
 })
 
@@ -314,11 +298,11 @@ const mergeReadTimeOverrides = (
 /** 查询列表 */
 const getList = async () => {
   const sequence = ++loadSequence
-  if (!props.active) return
+  if (!props.active) return false
   loading.value = true
   loadError.value = ''
   list.value = []
-  total.value = 0
+  // 加载期间保留已知总数，避免分页器将目标页夹回第一页。
   const params = { ...queryParams }
   try {
     const pending =
@@ -326,23 +310,29 @@ const getList = async () => {
       (params.readStatus === undefined || params.readStatus === 'pending')
         ? toInboxRecoveries(await listOwnPendingReleaseOutcomes())
         : []
-    const data = await loadInboxPage(pending, params, async (pagination) => {
+    const conditions = params.listFilters ? JSON.parse(params.listFilters) : []
+    const filteredPending = filterListColumns(pending, conditions,
+      buildListColumnFilters(notifyDefaultColumns, listColumnFilterDefinitions0.value))
+    const data = await loadInboxPage(filteredPending, params, async (pagination) => {
       const page = await NotifyMessageApi.getMyNotifyMessagePage(pagination)
       return { ...page, list: mergeReadTimeOverrides(page.list) }
     })
-    if (sequence !== loadSequence) return
+    if (sequence !== loadSequence) return false
     const lastPage = Math.max(1, Math.ceil(data.total / params.pageSize))
     if (params.pageNo > lastPage) {
       queryParams.pageNo = lastPage
-      await getList()
-      return
+      return await getList()
     }
     list.value = data.list
     total.value = data.total
     await refreshTableLayout()
+    return sequence === loadSequence
   } catch (error) {
-    if (sequence === loadSequence)
+    if (sequence === loadSequence) {
+      total.value = 0
       loadError.value = error instanceof Error ? error.message : String(error)
+    }
+    throw error
   } finally {
     if (sequence === loadSequence) loading.value = false
   }
@@ -468,31 +458,6 @@ onActivated(() => {
   return getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const actor = userStore.getUser.id
-  const sequence = loadSequence
-  const [rows, pending] = await Promise.all([
-    params.readStatus === 'pending'
-      ? Promise.resolve([])
-      : loadAllListPages<NotifyMessageApi.NotifyMessageVO>((pagination) =>
-          NotifyMessageApi.getMyNotifyMessagePage({ ...params, ...pagination })
-        ),
-    canReadReleaseOutcomes.value &&
-    (params.readStatus === undefined || params.readStatus === 'pending')
-      ? listOwnPendingReleaseOutcomes()
-      : Promise.resolve([])
-  ])
-  if (!props.active || actor !== userStore.getUser.id || sequence !== loadSequence) {
-    throw new Error('站内信查询条件已变化，请重新查询')
-  }
-  return [
-    ...(params.readStatus === undefined || params.readStatus === 'pending'
-      ? toInboxRecoveries(pending)
-      : []),
-    ...toInboxMessages(mergeReadTimeOverrides(rows))
-  ]
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

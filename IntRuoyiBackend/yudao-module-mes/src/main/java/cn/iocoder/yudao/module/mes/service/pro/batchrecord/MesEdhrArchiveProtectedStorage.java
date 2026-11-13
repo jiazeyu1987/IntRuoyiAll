@@ -15,7 +15,7 @@ import java.util.Locale;
  * eDHR 最终归档使用运行时 EDHR_S3_* 配置，不绑定普通文件主配置或受保护展厅配置。
  */
 @Component
-public class MesEdhrArchiveProtectedStorage {
+public class MesEdhrArchiveProtectedStorage implements cn.iocoder.yudao.module.infra.service.file.ProtectedFileClientProvider {
 
     public static final Long FILE_CONFIG_ID = -1_040_750_314L;
 
@@ -51,16 +51,28 @@ public class MesEdhrArchiveProtectedStorage {
     }
 
     public S3FileClientConfig requireClientRegistered() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         S3FileClientConfig config = registeredConfig;
         if (config != null) {
+            fileClientFactory.createOrUpdateFileClient(FILE_CONFIG_ID, FileStorageEnum.S3.getStorage(), config);
             return config;
         }
         synchronized (this) {
             if (registeredConfig == null) {
                 registeredConfig = buildAndRegisterClient();
+            } else {
+                fileClientFactory.createOrUpdateFileClient(FILE_CONFIG_ID, FileStorageEnum.S3.getStorage(), registeredConfig);
             }
             return registeredConfig;
         }
+    }
+
+    @Override
+    public cn.iocoder.yudao.module.infra.framework.file.core.client.FileClient getFileClient() {
+        requireClientRegistered();
+        var client = fileClientFactory.getFileClient(FILE_CONFIG_ID);
+        if (client == null) throw new IllegalStateException("eDHR 受保护归档客户端未注册");
+        return client;
     }
 
     private S3FileClientConfig buildAndRegisterClient() {

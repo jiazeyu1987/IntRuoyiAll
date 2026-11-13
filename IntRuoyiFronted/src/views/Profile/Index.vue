@@ -5,6 +5,9 @@
       :class="{ 'profile-page__card--workbench': activeName === 'workbench' }"
       shadow="never"
     >
+      <el-alert v-if="handoffLoadError" :title="handoffLoadError" type="error" :closable="false" show-icon>
+        <el-button link type="primary" @click="refreshHandoffs">重新加载交接</el-button>
+      </el-alert>
       <el-tabs v-model="activeName" class="profile-tabs" tab-position="top">
         <el-tab-pane name="workbench" lazy>
           <template #label>
@@ -40,6 +43,13 @@
             @read-status-change="handleUnreadNotifyMessageRefresh"
           />
         </el-tab-pane>
+        <el-tab-pane v-if="hasHandoffs" label="交接列表" name="handoffs">
+          <ActiveOrderHandoffPanel
+            ref="handoffPanelRef"
+            :initial-tasks="handoffTasks"
+            @loaded="handleHandoffsLoaded"
+          />
+        </el-tab-pane>
         <el-tab-pane :label="t('profile.info.basicInfo')" name="basicInfo">
           <BasicInfo />
         </el-tab-pane>
@@ -60,6 +70,12 @@
           <UserSocial v-model:activeName="activeName" />
         </el-tab-pane>
       </el-tabs>
+      <!-- 无列表数据时仍保留原交接通知的只读结果入口。 -->
+      <ActiveOrderHandoffPanel
+        v-if="canReadActiveOrderHandoffs && !hasHandoffs && route.query.handoffTaskId"
+        result-only
+        :initial-tasks="handoffTasks"
+      />
     </el-card>
   </div>
 </template>
@@ -72,6 +88,9 @@ import BusinessConfigMigrationNotice from '@/views/system/config-migration/Busin
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
 import PqcReleaseCorrection from './components/PqcReleaseCorrection.vue'
+import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
+import * as HandoffApi from '@/api/mes/pro/handoff'
+import { hasPermission } from '@/directives/permission/hasPermi'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -103,6 +122,58 @@ const resolveProfileActiveTab = () => {
 }
 
 const activeName = ref(resolveProfileActiveTab())
+const handoffTasks = ref<HandoffApi.HandoffTask[]>([])
+const handoffLoadError = ref('')
+const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
+const canReadActiveOrderHandoffs = computed(() =>
+  hasPermission([
+    'mes:pro-feedback:query',
+    'mes:pro-process-pool-team-leader:query',
+    'mes:pro-edhr-nonconformance-review:query',
+    'mes:pro-edhr-work-task:query'
+  ])
+)
+const hasHandoffs = computed(() => canReadActiveOrderHandoffs.value && handoffTasks.value.length > 0)
+const handleHandoffsLoaded = (rows: HandoffApi.HandoffTask[]) => {
+  handoffTasks.value = rows
+  if (!rows.length && activeName.value === 'handoffs') activeName.value = 'notifyMessage'
+}
+let handoffLoadSequence = 0
+const refreshHandoffs = async () => {
+  const sequence = ++handoffLoadSequence
+  handoffLoadError.value = ''
+  if (!canReadActiveOrderHandoffs.value) {
+    handleHandoffsLoaded([])
+    return
+  }
+  try {
+    const rows = await HandoffApi.myHandoffs()
+    if (sequence === handoffLoadSequence) handleHandoffsLoaded(rows)
+  } catch (error) {
+    if (sequence === handoffLoadSequence)
+      handoffLoadError.value = error instanceof Error ? error.message : String(error)
+  }
+}
+watch(
+  [() => userStore.getUser.id, canReadActiveOrderHandoffs],
+  () => {
+    handleHandoffsLoaded([])
+    void refreshHandoffs()
+  },
+  { immediate: true }
+)
+onBeforeUnmount(() => {
+  ++handoffLoadSequence
+})
+let handoffsDeactivated = false
+onDeactivated(() => {
+  handoffsDeactivated = true
+})
+onActivated(() => {
+  if (!handoffsDeactivated) return
+  handoffsDeactivated = false
+  void refreshHandoffs()
+})
 const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 
@@ -149,10 +220,15 @@ watch([() => route.fullPath, isAdminUser], () => {
   ensureSocialTabVisible()
 })
 
-watch(activeName, () => {
-  ensureSocialTabVisible()
-  refreshProfileWorkbenchTodoBadgeWhenVisible()
-})
+watch(
+  activeName,
+  async () => {
+    ensureSocialTabVisible()
+    refreshProfileWorkbenchTodoBadgeWhenVisible()
+    if (activeName.value === 'handoffs') await handoffPanelRef.value?.refreshLayout()
+  },
+  { flush: 'post' }
+)
 
 onMounted(() => {
   refreshUnreadNotifyMessageCount().catch(reportProfileNotifyMessageError)

@@ -61,6 +61,8 @@ class DccLifecycleDistributionOutboxTransactionTest extends BaseDbUnitTest {
     @BeforeEach void setup(){
         TenantContextHolder.setTenantId(1L);SecurityContextHolder.clearContext();jdbc=new JdbcTemplate(dataSource);
         assertNotNull(jdbc.queryForObject("SELECT H2VERSION()",String.class));tx=new TransactionTemplate(transactionManager);
+        jdbc.update("INSERT INTO gxp_audit_ledger_sequence (tenant_id,next_ledger_sequence) SELECT 1,1 WHERE NOT EXISTS (SELECT 1 FROM gxp_audit_ledger_sequence WHERE tenant_id=1)");
+        jdbc.update("INSERT INTO gxp_audit_policy_activation (tenant_id,policy_version,policy_hash,request_id,actor_id,approval_reference,activated_at_utc,effective_after_sequence,canonical_activation_json,activation_hash) VALUES (1,'IC10-W06-ISOLATED',?,'IC10-TEST-ACTIVATION',99,'ISOLATED_TEST',CURRENT_TIMESTAMP,0,'{}',?)", "0".repeat(64), "1".repeat(64));
         for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch"))jdbc.update("DELETE FROM "+table);
         for(String operation:List.of("dcc.controlled-file.control","dcc.controlled-file.activate","dcc.controlled-file.auto-obsolete",
                 "dcc.distribution.batch.accept","dcc.distribution.batch.fail"))policy(operation);

@@ -156,7 +156,7 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals(48L, process.getActiveOrderId());
         assertEquals(501L, process.getRouteVersionId());
         assertEquals(980645L, process.getRouteProcessId());
-        assertEquals(new BigDecimal("1.500000"), process.getProductionQuantityFactor());
+        assertEquals(new BigDecimal("1.500000"), process.getLossCoefficient());
         assertEquals(new BigDecimal("150.000000"), process.getTargetQuantity());
         assertEquals(new BigDecimal("45.000000"), process.getSubmittedQuantity());
         assertEquals(4001L, process.getWorkstationId());

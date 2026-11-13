@@ -190,30 +190,7 @@
     </el-descriptions>
 
     <!-- 订单日志 -->
-    <el-descriptions title="订单操作日志">
-      <el-descriptions-item labelClassName="no-colon">
-        <el-timeline>
-          <el-timeline-item
-            v-for="(log, index) in formData.logs"
-            :key="index"
-            :timestamp="formatDate(log.createTime!)"
-            placement="top"
-          >
-            <div class="el-timeline-right-content">
-              {{ log.content }}
-            </div>
-            <template #dot>
-              <span
-                :style="{ backgroundColor: getUserTypeColor(log.userType!) }"
-                class="dot-node-style"
-              >
-                {{ getDictLabel(DICT_TYPE.USER_TYPE, log.userType)[0] }}
-              </span>
-            </template>
-          </el-timeline-item>
-        </el-timeline>
-      </el-descriptions-item>
-    </el-descriptions>
+    
   </ContentWrap>
 
   <!-- 各种操作的弹窗 -->
@@ -226,7 +203,7 @@
 import * as TradeOrderApi from '@/api/mall/trade/order'
 import { fenToYuan } from '@/utils'
 import { formatDate } from '@/utils/formatTime'
-import { DICT_TYPE, getDictLabel, getDictObj } from '@/utils/dict'
+import { DICT_TYPE,  getDictObj } from '@/utils/dict'
 import OrderUpdateRemarkForm from '@/views/mall/trade/order/form/OrderUpdateRemarkForm.vue'
 import OrderDeliveryForm from '@/views/mall/trade/order/form/OrderDeliveryForm.vue'
 import OrderUpdateAddressForm from '@/views/mall/trade/order/form/OrderUpdateAddressForm.vue'

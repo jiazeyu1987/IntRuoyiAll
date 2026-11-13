@@ -12,8 +12,6 @@ const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
 const AuthSessionIdKey = 'AUTH_SESSION_ID'
 const LegacyLoginTenantNameMap = new Map([['瑛泰源码', '芋道源码']])
-const LegacyDefaultLoginUsernames = new Set(['aoteman', 'admin'])
-const LegacyDefaultLoginPasswords = new Set(['', 'admin123'])
 const LoginFormCacheExpireSeconds = 30 * 24 * 60 * 60
 const LoginTenantHistoryLimit = 10
 
@@ -121,16 +119,6 @@ function decryptLoginForm(loginForm?: Partial<LoginFormType>): LoginFormType | u
   }
 }
 
-const isLegacyDefaultLoginForm = (loginForm?: Partial<LoginFormType>) => {
-  if (!loginForm) {
-    return false
-  }
-  return (
-    LegacyDefaultLoginUsernames.has(loginForm.username || '') &&
-    LegacyDefaultLoginPasswords.has(loginForm.password || '')
-  )
-}
-
 const setEncryptedLoginForm = (loginForm: LoginFormType) => {
   wsCache.set(CACHE_KEY.LoginForm, cacheSafeLoginForm(loginForm), {
     exp: LoginFormCacheExpireSeconds
@@ -156,15 +144,11 @@ export const getLoginForm = () => {
   const loginForm: LoginFormType = wsCache.get(CACHE_KEY.LoginForm)
   if (loginForm) {
     const decryptedLoginForm = decryptLoginForm(loginForm)
-    if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
-      wsCache.delete(CACHE_KEY.LoginForm)
-    } else {
-      if (decryptedLoginForm.password) {
-        decryptedLoginForm.password = ''
-        setEncryptedLoginForm(decryptedLoginForm)
-      }
-      return decryptedLoginForm
+    if (decryptedLoginForm.password) {
+      decryptedLoginForm.password = ''
+      setEncryptedLoginForm(decryptedLoginForm)
     }
+    return decryptedLoginForm
   }
   const loginHistory = getLoginFormHistory()
   return loginHistory.length ? normalizeLoginForm(loginHistory[0]) : undefined
@@ -180,10 +164,6 @@ export const getLoginFormHistory = () => {
     .map((item) => {
       const decryptedLoginForm = decryptLoginForm(item)
       if (!decryptedLoginForm) {
-        return undefined
-      }
-      if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
-        updatedLegacyLoginCache = true
         return undefined
       }
       if (decryptedLoginForm.password) {

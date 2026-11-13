@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.dict.DictTypeMapper;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +49,7 @@ public class DictTypeServiceImpl implements DictTypeService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createDictType(DictTypeSaveReqVO createReqVO) {
         // 校验字典类型的名字的唯一性
         validateDictTypeNameUnique(null, createReqVO.getName());
@@ -58,10 +60,12 @@ public class DictTypeServiceImpl implements DictTypeService {
         DictTypeDO dictType = BeanUtils.toBean(createReqVO, DictTypeDO.class);
         dictType.setDeletedTime(LocalDateTimeUtils.EMPTY); // 唯一索引，避免 null 值
         dictTypeMapper.insert(dictType);
+        TenantDictionaryCache.invalidateAfterCommit();
         return dictType.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateDictType(DictTypeSaveReqVO updateReqVO) {
         // 校验自己存在
         validateDictTypeExists(updateReqVO.getId());
@@ -73,9 +77,11 @@ public class DictTypeServiceImpl implements DictTypeService {
         // 更新字典类型
         DictTypeDO updateObj = BeanUtils.toBean(updateReqVO, DictTypeDO.class);
         dictTypeMapper.updateById(updateObj);
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteDictType(Long id) {
         // 校验是否存在
         DictTypeDO dictType = validateDictTypeExists(id);
@@ -85,12 +91,14 @@ public class DictTypeServiceImpl implements DictTypeService {
         }
         // 删除字典类型
         dictTypeMapper.updateToDelete(id, LocalDateTime.now());
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteDictTypeList(List<Long> ids) {
         // 1. 校验是否有字典数据
-        List<DictTypeDO> dictTypes = dictTypeMapper.selectByIds(ids);
+        List<DictTypeDO> dictTypes = ids.stream().map(this::validateDictTypeExists).toList();
         dictTypes.forEach(dictType -> {
             if (dictDataService.getDictDataCountByDictType(dictType.getType()) > 0) {
                 throw exception(DICT_TYPE_HAS_CHILDREN);
@@ -100,6 +108,7 @@ public class DictTypeServiceImpl implements DictTypeService {
         // 2. 批量删除字典类型
         LocalDateTime now = LocalDateTime.now();
         ids.forEach(id -> dictTypeMapper.updateToDelete(id, now));
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override

@@ -203,7 +203,7 @@ import {
 } from '@/api/dcc/controlledFile/workflow'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
+  getProjectCodeOptions,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
@@ -306,13 +306,11 @@ const formatProjectCodeOptionLabel = (projectCode: DccProjectCodeRespVO) =>
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   try {
-    const data = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 50,
+    const data = await getProjectCodeOptions({
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
-    projectCodeOptions.value = data.list
+    projectCodeOptions.value = data
   } catch (error) {
     projectCodeOptions.value = []
     message.error(resolveUploadErrorMessage(error, 'DCC 项目加载失败，请查看错误提示后重试'))

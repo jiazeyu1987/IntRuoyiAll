@@ -11,6 +11,7 @@ export type EdhrSignatureActionType =
   | 'ARCHIVE_SEAL'
 
 export interface EdhrSignaturePageReqVO extends PageParam {
+  listFilters?: string
   executionId?: EdhrRouteId
   executionCode?: string
   actionType?: EdhrSignatureActionType

@@ -1,8 +1,13 @@
 <template>
   <el-button v-if="canImport" :disabled="busy" @click="dialogVisible = true">
-    <Icon icon="ep:upload" class="mr-5px" />导入
+    <Icon icon="ep:upload" class="mr-5px" />{{ props.importLabel }}
   </el-button>
-  <el-button v-if="canExport" :loading="exporting" :disabled="importing" @click="exportWorkbook">
+  <el-button
+    v-if="!props.importOnly && canExport"
+    :loading="exporting"
+    :disabled="importing"
+    @click="exportWorkbook"
+  >
     <Icon icon="ep:download" class="mr-5px" />导出
   </el-button>
   <Dialog
@@ -45,6 +50,10 @@ import request from '@/config/axios'
 import download from '@/utils/download'
 import { checkPermi, checkRole } from '@/utils/permission'
 
+const props = withDefaults(defineProps<{ importLabel?: string; importOnly?: boolean }>(), {
+  importLabel: '导入',
+  importOnly: false
+})
 const emit = defineEmits<{ success: [] }>()
 const message = useMessage()
 const exporting = ref(false)
@@ -67,7 +76,7 @@ const canExport = computed(
 )
 const canImport = computed(
   () =>
-    checkRole(['super_admin', 'tenant_admin']) ||
+    checkRole(['super_admin', 'tenant_admin', 'dcc_project_code_admin']) ||
     [
       'mdm:product:create',
       'mdm:product:update',

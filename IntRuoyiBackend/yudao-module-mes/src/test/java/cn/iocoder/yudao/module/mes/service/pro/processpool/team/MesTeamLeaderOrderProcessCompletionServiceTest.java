@@ -293,13 +293,13 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldRejectConfirmedQuantityAboveFrozenCeilingBeforeWritingProgress() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
-        MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "190");
+        MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "201");
         List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(priorLine, confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
-        stubProcessProgress("200", "210");
+        stubProcessProgress("200", "221");
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
         ServiceException failure = assertThrows(ServiceException.class,
                 () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));

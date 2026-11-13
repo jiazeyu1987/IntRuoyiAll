@@ -20,13 +20,16 @@ public interface ShowroomKeywordMapper extends BaseMapperX<ShowroomKeywordDO> {
 
     default PageResult<ShowroomKeywordDO> selectPageByKeyword(PageParam pageParam, String keyword) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        return selectPage(pageParam, new LambdaQueryWrapperX<ShowroomKeywordDO>()
+        return selectPage(pageParam, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.apply(pageParam, new LambdaQueryWrapperX<ShowroomKeywordDO>()
                 .eq(ShowroomKeywordDO::getTenantId, tenantId)
                 .and(keyword != null && !keyword.isBlank(), wrapper -> wrapper
                         .like(ShowroomKeywordDO::getNameZh, keyword.trim())
                         .or()
                         .like(ShowroomKeywordDO::getNameEn, keyword.trim()))
-                .orderByAsc(ShowroomKeywordDO::getId));
+                .orderByAsc(ShowroomKeywordDO::getId), java.util.Map.of(
+                        "nameZh", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("name_zh"),
+                        "nameEn", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("name_en"),
+                        "updateTime", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.dateTime("update_time"))));
     }
 
     default List<ShowroomKeywordDO> selectListOrdered() {

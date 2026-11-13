@@ -69,16 +69,16 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         projectActors.requireReadableAccount(applicantUserId);
         productAudit.validateReason(reqVO.getCreationReason());
         var before=productAudit.beforeCreate(reqVO.getFolderTemplateId());
-        Long id=createPendingRequest(applicantUserId,reqVO,reqVO.getCreationReason().trim(),null);
+        Long id=createRequestRecord(applicantUserId,reqVO,reqVO.getCreationReason().trim(),null,true);
         productAudit.append("dcc.project-product.create",id,"1",reqVO.getCreationReason(),before,null);
-        notifications.reviewTodo(requestMapper.selectById(id), reqVO.getCreationReason().trim());
+        writeService.writeApprovedRequest(id);
         return id;
     }
 
-    private Long createPendingRequest(Long applicantUserId,DccProjectProductCreateReqVO reqVO,String creationReason,Long previousRequestId) {
+    private Long createRequestRecord(Long applicantUserId,DccProjectProductCreateReqVO reqVO,String creationReason,Long previousRequestId,boolean directCreate) {
         if(applicantUserId==null || applicantUserId<=0) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
-        reviewerRoles.readiness(applicantUserId);
-        var reviewerRole=reviewerRoles.freezeRole();
+        if (!directCreate) reviewerRoles.readiness(applicantUserId);
+        var reviewerRole=directCreate ? null : reviewerRoles.freezeRole();
         String projectName = required(reqVO.getProjectName());
         String projectCode = required(reqVO.getProjectCode());
         var leader = leaderService.requireEnabledAccount(reqVO.getProjectLeaderUserId());
@@ -106,11 +106,14 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
                 .classification(classification)
                 .remark(StrUtil.trimToNull(reqVO.getRemark()))
                 .creationReason(creationReason).previousRequestId(previousRequestId)
-                .status(DccProjectProductCreateStatusConstants.PENDING_REVIEW)
+                .status(directCreate ? DccProjectProductCreateStatusConstants.WRITING : DccProjectProductCreateStatusConstants.PENDING_REVIEW)
                 .applicantUserId(applicantUserId)
-                .reviewContract(DccProjectReviewerRoleService.CONTRACT)
-                .reviewerRoleId(reviewerRole.roleId())
-                .reviewerRoleCode(reviewerRole.roleCode())
+                .reviewContract(directCreate ? DIRECT_CREATE_CONTRACT : DccProjectReviewerRoleService.CONTRACT)
+                .reviewerRoleId(directCreate ? null : reviewerRole.roleId())
+                .reviewerRoleCode(directCreate ? null : reviewerRole.roleCode())
+                .writeAttemptNo(directCreate ? 1 : null)
+                .writeReason(directCreate ? creationReason : null)
+                .writeOperatorUserId(directCreate ? applicantUserId : null)
                 .submittedTime(LocalDateTime.now())
                 .build();
         request.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
@@ -164,7 +167,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         if (reqVO == null) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         auditSupport.validateReason(reqVO.getResubmissionReason());
         // 已确定的新建校验/账号/模板/身份占用均复用正式创建路径；失败与前驱关联同事务回滚。
-        Long id = createPendingRequest(applicantUserId, reqVO, null, rejectedRequestId);
+        Long id = createRequestRecord(applicantUserId, reqVO, null, rejectedRequestId,false);
         var next = requestMapper.selectById(id);
         if (next == null) throw exception(DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS);
         next.setPreviousRequestId(rejectedRequestId);
@@ -191,6 +194,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     public DccProjectProductCreateRequestDO review(Long operatorUserId, Long requestId,
                                                    String reason, boolean approve) {
         DccProjectProductCreateRequestDO request = requireRequestForUpdate(requestId);
+        if (DIRECT_CREATE_CONTRACT.equals(request.getReviewContract())) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         if (reviewerRoles.isRoleContract(request)) return reviewSingleRole(operatorUserId,request,reason,approve);
         if (!projectActors.canUpdate(operatorUserId)) throw exception(DccProjectReviewerRoleService.ROLE_FORBIDDEN);
         reviewerConfiguration.assertFrozenReviewer(operatorUserId,request);
@@ -282,7 +286,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     private void requireLegacyContract(Long requestId){
         var request=requestId==null?null:requestMapper.selectById(requestId);
         if(request==null || !java.util.Objects.equals(request.getTenantId(),cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()))throw exception(DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS);
-        if(reviewerRoles.isRoleContract(request))throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        if(reviewerRoles.isRoleContract(request) || DIRECT_CREATE_CONTRACT.equals(request.getReviewContract()))throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
     }
 
     private DccProjectProductCreateRequestDO requireRequestForUpdate(Long requestId) {

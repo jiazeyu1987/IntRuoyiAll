@@ -41,27 +41,6 @@ const snippet = `
 const cloneDeep = globalThis.__cloneDeep
 const isUrl = globalThis.__isUrl
 const ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES = new Set(['DccCenterHidden'])
-const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
-const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
-const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
-const SIGNATURE_RECORDS_ROUTE_NAME = 'SignatureGovernanceSignatureRecords'
-const SIGNATURE_RECORDS_ROUTE_TITLE = '签名记录'
-const SIGNATURE_MY_SIGNATURE_ROUTE_PATH = 'my-signature'
-const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_CHILD_PATH = 'overview'
-const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_ROUTE_NAME = 'SignatureGovernanceOverview'
-const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_TITLE = '总览'
-const APPROVAL_CENTER_ROUTE_PATH = '/approval-center'
-const APPROVAL_CENTER_ROUTE_NAME = 'ApprovalCenter'
-const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_NAME = 'ApprovalCenterWorkflowManagement'
-const APPROVAL_CENTER_BPM_MODEL_ROUTE_NAME = 'ApprovalCenterBpmModel'
-const APPROVAL_CENTER_CC_ROUTE_NAME = 'ApprovalCenterCc'
-const APPROVAL_CENTER_OA_EXAMPLE_ROUTE_NAME = 'ApprovalCenterOaExample'
-const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_PATH = 'manager'
-const APPROVAL_CENTER_BPM_MODEL_ROUTE_PATH = 'model'
-const APPROVAL_CENTER_BPM_MODEL_MENU_PATH = 'manager/model'
-const APPROVAL_CENTER_BPM_MODEL_TITLE = '流程模型'
-const APPROVAL_CENTER_CC_TITLE = '抄送我的'
-const APPROVAL_CENTER_OA_EXAMPLE_TITLE = 'OA 示例'
 ${source.slice(start, end)}
 module.exports = {
   mergeStaticRoutesWithDynamicRoutes

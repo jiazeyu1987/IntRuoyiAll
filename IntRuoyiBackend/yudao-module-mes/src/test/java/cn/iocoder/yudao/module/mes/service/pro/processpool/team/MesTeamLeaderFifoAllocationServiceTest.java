@@ -60,7 +60,8 @@ class MesTeamLeaderFifoAllocationServiceTest {
                 MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
                         .processId(invocation.getArgument(2))
-                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
+                        .erpFixedQuantitySnapshot(new BigDecimal("200"))
+                        .productionConfigSnapshotJson("{\"lossCoefficient\":1,\"outputMaterialIds\":[]}").build());
         service = new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                 orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
@@ -187,16 +188,20 @@ class MesTeamLeaderFifoAllocationServiceTest {
     }
 
     @Test
-    void shouldPreviewRemainingQuantityFromPerProcessSnapshotTarget() {
+    void shouldPreviewRemainingQuantityFromLossCoefficientInsteadOfScheduleTarget() {
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "300")));
         when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8101L), 6001L))
-                .thenReturn(List.of(allocation(9001L, "600")));
+                .thenReturn(List.of(allocation(9001L, "300")));
         when(orderProcessTargetService.findUniqueTargetForProcess(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L)).thenReturn(Optional.of(target("900")));
 
+        when(snapshotMapper.selectByActiveOrderAndProcess(8101L, 5001L, 6001L)).thenReturn(
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(8101L)
+                        .routeProcessId(5001L).processId(6001L).erpFixedQuantitySnapshot(new BigDecimal("300"))
+                        .productionConfigSnapshotJson("{\"lossCoefficient\":1.1,\"outputMaterialIds\":[]}").build());
         MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()
                         .leaderUserId(3001L)
@@ -207,8 +212,8 @@ class MesTeamLeaderFifoAllocationServiceTest {
                         .build());
 
         assertEquals(1, preview.getLines().size());
-        assertAmount("300", preview.getLines().get(0).getAllocatedQuantity());
-        assertAmount("300", preview.getLines().get(0).getRemainingQuantityBeforeAllocation());
+        assertAmount("30", preview.getLines().get(0).getAllocatedQuantity());
+        assertAmount("30", preview.getLines().get(0).getRemainingQuantityBeforeAllocation());
         verify(orderProcessTargetService).findUniqueTargetForProcess(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L);
     }

@@ -71,6 +71,11 @@ export function validateCommonDraft(draft: SimpleCommonDraft): DraftIssue[] {
           'item',
           i.standardLowerLimit == null ? 'standardLowerLimit' : 'standardUpperLimit'
         )
+      if (
+        i.equipmentRequired === false &&
+        (i.equipmentOptions.length || i.equipmentUnboundReason?.trim())
+      )
+        add('无需设备时请清除设备绑定和待绑定原因', 'equipment')
       if (i.equipmentOptions.some((e) => !e.equipmentId || !e.equipmentNumber.trim()))
         add('设备编号不完整', 'equipment')
     })

@@ -26,6 +26,7 @@ public class DictFrameworkUtilsTest extends BaseMockitoUnitTest {
 
     @BeforeEach
     public void setUp() {
+        when(dictDataApi.getCurrentTenantId()).thenReturn(1L);
         DictFrameworkUtils.init(dictDataApi);
         DictFrameworkUtils.clearCache();
     }
@@ -56,6 +57,23 @@ public class DictFrameworkUtilsTest extends BaseMockitoUnitTest {
 
         // 断言返回值
         assertEquals("dog", DictFrameworkUtils.parseDictDataValue("animal", "狗"));
+    }
+
+    @Test
+    void cacheIsSeparatedByTenantAndInvalidationOnlyClearsTheOwner() {
+        when(dictDataApi.getDictDataList("mode")).thenReturn(List.of(
+                new DictDataRespDTO().setValue("1").setLabel("Production")));
+        assertEquals("Production", DictFrameworkUtils.parseDictDataLabel("mode", "1"));
+        when(dictDataApi.getCurrentTenantId()).thenReturn(2L);
+        when(dictDataApi.getDictDataList("mode")).thenReturn(List.of(
+                new DictDataRespDTO().setValue("1").setLabel("Test")));
+        assertEquals("Test", DictFrameworkUtils.parseDictDataLabel("mode", "1"));
+        DictFrameworkUtils.clearTenantCache(2L);
+        when(dictDataApi.getCurrentTenantId()).thenReturn(1L);
+        assertEquals("Production", DictFrameworkUtils.parseDictDataLabel("mode", "1"));
+        when(dictDataApi.getCurrentTenantId()).thenReturn(null);
+        org.junit.jupiter.api.Assertions.assertThrows(NullPointerException.class,
+                () -> DictFrameworkUtils.parseDictDataLabel("mode", "1"));
     }
 
 }

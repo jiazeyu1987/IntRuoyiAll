@@ -28,9 +28,10 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <CatalogWorkbookActions import-label="导入产品信息" import-only @success="getList" />
         <el-button
 data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
-          type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
+          type="primary" plain @click="openProjectRequestEntry('create')">新建项目及产品</el-button>
         <el-button
 data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
           @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
@@ -379,7 +380,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 详情
               </el-button>
               <el-button
-                v-if="row.productMasterId"
+                v-if="row.productMasterId && canOpenLinkedPage('/mes/md/showroom-product', 'mdm:product:query')"
                 link
                 class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
@@ -391,6 +392,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 link
                 class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
+                v-if="canOpenLinkedPage('/mdm/registration-certificate', 'dcc:registration-certificate:query-current')"
                 @click="openLinkedRegistrationCertificateManagement(row)"
               >
                 注册证
@@ -947,7 +949,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           >
             分配记录
           </el-button>
-          <el-tag class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
+          <el-tag v-if="canQueryAssociatedFiles && !associatedFilesError" class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
         </div>
       </div>
       <div
@@ -955,7 +957,9 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
         class="dcc-project-code-associated-files"
         data-testid="dcc-project-code-associated-files"
       >
-        <template v-if="associatedNavigationFiles.length > 0">
+        <el-alert v-if="!canQueryAssociatedFiles" title="当前账号无受控文件查询权限，无法查看关联文档。" type="info" :closable="false" />
+        <el-alert v-else-if="associatedFilesError" :title="associatedFilesError" type="error" :closable="false" />
+        <template v-else-if="associatedNavigationFiles.length > 0">
           <div class="dcc-project-code-associated-layout">
             <section class="dcc-project-code-associated-panel">
               <div class="dcc-project-code-associated-panel-title">阶段</div>
@@ -1230,15 +1234,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button
-            link
-            class="scheme-d-row-action scheme-d-row-action--primary"
-            type="primary"
-            @click="goAssignmentAudit(row)"
-            v-hasPermi="['dcc:project-code-assignment:audit:query']"
-          >
-            追溯
-          </el-button>
+          
           <el-button
             link
             class="scheme-d-row-action scheme-d-row-action--danger"
@@ -1370,7 +1366,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
             />
           </template>
         </el-table-column>
-        <el-table-column label="变更原因" min-width="220">
+        <el-table-column label="变更原因（选填）" min-width="220">
           <template #default="{ row }">
             <el-input
               v-model="row.changeReason"
@@ -1437,10 +1433,8 @@ import {
   type ControlledFileMetadataUpdateReqVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
-import {
-  getFileTypeTaxonomyList,
-  type DccFileTypeTaxonomyVO
-} from '@/api/dcc/controlledFile/fileTypeTaxonomies'
+import type { DccFileTypeTaxonomyVO } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
+import { canOpenProjectLinkedPage } from './project-linked-navigation'
 import type {
   DccProjectCodeAssociatedFileAiCategoryRespVO,
   DccProjectAccessRuleRespVO,
@@ -1468,6 +1462,7 @@ import {
   getProjectCodeAccessRules,
   getProjectCode,
   getProjectCodeControlledFilesPage,
+  getProjectCodeFileTaxonomies,
   getProjectCodeFileTemplate,
   getProjectCodeImportTemplate,
   getPendingProductOnboardingRequests,
@@ -1480,6 +1475,7 @@ import {
 import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
 import ProjectAttributeConfigurationDialog from './ProjectAttributeConfigurationDialog.vue'
 import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
+import CatalogWorkbookActions from './CatalogWorkbookActions.vue'
 import ProjectFolderTreePanel from './ProjectFolderTreePanel.vue'
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
 import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
@@ -1691,6 +1687,9 @@ const {
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
+const canOpenLinkedPage = (path: string, permission: string) => canOpenProjectLinkedPage(router, path, permission)
+const canQueryAssociatedFiles = computed(() => checkPermi(['dcc:project-code:query']) && checkPermi(['dcc:controlled-file:query']))
+const associatedFilesError = ref('')
 const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
   path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
 })
@@ -1887,10 +1886,6 @@ const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | 
     }
     if (row.active) activeSubjects.add(subjectKey)
     const changeReason = row.changeReason?.trim()
-    if (!changeReason) {
-      message.error('正式权限规则必须填写变更原因')
-      return null
-    }
     rules.push({
       subjectType: row.subjectType,
       subjectId,
@@ -1902,7 +1897,7 @@ const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | 
     })
   }
   if (!rules.some((rule) => rule.active && rule.accessLevel === 'OWNER')) {
-    message.error('正式权限规则至少需要一名启用的负责人 OWNER')
+    message.error('应先分配这个项目的正式负责人')
     return null
   }
   return rules
@@ -2659,6 +2654,10 @@ const openQaRegulation = (row: DccProjectCodeRespVO) => {
 }
 
 const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
+  if (!canOpenLinkedPage('/mes/md/showroom-product', 'mdm:product:query')) {
+    message.error('当前账号未获产品页面查询授权')
+    return
+  }
   if (!row.productMasterId) {
     return
   }
@@ -2669,14 +2668,14 @@ const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
 }
 
 const openLinkedRegistrationCertificateManagement = (row: DccProjectCodeRespVO) => {
+  if (!canOpenLinkedPage('/mdm/registration-certificate', 'dcc:registration-certificate:query-current')) {
+    message.error('当前账号未获注册证页面查询授权')
+    return
+  }
   router.push({
     path: '/mdm/registration-certificate',
     query: { projectCodeId: String(row.id) }
   })
-}
-
-const loadFileTypeTaxonomies = async () => {
-  fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
 }
 
 const getList = async () => {
@@ -2707,10 +2706,7 @@ const ensureLoaded = async () => {
   if (hasLoaded.value) {
     return
   }
-  await Promise.all([
-    getList(),
-    checkPermi(['dcc:controlled-file:category:manage']) ? loadFileTypeTaxonomies() : Promise.resolve()
-  ])
+  await getList()
   hasLoaded.value = true
 }
 
@@ -3005,6 +3001,7 @@ const handleDelete = async (row: DccProjectCodeRespVO) => {
 }
 
 const resetAssociatedFilesState = () => {
+  associatedFilesError.value = ''
   associatedNavigationFiles.value = []
   showHiddenAssociatedFolders.value = false
   associatedFilesTotal.value = 0
@@ -3058,17 +3055,21 @@ const getAssociatedFiles = async (
   const canApplyDetailResult = () =>
     typeof requestToken === 'undefined' || requestToken === detailRequestSequence
   const projectCodeId = projectCodeIdOverride ?? selectedProjectCode.value?.id
-  if (!projectCodeId) {
+  if (!projectCodeId || !canQueryAssociatedFiles.value) {
     if (canApplyDetailResult()) {
       resetAssociatedFilesState()
+      associatedFilesLoading.value = false
     }
     return
   }
   if (canApplyDetailResult()) {
     associatedFilesLoading.value = true
+    associatedFilesError.value = ''
   }
   try {
-    await loadFileTypeTaxonomies()
+    const taxonomies = await getProjectCodeFileTaxonomies(projectCodeId)
+    if (!canApplyDetailResult()) return
+    fileTypeTaxonomies.value = taxonomies
     const navigationFiles: ControlledFileVO[] = []
     const fetchNavigationPage = (pageNo: number) =>
       getProjectCodeControlledFilesPage(
@@ -3097,6 +3098,9 @@ const getAssociatedFiles = async (
     if (!applyAssociatedRouteFocus()) {
       ensureAssociatedSelection()
     }
+  } catch (error) {
+    if (canApplyDetailResult()) associatedFilesError.value = `关联文档加载失败：${resolveAiCategoryErrorMessage(error)}`
+    throw error
   } finally {
     if (canApplyDetailResult()) {
       associatedFilesLoading.value = false
@@ -3216,17 +3220,7 @@ const submitAssignmentDialog = async () => {
   }
 }
 
-const goAssignmentAudit = (row: DccProjectCodeAssignmentRespVO) => {
-  assignmentRecordsVisible.value = false
-  router.push({
-    path: '/dcc/controlled-file/logs',
-    query: {
-      logType: 'PROJECT_CODE_CHANGE',
-      assignmentId: row.id,
-      projectCodeId: row.projectCodeId
-    }
-  })
-}
+
 
 const loadAssignmentRecords = async () => {
   const projectCodeId = selectedProjectCode.value?.id
@@ -3543,22 +3537,22 @@ const syncDetailFromRoute = async () => {
     resetProjectFileTemplateState()
     detailLoading.value = true
   }
-  let projectCodeLoaded = false
   try {
     const projectCode = await getProjectCode(id)
     if (requestToken !== detailRequestSequence) {
       return
     }
     selectedProjectCode.value = projectCode
-    projectCodeLoaded = true
   } finally {
     if (requestToken === detailRequestSequence) {
       detailLoading.value = false
-      if (projectCodeLoaded) {
-        void loadAssociatedFilesForDetail(id, requestToken)
-        void loadProjectFileTemplateForDetail(id, requestToken)
-      }
     }
+  }
+  if (requestToken === detailRequestSequence) {
+    await Promise.all([
+      loadAssociatedFilesForDetail(id, requestToken),
+      loadProjectFileTemplateForDetail(id, requestToken)
+    ])
   }
 }
 

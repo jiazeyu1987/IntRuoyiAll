@@ -65,9 +65,15 @@ class DccRegistrationHandlingTaskDatabaseTest {
     private void bind(Long id,Long actor){tx(()->{service.bindRequest(1L,actor,100L,500L,id,"UPLOAD");return null;});}
     private String status(Long task){return jdbc.queryForObject("SELECT status FROM dcc_registration_handling_task WHERE id=?",String.class,task);}
 
-    @Test void missingConfigurationFailsAccuratelyAndDoesNotGenerateTask(){
-        var error=assertThrows(ServiceException.class,()->tx(()->service.createProjectTask(100L)));
-        assertTrue(error.getMessage().contains("注册证负责人"));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_task",Integer.class));
+    @Test void missingConfigurationDoesNotRollBackNewProjectOrGenerateTask(){
+        attributes("NMPA","Y","Y");
+        assertNull(tx(()->{
+            jdbc.update("INSERT INTO dcc_project_code SELECT 101,tenant_id,'PRJ-101',project_name,status,deleted,default_attributes_json FROM dcc_project_code WHERE id=100");
+            return service.createProjectTask(101L);
+        }));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_code WHERE id=101",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_task",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_handling_event",Integer.class));
         verifyNoInteractions(messages);
     }
     private void attributes(String market,String holder,String manufacturer) {
@@ -88,7 +94,7 @@ class DccRegistrationHandlingTaskDatabaseTest {
     }
     @Test void registrationAndManufacturerIdentityDoNotExemptAnApplicableMarket(){
         attributes("NMPA","NA","NA");
-        assertThrows(ServiceException.class,()->tx(()->service.createProjectTask(100L)));
+        assertNull(tx(()->service.createProjectTask(100L)));
         Long id=projectTask();
         assertNotNull(id);
         assertEquals("OPEN",status(id));

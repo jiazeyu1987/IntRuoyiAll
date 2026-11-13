@@ -10,3 +10,10 @@ DELETE FROM "infra_file_config";
 DELETE FROM "infra_data_source_config";
 DELETE FROM "infra_codegen_table";
 DELETE FROM "infra_codegen_column";
+
+DELETE FROM infra_tenant_config;
+
+DELETE FROM infra_tenant_file_config;
+DELETE FROM infra_tenant_file_config_snapshot;
+
+DELETE FROM infra_file_content;

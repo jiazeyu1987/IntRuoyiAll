@@ -1129,6 +1129,7 @@ public class MesProcessPoolTeamLeaderController {
                         .setRouteProcessId(item.getRouteProcessId())
                         .setProcessId(item.getProcessId())
                         .setPlannedQuantity(item.getPlannedQuantity())
+                        .setUpperQuantity(item.getUpperQuantity())
                         .setAllocatedQuantity(item.getAllocatedQuantity())
                         .setRemainingQuantity(item.getRemainingQuantity())
                         .setQuantityConflict(item.getQuantityConflict())

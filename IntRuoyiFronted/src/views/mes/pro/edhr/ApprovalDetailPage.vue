@@ -252,8 +252,8 @@
     <Dialog :title="actionDialogTitle" v-model="actionDialogVisible" width="520px">
       <el-alert v-if="actionError" :title="actionError" type="error" :closable="false" show-icon class="edhr-detail__alert" />
       <el-form label-width="96px">
-        <el-form-item label="当前密码" required>
-          <el-input v-model="actionForm.password" type="password" show-password />
+        <el-form-item label="签名凭据" required>
+          <SignatureCredentialInput v-model="actionForm.password" />
         </el-form-item>
         <el-form-item v-if="actionMode === 'reject'" label="驳回原因" required>
           <el-input v-model="actionForm.rejectReason" type="textarea" :rows="3" />
@@ -276,8 +276,8 @@
 
     <Dialog title="生成归档" v-model="archiveDialogVisible" width="520px">
       <el-form label-width="96px">
-        <el-form-item label="封存密码" required>
-          <el-input v-model="archiveForm.sealPassword" type="password" show-password />
+        <el-form-item label="签名凭据" required>
+          <SignatureCredentialInput v-model="archiveForm.sealPassword" />
         </el-form-item>
         <el-form-item label="归档备注">
           <el-input v-model="archiveForm.comment" type="textarea" :rows="3" />
@@ -300,6 +300,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import {

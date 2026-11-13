@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.process;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessPageReqVO;
@@ -19,6 +20,22 @@ import java.util.List;
  */
 @Mapper
 public interface MesProProcessMapper extends BaseMapperX<MesProProcessDO> {
+
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("productName", ListFilterQueryUtils.text("product_name")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("name", ListFilterQueryUtils.text("name")),
+            java.util.Map.entry("attention", ListFilterQueryUtils.text("attention")),
+            java.util.Map.entry("sopFileUrl", ListFilterQueryUtils.text("sop_file_url")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("manualShiftCapacity", ListFilterQueryUtils.number("manual_shift_capacity")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator"))
+    );
+
+
 
     @com.baomidou.mybatisplus.annotation.InterceptorIgnore(tenantLine = "true")
     @Select("SELECT GREATEST(" +
@@ -43,7 +60,7 @@ public interface MesProProcessMapper extends BaseMapperX<MesProProcessDO> {
                     "SELECT process_id FROM mes_pro_route_process WHERE deleted = 0 AND route_id = "
                             + reqVO.getRouteId());
         }
-        return selectPage(reqVO, wrapper);
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, wrapper, LIST_FILTER_FIELDS));
     }
 
     default List<MesProProcessDO> selectList(MesProProcessPageReqVO reqVO) {

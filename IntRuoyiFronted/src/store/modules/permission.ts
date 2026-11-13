@@ -8,6 +8,7 @@ import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { isUrl } from '@/utils/is'
 import { filterSignatureMenus } from '@/utils/signatureAccess'
+import { filterOperationLogMenus } from '@/utils/operationLogAccess'
 import { useUserStore } from './user'
 
 const { wsCache } = useCache()
@@ -133,6 +134,26 @@ const filterHiddenModuleMenus = (
         ? { children: filterHiddenModuleMenus(route.children, normalizedPath) }
         : {})
     }]
+  })
+// 在所有导航过滤完成后向上收敛；原始树用于区分叶子页与子项被全部过滤的目录。
+const hideEmptyMenuParents = (
+  routes: AppRouteRecordRaw[],
+  originalRoutes: AppRouteRecordRaw[]
+): AppRouteRecordRaw[] =>
+  routes.map((route) => {
+    const original = originalRoutes.find(
+      (item) => item.path === route.path && item.name === route.name
+    )!
+    const children = route.children
+      ? hideEmptyMenuParents(route.children, original.children || [])
+      : undefined
+    const hasNoVisibleChildren =
+      !!original.children?.length && !children?.some((child) => !child.meta?.hidden)
+    return {
+      ...route,
+      ...(children ? { children } : {}),
+      ...(hasNoVisibleChildren ? { meta: { ...route.meta, hidden: true } } : {})
+    }
   })
 const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
 const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
@@ -830,6 +851,7 @@ const mergeStaticRoutesWithDynamicRoutes = (
 }
 
 export interface PermissionState {
+  initializationError: string
   staticRouteNamesToRemove: string[]
   routers: AppRouteRecordRaw[]
   addRouters: AppRouteRecordRaw[]
@@ -838,6 +860,7 @@ export interface PermissionState {
 
 export const usePermissionStore = defineStore('permission', {
   state: (): PermissionState => ({
+    initializationError: '',
     staticRouteNamesToRemove: [],
     routers: [],
     addRouters: [],
@@ -847,9 +870,12 @@ export const usePermissionStore = defineStore('permission', {
     getRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
       const routes = orderMenus(filterSignatureMenus(
-        filterHiddenModuleMenus(this.routers), user.getRoles, user.getPermissions
+        filterOperationLogMenus(filterHiddenModuleMenus(this.routers), user.getRoles), user.getRoles, user.getPermissions
       ))
-      return useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes)
+      return hideEmptyMenuParents(
+        useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),
+        this.routers
+      )
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
@@ -857,55 +883,53 @@ export const usePermissionStore = defineStore('permission', {
     getMenuTabRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
       const routes = orderMenus(filterSignatureMenus(
-        filterHiddenModuleMenus(this.menuTabRouters), user.getRoles, user.getPermissions
+        filterOperationLogMenus(filterHiddenModuleMenus(this.menuTabRouters), user.getRoles), user.getRoles, user.getPermissions
       ))
-      return useTestModeStore().enabled === true
-        ? routes
-        : filterTestModeMenus(routes)
+      return hideEmptyMenuParents(
+        useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),
+        this.menuTabRouters
+      )
     }
   },
   actions: {
-    async generateRoutes(): Promise<unknown> {
-      return new Promise<void>(async (resolve) => {
-        // 获得菜单列表，它在登录的时候，setUserInfoAction 方法中已经进行获取
-        let res: AppCustomRouteRecordRaw[] = []
-        const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
-        if (roleRouters) {
-          res = cloneDeep(roleRouters as AppCustomRouteRecordRaw[])
-        }
-        moveCraftToProcessManagement(res)
-        const routerMap: AppRouteRecordRaw[] = generateRoute(removeRetiredProductionTaskPage(res))
-        moveProjectCodeToMasterData(routerMap)
-        const {
-          staticRouteNamesToRemove,
-          authorizedStaticRoutes,
-          mergedStaticRoutes,
-          dynamicRoutesToAdd,
-          mergedRoutesToReplace
-        } = mergeStaticRoutesWithDynamicRoutes(
-          remainingRouter,
-          routerMap,
-          permissionControlledStaticRoutes
-        )
-        this.staticRouteNamesToRemove = staticRouteNamesToRemove
-        // 动态路由，404一定要放到最后面
-        // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
-        this.addRouters = mergedRoutesToReplace.concat(dynamicRoutesToAdd, [
-          {
-            path: '/:path(.*)*',
-            // redirect: '/404',
-            component: () => import('@/views/Error/404.vue'),
-            name: '404Page',
-            meta: {
-              hidden: true,
-              breadcrumb: false
-              }
+    async generateRoutes(): Promise<void> {
+      // 获得菜单列表，它在登录的时候，setUserInfoAction 方法中已经进行获取
+      let res: AppCustomRouteRecordRaw[] = []
+      const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
+      if (roleRouters) {
+        res = cloneDeep(roleRouters as AppCustomRouteRecordRaw[])
+      }
+      moveCraftToProcessManagement(res)
+      const routerMap: AppRouteRecordRaw[] = generateRoute(removeRetiredProductionTaskPage(res))
+      moveProjectCodeToMasterData(routerMap)
+      const {
+        staticRouteNamesToRemove,
+        authorizedStaticRoutes,
+        mergedStaticRoutes,
+        dynamicRoutesToAdd,
+        mergedRoutesToReplace
+      } = mergeStaticRoutesWithDynamicRoutes(
+        remainingRouter,
+        routerMap,
+        permissionControlledStaticRoutes
+      )
+      this.staticRouteNamesToRemove = staticRouteNamesToRemove
+      // 动态路由，404一定要放到最后面
+      // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
+      this.addRouters = mergedRoutesToReplace.concat(dynamicRoutesToAdd, [
+        {
+          path: '/:path(.*)*',
+          // redirect: '/404',
+          component: () => import('@/views/Error/404.vue'),
+          name: '404Page',
+          meta: {
+            hidden: true,
+            breadcrumb: false
           }
-        ])
-        // 渲染菜单的所有路由
-        this.routers = authorizedStaticRoutes.concat(mergedStaticRoutes, dynamicRoutesToAdd)
-        resolve()
-      })
+        }
+      ])
+      // 渲染菜单的所有路由
+      this.routers = authorizedStaticRoutes.concat(mergedStaticRoutes, dynamicRoutesToAdd)
     },
     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
       this.menuTabRouters = routers

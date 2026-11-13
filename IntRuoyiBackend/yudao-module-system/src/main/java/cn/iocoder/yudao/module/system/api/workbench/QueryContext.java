@@ -6,6 +6,16 @@ public class QueryContext {
  private Long userId, tenantId;
  private String visibility, taskType, filterField, filterOperator, filterValue, sortKey, sortOrder;
  private VisibilityFilter visibilityFilter;
+ private String listFilters;
+ private transient com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> listFilterWrapper;
+ public com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> getListFilterWrapper() {
+  if(listFilterWrapper==null) {
+   listFilterWrapper=WorkbenchListFilters.wrapper(listFilters,false);
+   listFilterWrapper.setParamAlias("q.listFilterWrapper");
+  }
+  return listFilterWrapper;
+ }
+ public void setListFilters(String value) { listFilters=value; listFilterWrapper=null; }
  public boolean validated() { validate(); return true; }
  public boolean validatedChunk(ChunkCursor after,int fetchLimit) {
   validate();
@@ -15,6 +25,7 @@ public class QueryContext {
   return true;
  }
  public void validate() {
+  getListFilterWrapper();
   if(tenantId==null || tenantId<0 || userId==null || userId<=0 || visibilityFilter==null ||
    visibilityFilter.tenantId()!=tenantId || visibilityFilter.userId()!=userId ||
    !java.util.Objects.equals(visibility,visibilityFilter.partition()))throw WorkbenchFailure.INVALID_QUERY.exception();
@@ -41,6 +52,6 @@ public class QueryContext {
  }
  public String querySpec() {
   return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
-   java.util.Arrays.asList(visibility,taskType,filterField,filterOperator,filterValue,sortKey,sortOrder));
+   java.util.Arrays.asList(visibility,taskType,filterField,filterOperator,filterValue,sortKey,sortOrder,listFilters));
  }
 }

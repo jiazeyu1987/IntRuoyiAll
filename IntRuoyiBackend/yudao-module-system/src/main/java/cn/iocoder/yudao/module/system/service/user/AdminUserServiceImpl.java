@@ -792,21 +792,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
             excludedUserIds = leaderIds;
         }
-        if (reqVO.getDeptId() == null) {
-            if (!excludedUserIds.isEmpty()) return userMapper.selectPage(reqVO, deptIds, userIds, excludedUserIds);
-            return userMapper.selectPage(reqVO, deptIds, userIds);
-        }
-
-        List<AdminUserDO> matchedUsers = excludedUserIds.isEmpty()
-                ? userMapper.selectListForPage(reqVO, deptIds, userIds)
-                : userMapper.selectListForPage(reqVO, deptIds, userIds, excludedUserIds);
-        if (CollUtil.isEmpty(matchedUsers)) {
-            return PageResult.empty();
-        }
-
-        Map<Long, DeptDO> deptMap = CollectionUtils.convertMap(deptService.getDeptList(deptIds), DeptDO::getId);
-        List<AdminUserDO> sortedUsers = sortUsersByDeptLeader(matchedUsers, deptMap, reqVO.getDeptId());
-        return buildPagedResult(reqVO, sortedUsers);
+        return excludedUserIds.isEmpty() ? userMapper.selectPage(reqVO, deptIds, userIds)
+                : userMapper.selectPage(reqVO, deptIds, userIds, excludedUserIds);
     }
 
     @Override
@@ -902,60 +889,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         Set<Long> deptIds = convertSet(deptService.getChildDeptList(deptId), DeptDO::getId);
         deptIds.add(deptId); // 包括自身
         return deptIds;
-    }
-
-    private List<AdminUserDO> sortUsersByDeptLeader(List<AdminUserDO> users, Map<Long, DeptDO> deptMap,
-                                                    Long priorityDeptId) {
-        Map<Long, List<AdminUserDO>> deptUsers = new LinkedHashMap<>();
-        List<AdminUserDO> detachedUsers = new ArrayList<>();
-        for (AdminUserDO user : users) {
-            if (user.getDeptId() == null) {
-                detachedUsers.add(user);
-                continue;
-            }
-            deptUsers.computeIfAbsent(user.getDeptId(), key -> new ArrayList<>()).add(user);
-        }
-
-        List<AdminUserDO> sortedUsers = new ArrayList<>(users.size());
-        if (priorityDeptId != null && deptUsers.containsKey(priorityDeptId)) {
-            DeptDO priorityDept = deptMap.get(priorityDeptId);
-            Long priorityLeaderUserId = priorityDept != null ? priorityDept.getLeaderUserId() : null;
-            appendDeptUsersWithLeaderFirst(sortedUsers, deptUsers.get(priorityDeptId), priorityLeaderUserId);
-        }
-        for (Map.Entry<Long, List<AdminUserDO>> entry : deptUsers.entrySet()) {
-            if (priorityDeptId != null && priorityDeptId.equals(entry.getKey())) {
-                continue;
-            }
-            DeptDO dept = deptMap.get(entry.getKey());
-            Long leaderUserId = dept != null ? dept.getLeaderUserId() : null;
-            appendDeptUsersWithLeaderFirst(sortedUsers, entry.getValue(), leaderUserId);
-        }
-        sortedUsers.addAll(detachedUsers);
-        return sortedUsers;
-    }
-
-    private void appendDeptUsersWithLeaderFirst(List<AdminUserDO> sortedUsers, List<AdminUserDO> deptUsers,
-                                                Long leaderUserId) {
-        if (leaderUserId == null) {
-            sortedUsers.addAll(deptUsers);
-            return;
-        }
-        for (AdminUserDO user : deptUsers) {
-            if (leaderUserId.equals(user.getId())) {
-                sortedUsers.add(user);
-            }
-        }
-        for (AdminUserDO user : deptUsers) {
-            if (!leaderUserId.equals(user.getId())) {
-                sortedUsers.add(user);
-            }
-        }
-    }
-
-    private PageResult<AdminUserDO> buildPagedResult(UserPageReqVO reqVO, List<AdminUserDO> users) {
-        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), users.size());
-        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), users.size());
-        return new PageResult<>(new ArrayList<>(users.subList(fromIndex, toIndex)), (long) users.size());
     }
 
     private AdminUserDO validateUserForCreateOrUpdate(Long id, String username, String mobile, String email,

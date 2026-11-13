@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.system.dal.mysql.dept;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
+
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.controller.admin.dept.vo.post.PostPageReqVO;
@@ -36,11 +39,19 @@ public interface PostMapper extends BaseMapperX<PostDO> {
     }
 
     default PageResult<PostDO> selectPage(PostPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<PostDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<PostDO>()
                 .likeIfPresent(PostDO::getCode, reqVO.getCode())
                 .likeIfPresent(PostDO::getName, reqVO.getName())
                 .eqIfPresent(PostDO::getStatus, reqVO.getStatus())
-                .orderByDesc(PostDO::getId));
+                .orderByDesc(PostDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("id", number("id")),
+                java.util.Map.entry("name", text("name")),
+                java.util.Map.entry("code", text("code")),
+                java.util.Map.entry("sort", number("sort")),
+                java.util.Map.entry("status", number("status")),
+                java.util.Map.entry("remark", text("remark")),
+                java.util.Map.entry("createTime", dateTime("create_time"))
+        )));
     }
 
     default PostDO selectByName(String name) {

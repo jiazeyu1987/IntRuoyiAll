@@ -183,6 +183,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
         String sql = query.getSqlSegment();
         assertTrue(sql.contains("notification_only IS NULL OR notification_only ="));
         assertTrue(sql.contains("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)"));
+        assertTrue(sql.contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertTrue(sql.contains("FIND_IN_SET("));
         assertTrue(sql.contains("ao.tenant_id = mes_active_order_handoff_task.tenant_id"));
         assertTrue(sql.contains("ao.deleted = 0 AND CAST(ao.active_status AS BINARY) = CAST('ACTIVE' AS BINARY)"));
@@ -193,10 +194,12 @@ public class MesEdhrApprovalCenterQueryContractTest {
         assertTrue(query.getParamNameValuePairs().containsValue("PQC_%"));
         assertFalse(sql.contains("completed_by"));
         var done = handoffs.approvalCenterQuery(1L, 12L, false, true, null);
+        assertTrue(done.getSqlSegment().contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertTrue(done.getSqlSegment().contains("completed_by ="));
         assertTrue(done.getSqlSegment().contains("FIND_IN_SET("));
         assertFalse(done.getSqlSegment().contains("active_status"));
         var global = handoffs.approvalCenterQuery(1L, 12L, true, true, null);
+        assertTrue(global.getSqlSegment().contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertFalse(global.getSqlSegment().contains("completed_by"));
         assertFalse(global.getSqlSegment().contains("FIND_IN_SET"));
         assertTrue(global.getSqlSegment().contains("tenant_id ="));
@@ -264,11 +267,11 @@ public class MesEdhrApprovalCenterQueryContractTest {
                     + "(5,1,FALSE,NULL,'12',NULL,3,'TODO','QA_REVIEW'),(6,1,FALSE,NULL,'12',NULL,4,'TODO','PRODUCTION_HANDOFF'),"
                     + "(7,1,TRUE,NULL,'12',NULL,1,'TODO','PRODUCTION_REVIEW'),(8,2,FALSE,NULL,'12',NULL,3,'TODO','PRODUCTION_REVIEW'),"
                     + "(9,1,FALSE,NULL,'112',NULL,1,'TODO','PRODUCTION_REVIEW'),(10,1,FALSE,NULL,'12',12,2,'DONE','PRODUCTION_REVIEW'),"
-                    + "(11,1,FALSE,NULL,'12',112,2,'DONE','PQC_REVIEW'),(12,1,FALSE,NULL,'112',12,2,'DONE','QA_REVIEW')");
-            assertEquals(List.of(2L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(2L, 9L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(10L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,true,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(10L, 11L, 12L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,true,null), "mes_active_order_handoff_task"));
+                    + "(11,1,FALSE,NULL,'12',112,2,'DONE','PQC_REVIEW'),(12,1,FALSE,NULL,'112',12,2,'DONE','QA_REVIEW'),(13,1,FALSE,NULL,'12',NULL,1,'TODO','PQC_REVIEW'),(14,1,FALSE,NULL,'12',12,2,'DONE','PQC_REVIEW')");
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,true,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(12L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,true,null), "mes_active_order_handoff_task"));
         }
     }
 
@@ -321,9 +324,13 @@ public class MesEdhrApprovalCenterQueryContractTest {
             var handoffCounts = new ArrayList<LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>>();
             var handoffLists = new ArrayList<LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>>();
             // Only capture wrappers from real default prefix methods; returned rows/counts are not DB evidence.
-            doAnswer(call -> { workCounts.add(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+            doAnswer(call -> { workCounts.add(call.getArgument(0)); return 1L; }).when(work).selectCount(any(Wrapper.class));
             doAnswer(call -> { workLists.add(call.getArgument(0)); return List.of(); }).when(work).selectList(any(Wrapper.class));
-            doAnswer(call -> { handoffCounts.add(call.getArgument(0)); return 0L; }).when(handoffs).selectCount(any(Wrapper.class));
+            doAnswer(call -> {
+                LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO> query = call.getArgument(0);
+                handoffCounts.add(query);
+                return query.getSqlSegment().contains("task_type IS NULL") ? 0L : 1L;
+            }).when(handoffs).selectCount(any(Wrapper.class));
             doAnswer(call -> { handoffLists.add(call.getArgument(0)); return List.of(); }).when(handoffs).selectList(any(Wrapper.class));
             int statements = 0;
             for (boolean done : List.of(false, true)) for (boolean global : List.of(false, true)) {
@@ -377,8 +384,9 @@ public class MesEdhrApprovalCenterQueryContractTest {
                     assertTrue(Pattern.compile("task_type IS NULL OR CAST\\(task_type AS BINARY\\) NOT IN ")
                             .matcher(invalidSql).find(), "NULL rejection must share the parenthesized invalid-type branch");
                     assertTrue(Pattern.compile("CAST\\(task_type AS BINARY\\) NOT IN \\(CAST\\(\\? AS BINARY\\)"
-                            + "(?:, CAST\\(\\? AS BINARY\\)){7}\\)").matcher(invalidSql).find(),
-                            "all eight formal whitelist values must be bound binary operands");
+                            + "(?:, CAST\\(\\? AS BINARY\\)){"
+                            + (cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.TYPES.size() - 1) + "}\\)").matcher(invalidSql).find(),
+                            "all formal whitelist values must be bound binary operands");
                     var formalTypes = cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.TYPES
                             .stream().sorted().toList();
                     BoundSql invalidBound = configuration.getMappedStatement(MesActiveOrderHandoffTaskMapper.class.getName()

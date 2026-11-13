@@ -10,9 +10,9 @@
       :limit="pageSize"
       @update:page="handlePageChange"
       @update:limit="emit('page-change', { pageNo: 1, pageSize: $event })"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="publishFilteredProducts"
-      :list-rows="columnFilterListRows"
+      server-filter
+      :query-model="queryModel"
+      :server-filter-query="serverFilterQuery"
       :columns="listFilterColumns0"
       :column-filter-definitions="allColumnDisplayFilters0"
       :show-column-settings="false"
@@ -573,7 +573,8 @@ interface TranslatePublishTaskStatus {
 
 const props = defineProps<{
   products: unknown[]
-  loadFilterRows: () => Promise<unknown[]>
+  queryModel: { pageNo: number; listFilters?: string }
+  serverFilterQuery: () => Promise<unknown>
   loading?: boolean
   manageProducts?: boolean
   canBatchGeneratePublishedMedia?: boolean
@@ -635,7 +636,6 @@ const emit = defineEmits<{
   publish: [product: Record<string, unknown>]
   'page-change': [pagination: { pageNo: number; pageSize: number }]
   search: [filters: ProductListFilters]
-  filteredRows: [rows: unknown[]]
   delete: [product: Record<string, unknown>]
 }>()
 
@@ -1530,25 +1530,6 @@ const resetFilters = () => {
   draftFilters.incompleteStatus = ''
   draftFilters.approvalStatus = ''
   emitSearch()
-}
-
-const publishedProducts = shallowRef<unknown[]>()
-const publishedFilterRows = shallowRef<any[]>()
-const columnFilterListRows = computed(() =>
-  toRaw(props.products) === toRaw(publishedProducts.value)
-    ? publishedFilterRows.value
-    : props.products
-)
-const publishFilteredProducts = (rows: any[]) => {
-  const products = rows.map((row) => row.__filterSource)
-  publishedFilterRows.value = rows
-  publishedProducts.value = products
-  emit('filteredRows', products)
-}
-
-const loadColumnFilterRows0 = async () => {
-  const rows = await props.loadFilterRows()
-  return normalizeProductRows(rows).map((row, index) => ({ ...row, __filterSource: rows[index] }))
 }
 
 const listFilterColumns0 = [

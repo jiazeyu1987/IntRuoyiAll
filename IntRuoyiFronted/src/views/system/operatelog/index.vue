@@ -1,277 +1,34 @@
 <template>
-
-
+  <el-alert v-if="!canReadLogs" title="仅管理员和审核员可以查看操作日志。" type="error" :closable="false" />
+  <template v-else>
   <ContentWrap>
-    <UnifiedListTemplate
-      @query="handleQuery"
-      @reset="resetQuery"
-      table-key="system.operateLog.main"
-      :query-model="queryParams"
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
-      :columns="listFilterColumns0"
-      :show-column-settings="false"
-    >
-      <template #filters>
-        <el-form
-          class="-mb-15px"
-          :model="queryParams"
-          ref="queryFormRef"
-          :inline="true"
-          label-width="68px"
-        >
-          <el-form-item label="操作人" prop="userId">
-            <UserSelectV2
-              allow-inactive
-              v-model="queryParams.userId"
-              clearable
-              placeholder="请输入操作人员"
-              class="!w-240px"
-              :user-options="userList"
-            />
-          </el-form-item>
-          <el-form-item label="操作模块" prop="type">
-            <el-input
-              v-model="queryParams.type"
-              placeholder="请输入操作模块"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="操作名" prop="subType">
-            <el-input
-              v-model="queryParams.subType"
-              placeholder="请输入操作名"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="操作内容" prop="action">
-            <el-input
-              v-model="queryParams.action"
-              placeholder="请输入操作名"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="操作时间" prop="createTime">
-            <el-date-picker
-              v-model="queryParams.createTime"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              type="daterange"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              :default-time="[new Date('1 00:00:00'), new Date('1 23:59:59')]"
-              class="!w-240px"
-            />
-          </el-form-item>
-          <el-form-item label="业务编号" prop="bizId">
-            <el-input
-              v-model="queryParams.bizId"
-              placeholder="请输入业务编号"
-              clearable
-              @keyup.enter="handleQuery"
-              class="!w-240px"
-            />
-          </el-form-item>
-        </el-form>
-      </template>
-      <template #actions>
-        <el-button
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['system:operate-log:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          导出
-        </el-button>
-      </template>
-      <template #table="{ resolveRows }">
-        <el-table stripe border v-loading="loading" :data="resolveRows(list)">
-          <el-table-column label="日志编号" align="center" prop="id" width="100" />
-          <el-table-column label="操作人" align="center" prop="userName" width="120" />
-          <el-table-column label="操作模块" align="center" prop="type" width="120" />
-          <el-table-column label="操作名" align="center" prop="subType" width="160" />
-          <el-table-column label="操作内容" align="center" prop="action" />
-          <el-table-column
-            label="操作时间"
-            align="center"
-            prop="createTime"
-            width="180"
-            :formatter="dateFormatter"
-          />
-          <el-table-column label="业务编号" align="center" prop="bizId" width="120" />
-          <el-table-column label="操作 IP" align="center" prop="userIp" width="120" />
-          <el-table-column label="操作" align="center" fixed="right" width="60">
-            <template #default="scope">
-              <el-button
-                link
-                type="primary"
-                @click="openDetail(scope.row)"
-                v-hasPermi="['system:operate-log:query']"
-              >
-                详情
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <!-- 分页 -->
-      </template>
-    </UnifiedListTemplate>
-</ContentWrap>
-
-  <!-- 表单弹窗：详情 -->
-  <OperateLogDetail ref="detailRef" />
+    <el-form inline>
+      <el-form-item label="日志来源">
+        <el-select :model-value="selectedId" class="!w-360px" filterable @change="selectSource">
+          <el-option v-for="source in choices" :key="source.id" :value="source.id" :label="source.label" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <el-alert v-if="!selected" title="该日志来源不存在或当前账号没有查看权限。" type="error" :closable="false" />
+  </ContentWrap>
+  <component v-if="selected?.component" :is="selected.component" :key="panelKey" />
+  <BusinessLogPanel v-else-if="selected" :key="panelKey" :source="selected" />
+  </template>
 </template>
-<script lang="ts" setup>
-
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
-
-import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
-import { isSearchFormInputEmpty } from '@/utils/search'
-import { dateFormatter } from '@/utils/formatTime'
-import download from '@/utils/download'
-import * as OperateLogApi from '@/api/system/operatelog'
-import OperateLogDetail from './OperateLogDetail.vue'
-import * as UserApi from '@/api/system/user'
-const userList = ref<UserApi.UserVO[]>([]) // 用户列表
-
+<script setup lang="ts">
+import { hasPermission } from '@/directives/permission/hasPermi'
+import BusinessLogPanel from './BusinessLogPanel.vue'
+import { logSources } from './logSources'
+import { useUserStore } from '@/store/modules/user'
+import { canAccessOperationLogs } from '@/utils/operationLogAccess'
 defineOptions({ name: 'SystemOperateLog' })
-
-const message = useMessage() // 消息弹窗
-
-const loading = ref(true) // 列表的加载中
-const total = ref(0) // 列表的总页数
-const list = ref<OperateLogApi.OperateLogVO[]>([]) // 列表的数据
-const queryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  userId: undefined,
-  type: undefined,
-  subType: undefined,
-  action: undefined,
-  createTime: [],
-  bizId: undefined
-})
-const queryFormRef = ref() // 搜索的表单
-const exportLoading = ref(false) // 导出的加载中
-
-/** 查询列表 */
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await OperateLogApi.getOperateLogPage(queryParams)
-    list.value = data.list
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
-}
-
-/** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
-
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
-}
-
-/** 详情操作 */
-const detailRef = ref()
-const openDetail = (data: OperateLogApi.OperateLogVO) => {
-  detailRef.value.open(data)
-}
-
-/** 导出按钮操作 */
-const handleExport = async () => {
-  try {
-    // 导出的二次确认
-    await message.exportConfirm()
-    // 发起导出
-    exportLoading.value = true
-    const data = await OperateLogApi.exportOperateLog(queryParams)
-    download.excel(data, '操作日志.xls')
-  } catch {
-  } finally {
-    exportLoading.value = false
-  }
-}
-
-/** 初始化 **/
-onMounted(async () => {
-  await getList()
-  // 获得用户列表
-  userList.value = await UserApi.getSimpleUserList()
-})
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    OperateLogApi.getOperateLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
-
-const listFilterColumns0 = [
-  {
-    key: 'id',
-    label: '日志编号',
-    visible: true
-  },
-  {
-    key: 'userName',
-    label: '操作人',
-    visible: true
-  },
-  {
-    key: 'type',
-    label: '操作模块',
-    visible: true
-  },
-  {
-    key: 'subType',
-    label: '操作名',
-    visible: true
-  },
-  {
-    key: 'action',
-    label: '操作内容',
-    visible: true
-  },
-  {
-    key: 'createTime',
-    label: '操作时间',
-    visible: true
-  },
-  {
-    key: 'bizId',
-    label: '业务编号',
-    visible: true
-  },
-  {
-    key: 'userIp',
-    label: '操作 IP',
-    visible: true
-  }
-]
+const route = useRoute(), router = useRouter()
+const userStore = useUserStore()
+const canReadLogs = computed(() => canAccessOperationLogs(userStore.getRoles))
+const allowed = computed(() => logSources.filter(source => !source.permissions.length || hasPermission(source.permissions)))
+const selectedId = computed(() => typeof route.query.logSource === 'string' ? route.query.logSource : allowed.value[0]?.id)
+const selected = computed(() => allowed.value.find(source => source.id === selectedId.value))
+const choices = computed(() => allowed.value.filter(source => !source.internal || source.id === selectedId.value))
+const panelKey = computed(() => `${selectedId.value}:${route.fullPath}`)
+const selectSource = (logSource: string) => router.replace({ path: route.path, query: { logSource } })
 </script>

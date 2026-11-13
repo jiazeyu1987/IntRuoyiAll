@@ -43,20 +43,8 @@
 
     <el-divider />
 
-    <div class="profile-nas-table-sync__log-title">最近执行日志</div>
-    <el-table v-loading="runLoading" :data="runs" class="profile-nas-table-sync__table" border>
-      <el-table-column prop="id" label="运行编号" width="100" />
-      <el-table-column prop="triggerType" label="触发" width="90" />
-      <el-table-column prop="status" label="状态" width="100" />
-      <el-table-column prop="startedAt" label="开始时间" min-width="160" />
-      <el-table-column prop="outputPath" label="NAS 输出路径" min-width="220" show-overflow-tooltip />
-      <el-table-column label="表格" min-width="120">
-        <template #default="{ row }">
-          {{ row.successTableCount || 0 }}/{{ row.totalTableCount || 0 }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="failureMessage" label="失败原因" min-width="220" show-overflow-tooltip />
-    </el-table>
+    
+    
   </el-card>
 </template>
 
@@ -67,7 +55,7 @@ import { ElMessage } from 'element-plus'
 import {
   ErpNasTableSyncApi,
   type ErpNasTableSyncPlanVO,
-  type ErpNasTableSyncRunVO,
+  
   type ErpNasTableSyncTypeVO
 } from '@/api/erp/nasTableSync'
 
@@ -77,10 +65,10 @@ const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const running = ref(false)
-const runLoading = ref(false)
+
 const loadError = ref('')
 const syncTypes = ref<ErpNasTableSyncTypeVO[]>([])
-const runs = ref<ErpNasTableSyncRunVO[]>([])
+
 const selectedSyncTypes = ref<string[]>([])
 const form = reactive<ErpNasTableSyncPlanVO>({
   enabled: false,
@@ -110,17 +98,7 @@ const applyPlan = (plan: ErpNasTableSyncPlanVO) => {
   selectedSyncTypes.value = form.items.filter((item) => item.enabled).map((item) => item.syncType)
 }
 
-const loadRuns = async () => {
-  runLoading.value = true
-  try {
-    const page = await ErpNasTableSyncApi.getRunPage({ pageNo: 1, pageSize: 10 })
-    runs.value = page.list || []
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '最近执行日志加载失败'))
-  } finally {
-    runLoading.value = false
-  }
-}
+
 
 const loadData = async () => {
   loading.value = true
@@ -132,7 +110,7 @@ const loadData = async () => {
     ])
     syncTypes.value = typeList
     applyPlan(plan)
-    await loadRuns()
+    
   } catch (error) {
     loadError.value = resolveErrorMessage(error, 'NAS表格自动同步配置加载失败')
     ElMessage.error(loadError.value)
@@ -188,7 +166,7 @@ const handleRunOnce = async () => {
     } else {
       ElMessage.success('立即执行一次已完成')
     }
-    await loadRuns()
+    
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '立即执行一次失败'))
   } finally {

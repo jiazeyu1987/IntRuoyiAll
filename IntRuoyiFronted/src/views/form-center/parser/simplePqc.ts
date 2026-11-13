@@ -28,6 +28,13 @@ export function isNonSensoryTool(inspectionTool: string): boolean {
   return !['目测', '手感', '目测、手感', '/', '无'].includes(inspectionTool.trim())
 }
 
+export function needsEquipment(item: QaInspectionRegulationItemVO): boolean {
+  return (
+    item.equipmentRequired ??
+    (item.equipmentOptions.length > 0 || isNonSensoryTool(item.inspectionTool))
+  )
+}
+
 export function inspectionLevelIssue(item: PatrolSampling): string | undefined {
   if (
     item.applicableInspectionTypes.includes('PATROL') &&
@@ -137,7 +144,8 @@ export function differences(
     'critical',
     'failureRule',
     'equipmentOptions',
-    'equipmentUnboundReason'
+    'equipmentUnboundReason',
+    'equipmentRequired'
   ] as const
   draft.processes.forEach((p) => {
     const matches = current.processes.filter((old) => old.processName === p.processName)
@@ -260,12 +268,18 @@ export function validateDraft(draft: Draft, confirmedUnbound: string[] = []): Dr
           i.standardLowerLimit == null ? 'standardLowerLimit' : 'standardUpperLimit'
         )
       if (
-        isNonSensoryTool(i.inspectionTool) &&
+        i.equipmentRequired !== false &&
+        (i.equipmentRequired === true || isNonSensoryTool(i.inspectionTool)) &&
         !i.equipmentOptions.length &&
         !i.equipmentUnboundReason?.trim() &&
         !confirmedUnbound.includes(i.itemCode)
       )
         add('请选择设备编号，或填写器具暂未绑定原因', 'equipment')
+      if (
+        i.equipmentRequired === false &&
+        (i.equipmentOptions.length || i.equipmentUnboundReason?.trim())
+      )
+        add('无需设备时请清除设备绑定和待绑定原因', 'equipment')
       if (i.equipmentOptions.length && i.equipmentUnboundReason?.trim())
         add('已选择设备，请清除器具未绑定原因', 'equipment')
       if (i.equipmentOptions.some((e) => !e.equipmentId || !e.equipmentNumber.trim()))

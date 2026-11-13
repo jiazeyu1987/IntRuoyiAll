@@ -9,6 +9,7 @@ public class MesPqcProductionReleasePageQuery {
 
     private Integer pageNo;
     private Integer pageSize;
+    private String listFilters;
     private String viewStatus;
     private String workOrderCode;
     private String batchCode;

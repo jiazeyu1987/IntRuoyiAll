@@ -33,10 +33,8 @@
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
         @pagination="getList()"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="list = $event"
-        :list-rows="list"
-        @column-filter-reset="getList()"
+        server-filter
+        :server-filter-query="() => getList()"
         :columns="listFilterColumns0"
         :show-column-settings="false"
         :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -216,13 +214,9 @@
             />
           </el-form-item>
           <el-form-item label="签名凭据" required>
-            <el-input
+            <SignatureCredentialInput
               v-model="releaseForm.signaturePassword"
-              type="password"
               data-pqc-production-release-signature-password
-              show-password
-              autocomplete="current-password"
-              placeholder="请输入当前账号电子签名凭据（PIN 码或密码）"
               @keyup.enter="submitRelease"
             />
           </el-form-item>
@@ -258,11 +252,12 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('PQC_RELEASE')
 const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
@@ -345,6 +340,7 @@ const releaseRequestStates = releaseRequestOwner.pqcReleaseRequests.states
 let listRequestSequence = 0
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   applicationId: undefined as string | undefined,
@@ -377,6 +373,7 @@ const getList = async (isCurrent: () => boolean = () => true) => {
   loadError.value = ''
   try {
     const data = await getPqcProductionReleasePage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       viewStatus: activeView.value,
@@ -385,7 +382,7 @@ const getList = async (isCurrent: () => boolean = () => true) => {
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
-    if (!current()) return
+    if (!current()) return false
     if (queryParams.applicationId && (
       data.list?.length !== 1 || data.total !== 1 ||
       String(data.list[0].applicationId) !== queryParams.applicationId ||
@@ -395,11 +392,13 @@ const getList = async (isCurrent: () => boolean = () => true) => {
     }
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
-    if (!current()) return
+    if (!current()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'PQC生产放行列表加载失败。')
+    throw error
   } finally {
     if (current()) loading.value = false
   }
@@ -978,22 +977,6 @@ const retryOrderDetail = () => {
 }
 
 onMounted(() => openPqcReleaseFromRoute())
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize,
-    viewStatus: activeView.value,
-    applicationId: queryParams.applicationId,
-    pqcReleaseWorkTaskId: queryParams.pqcReleaseWorkTaskId,
-    workOrderCode: queryParams.workOrderCode.trim() || undefined,
-    batchCode: queryParams.batchCode.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getPqcProductionReleasePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

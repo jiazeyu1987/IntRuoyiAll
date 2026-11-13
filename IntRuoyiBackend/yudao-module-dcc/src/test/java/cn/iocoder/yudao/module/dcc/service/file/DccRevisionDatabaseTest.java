@@ -732,7 +732,7 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
     void installLegacyScope() {
         jdbc.update("UPDATE dcc_controlled_file SET source_original_file_name=NULL,source_sha256=? WHERE master_id=10","a".repeat(64));
         jdbc.update("INSERT INTO infra_file(id,config_id,name,path,size) VALUES(100,28,'SOP.pdf','sealed/body',4)");
-        jdbc.update("INSERT INTO infra_file_config(id,storage,config) VALUES(28,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
+        jdbc.update("INSERT INTO infra_tenant_file_config(id,tenant_id,storage,config) VALUES(28,1,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
         jdbc.update("INSERT INTO dcc_controlled_file_name_claim(id,tenant_id,master_id,normalized_name) VALUES(7,1,10,'old-template')");
         jdbc.update("INSERT INTO dcc_legacy_source_name_scope(id,tenant_id,scope_id,manifest_sha256,facts_sha256,bytes_receipt_sha256,user_decision_sha256,scope_identity_sha256,status,claim_count,version_count,source_count,edge_count,name_count,verified_at,activated_at,actor_id,reason,request_id) VALUES(1,1,'legacy',?,?,?,?,?,'VERIFIED',1,2,1,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,99,'verified historic files','legacy')","b".repeat(64),"c".repeat(64),"d".repeat(64),"e".repeat(64),"f".repeat(64));
         for(long id:new long[]{20,21})jdbc.update("INSERT INTO dcc_legacy_source_name_evidence(tenant_id,verification_scope_id,legacy_claim_id,legacy_master_id,controlled_file_id,source_file_id,config_id,source_path,storage_type,storage_endpoint,storage_bucket,storage_region,storage_path_style,version_no,source_original_file_name,expected_sha256,actual_sha256,expected_size,actual_size,bytes_status,expected_version_count,claim_normalized_name,master_project_id,master_leaf_id,master_number,metadata_identity_sha256,preimage_sha256,proof_row_sha256) VALUES(1,1,7,10,?,100,28,'sealed/body',20,'http://127.0.0.1:9000','originals','us-east-1',1,?,'SOP.pdf',?,?,4,4,'MATCH',2,'old-template',5,6,'SOP-001',?,?,?)",id,id==20?"A/1":"A/1-1","a".repeat(64),"a".repeat(64),"b".repeat(64),"c".repeat(64),"d".repeat(64));
@@ -740,7 +740,7 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
     }
     @AfterEach void cleanLegacyStorage() {
         jdbc.update("DELETE FROM dcc_controlled_file_source_ownership WHERE tenant_id=1 AND source_file_id=301 AND origin_source_file_id=100 AND ownership_type='CHECKIN'");
-        jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_file_config WHERE id=28");
+        jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_tenant_file_config WHERE id=28");
     }
     private void reserve() { claimService.claimIdentity(1L,"SOP.pdf",5L,6L,"SOP-001",10L); }
     private void additionalMaster(Long id) {

@@ -1,26 +1,38 @@
 <template>
   <div class="pqc-inspection-selector" role="group" aria-label="选择本次检验类型">
     <div v-if="tabs.length" class="pqc-inspection-selector__types">
-      <button
+      <div
         v-for="tab in tabs"
         :key="tab.ruleKey"
-        type="button"
-        :data-pqc-inspection-type-tab="tab.type"
-        :data-pqc-inspection-rule-tab="tab.ruleKey"
-        :class="{ active: selectedRuleKey === tab.ruleKey }"
-        :aria-pressed="selectedRuleKey === tab.ruleKey"
-        :disabled="disabled"
-        @click="selectType(tab.ruleKey)"
+        class="pqc-inspection-selector__type"
+        :class="{ 'is-patrol': tab.type === 'PATROL' }"
       >
-        <strong>{{ tab.label }}</strong>
-        <span v-if="tab.type === 'PATROL'">
-          {{
-            selectedRuleKey === 'PATROL' && selectedPatrolRound
-              ? `第 ${selectedPatrolRound} 轮`
-              : '选择轮次 / 新建'
-          }}
-        </span>
-      </button>
+        <button
+          type="button"
+          :data-pqc-inspection-type-tab="tab.type"
+          :data-pqc-inspection-rule-tab="tab.ruleKey"
+          :class="{ active: selectedRuleKey === tab.ruleKey }"
+          :aria-pressed="selectedRuleKey === tab.ruleKey"
+          :disabled="disabled"
+          @click="selectType(tab.ruleKey)"
+        >
+          <strong>{{ tab.label }}<small class="pqc-inspection-selector__count">({{ tab.submittedCount }}/{{ tab.totalCount }})</small></strong>
+          <span v-if="tab.type === 'PATROL'">
+            {{
+              `第 ${displayedPatrolRound} 轮`
+            }}
+          </span>
+        </button>
+        <button
+          v-if="tab.type === 'PATROL'"
+          type="button"
+          class="pqc-inspection-selector__add"
+          data-pqc-patrol-options
+          aria-label="切换或新建巡检轮次"
+          :disabled="disabled"
+          @click="patrolDialog?.showModal()"
+        >+</button>
+      </div>
     </div>
     <p v-else class="pqc-inspection-selector__empty">当前没有可选择的检验任务</p>
     <dialog
@@ -35,7 +47,7 @@
         >
       </header>
       <p v-if="!patrolRounds.length" class="pqc-inspection-selector__current"
-        >尚未创建巡检，点击下方按钮开始第 1 轮。</p
+        >当前订单尚无巡检任务，点击巡检按钮自动开始第 1 轮。</p
       >
       <div class="pqc-inspection-selector__rules">
         <article
@@ -45,7 +57,7 @@
           <button
 type="button" class="pqc-inspection-selector__round-select" :data-pqc-patrol-round="round.roundNo"
             :class="{ active: selectedRuleKey === 'PATROL' && selectedPatrolRound === round.roundNo }"
-            :disabled="disabled || round.pendingCount === 0 || round.cancelled"
+            :disabled="disabled || round.cancelled"
             @click="selectRound(round.roundNo)">
             <span class="pqc-inspection-selector__round-heading">
               <strong>第 {{ round.roundNo }} 轮</strong>
@@ -79,7 +91,7 @@ v-if="currentTask?.inspectionType === 'PATROL'" type="button" :disabled="disable
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import type {
   FrontlinePqcInspectionRuleKey,
@@ -91,6 +103,8 @@ interface InspectionRuleTab {
   ruleKey: FrontlinePqcInspectionRuleKey
   type: FrontlinePqcInspectionType
   label: string
+  submittedCount: number
+  totalCount: number
 }
 const props = defineProps<{
   tabs: InspectionRuleTab[]
@@ -112,9 +126,20 @@ const emit = defineEmits<{
   (event: 'move-draft'): void
 }>()
 const patrolDialog = ref<HTMLDialogElement>()
+const displayedPatrolRound = computed(() => props.selectedPatrolRound ??
+  Math.max(1, ...props.patrolRounds.filter((round) => !round.cancelled).map((round) => round.roundNo)))
 function selectType(ruleKey: FrontlinePqcInspectionRuleKey) {
   if (props.disabled) return
-  if (ruleKey === 'PATROL') patrolDialog.value?.showModal()
+  if (ruleKey === 'PATROL') {
+    if (!props.patrolRounds.length) {
+      emit('create-patrol')
+      return
+    }
+    const round = props.patrolRounds.find((round) =>
+      round.roundNo === displayedPatrolRound.value && !round.cancelled)
+    if (round) emit('select-round', round.roundNo)
+    else emit('select-rule', ruleKey)
+  }
   else if (ruleKey === 'FINAL' && props.finalCreated === false) emit('create-final')
   else emit('select-rule', ruleKey)
 }
@@ -128,7 +153,7 @@ function roundAction(action: 'cancel-round' | 'restore-round' | 'correct-round',
 function selectRound(roundNo: number) {
   if (
     props.disabled ||
-    !props.patrolRounds.some((round) => round.roundNo === roundNo && round.pendingCount > 0 && !round.cancelled)
+    !props.patrolRounds.some((round) => round.roundNo === roundNo && !round.cancelled)
   )
     return
   patrolDialog.value?.close()
@@ -162,6 +187,23 @@ onBeforeUnmount(() => patrolDialog.value?.close())
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
   gap: 10px;
+}
+.pqc-inspection-selector__type {
+  display: grid;
+  min-width: 0;
+  &.is-patrol {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    > button:first-child {
+      border-radius: 18px 0 0 18px;
+    }
+    > .pqc-inspection-selector__add {
+      border-left: 0;
+      border-radius: 0 18px 18px 0;
+      font-size: 36px;
+      font-weight: 900;
+      padding: 8px 0;
+    }
+  }
 }
 .pqc-inspection-selector button {
   min-width: 0;
@@ -204,6 +246,11 @@ onBeforeUnmount(() => patrolDialog.value?.close())
   color: var(--frontline-muted);
   text-align: center;
   font-size: 20px;
+}
+.pqc-inspection-selector__count {
+  margin-left: 6px;
+  font-size: 0.65em;
+  white-space: nowrap;
 }
 .pqc-inspection-selector__dialog {
   margin: auto;

@@ -67,6 +67,7 @@ public class MesTeamLeaderActiveOrderRow {
         private Long routeProcessId;
         private Long processId;
         private BigDecimal plannedQuantity;
+        private BigDecimal upperQuantity;
         private BigDecimal allocatedQuantity;
         private BigDecimal remainingQuantity;
         private Boolean quantityConflict;

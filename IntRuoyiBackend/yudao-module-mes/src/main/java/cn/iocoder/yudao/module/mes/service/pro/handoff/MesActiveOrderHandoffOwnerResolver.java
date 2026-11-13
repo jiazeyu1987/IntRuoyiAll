@@ -332,7 +332,7 @@ public class MesActiveOrderHandoffOwnerResolver {
                 .peek(row->require(row.getLeaderUserId()!=null&&row.getLeaderUserId()>0
                         &&row.getEmployeeUserId()!=null&&row.getEmployeeUserId()>0,"PQC所选人员责任缺少有效系统身份"))
                 .map(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId).distinct().toList();
-        require(ids.size()==1,"PQC原提交人员必须具有唯一启用的正式组长责任配置");
+        require(ids.size()==1,"当前账号需要绑定一个PQC组长");
         user(ids.get(0),"mes:pro-process-pool-team-leader:review");return ids.get(0);
     }
 

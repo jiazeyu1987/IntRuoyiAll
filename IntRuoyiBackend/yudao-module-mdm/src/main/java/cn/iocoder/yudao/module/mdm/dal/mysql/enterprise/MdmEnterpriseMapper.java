@@ -8,6 +8,9 @@ import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterpriseP
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import org.apache.ibatis.annotations.Mapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
@@ -38,7 +41,13 @@ public interface MdmEnterpriseMapper extends BaseMapperX<MdmEnterpriseDO> {
             wrapper.and(item -> item.like(MdmEnterpriseDO::getEnterpriseCode, keyword)
                     .or().like(MdmEnterpriseDO::getName, keyword));
         }
-        return selectPage(reqVO, wrapper);
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, wrapper, Map.ofEntries(
+                Map.entry("enterpriseCode", text("enterprise_code")),
+                Map.entry("name", text("name")),
+                Map.entry("type", text("CASE type WHEN 'OWNED_COMPANY' THEN '自有公司' WHEN 'ENTRUSTED_PARTY' THEN '受托企业' ELSE type END")),
+                Map.entry("status", text("CASE WHEN status = 'ENABLE' THEN '启用' ELSE '停用' END")),
+                Map.entry("updateTime", dateTime("update_time"))
+        )));
     }
 
     default List<MdmEnterpriseDO> selectSimpleList(String type, String status, String keyword) {

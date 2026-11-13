@@ -346,8 +346,8 @@ public class ShowroomApiRuntime {
     private final ShowroomReleasePublisherService releasePublisherService;
     private final ShowroomReleaseAutoPublishService releaseAutoPublishService;
     private final ShowroomPublicReleaseReadbackVerifier publicReleaseReadbackVerifier;
-    private final ReentrantLock productBatchNarrationAutoCheckLock = new ReentrantLock();
-    private final ReentrantLock productBatchNarrationScriptTaskLock = new ReentrantLock();
+    private final java.util.concurrent.ConcurrentMap<Long, ReentrantLock> productBatchNarrationAutoCheckLocks = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<Long, ReentrantLock> productBatchNarrationScriptTaskLocks = new java.util.concurrent.ConcurrentHashMap<>();
     private final ReentrantLock productTranslatePublishBatchTaskLock = new ReentrantLock();
     private volatile ProductTranslatePublishBatchTaskState productTranslatePublishBatchTaskState =
             emptyProductTranslatePublishBatchTaskState();
@@ -1050,13 +1050,13 @@ public class ShowroomApiRuntime {
         if (!currentState.enabled()) {
             return;
         }
-        if (!productBatchNarrationAutoCheckLock.tryLock()) {
+        if (!productBatchNarrationAutoCheckLock().tryLock()) {
             return;
         }
         try {
             executeProductBatchNarrationAudioLocked(currentState);
         } finally {
-            productBatchNarrationAutoCheckLock.unlock();
+            productBatchNarrationAutoCheckLock().unlock();
         }
     }
 
@@ -1095,13 +1095,13 @@ public class ShowroomApiRuntime {
         if (!currentState.active()) {
             return;
         }
-        if (!productBatchNarrationScriptTaskLock.tryLock()) {
+        if (!productBatchNarrationScriptTaskLock().tryLock()) {
             return;
         }
         try {
             executeProductNarrationScriptBatchTaskLocked(currentState);
         } finally {
-            productBatchNarrationScriptTaskLock.unlock();
+            productBatchNarrationScriptTaskLock().unlock();
         }
     }
 
@@ -1198,6 +1198,9 @@ public class ShowroomApiRuntime {
                 .toList();
     }
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.showroom.dal.mysql.content.ShowroomListQueryMapper listQueryMapper;
+
     public PageResult<ShowroomAdminController.ProductPageRespVO> listProducts(ShowroomAdminController.PageQueryReqVO req) {
         return listProductPage(req, null, null);
     }
@@ -1212,16 +1215,9 @@ public class ShowroomApiRuntime {
             ShowroomAdminController.PageQueryReqVO req,
             Set<Long> visibleProductIds,
             Set<Long> editableProductIds) {
-        if (!hasProductPageFilters(req)) {
-            return listUnfilteredProductPage(req, visibleProductIds, editableProductIds);
-        }
-        List<ProductPageCandidate> matchedCandidates = productPageCandidates(visibleProductIds, editableProductIds)
-                .stream()
-                .filter(candidate -> matchesProductCandidate(candidate, req))
-                .toList();
-        List<ShowroomAdminController.ProductPageRespVO> rows = productPageRows(
-                page(matchedCandidates, req.pageNo(), req.pageSize()));
-        return new PageResult<>(rows, (long) matchedCandidates.size());
+        var idPage = listQueryMapper.productPage(req, visibleProductIds);
+        var snapshots = idPage.getRecords().stream().map(contentService::getProduct).toList();
+        return new PageResult<>(productPageRows(productPageCandidates(snapshots, editableProductIds)), idPage.getTotal());
     }
 
     private PageResult<ShowroomAdminController.ProductPageRespVO> listUnfilteredProductPage(
@@ -1291,24 +1287,32 @@ public class ShowroomApiRuntime {
     }
 
     public List<ShowroomProductExcelVO> listProductExcelRows(ShowroomAdminController.PageQueryReqVO req) {
-        Map<Long, String> hallNamesByProductId = resolveExportHallNamesByProductId();
-        return contentService.listProducts().stream()
-                .map(snapshot -> toProductPageRow(snapshot, true))
-                .filter(row -> matchesProduct(row, req))
-                .map(row -> toProductExcelRow(row, hallNamesByProductId.get(row.productId())))
-                .toList();
+        return listProductExcelRows(req, null, null);
     }
 
     public List<ShowroomProductExcelVO> listProductExcelRows(ShowroomAdminController.PageQueryReqVO req,
                                                              Set<Long> visibleProductIds,
                                                              Set<Long> editableProductIds) {
         Map<Long, String> hallNamesByProductId = resolveExportHallNamesByProductId();
-        return contentService.listProducts().stream()
-                .filter(snapshot -> visibleProductIds.contains(snapshot.productId()))
-                .map(snapshot -> toProductPageRow(snapshot, editableProductIds.contains(snapshot.productId())))
-                .filter(row -> matchesProduct(row, req))
-                .map(row -> toProductExcelRow(row, hallNamesByProductId.get(row.productId())))
-                .toList();
+        List<ShowroomProductExcelVO> rows = new ArrayList<>();
+        int pageNo = 1;
+        long loaded = 0;
+        while (true) {
+            var pageReq = new ShowroomAdminController.PageQueryReqVO(req.keyword(), pageNo, 100,
+                    req.ownerCompanyId(), req.ownerType(), req.lifecycleStage(), req.incompleteStatus(),
+                    req.approvalStatus(), req.productId(), req.listFilters());
+            var ids = listQueryMapper.productPage(pageReq, visibleProductIds);
+            for (Long id : ids.getRecords()) {
+                var snapshot = contentService.getProduct(id);
+                var row = toProductPageRow(snapshot, isProductEditable(snapshot, editableProductIds));
+                rows.add(toProductExcelRow(row, hallNamesByProductId.get(id)));
+            }
+            loaded += ids.getRecords().size();
+            if (loaded >= ids.getTotal()) break;
+            if (ids.getRecords().isEmpty()) throw new IllegalStateException("SHOWROOM_EXPORT_PAGE_INCONSISTENT");
+            pageNo++;
+        }
+        return rows;
     }
 
     private Map<Long, String> resolveExportHallNamesByProductId() {
@@ -1410,11 +1414,9 @@ public class ShowroomApiRuntime {
 
     public PageResult<AwardPageRespVO> listAwards(
             ShowroomAdminController.PageQueryReqVO req) {
-        List<AwardPageRespVO> rows = contentService.listAwards().stream()
-                .filter(snapshot -> matchesAward(snapshot, req.keyword()))
-                .map(this::toAwardPageRow)
-                .toList();
-        return pageResult(rows, req.pageNo(), req.pageSize());
+        var idPage = listQueryMapper.awardPage(req);
+        var rows = idPage.getRecords().stream().map(contentService::getAward).map(this::toAwardPageRow).toList();
+        return new PageResult<>(rows, idPage.getTotal());
     }
 
     public AwardDetailRespVO getAwardDetail(Long awardId, Long revisionId, boolean editable) {
@@ -3563,7 +3565,7 @@ public class ShowroomApiRuntime {
 
     private ShowroomAdminController.ProductBatchGenerateRespVO executeManualProductBatchNarrationAudio(
             ProductBatchNarrationAutoCheckCriteria criteria) {
-        if (!productBatchNarrationAutoCheckLock.tryLock()) {
+        if (!productBatchNarrationAutoCheckLock().tryLock()) {
             throw new IllegalStateException(PRODUCT_BATCH_AUDIO_AUTO_CHECK_RUNNING_MESSAGE);
         }
         try {
@@ -3574,7 +3576,7 @@ public class ShowroomApiRuntime {
                     emptyProductBatchNarrationAutoCheckFailure());
             return executeProductBatchNarrationAudioLocked(initialState);
         } finally {
-            productBatchNarrationAutoCheckLock.unlock();
+            productBatchNarrationAutoCheckLock().unlock();
         }
     }
 
@@ -3819,14 +3821,21 @@ public class ShowroomApiRuntime {
         return new ProductBatchNarrationAutoCheckFailureData("", null);
     }
 
+    private ReentrantLock productBatchNarrationAutoCheckLock() {
+        return productBatchNarrationAutoCheckLocks.computeIfAbsent(TenantContextHolder.getRequiredTenantId(), id -> new ReentrantLock());
+    }
+
+    private ReentrantLock productBatchNarrationScriptTaskLock() {
+        return productBatchNarrationScriptTaskLocks.computeIfAbsent(TenantContextHolder.getRequiredTenantId(), id -> new ReentrantLock());
+    }
+
     private void triggerProductBatchNarrationScriptTaskAsync() {
-        CompletableFuture.runAsync(() -> {
-            try {
-                runScheduledProductBatchNarrationScriptAutoCheck();
-            } catch (RuntimeException ignored) {
-                // State is persisted by the locked executor path; callers re-read status from storage.
-            }
-        });
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        CompletableFuture.runAsync(() -> cn.iocoder.yudao.framework.tenant.core.util.TenantUtils.execute(
+                tenantId, this::runScheduledProductBatchNarrationScriptAutoCheck))
+                .whenComplete((result, failure) -> {
+                    if (failure != null) log.error("Narration script task failed for tenant {}", tenantId, failure);
+                });
     }
 
     private ProductNarrationScriptBatchExecutionSummary summarizeProductNarrationScriptBatch(
@@ -4056,7 +4065,7 @@ public class ShowroomApiRuntime {
         ProductNarrationScriptBatchTaskFailureData failure = JsonUtils.parseObjectQuietly(
                 getConfigValue(PRODUCT_BATCH_NARRATION_SCRIPT_FAILURE_KEY, null),
                 ProductNarrationScriptBatchTaskFailureData.class);
-        boolean normalizedRunning = active && running && productBatchNarrationScriptTaskLock.isLocked();
+        boolean normalizedRunning = active && running && productBatchNarrationScriptTaskLock().isLocked();
         return new ProductNarrationScriptBatchTaskState(
                 active,
                 normalizedRunning,

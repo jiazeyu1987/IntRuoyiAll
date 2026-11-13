@@ -74,7 +74,7 @@ const base = '/mes/pro/batch-record-report/simple-parser'
 export const SimpleParserApi = {
   devices: () => request.get<SimpleParserDevice[]>({ url: `${base}/devices` }),
   preview: (data: SimpleParserRequest) =>
-    request.post<SimpleParserResult>({ url: `${base}/preview`, data }),
+    request.post<SimpleParserResult>({ url: `${base}/preview`, data, ignoreErrorMessage: true }),
   publish: (data: SimpleParserRequest) =>
-    request.post<SimpleParserResult>({ url: `${base}/publish`, data })
+    request.post<SimpleParserResult>({ url: `${base}/publish`, data, ignoreErrorMessage: true })
 }

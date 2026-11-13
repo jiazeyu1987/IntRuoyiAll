@@ -37,10 +37,9 @@
       @quick-filter-query="todoQuickFilter.applyQuickFilter"
       @column-change="saveTodoColumnConfig"
       @pagination="handleTodoPagination"
-      :load-filter-rows="loadColumnFilterRows"
-      @filtered-rows="todoRows = $event"
-      :list-rows="todoRows"
-      @column-filter-reset="loadWorkbench()"
+      server-filter
+      :server-filter-query="queryWorkbenchFilters"
+      :query-loading="loading"
     >
       <template #actions>
         <el-button v-hasPermi="['mes:pro-edhr-work-task:query']" @click="productionRecordsRef?.open()">生产任务记录</el-button>
@@ -175,7 +174,6 @@
 
 <script lang="ts" setup>
 import ProductionTaskRecords from './ProductionTaskRecords.vue'
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 const productionRecordsRef = ref<InstanceType<typeof ProductionTaskRecords>>()
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -252,6 +250,7 @@ const {
 const queryParams = reactive<{
   pageNo: number
   pageSize: number
+  listFilters?: string
   taskType?: TodoTaskType
   quickFilter?: {
     fieldKey: string
@@ -296,7 +295,7 @@ const buildPageQuery = (): ProfileWorkbenchTodoQuery => {
   if (filter && filter.operator !== 'contains' && filter.operator !== 'eq') throw new Error('个人工作台不支持该过滤条件。')
   const sortKey = sortState.value.prop || sortState.value.key
   return { pageNo: queryParams.pageNo, pageSize: queryParams.pageSize, visibility: activeVisibilityTab.value,
-    enabledSources: [...enabledSources.value], taskType: queryParams.taskType,
+    enabledSources: [...enabledSources.value], taskType: queryParams.taskType, listFilters: queryParams.listFilters,
     quickFilter: filter ? { fieldKey: filter.fieldKey, operator: filter.operator as 'contains' | 'eq',
       value: filter.value === undefined ? '' : String(filter.value) } : undefined,
     sort: sortState.value.order && sortKey ? { key: sortKey, order: sortState.value.order === 'ascending' ? 'asc' : 'desc' } : undefined }
@@ -363,7 +362,7 @@ const loadWorkbench = async (options?: { silent?: boolean }): Promise<boolean> =
     profileWorkbenchTodoBadgeStore.bindDirectory(badge)
     const query = buildPageQuery()
     const context = await initializeWorkbenchContext(directory.registryRevision, directory.sources, token.lease.contextEpoch, {
-      visibility: query.visibility, taskType: query.taskType,
+      visibility: query.visibility, taskType: query.taskType, listFilters: query.listFilters,
       quickFilter: query.quickFilter ? { ...query.quickFilter, value: query.quickFilter.value ?? '' } : undefined,
       sort: query.sort
     })
@@ -404,19 +403,10 @@ const loadWorkbench = async (options?: { silent?: boolean }): Promise<boolean> =
   }
 }
 
-const loadColumnFilterRows = async () => {
-  const context = currentContext
-  const lease = currentLease
-  if (!context || !lease || !isWorkbenchReadCurrent(lease)) throw new Error('请先刷新当前工作台')
-  const sources = authorizedWorkbenchSources()
-  return loadAllListPages(async ({ pageNo, pageSize }) => {
-    if (!isWorkbenchReadCurrent(lease) || currentContext !== context)
-      throw new Error('工作台上下文已变更，请重新查询')
-    const page = await getProfileWorkbenchTodoPage(context, pageNo, pageSize, sources)
-    if (!isWorkbenchReadCurrent(lease) || currentContext !== context)
-      throw new Error('工作台上下文已变更，请重新查询')
-    return { list: page.rows, total: page.filteredTotal }
-  })
+const queryWorkbenchFilters = async () => {
+  const committed = await loadWorkbench()
+  if (!committed && loadErrorMessages.value.length) throw new Error(loadErrorMessages.value.join('; '))
+  return committed
 }
 
 const getTaskTypeTagType = (taskType: TodoTaskType) => {
@@ -470,7 +460,7 @@ const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {
       PRODUCTION_RETURN: '去更正生产',
       PQC_HANDOFF: '去检验',
       PQC_REVIEW: '去复核检验',
-      PQC_RETURN: '去更正检验',
+      PQC_RETURN: '去填写检验',
       QA_DECISION_HANDOFF: '去接手'
     }
     return labels[row.action.payload.taskType] ?? '查看任务'

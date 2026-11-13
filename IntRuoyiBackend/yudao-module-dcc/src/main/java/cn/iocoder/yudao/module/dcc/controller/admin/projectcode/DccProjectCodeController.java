@@ -58,6 +58,9 @@ public class DccProjectCodeController {
     @Resource
     private cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectUploadOptionsService projectUploadOptionsService;
 
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService taxonomyAdminService;
+
     @GetMapping("/upload-options")
     @Operation(summary = "获得全部可见上传项目及选择阻断原因")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')")
@@ -126,6 +129,16 @@ public class DccProjectCodeController {
             @Valid @RequestBody DccProjectAccessRuleBatchSaveReqVO reqVO) {
         return success(BeanUtils.toBean(projectAccessService.replaceProjectAccessRules(id, reqVO.getRules()),
                 DccProjectAccessRuleRespVO.class));
+    }
+
+    @GetMapping("/{id:\\d+}/file-taxonomies")
+    @Operation(summary = "获得项目关联文档的只读分类导航")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query') and @ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<List<cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomyRespVO>> getProjectFileTaxonomies(
+            @PathVariable("id") Long id) {
+        projectCodeService.getReadableProjectCode(getLoginUserId(), id);
+        return success(BeanUtils.toBean(taxonomyAdminService.getTaxonomyList(),
+                cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomyRespVO.class));
     }
 
     @GetMapping("/{id:\\d+}/controlled-files/page")

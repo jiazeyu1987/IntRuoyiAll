@@ -19,10 +19,8 @@
       @column-change="saveRouteColumnConfig"
       @column-reset="resetRouteColumnConfig"
       @pagination="handleRoutePagination"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="paginatedRoutes = $event"
-      :list-rows="paginatedRoutes"
-      @column-filter-reset="handleRoutePagination"
+      server-filter
+      :server-filter-query="() => handleQuery(false)"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -228,7 +226,7 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import {
   deleteApprovalRoute,
@@ -278,6 +276,7 @@ const routeFormRef = ref<InstanceType<typeof RouteForm>>()
 const queryParams = reactive<{
   pageNo: number
   pageSize: number
+  listFilters?: string
   categoryId?: number
   actionType?: ControlledFileApprovalRouteActionType
 }>({
@@ -647,10 +646,6 @@ onMounted(async () => {
   await loadInitialCategoryOptions()
   await handleQuery()
 })
-
-const loadColumnFilterRows0 = async () => {
-  return loadAllListPages((pagination) => getApprovalRoutePage({ ...queryParams, ...pagination }))
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

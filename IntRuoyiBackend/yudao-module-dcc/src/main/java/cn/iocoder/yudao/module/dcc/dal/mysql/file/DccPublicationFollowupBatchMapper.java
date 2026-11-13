@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.dcc.dal.mysql.file;
 
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationFollowupBatchDO;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -77,6 +79,7 @@ public interface DccPublicationFollowupBatchMapper extends BaseMapperX<DccPublic
               AND EXISTS (SELECT 1 FROM dcc_publication_impact_task a WHERE a.tenant_id=b.tenant_id
                 AND a.batch_id=b.id AND a.deleted=0 AND a.assignee_user_id=#{assigneeUserId})
             </if>
+            <if test="ew != null and !ew.emptyOfNormal">AND (${ew.sqlSegment})</if>
             ORDER BY b.id DESC
             </script>
             """)
@@ -85,5 +88,6 @@ public interface DccPublicationFollowupBatchMapper extends BaseMapperX<DccPublic
             @Param("fileNumber") String fileNumber, @Param("versionNo") String versionNo,
             @Param("batchStatus") String batchStatus, @Param("taskStatus") String taskStatus,
             @Param("notificationStatus") String notificationStatus,
-            @Param("assigneeUserId") Long assigneeUserId);
+            @Param("assigneeUserId") Long assigneeUserId,
+            @Param(Constants.WRAPPER) QueryWrapper<Object> listFilter);
 }

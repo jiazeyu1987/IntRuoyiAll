@@ -519,7 +519,8 @@ class MesM9SimulationHistoryProtectionTest {
     @ParameterizedTest
     @ValueSource(strings={"formal", "missingRun", "differentOwner", "missingParent"})
     void fixedResetRequiresParentButNotSameLeaderOrSimulationTags(String scenario) {
-        var workOrder = MesProWorkOrderDO.builder().id(201L).build();
+        var workOrder = MesProWorkOrderDO.builder().id(201L)
+                .quantity(java.math.BigDecimal.TEN).build();
         workOrder.setTenantId(92820L);
         when(dependency(MesProWorkOrderMapper.class).selectByTenantIdAndCodeForUpdate(eq(92820L), anyString())).thenReturn(workOrder);
         var order = parent();
@@ -540,6 +541,9 @@ class MesM9SimulationHistoryProtectionTest {
         }
         verify(dependency(MesFixedTestOrderPickListInitializer.class)).prepareForReset(
                 MesFixedTestOrderInitializer.WORK_ORDER_CODE, 3001L);
+        verify(dependency(MesProWorkOrderMapper.class)).updateById(argThat((MesProWorkOrderDO updated) ->
+                new java.math.BigDecimal("5000").compareTo(updated.getQuantity()) == 0
+                        && updated.getQuantityProduced().signum() == 0));
     }
 
     @Test

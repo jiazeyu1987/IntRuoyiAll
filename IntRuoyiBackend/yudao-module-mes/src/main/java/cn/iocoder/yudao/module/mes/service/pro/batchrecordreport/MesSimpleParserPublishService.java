@@ -212,6 +212,7 @@ public class MesSimpleParserPublishService {
             JSONArray sourceGroups = array(source,"equipmentGroups");
             for (int g=0; g<sourceGroups.size(); g++) {
                 JSONObject sourceGroup=sourceGroups.getJSONObject(g);
+                if (Boolean.FALSE.equals(sourceGroup.getBoolean("equipmentRequired"))) continue;
                 for (JSONObject equipment : array(sourceGroup,"equipmentOptions").toJavaList(JSONObject.class)) {
                     String code = text(equipment,"code",64);
                     workstationMachineryIds.add(machineryIds.get(code));
@@ -279,10 +280,11 @@ public class MesSimpleParserPublishService {
         if (root==null || !(Objects.equals(2, root.getInteger("schemaVersion")) || Objects.equals(3, root.getInteger("schemaVersion")))) throw invalid("识别 JSON 版本无效");
         JSONArray processes=array(root,"processes");
         if (processes.isEmpty() || processes.size()>200) throw invalid("工序数量应为 1 至 200");
-        String productName=text(object(root.get("product")),"name",128);
+        String productName=requireText(project.getProjectName(),"所选项目的产品名称",128);
         Plan plan=new Plan(processes,productName);
         JSONArray processRows=new JSONArray(),deviceRows=new JSONArray(),craftRows=new JSONArray(),materialRows=new JSONArray(),unmatchedMaterials=new JSONArray(),warnings=new JSONArray(),state=new JSONArray();
         state.add(workshop);
+        state.add(project);
         List<MesProRouteDO> routes=routeMapper.selectList(new LambdaQueryWrapperX<MesProRouteDO>()
                 .apply("TRIM(name) = {0}",routeName).last(lock?"FOR UPDATE":""));
         if (!routes.isEmpty()) plan.blockers.add("路线名称已存在，请填写新的路线名称");
@@ -297,7 +299,7 @@ public class MesSimpleParserPublishService {
         Map<String,JSONObject> devices=new LinkedHashMap<>();
         for (int i=0;i<processes.size();i++) {
             JSONObject process=object(processes.get(i));
-            String name=text(process,"name",128);
+            String name=requireText(optionalText(process,"name"),"工序 "+(i+1)+" 名称",128);
             if (!(process.get("criticalProcess") instanceof Boolean)) throw invalid("关键工序标记必须明确为 true 或 false");
             var selection=selections.get(i);
             Long processId=selection==null?null:selection.getProcessId();
@@ -360,6 +362,7 @@ public class MesSimpleParserPublishService {
             Set<String> processDeviceCodes=new HashSet<>(); Set<Long> processCraftIds=new HashSet<>();
             for(int g=0;g<groups.size();g++) {
                 JSONObject group=object(groups.get(g));
+                if (Boolean.FALSE.equals(group.getBoolean("equipmentRequired"))) continue;
                 if(!("SINGLE".equals(group.getString("selectionMode")) || "MULTIPLE".equals(group.getString("selectionMode")))) throw invalid("设备组须明确单选或多选");
                 JSONArray equipment=array(group,"equipmentOptions");
                 if(equipment.isEmpty()) throw invalid("设备参数组必须选择有编号的设备："+name);
@@ -385,7 +388,7 @@ public class MesSimpleParserPublishService {
                             .eq(MesDvMachineryDO::getCode,code).last(lock?"FOR UPDATE":""));
                     if(machineryMatches.size()>1) throw invalid("设备台账编号不唯一："+code);
                     MesDvMachineryDO machinery=machineryMatches.isEmpty()?null:machineryMatches.get(0);
-                    String resolvedName=machinery!=null?machinery.getName():device!=null?device.getDeviceName():text(equipmentOption,"name",128);
+                    String resolvedName=machinery!=null?machinery.getName():device!=null?device.getDeviceName():requireText(deviceName,"工序 "+(i+1)+" 设备 "+code+" 名称",128);
                     if ((device!=null || machinery!=null) && !Objects.equals(resolvedName,deviceName))
                         warnings.add("工序 "+(i+1)+" 设备 "+code+"：识别名称“"+(deviceName==null?"未识别":deviceName)+"”按目录显示为“"+resolvedName+"”");
                     equipmentOption.put("name",resolvedName);
@@ -466,7 +469,7 @@ public class MesSimpleParserPublishService {
         JSONArray result=new JSONArray(); Set<String> names=new HashSet<>();
         for(int i=0;i<source.size();i++) {
             JSONObject item=object(source.get(i)), ui=object(item.get("ui"));
-            String name=text(item,"name",128);
+            String name=requireText(optionalText(item,"name"),"参数 "+(i+1)+" 名称",128);
             if(!names.add(name)) throw invalid("同组参数名称重复："+name);
             JSONObject p=new JSONObject(true);
             p.put("parameterCode",String.format(Locale.ROOT,"P%03d",i+1)); p.put("parameterName",optionalText(ui,"displayName")==null?name:text(ui,"displayName",128));

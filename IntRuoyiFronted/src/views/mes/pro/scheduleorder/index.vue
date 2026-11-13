@@ -12,9 +12,7 @@
       >
         <el-tab-pane label="排产工单" name="scheduleOrders">
           <ScheduleOrderMainList
-            :load-filter-rows="loadMainColumnFilterRows"
-            @filtered-rows="scheduleOrderList = $event"
-            :list-rows="scheduleOrderList"
+            :server-filter-query="getScheduleOrderList"
             :query-model="scheduleOrderQueryParams"
             :filter-definitions="scheduleOrderQuickFilterDefinitions"
             :quick-filter-state="scheduleOrderQuickFilter.state"
@@ -531,10 +529,8 @@
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
-              :load-filter-rows="loadColumnFilterRows0"
-              @filtered-rows="workOrderAdmissionList = $event"
-              :list-rows="workOrderAdmissionList"
-              @column-filter-reset="getWorkOrderAdmissionList"
+              server-filter
+      :server-filter-query="getWorkOrderAdmissionList"
               :column-filter-definitions="listColumnFilterDefinitions0"
             >
               <template #actions>
@@ -1130,215 +1126,12 @@
       </template>
     </Dialog>
 
-    <Dialog
-      v-model="operationLogDialogVisible"
-      title="排产工单追溯"
-      width="min(1120px, calc(100vw - 24px))"
-    >
-      <div v-loading="operationLogLoading" class="schedule-order-pool__trace-dialog">
-        <div class="schedule-order-pool__trace-summary">
-          <div class="schedule-order-pool__trace-summary-item">
-            <span>排产工单号</span>
-            <strong>{{ operationLogSummary.scheduleOrderCode }}</strong>
-          </div>
-          <div class="schedule-order-pool__trace-summary-item">
-            <span>日志数量</span>
-            <strong>{{ operationLogSummary.totalCount }}</strong>
-          </div>
-          <div class="schedule-order-pool__trace-summary-item">
-            <span>最近操作</span>
-            <strong>{{ operationLogSummary.latestOperationType }}</strong>
-          </div>
-          <div class="schedule-order-pool__trace-summary-item">
-            <span>最近时间</span>
-            <strong>{{ operationLogSummary.latestTime }}</strong>
-          </div>
-        </div>
-
-        <UnifiedListTemplate
-          class="schedule-order-pool__operation-log-list"
-          table-key="mes.pro.scheduleOrder.operationLog"
-          :query-model="scheduleOrderViewListQueryModel"
-          :filter-definitions="scheduleOrderViewListFilterDefinitions"
-          :quick-filter-state="scheduleOrderViewListQuickFilterState"
-          :operator-options="scheduleOrderViewListOperatorOptions"
-          :columns="operationLogColumns"
-          :show-query-form="true"
-          :show-column-settings="false"
-          :total="0"
-          :page="1"
-          :limit="20"
-          :filter-rows="operationLogList"
-          :column-filter-definitions="listColumnFilterDefinitions1"
-        >
-          <template #table="{ resolveRows }">
-            <el-table
-              v-loading="operationLogLoading"
-              :data="resolveRows(operationLogList)"
-              data-user-table-column-explicit
-              data-user-table-key="mes.pro.scheduleOrder.operationLog"
-              border
-              size="small"
-              :stripe="true"
-              :show-overflow-tooltip="true"
-              row-key="id"
-              empty-text="暂无追溯记录"
-              @header-dragend="handleOperationLogHeaderDragend"
-            >
-              <el-table-column
-                v-if="isOperationLogColumnVisible('expand')"
-                type="expand"
-                column-key="expand"
-                :width="getOperationLogColumnWidthString('expand', 48)"
-              >
-                <template #default="{ row }">
-                  <div class="schedule-order-pool__trace-diff">
-                    <div class="schedule-order-pool__trace-diff-head">
-                      <span>字段差异</span>
-                      <small>{{ buildOperationLogDiffRows(row).length }} 项变化</small>
-                    </div>
-                    <UnifiedListTemplate
-                      class="schedule-order-pool__operation-log-diff-list"
-                      table-key="mes.pro.scheduleOrder.operationLogDiff"
-                      :query-model="scheduleOrderViewListQueryModel"
-                      :filter-definitions="scheduleOrderViewListFilterDefinitions"
-                      :quick-filter-state="scheduleOrderViewListQuickFilterState"
-                      :operator-options="scheduleOrderViewListOperatorOptions"
-                      :columns="operationLogDiffColumns"
-                      :show-query-form="true"
-                      :show-column-settings="false"
-                      :total="0"
-                      :page="1"
-                      :limit="20"
-                      :filter-rows="buildOperationLogDiffRows(row)"
-                    >
-                      <template #table="{ resolveRows }">
-                        <el-table
-                          :data="resolveRows(buildOperationLogDiffRows(row))"
-                          data-user-table-column-explicit
-                          data-user-table-key="mes.pro.scheduleOrder.operationLogDiff"
-                          border
-                          size="small"
-                          row-key="field"
-                          empty-text="暂无字段变化"
-                          @header-dragend="handleOperationLogDiffHeaderDragend"
-                        >
-                          <el-table-column
-                            v-if="isOperationLogDiffColumnVisible('fieldLabel')"
-                            label="字段"
-                            prop="fieldLabel"
-                            :width="getOperationLogDiffColumnWidthString('fieldLabel', 150)"
-                            :min-width="getOperationLogDiffColumnMinWidthString('fieldLabel', 130)"
-                          />
-                          <el-table-column
-                            v-if="isOperationLogDiffColumnVisible('beforeValue')"
-                            label="旧值"
-                            prop="beforeValue"
-                            :width="getOperationLogDiffColumnWidthString('beforeValue')"
-                            :min-width="getOperationLogDiffColumnMinWidthString('beforeValue', 260)"
-                          >
-                            <template #default="{ row: diffRow }">
-                              <span class="schedule-order-pool__trace-value">
-                                {{ diffRow.beforeValue }}
-                              </span>
-                            </template>
-                          </el-table-column>
-                          <el-table-column
-                            v-if="isOperationLogDiffColumnVisible('afterValue')"
-                            label="新值"
-                            prop="afterValue"
-                            :width="getOperationLogDiffColumnWidthString('afterValue')"
-                            :min-width="getOperationLogDiffColumnMinWidthString('afterValue', 260)"
-                          >
-                            <template #default="{ row: diffRow }">
-                              <span class="schedule-order-pool__trace-value">
-                                {{ diffRow.afterValue }}
-                              </span>
-                            </template>
-                          </el-table-column>
-                        </el-table>
-                      </template>
-                    </UnifiedListTemplate>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('operationType')"
-                label="操作类型"
-                prop="operationType"
-                :width="getOperationLogColumnWidthString('operationType', 120)"
-                :min-width="getOperationLogColumnMinWidthString('operationType', 108)"
-                align="center"
-              >
-                <template #default="{ row }">
-                  <el-tag size="small" effect="plain">
-                    {{ getOperationTypeText(row.operationType) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('operatorName')"
-                label="操作人"
-                prop="operatorName"
-                :width="getOperationLogColumnWidthString('operatorName', 120)"
-                :min-width="getOperationLogColumnMinWidthString('operatorName', 104)"
-              >
-                <template #default="{ row }">{{ row.operatorName || '-' }}</template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('createTime')"
-                label="操作时间"
-                prop="createTime"
-                :width="getOperationLogColumnWidthString('createTime', 170)"
-                :min-width="getOperationLogColumnMinWidthString('createTime', 150)"
-                align="center"
-              >
-                <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('scheduleOrderCode')"
-                label="排产工单号"
-                prop="scheduleOrderCode"
-                :width="getOperationLogColumnWidthString('scheduleOrderCode', 180)"
-                :min-width="getOperationLogColumnMinWidthString('scheduleOrderCode', 160)"
-              >
-                <template #default="{ row }">
-                  {{ row.scheduleOrderCode || operationLogSummary.scheduleOrderCode }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('reason')"
-                label="操作原因"
-                prop="reason"
-                :width="getOperationLogColumnWidthString('reason')"
-                :min-width="getOperationLogColumnMinWidthString('reason', 240)"
-              >
-                <template #default="{ row }">{{ row.reason || '未填写' }}</template>
-              </el-table-column>
-              <el-table-column
-                v-if="isOperationLogColumnVisible('diffCount')"
-                label="字段差异"
-                prop="diffCount"
-                :width="getOperationLogColumnWidthString('diffCount', 100)"
-                :min-width="getOperationLogColumnMinWidthString('diffCount', 90)"
-                align="right"
-              >
-                <template #default="{ row }"
-                  >{{ buildOperationLogDiffRows(row).length }} 项</template
-                >
-              </el-table-column>
-            </el-table>
-          </template>
-        </UnifiedListTemplate>
-      </div>
-    </Dialog>
+    
 
     <ScheduleOrderProcessDetail v-model="processDialogVisible">
       <div v-if="currentScheduleOrder" class="schedule-order-pool__dialog-actions">
         <el-button @click="openDailyCompareDialog(currentScheduleOrder)">报工对比</el-button>
-        <el-button type="primary" plain @click="openOperationLogDialog(currentScheduleOrder)">
-          操作追溯
-        </el-button>
+        
       </div>
       <el-alert
         v-if="currentScheduleOrder?.manualFinished"
@@ -2226,7 +2019,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import dayjs from 'dayjs'
 import { ElMessageBox, ElNotification } from 'element-plus'
@@ -2242,7 +2035,7 @@ import {
   type MesProScheduleOrderPreflightIssueVO,
   type MesProScheduleOrderPreflightReqVO,
   type MesProScheduleOrderPreflightRespVO,
-  type MesProScheduleOrderOperationLogVO,
+  
   type MesProScheduleOrderProcessVO,
   type MesProScheduleOrderDeleteImpactVO,
   type MesProScheduleOrderVO
@@ -2467,35 +2260,11 @@ const {
   handleHeaderDragend: handleDailyCompareHeaderDragend
 } = useUserTableColumns('mes.pro.scheduleOrder.dailyCompare', dailyCompareDefaultColumns)
 
-const operationLogDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'expand', label: '展开', width: 48, minWidth: 44, hideable: false, business: false },
-  { key: 'operationType', label: '操作类型', width: 120, minWidth: 108 },
-  { key: 'operatorName', label: '操作人', width: 120, minWidth: 104 },
-  { key: 'createTime', label: '操作时间', width: 170, minWidth: 150 },
-  { key: 'scheduleOrderCode', label: '排产工单号', width: 180, minWidth: 160 },
-  { key: 'reason', label: '操作原因', minWidth: 240 },
-  { key: 'diffCount', label: '字段差异', width: 100, minWidth: 90 }
-]
-const {
-  columns: operationLogColumns,
-  isColumnVisible: isOperationLogColumnVisible,
-  getColumnWidthString: getOperationLogColumnWidthString,
-  getColumnMinWidthString: getOperationLogColumnMinWidthString,
-  handleHeaderDragend: handleOperationLogHeaderDragend
-} = useUserTableColumns('mes.pro.scheduleOrder.operationLog', operationLogDefaultColumns)
 
-const operationLogDiffDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'fieldLabel', label: '字段', width: 150, minWidth: 130 },
-  { key: 'beforeValue', label: '旧值', minWidth: 260 },
-  { key: 'afterValue', label: '新值', minWidth: 260 }
-]
-const {
-  columns: operationLogDiffColumns,
-  isColumnVisible: isOperationLogDiffColumnVisible,
-  getColumnWidthString: getOperationLogDiffColumnWidthString,
-  getColumnMinWidthString: getOperationLogDiffColumnMinWidthString,
-  handleHeaderDragend: handleOperationLogDiffHeaderDragend
-} = useUserTableColumns('mes.pro.scheduleOrder.operationLogDiff', operationLogDiffDefaultColumns)
+
+
+
+
 
 const message = useMessage()
 const router = useRouter()
@@ -2528,6 +2297,7 @@ const defaultScheduleOrderExportColumns = scheduleOrderExportColumnOptions.map(
 )
 const scheduleOrderExportColumns = ref<string[]>([...defaultScheduleOrderExportColumns])
 const scheduleOrderQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -2721,10 +2491,10 @@ const manualFinishDialogMode = ref<'MANUAL_FINISH' | 'REVOKE_MANUAL_FINISH'>('MA
 const latestSuccessfulScheduleApply = ref<ProTaskLatestScheduleApplyRespVO | null>(null)
 const latestSuccessfulScheduleApplyLoading = ref(false)
 const latestSuccessfulScheduleApplyError = ref('')
-const operationLogDialogVisible = ref(false)
-const operationLogLoading = ref(false)
-const operationLogList = ref<MesProScheduleOrderOperationLogVO[]>([])
-const operationLogTarget = ref<MesProScheduleOrderVO>()
+
+
+
+
 const scheduleOrderActiveTab = ref<'scheduleOrders' | 'workOrderAdmission'>('scheduleOrders')
 const workOrderAdmissionLoading = ref(false)
 const workOrderAdmissionSaving = ref(false)
@@ -2754,6 +2524,7 @@ const routeBindingRouteOptions = ref<ProRouteVO[]>([])
 const routeBindingRouteId = ref<number>()
 let workOrderAdmissionRequestSerial = 0
 const workOrderAdmissionQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
@@ -3323,19 +3094,7 @@ const latestSuccessfulScheduleApplyTooltip = computed(() => {
   }
   return '暂无成功排产记录'
 })
-const operationLogSummary = computed(() => {
-  const latestLog = operationLogList.value[0]
-  return {
-    scheduleOrderCode:
-      latestLog?.scheduleOrderCode ||
-      operationLogTarget.value?.code ||
-      operationLogTarget.value?.erpWorkOrderCode ||
-      '-',
-    totalCount: operationLogList.value.length,
-    latestOperationType: latestLog ? getOperationTypeText(latestLog.operationType) : '-',
-    latestTime: latestLog ? formatDateTime(latestLog.createTime) : '-'
-  }
-})
+
 
 const PROTECTION_REASON_TEXT_MAP: Record<string, string> = {
   FEEDBACK: '已报工',
@@ -3406,10 +3165,6 @@ const buildPreflightRequestIfReady = (): MesProScheduleOrderPreflightReqVO | und
   }
 }
 
-const loadMainColumnFilterRows = async () => {
-  const rows = await loadAllListPages<any>(pagination => MesProScheduleOrderApi.getScheduleOrderPage({ ...scheduleOrderQueryParams, ...pagination }))
-  return scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder ? rows : sortScheduleOrderListForDisplay(rows)
-}
 
 const getScheduleOrderList = async () => {
   scheduleOrderLoading.value = true
@@ -3954,104 +3709,21 @@ const submitManualFinishAction = async () => {
   }
 }
 
-const openOperationLogDialog = async (row: MesProScheduleOrderVO) => {
-  operationLogDialogVisible.value = true
-  operationLogTarget.value = row
-  operationLogList.value = []
-  operationLogLoading.value = true
-  try {
-    operationLogList.value = await MesProScheduleOrderApi.getOperationLog(row.id)
-  } finally {
-    operationLogLoading.value = false
-  }
-}
 
-const operationTraceFieldLabelMap: Record<string, string> = {
-  code: '排产工单号',
-  workOrderId: '生产工单',
-  workOrderCode: '来源生产工单号',
-  promiseDate: '承诺交期',
-  priorityNo: '优先级',
-  frozen: '冻结状态',
-  frozenTime: '冻结时间',
-  frozenBy: '冻结人',
-  freezeReason: '冻结原因',
-  manualFinished: '完成',
-  manualFinishedTime: '完成时间',
-  manualFinishedBy: '完成人',
-  manualFinishedReason: '完成原因',
-  status: '状态',
-  remark: '备注'
-}
 
-type OperationLogDiffRow = {
-  field: string
-  fieldLabel: string
-  beforeValue: string
-  afterValue: string
-}
 
-const parseOperationSnapshot = (snapshotJson?: string) => {
-  if (!snapshotJson) {
-    return {}
-  }
-  try {
-    const parsed = JSON.parse(snapshotJson)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('快照 JSON 不是对象')
-    }
-    return parsed as Record<string, unknown>
-  } catch (error) {
-    throw new Error(`快照 JSON 解析失败：${resolveOperationTraceErrorMessage(error, snapshotJson)}`)
-  }
-}
 
-const resolveOperationTraceErrorMessage = (error: unknown, fallback?: string) => {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-  return fallback || '未知错误'
-}
 
-const getOperationFieldLabel = (field: string) => {
-  return operationTraceFieldLabelMap[field] || field
-}
 
-const formatOperationSnapshotValue = (value: unknown) => {
-  if (value === undefined || value === null || value === '') {
-    return '-'
-  }
-  if (typeof value === 'boolean') {
-    return value ? '是' : '否'
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value)
-  }
-  return String(value)
-}
 
-const buildOperationLogDiffRows = (
-  row: MesProScheduleOrderOperationLogVO
-): OperationLogDiffRow[] => {
-  const beforeSnapshot = parseOperationSnapshot(row.beforeSnapshotJson)
-  const afterSnapshot = parseOperationSnapshot(row.afterSnapshotJson)
-  const fields = Array.from(
-    new Set([...Object.keys(beforeSnapshot), ...Object.keys(afterSnapshot)])
-  ).sort()
-  const diffRows = fields
-    .filter(
-      (field) => JSON.stringify(beforeSnapshot[field]) !== JSON.stringify(afterSnapshot[field])
-    )
-    .map((field) => ({
-      field,
-      fieldLabel: getOperationFieldLabel(field),
-      beforeValue: formatOperationSnapshotValue(beforeSnapshot[field]),
-      afterValue: formatOperationSnapshotValue(afterSnapshot[field])
-    }))
-  return diffRows.length
-    ? diffRows
-    : [{ field: '-', fieldLabel: '无字段变化', beforeValue: '-', afterValue: '-' }]
-}
+
+
+
+
+
+
+
+
 
 const handleScheduleOrderTabChange = async (tabName: string | number) => {
   if (tabName !== 'workOrderAdmission') {
@@ -5085,13 +4757,6 @@ onMounted(async () => {
   }
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...workOrderAdmissionQueryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    MesProScheduleOrderApi.getAdmissionDiff({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -5124,20 +4789,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
-  {
-    key: 'operationType',
-    label: '操作类型',
-    type: 'text',
-    getValue: (row) => [getOperationTypeText(row.operationType)].join(' ')
-  },
-  {
-    key: 'diffCount',
-    label: '字段差异',
-    type: 'text',
-    getValue: (row) => [buildOperationLogDiffRows(row).length].join(' ')
-  }
-])
+
 
 const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
   {

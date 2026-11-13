@@ -153,6 +153,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             }
             configSnapshots.put(entry.getKey(), jsonSnapshot);
         }
+        MesRouteLossCoefficient.read(configSnapshots);
         craftService.validateBindingTransitions(previousConfigs, configSnapshots);
         craftService.validateBindings(configSnapshots);
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);

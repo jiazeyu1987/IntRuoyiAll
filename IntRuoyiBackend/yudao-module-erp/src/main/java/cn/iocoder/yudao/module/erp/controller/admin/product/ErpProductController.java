@@ -107,6 +107,23 @@ public class ErpProductController {
         return success(productService.getProductVOPage(pageReqVO));
     }
 
+    @GetMapping("/simple-page")
+    @Operation(summary = "分页搜索启用产品下拉选项")
+    public CommonResult<PageResult<ErpProductRespVO>> getProductSimplePage(@Valid ErpProductPageReqVO reqVO) {
+        if (reqVO.getPageSize() == PageParam.PAGE_SIZE_NONE) {
+            throw new IllegalArgumentException("产品选项必须分页查询");
+        }
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        return success(productService.getProductVOPage(reqVO));
+    }
+
+    @GetMapping("/simple-by-ids")
+    @Operation(summary = "按编号回显已选产品")
+    public CommonResult<List<ErpProductRespVO>> getProductSimpleByIds(
+            @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 100) List<Long> ids) {
+        return success(productService.getProductVOList(ids));
+    }
+
     @GetMapping("/simple-list")
     @Operation(summary = "获得产品精简列表", description = "只包含被开启的产品，主要用于前端的下拉选项")
     public CommonResult<List<ErpProductRespVO>> getProductSimpleList() {

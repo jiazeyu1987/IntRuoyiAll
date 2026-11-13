@@ -39,7 +39,16 @@ test('distinct subjects and disabled duplicate rules retain their exact requeste
   assert.deepEqual(result.errors, [])
 })
 
-test('owner and change reason remain required', () => {
+test('owner remains required', () => {
   assert.equal(normalize([rule(1, 'EDIT')]).rules, null)
-  assert.equal(normalize([rule(1, 'OWNER', { changeReason: ' ' })]).rules, null)
 })
+
+for (const reason of [undefined, null, '', '   ', ' 项目授权 ']) {
+  test(`accept optional project access reason ${JSON.stringify(reason)}`, () => {
+    const result = normalize([rule(1, 'OWNER', { changeReason: reason }),
+      rule(2, 'VIEW', { changeReason: reason })])
+    assert.equal(result.rules.length, 2)
+    assert.equal(result.rules[1].changeReason, reason?.trim())
+    assert.deepEqual(result.errors, [])
+  })
+}

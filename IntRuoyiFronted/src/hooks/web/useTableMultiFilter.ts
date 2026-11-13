@@ -1,4 +1,4 @@
-import { computed, reactive, toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, reactive, toValue, type MaybeRefOrGetter, type Component } from 'vue'
 import { ElMessage } from 'element-plus'
 
 export type ListMultiFilterScalar = string | number | boolean
@@ -25,6 +25,8 @@ export interface ListMultiFilterDefinition {
   queryParamKeys?: [string, string]
   operators?: ListMultiFilterOperator[]
   options?: readonly ListMultiFilterOption[]
+  /** Custom scalar selector, e.g. an ID-preserving remote paged selector. */
+  valueComponent?: Component
   virtualized?: boolean
   placeholder?: string
   defaultVisible?: boolean

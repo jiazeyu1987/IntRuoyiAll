@@ -613,6 +613,21 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void projectCodeAdministratorCanListAndReadUnassignedProjects() {
+        DccProjectCodeDO first = insertProjectCode("1", "项目A", "CODE-A");
+        DccProjectCodeDO second = insertProjectCode("2", "项目B", "CODE-B");
+        when(permissionApi.hasAnyRoles(123L, "dcc_project_code_admin")).thenReturn(true);
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+
+        PageResult<DccProjectCodeDO> result = projectCodeService.getProjectCodePage(123L, reqVO);
+        assertEquals(List.of(first.getId(), second.getId()),
+                result.getList().stream().map(DccProjectCodeDO::getId).toList());
+        assertEquals(second.getId(), projectCodeService.getProjectCode(123L, second.getId()).getId());
+    }
+
+    @Test
     void aiCategoryCandidatesShouldIncludeBlankLegacyAndPreviousUnclassifiedAssociatedFiles() {
         Long userId = 1L;
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");

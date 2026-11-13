@@ -661,7 +661,7 @@ import {
 } from '@/api/dcc/controlledFile/workflow'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
+  getProjectCodeOptions,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
@@ -1370,13 +1370,11 @@ const loadTransferCategoryOptions = async () => {
 const loadTransferProjectCodeOptions = async (keyword = '') => {
   transferDialog.projectCodeOptionsLoading = true
   try {
-    const data = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 50,
+    const data = await getProjectCodeOptions({
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
-    transferDialog.projectCodeOptions = data.list
+    transferDialog.projectCodeOptions = data
     if (
       transferDialog.form.dccProjectCodeId &&
       !transferDialog.projectCodeOptions.some((item) => item.id === transferDialog.form.dccProjectCodeId)

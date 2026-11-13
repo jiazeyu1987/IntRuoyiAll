@@ -90,6 +90,9 @@ public class TenantServiceImpl implements TenantService {
     @Resource
     private ApplicationEventPublisher eventPublisher;
 
+    @Resource
+    private cn.iocoder.yudao.module.infra.api.config.ConfigApi configApi;
+
     @Override
     public List<Long> getTenantIdList() {
         List<TenantDO> tenants = tenantMapper.selectListByStatus(CommonStatusEnum.ENABLE.getStatus());
@@ -128,6 +131,7 @@ public class TenantServiceImpl implements TenantService {
         }
         // 创建租户的管理员
         TenantUtils.execute(tenant.getId(), () -> {
+            configApi.initializeTenantConfiguration();
             // Administrator provisioning writes permission audit events in this transaction.
             approvalAuditService.acquireLedgerLock();
             if (approvalAuthorityRevisionMapper.initializeNewTenant(tenant.getId()) != 1) {

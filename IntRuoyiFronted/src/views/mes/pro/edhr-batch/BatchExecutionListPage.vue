@@ -370,12 +370,8 @@
         class="mt-12px"
       >
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="releaseForm.password"
-            type="password"
-            show-password
-            autocomplete="new-password"
-            placeholder="请输入上市放行负责人的电子签名凭据（PIN 码或密码）"
             @keyup.enter="submitRelease"
           />
         </el-form-item>
@@ -472,12 +468,8 @@
           />
         </el-form-item>
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="rejectForm.signaturePassword"
-            type="password"
-            show-password
-            autocomplete="new-password"
-            placeholder="请输入上市放行负责人的电子签名凭据（PIN 码或密码）"
             @keyup.enter="submitRejectBatchExecution"
           />
         </el-form-item>
@@ -546,12 +538,8 @@
           <el-input v-model="voidForm.reasonText" type="textarea" :rows="3" placeholder="请填写作废原因" />
         </el-form-item>
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="voidForm.password"
-            type="password"
-            show-password
-            autocomplete="new-password"
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
           />
         </el-form-item>
         <el-form-item label="备注">
@@ -846,6 +834,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('MARKET_RELEASE')

@@ -21,10 +21,8 @@
       @quick-filter-query="operationAuditQuickFilter.applyQuickFilter"
       @column-change="saveOperationAuditColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #extra-filters>
@@ -323,7 +321,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -406,6 +404,7 @@ const parseQueryText = (value: unknown) => {
 const normalizeText = (value: unknown) => (value == null ? '' : String(value).trim())
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   objectType: normalizeText(props.objectType) || parseQueryText(route.query.objectType),
@@ -506,6 +505,7 @@ const assertObjectContext = () => {
 const buildQuery = () => {
   assertObjectContext()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     objectType: shouldQueryBatchContextOnly.value ? undefined : queryParams.objectType.trim(),
@@ -528,20 +528,27 @@ const buildQuery = () => {
   }
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   syncExternalContext()
   loading.value = true
   loadError.value = ''
   try {
     const data = await EdhrOperationAuditApi.getPage(buildQuery())
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '电子批记录操作审计加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -609,14 +616,6 @@ watch(
 )
 
 defineExpose({ reload: getList })
-
-const loadColumnFilterRows0 = async () => {
-  const params = buildQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    EdhrOperationAuditApi.getPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

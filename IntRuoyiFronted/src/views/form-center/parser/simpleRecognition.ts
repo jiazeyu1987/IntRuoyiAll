@@ -231,6 +231,7 @@ export function reviewIssues(processes: EditableProcess[]): ReviewIssue[] {
       })
     }
     p.equipmentGroups?.forEach((group, groupIndex) => {
+      if (group.equipmentRequired === false) return
       const label = `设备组${groupIndex + 1}`
       if (!group.equipmentOptions?.length && !group.parameters?.length)
         add(index, `${label}为空，请补充内容或删除空组`, `group-${groupIndex}`)

@@ -94,3 +94,45 @@ test('entering full-result local mode keeps the selected server page size', asyn
     assert.equal(ctx.state.pageRows.value.length, 10)
   } finally { ctx.stop() }
 })
+
+
+test('explicit server filters keep external total/page/limit and request once without local scanning', async () => {
+  let calls = 0
+  const ctx = setup({ serverFilter: true, page: 4, total: 200, rows: [{ id: 1 }],
+    columns: [{ key: 'name', label: 'Name' }],
+    serverFilterQuery: async () => { calls++; return true },
+    loadFilterRows: async () => { throw Error('must not scan') } })
+  try {
+    ctx.state.columnFilter.state.value.conditions = [{ key: 'name', operator: 'contains', value: 'A' }]
+    await ctx.state.handleStandardFilterQuery()
+    assert.equal(calls, 1)
+    assert.equal(ctx.state.resolvedTotal.value, 200)
+    assert.equal(ctx.state.resolvedPage.value, 4)
+    assert.equal(ctx.state.pageRows.value, undefined)
+    assert.equal(ctx.state.resolveRows(ctx.props.rows), ctx.props.rows)
+    assert.equal(JSON.parse(ctx.props.queryModel.listFilters)[0].value, 'A')
+    ctx.state.handlePagination({page: 2, limit: 20})
+    assert.equal(ctx.events.at(-1)[0], 'pagination')
+    await ctx.state.handleStandardFilterReset()
+    assert.equal(calls, 2)
+    assert.equal(ctx.props.queryModel.listFilters, undefined)
+    assert.equal(ctx.state.columnFilter.active.value, false)
+  } finally { ctx.stop() }
+})
+
+test('server reset failure retains the last successful scope and reports failure', async () => {
+  let fail = false
+  const ctx = setup({ serverFilter: true, columns: [{key:'name',label:'Name'}],
+    serverFilterQuery: async () => { if (fail) throw Error('reset rejected'); return true } })
+  try {
+    ctx.state.columnFilter.state.value.conditions = [{key:'name',operator:'eq',value:'A'}]
+    await ctx.state.handleStandardFilterQuery()
+    const oldFilters = ctx.props.queryModel.listFilters
+    fail = true
+    await assert.rejects(ctx.state.handleStandardFilterReset(), /reset rejected/)
+    assert.equal(ctx.props.queryModel.listFilters, oldFilters)
+    assert.equal(ctx.state.columnFilter.active.value, true)
+    assert.equal(ctx.state.columnFilter.state.value.appliedConditions[0].value, 'A')
+    assert.equal(ctx.state.columnFilter.state.value.conditions.length, 0)
+  } finally {ctx.stop()}
+})

@@ -21,8 +21,8 @@ public final class DccLegacySourceNameSql {
           LEFT JOIN dcc_controlled_file_name_claim lc ON lc.id=e.legacy_claim_id AND lc.tenant_id=e.tenant_id
           LEFT JOIN dcc_controlled_file_master m ON m.id=e.legacy_master_id AND m.tenant_id=e.tenant_id
           LEFT JOIN dcc_controlled_file f ON f.id=e.controlled_file_id AND f.tenant_id=e.tenant_id
-          LEFT JOIN infra_file i ON i.id=e.source_file_id
-          LEFT JOIN infra_file_config fc ON fc.id=e.config_id
+          LEFT JOIN infra_file i ON i.id=e.source_file_id AND i.tenant_id=e.tenant_id
+          LEFT JOIN infra_tenant_file_config fc ON fc.id=e.config_id AND fc.tenant_id=e.tenant_id
           LEFT JOIN dcc_source_name_reservation r ON r.tenant_id=e.tenant_id AND r.source_name_key=e.source_name_key
           WHERE e.tenant_id=s.tenant_id AND e.verification_scope_id=s.id AND (
             lc.id IS NULL OR lc.deleted<>0 OR lc.source_original_file_name IS NOT NULL OR lc.master_id<>e.legacy_master_id

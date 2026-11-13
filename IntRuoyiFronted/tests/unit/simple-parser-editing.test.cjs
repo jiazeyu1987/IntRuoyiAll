@@ -49,7 +49,11 @@ function page(kind) {
     '@/views/mes/md/workstation/components/MdWorkshopSelect.vue': {},
     '@/views/mes/qc/template/SamplingRuleEditor.vue': {},
     '@/api/mes/dv/machinery': { DvMachineryApi: { getMachineryPage: async () => ({ list: [], total: 0 }) } },
-    '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }),
+    '@/api/mes/pro/batchrecordreport/simpleParserProjects': {
+        getSimpleParserProjects: async () => [],
+        getSimpleParserProject: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' })
+      },
+      '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }),
       getProjectCode: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' }) },
     '@/store/modules/user': { useUserStore: () => ({ getUser: { id: 1 } }) },
     '@/utils/auth': { getTenantId: () => 1, getVisitTenantId: () => undefined },
@@ -85,6 +89,61 @@ function initialize(state, kind) {
   }
   state.resetEditing(true, '2026-11-02 10:00:00')
 }
+
+for (const kind of ['pqc', 'common']) {
+  test(`${kind}: equipment can be disabled without losing inspection content, saved and undone`, async t => {
+    const ctx = page(kind), state = mountState(ctx, t)
+    initialize(state, kind)
+    const item = state.item.value
+    item.inspectionTool = '15N砝码'
+    item.equipmentOptions = [{ equipmentId: 7, equipmentNumber: 'DV-7', equipmentName: '砝码' }]
+    item.equipmentUnboundReason = '待确认'
+    await vue.nextTick()
+    state.resetEditing(true)
+    state.toggleEquipment(false)
+    await vue.nextTick()
+    assert.equal(state.item.value.equipmentRequired, false)
+    assert.equal(state.item.value.inspectionTool, '15N砝码')
+    assert.equal(state.item.value.standardText, '无异物')
+    assert.equal(state.item.value.equipmentOptions.length, 0)
+    assert.equal(state.item.value.equipmentUnboundReason, undefined)
+    assert.equal(state.issues.value.some(i => i.field === 'equipment'), false)
+    state.undo()
+    await vue.nextTick()
+    assert.equal(state.item.value.equipmentOptions.length, 1)
+    state.toggleEquipment(false)
+    await vue.nextTick()
+    state.saveLocal()
+    await state.restoreLocal()
+    assert.equal(state.item.value.equipmentRequired, false)
+    state.toggleEquipment(true)
+    await vue.nextTick()
+    assert.equal(state.item.value.equipmentRequired, true)
+    if (kind === 'pqc') assert.equal(state.issues.value.some(i => i.field === 'equipment'), true)
+  })
+}
+
+test('production: disabling a detected group preserves its content and excludes its validation', async t => {
+  const ctx = page('production'), state = mountState(ctx, t)
+  initialize(state, 'production')
+  state.current.value.value.equipmentGroups = [{ selectionMode: 'SINGLE',
+    equipmentOptions: [{ name: '误识别器具', code: '' }],
+    parameters: [{ name: '参数', ui: { control: 'number', min: 5, max: 2 } }] }]
+  await vue.nextTick()
+  state.resetEditing(true)
+  assert.ok(state.issues.value.length > 0)
+  state.toggleGroupEquipment(0, false)
+  await vue.nextTick()
+  assert.equal(state.issues.value.length, 0)
+  assert.equal(state.current.value.value.equipmentGroups[0].parameters.length, 1)
+  assert.equal(state.buildRequest().recognitionJson.processes[0].equipmentGroups[0].equipmentRequired, false)
+  state.saveDraft()
+  await state.restoreDraft()
+  assert.equal(state.current.value.value.equipmentGroups[0].equipmentRequired, false)
+  state.toggleGroupEquipment(0, true)
+  await vue.nextTick()
+  assert.ok(state.issues.value.length > 0)
+})
 
 for (const kind of ['production', 'pqc', 'common']) {
   test(`${kind}: navigation stays clean; edits, reorder and deletion can be undone through an empty list`, async t => {
@@ -258,6 +317,30 @@ function mountState(ctx, t) {
   t.after(() => app.unmount())
   return state
 }
+
+test('production: preview uses the selected project product name even when Word omits or misidentifies it', async t => {
+  const ctx = page('production'), state = mountState(ctx, t)
+  initialize(state, 'production')
+  let calls = 0, request
+  ctx.imports['@/api/mes/pro/batchrecordreport/simpleParser'].SimpleParserApi.preview = async data => {
+    calls++; request = data
+    return { previewToken: 'T1', blockers: [] }
+  }
+  state.projects.value[0].projectName = '美联定制按压式压力泵'
+  await vue.nextTick()
+  await state.loadDevices()
+  for (const name of [undefined, '', '识别错误的名称', '产'.repeat(129)]) {
+    state.recognition.value.product = { name, code: 'IDML' }
+    await state.openPublish()
+    assert.equal(state.issues.value.length, 0)
+    assert.equal(state.error.value, '')
+    assert.ok(request, `busy=${state.busy.value}, deviceError=${state.deviceError.value}`)
+    assert.equal(request.recognitionJson.product.name, '美联定制按压式压力泵')
+    assert.equal(request.recognitionJson.product.code, 'IDML')
+    assert.equal(state.recognition.value.product.name, name)
+  }
+  assert.equal(calls, 4)
+})
 
 for (const kind of ['pqc', 'common']) test(`${kind}: reimporting a published Word creates an unused version without losing inspection content`, async t => {
   const ctx = page(kind)

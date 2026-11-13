@@ -989,11 +989,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         Map<String, MesMdItemDO> result = new LinkedHashMap<>();
         for (String materialCode : materialCodes) {
             MesMdItemDO item = itemMapper.selectByCode(materialCode);
-            if (item == null || item.getId() == null || trimToNull(item.getCode()) == null) {
-                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUPPLEMENT_MATERIAL_REQUIRED,
-                        activeOrderId, materialCode);
+            // 补料展示以正式补料单为来源，本地主数据仅补充可选的物料 ID。
+            if (item != null && item.getId() != null && trimToNull(item.getCode()) != null) {
+                result.put(materialCode, item);
             }
-            result.put(materialCode, item);
         }
         return result;
     }
@@ -1013,7 +1012,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             ErpKingdeeProductionReplenishmentListDO header = headersById.get(item.getProductionReplenishmentListId());
             MesMdItemDO material = materialByCode.get(materialCode);
-            if (header == null || material == null) {
+            if (header == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
             String key = item.getProductionReplenishmentListId() + "|" + materialCode;
@@ -1515,6 +1514,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private static final class SupplementAccumulator {
         private final MesMdItemDO material;
+        private final String materialCode;
         private final String materialName;
         private final String materialSpecification;
         private final LinkedHashSet<String> batchCodes = new LinkedHashSet<>();
@@ -1527,6 +1527,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
         private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem) {
             this.material = material;
+            this.materialCode = trimToNull(firstItem.getMaterialNumber());
             this.materialName = trimToNull(firstItem.getMaterialName());
             this.materialSpecification = trimToNull(firstItem.getMaterialSpecification());
         }
@@ -1544,8 +1545,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
         private MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail toDetail() {
             return new MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail()
-                    .setMaterialId(material.getId())
-                    .setMaterialCode(trimToNull(material.getCode()))
+                    .setMaterialId(material == null ? null : material.getId())
+                    .setMaterialCode(materialCode)
                     .setMaterialName(materialName)
                     .setMaterialSpecification(materialSpecification)
                     .setBatchCodes(batchCodes.stream().filter(Objects::nonNull).sorted().toList())

@@ -26,10 +26,8 @@
       @quick-filter-query="routeQuickFilter.applyQuickFilter"
       @column-change="saveRouteColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -423,7 +421,7 @@
 
 <script setup lang="ts">
 import RouteProjectSelect from './RouteProjectSelect.vue'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { until } from '@vueuse/core'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
@@ -1169,13 +1167,6 @@ onMounted(async () => {
   await loadListFromRoute()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProRouteApi.getRoutePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

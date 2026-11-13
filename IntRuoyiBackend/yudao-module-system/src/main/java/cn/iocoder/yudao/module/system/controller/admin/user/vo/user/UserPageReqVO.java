@@ -60,5 +60,8 @@ public class UserPageReqVO extends PageParam {
     private Long scopeRoleId;
     private Long scopePostId;
     private java.util.List<Long> ids;
+    private String sortKey;
+    @jakarta.validation.constraints.Pattern(regexp = "ascending|descending")
+    private String sortOrder;
 
 }

@@ -40,7 +40,7 @@
             ><UserSelectV2 v-model="qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人"
           /></el-form-item>
           <el-form-item label="签名凭据" required
-            ><el-input v-model="password" type="password" show-password autocomplete="off"
+            ><SignatureCredentialInput v-model="password"
           /></el-form-item>
         </template>
       </el-form>
@@ -63,6 +63,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { ref, watch } from 'vue'
 import { generateUUID } from '@/utils'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'

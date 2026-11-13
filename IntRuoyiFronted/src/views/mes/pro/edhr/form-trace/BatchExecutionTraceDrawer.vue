@@ -257,57 +257,9 @@
         </section>
       </el-tab-pane>
 
-      <el-tab-pane label="单元责任" name="fieldResponsibility">
-        <section class="edhr-form-trace-batch-trace__section">
-          <div class="edhr-form-trace-batch-trace__section-head">
-            <div>
-              <div class="edhr-form-trace-batch-trace__section-title">单元格填写责任</div>
-              <div class="edhr-form-trace-batch-trace__muted">
-                复用现有字段责任汇总，展示每个单元格当前值、首次有效填写人、最后操作人和填写时间。
-              </div>
-            </div>
-            <el-select
-              v-if="executionEntries.length > 1"
-              v-model="selectedResponsibilityExecutionId"
-              class="!w-280px"
-              placeholder="选择执行记录"
-              filterable
-            >
-              <el-option
-                v-for="entry in executionEntries"
-                :key="entry.executionId"
-                :label="entry.label"
-                :value="entry.executionId"
-              />
-            </el-select>
-          </div>
-          <FieldAuditPage
-            v-if="selectedResponsibilityExecutionId"
-            :key="`responsibility-${selectedResponsibilityExecutionId}`"
-            embedded
-            initial-view="responsibility"
-            :initial-execution-id="selectedResponsibilityExecutionId"
-          />
-          <el-empty v-else description="当前追溯上下文缺少执行记录，无法展示单元格填写责任" />
-        </section>
-      </el-tab-pane>
+      
 
-      <el-tab-pane label="操作审计" name="operationAudit">
-        <OperationAuditListPane
-          v-if="traceBatchExecutionId"
-          object-type="BATCH_EXECUTION"
-          :object-id="String(traceBatchExecutionId)"
-          :batch-execution-id="traceBatchExecutionId"
-          :show-object-filters="false"
-        />
-        <OperationAuditListPane
-          v-else-if="selectedSignatureExecutionId"
-          object-type="BATCH_RECORD_EXECUTION"
-          :object-id="String(selectedSignatureExecutionId)"
-          :show-object-filters="false"
-        />
-        <el-empty v-else description="当前追溯上下文缺少批次或执行记录，无法展示按钮操作审计" />
-      </el-tab-pane>
+      
 
       <el-tab-pane label="电子签名" name="signatures">
         <section class="edhr-form-trace-batch-trace__section">
@@ -344,18 +296,13 @@
         </section>
       </el-tab-pane>
 
-      <el-tab-pane v-if="traceReleaseTransactionId" label="放行事件" name="releaseEvents">
-        <ReleaseEventListPane :release-transaction-id="traceReleaseTransactionId" />
-      </el-tab-pane>
+      
     </el-tabs>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import FieldAuditPage from '@/views/mes/pro/edhr/FieldAuditPage.vue'
 import SignaturePage from '@/views/mes/pro/edhr/SignaturePage.vue'
-import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
-import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
 import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'

@@ -348,7 +348,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             targetQuantityByProcess.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                    snapshot.getPlannedQuantitySnapshot());
+                    MesProductionQuantityRange.of(snapshot).upper());
         }
 
         var allocations = list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())));

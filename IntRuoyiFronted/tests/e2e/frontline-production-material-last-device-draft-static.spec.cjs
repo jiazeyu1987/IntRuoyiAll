@@ -121,12 +121,14 @@ const submitHandler = extractBlock(
   'const handleProductionFormalSubmit = async () => {',
   '\n}\n\nconst assertPqcSignatureAndQuantityReady ='
 )
-const submitIndex = submitHandler.indexOf('await ProFeedbackApi.frontlineSubmit(formalPayload)')
+const submitIndex = submitHandler.indexOf('await ProFeedbackApi.frontlineSubmit(formalPayload,')
 const rememberIndex = submitHandler.indexOf('rememberProductionMaterialDeviceDrafts(materialDetails)')
 const resetIndex = submitHandler.indexOf('resetProductionSubmissionDraft()')
 assert.ok(submitIndex >= 0, 'production submit endpoint must be awaited.')
 assert.ok(rememberIndex > submitIndex, 'last device memory may update only after submit succeeds.')
 assert.ok(resetIndex > rememberIndex, 'draft reset must happen after last device memory is saved.')
+assert.ok(submitHandler.indexOf('await refreshProductionSelectedProcessSubmittedQuantity') > rememberIndex,
+  'last device memory must be saved before refreshing the process can rebuild its drafts.')
 
 assert.match(
   panel,

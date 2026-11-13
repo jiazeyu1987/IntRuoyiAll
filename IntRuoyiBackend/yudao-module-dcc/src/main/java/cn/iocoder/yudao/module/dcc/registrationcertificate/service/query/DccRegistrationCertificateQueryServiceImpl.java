@@ -107,6 +107,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         normalized.setBusinessDate(businessClock.businessDate());
         validateSort(normalized, CURRENT_SORT_FIELDS);
         validateCurrentReminderState(normalized);
+        normalized.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(normalized, false));
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countPage(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()
@@ -146,6 +147,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         DccRegistrationCertificatePageQuery normalized = normalize(query);
         validateSort(normalized, OLD_INDEX_SORT_FIELDS);
         validateOldIndexReminderState(normalized);
+        normalized.setListFilterWrapper(DccRegistrationCertificateQueryMapper.SqlProvider.listFilterWrapper(normalized, true));
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countOldIndex(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()

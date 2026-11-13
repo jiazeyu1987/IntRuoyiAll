@@ -82,7 +82,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 public class SystemConfigPackageServiceImpl implements SystemConfigPackageService {
 
     @Resource
-    private cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator approvalAuthority;
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
 
     private static final String FORMAT_VERSION = "1";
     private static final String PASSWORD_POLICY_PRESERVE = "preserve_existing_passwords";
@@ -208,6 +208,12 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         validatePasswordPolicy(pkg, packageIncludesPasswordHash, sourceTenantId, errors);
 
         Snapshot current = loadCurrentSnapshot(true);
+        for (String sheet : List.of(SHEET_MENUS, SHEET_TENANT_PACKAGE)) {
+            if (!hashSnapshot(Map.of(sheet, pkg.rows(sheet)), false)
+                    .equals(hashSnapshot(Map.of(sheet, current.sheets().get(sheet)), false))) {
+                errors.add(sheet + " 为平台共用定义，租户配置包不能覆盖；请使用与当前平台定义一致的配置包");
+            }
+        }
         String targetHash = hashSnapshot(current.sheets(), true);
         List<SystemConfigPackagePrecheckRespVO.SheetDiff> diffs = buildDiffs(pkg.sheets(), current.sheets());
         return new SystemConfigPackagePrecheckRespVO()
@@ -236,7 +242,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         // Restore can remove and recreate an identity at the same numeric id. Lock every physical
         // target identity before qualification locks; INSERT triggers issue fresh generations.
         userMapper.selectAllTenantIdentitiesForUpdate(TenantContextHolder.getRequiredTenantId());
-        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
+        var lockedAuthority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         Snapshot beforeSnapshot = loadCurrentSnapshot(true);
         String currentSnapshotSha256 = hashSnapshot(beforeSnapshot.sheets(), true);
         if (!StrUtil.equals(currentSnapshotSha256, targetSnapshotSha256)
@@ -261,13 +267,14 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         }
         Map<String, Integer> counts = dataSheetNames().stream().collect(Collectors.toMap(
                 Function.identity(),
-                sheet -> pkg.sheets().getOrDefault(sheet, List.of()).size(),
+                sheet -> List.of(SHEET_MENUS, SHEET_TENANT_PACKAGE).contains(sheet) ? 0 : pkg.sheets().getOrDefault(sheet, List.of()).size(),
                 (first, second) -> first,
                 LinkedHashMap::new));
         Snapshot afterSnapshot = loadCurrentSnapshot(true);
         String afterSnapshotSha256 = hashSnapshot(afterSnapshot.sheets(), true);
         appendImportAudit(pkg, currentSnapshotSha256, afterSnapshotSha256, counts);
-        approvalAuthority.incrementLockedTenants(lockedAuthority);
+        approvalAuthority.incrementLockedAuthorityRevision(targetTenantId, lockedAuthority.revision());
+        cn.iocoder.yudao.module.system.service.dict.TenantDictionaryCache.invalidateAfterCommit();
         return new SystemConfigPackageImportRespVO()
                 .setRestored(true)
                 .setTargetSnapshotSha256(currentSnapshotSha256)
@@ -455,15 +462,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = ?", tenantId);
         jdbcTemplate.update("DELETE FROM system_dept WHERE tenant_id = ?", tenantId);
         jdbcTemplate.update("DELETE FROM system_post WHERE tenant_id = ?", tenantId);
-        jdbcTemplate.update("DELETE FROM system_tenant_package");
-        jdbcTemplate.update("DELETE FROM system_dict_data");
-        jdbcTemplate.update("DELETE FROM system_dict_type");
-        jdbcTemplate.update("DELETE FROM system_menu");
-
-        pkg.rows(SHEET_MENUS).forEach(row -> menuMapper.insert(toMenu(row)));
-        pkg.rows(SHEET_DICT_TYPE).forEach(row -> dictTypeMapper.insert(toDictType(row)));
-        pkg.rows(SHEET_DICT_DATA).forEach(row -> dictDataMapper.insert(toDictData(row)));
-        pkg.rows(SHEET_TENANT_PACKAGE).forEach(row -> tenantPackageMapper.insert(toTenantPackage(row)));
+        replaceTenantDictionaries(pkg, true);
         pkg.rows(SHEET_DEPT).forEach(row -> deptMapper.insert(toDept(row, tenantId)));
         pkg.rows(SHEET_POST).forEach(row -> insertPost(row, tenantId));
         pkg.rows(SHEET_USERS).forEach(row -> userMapper.insert(toUser(row, tenantId, restorePasswordHash, currentUsers)));
@@ -487,6 +486,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         jdbcTemplate.update("DELETE FROM system_dept WHERE tenant_id = ?", tenantId);
         jdbcTemplate.update("DELETE FROM system_post WHERE tenant_id = ?", tenantId);
 
+        replaceTenantDictionaries(pkg, false);
         Map<Long, Long> deptIdMap = insertCrossTenantDepts(pkg.rows(SHEET_DEPT), tenantId);
         Map<Long, Long> postIdMap = insertCrossTenantPosts(pkg.rows(SHEET_POST));
         Map<Long, Long> roleIdMap = insertCrossTenantRoles(pkg.rows(SHEET_ROLES), tenantId, deptIdMap);
@@ -496,6 +496,24 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         insertCrossTenantRoleMenus(pkg.rows(SHEET_ROLE_MENU), tenantId, roleIdMap);
         insertCrossTenantUserRoles(pkg.rows(SHEET_USER_ROLE), roleIdMap, userIdMap);
         insertCrossTenantUserPosts(pkg.rows(SHEET_USER_POST), userIdMap, postIdMap);
+    }
+
+    private void replaceTenantDictionaries(PackageWorkbook pkg, boolean retainIds) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        jdbcTemplate.update("DELETE FROM system_tenant_dict_data WHERE tenant_id = ?", tenantId);
+        jdbcTemplate.update("DELETE FROM system_tenant_dict_type WHERE tenant_id = ?", tenantId);
+        pkg.rows(SHEET_DICT_TYPE).forEach(row -> {
+            DictTypeDO type = toDictType(row);
+            type.setTenantId(tenantId);
+            if (!retainIds) type.setId(null);
+            dictTypeMapper.insert(type);
+        });
+        pkg.rows(SHEET_DICT_DATA).forEach(row -> {
+            DictDataDO data = toDictData(row);
+            data.setTenantId(tenantId);
+            if (!retainIds) data.setId(null);
+            dictDataMapper.insert(data);
+        });
     }
 
     private MenuDO toMenu(Map<String, String> row) {

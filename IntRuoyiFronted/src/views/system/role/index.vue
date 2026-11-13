@@ -12,10 +12,11 @@
       v-model:page="queryParams.pageNo"
       :total="total"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -63,14 +64,7 @@
           @import-role="openImport"
           @success="refreshCategories"
         />
-        <el-button
-          v-hasPermi="['system:gxp-audit:query']"
-          class="permission-role-toolbar__action"
-          plain
-          @click="permissionAuditRef?.open()"
-        >
-          权限审计
-        </el-button>
+
         <UserTableColumnSettings
           :columns="roleColumns"
           :show-reset="false"
@@ -329,11 +323,11 @@
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
   <RoleDataPermissionForm ref="dataPermissionFormRef" @success="getList" />
-  <PermissionAuditDialog ref="permissionAuditRef" />
+
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -389,7 +383,7 @@ const total = ref(0) // 列表的总页数
 const list = ref<RoleApi.RoleVO[]>([]) // 列表的数据
 const categoryList = ref<RoleApi.RoleCategoryVO[]>([])
 const highlightedRoleId = ref<number>()
-const permissionAuditRef = ref<InstanceType<typeof PermissionAuditDialog>>()
+
 const roleTableRef = ref()
 const roleListRef = ref<InstanceType<typeof UnifiedListTemplate>>()
 const selectedRoleIds = ref<number[]>([])
@@ -417,13 +411,15 @@ const getList = async () => {
   const requestId = ++listRequestId
   clearRoleSelection()
   list.value = []
-  total.value = 0
   loading.value = true
   try {
     const data = await RoleApi.getRolePage({ ...queryParams })
     if (requestId !== listRequestId) return
     list.value = data.list
     total.value = data.total
+  } catch (error) {
+    if (requestId === listRequestId) total.value = 0
+    throw error
   } finally {
     if (requestId === listRequestId) loading.value = false
   }
@@ -631,13 +627,6 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    RoleApi.getRolePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

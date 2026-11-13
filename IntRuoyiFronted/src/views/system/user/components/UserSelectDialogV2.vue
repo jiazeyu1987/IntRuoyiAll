@@ -34,10 +34,11 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #filters>
@@ -238,7 +239,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { loadAllListPages, buildListColumnFilters, filterListColumns, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -353,6 +354,7 @@ const limit = computed(() => (props.multiple ? (props.max ?? Infinity) : 1))
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 20,
+  listFilters: undefined as string | undefined,
   username: '',
   mobile: '',
   nickname: '',
@@ -406,7 +408,8 @@ const filteredBusinessCandidates = () => {
 }
 const remoteQuery = () => {
   const { departmentMemberType, ...params } = queryParams
-  return { ...params, deptIds: [...params.deptIds], deptLeaderMode: params.deptIds.length ? departmentMemberType : 'ALL',
+  const listFilters = params.listFilters ? JSON.stringify(JSON.parse(params.listFilters).map((condition: { key: string; [key: string]: unknown }) => ({ ...condition, key: condition.key === 'status' ? 'statusLabel' : condition.key }))) : undefined
+  return { ...params, listFilters, deptIds: [...params.deptIds], deptLeaderMode: params.deptIds.length ? departmentMemberType : 'ALL',
     scopeDeptId: props.deptId, scopeRoleId: props.scopeRoleId, scopePostId: props.scopePostId }
 }
 const getList = async () => {
@@ -416,7 +419,8 @@ const getList = async () => {
   try {
     if (props.candidateError) throw new Error(props.candidateError)
     if (businessMode.value) {
-      const filtered = filteredBusinessCandidates()
+      const filtered = filterListColumns(filteredBusinessCandidates(), JSON.parse(queryParams.listFilters || '[]'),
+        buildListColumnFilters(userSelectColumns.value, listColumnFilterDefinitions0.value))
       total.value = filtered.length
       list.value = filtered.slice(
         (queryParams.pageNo - 1) * queryParams.pageSize,
@@ -434,6 +438,7 @@ const getList = async () => {
     list.value = []
     total.value = 0
     error.value = cause instanceof Error ? cause.message : '候选人员加载失败，请重新加载'
+    throw cause
   } finally {
     if (token === requestId) loading.value = false
   }
@@ -448,7 +453,8 @@ const selectAllFiltered = async () => {
       for (const row of rows) if (!blocked(row)) union.set(String(row.id), row)
       if (union.size + chosenRelationships.value.length > limit.value) throw new Error(`最多选择 ${limit.value} 项人员或关系，请缩小筛选范围`)
     }
-    if (businessMode.value) collect(filteredBusinessCandidates())
+    if (businessMode.value) collect(filterListColumns(filteredBusinessCandidates(), JSON.parse(queryParams.listFilters || '[]'),
+      buildListColumnFilters(userSelectColumns.value, listColumnFilterDefinitions0.value)))
     else {
       const query = { ...remoteQuery(), pageNo: 1, pageSize: 200 }
       const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
@@ -625,13 +631,6 @@ watch(visible, (value) => {
 })
 defineExpose({ open, markRoleAssignment })
 
-const loadColumnFilterRows0 = async () => {
-  if (businessMode.value) return filteredBusinessCandidates()
-  const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
-  return normalizeOptions(
-    await loadAllListPages<any>((pagination) => loadPage({ ...remoteQuery(), ...pagination }))
-  )
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

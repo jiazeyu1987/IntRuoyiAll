@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificatePageQuery;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateQueryRecord;
 import org.apache.ibatis.annotations.Mapper;
@@ -333,7 +336,37 @@ public interface DccRegistrationCertificateQueryMapper {
             // Only CE array searches need more than MySQL's default 1000 recursive rows.
             String ceHint = "<if test=\"query != null and ((query.ceCertificateNo != null and query.ceCertificateNo != '') or (query.ceRevision != null and query.ceRevision != '') or query.ceIssueStart != null or query.ceIssueEnd != null)\">"
                     + " /*+ SET_VAR(cte_max_recursion_depth=4294967295) */ </if>";
-            return script(select.replaceFirst("SELECT", "SELECT" + ceHint), where, suffix);
+            return script(select.replaceFirst("SELECT", "SELECT" + ceHint), where + "<if test=\"query.listFilterWrapper != null and !query.listFilterWrapper.emptyOfNormal\"> AND (${query.listFilterWrapper.sqlSegment}) </if>", suffix);
+        }
+
+        public static QueryWrapper<Object> listFilterWrapper(
+                DccRegistrationCertificatePageQuery query, boolean oldIndex) {
+            var fields = new java.util.LinkedHashMap<String, ListFilterQueryUtils.Field>();
+            fields.put("ownerCompanyName", ListFilterQueryUtils.text(OWNER_COMPANY_NAME_SORT_EXPRESSION));
+            fields.put("productName", ListFilterQueryUtils.text("s.product_name"));
+            fields.put("versionNo", ListFilterQueryUtils.text("v.version_no"));
+            String status = "CASE v.status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_EFFECTIVE' THEN '待生效' WHEN 'CURRENT' THEN '当前有效' WHEN 'OLD' THEN '旧证' WHEN 'VOIDED' THEN '已作废' ELSE '未识别状态' END";
+            if (oldIndex) status = "CONCAT('已失效，失效日期 ', COALESCE(" + fact("expiryDate") + ", '—'))";
+            fields.put("status", ListFilterQueryUtils.text(status));
+            for (String key : java.util.List.of("certificateNo", "classification", "remark"))
+                fields.put(key, ListFilterQueryUtils.text(fact(key)));
+            for (String key : java.util.List.of("approvalDate", "effectiveDate", "expiryDate"))
+                fields.put(key, ListFilterQueryUtils.date("CAST(" + fact(key) + " AS DATE)"));
+            if (!oldIndex) {
+                fields.put("projectCode", ListFilterQueryUtils.text("CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$.ownProduct')) = 'false' THEN " + fact("projectCode") + " ELSE pc.project_code END"));
+                fields.put("hasProjectCode", ListFilterQueryUtils.text("CASE WHEN (" + PROJECT_CODE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
+                fields.put("hasRegistrationFile", ListFilterQueryUtils.text("CASE WHEN (" + REGISTRATION_FILE_EXISTS_SORT_EXPRESSION + ") = 1 THEN '已提供' ELSE '缺失' END"));
+                fields.put("reminder", ListFilterQueryUtils.text("CASE (" + REMINDER_STATE_EXPRESSION + ") WHEN 'T_30' THEN '到期前 30 个月' WHEN 'T_8' THEN '到期前 8 个月' WHEN 'T_2' THEN '到期前 2 个月' WHEN 'T_1' THEN '到期前 1 个月' ELSE '正常' END"));
+            }
+            var request = new PageParam();
+            request.setListFilters(query.getListFilters());
+            var wrapper = ListFilterQueryUtils.wrapper(request, fields);
+            wrapper.setParamAlias("query.listFilterWrapper");
+            return wrapper;
+        }
+
+        private static String fact(String key) {
+            return "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(s.facts_json, '$." + key + "')), 'null')";
         }
 
         private static String select() {

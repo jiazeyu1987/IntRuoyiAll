@@ -18,6 +18,7 @@ export type DeviceParameterValueType =
 const STAGE1_SIMULATION_REQUEST_TIMEOUT = 120000
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
+  listFilters?: string
   leaderType: TeamLeaderType
   pqcFormView?: 'CURRENT' | 'HISTORY'
 }
@@ -505,6 +506,7 @@ export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number
   processId?: number
   plannedQuantity?: number | string
+  upperQuantity?: number | string
   allocatedQuantity?: number | string
   remainingQuantity?: number | string
   quantityConflict?: boolean

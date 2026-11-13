@@ -178,7 +178,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), argThat(path -> {
-            assertTrue(path.matches(directory + "/\\d{8}/\\d+/" + name));
+            assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/\\d+/" + name));
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -206,7 +206,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), eq(0L), argThat(path -> {
-            assertTrue(path.matches(directory + "/\\d{8}/\\d+/" + name));
+            assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/\\d+/" + name));
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -259,6 +259,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
     private static void assertPathWithUniqueSuffix(String path, String directory, String fileName) {
         assertNotNull(path);
+        assertTrue(path.startsWith("tenants/1/"));
+        path = path.substring("tenants/1/".length());
         String normalizedPath = directory == null || directory.isEmpty() ? path : path.substring(directory.length() + 1);
         if (directory != null && !directory.isEmpty()) {
             assertTrue(path.startsWith(directory + "/"));
@@ -312,19 +314,19 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         FileClient client = mock(FileClient.class);
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
         when(client.move(eq("dcc/stamped/SOP-001.pdf"),
-                eq("dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf"),
+                eq("tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf"),
                 eq("application/pdf"))).thenReturn("https://new.example.com/SOP-001.pdf");
 
         FileDO result = fileService.moveFile(dbFile.getId(),
-                "dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf");
+                "tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf");
 
-        assertEquals("dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf", result.getPath());
+        assertEquals("tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf", result.getPath());
         assertEquals("https://new.example.com/SOP-001.pdf", result.getUrl());
         FileDO updated = fileMapper.selectById(dbFile.getId());
         assertEquals(result.getPath(), updated.getPath());
         assertEquals(result.getUrl(), updated.getUrl());
         verify(client).move(eq("dcc/stamped/SOP-001.pdf"),
-                eq("dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf"),
+                eq("tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf"),
                 eq("application/pdf"));
     }
 
@@ -336,7 +338,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
                 .setUrl("https://old.example.com/SOP-001.pdf")
                 .setType("application/pdf"));
         fileMapper.insert(dbFile);
-        String targetPath = "dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
+        String targetPath = "tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
         FileClient client = mock(FileClient.class);
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
         when(client.move(eq("dcc/stamped/SOP-001.pdf"), eq(targetPath), eq("application/pdf")))
@@ -362,7 +364,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
                 .setUrl("https://old.example.com/SOP-001.pdf")
                 .setType("application/pdf"));
         fileMapper.insert(dbFile);
-        String targetPath = "dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
+        String targetPath = "tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
         FileClient client = mock(FileClient.class);
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
         when(client.move(eq("dcc/stamped/SOP-001.pdf"), eq(targetPath), eq("application/pdf")))
@@ -388,7 +390,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
                 .setUrl("https://old.example.com/SOP-001.pdf")
                 .setType("application/pdf"));
         fileMapper.insert(dbFile);
-        String targetPath = "dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
+        String targetPath = "tenants/1/dcc/stamped/作废文件/" + dbFile.getId() + "/SOP-001.pdf";
         FileClient client = mock(FileClient.class);
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
         when(client.move(eq("dcc/stamped/SOP-001.pdf"), eq(targetPath), eq("application/pdf")))
@@ -474,6 +476,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         Long configId = 10L;
         String path = "tudou.jpg";
+        fileMapper.insert(randomPojo(FileDO.class, o -> o.setConfigId(configId).setPath(path)));
         // mock 方法
         FileClient client = mock(FileClient.class);
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
@@ -490,6 +493,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
     public void testGetFileContent_whenS3NoSuchKey_refreshesClientAndRetriesOnce() throws Exception {
         Long configId = 10L;
         String path = "showroom/product/cover/20260530/product-product_001-cover.png";
+        fileMapper.insert(randomPojo(FileDO.class, o -> o.setConfigId(configId).setPath(path)));
         FileClient staleClient = mock(FileClient.class);
         FileClient refreshedClient = mock(FileClient.class);
         byte[] content = "image".getBytes();
@@ -509,6 +513,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
     public void testGetFileContent_whenRetryStillNoSuchKey_usesFreshS3ClientClone() throws Exception {
         Long configId = 10L;
         String path = "showroom/product/cover/20260530/product-product_001-cover.png";
+        fileMapper.insert(randomPojo(FileDO.class, o -> o.setConfigId(configId).setPath(path)));
         FileClient staleClient = mock(FileClient.class);
         S3FileClient refreshedClient = mock(S3FileClient.class);
         byte[] content = "image".getBytes();
@@ -631,7 +636,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         when(client.getId()).thenReturn(configId);
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.uploadWithStorageRetention(same(content), argThat(path -> {
-            assertTrue(path.matches("mes/edhr/archive/\\d{8}/\\d+/archive\\.pdf"));
+            assertTrue(path.matches("tenants/1/mes/edhr/archive/\\d{8}/\\d+/archive\\.pdf"));
             pathRef.set(path);
             return true;
         }), eq(type), same(policy))).thenReturn(evidence);
@@ -737,6 +742,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         Long configId = 11L;
         String path = "archive/no-retention.pdf";
+        fileMapper.insert(randomPojo(FileDO.class, o -> o.setConfigId(configId).setPath(path)));
         StorageRetentionPolicy policy = buildRetentionPolicy();
         UnsupportedOperationException unsupported = new UnsupportedOperationException("当前文件客户端不支持存储保留证据");
         // mock 方法
@@ -773,9 +779,9 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/yyyyMMdd/{时间戳+随机数}/test.jpg
-        assertTrue(path.startsWith(directory + "/"));
+        assertTrue(path.startsWith("tenants/1/" + directory + "/"));
         // 包含日期格式：8 位数字，如 20240517
-        assertTrue(path.matches(directory + "/\\d{8}/\\d+/test\\.jpg"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/\\d+/test\\.jpg"));
     }
 
     @Test
@@ -791,9 +797,9 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/yyyyMMdd/test.jpg
-        assertTrue(path.startsWith(directory + "/"));
+        assertTrue(path.startsWith("tenants/1/" + directory + "/"));
         // 包含日期格式：8 位数字，如 20240517
-        assertTrue(path.matches(directory + "/\\d{8}/test\\.jpg"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/test\\.jpg"));
     }
 
     @Test
@@ -809,8 +815,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/{时间戳+随机数}/test.jpg
-        assertTrue(path.startsWith(directory + "/"));
-        assertTrue(path.matches(directory + "/\\d+/test\\.jpg"));
+        assertTrue(path.startsWith("tenants/1/" + directory + "/"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d+/test\\.jpg"));
     }
 
     @Test
@@ -826,7 +832,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/test.jpg
-        assertEquals(directory + "/" + name, path);
+        assertEquals("tenants/1/" + directory + "/" + name, path);
     }
 
     @Test
@@ -842,8 +848,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/yyyyMMdd/{时间戳+随机数}/test
-        assertTrue(path.startsWith(directory + "/"));
-        assertTrue(path.matches(directory + "/\\d{8}/\\d+/test"));
+        assertTrue(path.startsWith("tenants/1/" + directory + "/"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/\\d+/test"));
     }
 
     @Test
@@ -859,7 +865,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：yyyyMMdd/{时间戳+随机数}/test.jpg
-        assertTrue(path.matches("\\d{8}/\\d+/test\\.jpg"));
+        assertTrue(path.matches("tenants/1/\\d{8}/\\d+/test\\.jpg"));
     }
 
     @Test
@@ -876,7 +882,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/yyyyMMdd/test_{时间戳+随机数}.jpg
-        assertTrue(path.matches(directory + "/\\d{8}/test_\\d+\\.jpg"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/test_\\d+\\.jpg"));
     }
 
     @Test
@@ -893,7 +899,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/test_{时间戳+随机数}.jpg
-        assertTrue(path.matches(directory + "/test_\\d+\\.jpg"));
+        assertTrue(path.matches("tenants/1/" + directory + "/test_\\d+\\.jpg"));
     }
 
     @Test
@@ -910,7 +916,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：avatar/yyyyMMdd/test_{时间戳+随机数}
-        assertTrue(path.matches(directory + "/\\d{8}/test_\\d+"));
+        assertTrue(path.matches("tenants/1/" + directory + "/\\d{8}/test_\\d+"));
     }
 
     @Test
@@ -926,7 +932,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         // 断言
         // 格式为：yyyyMMdd/{时间戳+随机数}/test.jpg
-        assertTrue(path.matches("\\d{8}/\\d+/test\\.jpg"));
+        assertTrue(path.matches("tenants/1/\\d{8}/\\d+/test\\.jpg"));
     }
 
 }

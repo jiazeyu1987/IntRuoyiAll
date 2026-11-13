@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTracePageReqVO;
@@ -67,7 +69,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
     }
 
     default PageResult<MesProBatchRecordExecutionDO> selectDomainTracePage(MesProBatchRecordDomainTracePageReqVO reqVO) {
-        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .eqIfPresent(MesProBatchRecordExecutionDO::getId, reqVO.getExecutionId())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -75,7 +77,12 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                 .eqIfPresent(MesProBatchRecordExecutionDO::getDomainTraceStatus, reqVO.getStatus())
                 .ne(MesProBatchRecordExecutionDO::getStatus, 4)
                 .orderByDesc(MesProBatchRecordExecutionDO::getDomainTraceVerifiedAt)
-                .orderByDesc(MesProBatchRecordExecutionDO::getId));
+                .orderByDesc(MesProBatchRecordExecutionDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("traceSummary", text("CONCAT(COALESCE(NULLIF(execution_code,''),CAST(id AS CHAR),'--'),' ',COALESCE(NULLIF(work_order_code,''),'未关联工单'),' ',COALESCE(NULLIF(batch_code,''),'未关联批次'))")),
+                java.util.Map.entry("status", text("CASE COALESCE(NULLIF(domain_trace_status,''),'BLOCKED') WHEN 'VERIFIED' THEN '已校验' WHEN 'BLOCKED' THEN '已阻塞' WHEN 'UNVERIFIED' THEN '未校验' ELSE '未知' END")),
+                java.util.Map.entry("blockerSummary", text("CONCAT(CASE WHEN COALESCE(NULLIF(domain_trace_status,''),'BLOCKED') = 'BLOCKED' THEN '主数据追溯已阻塞，后端未返回阻塞明细。' ELSE '无阻塞项' END,' ',COALESCE((SELECT s.blocker_count FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.id = (SELECT s.id FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.verified_at DESC,s.id DESC LIMIT 1)),0))")),
+                java.util.Map.entry("itemCount", text("CAST((SELECT COUNT(*) FROM mes_pro_batch_record_domain_trace_item i WHERE i.snapshot_id = (SELECT s.id FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.verified_at DESC,s.id DESC LIMIT 1) AND i.tenant_id = mes_pro_batch_record_execution.tenant_id AND i.deleted = 0) AS CHAR)")),
+                java.util.Map.entry("verifiedAt", dateTime("domain_trace_verified_at")))));
     }
 
     default List<Long> selectIdsByExecutionCode(String executionCode) {

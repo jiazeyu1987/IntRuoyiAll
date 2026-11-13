@@ -4,7 +4,12 @@ import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccElectronicSi
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccElectronicSignatureAuthorizationPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccElectronicSignatureAuthorizationUnlockReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccElectronicSignatureAuthorizationUpdateReqVO;
+import cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,6 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class DccElectronicSignatureAuthorizationControllerTest {
 
@@ -23,8 +31,27 @@ class DccElectronicSignatureAuthorizationControllerTest {
     private static final String ELECTRONIC_SIGNATURE_ADMIN_ROLE =
             "@ss.hasRole('electronic_signature_admin')";
 
-    @Test
-    void authorizationEndpointsAllowTenantAdministratorReadsAndKeepDedicatedWriteRole() throws NoSuchMethodException {
+    @ParameterizedTest
+    @CsvSource({
+            "tenant_admin, true, true",
+            "electronic_signature_admin, true, true",
+            "tenant_admin, false, false",
+            "electronic_signature_admin, false, false",
+            "audit_admin, true, false",
+            "operator, true, false",
+            "operator, false, false"
+    })
+    void authorizationEndpointsEnforceRoleAndPermission(String role, boolean hasPermission,
+                                                        boolean expected) throws NoSuchMethodException {
+        SecurityFrameworkService security = mock(SecurityFrameworkService.class);
+        when(security.hasPermission("dcc:controlled-file:signature:manage")).thenReturn(hasPermission);
+        when(security.hasRole(anyString())).thenAnswer(invocation -> role.equals(invocation.getArgument(0)));
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setBeanResolver((evaluationContext, beanName) -> {
+            assertEquals("ss", beanName);
+            return security;
+        });
+        SpelExpressionParser parser = new SpelExpressionParser();
         List<Method> adminEndpoints = List.of(
                 DccElectronicSignatureAuthorizationController.class.getMethod("getAuthorizationPage",
                         DccElectronicSignatureAuthorizationPageReqVO.class),
@@ -43,9 +70,8 @@ class DccElectronicSignatureAuthorizationControllerTest {
                     endpoint.getName() + " must retain the DCC signature manage permission");
             assertTrue(preAuthorize.value().contains(ELECTRONIC_SIGNATURE_ADMIN_ROLE),
                     endpoint.getName() + " must require the electronic signature admin role");
-            boolean readEndpoint = endpoint.getName().startsWith("get");
-            assertEquals(readEndpoint, preAuthorize.value().contains("@ss.hasRole('tenant_admin')"),
-                    "Tenant administrators gain read access only: " + endpoint.getName());
+            assertEquals(expected, parser.parseExpression(preAuthorize.value()).getValue(context, Boolean.class),
+                    endpoint.getName() + " role=" + role + " permission=" + hasPermission);
         }
     }
 

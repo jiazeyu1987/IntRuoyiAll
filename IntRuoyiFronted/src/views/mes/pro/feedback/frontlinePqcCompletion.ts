@@ -1,24 +1,22 @@
-import type { FrontlinePqcTaskOptionVO } from '@/api/mes/pro/feedback'
+import type { FrontlinePqcInspectionRuleKey, FrontlinePqcProcessVO } from '@/api/mes/pro/feedback'
+import { getPqcProcessProgress } from './frontlinePqcProgress'
 
-type CompletionTask = Pick<FrontlinePqcTaskOptionVO, 'inspectionType' | 'roundNo' | 'taskStatus'>
-
-export function getCompletedPqcInspections(tasks: CompletionTask[]) {
-  const isCompleted = (group: CompletionTask[]) =>
-    group.length > 0 &&
-    group.every((task) => task.taskStatus === 'SUBMITTED' || task.taskStatus === 'CONFIRMED')
-  const patrols = new Map<number, CompletionTask[]>()
-  for (const task of tasks) {
-    if (task.inspectionType !== 'PATROL') continue
-    const group = patrols.get(task.roundNo) || []
-    group.push(task)
-    patrols.set(task.roundNo, group)
+export function getPqcInspectionProgressSummary(processes: FrontlinePqcProcessVO[]) {
+  const progress = (ruleKey: FrontlinePqcInspectionRuleKey, label: string, roundNo?: number) => {
+    const counts = getPqcProcessProgress(processes, ruleKey, roundNo)
+    return {
+      key: roundNo === undefined ? ruleKey : `${ruleKey}-${roundNo}`,
+      label,
+      ...counts,
+      completed: counts.totalCount > 0 && counts.submittedCount === counts.totalCount
+    }
   }
-  return {
-    first: isCompleted(tasks.filter((task) => task.inspectionType === 'FIRST')),
-    patrolRounds: [...patrols]
-      .filter(([, group]) => isCompleted(group))
-      .map(([roundNo]) => roundNo)
-      .sort((a, b) => a - b),
-    final: isCompleted(tasks.filter((task) => task.inspectionType === 'FINAL'))
-  }
+  const patrolRounds = [...new Set(processes.flatMap((process) => process.pqcTaskOptions
+    .filter((task) => task.inspectionRuleKey === 'PATROL' && task.taskStatus !== 'CANCELLED')
+    .map((task) => task.roundNo)))].sort((a, b) => a - b)
+  return [
+    progress('FIRST', '首检'),
+    ...patrolRounds.map((round) => progress('PATROL', `巡检 ${round}`, round)),
+    progress('FINAL', '末检')
+  ].filter((stage) => stage.totalCount > 0)
 }

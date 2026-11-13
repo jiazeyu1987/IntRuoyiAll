@@ -29,4 +29,8 @@ public class ErpProductPageReqVO extends PageParam {
 
 
     private String syncCode;
+
+    private String keyword;
+
+    private Integer status;
 }

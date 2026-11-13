@@ -1,7 +1,7 @@
 package cn.iocoder.yudao.module.infra.dal.dataobject.file;
 
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClient;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -23,8 +23,8 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TenantIgnore
-public class FileContentDO extends BaseDO {
+@TenantIsolated
+public class FileContentDO extends TenantBaseDO {
 
     /**
      * 编号，数据库自增

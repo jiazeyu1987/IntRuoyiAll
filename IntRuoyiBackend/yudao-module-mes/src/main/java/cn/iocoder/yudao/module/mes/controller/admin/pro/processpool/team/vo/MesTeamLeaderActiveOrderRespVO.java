@@ -146,6 +146,7 @@ public class MesTeamLeaderActiveOrderRespVO {
 
         @Schema(description = "当前工序计划生产数量", example = "100")
         private BigDecimal plannedQuantity;
+        private BigDecimal upperQuantity;
 
         @Schema(description = "当前工序已分配生产数量", example = "70")
         private BigDecimal allocatedQuantity;

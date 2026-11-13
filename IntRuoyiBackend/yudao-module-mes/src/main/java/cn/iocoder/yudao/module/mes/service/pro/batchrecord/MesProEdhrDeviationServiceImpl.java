@@ -269,7 +269,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         Page<MesProEdhrDeviationDO> page = deviationMapper.selectPageByTenant(
                 new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), tenantId, reqVO.getStatus(),
                 reqVO.getLevel(), reqVO.getBatchExecutionId(), reqVO.getSearch(), reqVO.getSortField(),
-                reqVO.getSortOrder(), reqVO.getInitiatedAtStart(), reqVO.getInitiatedAtEnd());
+                reqVO.getSortOrder(), reqVO.getInitiatedAtStart(), reqVO.getInitiatedAtEnd(), reqVO);
         List<Long> batchIds = page.getRecords().stream()
                 .filter(row -> STATUS_OPEN.equals(row.getStatus()) && LEVEL_CRITICAL.equals(row.getLevel()))
                 .map(MesProEdhrDeviationDO::getBatchExecutionId).filter(Objects::nonNull).distinct().toList();

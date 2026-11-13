@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
@@ -205,6 +207,14 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProEdhrBatchExecutionDO::getStatus),
                 "createTime", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProEdhrBatchExecutionDO::getCreateTime)
         ));
+        ListFilterQueryUtils.apply(reqVO, queryWrapper, java.util.Map.ofEntries(
+                java.util.Map.entry("batchExecutionCode", text("batch_execution_code")),
+                java.util.Map.entry("workOrderCode", text("work_order_code")),
+                java.util.Map.entry("product", text("COALESCE(NULLIF(product_name,''),NULLIF(product_code,''),'--')")),
+                java.util.Map.entry("route", text("COALESCE(NULLIF(route_name,''),route_code,'')")),
+                java.util.Map.entry("status", text("CONCAT(CASE status WHEN 0 THEN '已创建' WHEN 10 THEN '执行中' WHEN 15 THEN '冻结中' WHEN 20 THEN '待关闭' WHEN 25 THEN '需返工' WHEN 30 THEN '已关闭' WHEN 40 THEN '已放行' WHEN 50 THEN '已返工' WHEN 60 THEN '已作废' ELSE COALESCE(CAST(status AS CHAR),'--') END,' ',CASE (SELECT r.release_status FROM mes_pro_edhr_release_transaction r WHERE r.batch_execution_id = mes_pro_edhr_batch_execution.id AND r.tenant_id = mes_pro_edhr_batch_execution.tenant_id AND r.deleted = 0 ORDER BY r.id DESC LIMIT 1) WHEN 'PENDING_APPROVAL' THEN '放行审批中' WHEN 'RELEASED' THEN '已放行' WHEN 'REJECTED' THEN '放行退回' WHEN 'WITHDRAWN' THEN '放行退回' ELSE CASE status WHEN 10 THEN '填写中' WHEN 20 THEN '待关闭' WHEN 25 THEN '待返工' WHEN 30 THEN '待放行' WHEN 40 THEN '已放行' WHEN 50 THEN '放行退回' ELSE '待开始' END END)")),
+                java.util.Map.entry("blockedCount", number("blocked_count")),
+                java.util.Map.entry("updateTime", dateTime("update_time"))));
         return queryWrapper.orderByDesc(MesProEdhrBatchExecutionDO::getId);
     }
 

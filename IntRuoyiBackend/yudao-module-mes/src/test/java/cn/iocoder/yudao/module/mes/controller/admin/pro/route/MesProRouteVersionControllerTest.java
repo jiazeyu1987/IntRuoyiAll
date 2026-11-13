@@ -47,6 +47,28 @@ class MesProRouteVersionControllerTest {
     private MesProRouteVersionController controller;
 
     @Test
+    void lossCoefficient_readsBusinessDefaultAndConfiguredValue() {
+        var version = MesProRouteVersionDO.builder().id(42L).routeSnapshotSha256("hash")
+                .routeSnapshotJson("{\"configSnapshots\":{}}").build();
+        when(workflowService.getVersion(42L)).thenReturn(version);
+        assertEquals(new java.math.BigDecimal("1.1"), controller.getLossCoefficient(42L).getData().get("lossCoefficient"));
+        version.setRouteSnapshotJson("{\"configSnapshots\":{\"lossCoefficient\":1.25}}");
+        assertEquals(new java.math.BigDecimal("1.25"), controller.getLossCoefficient(42L).getData().get("lossCoefficient"));
+    }
+
+    @Test
+    void lossCoefficient_savesWithVersionUpdatePermissionAndSnapshotConflictCheck() throws Exception {
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteLossCoefficientSaveReqVO();
+        request.setRouteVersionId(42L);
+        request.setExpectedRouteSnapshotSha256("hash");
+        request.setLossCoefficient(new java.math.BigDecimal("1.2"));
+        assertEquals(Boolean.TRUE, controller.saveLossCoefficient(request).getData());
+        verify(candidateConfigService).saveConfigSnapshots(42L, "hash", Map.of("lossCoefficient", new java.math.BigDecimal("1.2")));
+        assertEquals("@ss.hasPermission('mes:pro-route:version-update')", MesProRouteVersionController.class
+                .getDeclaredMethod("saveLossCoefficient", request.getClass()).getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
     void listVersions_showsActualLastDraftSaverWithoutInferringHistoricalUsers() {
         MesProRouteVersionDO draft = MesProRouteVersionDO.builder().id(2002L).routeId(20L)
                 .lifecycleStatus("DRAFT").lastSavedBy(31L).submittedBy(99L).build();

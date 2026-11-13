@@ -77,6 +77,8 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private String inspectionTool;
         @Schema(description = "发布时的器具未绑定原因，执行前仍需检查当前有效设备配置")
         private String equipmentUnboundReason;
+        @Schema(description = "人工确认是否需要设备；false 表示无需设备，保留原文检验要求")
+        private Boolean equipmentRequired;
         private String samplingPlanText;
         private String standardText;
         private BigDecimal standardLowerLimit;

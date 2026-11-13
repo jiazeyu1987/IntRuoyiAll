@@ -33,7 +33,10 @@ function host(options={}){
       if(q.url.endsWith('/pending'))return options.pending?options.pending():[structuredClone(records.get(id))]
       const requestId=q.url.split('/').pop();return options.read?options.read(requestId):structuredClone(records.get(requestId))},
       post:async q=>{calls.writes.push(q);if(options.write)return options.write(q)
-        if(q.url.endsWith('/create')||q.url.endsWith('/resubmit'))return nextId
+        if(q.url.endsWith('/create')){
+          records.set(nextId,row(nextId,{reviewContract:'DIRECT_CREATE_V1',reviewerRoleId:null,reviewerRoleCode:null,canReview:false,status:'COMPLETED',generatedProjectCodeId:'101',generatedProductCatalogId:'102',relationId:'103'}));return nextId
+        }
+        if(q.url.endsWith('/resubmit'))return nextId
         const requestId=q.url.split('/').at(-3),result=row(requestId,{status:q.url.endsWith('/reject')?'REJECTED':'COMPLETED',canReview:false,reviewerUserId:actor})
         records.set(requestId,result);return result}}}})
   Object.assign(c,api)
@@ -64,13 +67,15 @@ test('new creation acknowledgement switches to the exact new request and never r
   assert.equal(h.c.projectProductMode.value,'records');assert.equal(h.c.projectProductExactRequestId.value,nextId)
   assert.equal(h.c.projectProductRequests.value[0].id,nextId)
   assert.ok(h.calls.reads.includes('/dcc/project-product-requests/'+nextId))
+  assert.equal(h.calls.reads.some(url=>url.endsWith('/reviewer-role')),false)
+  assert.deepEqual(h.calls.success,['项目及产品已创建，无需审核'])
   await h.submit();assert.equal(h.calls.writes.length,1)
 })
 test('candidate change or actor and tenant drift while confirming preserves input and writes nothing',async()=>{
   for(const change of [c=>c.userStore.getUser.id='8',c=>c.projectProductMode.value='records']){
     const h=host({confirm:async c=>change(c)});await h.submit();assert.equal(h.calls.writes.length,0);assert.equal(h.c.projectProductForm.remark,'保留备注')
   }
-  let reads=0;const h=host({role:()=>({...role,candidates:++reads===1?role.candidates:[role.candidates[1]]})});await h.submit()
+  let reads=0;const h=host({role:()=>({...role,candidates:++reads===1?role.candidates:[role.candidates[1]]})});h.c.projectProductResubmitRequestId.value=id;h.c.projectProductForm.resubmissionReason='修改历史驳回内容';await h.submit()
   assert.equal(h.calls.writes.length,0);assert.match(h.c.projectProductError.value,/候选.*变化|角色.*变化/)
   const t=host({confirm:async()=>{t.tenant.id='2'}});await t.submit();assert.equal(t.calls.writes.length,0)
 })
@@ -95,7 +100,7 @@ test('notification and project-page routes read the intended record or create ro
   h.c.route.query={requestOpen:'records',from:'project-code'};await h.consume()
   assert.equal(h.c.projectProductExactRequestId.value,undefined);assert.ok(h.calls.reads.includes('/dcc/project-product-requests/pending'))
   const create=host();create.c.route.query={requestOpen:'create',from:'project-code'};await create.consume()
-  assert.ok(create.calls.reads.includes('/dcc/project-product-requests/reviewer-role'));assert.equal(create.calls.reads.some(v=>v.includes('reviewer-config')),false)
+  assert.equal(create.calls.reads.some(v=>v.includes('reviewer-role')||v.includes('reviewer-config')),false)
 })
 
 test('duplicate submit during validation or transport writes once and cancel never writes',async()=>{

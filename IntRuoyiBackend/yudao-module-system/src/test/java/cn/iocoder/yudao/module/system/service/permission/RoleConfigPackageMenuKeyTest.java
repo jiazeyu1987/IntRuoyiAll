@@ -17,16 +17,54 @@ import static org.mockito.Mockito.*;
 class RoleConfigPackageMenuKeyTest {
 
     @Test
-    void sharedPageAndButtonPermissionResolvesBothMenus() {
-        RoleConfigPackageServiceImpl service = serviceWithMenus(
-                menu(101L, "system:role:query"), menu(202L, "system:role:query"));
-
+    void sharedPermissionRoundTripRetainsOnlyTheSelectedPqcPage() {
+        MenuDO production = route(101L, 0L, 2, "/production", "Production", "", "生产");
+        MenuDO pqc = route(202L, 0L, 2, "/pqc", "Pqc", "", "PQC");
+        production.setPermission("mes:batch:query");
+        pqc.setPermission("mes:batch:query");
+        RoleConfigPackageServiceImpl service = serviceWithMenus(production, pqc);
+        Map<Long, String> exported = ReflectionTestUtils.invokeMethod(service, "buildMenuKeyById");
         Map<String, Set<Long>> mapping = ReflectionTestUtils.invokeMethod(service, "buildMenuIdByKey");
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
-        item.setMenuKeys(List.of("permission:system:role:query", "permission:system:role:query"));
-        Set<Long> resolved = ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L, 202L));
+        item.setMenuKeys(List.of(exported.get(202L)));
+        assertEquals(Set.of(202L), ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L, 202L)));
+        item.setMenuKeys(List.of("permission:mes:batch:query"));
+        assertThrows(ServiceException.class,
+                () -> ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L, 202L)));
+    }
 
-        assertEquals(Set.of(101L, 202L), resolved);
+    @Test
+    void sharedLeaderButtonDoesNotGrantProductionPageOrOtherParentButtons() {
+        MenuDO production = route(101L, 0L, 2, "/production", "Production", "", "生产组长");
+        MenuDO leader = route(202L, 0L, 2, "/pqc-leader", "PqcLeader", "", "PQC组长");
+        MenuDO button = route(303L, 202L, 3, "", "", "", "查询");
+        production.setPermission("mes:leader:query");
+        button.setPermission("mes:leader:query");
+        RoleConfigPackageServiceImpl service = serviceWithMenus(production, leader, button);
+        Map<Long, String> exported = ReflectionTestUtils.invokeMethod(service, "buildMenuKeyById");
+        Map<String, Set<Long>> mapping = ReflectionTestUtils.invokeMethod(service, "buildMenuIdByKey");
+        RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setMenuKeys(List.of(exported.get(303L)));
+        assertEquals(Set.of(303L), ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L, 202L, 303L)));
+    }
+
+    @Test
+    void equivalentButtonsRemainWithinTheirOwnParentPage() {
+        MenuDO leader = route(101L, 0L, 2, "/leader", "Leader", "", "Leader");
+        MenuDO other = route(202L, 0L, 2, "/other", "Other", "", "Other");
+        MenuDO first = route(301L, 101L, 3, "", "", "", "Query");
+        MenuDO duplicate = route(302L, 101L, 3, "", "", "", "Status query");
+        MenuDO foreign = route(303L, 202L, 3, "", "", "", "Query");
+        for (MenuDO button : List.of(first, duplicate, foreign)) {
+            button.setPermission("mes:leader:query");
+        }
+        RoleConfigPackageServiceImpl service = serviceWithMenus(leader, other, first, duplicate, foreign);
+        Map<Long, String> exported = ReflectionTestUtils.invokeMethod(service, "buildMenuKeyById");
+        Map<String, Set<Long>> mapping = ReflectionTestUtils.invokeMethod(service, "buildMenuIdByKey");
+        RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setMenuKeys(List.of(exported.get(301L)));
+        assertEquals(Set.of(301L, 302L), ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item,
+                mapping, Set.of(101L, 202L, 301L, 302L, 303L)));
     }
 
     @Test

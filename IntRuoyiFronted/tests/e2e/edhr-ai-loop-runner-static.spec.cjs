@@ -42,7 +42,7 @@ assert.match(source, /\/mes\/pro\/feedback\/frontline\/device-account\/pqc\/subm
 assert.match(source, /\/mes\/pro\/process-pool\/team-leader\/submission\/review/, 'runner must confirm PQC submissions through the natural page request')
 assert.match(source, /async function completeActiveOrderAndApplyRelease\(page, manifestOrder\)/, 'runner must implement business S04 completion and release application through the production leader page')
 assert.match(source, /PRODUCTION_PICK_LIST/, 'runner must trigger production pick-list sync during S04 through the real page path')
-assert.match(source, /NO_REPLENISHMENT_CONFIRMATION_REQUIRED/, 'runner must verify the no-replenishment confirmation gate during S04')
+assert.match(source, /applyActiveOrderReleaseWithoutReplenishment/, 'S04 must submit orders without replenishment in one request')
 assert.match(source, /const archiveTrace = await runWithStage\('S08',\s*'S08归档及历史追溯'[\s\S]*archiveAndVerifyHistoryS08\(page, mainOrder, finalRelease\)/, 'runner must execute S08 archive and history verification after S07')
 assert.match(source, /action:\s*'S01-S08 eDHR主流程完成'/, 'runner must report the full S01-S08 chain as complete after S08')
 assert.match(source, /stageResults\(null,\s*'PASS'\)/, 'S01-S08 PASS must be explicit after archive and trace verification')

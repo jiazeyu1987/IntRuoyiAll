@@ -55,7 +55,7 @@ public class DccProjectProductCreateController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "创建 DCC 项目代码与产品目录联合新建申请")
+    @Operation(summary = "直接创建 DCC 项目代码、产品目录及关联目录")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:create')")
     public CommonResult<Long> create(@Valid @RequestBody DccProjectProductCreateReqVO reqVO) {
         return success(service.createRequest(getLoginUserId(), reqVO));

@@ -20,10 +20,8 @@
       @quick-filter-query="domainTraceQuickFilter.applyQuickFilter"
       @column-change="saveDomainTraceColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #extra-filters>
@@ -176,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -236,6 +234,7 @@ const normalizeText = (value: unknown) => {
 }
 
 const queryParams = reactive<EdhrDomainTracePageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   executionId: parsePositiveNumber(props.executionId),
@@ -310,6 +309,7 @@ const syncExternalContext = () => {
 const buildQuery = (): EdhrDomainTracePageReqVO => {
   syncExternalContext()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     executionId: parsePositiveNumber(queryParams.executionId),
@@ -377,7 +377,10 @@ const resolveFirstItemSource = (row: EdhrDomainTracePageRowVO) => {
     .join(' / ')
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   if (!hasPermission([EDHR_DOMAIN_TRACE_QUERY_PERMISSION])) {
     list.value = []
     total.value = 0
@@ -388,14 +391,18 @@ async function getList() {
   loadError.value = ''
   try {
     const pageData = await getEdhrDomainTracePage(buildQuery())
+    if (!isCurrent()) return false
     list.value = pageData.list || []
     total.value = pageData.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '主数据追溯列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -439,14 +446,6 @@ watch(
 )
 
 defineExpose({ reload: getList })
-
-const loadColumnFilterRows0 = async () => {
-  const params = buildQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrDomainTracePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

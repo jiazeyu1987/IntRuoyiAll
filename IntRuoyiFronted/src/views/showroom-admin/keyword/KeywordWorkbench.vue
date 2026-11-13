@@ -4,15 +4,13 @@
       @query="handleSearch"
       @reset="handleReset"
       table-key="showroom.keyword.main"
-      :query-model="filters"
       :page="pagination.pageNo"
       :limit="pagination.pageSize"
       :total="pagination.total"
       @pagination="handlePageChange"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="rows = $event"
-      :list-rows="rows"
-      @column-filter-reset="handlePageChange({ page: pagination.pageNo, limit: pagination.pageSize })"
+      server-filter
+      :query-model="pagination"
+      :server-filter-query="loadRows"
       :columns="listFilterColumns0"
       :column-filter-definitions="allColumnDisplayFilters0"
       :show-column-settings="false"
@@ -77,7 +75,6 @@
 <script setup lang="ts">
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { onMounted, reactive, ref } from 'vue'
@@ -96,6 +93,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('关键词中英对照')
 const rows = ref<ShowroomKeywordPageRowRespVO[]>([])
 const pagination = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   total: 0
@@ -115,6 +113,7 @@ const loadRows = async () => {
     const page = await ShowroomAdminApi.getKeywordPage({
       pageNo: pagination.pageNo,
       pageSize: pagination.pageSize,
+      listFilters: pagination.listFilters,
       keyword: filters.keyword?.trim() || undefined
     })
     rows.value = page.list
@@ -226,18 +225,6 @@ const handleDelete = async (id: number) => {
 onMounted(async () => {
   await loadRows()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: pagination.pageNo,
-    pageSize: pagination.pageSize,
-    keyword: filters.keyword?.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ShowroomAdminApi.getKeywordPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listFilterColumns0 = [
   {

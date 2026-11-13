@@ -102,6 +102,20 @@ public class DccRelationStore {
         return jdbc.queryForObject("SELECT COUNT(DISTINCT project_id) FROM dcc_project_file_reference "
                 + "WHERE tenant_id=? AND master_id=? AND selected_controlled_file_id=?", Long.class, tenantId, masterId, selectedFileId);
     }
+    /** Aggregate the bounded page's exact-version counts in one query. Identity is checked by the caller. */
+    public java.util.Map<Long, Long> referenceProjectCounts(Long tenant, List<Long> selectedFileIds) {
+        if (selectedFileIds.isEmpty() || selectedFileIds.size() > 200)
+            throw new DccRelationInputFailure("DCC_REFERENCE_USAGE_QUERY_INVALID");
+        var parameters = new java.util.ArrayList<Object>();
+        parameters.add(tenant); parameters.addAll(selectedFileIds);
+        String placeholders = String.join(",", java.util.Collections.nCopies(selectedFileIds.size(), "?"));
+        var result = new java.util.LinkedHashMap<Long, Long>();
+        jdbc.query("SELECT selected_controlled_file_id,COUNT(DISTINCT project_id) AS project_count FROM dcc_project_file_reference WHERE tenant_id=? AND selected_controlled_file_id IN ("
+                + placeholders + ") GROUP BY selected_controlled_file_id", rs -> {
+                    result.put(rs.getLong("selected_controlled_file_id"), rs.getLong("project_count"));
+                }, parameters.toArray());
+        return result;
+    }
     private static final String USAGE_SCOPE=" WHERE r.tenant_id=? AND r.master_id=? AND r.selected_controlled_file_id=? AND r.project_id IN (%s) "
             + "AND EXISTS (SELECT 1 FROM dcc_project_code readable WHERE readable.id=r.project_id AND readable.tenant_id=r.tenant_id AND readable.deleted=0 AND readable.status='ENABLE') ";
     /** Count only integrity facts across the same tenant/Master; no forbidden destination labels are projected. */

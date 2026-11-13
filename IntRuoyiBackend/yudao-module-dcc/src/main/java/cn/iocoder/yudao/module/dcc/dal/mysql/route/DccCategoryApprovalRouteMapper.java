@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.dal.mysql.route;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.route.vo.DccApprovalRoutePageReqVO;
@@ -20,13 +21,15 @@ import java.util.Comparator;
 public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryApprovalRouteDO> {
 
     default PageResult<DccCategoryApprovalRouteDO> selectPage(DccApprovalRoutePageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
+        var wrapper = new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
                 .eqIfPresent(DccCategoryApprovalRouteDO::getCategoryId, reqVO.getCategoryId())
                 .eqIfPresent(DccCategoryApprovalRouteDO::getActionType, reqVO.getActionType())
                 .orderByAsc(DccCategoryApprovalRouteDO::getCategoryId)
                 .orderByAsc(DccCategoryApprovalRouteDO::getActionType)
                 .orderByDesc(DccCategoryApprovalRouteDO::getVersionNo)
-                .orderByDesc(DccCategoryApprovalRouteDO::getId));
+                .orderByDesc(DccCategoryApprovalRouteDO::getId);
+        ListFilterQueryUtils.apply(reqVO, wrapper, DccRouteListFilterSql.fields());
+        return selectPage(reqVO, wrapper);
     }
 
     default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId) {

@@ -341,9 +341,8 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         for (Map.Entry<Long, String> entry : menuKeyById.entrySet()) {
             String identityKey = menuIdentityKey(entry.getValue());
             Set<Long> menuIds = result.computeIfAbsent(identityKey, key -> new LinkedHashSet<>());
-            // A permission key represents an authority shared by its page and buttons.
-            // Route keys identify individual menus and must remain unambiguous.
-            if (!identityKey.startsWith(MENU_KEY_PERMISSION_PREFIX)
+            // Shared permissions stay within one route. Equivalent buttons under that same parent share an authority.
+            if (!identityKey.startsWith(MENU_KEY_PERMISSION_PREFIX) && !isSharedButtonMenuKey(identityKey)
                     && !menuIds.isEmpty() && !menuIds.contains(entry.getKey())) {
                 throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
                         "目标环境存在重复菜单标识【" + entry.getValue() + "】，菜单编号【"
@@ -352,6 +351,18 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
             menuIds.add(entry.getKey());
         }
         return result;
+    }
+
+    private boolean isSharedButtonMenuKey(String identityKey) {
+        if (!identityKey.startsWith(MENU_KEY_ROUTE_PREFIX)) {
+            return false;
+        }
+        int typeEnd = identityKey.length();
+        for (int index = 0; index < 4; index++) {
+            typeEnd = identityKey.lastIndexOf(MENU_KEY_SEPARATOR, typeEnd - 1);
+        }
+        int typeStart = identityKey.lastIndexOf(MENU_KEY_SEPARATOR, typeEnd - 1);
+        return identityKey.substring(typeStart + 1, typeEnd).startsWith("3:");
     }
 
     private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Set<Long>> menuIdByKey,
@@ -364,8 +375,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
                 missingMenuKeys.add(menuKey);
                 continue;
             }
-            // A permission key may belong to several pages/buttons. Resolve its authority
-            // inside the tenant package; a key with no authorized menu must still fail.
+            // Resolve the exact exported menu inside the tenant package.
             Set<Long> authorizedIds = new LinkedHashSet<>(menuIds);
             authorizedIds.retainAll(tenantMenuIds);
             if (authorizedIds.isEmpty()) {
@@ -407,7 +417,9 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         if (cached != null) {
             return cached;
         }
-        if (StringUtils.hasText(menu.getPermission())) {
+        boolean sharedPermission = StringUtils.hasText(menu.getPermission()) && menuById.values().stream()
+                .filter(candidate -> menu.getPermission().equals(candidate.getPermission())).count() > 1;
+        if (StringUtils.hasText(menu.getPermission()) && !sharedPermission) {
             return MENU_KEY_PERMISSION_PREFIX + menu.getPermission().trim();
         }
         String parentKey = "";
@@ -419,7 +431,8 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         }
         return MENU_KEY_ROUTE_PREFIX
                 + normalizeSegment(parentKey) + MENU_KEY_SEPARATOR
-                + normalizeSegment(menu.getType()) + MENU_KEY_SEPARATOR
+                + normalizeSegment(menu.getType())
+                + (sharedPermission ? ":" + menu.getPermission().trim() : "") + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getPath()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getComponent()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getComponentName()) + MENU_KEY_SEPARATOR

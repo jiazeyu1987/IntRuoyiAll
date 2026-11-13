@@ -47,7 +47,7 @@ assert.match(
 assert.match(
   selectedEmployeeLabelBlock,
   /isPqcMode\.value[\s\S]*formatPqcLoginEmployeeLabel\([\s\S]*deviceState\.selectedEmployee \|\| currentLoginEmployeeCandidate\.value/,
-  'PQC 顶部员工卡必须使用账号用户名专用显示逻辑，不能被员工姓名或昵称覆盖。'
+  'PQC 顶部员工卡必须使用姓名显示逻辑。'
 )
 
 const currentLoginEmployeeCandidateBlock = extractConstBlock('currentLoginEmployeeCandidate')
@@ -58,8 +58,8 @@ assert.match(
 )
 assert.match(
   currentLoginEmployeeCandidateBlock,
-  /const username = userStore\.getUser\?\.username\?\.trim\(\)[\s\S]*const nickname = userStore\.getUser\?\.nickname\?\.trim\(\)[\s\S]*const displayName = username \|\| nickname \|\| String\(userId\)/,
-  '当前登录员工候选必须优先使用账号用户名，姓名或昵称只能作为次级显示来源。'
+  /const username = userStore\.getUser\?\.username\?\.trim\(\)[\s\S]*const nickname = userStore\.getUser\?\.nickname\?\.trim\(\)[\s\S]*const displayName = nickname/,
+  '当前登录员工候选的显示姓名必须取用户姓名。'
 )
 assert.match(
   currentLoginEmployeeCandidateBlock,
@@ -70,13 +70,13 @@ assert.match(
 const formatPqcLoginEmployeeLabelBlock = extractFunctionBlock('formatPqcLoginEmployeeLabel')
 assert.match(
   formatPqcLoginEmployeeLabelBlock,
-  /const username = userStore\.getUser\?\.username\?\.trim\(\)/,
-  'PQC 登录员工显示必须直接取账号用户名，不能从员工姓名或昵称推断。'
+  /return userStore\.getUser\?\.nickname\?\.trim\(\)/,
+  'PQC 登录员工必须显示当前用户姓名。'
 )
-assert.match(
+assert.doesNotMatch(
   formatPqcLoginEmployeeLabelBlock,
-  /if \(username\) \{[\s\S]*return username[\s\S]*return '未选择'/,
-  'PQC 登录员工显示拿到用户名后必须立即返回；账号用户名未到达时不能用员工姓名或昵称冒充。'
+  /username|String\(employee\.userId\)/,
+  'PQC 员工卡不得以账号或用户编号代替姓名。'
 )
 
 const findCurrentLoginEmployeeBlock = extractFunctionBlock('findCurrentLoginEmployee')

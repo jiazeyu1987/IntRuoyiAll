@@ -20,10 +20,10 @@ assert.match(
   /pool_event\.event_type = 'PQC_INSPECTION'/,
   'PQC management must only include PQC inspection events'
 )
-assert.doesNotMatch(
+assert.match(
   currentViewBlock[0],
-  /latest_submission_review\.review_status\s+IS NULL[\s\S]*latest_submission_review\.review_status\s*<!\[CDATA\[<>\]\]>\s*'APPROVED'/,
-  'PQC management must keep approved submissions visible before release'
+  /latest_submission_review\.review_status IS NULL[\s\S]*OR latest_submission_review\.review_status = 'PENDING'/,
+  'PQC management must only include pending submissions, excluding both approved and rejected reviews'
 )
 assert.match(
   currentViewBlock[0],
@@ -41,4 +41,4 @@ assert.match(
   'PQC history must include only forms whose latest review is APPROVED'
 )
 
-console.log('PASS: PQC management keeps approved active-order submissions visible and excludes released orders')
+console.log('PASS: PQC management only shows pending reviews and excludes released orders')

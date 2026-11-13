@@ -157,6 +157,37 @@ class MesSimpleParserPublishServiceTest {
         return req;
     }
     private int count(String table){return jdbc.queryForObject("select count(*) from "+table,Integer.class);}
+    @Test void projectProductNameIsUsedRegardlessOfRecognizedProductName() {
+        var req=request();
+        var recognition=(JSONObject)req.getRecognitionJson();
+        var product=recognition.getJSONObject("product");
+        for (String recognizedName:Arrays.asList(null, "", "识别错误的名称", "产".repeat(129))) {
+            product.put("name",recognizedName);
+            assertTrue(service.preview(req).getJSONArray("blockers").isEmpty());
+            assertEquals(0,count("created_resource"));
+        }
+        var preview=service.preview(req);
+        req.setPreviewToken(preview.getString("previewToken"));
+        service.publish(req);
+        verify(processes,times(2)).createProcess(argThat(create ->
+                "所选项目".equals(create.getProductName())));
+    }
+    @Test void missingProjectProductNameFailsWithoutUsingRecognizedName() {
+        var req=request();
+        var project=projectMapper.selectById(42L);
+        for (String name:Arrays.asList(null, "", "产".repeat(129))) {
+            project.setProjectName(name);
+            assertTrue(assertThrows(ServiceException.class,()->service.preview(req)).getMessage().contains("所选项目的产品名称"));
+            assertEquals(0,count("created_resource"));
+        }
+    }
+    @Test void projectProductNameChangeInvalidatesPublishPreview() {
+        var req=request();
+        req.setPreviewToken(service.preview(req).getString("previewToken"));
+        projectMapper.selectById(42L).setProjectName("修改后的产品名称");
+        assertThrows(ServiceException.class,()->service.publish(req));
+        assertEquals(0,count("created_resource"));
+    }
     @Test void selectedWorkshopAndLedgerDeviceAreBoundToEachNewProcessStation() {
         var req=request();var preview=service.preview(req);
         assertEquals(70L,preview.getLong("workshopId"));
@@ -383,6 +414,28 @@ class MesSimpleParserPublishServiceTest {
         verify(configs).saveConfigSnapshots(eq(21L),eq("snapshot"),capture.capture());
         JSONObject config=((JSONObject)JSON.toJSON(capture.getValue())).getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertEquals(1,config.getJSONArray("deviceSelectionGroups").size());assertTrue(config.getJSONArray("parameterRules").isEmpty());
+    }
+    @Test void manuallyDisabledGroupsPublishWithoutDevicesOrTheirDedicatedParameters() {
+        var req=request();
+        for (Object raw:((JSONObject)req.getRecognitionJson()).getJSONArray("processes")) {
+            var group=((JSONObject)raw).getJSONArray("equipmentGroups").getJSONObject(0);
+            group.put("equipmentRequired",false);
+            group.getJSONArray("equipmentOptions").getJSONObject(0).put("code","");
+        }
+        var preview=service.preview(req);
+        assertTrue(preview.getJSONArray("deviceRows").isEmpty());
+        assertTrue(preview.getJSONArray("craftRows").isEmpty());
+        req.setPreviewToken(preview.getString("previewToken"));service.publish(req);
+        verifyNoInteractions(crafts,devices);
+        verify(workstations).bindMachinery(900L,Set.of());
+        verify(workstations).bindMachinery(901L,Set.of());
+        var capture=org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(configs).saveConfigSnapshots(eq(21L),eq("snapshot"),capture.capture());
+        for (Object raw:((JSONObject)JSON.toJSON(capture.getValue())).getJSONArray("productionProcessConfigs")) {
+            var config=(JSONObject)raw;
+            assertTrue(config.getJSONArray("deviceSelectionGroups").isEmpty());
+            assertTrue(config.getJSONArray("parameterRules").isEmpty());
+        }
     }
     @Test void previewRecoversCommittedReceiptWithoutResolvingAlreadyCreatedResources() {
         var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));

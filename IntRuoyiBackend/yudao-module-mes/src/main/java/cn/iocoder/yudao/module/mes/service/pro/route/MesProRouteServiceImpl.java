@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
+import cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ObjUtil;
@@ -88,6 +90,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class MesProRouteServiceImpl implements MesProRouteService {
+
+    @jakarta.annotation.Resource
+    private MesVersionOperateLogService versionOperateLogService;
 
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
@@ -684,11 +689,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionSnapshotIdentityWriter.apply(version,
                 buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.insert(version);
+        MesProRouteVersionDO source = sourceRouteVersionId == null ? null : routeVersionMapper.selectById(sourceRouteVersionId);
+        versionOperateLogService.route(Boolean.TRUE.equals(active) ? "创建" : "升版", source, version,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
         return version;
     }
 
     private void registerActiveVersionRef(MesProRouteVersionDO activeVersion) {
         platformAdapter.recordActiveRegistered(activeVersion, null, "route active version registered");
+        versionOperateLogService.route("发布", null, activeVersion,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
     }
 
     private void ensureDefaultScheduleUseConfig(MesProRouteDO route, MesProRouteProcessDO routeProcess) {
@@ -951,6 +961,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                                              JSONObject inheritedConfigSnapshots) {
         JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey("lossCoefficient")) {
+            configSnapshots.put("lossCoefficient", MesRouteLossCoefficient.read(inheritedConfigSnapshots));
+        }
         if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey(PRODUCTION_PROCESS_CONFIGS_KEY)) {
             configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
                     inheritedConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY));
@@ -984,6 +997,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
         configSnapshots.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION);
+        Object lossCoefficient = resolveExistingConfigSnapshot(routeVersionId, "lossCoefficient");
+        configSnapshots.put("lossCoefficient", lossCoefficient == null ? MesRouteLossCoefficient.DEFAULT : lossCoefficient);
+        MesRouteLossCoefficient.read(configSnapshots);
         Object productionProcessConfigs =
                 resolveExistingConfigSnapshot(routeVersionId, PRODUCTION_PROCESS_CONFIGS_KEY);
         configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,

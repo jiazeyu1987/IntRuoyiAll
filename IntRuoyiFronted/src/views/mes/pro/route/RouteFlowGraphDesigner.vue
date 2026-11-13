@@ -221,6 +221,13 @@
                     </button>
                   </div>
                 </div>
+                <div class="route-flow-graph-designer__selected-detail-item"
+                  :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'lossCoefficient' }"
+                  data-flow-boundary-field="lossCoefficient">
+                  <button class="route-flow-graph-designer__selected-detail-button" type="button"
+                    :aria-pressed="selectedBoundaryDetailFieldKey === 'lossCoefficient'"
+                    @click="handleSelectBoundaryDetailField('lossCoefficient')">损耗系数</button>
+                </div>
                 <div
                   class="route-flow-graph-designer__selected-detail-item"
                   :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'batchRecordAttachment' }"
@@ -616,11 +623,16 @@
           class="route-flow-graph-designer__panel-section route-flow-graph-designer__selected-field-section"
           data-flow-panel="selected-field-detail"
         >
+          <RouteLossCoefficient ref="lossCoefficientEditor"
+            v-show="selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'lossCoefficient'"
+            :version-id="props.routeVersionEditContext?.routeVersionId || props.activeRouteVersionId"
+            :disabled="!isDraftCandidateEdit || !isEditable"
+            :after-save="refreshProductionProcessConfigSnapshot" />
           <template v-if="selectedStartSetting">
             <slot name="start-setting" :setting="selectedStartSetting"></slot>
           </template>
           <p
-            v-else-if="!selectedProcessDetailField && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
+            v-else-if="selectedBoundaryDetailFieldKey !== 'lossCoefficient' && !selectedProcessDetailField && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
             class="route-flow-graph-designer__selected-field-empty"
           >
             点击左侧字段查看明细
@@ -2168,7 +2180,10 @@ import {
   ensureSameSourceDraftCandidateForProductionConfig
 } from './routeCandidateEntry'
 
+import RouteLossCoefficient from './RouteLossCoefficient.vue'
+
 defineOptions({ name: 'RouteFlowGraphDesigner' })
+const lossCoefficientEditor = ref<InstanceType<typeof RouteLossCoefficient>>()
 
 type RouteFlowNodeData = {
   routeNode: RouteFlowNodeVO
@@ -2217,7 +2232,7 @@ type FormSlotViewSummaryItem = {
 }
 type ProcessDetailCapacitySourceFocus = 'resource' | 'schedule'
 type RouteStartSetting = 'basic' | 'product' | 'dcc'
-type BoundaryDetailFieldKey = RouteStartSetting | 'releaseOwner' | 'batchRecordAttachment' | 'productionLeader'
+type BoundaryDetailFieldKey = RouteStartSetting | 'lossCoefficient' | 'releaseOwner' | 'batchRecordAttachment' | 'productionLeader'
 type BatchRecordAttachmentOwnerDraft = ProRouteBatchRecordAttachmentOwnerVO & {
   candidateSourceType: EdhrProcessFormCandidateSourceType
   candidateSourceIds: number[]
@@ -2265,6 +2280,7 @@ const props = defineProps<{
   routeId: MesRouteId
   routeName: string
   activeRouteVersionNo?: string
+  activeRouteVersionId?: MesRouteId
   formType: string
   submitting: boolean
   initialStartSetting?: RouteStartSetting
@@ -7831,6 +7847,7 @@ const saveFromParent = async () => {
     applyPersistedRouteProcessIdMap(result.routeProcessIdMap)
     await saveRouteStartProductionLeadersIfChanged()
     await saveSelectedProcessAttributeDrafts()
+    await lossCoefficientEditor.value?.save()
     markGraphSaveClean()
     emit('saved')
     return result
@@ -7888,6 +7905,7 @@ watch(() => [props.routeId, props.routeVersionEditContext?.routeVersionId], () =
 })
 
 const hasWorkspaceDraftChanges = () =>
+  Boolean(lossCoefficientEditor.value?.hasChanges()) ||
   graphDirty.value ||
   hasSelectedProcessAttributeDraftChanges() ||
   hasRouteProcessUpdateDraftChanges() ||
@@ -7895,6 +7913,7 @@ const hasWorkspaceDraftChanges = () =>
   hasProductionProcessConfigJsonDraftChanges()
 
 const discardWorkspaceDraftChanges = () => {
+  lossCoefficientEditor.value?.discard()
   graphDirty.value = false
   clearSelectedProcessAttributeDrafts()
   clearRouteProcessKeyFlagBaselines()

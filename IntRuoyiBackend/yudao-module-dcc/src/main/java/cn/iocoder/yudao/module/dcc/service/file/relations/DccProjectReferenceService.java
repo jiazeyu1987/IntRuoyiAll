@@ -109,6 +109,28 @@ public class DccProjectReferenceService {
         long count=store.referenceProjectCount(tenant,selected.masterId(),selectedFileId);
         return new ReferenceUsage(tenant,selectedFileId,selected.masterId(),count,count>0);
     }
+    /** Bounded page read: use the exact same tenant, source and name-visibility guards as a single read. */
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<ReferenceUsage> getUsageBatch(Long actorId, List<Long> selectedFileIds) {
+        require(actorId);
+        if (selectedFileIds == null || selectedFileIds.isEmpty() || selectedFileIds.size() > 200
+                || new java.util.HashSet<>(selectedFileIds).size() != selectedFileIds.size())
+            throw new DccRelationInputFailure("DCC_REFERENCE_USAGE_QUERY_INVALID");
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var sources = selectedFileIds.stream().map(id -> {
+            require(id);
+            var source = selected(tenant, id);
+            access.assertNameVisible(actorId, id);
+            store.assertUsageIdentity(tenant, source);
+            return source;
+        }).toList();
+        var counts = store.referenceProjectCounts(tenant, selectedFileIds);
+        return sources.stream().map(source -> {
+            // GROUP BY has no row for a valid version with no references.
+            long count = counts.getOrDefault(source.controlledFileId(), 0L);
+            return new ReferenceUsage(tenant, source.controlledFileId(), source.masterId(), count, count > 0);
+        }).toList();
+    }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReferenceUsagePage getUsagePage(Long actorId,Long selectedFileId,Integer pageNo,Integer pageSize) {
         require(actorId,selectedFileId);

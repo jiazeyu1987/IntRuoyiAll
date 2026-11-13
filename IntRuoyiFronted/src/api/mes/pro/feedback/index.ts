@@ -1,4 +1,6 @@
 import request from '@/config/axios'
+import type { OwnReturnDetail } from '../processpool/frontlineReturnCorrection'
+import { restoreReturnedPqcProcesses } from './pqcReturnedSubmission'
 import type { DeviceParameterValueType } from '@/api/mes/pro/processpool/teamLeader'
 import {
   projectFrontlinePqcProcesses,
@@ -256,7 +258,7 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationName?: string
   submittedQuantity: number
   targetQuantity?: number
-  productionQuantityFactor?: number
+  lossCoefficient?: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
@@ -309,6 +311,18 @@ export interface FrontlinePqcProcessVO {
   productionSubmitCandidates: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
+export interface FrontlinePqcReviewHistoryVO {
+  reviewId: number
+  eventId: number
+  reviewStatus: 'APPROVED' | 'REJECTED'
+  reviewRemark?: string
+  reviewedAt: string | number
+  reviewerUserId: number
+  reviewerName?: string
+  reviewRound: number
+  revisionId?: number
+}
+
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
   routeProcessId?: number | null
@@ -322,6 +336,14 @@ export interface FrontlinePqcTaskOptionVO {
   cancelReason?: string
   submittedEventId?: number
   submittedContentHash?: string
+  reviewHistory?: FrontlinePqcReviewHistoryVO[]
+  currentReviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  returnedSubmission?: OwnReturnDetail
+  submittedInspection?: {
+    actualInspectionQuantity: number
+    scrapQuantity: number
+    items: { itemCode: string; selectedEquipmentNumber?: string; sampleValues: string[] }[]
+  }
   finalInspectionApplicable?: boolean
   inspectionType: FrontlinePqcInspectionType
   businessDate: string
@@ -409,7 +431,7 @@ export interface FrontlineActiveOrderVO {
   workOrderId: number
   workOrderCode?: string
   workOrderName?: string
-  productId: number
+  productId: number | string
   productCode?: string
   productName: string
   batchCode?: string
@@ -1345,7 +1367,9 @@ export const ProFeedbackApi = {
       params: { activeOrderId, actualEmployeeId },
       ignoreErrorMessage: true
     })
-    return projectFrontlinePqcProcesses(processes)
+    const projected = projectFrontlinePqcProcesses(processes)
+    await restoreReturnedPqcProcesses(projected, activeOrderId)
+    return projected
   },
   // 获取当前工序可切换员工
   getFrontlineEmployeeCandidates: async (params: {

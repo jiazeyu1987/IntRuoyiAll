@@ -12,6 +12,7 @@ export const EDHR_CHANGE_STATUS_REJECTED = 'REJECTED'
 export const EDHR_CHANGE_STATUS_EFFECTIVE = 'EFFECTIVE'
 
 export interface EdhrRecordChangePageReqVO extends PageParam {
+  listFilters?: string
   changeType?: string
   targetScope?: string
   batchExecutionId?: EdhrRouteId

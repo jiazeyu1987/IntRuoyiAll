@@ -11,6 +11,9 @@ import java.util.List;
  */
 public interface DictDataCommonApi {
 
+    /** Required tenant scope for dictionary caches. */
+    Long getCurrentTenantId();
+
     /**
      * 获得指定字典类型的字典数据列表
      *

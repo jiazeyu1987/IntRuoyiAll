@@ -559,10 +559,7 @@
             <Icon icon="ep:connection" class="mr-5px" />
             关联文档入口
           </el-button>
-          <el-button plain :disabled="!fileDetail" @click="openDccProjectCodeTrace">
-            <Icon icon="ep:document" class="mr-5px" />
-            修正追溯入口
-          </el-button>
+          
         </div>
       </div>
       <div class="detail-project-code-linkage-grid">
@@ -2082,16 +2079,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="actionDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="actionDialog.form.password"
             name="dcc-actionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!actionDialog.passwordFocused"
-            @focus="actionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
           />
         </el-form-item>
 
@@ -2306,16 +2297,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="taskActionDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="taskActionDialog.form.password"
             name="dcc-taskActionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!taskActionDialog.passwordFocused"
-            @focus="taskActionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
           />
         </el-form-item>
       </el-form>
@@ -2393,16 +2378,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="electronicReceiptDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="electronicReceiptDialog.form.password"
             name="dcc-electronicReceiptDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!electronicReceiptDialog.passwordFocused"
-            @focus="electronicReceiptDialog.passwordFocused = true"
             clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
           />
         </el-form-item>
       </el-form>
@@ -2816,6 +2795,7 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
@@ -5546,21 +5526,7 @@ const openDccProjectCode = (projectCodeId: number) => {
   })
 }
 
-const openDccProjectCodeTrace = () => {
-  if (!fileDetail.value?.id) {
-    return
-  }
-  router.push({
-    path: '/dcc/controlled-file/logs',
-    query: {
-      logType: 'PROJECT_CODE_CHANGE',
-      controlledFileId: String(fileDetail.value.id),
-      projectCodeId: fileDetail.value.dccProjectCodeId
-        ? String(fileDetail.value.dccProjectCodeId)
-        : undefined
-    }
-  })
-}
+
 
 const handleMetadataSaved = async () => {
   await reloadAll()

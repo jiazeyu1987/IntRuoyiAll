@@ -144,6 +144,7 @@ export interface EdhrReleaseWithdrawReqVO {
 }
 
 export interface EdhrReleaseEventPageReqVO extends PageParam {
+  listFilters?: string
   releaseTransactionId: string
   eventType?: EdhrReleaseEventType | ''
 }

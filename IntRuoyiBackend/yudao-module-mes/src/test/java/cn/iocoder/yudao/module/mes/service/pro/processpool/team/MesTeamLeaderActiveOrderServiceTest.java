@@ -1054,8 +1054,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(snapshots.get(0).getProductionConfigSnapshotJson().contains("\"outputMaterialIds\":[1002]"));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
-        assertEquals(Set.of("FIRST"),
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        assertEquals(Set.of("FIRST", "PATROL"),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
         verify(pqcInspectionTaskMapper).selectByQaIdentity(eq(8101L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
@@ -1261,6 +1261,9 @@ class MesTeamLeaderActiveOrderServiceTest {
                    "parameterName":"压力","valueType":"DECIMAL","standardText":"0-10","upperLimit":10}
                 ]
                 """);
+        JSONObject lossConfig = JSON.parseObject(routeSnapshot);
+        lossConfig.getJSONObject("configSnapshots").put("lossCoefficient", new BigDecimal("1.23"));
+        routeSnapshot = lossConfig.toJSONString();
         stubFormalRouteQaContext(1001L, 448L, routeSnapshot,
                 publishedRegulation(9902L, 928609L, 6001L));
         stubSuccessfulActiveOrderInsert();
@@ -1280,6 +1283,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(MesDeviceParameterSnapshotCodec.sha256(snapshots.get(0).getParameterSnapshotJson()),
                 snapshots.get(0).getParameterSnapshotSha256());
         assertEquals("[]", snapshots.get(1).getParameterSnapshotJson());
+        for (var frozen : snapshots) {
+            assertEquals(new BigDecimal("1.23"), JSON.parseObject(frozen.getProductionConfigSnapshotJson()).getBigDecimal("lossCoefficient"));
+        }
     }
 
     @Test
@@ -1293,7 +1299,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
         assertEquals(3, pqcTaskByIdentity(tasks, null, "FIRST").getPlannedInspectionQuantity());
     }
@@ -1309,7 +1315,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertEquals(5, pqcTaskByIdentity(taskCaptor.getAllValues(), null, "FIRST")
                 .getPlannedInspectionQuantity());
     }
@@ -1366,8 +1372,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertSnapshot(snapshots.get(9), 8101L, 9001L, 922119L, 448L, 928610L, 6010L,
                 "10", "1.000000", "10.000000");
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper).insert(taskCaptor.capture());
-        var task = taskCaptor.getValue();
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        var task = taskCaptor.getAllValues().stream()
+                .filter(candidate -> "FIRST".equals(candidate.getInspectionType())).findFirst().orElseThrow();
         assertNull(task.getRouteProcessId());
         assertNull(task.getProcessId());
         assertEquals(19902L, task.getQaProcessId());
@@ -1451,7 +1458,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(commonRegulationProductBindingMapper).selectEnabledByProjectId(147L);
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .anyMatch(task -> Objects.equals(9912L, task.getRegulationVersionId())
                         && Objects.equals(19912L, task.getQaProcessId())));
@@ -1574,7 +1581,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void sevenQaProcessesCreateSevenFirstTasksRegardlessOfFifteenProductionProcesses() {
+    void sevenQaProcessesCreateFirstAndDefaultPatrolTasksRegardlessOfFifteenProductionProcesses() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(15),
                 publishedRegulation(9902L, null, null));
@@ -1596,8 +1603,10 @@ class MesTeamLeaderActiveOrderServiceTest {
         service.addActiveOrder(activeOrderReq());
 
         ArgumentCaptor<MesPqcInspectionTaskDO> captor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(7)).insert(captor.capture());
+        verify(pqcInspectionTaskMapper, times(14)).insert(captor.capture());
         assertEquals(7, captor.getAllValues().stream().map(MesPqcInspectionTaskDO::getQaProcessId).distinct().count());
+        assertEquals(7, captor.getAllValues().stream().filter(task -> "PATROL".equals(task.getInspectionType())).count());
+        assertTrue(captor.getAllValues().stream().allMatch(task -> Integer.valueOf(1).equals(task.getRoundNo())));
         for (var task : captor.getAllValues()) {
             assertNull(task.getRouteProcessId());
             assertNull(task.getProcessId());
@@ -1633,14 +1642,14 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
         Map<Long, Map<String, Integer>> quantitiesByProcess = taskCaptor.getAllValues().stream()
                 .collect(java.util.stream.Collectors.groupingBy(MesPqcInspectionTaskDO::getQaProcessId,
                         java.util.stream.Collectors.toMap(MesPqcInspectionTaskDO::getInspectionRuleKey,
                                 MesPqcInspectionTaskDO::getPlannedInspectionQuantity)));
-        assertEquals(Map.of("FIRST", 2),
+        assertEquals(Map.of("FIRST", 2, "PATROL", 13),
                 quantitiesByProcess.get(19902L));
-        assertEquals(Map.of("FIRST", 7),
+        assertEquals(Map.of("FIRST", 7, "PATROL", 13),
                 quantitiesByProcess.get(19903L));
         assertTrue(taskCaptor.getAllValues().stream()
                 .noneMatch(task -> "FINAL".equals(task.getInspectionRuleKey())));
@@ -1667,11 +1676,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         service.addActiveOrder(activeOrderReq());
 
         ArgumentCaptor<MesPqcInspectionTaskDO> first = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper).insert(first.capture());
-        assertEquals("FIRST", first.getValue().getInspectionRuleKey());
-        assertEquals("", first.getValue().getQaItemCode());
-        assertEquals(5, first.getValue().getPlannedInspectionQuantity());
-        assertEquals(Map.of("FIRST-A", 5, "FIRST-B", 5), cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(first.getValue()));
+        verify(pqcInspectionTaskMapper, times(2)).insert(first.capture());
+        var firstTask = first.getAllValues().stream().filter(task -> "FIRST".equals(task.getInspectionType())).findFirst().orElseThrow();
+        assertEquals("FIRST", firstTask.getInspectionRuleKey());
+        assertEquals("", firstTask.getQaItemCode());
+        assertEquals(5, firstTask.getPlannedInspectionQuantity());
+        assertEquals(Map.of("FIRST-A", 5, "FIRST-B", 5), cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(firstTask));
     }
 
     @Test
@@ -1720,9 +1730,10 @@ class MesTeamLeaderActiveOrderServiceTest {
         service.addActiveOrder(activeOrderReq());
 
         ArgumentCaptor<MesPqcInspectionTaskDO> first = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper).insert(first.capture());
-        assertEquals("FIRST", first.getValue().getInspectionRuleKey());
-        assertEquals(Map.of("FIRST-A", 2), cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(first.getValue()));
+        verify(pqcInspectionTaskMapper, times(2)).insert(first.capture());
+        var firstTask = first.getAllValues().stream().filter(task -> "FIRST".equals(task.getInspectionType())).findFirst().orElseThrow();
+        assertEquals("FIRST", firstTask.getInspectionRuleKey());
+        assertEquals(Map.of("FIRST-A", 2), cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(firstTask));
         var order = existingActiveOrder(8101L, "ACTIVE", 0);
         order.setErpFixedQuantitySnapshot(new BigDecimal("200"));
         order.setJoinedAt(LocalDateTime.now());
@@ -1879,7 +1890,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(1, result.getDeletedProcessSnapshotCount());
         assertEquals(1, result.getDeletedPqcTaskCount());
         assertEquals(2, result.getRebuiltProcessSnapshotCount());
-        assertEquals(1, result.getRebuiltPqcTaskCount());
+        assertEquals(2, result.getRebuiltPqcTaskCount());
         verify(pqcAggregateDetailMapper).deleteByActiveOrderId(8101L);
         verify(pqcPieceDetailMapper).deleteByTaskIds(List.of(8305L));
         verify(pqcRecordMapper).deleteByEventIds(Set.of());
@@ -1907,7 +1918,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                         && Objects.equals(7, update.getVersion())
                         && Objects.equals("ACTIVE", update.getActiveStatus())));
         verify(processSnapshotMapper).insertBatch(any());
-        verify(pqcInspectionTaskMapper, times(1)).insert(any(MesPqcInspectionTaskDO.class));
+        verify(pqcInspectionTaskMapper, times(2)).insert(any(MesPqcInspectionTaskDO.class));
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
         verify(completionReceiptMapper).selectByActiveOrderIdForUpdate(8101L);
         verify(completionBackfillMapper).selectListByActiveOrderIdForUpdate(8101L);
@@ -2090,7 +2101,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
                 Objects.equals(9903L, update.getQaRegulationVersionId())));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream().allMatch(task ->
                 Objects.equals(9903L, task.getRegulationVersionId())
                         && task.getRouteProcessId() == null
@@ -2125,7 +2136,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 && Objects.equals("LATEST_VERSION_COPY", snapshot.getSimulationStage())
                 && Objects.equals("SIMCOPY-unit", snapshot.getSimulationRunId())
                 && Objects.equals(448L, snapshot.getRouteVersionId()))));
-        verify(pqcInspectionTaskMapper, times(1)).insert(argThat((MesPqcInspectionTaskDO task) ->
+        verify(pqcInspectionTaskMapper, times(2)).insert(argThat((MesPqcInspectionTaskDO task) ->
                 Boolean.TRUE.equals(task.getSimulated())
                         && Objects.equals("LATEST_VERSION_COPY", task.getSimulationStage())
                         && Objects.equals("SIMCOPY-unit", task.getSimulationRunId())
@@ -2378,7 +2389,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 Objects.equals(8101L, update.getId())
                         && Objects.equals(9902L, update.getQaRegulationVersionId())));
         verify(processSnapshotMapper).insertBatch(any());
-        verify(pqcInspectionTaskMapper, times(1)).insert(any(MesPqcInspectionTaskDO.class));
+        verify(pqcInspectionTaskMapper, times(2)).insert(any(MesPqcInspectionTaskDO.class));
         verify(inspectionRegulationMapper, never()).selectByDccProjectCodeId(any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
         verify(completionReceiptMapper).selectByActiveOrderIdForUpdate(8101L);
@@ -2475,7 +2486,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 Objects.equals(627L, update.getRouteVersionId())
                         && Objects.equals(9902L, update.getQaRegulationVersionId())));
         verify(processSnapshotMapper).insertBatch(any());
-        verify(pqcInspectionTaskMapper, times(1)).insert(any(MesPqcInspectionTaskDO.class));
+        verify(pqcInspectionTaskMapper, times(2)).insert(any(MesPqcInspectionTaskDO.class));
     }
 
     @Test
@@ -2525,7 +2536,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                         && Objects.equals(9903L, update.getQaRegulationVersionId())));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> Objects.equals(9903L, task.getRegulationVersionId())
                         && Objects.equals(19903L, task.getQaProcessId())));
@@ -2561,7 +2572,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                         && Objects.equals(9903L, update.getQaRegulationVersionId())));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> Objects.equals(9903L, task.getRegulationVersionId())
                         && Objects.equals(19903L, task.getQaProcessId())));

@@ -38,6 +38,7 @@ public class NasSettingsServiceImpl implements NasSettingsService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void saveNasConfig(FileNasConfigSaveReqVO reqVO) {
         upsert(KEY_SERVER, "NAS 服务器", reqVO.getServer(), true);
         upsertOptional(KEY_PORT, "NAS 服务器端口", reqVO.getPort() == null ? null : String.valueOf(reqVO.getPort()), true);

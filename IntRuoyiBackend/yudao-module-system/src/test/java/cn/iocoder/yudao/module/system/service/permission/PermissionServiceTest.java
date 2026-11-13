@@ -23,6 +23,8 @@ import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -70,6 +72,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private TemporaryRoleGrantService temporaryRoleGrantService;
     @MockitoBean
     private GxpAuditService gxpAuditService;
+    @MockitoBean
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
     @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.permission.PermissionCommandReceiptMapper commandReceipts;
     @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper auditEvents;
     @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper auditActivations;
@@ -79,6 +83,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     @BeforeEach
     public void setUpTemporaryRoleGrantMock() {
         when(temporaryRoleGrantService.getActiveRoleIdsByUserId(any(), any())).thenReturn(Set.of());
+        when(approvalAuthority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
         // Real command protocol; SQL/audit ports are explicit boundaries in this existing service test.
         // PermissionReceiptPersistenceTest separately exercises actual receipt SQL and audit transactions.
         var actor = new cn.iocoder.yudao.framework.security.core.LoginUser();
@@ -516,6 +522,66 @@ public class PermissionServiceTest extends BaseDbUnitTest {
 
         assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId),
                 "测试普通用户禁止分配日志权限", "TEST-USER-ROLE-LOG-FORBIDDEN"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"system:login-log:query", "system:operate-log:query", "mes:pro-edhr-form-fill-log:query"})
+    public void testAssignUserRole_edhrAuditorLogQueryAllowed(String permission) {
+        prepareAuditorAssignment(permission);
+
+        permissionService.assignUserRole(1L, Set.of(200L), "分配审核员日志查询权限", "TEST-AUDITOR-QUERY");
+
+        assertEquals(Set.of(200L), userRoleMapper.selectListByUserId(1L).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        verify(gxpAuditService).append(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"system:login-log:export", "system:operate-log:delete", "mes:pro-edhr-form-fill-log:create"})
+    public void testAssignUserRole_edhrAuditorRestrictedLogActionForbidden(String permission) {
+        prepareAuditorAssignment(permission);
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(200L),
+                "禁止审核员日志非查询权限", "TEST-AUDITOR-WRITE-FORBIDDEN"));
+        assertEquals(Set.of(100L), userRoleMapper.selectListByUserId(1L).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    public void testAssignUserRole_auditorCannotMaskAnotherLogRole() {
+        prepareAuditorAssignment("system:login-log:query");
+        roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(100L).setMenuId(3000L));
+
+        // Start with no restricted role; both target roles grant the same log menu.
+        userRoleMapper.deleteListByUserId(1L);
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(100L, 200L),
+                "禁止混合角色绕过日志限制", "TEST-AUDITOR-MIXED-FORBIDDEN"));
+    }
+
+    @Test
+    public void testAssignUserRole_existingAuditorCannotEscalateToAdmin() {
+        prepareAuditorAssignment("system:login-log:query");
+        userRoleMapper.deleteListByUserId(1L);
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L).setTenantId(1L));
+        doReturn(List.of(new RoleDO().setId(300L).setCode(RoleCodeEnum.BPM_ADMIN.getCode())))
+                .when(roleService).getRoleListFromCache(eq(Set.of(300L)));
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(1L, Set.of(300L),
+                "禁止审核员升级管理员", "TEST-AUDITOR-ADMIN-FORBIDDEN"));
+    }
+
+    private void prepareAuditorAssignment(String permission) {
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(100L).setTenantId(1L));
+        roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(200L).setMenuId(3000L));
+        List<RoleDO> roles = List.of(new RoleDO().setId(100L).setCode("normal_role"),
+                new RoleDO().setId(200L).setCode("edhr_auditor"));
+        when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            return roles.stream().filter(role -> ids.contains(role.getId())).collect(Collectors.toList());
+        });
+        when(menuService.getMenuList(eq(Set.of(3000L)))).thenReturn(List.of(
+                new MenuDO().setId(3000L).setPermission(permission)));
     }
 
     @Test

@@ -7,6 +7,14 @@
     <!-- 左侧部门树 -->
     <el-col :span="4" :xs="24">
       <ContentWrap class="h-1/1">
+        <div class="flex flex-wrap gap-8px px-15px pt-15px" v-if="checkPermi(['system:dept:create', 'system:dept:update'])">
+          <el-button v-if="checkPermi(['system:dept:create'])" type="primary" plain size="small" @click="openDeptForm('create')">
+            新增部门
+          </el-button>
+          <el-button v-if="checkPermi(['system:dept:update']) && checkPermi(['system:dept:query'])" plain size="small" :disabled="selectedDeptId === undefined" @click="openDeptForm('update')">
+            编辑部门
+          </el-button>
+        </div>
         <DeptTreeSelect :key="deptTreeRenderKey" :departments="departments" show-supervisor @node-click="handleDeptNodeClick" />
       </ContentWrap>
     </el-col>
@@ -27,17 +35,18 @@
           :total="total"
           v-model:page="queryParams.pageNo"
           v-model:limit="queryParams.pageSize"
-          :rows="sortedUserRows"
+          :rows="list"
           :sort-state="userSortState"
           @update:quick-filter-state="userQuickFilter.updateState"
           @quick-filter-query="handleQuery"
           @column-change="saveUserColumnConfig"
           @pagination="handleUserPagination"
           @sort-change="handleUserSortChange"
-          :load-filter-rows="userSortState.order ? undefined : loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="getList"
+          server-filter
+          :server-filter-query="getList"
+
+
+
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
@@ -322,6 +331,7 @@
   </el-row>
 
   <SupervisorHandoverDialog ref="handoverRef" />
+  <DeptForm ref="deptFormRef" @success="refreshAfterDeptChange" />
   <!-- 添加或修改用户对话框 -->
   <UserForm ref="formRef" @success="getList" />
   <!-- 用户导入对话框 -->
@@ -336,7 +346,7 @@
   <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
@@ -366,13 +376,12 @@ import UserAssignRoleForm from './UserAssignRoleForm.vue'
 import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
 import UserDirectSupervisorDialog from './UserDirectSupervisorDialog.vue'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
+import DeptForm from '@/views/system/dept/DeptForm.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
   buildDeptLeaderLookup,
   formatDisplayNames,
   isDeptLeader,
-  sortUsersByDeptLeader,
-  sortUserTableRows,
   type UserTableSortOrder
 } from './utils'
 
@@ -446,13 +455,7 @@ const {
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
-const allUserRows = ref<UserTableRow[]>()
 const userSortState = ref<{ key?: keyof UserTableRow; order: UserTableSortOrder }>({ order: null })
-const sortedUserRows = computed(() =>
-  userSortState.value.order && userSortState.value.key && allUserRows.value
-    ? sortUserTableRows(allUserRows.value, userSortState.value.key, userSortState.value.order)
-    : undefined
-)
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
 const departments = ref<DeptApi.DeptVO[]>([])
@@ -478,6 +481,22 @@ const loadDeptMetadata = async () => {
   departments.value = deptList
   deptLeaderByDeptId.value = buildDeptLeaderLookup(deptList)
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
+}
+
+const deptFormRef = ref<InstanceType<typeof DeptForm>>()
+const openDeptForm = (type: 'create' | 'update') => {
+  if (type === 'update' && selectedDeptId.value === undefined) return
+  return deptFormRef.value?.open(type, type === 'update' ? selectedDeptId.value : undefined,
+    type === 'create' ? selectedDeptId.value : undefined)
+}
+const refreshAfterDeptChange = async () => {
+  await loadDeptMetadata()
+  if (selectedDeptId.value !== undefined && !deptNameById.value.has(selectedDeptId.value)) {
+    queryParams.deptId = undefined
+    deptTreeRenderKey.value += 1
+  }
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const buildUserTableRows = (users: UserApi.UserListVO[]): UserTableRow[] =>
@@ -511,26 +530,17 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
 let listRequestId = 0
 const getList = async () => {
   const requestId = ++listRequestId
-  const params = { ...queryParams }
+  const params = {
+    ...queryParams,
+    sortKey: userSortState.value.order ? userSortState.value.key : undefined,
+    sortOrder: userSortState.value.order ?? undefined
+  }
   loading.value = true
   try {
-    if (userSortState.value.order) {
-      const users = await loadAllListPages<UserApi.UserListVO>((pagination) =>
-        UserApi.getUserPage({ ...params, ...pagination })
-      )
-      if (requestId !== listRequestId) return
-      allUserRows.value = buildUserTableRows(users)
-      total.value = users.length
-      return
-    }
     const data = await UserApi.getUserPage(params)
     if (requestId !== listRequestId) return
-    allUserRows.value = undefined
     const pageList = data.list as UserApi.UserListVO[]
-    const orderedList = params.deptId !== undefined
-      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
-      : pageList
-    list.value = buildUserTableRows(orderedList)
+    list.value = buildUserTableRows(pageList)
     total.value = data.total
   } finally {
     if (requestId === listRequestId) loading.value = false
@@ -540,11 +550,11 @@ const getList = async () => {
 const handleUserSortChange = async ({ key, order }: { key?: keyof UserTableRow; order: UserTableSortOrder }) => {
   userSortState.value = { key, order }
   queryParams.pageNo = 1
-  if (!order || allUserRows.value === undefined) await getList()
+  await getList()
 }
 
 const handleUserPagination = () => {
-  if (!userSortState.value.order) return getList()
+  return getList()
 }
 
 const userQuickFilter = useTableQuickFilter(
@@ -905,12 +915,6 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  const rows = await loadAllListPages<any>((pagination) =>
-    UserApi.getUserPage({ ...queryParams, ...pagination })
-  )
-  return buildUserTableRows(rows)
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

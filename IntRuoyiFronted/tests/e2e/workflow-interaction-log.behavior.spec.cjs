@@ -27,7 +27,9 @@ test('page only sends cancellation or validation observation and never actor tim
   assert.equal(f.posts[0].skipAuthRefreshReplay,true)
 })
 test('logging failure is surfaced and unauthenticated events are not sent as another person',async()=>{
-  const f=setup(true);await f.log.record('CANCELED','取消');assert.match(f.log.saveError.value,/保存失败/)
+  const f=setup(true);await f.log.record('CANCELED','取消')
+  assert.match(f.log.saveError.value,/取消\/拦截交互日志保存未确认/)
+  assert.match(f.log.saveError.value,/业务提交结果请查看提交记录/)
   f.state.id=0;await f.log.record('CANCELED','取消');assert.equal(f.posts.length,1)
   assert.match(f.log.saveError.value,/身份已失效/)
 })

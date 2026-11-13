@@ -4,6 +4,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
+const vue = require('vue')
+const { parse, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const evaluate = (source, dependencies, names) => {
@@ -83,9 +85,42 @@ test('late previous-tab response cannot replace current candidate records', asyn
   assert.equal(h.rows.value[0].id, 'getEdhrWorkTaskCandidateTodoPage')
   assert.equal(h.total.value, 1)
 })
-test('retired page is removed and rule configuration remains reachable', () => {
+test('retired page is removed and deadline configuration remains reachable', () => {
   assert.equal(fs.existsSync(path.join(root, 'src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue')), false)
   assert.doesNotMatch(read('src/router/modules/remaining.ts'), /WorkTaskBoardPage/)
-  assert.match(read('src/views/mes/pro/route/index.vue'), /RouteTaskRulesDialog ref="taskRulesRef"/)
+  const route = read('src/views/mes/pro/route/index.vue')
+  assert.match(route, /<RouteTaskDeadlinesDialog\s+ref="taskDeadlinesRef"\s*\/>/)
+  assert.match(route, /defineAsyncComponent\(\(\) => import\('\.\/RouteTaskDeadlinesDialog\.vue'\)\)/)
+  const deadlines = read('src/views/mes/pro/route/RouteTaskDeadlinesDialog.vue')
+  assert.match(deadlines, /defineExpose\(\{ open \}\)/)
+  assert.match(deadlines, /request\.get\(\{ url: '\/mes\/pro\/edhr-work-task\/route-deadline'/)
+  assert.match(deadlines, /request\.post\(\{ url: '\/mes\/pro\/edhr-work-task\/route-deadline'/)
   assert.match(read('src/views/Profile/components/ProfileWorkbench.vue'), /ProductionTaskRecords ref="productionRecordsRef"/)
+})
+
+test('deadline entry opens the mounted dialog only with rule query permission', () => {
+  const descriptor = parse(read('src/views/mes/pro/route/index.vue')).descriptor
+  const find = node => node.tag === 'el-dropdown-item' && node.loc.source.includes('taskDeadlinesRef')
+    ? node : (node.children || []).map(find).find(Boolean)
+  const entry = find(descriptor.template.ast)
+  assert.ok(entry, '工艺路线高级菜单必须保留业务处理时限入口')
+  const compiled = compileTemplate({ source: entry.loc.source, filename: 'route-deadline-entry.vue',
+    id: 'route-deadline-entry', compilerOptions: { mode: 'function', prefixIdentifiers: false, cacheHandlers: false } })
+  assert.deepEqual(compiled.errors, [])
+  const render = Function('Vue', compiled.code)({ ...vue, resolveComponent: name => name })
+  for (const permissions of [[], ['mes:pro-route:create'], ['mes:pro-edhr-work-task-rule:update'], ['mes:pro-edhr-work-task-rule:query']]) {
+    let opened = 0
+    const node = render({
+      checkPermi: required => required.some(permission => permissions.includes(permission)),
+      taskDeadlinesRef: { open: () => { opened++ } }
+    }, [])
+    if (permissions.includes('mes:pro-edhr-work-task-rule:query')) {
+      assert.equal(node.type, 'el-dropdown-item')
+      node.props.onClick()
+      assert.equal(opened, 1)
+    } else {
+      assert.equal(node.type, vue.Comment)
+      assert.equal(opened, 0)
+    }
+  }
 })

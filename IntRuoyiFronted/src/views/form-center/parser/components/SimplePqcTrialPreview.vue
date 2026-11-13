@@ -364,8 +364,11 @@ import { MATRIX_SAMPLING_RULE, EQUIPMENT_UNBOUND_NOTICE, inspectionLevelIssue } 
 const samplingRows = ref<SamplingRow[]>([])
 const samplingLoadError = ref('')
 onMounted(async () => {
-  try { samplingRows.value = await getSamplingTable() }
-  catch (error) { samplingLoadError.value = error instanceof Error ? error.message : '抽样矩阵加载失败' }
+  try {
+    samplingRows.value = await getSamplingTable()
+  } catch (error) {
+    samplingLoadError.value = error instanceof Error ? error.message : '抽样矩阵加载失败'
+  }
 })
 const props = defineProps<{ draft: Draft; processIndex: number }>()
 const emit = defineEmits<{ 'select-process': [index: number] }>()
@@ -410,7 +413,10 @@ const item = computed(
 const quantity = computed(() => quantityFor(item.value))
 const samplingIssue = computed(() =>
   inspectionType.value === 'PATROL' && item.value
-    ? inspectionLevelIssue(item.value) || samplingLoadError.value || (!samplingRows.value.length ? '抽样矩阵加载中' : undefined) : undefined
+    ? inspectionLevelIssue(item.value) ||
+      samplingLoadError.value ||
+      (!samplingRows.value.length ? '抽样矩阵加载中' : undefined)
+    : undefined
 )
 function quantityFor(currentItem: (typeof items.value)[number] | undefined) {
   if (!currentItem || (inspectionType.value === 'PATROL' && inspectionLevelIssue(currentItem)))
@@ -418,8 +424,11 @@ function quantityFor(currentItem: (typeof items.value)[number] | undefined) {
   if (inspectionType.value === 'PATROL') {
     if (!Number.isSafeInteger(batchQuantity.value) || batchQuantity.value <= 0) return undefined
     if (batchQuantity.value === 1) return 1
-    const row = samplingRows.value.find(r => batchQuantity.value >= r.minQuantity &&
-      (r.maxQuantity == null || batchQuantity.value <= r.maxQuantity))
+    const row = samplingRows.value.find(
+      (r) =>
+        batchQuantity.value >= r.minQuantity &&
+        (r.maxQuantity == null || batchQuantity.value <= r.maxQuantity)
+    )
     const sample = row?.samples[currentItem.inspectionLevel as InspectionLevel]
     return sample ? Math.min(batchQuantity.value, sample.nominalSampleSize) : undefined
   }
@@ -446,7 +455,9 @@ const selectedEquipmentLabel = computed(() => {
       ? '选择检验设备'
       : item.value?.equipmentUnboundReason
         ? '器具待绑定'
-        : '无设备'
+        : item.value?.equipmentRequired === false
+          ? '无需设备'
+          : '无设备'
 })
 const key = computed(
   () =>

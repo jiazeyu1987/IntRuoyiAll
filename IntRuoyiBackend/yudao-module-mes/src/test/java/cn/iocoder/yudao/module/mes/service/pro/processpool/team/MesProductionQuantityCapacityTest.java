@@ -66,7 +66,7 @@ class MesProductionQuantityCapacityTest {
         assertTrue(capacity.exceeded());
         assertEquals(0, capacity.projected().compareTo(new BigDecimal("1100.01")));
     }
-    @Test void oldTenPercentToleranceDoesNotStackOnProductionFactor() {
+    @Test void lossCoefficientDoesNotStackOnProductionFactor() {
         previous("1100", "1100");
         assertTrue(service.evaluate(request("1", "1")).exceeded());
     }
@@ -74,10 +74,15 @@ class MesProductionQuantityCapacityTest {
         var range = MesProductionQuantityRange.of(snapshot());
         assertEquals(new BigDecimal("1000"),range.lower());
         assertEquals(new BigDecimal("1100.000000"),range.upper());
-        assertThrows(IllegalStateException.class, () -> MesProductionQuantityRange.of(
-                snapshot().setPlannedQuantitySnapshot(new BigDecimal("1200"))));
-        assertThrows(IllegalStateException.class, () -> MesProductionQuantityRange.of(
-                snapshot().setProductionQuantityFactorSnapshot(new BigDecimal("0.9"))));
+        var independent = MesProductionQuantityRange.of(snapshot()
+                .setPlannedQuantitySnapshot(new BigDecimal("2500"))
+                .setProductionQuantityFactorSnapshot(new BigDecimal("2.5")));
+        assertEquals(range, independent);
+        var configured = MesProductionQuantityRange.of(snapshot()
+                .setProductionConfigSnapshotJson("{\"lossCoefficient\":1.2,\"outputMaterialIds\":[11,12]}"));
+        assertEquals(new BigDecimal("1200.000000"), configured.upper());
+        assertThrows(IllegalArgumentException.class, () -> MesProductionQuantityRange.of(snapshot()
+                .setProductionConfigSnapshotJson("{\"lossCoefficient\":0.9}")));
     }
 
     private MesProFrontlineFeedbackSubmitReqVO withoutOutputMaterials(String quantity) {

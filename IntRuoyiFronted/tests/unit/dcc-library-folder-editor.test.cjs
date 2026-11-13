@@ -73,6 +73,69 @@ async function run() {
   }
   const folderRows = projectId => [{ id: '10', projectCodeId: String(projectId), parentId: '0', name: '正式根目录',
     sortOrder: 0, active: true, sourceTemplateId: '5', sourceNodeKey: 'root' }]
+  await test('模板保存和删除缺少原因时就地提示，不确认、不请求、不报成功', async () => {
+    let writes = 0, confirms = 0
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [template(5, '模板05')],
+        saveFolderTemplate: async () => { writes++; return 5 },
+        deleteFolderTemplate: async () => { writes++; return true } },
+      'element-plus': { ElMessageBox: { confirm: async () => { confirms++ } } }
+    })
+    await instance.exposed.open()
+    instance.bindings.choose(template(5, '模板05'))
+    for (const reason of ['', '   ', '原'.repeat(501)]) {
+      instance.bindings.form.changeReason = reason
+      await instance.bindings.removeTemplate()
+      await instance.bindings.save()
+      assert.ok(instance.bindings.error.value.includes('原因'))
+      assert.equal(instance.bindings.form.id, 5)
+    }
+    assert.equal(writes, 0)
+    assert.equal(confirms, 0)
+    assert.equal(instance.events.length, 0)
+    instance.stop()
+  })
+  await test('模板删除确认显示名称，取消保留原记录，确认后传用户原因并刷新', async () => {
+    const writes = [], confirmations = []
+    let cancel = true, deleted = false
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => deleted ? [] : [template(5, '模板05')],
+        deleteFolderTemplate: async (id, reason) => { writes.push({ id, reason }); deleted = true; return true } },
+      'element-plus': { ElMessageBox: { confirm: async message => { confirmations.push(message); if (cancel) throw 'cancel' } } }
+    })
+    await instance.exposed.open()
+    instance.bindings.choose(template(5, '模板05'))
+    instance.bindings.form.changeReason = '删除多余测试模板'
+    await instance.bindings.removeTemplate()
+    assert.equal(writes.length, 0)
+    assert.equal(instance.bindings.form.id, 5)
+    assert.equal(instance.events.length, 0)
+    cancel = false
+    await instance.bindings.removeTemplate()
+    assert.ok(confirmations.every(message => message.includes('模板05')))
+    assert.deepEqual(writes, [{ id: 5, reason: '删除多余测试模板' }])
+    assert.equal(instance.bindings.form.id, undefined)
+    assert.equal(instance.bindings.templates.value.length, 0)
+    assert.equal(instance.events.length, 1)
+    assert.equal(instance.events[0][0], 'saved')
+    instance.stop()
+  })
+  await test('已使用模板仍不能删除', async () => {
+    let writes = 0, confirms = 0
+    const instance = setup(folderComponent, {
+      [apiPath]: { getFolderTemplates: async () => [template(5, '已用模板', true)],
+        deleteFolderTemplate: async () => { writes++; return true } },
+      'element-plus': { ElMessageBox: { confirm: async () => { confirms++ } } }
+    })
+    await instance.exposed.open()
+    instance.bindings.choose(template(5, '已用模板', true))
+    instance.bindings.form.changeReason = '尝试删除已使用模板'
+    await instance.bindings.removeTemplate()
+    assert.equal(writes, 0)
+    assert.equal(confirms, 0)
+    assert.equal(instance.events.length, 0)
+    instance.stop()
+  })
   await test('项目人工目录保存正式身份并不伪造模板来源', async () => {
     const calls = []
     const instance = setup(projectFolderEditor, {

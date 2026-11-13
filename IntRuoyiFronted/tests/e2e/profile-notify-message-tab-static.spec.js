@@ -104,7 +104,7 @@ assert.match(
 assert.match(notifyList, /notifyTableRef\.value\?\.doLayout\(\)/, '嵌入页切换为可见后必须重新计算站内信表格布局。')
 assert.match(notifyList, /watch\(\s*\(\) => props\.active[\s\S]*refreshTableLayout\(\)/, '个人中心切换到站内信时必须重新布局表格。')
 assert.match(notifyList, /await refreshTableLayout\(\)/, '站内信首屏数据加载后必须重新布局表格。')
-assert.match(notifyList, /handoffPanelRef\.value\?\.refreshLayout\(\)/, '生产交接表格也必须重新计算隐藏页签中的列宽。')
+assert.match(profileIndex, /activeName\.value === 'handoffs'[\s\S]*handoffPanelRef\.value\?\.refreshLayout\(\)/, '切换到独立交接页签必须重新计算表格列宽。')
 assert.match(
   notifyList,
   /defineEmits<\{[\s\S]*read-status-change[\s\S]*\}>/,

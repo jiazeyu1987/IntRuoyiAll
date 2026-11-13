@@ -52,6 +52,25 @@ class MesProRouteCandidateConfigServiceTest {
     private MesProRouteMapper routeMapper;
 
     @Test
+    void lossCoefficient_isSavedIndependentlyInDraftSnapshot() {
+        nameDraft("DRAFT");
+        service.saveConfigSnapshots(2002L, "original-hash", Map.of("lossCoefficient", new java.math.BigDecimal("1.25")));
+        ArgumentCaptor<MesProRouteVersionDO> saved = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(saved.capture(), any());
+        JSONObject configs = JSON.parseObject(saved.getValue().getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        assertEquals(new java.math.BigDecimal("1.25"), configs.getBigDecimal("lossCoefficient"));
+        assertEquals(12, configs.getJSONArray("products").getJSONObject(0).getIntValue("id"));
+    }
+
+    @Test
+    void lossCoefficient_rejectsValuesBelowOneBeforeWriting() {
+        nameDraft("DRAFT");
+        assertThrows(IllegalArgumentException.class, () -> service.saveConfigSnapshots(2002L, "original-hash",
+                Map.of("lossCoefficient", new java.math.BigDecimal("0.9"))));
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
+    @Test
     void successfulDraftSaves_recordCurrentSaverAtomicallyForNameAndConfig() {
         MesProRouteVersionDO candidate = nameDraft("DRAFT");
         candidate.setLastSavedBy(10L);

@@ -38,9 +38,11 @@ function fixture(rows = [], references = []) {
     } },
     '@/api/dcc/controlledFile/workflow': {},
     '@/api/system/user': {},
+    '@/hooks/web/useListColumnFilter': { loadAllListPages: () => { throw Error('Unexpected full-list read') } },
+    './folder-file-list': moduleAt('src/views/dcc/controlled-file/browser/folder-file-list.ts'),
     '@/api/dcc/controlledFile/relations': { listProjectReferences: async () => references,
       createProjectReferences: async (_project, _folder, ids) => ids.map(id => ({ reference: { selectedControlledFileId: id } })),
-      getProjectReferenceUsage: async controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false }) },
+      getProjectReferenceUsageBatch: async ids => ids.map(controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false })) },
     '../basic-data/components/project-folder-tree': moduleAt('src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts'),
     '../relations/project-reference-contract': moduleAt('src/views/dcc/controlled-file/relations/project-reference-contract.ts')
   })

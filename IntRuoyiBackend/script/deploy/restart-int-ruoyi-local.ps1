@@ -1635,7 +1635,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
   "--logging.file.name=$backendLogFile"
-  '--yudao.runtime-control.repo-root=.'
+  "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
   "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )

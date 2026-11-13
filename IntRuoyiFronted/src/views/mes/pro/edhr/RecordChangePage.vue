@@ -301,7 +301,7 @@
         <el-form-item v-if="actionMode !== 'approve'" label="审批人" required>
           <RecordChangeUserSelect v-model="actionForm.approverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
         </el-form-item>
-        <el-form-item label="签名凭据" required><el-input v-model="actionForm.password" type="password" show-password autocomplete="new-password" placeholder="请输入当前签名凭据（PIN 码或密码）" /></el-form-item>
+        <el-form-item label="签名凭据" required><SignatureCredentialInput v-model="actionForm.password" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="actionForm.comment" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
@@ -314,6 +314,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import {
   edhrDateTimeFormatter,
   formatEdhrDateTime

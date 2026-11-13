@@ -19,7 +19,7 @@
         <el-input v-model="reason" type="textarea" :rows="2" name="dcc-signoff-assignment-opinion" autocomplete="off" :readonly="!reasonFocused" @focus="reasonFocused = true" aria-label="指派意见" placeholder="请输入指派意见" :disabled="busy || assigned" />
       </el-form-item>
       <el-form-item label="电子签名" required :error="fieldErrors.password" data-assignment-field="password">
-        <el-input v-model="password" type="password" name="dcc-signoff-signature-password" autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" show-password aria-label="电子签名" placeholder="请输入所选签名方式的六位 PIN 码或密码" :disabled="busy || assigned" />
+        <SignatureCredentialInput v-model="password" name="dcc-signoff-signature-password" :disabled="busy || assigned" />
       </el-form-item>
       <el-form-item label="提交后流转">
         <div>下一节点：实际会签人会签。签名确认指派后，由所选人员完成正式会签。指派本人时，也按流程进入后续会签任务。</div>
@@ -37,6 +37,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { isWorkflowId, submitSignoffAssignment, type SignoffAssignment, type WorkflowId, type ArrangementCommand } from './workflow-actions'

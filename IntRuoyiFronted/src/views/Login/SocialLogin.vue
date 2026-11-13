@@ -197,7 +197,7 @@ const loginData = reactive({
   captchaEnable: import.meta.env.VITE_APP_CAPTCHA_ENABLE !== 'false',
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE !== 'false',
   loginForm: {
-    tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',
+    tenantName: '',
     username: '',
     password: '',
     captchaVerification: '',
@@ -298,11 +298,7 @@ const handleLogin = async (params) => {
       text: '正在加载系统中...',
       background: 'rgba(0, 0, 0, 0.7)'
     })
-    if (loginDataLoginForm.rememberMe) {
-      authUtil.setLoginForm(loginDataLoginForm)
-    } else {
-      authUtil.removeLoginForm(loginDataLoginForm.tenantName)
-    }
+    authUtil.setLoginForm(loginDataLoginForm)
     authUtil.setToken(res)
     if (!redirect) {
       redirect = '/'

@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 
 export interface DeviationPageReqVO extends PageParam {
+  listFilters?: string
   status?: 'OPEN' | 'CLOSED'
   level?: 'NORMAL' | 'CRITICAL'
   batchExecutionId?: number | string

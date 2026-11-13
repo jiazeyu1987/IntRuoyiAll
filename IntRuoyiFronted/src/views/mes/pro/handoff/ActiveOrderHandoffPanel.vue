@@ -1,8 +1,9 @@
 <template>
-  <el-card v-show="!hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
+  <el-card v-show="resultOnly ? Boolean(error) : !hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
     <UnifiedListTemplate
+      v-if="!resultOnly"
       table-key="mes.handoff.mine"
       :total="tasks.length"
       :page="page"
@@ -116,7 +117,8 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { TableInstance } from 'element-plus'
-withDefaults(defineProps<{ hideWhenEmpty?: boolean }>(), { hideWhenEmpty: false })
+const props = withDefaults(defineProps<{ hideWhenEmpty?: boolean; initialTasks?: api.HandoffTask[]; resultOnly?: boolean }>(), { hideWhenEmpty: false, resultOnly: false })
+const emit = defineEmits<{ (e: 'loaded', rows: api.HandoffTask[]): void }>()
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
@@ -165,7 +167,7 @@ const deliveryStates = { PENDING: '待投递', FAILED: '投递失败', SENT: '�
 const failure = (e: unknown) => e instanceof Error ? e.message : String(e)
 const load = async () => {
   const epoch = ++listEpoch; page.value = 1; loading.value = true; error.value = ''
-  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) { tasks.value = rows; changePage(page.value) } }
+  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) { tasks.value = rows; changePage(page.value); emit('loaded', rows) } }
   catch (e) { if (epoch === listEpoch) { tasks.value = []; page.value = 1; error.value = failure(e) } }
   finally { if (epoch === listEpoch) loading.value = false }
 }
@@ -265,7 +267,10 @@ onBeforeUnmount(() => {
   ++listEpoch
   ++resultEpoch; result.value = undefined; resultOpen.value = false; closeCompletedResult()
 })
-onMounted(load)
+watch(() => props.initialTasks, (rows) => {
+  if (rows) { tasks.value = rows; changePage(page.value) }
+}, { immediate: true })
+onMounted(() => { if (props.initialTasks === undefined) void load() })
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

@@ -444,15 +444,9 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="reviewForm.signaturePassword"
             name="approval-center-signature-password"
-            :readonly="!reviewForm.passwordFocused"
-            @focus="reviewForm.passwordFocused = true"
-            type="password"
-            show-password
-            autocomplete="new-password"
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
           />
         </el-form-item>
       </el-form>
@@ -467,6 +461,7 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'

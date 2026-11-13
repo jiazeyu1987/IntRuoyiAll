@@ -345,10 +345,6 @@
         </div>
       </el-card>
 
-      <el-card class="detail-card" shadow="never">
-        <template #header>历史记录</template>
-        <CertificateHistoryTable :rows="otherHistory" />
-      </el-card>
     </div>
 
     <Dialog
@@ -395,7 +391,6 @@ import { generateUUID } from '@/utils'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
-import CertificateHistoryTable from '../history/CertificateHistoryTable.vue'
 import {
   displayText,
   formatEntrustedEnterpriseNames,
@@ -485,10 +480,6 @@ const changeHistory = computed(() => {
     })
   return Array.from(grouped.values()).reverse()
 })
-const otherHistory = computed(() => history.value
-  .filter((item) => item.eventType !== 'RENEWAL_UPLOADED'
-    && item.eventType !== 'CHANGE_SUBMITTED'
-    && item.eventType !== 'CHANGE_APPLIED'))
 
 const formatBooleanChoice = (value?: boolean) => {
   if (value === true) return '是'

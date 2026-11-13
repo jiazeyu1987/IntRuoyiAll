@@ -23,10 +23,8 @@
       @column-change="saveProcessExpressionColumnConfig"
       @column-reset="resetProcessExpressionColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -135,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import { computed } from 'vue'
@@ -177,6 +175,7 @@ const loading = ref(true)
 const list = ref<ProcessExpressionVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   name: undefined as string | undefined,
@@ -248,14 +247,6 @@ const handleDelete = async (id: number) => {
 onMounted(() => {
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProcessExpressionApi.getProcessExpressionPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

@@ -9,10 +9,11 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="listColumnFilterDefinitions0"
@@ -158,7 +159,8 @@
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -190,15 +192,13 @@ const importLoading = ref(false)
 const importInputRef = ref<HTMLInputElement>()
 
 /** 查询岗位列表 */
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { loading.value = value }, { flush: 'sync' })
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await PostApi.getPostPage(queryParams)
+  return await listPageRequest.run(() => PostApi.getPostPage({ ...queryParams }), data => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 /** 搜索按钮操作 */
@@ -298,13 +298,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    PostApi.getPostPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

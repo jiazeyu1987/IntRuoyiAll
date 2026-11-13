@@ -11,7 +11,7 @@ import cn.iocoder.yudao.module.erp.enums.ErpKingdeeConnectionTypeEnum;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
-import cn.iocoder.yudao.module.infra.service.config.ConfigService;
+import cn.iocoder.yudao.module.infra.service.config.TenantConfigService;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import org.springframework.stereotype.Service;
@@ -48,7 +48,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     @Resource
     private ErpKingdeeProperties defaultKingdeeProperties;
     @Resource
-    private ConfigService configService;
+    private TenantConfigService tenantConfigService;
 
     @Override
     public ErpKingdeeConfigRespVO getConfig() {
@@ -120,21 +120,27 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
 
     private ErpKingdeeProperties getTestProperties() {
         ErpKingdeeProperties properties = cloneDefaultProperties();
-        ConfigDO config = configService.getConfigByKey(CONFIG_KEY);
+        ConfigDO config = tenantConfigService.getConfigByKey(CONFIG_KEY);
         if (config == null || StrUtil.isBlank(config.getValue())) {
-            return properties;
+            throw exception(KINGDEE_CONNECTION_CONFIG_MISSING, ErpKingdeeConnectionTypeEnum.TEST.getName());
         }
-        ErpKingdeeConfigSaveReqVO saveReqVO =
-                JsonUtils.parseObjectQuietly(config.getValue(), ErpKingdeeConfigSaveReqVO.class);
+        ErpKingdeeConfigSaveReqVO saveReqVO;
+        try {
+            saveReqVO = JsonUtils.parseObject(config.getValue(), ErpKingdeeConfigSaveReqVO.class);
+        } catch (RuntimeException ex) {
+            throw exception(KINGDEE_CONNECTION_CONFIG_INVALID,
+                    ErpKingdeeConnectionTypeEnum.TEST.getName(), "JSON 格式错误");
+        }
         if (saveReqVO == null) {
-            return properties;
+            throw exception(KINGDEE_CONNECTION_CONFIG_INVALID,
+                    ErpKingdeeConnectionTypeEnum.TEST.getName(), "配置内容为空");
         }
         applyOverrides(properties, saveReqVO);
         return properties;
     }
 
     private ErpKingdeeConnectionTypeEnum resolveActiveConnectionType() {
-        ConfigDO config = configService.getConfigByKey(ACTIVE_CONNECTION_CONFIG_KEY);
+        ConfigDO config = tenantConfigService.getConfigByKey(ACTIVE_CONNECTION_CONFIG_KEY);
         if (config == null || StrUtil.isBlank(config.getValue())) {
             throw exception(KINGDEE_ACTIVE_CONNECTION_CONFIG_MISSING);
         }
@@ -148,7 +154,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     }
 
     private ErpKingdeeConnectionConfig loadProductionConnection() {
-        ConfigDO config = configService.getConfigByKey(PRODUCTION_CONNECTION_CONFIG_KEY);
+        ConfigDO config = tenantConfigService.getConfigByKey(PRODUCTION_CONNECTION_CONFIG_KEY);
         if (config == null || StrUtil.isBlank(config.getValue())) {
             throw exception(KINGDEE_CONNECTION_CONFIG_MISSING,
                     ErpKingdeeConnectionTypeEnum.PRODUCTION.getName());
@@ -211,7 +217,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     }
 
     private void saveHiddenConfig(String key, String name, String remark, String value) {
-        ConfigDO existingConfig = configService.getConfigByKey(key);
+        ConfigDO existingConfig = tenantConfigService.getConfigByKey(key);
         ConfigSaveReqVO configSaveReqVO = new ConfigSaveReqVO();
         configSaveReqVO.setId(existingConfig != null ? existingConfig.getId() : null);
         configSaveReqVO.setCategory(CONFIG_CATEGORY);
@@ -221,21 +227,21 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         configSaveReqVO.setVisible(Boolean.FALSE);
         configSaveReqVO.setRemark(remark);
         if (existingConfig == null) {
-            configService.createConfig(configSaveReqVO);
+            tenantConfigService.createConfig(configSaveReqVO);
         } else {
-            configService.updateConfig(configSaveReqVO);
+            tenantConfigService.updateConfig(configSaveReqVO);
         }
     }
 
     @Override
     public boolean isExternalWriteEnabled() {
-        ConfigDO config = configService.getConfigByKey(EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
+        ConfigDO config = tenantConfigService.getConfigByKey(EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
         return config != null && Boolean.parseBoolean(StrUtil.trim(config.getValue()));
     }
 
     @Override
     public void updateExternalWriteEnabled(Boolean enabled) {
-        ConfigDO existingConfig = configService.getConfigByKey(EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
+        ConfigDO existingConfig = tenantConfigService.getConfigByKey(EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
         ConfigSaveReqVO configSaveReqVO = new ConfigSaveReqVO();
         configSaveReqVO.setId(existingConfig != null ? existingConfig.getId() : null);
         configSaveReqVO.setCategory(CONFIG_CATEGORY);
@@ -245,9 +251,9 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         configSaveReqVO.setVisible(Boolean.FALSE);
         configSaveReqVO.setRemark(EXTERNAL_WRITE_ENABLED_CONFIG_REMARK);
         if (existingConfig == null) {
-            configService.createConfig(configSaveReqVO);
+            tenantConfigService.createConfig(configSaveReqVO);
         } else {
-            configService.updateConfig(configSaveReqVO);
+            tenantConfigService.updateConfig(configSaveReqVO);
         }
     }
 
@@ -290,15 +296,9 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         target.setAcctId(source.getAcctId());
         target.setUsername(source.getUsername());
         target.setPassword(source.getPassword());
-        if (source.getAppId() != null) {
-            target.setAppId(source.getAppId());
-        }
-        if (source.getSignedData() != null) {
-            target.setSignedData(source.getSignedData());
-        }
-        if (source.getTimestamp() != null) {
-            target.setTimestamp(source.getTimestamp());
-        }
+        target.setAppId(source.getAppId());
+        target.setSignedData(source.getSignedData());
+        target.setTimestamp(source.getTimestamp());
         target.setLcid(source.getLcid());
         if (source.getProduct() != null) {
             target.getProduct().setQueryLimit(source.getProduct().getQueryLimit());

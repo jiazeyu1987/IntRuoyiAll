@@ -177,7 +177,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     }
     void policy(String id){jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'DCC-D-ISOLATED',?,'SERVICE_METHOD','DCC.TEST','DCC','DCC_RELATION','CREATE','REQUIRED','NOT_REQUIRED','ABSENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','INT-D-01','dcc-d','GXP',TRUE)",id);}
     void batchPolicy(String operation){jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'W04-TRUE-BATCH-FIXTURE',?,'SERVICE_METHOD','W04_BATCH_ACTUAL','DCC','DCC_DISTRIBUTION_BATCH','UPDATE','REQUIRED','NOT_REQUIRED','PRESENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','BATCH14','W04','GXP',TRUE)",operation);}
-    void cleanupOwnTables(){for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch","dcc_relation_stage_member","dcc_relation_stage_snapshot","controlled_content_transition_audit","controlled_content_version_ref","dcc_relation_change_command","dcc_relation_notification_outbox","dcc_relation_remediation_task","dcc_relation_controlled_event","dcc_relation_arrangement","dcc_current_file_relation","dcc_current_file_relation_set","system_notify_message"))jdbc.update("DELETE FROM "+table);jdbc.update("DELETE FROM dcc_application_round_link WHERE tenant_id=1 AND application_id IN (1,2)");jdbc.update("DELETE FROM dcc_controlled_file_related_file WHERE controlled_file_id=2");jdbc.update("DELETE FROM dcc_controlled_file_task_assignee_snapshot WHERE controlled_file_id=2");}
+    void cleanupOwnTables(){for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch","dcc_relation_stage_member","dcc_relation_stage_snapshot","controlled_content_transition_audit","controlled_content_version_ref","dcc_relation_change_command","dcc_relation_notification_outbox","dcc_relation_remediation_task","dcc_relation_controlled_event","dcc_relation_arrangement","dcc_current_file_relation","dcc_current_file_relation_set","system_tenant_notify_message"))jdbc.update("DELETE FROM "+table);jdbc.update("DELETE FROM dcc_application_round_link WHERE tenant_id=1 AND application_id IN (1,2)");jdbc.update("DELETE FROM dcc_controlled_file_related_file WHERE controlled_file_id=2");jdbc.update("DELETE FROM dcc_controlled_file_task_assignee_snapshot WHERE controlled_file_id=2");}
     @AfterEach void after(){
         cleanupOwnTables();queue.tasks.clear();SecurityContextHolder.clearContext();
         if(contractEngine!=null){contractEngine.getRepositoryService().createDeploymentQuery().list().forEach(row->contractEngine.getRepositoryService().deleteDeployment(row.getId(),true));contractEngine.close();}
@@ -215,7 +215,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     }
     void control(){
         prepareActualPlatformFinalization();
-        new TransactionTemplate(manager).executeWithoutResult(s->{lifecycle.completeControl(files.selectByIdAndTenantForUpdate(1L,2L),masters.selectByIdForUpdate(10L),7L);assertEquals(0,count("system_notify_message"));});
+        new TransactionTemplate(manager).executeWithoutResult(s->{lifecycle.completeControl(files.selectByIdAndTenantForUpdate(1L,2L),masters.selectByIdForUpdate(10L),7L);assertEquals(0,count("system_tenant_notify_message"));});
     }
     ControlledContentKey platformKey(){return ControlledContentKey.of(1L,ControlledContentType.DCC_CONTROLLED_FILE,"10");}
     void createActualPlatformTables(){
@@ -260,9 +260,9 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     @Test void realAControlEventCreatesDTasksInItsTransactionAndNotifiesAfterCommitOnly(){
         control();assertEquals(1,count("dcc_relation_controlled_event"));assertEquals(1,count("dcc_relation_remediation_task"));assertEquals(1,count("dcc_relation_notification_outbox"));
         assertEquals(1L,masters.selectById(10L).getCurrentActiveControlledFileId());assertEquals(2L,masters.selectById(10L).getLatestControlledFileId());
-        assertEquals(201L,resolver.resolveLatest(20L).controlledFileId());assertEquals(0,count("system_notify_message"));assertEquals(1,queue.tasks.size());
-        queue.drain();assertEquals(1,count("system_notify_message"));assertEquals("SENT",jdbc.queryForObject("SELECT status FROM dcc_relation_notification_outbox",String.class));
-        var event=controlEvent();new TransactionTemplate(manager).executeWithoutResult(s->publisher.publishEvent(event));queue.drain();assertEquals(1,count("system_notify_message"));assertEquals(1,count("dcc_relation_remediation_task"));
+        assertEquals(201L,resolver.resolveLatest(20L).controlledFileId());assertEquals(0,count("system_tenant_notify_message"));assertEquals(1,queue.tasks.size());
+        queue.drain();assertEquals(1,count("system_tenant_notify_message"));assertEquals("SENT",jdbc.queryForObject("SELECT status FROM dcc_relation_notification_outbox",String.class));
+        var event=controlEvent();new TransactionTemplate(manager).executeWithoutResult(s->publisher.publishEvent(event));queue.drain();assertEquals(1,count("system_tenant_notify_message"));assertEquals(1,count("dcc_relation_remediation_task"));
     }
     @Test void onePersistedControlEventSchedulesExactlyOneNotificationDelivery() {
         control();
@@ -271,7 +271,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertEquals(1, count("dcc_relation_notification_outbox"));
         assertEquals(1, queue.tasks.size(), "one A control transition must enter D exactly once");
         queue.drain();
-        assertEquals(1, count("system_notify_message"));
+        assertEquals(1, count("system_tenant_notify_message"));
     }
     @Test void missingDAuditRollsBackAControlStatePointersAndDRequiredFacts(){
         jdbc.update("DELETE FROM gxp_audit_policy_operation WHERE operation_id='dcc.relation.controlled'");
@@ -282,7 +282,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     @Test void activationDoesNotRepeatControlledNotificationOrResetDeadline(){
         control();queue.drain();var deadline=jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class);
         jdbc.update("UPDATE dcc_controlled_file SET effective_date=? WHERE id=2",LocalDate.now());lifecycle.activateDue(2L);queue.drain();
-        assertEquals(1,count("system_notify_message"));assertEquals(deadline,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
+        assertEquals(1,count("system_tenant_notify_message"));assertEquals(deadline,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
         assertEquals(2L,masters.selectById(10L).getCurrentActiveControlledFileId());
         var batch=batchRows.selectList().get(0);assertEquals(1,batchRows.selectList().size());
         assertEquals("FAILED",batch.getStatus());assertEquals("EMPTY_SCOPE_UNDECIDED",batch.getErrorCode());
@@ -296,7 +296,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertEquals(obsoleteTime,jdbc.queryForObject("SELECT obsolete_time FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
         assertEquals(obsoleteTime.plusYears(20),jdbc.queryForObject("SELECT retain_until FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
         assertEquals(0,jdbc.queryForObject("SELECT deleted FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",Integer.class));
-        assertFalse(lifecycle.activateDue(2L));queue.drain();assertEquals(1,count("system_notify_message"));
+        assertFalse(lifecycle.activateDue(2L));queue.drain();assertEquals(1,count("system_tenant_notify_message"));
         assertEquals(1,batchRows.selectList().size());
         assertEquals(obsoleteTime.plusYears(20),jdbc.queryForObject("SELECT retain_until FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
     }
@@ -310,7 +310,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertEquals("CONTROLLED_PENDING_EFFECTIVE",files.selectById(2L).getStatus());assertNull(files.selectById(2L).getActivatedTime());
         assertEquals(1L,masters.selectById(10L).getCurrentActiveControlledFileId());assertEquals(2L,masters.selectById(10L).getLatestControlledFileId());
         assertEquals(1,count("dcc_workflow_lifecycle_event"));assertEquals(1,count("dcc_relation_controlled_event"));
-        assertEquals(1,count("dcc_relation_remediation_task"));assertEquals(1,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());
+        assertEquals(1,count("dcc_relation_remediation_task"));assertEquals(1,count("system_tenant_notify_message"));assertTrue(queue.tasks.isEmpty());
         assertEquals(deadline,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
     }
     @Test void sourceInheritanceMissingPolicyRollsBackAndRecordedHumanSourceHasNoFabricatedSignature() {
@@ -386,7 +386,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertEquals(1L,masters.selectById(10L).getLatestControlledFileId());
         assertEquals(0,count("dcc_workflow_lifecycle_event"));assertEquals(0,count("dcc_relation_controlled_event"));
         assertEquals(0,count("dcc_relation_remediation_task"));assertEquals(0,count("dcc_relation_notification_outbox"));
-        assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());assertEquals(1,count("dcc_relation_arrangement"));
+        assertEquals(0,count("system_tenant_notify_message"));assertTrue(queue.tasks.isEmpty());assertEquals(1,count("dcc_relation_arrangement"));
     }
     @Test void lateHistoricalEventCannotRegressCurrentRelationsUsingACachedLatestPointer() throws Exception {
         var oldTime=dates.now().minusDays(5);
@@ -412,7 +412,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
             assertEquals(0L,jdbc.queryForObject("SELECT row_version FROM dcc_current_file_relation_set WHERE tenant_id=1 AND source_master_id=10",Long.class));
             assertEquals(20L,jdbc.queryForObject("SELECT related_master_id FROM dcc_current_file_relation WHERE tenant_id=1 AND source_master_id=10",Long.class));
             assertEquals(2,count("dcc_relation_controlled_event"));assertEquals(1,count("dcc_relation_remediation_task"));
-            queue.drain();assertEquals(1,count("system_notify_message"));
+            queue.drain();assertEquals(1,count("system_tenant_notify_message"));
         }finally{pool.shutdown();assertTrue(pool.awaitTermination(15,TimeUnit.SECONDS));}
     }
     @Test void latestLockProjectionRequiresAnExistingCallerTransaction(){
@@ -491,7 +491,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                 assertNull(obligations.selectListByControlledFileId(2L).get(0).getAssignmentSignatureId());
                 assertEquals(0,count("dcc_controlled_file_signature"));assertEquals(0,count("dcc_relation_arrangement"));
                 assertEquals(0,count("dcc_relation_stage_snapshot"));assertEquals(0,count("dcc_relation_stage_member"));
-                assertEquals(initialAudit,count("gxp_audit_event"));assertEquals(0,count("dcc_relation_controlled_event"));assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());return;
+                assertEquals(initialAudit,count("gxp_audit_event"));assertEquals(0,count("dcc_relation_controlled_event"));assertEquals(0,count("system_tenant_notify_message"));assertTrue(queue.tasks.isEmpty());return;
             }
             new TransactionTemplate(manager).executeWithoutResult(status->assignment.assign(7L,2L,input));
             assertEquals("9",engine.getTaskService().createTaskQuery().taskId(task.getId()).singleResult().getAssignee());
@@ -501,7 +501,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
             assertEquals(signatures.selectById(saved.getAssignmentSignatureId()).getEvidenceHash(),stageAudit.get("signature_content_hash"));
             assertEquals(saved.getAssignmentSignatureId(),engine.getTaskService().getVariableLocal(task.getId(),"dccAssignmentSignatureId"));
             assertTrue(signatures.selectById(saved.getAssignmentSignatureId()).getComment().contains(saved.getAssignmentPayloadHash()));
-            assertEquals(selected?1:0,count("dcc_relation_arrangement"));assertEquals(initialAudit+1+(selected?1:0),count("gxp_audit_event"));assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());
+            assertEquals(selected?1:0,count("dcc_relation_arrangement"));assertEquals(initialAudit+1+(selected?1:0),count("gxp_audit_event"));assertEquals(0,count("system_tenant_notify_message"));assertTrue(queue.tasks.isEmpty());
             assertEquals(selected?1:0,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE tenant_id=1 AND operation_id='dcc.relation.arrange' AND subject_id=?",Integer.class,"ARRANGEMENT:2:"+round+":20"));
             new TransactionTemplate(manager).executeWithoutResult(status->assignment.assign(7L,2L,input));assertEquals(1,count("dcc_controlled_file_signature"));
             // Approval/finalization preconditions are explicitly supplied; this fixture does not simulate the complete A approval route.
@@ -519,7 +519,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                     lifecycle.completeControl(files.selectByIdAndTenantForUpdate(1L,2L),masters.selectByIdForUpdate(10L),7L);
                     assertEquals("CONTROLLED_PENDING_EFFECTIVE",platformCore.getVersionRef(platformKey(),2L).getCanonicalStatus());
                     assertEquals(1,count("dcc_relation_remediation_task"));assertEquals(1,count("dcc_relation_notification_outbox"));
-                    assertEquals(0,count("system_notify_message"));
+                    assertEquals(0,count("system_tenant_notify_message"));
                     throw new IllegalStateException("CURRENT_NATIVE_LATE_CONTROL_FAILURE");
                 }));
                 assertEquals("CURRENT_NATIVE_LATE_CONTROL_FAILURE",failure.getMessage());
@@ -530,9 +530,9 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                 assertEquals(beforePlatformAudit,count("controlled_content_transition_audit"));assertEquals(beforeControlAudit,count("gxp_audit_event"));
                 assertEquals(0,count("dcc_workflow_lifecycle_event"));assertEquals(0,count("dcc_relation_controlled_event"));
                 assertEquals(0,count("dcc_relation_remediation_task"));assertEquals(0,count("dcc_relation_notification_outbox"));
-                queue.drain();assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());return;
+                queue.drain();assertEquals(0,count("system_tenant_notify_message"));assertTrue(queue.tasks.isEmpty());return;
             }
-            control();assertEquals(1,queue.tasks.size());assertEquals(0,count("system_notify_message"));
+            control();assertEquals(1,queue.tasks.size());assertEquals(0,count("system_tenant_notify_message"));
             var controlled=platformCore.getVersionRef(platformKey(),2L);
             assertEquals("CONTROLLED_PENDING_EFFECTIVE",controlled.getCanonicalStatus());assertEquals("CONTROLLED_PENDING_EFFECTIVE",controlled.getDomainStatus());
             assertNull(controlled.getOpenCandidateUniqueFlag());assertNull(controlled.getActiveUniqueFlag());assertEquals(round,controlled.getApprovalProcessInstanceId());
@@ -544,10 +544,10 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                 assertEquals(dueAt,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
                 assertEquals(saved.getProcessInstanceId(),jdbc.queryForObject("SELECT application_round FROM dcc_relation_controlled_event",String.class));
             }
-            queue.drain();assertEquals(selected?1:0,count("system_notify_message"));
-            if(selected)assertEquals(8L,jdbc.queryForObject("SELECT user_id FROM system_notify_message",Long.class));
+            queue.drain();assertEquals(selected?1:0,count("system_tenant_notify_message"));
+            if(selected)assertEquals(8L,jdbc.queryForObject("SELECT user_id FROM system_tenant_notify_message",Long.class));
             new TransactionTemplate(manager).executeWithoutResult(status->publisher.publishEvent(controlEvent()));queue.drain();
-            assertEquals(selected?1:0,count("system_notify_message"));assertEquals(selected?1:0,count("dcc_relation_remediation_task"));
+            assertEquals(selected?1:0,count("system_tenant_notify_message"));assertEquals(selected?1:0,count("dcc_relation_remediation_task"));
         }finally{
             if(round!=null && engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(round).singleResult()!=null)
                 engine.getRuntimeService().deleteProcessInstance(round,"task-owned offline fixture cleanup");

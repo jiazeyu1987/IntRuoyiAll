@@ -1130,6 +1130,12 @@
               </el-table-column>
               <el-table-column label="物料编码" prop="materialCode" min-width="140" />
               <el-table-column label="物料名称" prop="materialName" />
+              <el-table-column label="物料主数据" min-width="140">
+                <template #default="{ row: material }">
+                  <el-tag v-if="!material.materialId" type="warning">缺失或不完整</el-tag>
+                  <span v-else>已同步</span>
+                </template>
+              </el-table-column>
               <el-table-column label="规格型号" min-width="150">
                 <template #default="{ row: material }">
                   {{ material.materialSpecification || '-' }}
@@ -1466,131 +1472,7 @@
             />
           </section>
         </el-tab-pane>
-        <el-tab-pane
-          v-if="showSummaryTab"
-          label="操作记录"
-          name="operationRecords"
-          data-active-order-operation-records-tab
-        >
-            <table
-              v-if="detail.operationFacts?.length"
-              class="team-leader-workbench__active-order-summary-table"
-              data-active-order-summary-operation-facts-table
-            >
-              <tbody>
-                <tr>
-                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
-                    操作记录
-                  </th>
-                </tr>
-                <tr>
-                  <th>操作</th>
-                  <th>操作人</th>
-                  <th>结果</th>
-                  <th>发生时间</th>
-                </tr>
-                <template v-for="fact in detail.operationFacts" :key="`${fact.sourceType}:${fact.operationType}:${fact.id}`">
-                  <tr
-                    data-active-order-operation-fact
-                    :data-active-order-operation-type="fact.operationType"
-                  >
-                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
-                    <td>{{ fact.actorName }}<div v-if="fact.actorUserId" class="text-xs text-gray-500">用户编号：{{ fact.actorUserId }}</div></td>
-                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
-                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
-                  </tr>
-                  <tr v-if="fact.handoverReason" data-market-release-handover-history>
-                    <td colspan="4">原办理人：{{ fact.handoverFromName }}；接收人：{{ fact.handoverToName }}；原因：{{ fact.handoverReason }}</td>
-                  </tr>
-                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
-                    <td colspan="4">
-                      <div
-                        class="team-leader-workbench__operation-fact-evidence"
-                        data-active-order-operation-ncr-evidence
-                      >
-                        <div class="team-leader-workbench__operation-fact-evidence-grid">
-                          <div class="team-leader-workbench__operation-fact-evidence-item">
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              不合格原因
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ fact.nonconformanceReason || '--' }}
-                            </span>
-                          </div>
-                          <div
-                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              评审意见
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ fact.reviewOpinion || '--' }}
-                            </span>
-                          </div>
-                          <div
-                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              处置结果
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ resolveNonconformanceDispositionLabel(fact.disposition) }}
-                            </span>
-                          </div>
-                          <div class="team-leader-workbench__operation-fact-evidence-item">
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              电子签名
-                            </span>
-                            <button
-                              type="button"
-                              class="team-leader-workbench__signature-link team-leader-workbench__operation-fact-evidence-value"
-                              data-active-order-summary-operation-signature
-                              :disabled="!fact.signatureId"
-                              @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
-                            >
-                              {{ formatOperationFactSignatureText(fact) }}
-                            </button>
-                          </div>
-                          <div
-                            v-if="
-                              fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
-                              resolveNonconformanceReviewMaterials(fact).length
-                            "
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              评审材料
-                            </span>
-                            <div
-                              class="team-leader-workbench__operation-fact-evidence-value"
-                            >
-                              <div
-                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
-                                :key="materialIndex"
-                              >
-                                <el-button
-                                  link
-                                  type="primary"
-                                  class="team-leader-workbench__operation-fact-evidence-value"
-                                  data-active-order-ncr-review-material-preview
-                                  @click="previewNonconformanceReviewMaterial(material)"
-                                >
-                                  {{ material.fileName }}
-                                </el-button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          <el-empty v-else :image-size="56" description="暂无操作记录" />
-        </el-tab-pane>
+        
       </el-tabs>
       <el-dialog
         v-model="productionRecordFormVisible"

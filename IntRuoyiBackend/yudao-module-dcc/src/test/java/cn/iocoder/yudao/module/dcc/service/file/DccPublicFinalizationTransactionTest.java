@@ -225,7 +225,7 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
         if(engine!=null){engine.getProcessEngineConfiguration().getEventDispatcher().setEnabled(false);
             engine.getRepositoryService().createDeploymentQuery().list().forEach(d->engine.getRepositoryService().deleteDeployment(d.getId(),true));engine.close();}
         if(events!=null)events.close();
-    }finally{if(jdbc!=null){if(readyPlatformNotifications)jdbc.update("DELETE FROM system_notify_message WHERE template_id=330");
+    }finally{if(jdbc!=null){if(readyPlatformNotifications)jdbc.update("DELETE FROM system_tenant_notify_message WHERE template_id=330");
             jdbc.update("DELETE FROM infra_file WHERE path LIKE 'task-owned/%'");jdbc.execute("SET MODE MySQL");}
         SecurityContextHolder.clearContext();TenantContextHolder.clear();}}
 
@@ -466,7 +466,7 @@ class DccPublicFinalizationTransactionTest extends BaseDbUnitTest {
     private void enableReadyPlatformDistribution()throws Exception{
         for(String ddl:new org.springframework.core.io.ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!ddl.isBlank())jdbc.execute(ddl);
         readyPlatformNotifications=true;
-        jdbc.update("DELETE FROM system_notify_message");
+        jdbc.update("DELETE FROM system_tenant_notify_message");
         for(String op:List.of("dcc.distribution.batch.prepare","dcc.distribution.attempt.start","dcc.distribution.attempt.finish"))policy(op);
         var template=cn.iocoder.yudao.module.system.dal.dataobject.notify.NotifyTemplateDO.builder().id(330L).code("dcc_distribution").type(2).nickname("DCC系统").status(0).content("{title} {version}").params(List.of("title","version")).build();
         when(templates.getNotifyTemplateByCodeFromCache("dcc_distribution")).thenReturn(template);when(templates.formatNotifyTemplateContent(anyString(),anyMap())).thenAnswer(c->new cn.iocoder.yudao.module.system.service.notify.NotifyTemplateServiceImpl().formatNotifyTemplateContent(c.getArgument(0),c.getArgument(1)));

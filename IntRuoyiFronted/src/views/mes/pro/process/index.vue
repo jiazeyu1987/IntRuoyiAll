@@ -24,10 +24,8 @@
       @column-change="saveProcessColumnConfig"
       @column-reset="resetProcessColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -221,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
@@ -298,6 +296,7 @@ const formatProcessWorkstation = (workstation: ProProcessWorkstationVO) => {
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -528,13 +527,6 @@ watch(
 )
 
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildProcessPageParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProProcessApi.getProcessPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

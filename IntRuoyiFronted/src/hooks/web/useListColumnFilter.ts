@@ -161,10 +161,29 @@ export const loadAllListPages = async <T>(
   }
 }
 
+export interface ServerListFilterOptions {
+  enabled: () => boolean
+  queryModel: () => Record<string, any>
+  query: () => Promise<unknown>
+}
+
+/** Wire values deliberately exclude UI ids and display getters. The server validates its whitelist. */
+export const serializeListFilters = (conditions: ListMultiFilterCondition[]): string | undefined => {
+  const filters = conditions.map(({ key, operator, value, valueEnd }) => {
+    if (!['contains', 'eq', 'in', 'between', 'gte', 'lte'].includes(operator))
+      throw new Error(`不支持的筛选运算符：${operator}`)
+    if (operator === 'between' && (valueEnd == null || valueEnd === ''))
+      throw new Error('请填写完整的筛选范围')
+    return { key, operator, value: Array.isArray(value) ? [...value] : value, valueEnd }
+  })
+  return filters.length ? JSON.stringify(filters) : undefined
+}
+
 export const useListColumnFilter = (
   definitions: MaybeRefOrGetter<ListColumnFilterDefinition[]>,
   source: () => any[] | undefined,
-  loadSource: () => (() => Promise<any[]>) | undefined
+  loadSource: () => (() => Promise<any[]>) | undefined,
+  server?: ServerListFilterOptions
 ) => {
   const state = ref<ListMultiFilterState>({
     conditions: [] as ListMultiFilterCondition[],
@@ -192,7 +211,7 @@ export const useListColumnFilter = (
           condition.value !== '' &&
           (!Array.isArray(condition.value) || condition.value.length > 0)
       )
-      .map((condition) => ({ ...condition }))
+      .map((condition) => ({ ...condition, value: Array.isArray(condition.value) ? [...condition.value] : condition.value }))
     const currentGeneration = ++generation
     loading.value = true
     error.value = ''
@@ -204,6 +223,25 @@ export const useListColumnFilter = (
         ) {
           throw new Error('请填写完整的筛选范围')
         }
+      }
+      if (server?.enabled()) {
+        const model = server.queryModel()
+        const previousFilters = serializeListFilters(state.value.appliedConditions)
+        const previousPage = model.pageNo
+        model.listFilters = serializeListFilters(conditions)
+        model.pageNo = 1
+        try {
+          const result = await server.query()
+          if (currentGeneration !== generation || result === false) return
+          state.value.appliedConditions = conditions
+        } catch (cause) {
+          if (currentGeneration === generation) {
+            model.listFilters = previousFilters
+            model.pageNo = previousPage
+          }
+          throw cause
+        }
+        return
       }
       const loader = loadSource()
       const result = conditions.length && loader ? await loader() : (source() ?? [])
@@ -224,6 +262,7 @@ export const useListColumnFilter = (
     generation++
     state.value = { conditions: [], appliedConditions: [], activeConditionId: undefined }
     loadedRows.value = []
+    if (server?.enabled()) delete server.queryModel().listFilters
     loading.value = false
     error.value = ''
   }

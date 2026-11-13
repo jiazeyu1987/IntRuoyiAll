@@ -294,6 +294,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static final String FIXED_TEST_WORK_ORDER_CODE =
             "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891";
+    private static final BigDecimal FIXED_TEST_WORK_ORDER_QUANTITY = new BigDecimal("5000");
 
     public MesTeamLeaderActiveOrderServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                MesProWorkOrderService workOrderService,
@@ -1041,6 +1042,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (activeOrders.isEmpty()) {
             fixedTestOrderInitializer.requireNoOrphanRuntime(tenantId, workOrder.getId());
             workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                    .setQuantity(FIXED_TEST_WORK_ORDER_QUANTITY)
                     .setTemporaryFrozen(Boolean.FALSE).setQuantityProduced(BigDecimal.ZERO);
             workOrderMapper.updateById(workOrder);
             MesTeamLeaderActiveOrderAddResult added = addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
@@ -1171,6 +1173,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
 
         workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .setQuantity(FIXED_TEST_WORK_ORDER_QUANTITY)
                 .setTemporaryFrozen(Boolean.FALSE)
                 .setQuantityProduced(BigDecimal.ZERO);
         workOrderMapper.updateById(workOrder);
@@ -3618,7 +3621,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     }
                     BigDecimal maximumQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
                             activeOrder, snapshot, productionEvents, allocations);
-                    BigDecimal overageQuantity = maximumQuantity.subtract(plannedQuantity);
+                    BigDecimal overageQuantity = maximumQuantity.subtract(MesProductionQuantityRange.of(snapshot).upper());
                     if (overageQuantity.compareTo(BigDecimal.ZERO) < 0) {
                         overageQuantity = BigDecimal.ZERO.setScale(plannedQuantity.scale(), RoundingMode.UNNECESSARY);
                     }
@@ -3626,6 +3629,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             .setRouteProcessId(snapshot.getRouteProcessId())
                             .setProcessId(snapshot.getProcessId())
                             .setPlannedQuantity(plannedQuantity)
+                            .setUpperQuantity(MesProductionQuantityRange.of(snapshot).upper())
                             .setAllocatedQuantity(allocatedQuantity)
                             .setRemainingQuantity(remainingQuantity)
                             .setQuantityConflict(overageQuantity.compareTo(BigDecimal.ZERO) > 0)
@@ -4263,7 +4267,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         LocalDate businessDate = resolvePqcBusinessDate(activeOrder);
         int insertedCount = 0;
         for (PlannedPqcTask plan : plans) {
-            if (!Objects.equals("FIRST", plan.rule().inspectionType())) continue;
+            // Every order starts with FIRST and the first PATROL round; FINAL remains explicit.
+            if (!Objects.equals(INSPECTION_TYPE_FIRST, plan.rule().inspectionType())
+                    && !Objects.equals(INSPECTION_TYPE_PATROL, plan.rule().inspectionType())) continue;
             MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), plan.regulation(),
                     plan.version(), plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(),
                     businessDate, plan.rule().shiftCode(), plan.plannedQuantity());
@@ -4593,6 +4599,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeProcessId", process.getRouteProcessId());
         snapshot.put("processId", process.getProcessId());
+        snapshot.put("lossCoefficient", cn.iocoder.yudao.module.mes.service.pro.route.MesRouteLossCoefficient.read(
+                JSON.parseObject(routeVersion.getRouteSnapshotJson()).getJSONObject("configSnapshots")));
         snapshot.put("overagePercent", routeProductionConfig.getBigDecimal("overagePercent"));
         snapshot.put("inputMaterialIds", JSON.parseArray(inputMaterialIdsJson));
         snapshot.put("outputMaterialIds", JSON.parseArray(outputMaterialIdsJson));

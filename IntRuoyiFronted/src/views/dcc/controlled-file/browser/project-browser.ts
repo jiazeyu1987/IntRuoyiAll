@@ -4,7 +4,7 @@ import { loadDccProjectBrowserPage, getControlledFileRelationPermissions,
   type ProjectBrowserOptions } from '@/api/dcc/controlledFile/applicationRead'
 import { getControlledFile } from '@/api/dcc/controlledFile/workflow'
 import { getSimpleUserList } from '@/api/system/user'
-import { loadSelectorBrowserPage, listProjectReferences, createProjectReferences, cancelProjectReference, getProjectReferenceUsage } from '@/api/dcc/controlledFile/relations'
+import { loadSelectorBrowserPage, listProjectReferences, createProjectReferences, cancelProjectReference, getProjectReferenceUsageBatch } from '@/api/dcc/controlledFile/relations'
 import { buildProjectFolderTree } from '../basic-data/components/project-folder-tree'
 import { isEnabledTargetProjectLeader, mapReferenceDirectoryNodes, mapReferenceRows, referenceIdentity,
   bindReferencePermissions, assertReferenceTraceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
@@ -111,11 +111,15 @@ export class ProjectBrowserState {
       ...(scope !== 'global' ? { projectId } : {}),
       ...(scope === 'directory' ? { folderId } : {})
     }, browserVersionOptions(versionView)))
-    const usageEntries = await Promise.all(files.map(async file => {
-      const usage = await getProjectReferenceUsage(file.controlledFileId)
+    const usages: Awaited<ReturnType<typeof getProjectReferenceUsageBatch>> = []
+    for (let offset = 0; offset < files.length; offset += 200) {
+      usages.push(...await getProjectReferenceUsageBatch(files.slice(offset, offset + 200).map(file => file.controlledFileId)))
+    }
+    const usageEntries = files.map((file, index) => {
+      const usage = usages[index]
       if (referenceIdentity(usage.masterId) !== file.masterId) throw new Error('引用计数文件身份不一致')
       return [file.masterId, usage] as const
-    }))
+    })
     const references = scope === 'directory' ? await this.loadReferences(projectId!, folderId!) : []
     if (context !== this.contextKey || scope !== this.scope || versionView !== this.versionView) throw new Error('项目文件列表上下文已变更，请重新查询')
     return buildFolderFileRows(files, references, Object.fromEntries(usageEntries), keyword, versionView)
@@ -180,12 +184,14 @@ export class ProjectBrowserState {
   }
   loadPage(query: SelectorQuery) { return loadSelectorBrowserPage(this.tenantId, query) }
   async refreshUsage(token = this.filesSequence) {
-    const results = await Promise.all(this.rows.map(async row => {
-      const value = await getProjectReferenceUsage(row.controlledFileId)
+    const rows = [...this.rows]
+    const usages = rows.length ? await getProjectReferenceUsageBatch(rows.map(row => row.controlledFileId)) : []
+    const results = rows.map((row, index) => {
+      const value = usages[index]
       if (referenceIdentity(value.masterId) !== row.masterId || !Number.isSafeInteger(value.referenceProjectCount)
         || value.referenceProjectCount < 0 || value.referenced !== (value.referenceProjectCount > 0)) throw new Error('引用项目计数响应不合法')
       return [row.masterId, { referenceProjectCount: value.referenceProjectCount, referenced: value.referenced }] as const
-    }))
+    })
     if (token === this.filesSequence) this.usage = Object.fromEntries(results)
   }
   private assertReferenceContext(projectId: string, folderId: string) {

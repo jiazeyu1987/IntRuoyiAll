@@ -66,7 +66,9 @@ public class SmsChannelServiceImpl implements SmsChannelService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteSmsChannelList(List<Long> ids) {
+        ids.forEach(this::validateSmsChannelExists);
         // 1. 校验是否有在使用该账号的模版
         ids.forEach(id -> {
             if (smsTemplateService.getSmsTemplateCountByChannelId(id) > 0) {
@@ -103,7 +105,7 @@ public class SmsChannelServiceImpl implements SmsChannelService {
 
     @Override
     public SmsClient getSmsClient(Long id) {
-        SmsChannelDO channel = smsChannelMapper.selectById(id);
+        SmsChannelDO channel = validateSmsChannelExists(id);
         SmsChannelProperties properties = BeanUtils.toBean(channel, SmsChannelProperties.class);
         return smsClientFactory.createOrUpdateSmsClient(properties);
     }

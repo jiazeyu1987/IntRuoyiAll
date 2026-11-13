@@ -998,10 +998,8 @@
                   </div>
                   <div class="edhr-fill-workspace__submit-sign-row">
                     <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
-                    <el-input
+                    <SignatureCredentialInput
                       v-model="submitForm.password"
-                      type="password"
-                      show-password
                       @keyup.enter="handleSubmitExecution"
                     />
                   </div>
@@ -1486,11 +1484,8 @@
       </el-descriptions>
       <el-form label-width="90px" class="edhr-page-shell__signature-form">
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="formReviewSignForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="handleFormReviewSign"
           />
         </el-form-item>
@@ -1525,12 +1520,9 @@
         <el-form-item label="归档格式">
           <el-input :model-value="archiveArtifactType" disabled />
         </el-form-item>
-        <el-form-item label="封存密码" required>
-          <el-input
+        <el-form-item label="签名凭据" required>
+          <SignatureCredentialInput
             v-model="archiveForm.sealPassword"
-            type="password"
-            show-password
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
             @keyup.enter="handleGenerateArchive"
           />
         </el-form-item>
@@ -1558,6 +1550,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import {
   EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF,
   EDHR_EXECUTION_ARCHIVE_STATUS_FAILED,

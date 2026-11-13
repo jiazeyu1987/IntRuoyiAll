@@ -15,6 +15,8 @@ public class ApprovalTaskQuery {
 
     private String keyword;
 
+    private String listFilters;
+
     private Integer pageNo = 1;
 
     private Integer pageSize = 10;

@@ -1,4 +1,10 @@
 <template>
+  <el-alert
+    class="mb-15px"
+    type="info"
+    :closable="false"
+    title="配置包只覆盖当前租户的人员、组织、角色和字典。菜单、租户套餐为平台定义，仅核对一致性，不会覆盖。"
+  />
   <ContentWrap class="config-package-toolbar">
     <el-form class="-mb-15px config-package-form" :inline="true" label-width="86px">
       <el-form-item label="密码策略">
@@ -95,7 +101,8 @@
       </ul>
     </el-alert>
 
-    <details class="mt-12px" style="overflow-wrap: anywhere"><summary>预检技术详情</summary>
+    <details class="mt-12px" style="overflow-wrap: anywhere"
+      ><summary>预检技术详情</summary>
       <p>配置包校验码：{{ precheckResult.packageSha256 || '未记录' }}</p>
       <p>目标环境快照校验码：{{ precheckResult.targetSnapshotSha256 || '未记录' }}</p>
     </details>
@@ -113,7 +120,8 @@
     <div class="config-package-summary">
       <el-tag effect="plain" type="success">导入完成</el-tag>
     </div>
-    <details class="mt-12px" style="overflow-wrap: anywhere"><summary>导入技术详情</summary>
+    <details class="mt-12px" style="overflow-wrap: anywhere"
+      ><summary>导入技术详情</summary>
       <p>目标环境快照校验码：{{ importResult.targetSnapshotSha256 || '未记录' }}</p>
     </details>
     <el-table class="mt-12px" :data="restoredRows" stripe>
@@ -126,6 +134,7 @@
 <script lang="ts" setup>
 import type { UploadFile, UploadFiles, UploadInstance, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
+import { useDictStore } from '@/store/modules/dict'
 import { getFrontendComponentPaths } from '@/utils/frontendComponentManifest'
 import * as ConfigPackageApi from '@/api/system/configPackage'
 
@@ -225,12 +234,17 @@ const handleFileExceed = () => {
 }
 
 const showRequestError = (error: unknown, defaultMessage: string) => {
-  const text = error instanceof Error ? error.message : typeof error === 'string' ? error : defaultMessage
+  const text =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : defaultMessage
   message.error(text || defaultMessage)
 }
 
 const isCancelError = (error: unknown) => {
-  return error === 'cancel' || error === 'close' || (error instanceof Error && error.message === 'cancel')
+  return (
+    error === 'cancel' ||
+    error === 'close' ||
+    (error instanceof Error && error.message === 'cancel')
+  )
 }
 
 const handleExport = async () => {
@@ -252,7 +266,10 @@ const handlePrecheck = async () => {
   }
   precheckLoading.value = true
   try {
-    const result = await ConfigPackageApi.precheckConfigPackage(selectedFile.value!, availableComponents)
+    const result = await ConfigPackageApi.precheckConfigPackage(
+      selectedFile.value!,
+      availableComponents
+    )
     precheckResult.value = result
     importResult.value = undefined
     message[result.valid ? 'success' : 'error'](result.valid ? '预检通过' : '预检未通过')
@@ -272,7 +289,7 @@ const handleImport = async () => {
     return
   }
   try {
-    await message.confirm('确认覆盖当前环境配置数据吗？')
+    await message.confirm('确认覆盖当前租户的配置数据吗？其他租户的数据不会被覆盖。')
   } catch (error) {
     if (isCancelError(error)) {
       return
@@ -288,6 +305,7 @@ const handleImport = async () => {
       availableComponents,
       precheckResult.value.targetSnapshotSha256
     )
+    useDictStore().invalidateDict()
     message.success('导入完成')
   } catch (error) {
     showRequestError(error, '导入失败')

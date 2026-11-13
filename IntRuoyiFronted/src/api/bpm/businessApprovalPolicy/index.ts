@@ -83,6 +83,10 @@ export const BusinessApprovalPolicyApi = {
     return await request.post<BusinessApprovalPolicyVO>({ url: BASE_URL, data })
   },
 
+  deleteDraftPolicy: async (id: number) => {
+    return await request.delete<boolean>({ url: `${BASE_URL}/${id}` })
+  },
+
   publishPolicy: async (id: number) => {
     return await request.post<boolean>({ url: `${BASE_URL}/${id}/publish` })
   },

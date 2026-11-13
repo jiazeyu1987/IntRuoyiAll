@@ -207,7 +207,7 @@
               >
                 <template #default="{ row }">
                   <el-button
-                    v-if="row.registrationCertificateName && row.registrationCertificateId"
+                    v-if="row.registrationCertificateName && row.registrationCertificateId && canOpenCertificate(row.registrationCertificateId)"
                     link
                     class="scheme-d-row-action scheme-d-row-action--primary"
                     type="primary"
@@ -231,7 +231,7 @@
               >
                 <template #default="{ row }">
                   <el-button
-                    v-if="row.registrationCertificateNumber && row.registrationCertificateId"
+                    v-if="row.registrationCertificateNumber && row.registrationCertificateId && canOpenCertificate(row.registrationCertificateId)"
                     link
                     class="scheme-d-row-action scheme-d-row-action--primary"
                     type="primary"
@@ -419,11 +419,11 @@
           <el-tree v-if="selectedFolderPreview.length" :data="selectedFolderPreview" :props="{ label: 'name' }" default-expand-all class="mb-12px" />
           <el-alert v-if="projectProductRejectReason" :title="'原申请驳回原因：' + projectProductRejectReason" type="warning" :closable="false" class="mb-12px" />
           <ProjectAttributesFields v-model="projectProductForm.defaultAttributes" />
-          <el-form-item label="本次审核方式">
+          <el-form-item v-if="projectProductResubmitRequestId" label="本次审核方式">
             <span v-if="reviewerConfiguration">{{ reviewerConfiguration.roleName }}，单环节由任一当前合格角色成员审批（{{ reviewerConfiguration.candidates.length }} 名候选）</span>
             <span v-else>项目审核员角色尚未就绪，请检查角色及成员权限</span>
           </el-form-item>
-          <el-form-item v-if="!projectProductResubmitRequestId" label="新建申请原因" prop="creationReason" required>
+          <el-form-item v-if="!projectProductResubmitRequestId" label="新建原因" prop="creationReason" required>
             <el-input v-model="projectProductForm.creationReason" type="textarea" maxlength="500" placeholder="请填写本次新建项目及产品的原因" />
           </el-form-item>
           <el-form-item v-if="projectProductResubmitRequestId" label="重提说明" prop="resubmissionReason" required>
@@ -496,7 +496,7 @@
     <template #footer>
       <div class="scheme-d-dialog-footer">
         <el-button v-if="projectProductMode === 'create'" type="primary" :loading="projectProductLoading" @click="submitProjectProductRequest">
-          {{ projectProductResubmitRequestId ? '确认重提信息' : '确认申请信息' }}
+          {{ projectProductResubmitRequestId ? '确认重提信息' : '确认新建信息' }}
         </el-button>
         <el-button :disabled="projectProductLoading" @click="projectProductDialogVisible = false">
           取消
@@ -610,24 +610,26 @@
       </el-form-item>
       <el-form-item label="DCC项目代码" prop="projectCodeId">
         <el-input v-if="bindingRow?.projectCodeId" :model-value="[bindingRow.projectCode, bindingRow.projectName].filter(Boolean).join(' - ')" disabled />
-        <el-select v-else v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入DCC项目代码搜索" @change="handleBindingProjectCodeChange">
+        <el-select v-else :disabled="!canMaintainBindings" v-model="bindingFormData.projectCodeId" class="!w-100%" filterable remote :remote-method="searchBindingProjectCodes" :loading="bindingProjectCodeLoading" placeholder="输入DCC项目代码搜索" @change="handleBindingProjectCodeChange">
           <el-option v-for="item in bindingProjectCodeOptions" :key="item.id" :label="`${item.projectCode} / ${item.projectName}`" :value="item.id" />
         </el-select>
       </el-form-item>
       <el-form-item label="注册证" prop="registrationCertificateId">
-        <el-select v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!!bindingRow?.registrationCertificateId || !bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '选择已建立的注册证' : '请先选择DCC项目代码'">
+        <el-input v-if="bindingRow?.registrationCertificateId" :model-value="[bindingRow.registrationCertificateNumber, bindingRow.registrationCertificateName].filter(Boolean).join(' / ')" disabled />
+        <el-select v-else-if="canQueryBindingCertificates && canMaintainBindings" v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable clearable :disabled="!!bindingRow?.registrationCertificateId || !bindingFormData.projectCodeId || bindingCertificateLoading" :placeholder="bindingFormData.projectCodeId ? '选择已建立的注册证' : '请先选择DCC项目代码'">
           <el-option v-for="item in bindingCertificateOptions" :key="item.certificateId" :label="`${item.certificateNo} / ${item.productName}`" :value="item.certificateId" />
         </el-select>
       </el-form-item>
-      <el-alert v-if="bindingRow?.projectCodeId" title="产品已关联此项目，无需再次绑定。注册证建立后可在此关联。" type="info" :closable="false" />
-      <el-form-item v-if="!bindingRow?.registrationCertificateId" label="绑定备注" prop="relationRemark">
+      <el-alert v-if="!bindingRow?.registrationCertificateId && !canQueryBindingCertificates" title="当前账号无注册证查询权限；可查看已有关系，不可选择注册证。" type="info" :closable="false" />
+      <el-alert v-if="bindingRow?.projectCodeId && !bindingRow?.registrationCertificateId" title="产品已关联此项目，无需再次绑定。注册证建立后可在此关联。" type="info" :closable="false" />
+      <el-form-item v-if="!bindingRow?.registrationCertificateId && canMaintainBindings" label="绑定备注" prop="relationRemark">
         <el-input v-model="bindingFormData.relationRemark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="请输入绑定备注" />
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="scheme-d-dialog-footer">
         <el-button v-if="bindingRelations.length" v-hasPermi="['dcc:project-code:update']" type="danger" :disabled="bindingLoading" @click="removeBindings">解除已有绑定（{{ bindingRelations.length }}）</el-button>
-        <el-button v-if="!bindingRow?.registrationCertificateId" class="scheme-d-btn" type="primary" :loading="bindingLoading" :disabled="bindingCertificateLoading || (!!bindingRow?.projectCodeId && !bindingFormData.registrationCertificateId)" @click="submitBinding">{{ bindingRow?.projectCodeId ? '确认关联注册证' : '确定绑定' }}</el-button>
+        <el-button v-if="!bindingRow?.registrationCertificateId && canMaintainBindings && (!bindingRow?.projectCodeId || canQueryBindingCertificates)" class="scheme-d-btn" type="primary" :loading="bindingLoading" :disabled="bindingCertificateLoading || (!!bindingRow?.projectCodeId && !bindingFormData.registrationCertificateId)" @click="submitBinding">{{ bindingRow?.projectCodeId ? '确认关联注册证' : '确定绑定' }}</el-button>
         <el-button class="scheme-d-btn scheme-d-btn--neutral" :disabled="bindingLoading" @click="bindingVisible = false">取消</el-button>
       </div>
     </template>
@@ -643,6 +645,7 @@ import type { FormRules } from 'element-plus'
 import { confirmProjectProductApplication } from './project-product-confirmation'
 import { useUserStore } from '@/store/modules/user'
 import { checkPermi } from '@/utils/permission'
+import { canOpenProjectLinkedPage } from './project-linked-navigation'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { canResubmitProjectProductRequest, restoreRejectedProjectProductForm } from './project-product-resubmit'
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
@@ -686,7 +689,7 @@ import {
   type DccProjectReviewerRole,
   type DccProjectRequestId
 } from '@/api/dcc/controlledFile/projectProductRequests'
-import { getProjectCodePage, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
+import { getProjectCodeOptions, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
 import { createDccDataRelation, deleteDccDataRelation, getDccDataRelationsByProductCatalogId, type DccDataRelationRespVO } from '@/api/dcc/dataRelations'
 import {
   getRegistrationCertificatePage,
@@ -698,6 +701,9 @@ defineOptions({ name: 'ProductCatalogTabPanel' })
 const message = useMessage()
 const userStore = useUserStore()
 const router = useRouter()
+const canQueryBindingCertificates = computed(() => checkPermi(['dcc:registration-certificate:query-current']))
+const canMaintainBindings = computed(() => checkPermi(['dcc:project-code:update']))
+const canOpenCertificate = (id: number | string) => canOpenProjectLinkedPage(router, '/mdm/registration-certificate/detail/' + String(id), 'dcc:registration-certificate:query-current')
 const route = useRoute()
 const loading = ref(false)
 const formVisible = ref(false)
@@ -1158,11 +1164,10 @@ const openProjectProductDialog = async (mode: 'create' | 'records' = 'create', r
     if (!projectRequestAccess().query || (mode === 'create' && !checkPermi(['dcc:project-code:create'])))
       throw new Error('当前账号没有本次项目申请操作权限')
     if (mode === 'records') { await loadProjectProductRequests(); return }
-    const [users, templates, role] = await Promise.all([getSimpleUserList(), getFolderTemplates(), getDccProjectReviewerRole()])
+    const [users, templates] = await Promise.all([getSimpleUserList(), getFolderTemplates()])
     if (!current()) return
     projectLeaderUsers.value = users
     folderTemplates.value = templates
-    reviewerConfiguration.value = role
   } catch (cause) {
     if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -1255,15 +1260,17 @@ const submitProjectProductRequest = async () => {
     const sameInput = () => current() && projectProductMode.value === 'create'
       && rejectedRequestId === projectProductResubmitRequestId.value && selectedDirectory === directory()
       && JSON.stringify(payload) === JSON.stringify(projectProductForm)
-    const first = requireProjectReviewerRole(await getDccProjectReviewerRole())
+    const first = rejectedRequestId ? requireProjectReviewerRole(await getDccProjectReviewerRole()) : undefined
     if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
     reviewerConfiguration.value = first
     await confirmProjectProductApplication(payload, projectLeaderUsers.value, folderTemplates.value, first, Boolean(rejectedRequestId))
     if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
-    const fresh = requireProjectReviewerRole(await getDccProjectReviewerRole())
-    if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
-    reviewerConfiguration.value = fresh
-    if (JSON.stringify(fresh) !== JSON.stringify(first)) throw new Error('项目审核员角色或候选已变化，请重新确认')
+    if (rejectedRequestId) {
+      const fresh = requireProjectReviewerRole(await getDccProjectReviewerRole())
+      if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
+      reviewerConfiguration.value = fresh
+      if (JSON.stringify(fresh) !== JSON.stringify(first)) throw new Error('项目审核员角色或候选已变化，请重新确认')
+    }
     const createdId = rejectedRequestId
       ? await resubmitDccProjectProductRequest(rejectedRequestId, payload)
       : await createDccProjectProductRequest(payload)
@@ -1273,8 +1280,16 @@ const submitProjectProductRequest = async () => {
     projectProductRequests.value = []
     await loadProjectProductRequests()
     if (!current()) return
-    if (projectProductError.value) projectProductError.value = '申请已提交，但读取最新申请失败：' + projectProductError.value
-    else message.success('申请已提交给项目审核员')
+    if (projectProductError.value) projectProductError.value = (rejectedRequestId ? '申请已提交，但读取最新申请失败：' : '项目及产品已创建，但读取创建记录失败：') + projectProductError.value
+    else if (rejectedRequestId) message.success('申请已提交给项目审核员')
+    else {
+      const created = projectProductRequests.value.find(row => row.id === String(createdId))
+      if (created?.reviewContract !== 'DIRECT_CREATE_V1' || created.status !== 'COMPLETED'
+        || !created.generatedProjectCodeId || !created.generatedProductCatalogId || !created.relationId)
+        throw new Error('新建回执未确认项目及产品已完成，请核对创建记录')
+      message.success('项目及产品已创建，无需审核')
+      await getList()
+    }
   } catch (cause) {
     if (current() && cause !== 'cancel' && cause !== 'close')
       projectProductError.value = cause instanceof Error ? cause.message : String(cause)
@@ -1600,9 +1615,11 @@ const openBinding = async (row: DccProductCatalogRespVO) => {
   bindingRelations.value = await getDccDataRelationsByProductCatalogId(row.id)
   if (row.projectCodeId) {
     bindingFormData.projectCodeId = row.projectCodeId
-    await handleBindingProjectCodeChange(row.projectCodeId)
+    if (!row.registrationCertificateId && canMaintainBindings.value && canQueryBindingCertificates.value) {
+      await handleBindingProjectCodeChange(row.projectCodeId)
+    }
     bindingFormData.registrationCertificateId = row.registrationCertificateId || undefined
-  } else {
+  } else if (canMaintainBindings.value) {
     await searchBindingProjectCodes(row.projectCode || '')
   }
 }
@@ -1611,9 +1628,9 @@ const searchBindingProjectCodes = async (projectCode = '') => {
   const sequence = ++bindingProjectCodeSearchSequence
   bindingProjectCodeLoading.value = true
   try {
-    const page = await getProjectCodePage({ pageNo: 1, pageSize: 20, status: 'ENABLE', projectCode: projectCode.trim() || undefined })
+    const page = await getProjectCodeOptions({ status: 'ENABLE', projectCode: projectCode.trim() || undefined })
     if (sequence === bindingProjectCodeSearchSequence && bindingVisible.value) {
-      bindingProjectCodeOptions.value = page.list
+      bindingProjectCodeOptions.value = page
     }
   } finally {
     if (sequence === bindingProjectCodeSearchSequence) bindingProjectCodeLoading.value = false
@@ -1623,7 +1640,7 @@ const searchBindingProjectCodes = async (projectCode = '') => {
 const handleBindingProjectCodeChange = async (projectCodeId: number | string) => {
   bindingFormData.registrationCertificateId = undefined
   bindingCertificateOptions.value = []
-  if (!projectCodeId) return
+  if (!projectCodeId || !canMaintainBindings.value || !canQueryBindingCertificates.value) return
   bindingCertificateLoading.value = true
   try {
     const page = await getRegistrationCertificatePage({ pageNo: 1, pageSize: 200, projectCodeId, status: 'CURRENT' })
@@ -1651,6 +1668,8 @@ const removeBindings = async () => {
 }
 
 const submitBinding = async () => {
+  if (!canMaintainBindings.value) throw new Error('当前账号无关联维护权限')
+  if (bindingFormData.registrationCertificateId && !canQueryBindingCertificates.value) throw new Error('当前账号无注册证查询权限')
   const valid = await bindingFormRef.value?.validate()
   if (!valid || !bindingRow.value) return
   bindingLoading.value = true
@@ -1681,8 +1700,8 @@ const openLinkedProjectCode = (row: DccProductCatalogRespVO) => {
 }
 
 const openLinkedRegistrationCertificate = (row: DccProductCatalogRespVO) => {
-  if (!row.registrationCertificateId) {
-    message.error('当前产品目录缺少绑定的注册证，无法跳转')
+  if (!row.registrationCertificateId || !canOpenCertificate(row.registrationCertificateId)) {
+    message.error('当前注册证未绑定或当前账号未获详情页查询授权')
     return
   }
   router.push({

@@ -62,7 +62,6 @@ const load = async () => {
   const key = context()
   const current = () => visible.value && currentGeneration === generation && key === context()
   rows.value = []
-  total.value = 0
   error.value = ''
   loading.value = true
   try {
@@ -76,7 +75,10 @@ const load = async () => {
     rows.value = result.list
     total.value = result.total
   } catch (cause) {
-    if (current()) error.value = cause instanceof Error ? cause.message : '生产任务记录加载失败，请重试。'
+    if (current()) {
+      total.value = 0
+      error.value = cause instanceof Error ? cause.message : '生产任务记录加载失败，请重试。'
+    }
   } finally {
     if (current()) loading.value = false
   }

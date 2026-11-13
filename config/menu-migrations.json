@@ -3409,6 +3409,506 @@
       "kind": "page",
       "value": "dcc/controlled-file/detail/ReviewDocumentPreview",
       "reason": "受控文件已有详情和审批页面内的正文与附件切换组件，无独立菜单或路由；复用现有正文、附件查询及审批上下文授权，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/businessapproval/BusinessApprovalPolicyController.java",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "删除未发布草稿属于现有策略草稿维护，复用新增策略权限；后端限定当前租户且状态为 DRAFT，禁止删除已发布或停用记录，无新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/businessApprovalPolicy/index.vue",
+      "kind": "permission",
+      "value": "bpm:business-approval-policy:create",
+      "reason": "删除草稿复用当前策略新增权限，仅在草稿行展示，调用同权限草稿删除接口，无新增权限或菜单。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "system:dept:create",
+      "reason": "用户管理部门树新增按钮复用已有部门新增权限和 DeptForm，不新增菜单、权限或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "system:dept:update",
+      "reason": "用户管理编辑所选部门复用已有部门修改权限和 DeptForm，仍须同时具备部门查询权限，无新增权限或菜单。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "system:dept:query",
+      "reason": "编辑部门需读取已有部门详情，仅对已有部门查询和修改授权者展示入口，无新增角色、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "项目注册证跳转同时检查既有注册证查询权限与已注册目标页面，未授权不展示入口。无新增权限、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "项目详情按既有受控文件查询权限展示关联文档；未授权明确提示，查询分类改用项目内只读接口，不授予分类维护权限，无新增菜单、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "reason": "产品目录查看已有关系不再预加载注册证候选；选择注册证依照既有维护及查询权限，跳转另核对目标页面菜单授权。复用现有权限，无新增角色、菜单或租户套餐授权，所有租户一致生效。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteReleaseOwnerController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:query",
+      "reason": "工艺流程放行责任人只读展示复用既有工艺路线查询权限；仅可查询当前租户两类正式放行角色及最少成员展示字段，无新增菜单、权限标识、角色或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteReleaseOwnerController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:schedule-config:query",
+      "reason": "放行责任人只读接口与现有工艺流程图查看权限一致，复用排产配置查询权限；不赋予系统角色管理或放行执行权限，无新增菜单、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteReleaseOwnerController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:batch-record-config:query",
+      "reason": "放行责任人只读接口与现有工艺流程图查看权限一致，复用批记录配置查询权限；不赋予系统用户管理或放行执行权限，无新增菜单、权限或套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "96f317ea1038a132af58d6e0b1e55f52eb48b922c73a5ceeaa1a529033662341",
+      "reason": "项目申请复用既有DCC产品目录页面作为隐藏业务入口，沿用dcc:project-code:query及create权限与服务端校验，修复未分配产品目录菜单的申请人点击404；不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "a2b912a2f148e6a70b375a2317351d759fce542e35780b7bfaf02f8c649adb04",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/workrecord/WorkRecordLogList.vue",
+      "kind": "permission",
+      "value": "mes:pro-workrecord:export",
+      "reason": "系统操作日志内部复用原列表与详情，沿用原查询、导出及数据范围权限；原员工上下工业务入口保留，日志展示仅在系统操作日志内，不新增权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/SystemOperateLogList.vue",
+      "kind": "permission",
+      "value": "system:operate-log:export",
+      "reason": "系统操作日志内部复用原列表与详情，沿用原查询、导出及数据范围权限；原员工上下工业务入口保留，日志展示仅在系统操作日志内，不新增权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/SystemOperateLogList.vue",
+      "kind": "permission",
+      "value": "system:operate-log:query",
+      "reason": "系统操作日志内部复用原列表与详情，沿用原查询、导出及数据范围权限；原员工上下工业务入口保留，日志展示仅在系统操作日志内，不新增权限。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "dcc:controlled-file:log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "dcc:controlled-file:signature:manage",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "infra:api-access-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "infra:api-error-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "infra:runtime-control:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-obsoleted-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-published-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:file-upload-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:field-audit-query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:golden-finger",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:event-query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-flow-intervention:event-query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-form-fill-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-form-instance:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-operation-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-report:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-traveler:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-production-release:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-schedule-order:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "mes:pro-workrecord:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "pay:notify:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:gxp-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:login-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:mail-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:notify-message:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:operate-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:sms-log:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "system:temporary-role-grant:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "trade:after-sale:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "trade:order:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:clue:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:customer:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:contact:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:business:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:contract:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:product:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:receivable:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "crm:receivable-plan:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/operatelog/logSources.ts",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:query-current",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserProjectController.java",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record",
+      "reason": "只读项目选项接口复用现有表单解析菜单权限（20260908_bpm_form_parser_menu.sql、20261028_simple_parser_publish_menu.sql），不新增权限标识或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserProjectController.java",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record:publish",
+      "reason": "只读项目选项接口复用现有表单解析菜单权限（20260908_bpm_form_parser_menu.sql、20261028_simple_parser_publish_menu.sql），不新增权限标识或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserProjectController.java",
+      "kind": "permission",
+      "value": "form:parser:query",
+      "reason": "只读项目选项接口复用现有表单解析菜单权限（20260908_bpm_form_parser_menu.sql、20261028_simple_parser_publish_menu.sql），不新增权限标识或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/Index.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:query",
+      "reason": "个人中心内部交接列表复用 MesActiveOrderHandoffController 已有本人交接查询权限及数据范围；不新增独立页面或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/Index.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "个人中心内部交接列表复用 MesActiveOrderHandoffController 已有本人交接查询权限及数据范围；不新增独立页面或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/Index.vue",
+      "kind": "permission",
+      "value": "mes:pro-feedback:query",
+      "reason": "个人中心内部交接列表复用 MesActiveOrderHandoffController 已有本人交接查询权限及数据范围；不新增独立页面或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/Index.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "个人中心内部交接列表复用 MesActiveOrderHandoffController 已有本人交接查询权限及数据范围；不新增独立页面或菜单，不改变角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261113_mes_production_leader_deviation_read.sql",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261113_mes_production_leader_deviation_read.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261113_mes_production_leader_deviation_read.sql",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261113_mes_production_leader_deviation_read.sql"
+      ]
     }
   ]
 }

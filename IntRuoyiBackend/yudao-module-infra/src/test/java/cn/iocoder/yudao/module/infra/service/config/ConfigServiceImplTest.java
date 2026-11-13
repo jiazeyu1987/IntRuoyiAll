@@ -29,37 +29,20 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.*;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Import(ConfigServiceImpl.class)
+@Import({ConfigServiceImpl.class, TenantConfigService.class})
 public class ConfigServiceImplTest extends BaseDbUnitTest {
 
     private static final String IDLE_LOGOUT_MINUTES_KEY = "system.login.idle-timeout-minutes";
     private static final String TEST_MODE_KEY = "system.ui.test-mode-enabled";
 
     @Test
-    void gxpModePersistsAsProtectedSystemConfig() {
-        ConfigSaveReqVO request = randomPojo(ConfigSaveReqVO.class, row -> {
-            row.setId(null); row.setKey("system.gxp.audit-mode"); row.setValue("FORMAL"); row.setVisible(true);
-        });
-        Long id = configService.createConfig(request);
-        assertEquals(1, configMapper.selectById(id).getType());
-        assertServiceException(() -> configService.deleteConfig(id), CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
-        assertServiceException(() -> configService.deleteConfigList(List.of(id)), CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
-        request.setId(id); request.setKey("system.gxp.renamed");
-        assertServiceException(() -> configService.updateConfig(request), CONFIG_GXP_MODE_KEY_IMMUTABLE);
-    }
-
-    @Test
-    void gxpModeRejectsInvalidValuesInvisibleConfigAndNonLocalDisable() {
-        ConfigSaveReqVO request = randomPojo(ConfigSaveReqVO.class, row -> {
-            row.setId(null); row.setKey("system.gxp.audit-mode"); row.setVisible(true);
-        });
-        for (String value : new String[]{"", "formal", " FORMAL", "MOCK", "DEVELOPMENT_DISABLED", "LOCAL_POLICY"}) {
-            request.setValue(value);
-            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> configService.createConfig(request));
+    void platformSettingsCannotBeCreatedThroughTenantParameters() {
+        for (String key : List.of("system.gxp.audit-mode", "runtime-control.release-package.backend-runtime-base-mode")) {
+            ConfigSaveReqVO request = randomPojo(ConfigSaveReqVO.class, row -> {
+                row.setId(null); row.setKey(key); row.setValue("FORMAL"); row.setVisible(true);
+            });
+            assertServiceException(() -> configService.createConfig(request), CONFIG_PLATFORM_READ_ONLY);
         }
-        request.setValue("FORMAL"); request.setVisible(false);
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> configService.createConfig(request));
-        assertNull(configMapper.selectByKey("system.gxp.audit-mode"));
     }
 
     @Test
@@ -80,7 +63,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
             o.setConfigKey(TEST_MODE_KEY);
             o.setValue("false");
         });
-        configMapper.insert(config);
+        insertTestConfig(config);
         for (String value : new String[] { "true", "false" }) {
             ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
                 o.setId(config.getId());
@@ -88,7 +71,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
                 o.setValue(value);
             });
             configService.updateConfig(reqVO);
-            assertEquals(value, configMapper.selectById(config.getId()).getValue());
+            assertEquals(value, configService.getConfig(config.getId()).getValue());
         }
     }
 
@@ -98,21 +81,21 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
             o.setConfigKey(TEST_MODE_KEY);
             o.setValue("false");
         });
-        configMapper.insert(config);
+        insertTestConfig(config);
         ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
             o.setId(config.getId());
             o.setKey(TEST_MODE_KEY);
             o.setValue("TRUE");
         });
         assertServiceException(() -> configService.updateConfig(reqVO), CONFIG_TEST_MODE_INVALID);
-        assertEquals("false", configMapper.selectById(config.getId()).getValue());
+        assertEquals("false", configService.getConfig(config.getId()).getValue());
     }
 
     @Resource
     private ConfigServiceImpl configService;
 
     @Resource
-    private ConfigMapper configMapper;
+    private cn.iocoder.yudao.module.infra.dal.mysql.config.TenantConfigMapper tenantConfigMapper;
 
     @Test
     public void testCreateConfig_success() {
@@ -125,7 +108,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         // 断言
         assertNotNull(configId);
         // 校验记录的属性是否正确
-        ConfigDO config = configMapper.selectById(configId);
+        ConfigDO config = configService.getConfig(configId);
         assertPojoEquals(reqVO, config, "id");
         assertEquals(ConfigTypeEnum.CUSTOM.getType(), config.getType());
     }
@@ -134,7 +117,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
     public void testUpdateConfig_success() {
         // mock 数据
         ConfigDO dbConfig = randomConfigDO();
-        configMapper.insert(dbConfig);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfig);// @Sql: 先插入出一条存在的数据
         // 准备参数
         ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
             o.setId(dbConfig.getId()); // 设置更新的 ID
@@ -143,7 +126,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         // 调用
         configService.updateConfig(reqVO);
         // 校验是否更新正确
-        ConfigDO config = configMapper.selectById(reqVO.getId()); // 获取最新的
+        ConfigDO config = configService.getConfig(reqVO.getId()); // 获取最新的
         assertPojoEquals(reqVO, config);
     }
 
@@ -164,7 +147,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
             o.setConfigKey(IDLE_LOGOUT_MINUTES_KEY);
             o.setValue("15");
         });
-        configMapper.insert(dbConfig);
+        insertTestConfig(dbConfig);
         ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
             o.setId(dbConfig.getId());
             o.setKey(IDLE_LOGOUT_MINUTES_KEY);
@@ -180,7 +163,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
             o.setConfigKey(IDLE_LOGOUT_MINUTES_KEY);
             o.setValue("15");
         });
-        configMapper.insert(dbConfig);
+        insertTestConfig(dbConfig);
         ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
             o.setId(dbConfig.getId());
             o.setKey(IDLE_LOGOUT_MINUTES_KEY);
@@ -189,7 +172,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
 
         configService.updateConfig(reqVO);
 
-        ConfigDO config = configMapper.selectById(reqVO.getId());
+        ConfigDO config = configService.getConfig(reqVO.getId());
         assertEquals("30", config.getValue());
     }
 
@@ -199,14 +182,14 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         ConfigDO dbConfig = randomConfigDO(o -> {
             o.setType(ConfigTypeEnum.CUSTOM.getType()); // 只能删除 CUSTOM 类型
         });
-        configMapper.insert(dbConfig);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfig);// @Sql: 先插入出一条存在的数据
         // 准备参数
         Long id = dbConfig.getId();
 
         // 调用
         configService.deleteConfig(id);
         // 校验数据不存在了
-        assertNull(configMapper.selectById(id));
+        assertNull(configService.getConfig(id));
     }
 
     @Test
@@ -253,7 +236,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         ConfigDO dbConfig = randomConfigDO(o -> {
             o.setType(ConfigTypeEnum.SYSTEM.getType()); // SYSTEM 不允许删除
         });
-        configMapper.insert(dbConfig);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfig);// @Sql: 先插入出一条存在的数据
         // 准备参数
         Long id = dbConfig.getId();
 
@@ -265,7 +248,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
     public void testValidateConfigExists_success() {
         // mock 数据
         ConfigDO dbConfigDO = randomConfigDO();
-        configMapper.insert(dbConfigDO);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfigDO);// @Sql: 先插入出一条存在的数据
 
         // 调用成功
         configService.validateConfigExists(dbConfigDO.getId());
@@ -287,7 +270,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         // 准备参数
         String key = randomString();
         // mock 数据
-        configMapper.insert(randomConfigDO(o -> o.setConfigKey(key)));
+        insertTestConfig(randomConfigDO(o -> o.setConfigKey(key)));
 
         // 调用，校验异常
         assertServiceException(() -> configService.validateConfigKeyUnique(null, key),
@@ -300,7 +283,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         Long id = randomLongId();
         String key = randomString();
         // mock 数据
-        configMapper.insert(randomConfigDO(o -> o.setConfigKey(key)));
+        insertTestConfig(randomConfigDO(o -> o.setConfigKey(key)));
 
         // 调用，校验异常
         assertServiceException(() -> configService.validateConfigKeyUnique(id, key),
@@ -316,15 +299,15 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
             o.setType(ConfigTypeEnum.SYSTEM.getType());
             o.setCreateTime(buildTime(2021, 2, 1));
         });
-        configMapper.insert(dbConfig);
+        insertTestConfig(dbConfig);
         // 测试 name 不匹配
-        configMapper.insert(cloneIgnoreId(dbConfig, o -> o.setName("土豆")));
+        insertTestConfig(cloneIgnoreId(dbConfig, o -> { o.setName("土豆"); o.setConfigKey("yunai-name"); }));
         // 测试 key 不匹配
-        configMapper.insert(cloneIgnoreId(dbConfig, o -> o.setConfigKey("tudou")));
+        insertTestConfig(cloneIgnoreId(dbConfig, o -> o.setConfigKey("tudou")));
         // 测试 type 不匹配
-        configMapper.insert(cloneIgnoreId(dbConfig, o -> o.setType(ConfigTypeEnum.CUSTOM.getType())));
+        insertTestConfig(cloneIgnoreId(dbConfig, o -> { o.setType(ConfigTypeEnum.CUSTOM.getType()); o.setConfigKey("yunai-type"); }));
         // 测试 createTime 不匹配
-        configMapper.insert(cloneIgnoreId(dbConfig, o -> o.setCreateTime(buildTime(2021, 1, 1))));
+        insertTestConfig(cloneIgnoreId(dbConfig, o -> { o.setCreateTime(buildTime(2021, 1, 1)); o.setConfigKey("yunai-time"); }));
         // 准备参数
         ConfigPageReqVO reqVO = new ConfigPageReqVO();
         reqVO.setName("艿");
@@ -344,7 +327,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
     public void testGetConfig() {
         // mock 数据
         ConfigDO dbConfig = randomConfigDO();
-        configMapper.insert(dbConfig);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfig);// @Sql: 先插入出一条存在的数据
         // 准备参数
         Long id = dbConfig.getId();
 
@@ -359,7 +342,7 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
     public void testGetConfigByKey() {
         // mock 数据
         ConfigDO dbConfig = randomConfigDO();
-        configMapper.insert(dbConfig);// @Sql: 先插入出一条存在的数据
+        insertTestConfig(dbConfig);// @Sql: 先插入出一条存在的数据
         // 准备参数
         String key = dbConfig.getConfigKey();
 
@@ -368,6 +351,14 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         // 断言
         assertNotNull(config);
         assertPojoEquals(dbConfig, config);
+    }
+
+    private void insertTestConfig(ConfigDO config) {
+        var row = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(config,
+                cn.iocoder.yudao.module.infra.dal.dataobject.config.TenantConfigDO.class);
+        row.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        tenantConfigMapper.insert(row);
+        config.setId(row.getId());
     }
 
     // ========== 随机对象 ==========

@@ -22,7 +22,7 @@ public class MesFrontlineActiveOrderProcessRespVO {
     private Long workstationId;
     private String workstationCode;
     private String workstationName;
-    private BigDecimal productionQuantityFactor;
+    private BigDecimal lossCoefficient;
     private BigDecimal targetQuantity;
     private BigDecimal submittedQuantity;
 }

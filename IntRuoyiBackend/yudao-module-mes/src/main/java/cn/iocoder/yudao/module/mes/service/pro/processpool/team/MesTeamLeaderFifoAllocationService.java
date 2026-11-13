@@ -163,7 +163,7 @@ public class MesTeamLeaderFifoAllocationService {
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMapper.selectByActiveOrderAndProcess(
                 activeOrder.getId(), target.routeProcessId(), target.processId());
         return MesOutputMaterialProgressCalculator.calculateAvailableAllocationQuantity(
-                activeOrder, snapshot, target.plannedQuantity(), currentEvent, previousEvents, previousAllocations);
+                activeOrder, snapshot, MesProductionQuantityRange.of(snapshot).upper(), currentEvent, previousEvents, previousAllocations);
     }
 
     private void validateReq(MesTeamLeaderFifoAllocationReqBO reqBO) {

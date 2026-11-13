@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.security.config.SecurityProperties;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.logger.LoginLogTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
@@ -170,6 +172,12 @@ public class AuthController {
         grantedMenuIds.addAll(permissionService.getDynamicMenuListByUserId(loginUserId));
         grantedMenuIds.addAll(permissionService.getTemporaryMenuListByUserId(loginUserId));
         List<MenuDO> permissionMenuList = getEnabledMenuList(grantedMenuIds);
+        permissionMenuList = permissionMenuList.stream()
+                .filter(menu -> !cn.iocoder.yudao.module.system.service.permission.PlatformConfigurationAccess
+                        .isPlatformPermission(menu.getPermission())
+                        || permissionService.hasAnyPermissions(loginUserId, menu.getPermission()))
+                .collect(Collectors.toList());
+        grantedMenuIds.retainAll(convertSet(permissionMenuList, MenuDO::getId));
         List<MenuDO> menuList = menuService.filterDisableMenus(getEnabledMenuList(
                 expandMenuIdsWithParents(permissionMenuList)));
         if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
@@ -188,6 +196,15 @@ public class AuthController {
             permissionMenuList = filterInvoiceVoucherPrintMenu(permissionMenuList);
             menuList = filterInvoiceVoucherPrintMenu(menuList);
         }
+
+        menuList = cn.iocoder.yudao.module.system.service.permission.OperationLogAccessPolicy.filterNavigation(menuList, roles);
+        // Ancestors support routing; button grants do not grant their parent page's navigation entry.
+        menuList = menuList.stream().map(menu -> {
+            if (MenuTypeEnum.MENU.getType().equals(menu.getType()) && !grantedMenuIds.contains(menu.getId())) {
+                return BeanUtils.toBean(menu, MenuDO.class).setVisible(false);
+            }
+            return menu;
+        }).collect(Collectors.toList());
 
         // 2. 拼接结果返回
         AuthPermissionInfoRespVO respVO = AuthConvert.INSTANCE.convert(user, roles, menuList);

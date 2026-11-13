@@ -22,6 +22,11 @@ public class DictDataApiImpl implements DictDataApi {
     private DictDataService dictDataService;
 
     @Override
+    public Long getCurrentTenantId() {
+        return cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+    }
+
+    @Override
     public void validateDictDataList(String dictType, Collection<String> values) {
         dictDataService.validateDictDataList(dictType, values);
     }

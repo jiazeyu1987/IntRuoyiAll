@@ -228,61 +228,7 @@
         </div>
       </section>
 
-      <section class="edhr-report__audit">
-        <div class="edhr-report__section-title">
-          <span>导出审计</span>
-          <span class="edhr-report__muted">{{ auditQueryParams.reportCode || '未选择报表' }}</span>
-        </div>
-        <el-table
-          v-loading="auditLoading"
-          :data="auditList"
-          stripe
-          :show-overflow-tooltip="true"
-          empty-text="暂无导出审计记录"
-        >
-          <el-table-column label="审计ID" prop="id" width="100" />
-          <el-table-column label="报表" min-width="220">
-            <template #default="{ row }">
-              <div class="edhr-report__strong">{{ row.reportName || row.reportCode }}</div>
-              <div class="edhr-report__muted">{{ row.caliberVersion || '--' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="数据范围" prop="dataRangeSummary" min-width="180" />
-          <el-table-column label="结果" width="110">
-            <template #default="{ row }">
-              <el-tag :type="row.resultStatus === 'RECORDED' ? 'success' : 'danger'">
-                {{ reportStatusLabel(row.resultStatus) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作人" min-width="140">
-            <template #default="{ row }">
-              {{ row.operatorUsername || row.operatorUserId || '--' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="发生时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
-          <el-table-column type="expand">
-            <template #default="{ row }">
-              <div class="edhr-report__audit-evidence">
-                <div>
-                  <div class="edhr-report__evidence-title">筛选快照</div>
-                  <ReadableData :source="row.filterSnapshotJson" />
-                </div>
-                <div>
-                  <div class="edhr-report__evidence-title">权限摘要</div>
-                  <ReadableData :source="row.permissionSummaryJson" />
-                </div>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-        <Pagination
-          :total="auditTotal"
-          v-model:page="auditQueryParams.pageNo"
-          v-model:limit="auditQueryParams.pageSize"
-          @pagination="getAuditList"
-        />
-      </section>
+      
     </div>
   </ContentWrap>
 </template>
@@ -295,24 +241,24 @@ import { ElMessage } from 'element-plus'
 import {
   getEdhrReportCatalogPage,
   getEdhrReportDefinitionPage,
-  getEdhrReportExportAuditPage,
+  
   recordEdhrReportExportAudit,
   runEdhrReportQuery,
   type EdhrReportCatalogPageReqVO,
   type EdhrReportCatalogRespVO,
   type EdhrReportDefinitionRespVO,
-  type EdhrReportExportAuditPageReqVO,
-  type EdhrReportExportAuditRespVO,
+  
+  
   type EdhrReportQueryRespVO
 } from '@/api/mes/pro/edhr/report'
-import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import {  formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReport' })
 
 const catalogLoading = ref(false)
 const definitionLoading = ref(false)
 const queryLoading = ref(false)
-const auditLoading = ref(false)
+
 const loadError = ref('')
 const definitionError = ref('')
 
@@ -322,8 +268,8 @@ const definitionList = ref<EdhrReportDefinitionRespVO[]>([])
 const selectedCatalog = ref<EdhrReportCatalogRespVO>()
 const selectedDefinitionId = ref<number>()
 const queryResult = ref<EdhrReportQueryRespVO>()
-const auditList = ref<EdhrReportExportAuditRespVO[]>([])
-const auditTotal = ref(0)
+
+
 
 const catalogQueryParams = reactive<EdhrReportCatalogPageReqVO>({
   pageNo: 1,
@@ -333,11 +279,7 @@ const catalogQueryParams = reactive<EdhrReportCatalogPageReqVO>({
   status: 'ACTIVE'
 })
 
-const auditQueryParams = reactive<EdhrReportExportAuditPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  reportCode: undefined
-})
+
 
 const selectedDefinition = computed(() =>
   definitionList.value.find((definition) => definition.id === selectedDefinitionId.value)
@@ -449,12 +391,12 @@ const getDefinitionList = async (reportCode: string) => {
 const selectCatalog = async (row: EdhrReportCatalogRespVO) => {
   selectedCatalog.value = row
   queryResult.value = undefined
-  auditList.value = []
-  auditTotal.value = 0
-  auditQueryParams.pageNo = 1
-  auditQueryParams.reportCode = row.reportCode
+  
+  
+  
+  
   await getDefinitionList(row.reportCode)
-  await getAuditList()
+  
 }
 
 const handleDefinitionChange = () => {
@@ -513,37 +455,15 @@ const handleRecordExportAudit = async () => {
       dataRangeSummary: `只读查询结果 ${result.rows.length} 行`
     })
     ElMessage.success('导出审计已记录')
-    auditQueryParams.reportCode = result.reportCode
-    auditQueryParams.pageNo = 1
-    await getAuditList()
+    
+    
+    
   } catch (error) {
     loadError.value = resolveErrorMessage(error, '导出审计记录失败，请检查报表权限和筛选快照。')
   }
 }
 
-const getAuditList = async () => {
-  if (!auditQueryParams.reportCode) {
-    auditList.value = []
-    auditTotal.value = 0
-    return
-  }
-  auditLoading.value = true
-  loadError.value = ''
-  try {
-    const page = assertPageResult<EdhrReportExportAuditRespVO>(
-      await getEdhrReportExportAuditPage(auditQueryParams),
-      '导出审计'
-    )
-    auditList.value = page.list
-    auditTotal.value = page.total
-  } catch (error) {
-    auditList.value = []
-    auditTotal.value = 0
-    loadError.value = resolveErrorMessage(error, '导出审计加载失败，请检查接口和权限。')
-  } finally {
-    auditLoading.value = false
-  }
-}
+
 
 onMounted(() => {
   getCatalogList()

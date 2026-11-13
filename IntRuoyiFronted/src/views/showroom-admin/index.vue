@@ -17,8 +17,8 @@
       <el-tabs v-model="productManageTab" @tab-change="handleProductManageTabChange">
         <el-tab-pane label="产品" name="product">
           <ProductListTable
-            :load-filter-rows="loadProductColumnFilterRows"
-            @filtered-rows="productRows = $event"
+            :query-model="productQueryModel"
+            :server-filter-query="loadProductRows"
             :batch-audio-auto-check-enabled="batchProductAudioAutoCheckState?.enabled"
             :batch-audio-auto-check-label="batchProductAudioAutoCheckLabel"
             :batch-generating-sales-countries="batchGeneratingProductSalesCountries"
@@ -66,8 +66,8 @@
         </el-tab-pane>
         <el-tab-pane label="奖项" name="award">
           <AwardListTable
-            :load-filter-rows="loadAwardColumnFilterRows"
-            @filtered-rows="awardRows = $event"
+            :query-model="awardQueryModel"
+            :server-filter-query="loadAwardRows"
             :awards="awardRows"
             :generating-cover-award-id="generatingCoverAwardId"
             :keyword="awardKeyword"
@@ -829,7 +829,6 @@ import {
   normalizeNarrationVersion,
   type ShowroomNarrationVersionRecord
 } from '@/views/showroom-admin/narration/contracts'
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 import ProductListTable from '@/views/showroom-admin/components/ProductListTable.vue'
 import AwardListTable from '@/views/showroom-admin/components/AwardListTable.vue'
 import ProductAudioDialog from '@/views/showroom-admin/product/ProductAudioDialog.vue'
@@ -1816,10 +1815,22 @@ const normalizeProductTranslatePublishTaskStatus = (
   }
 }
 
+const productQueryModel = reactive({
+  get pageNo() { return productPageNo.value },
+  set pageNo(value: number) { productPageNo.value = value },
+  listFilters: undefined as string | undefined
+})
+const awardQueryModel = reactive({
+  get pageNo() { return awardPageNo.value },
+  set pageNo(value: number) { awardPageNo.value = value },
+  listFilters: undefined as string | undefined
+})
+
 const buildProductPageParams = (pageNo: number, pageSize: number) => {
   return {
     pageNo,
     pageSize,
+    listFilters: productQueryModel.listFilters,
     productId: productFilters.value.productId || undefined,
     keyword: productFilters.value.keyword,
     lifecycleStage: productFilters.value.lifecycleStage,
@@ -2203,8 +2214,6 @@ const loadProductNarrationDraft = async (productId: number, sourceRevisionId: nu
   }
 }
 
-const loadProductColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getProductPage(buildProductPageParams(pagination.pageNo, pagination.pageSize)))
-const loadAwardColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getAwardPage({ ...pagination, keyword: awardKeyword.value.trim() || undefined }))
 
 const loadProductRows = async () => {
   const productPage = normalizeObject(
@@ -2225,6 +2234,7 @@ const loadProductRows = async () => {
 const loadAwardRows = async () => {
   const awardPage = normalizeObject(
     await ShowroomAdminApi.getAwardPage({
+      listFilters: awardQueryModel.listFilters,
       pageNo: awardPageNo.value,
       pageSize: awardPageSize.value,
       keyword: awardKeyword.value.trim() || undefined

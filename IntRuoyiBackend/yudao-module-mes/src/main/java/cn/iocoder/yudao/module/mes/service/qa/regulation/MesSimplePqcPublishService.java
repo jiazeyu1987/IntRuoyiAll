@@ -36,11 +36,14 @@ public class MesSimplePqcPublishService {
                 if (item == null || item.getItemName() == null) throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, "缺少项目名称");
                 boolean bound = item.getEquipmentOptions() != null && !item.getEquipmentOptions().isEmpty();
                 boolean hasReason = item.getEquipmentUnboundReason() != null && !item.getEquipmentUnboundReason().isBlank();
+                if (Boolean.FALSE.equals(item.getEquipmentRequired()) && (bound || hasReason)) {
+                    throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, "无需设备时不得保留设备绑定或待绑定原因：" + item.getItemName());
+                }
                 if (bound && hasReason) {
                     throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
                             "已绑定设备时请清空器具未绑定原因：" + item.getItemName());
                 }
-                if (!bound && !hasReason && !SENSORY_TOOLS.contains(Objects.toString(item.getInspectionTool(), "").trim())) {
+                if (!Boolean.FALSE.equals(item.getEquipmentRequired()) && !bound && !hasReason && !SENSORY_TOOLS.contains(Objects.toString(item.getInspectionTool(), "").trim())) {
                     if (!legacyLoaded) {
                         var old = regulationMapper.selectByDccProjectCodeId(request.getDccProjectCodeId(),
                                 MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA);

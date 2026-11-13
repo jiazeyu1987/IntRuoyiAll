@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.md.workstation;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.MesMdWorkstationPageReqVO;
@@ -21,14 +22,42 @@ import java.util.List;
 @Mapper
 public interface MesMdWorkstationMapper extends BaseMapperX<MesMdWorkstationDO> {
 
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("name", ListFilterQueryUtils.text("name")),
+            java.util.Map.entry("address", ListFilterQueryUtils.text("address")),
+            java.util.Map.entry("workshopId", ListFilterQueryUtils.number("workshop_id")),
+            java.util.Map.entry("processId", ListFilterQueryUtils.number("process_id")),
+            java.util.Map.entry("productionLineId", ListFilterQueryUtils.number("production_line_id")),
+            java.util.Map.entry("warehouseId", ListFilterQueryUtils.number("warehouse_id")),
+            java.util.Map.entry("locationId", ListFilterQueryUtils.number("location_id")),
+            java.util.Map.entry("areaId", ListFilterQueryUtils.number("area_id")),
+            java.util.Map.entry("singleStandardHourlyCapacity", ListFilterQueryUtils.number("single_standard_hourly_capacity")),
+            java.util.Map.entry("shiftHours", ListFilterQueryUtils.number("shift_hours")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator")),
+            java.util.Map.entry("workshopName", ListFilterQueryUtils.text("(SELECT x.name FROM mes_md_workshop x WHERE x.id=mes_md_workstation.workshop_id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("processName", ListFilterQueryUtils.text("(SELECT x.name FROM mes_pro_process x WHERE x.id=mes_md_workstation.process_id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("configuredWorkerCount", ListFilterQueryUtils.number("(SELECT COALESCE(SUM(x.quantity),0) FROM mes_md_workstation_worker x WHERE x.workstation_id=mes_md_workstation.id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("machineryCount", ListFilterQueryUtils.number("(SELECT COUNT(*) FROM mes_md_workstation_machine x WHERE x.workstation_id=mes_md_workstation.id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("currentWorkerCount", ListFilterQueryUtils.number("(SELECT COUNT(*) FROM mes_pro_work_record x WHERE x.workstation_id=mes_md_workstation.id AND x.type=1 AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("machineryStandardHourlyCapacity", ListFilterQueryUtils.number("(SELECT COALESCE(SUM(x.quantity * COALESCE((SELECT mp.standard_hourly_capacity FROM mes_dv_machinery_process mp WHERE mp.machinery_id=x.machinery_id AND mp.process_id=mes_md_workstation.process_id AND mp.tenant_id=mes_md_workstation.tenant_id AND mp.deleted=0 AND mp.standard_hourly_capacity IS NOT NULL LIMIT 1),0)),0) FROM mes_md_workstation_machine x WHERE x.workstation_id=mes_md_workstation.id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("todayCapacity", ListFilterQueryUtils.number("(CASE WHEN EXISTS(SELECT 1 FROM mes_md_workstation_machine x WHERE x.workstation_id=mes_md_workstation.id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0) THEN (SELECT COALESCE(SUM(x.quantity * COALESCE((SELECT mp.standard_hourly_capacity FROM mes_dv_machinery_process mp WHERE mp.machinery_id=x.machinery_id AND mp.process_id=mes_md_workstation.process_id AND mp.tenant_id=mes_md_workstation.tenant_id AND mp.deleted=0 AND mp.standard_hourly_capacity IS NOT NULL LIMIT 1),0)),0) FROM mes_md_workstation_machine x WHERE x.workstation_id=mes_md_workstation.id AND x.tenant_id=mes_md_workstation.tenant_id AND x.deleted=0) ELSE COALESCE(single_standard_hourly_capacity,0) END * shift_hours)"))
+    );
+
+
+
     default PageResult<MesMdWorkstationDO> selectPage(MesMdWorkstationPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesMdWorkstationDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<MesMdWorkstationDO>()
                 .eqIfPresent(MesMdWorkstationDO::getCode, reqVO.getCode())
                 .likeIfPresent(MesMdWorkstationDO::getName, reqVO.getName())
                 .eqIfPresent(MesMdWorkstationDO::getWorkshopId, reqVO.getWorkshopId())
                 .eqIfPresent(MesMdWorkstationDO::getProcessId, reqVO.getProcessId())
                 .eqIfPresent(MesMdWorkstationDO::getStatus, reqVO.getStatus())
-                .orderByDesc(MesMdWorkstationDO::getId));
+                .orderByDesc(MesMdWorkstationDO::getId), LIST_FILTER_FIELDS));
     }
 
     default MesMdWorkstationDO selectByCode(String code) {

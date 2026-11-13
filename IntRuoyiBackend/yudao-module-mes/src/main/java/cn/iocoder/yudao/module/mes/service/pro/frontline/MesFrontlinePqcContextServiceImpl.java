@@ -91,6 +91,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_NEGATIVE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_REGULATION_REQUIRED;
@@ -129,6 +132,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private static final Set<String> PQC_TASK_STATUSES = Set.of(
             PQC_TASK_STATUS_PENDING, PQC_TASK_STATUS_SUBMITTED,
             PQC_TASK_STATUS_CONFIRMED, PQC_TASK_STATUS_CANCELLED);
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.MesFrontlineReturnCorrectionService ownReturnService;
+    @jakarta.annotation.Resource
+    private MesFrontlinePqcReviewHistoryReader pqcReviewHistoryReader;
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProProcessPoolEventMapper processPoolEventMapper;
@@ -721,9 +729,21 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                             + regulationVersionId + "，qaProcessId=" + qaProcessId);
         }
         return tasks.stream()
-                .map(task -> toPqcTaskOptionRespVO(task, finalInspectionApplicable,
+                .map(task -> {
+                    var option = toPqcTaskOptionRespVO(task, finalInspectionApplicable,
                         inspectionItems, inspectionTypeRuleByKey.get(task.getInspectionRuleKey()),
-                        routeDevicesByProcessIdentity))
+                        routeDevicesByProcessIdentity);
+                    if (PQC_TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
+                            || "CONFIRMED".equals(task.getTaskStatus())) {
+                        var event = requireUniqueSubmittedEvent(task);
+                        option.setSubmittedInspection(buildSubmittedInspection(task, event,
+                                pqcPieceDetailMapper.selectListByTaskId(task.getId())));
+                        var reviewProjection = pqcReviewHistoryReader.read(activeOrder, task, event);
+                        option.setReviewHistory(reviewProjection.reviewHistory());
+                        option.setCurrentReviewStatus(reviewProjection.currentReviewStatus());
+                    }
+                    return option;
+                })
                 .sorted(Comparator
                         .comparing(MesFrontlinePqcProcessRespVO.PqcTaskOption::getBusinessDate)
                         .thenComparingInt(MesFrontlinePqcProcessRespVO.PqcTaskOption::getRuleSort)
@@ -787,6 +807,36 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     task.getActiveOrderId(), task.getRegulationVersionId(), task.getQaProcessId());
         }
         return option;
+    }
+
+    static MesFrontlinePqcProcessRespVO.SubmittedInspection buildSubmittedInspection(
+            MesPqcInspectionTaskDO task, MesProProcessPoolEventDO event,
+            List<MesPqcInspectionPieceDetailDO> details) {
+        JSONObject payload = JSONObject.parseObject(event.getRawPayload());
+        Integer scrapQuantity = payload == null ? null : payload.getInteger("scrapQuantity");
+        if (task.getActualInspectionQuantity() == null || scrapQuantity == null || details.isEmpty()
+                || details.stream().anyMatch(detail -> !Objects.equals(task.getId(), detail.getTaskId()))) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "pqcSubmittedInspection taskId=" + task.getId());
+        }
+        Map<String, List<MesPqcInspectionPieceDetailDO>> byItem = details.stream()
+                .sorted(Comparator.comparing(MesPqcInspectionPieceDetailDO::getSampleNo))
+                .collect(Collectors.groupingBy(MesPqcInspectionPieceDetailDO::getItemCode,
+                        LinkedHashMap::new, Collectors.toList()));
+        MesFrontlinePqcProcessRespVO.SubmittedInspection result =
+                new MesFrontlinePqcProcessRespVO.SubmittedInspection();
+        result.setActualInspectionQuantity(task.getActualInspectionQuantity());
+        result.setScrapQuantity(scrapQuantity);
+        result.setItems(byItem.entrySet().stream().map(entry -> {
+            MesFrontlinePqcProcessRespVO.SubmittedInspectionItem item =
+                    new MesFrontlinePqcProcessRespVO.SubmittedInspectionItem();
+            item.setItemCode(entry.getKey());
+            item.setSelectedEquipmentNumber(entry.getValue().get(0).getSelectedEquipmentNumber());
+            item.setSampleValues(entry.getValue().stream()
+                    .map(MesPqcInspectionPieceDetailDO::getMeasuredValue).toList());
+            return item;
+        }).toList());
+        return result;
     }
 
     private static List<MesFrontlinePqcProcessRespVO.QaInspectionTypeRule> parseLockedInspectionTypeRules(
@@ -1288,7 +1338,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireValue(loginUserId, "loginUserId");
         requirePqcEmployee(loginUserId, actualEmployeeId);
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectById(pqcTaskId);
-        if (task == null || !PQC_TASK_STATUS_PENDING.equals(task.getTaskStatus())
+        boolean ownReturned = task != null && PQC_TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
+                && ownReturnService.listOwnReturned(loginUserId, "PQC").stream()
+                .anyMatch(row -> Objects.equals(row.eventId(), task.getSubmittedEventId())
+                        && Objects.equals(row.activeOrderId(), activeOrderId));
+        if (task == null || (!PQC_TASK_STATUS_PENDING.equals(task.getTaskStatus()) && !ownReturned)
                 || !Objects.equals(activeOrderId, task.getActiveOrderId())
                 || !Objects.equals(regulationVersionId, task.getRegulationVersionId())
                 || !Objects.equals(qaProcessId, task.getQaProcessId())) {
@@ -1299,7 +1353,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         && Objects.equals(qaProcessId, candidate.getQaProcessId())
                         && candidate.getPqcTaskOptions().stream().anyMatch(option ->
                         Objects.equals(pqcTaskId, option.getPqcTaskId())
-                                && PQC_TASK_STATUS_PENDING.equals(option.getTaskStatus())))
+                                && (PQC_TASK_STATUS_PENDING.equals(option.getTaskStatus())
+                                    || (ownReturned && PQC_TASK_STATUS_SUBMITTED.equals(option.getTaskStatus())))))
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH,
                         pqcTaskIdentityText(task)));
@@ -1362,6 +1417,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(formalWorkOrder.getStatus())) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, "workOrder.notConfirmed");
         }
+        assertPqcInspectionWithinOrderQuantity(command.getActualInspectionQuantity(), formalWorkOrder.getQuantity());
         var formalPayload = JsonUtils.parseObject(buildPqcInspectionEventRawPayload(command, pieceDetails, inspectionResult),
                 com.fasterxml.jackson.databind.node.ObjectNode.class);
         formalPayload.set("inspectionItemPlan", JsonUtils.getObjectMapper().valueToTree(MesPqcInspectionItemPlan.require(task)));
@@ -1663,6 +1719,15 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .build();
     }
 
+    static void assertPqcInspectionWithinOrderQuantity(int quantity, BigDecimal total) {
+        if (total == null || total.signum() <= 0) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "订单总数量无效");
+        }
+        if (BigDecimal.valueOf(quantity).compareTo(total) > 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "检验数量不能大于总数量");
+        }
+    }
+
     private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {
         if (command == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "request");
@@ -1718,9 +1783,15 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
         requirePqcEmployee(loginUserId, command.getActualEmployeeId());
-        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0
-                || command.getScrapQuantity() > command.getActualInspectionQuantity()) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "scrapQuantity");
+        if (command.getScrapQuantity() == null) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_REQUIRED);
+        }
+        if (command.getScrapQuantity() < 0) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_NEGATIVE, command.getScrapQuantity());
+        }
+        if (command.getScrapQuantity() > command.getActualInspectionQuantity()) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL,
+                    command.getScrapQuantity(), command.getActualInspectionQuantity());
         }
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(task.getActiveOrderId());
         if (activeOrder == null || !Objects.equals("ACTIVE", activeOrder.getActiveStatus())

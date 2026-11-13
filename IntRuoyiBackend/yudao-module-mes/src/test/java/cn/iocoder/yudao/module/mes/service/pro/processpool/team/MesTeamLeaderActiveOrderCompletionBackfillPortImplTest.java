@@ -291,23 +291,52 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void noReplenishmentConfirmationIsPassedAndRecordedWithTheLeader() {
+    void noReplenishmentIsEvaluatedWithoutClaimingLeaderConfirmation() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
-        var draft = port.prepare(20L, order(), command().setConfirmNoReplenishmentInfo(true));
-        verify(lossSourceReader).read(org.mockito.ArgumentMatchers.argThat(cmd ->
-                Boolean.TRUE.equals(cmd.getRequireNoReplenishmentConfirmation())
-                        && Boolean.TRUE.equals(cmd.getConfirmNoReplenishmentInfo())));
-        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\":20"));
-        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":true"));
+        var draft = port.prepare(20L, order(), command());
+        verify(lossSourceReader).read(any());
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"evaluatedBy\":20"));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"determinationMode\":\"SOURCE_QUERY\""));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":false"));
+        assertFalse(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\""));
     }
 
     @Test
-    void missingReplenishmentPreservesTheConfirmationErrorAndWritesNothing() {
+    void invalidReplenishmentPreservesTheSourceErrorAndWritesNothing() {
         when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
                 .setProcessSources(List.of()).setBlockers(List.of(new MesTeamLeaderActiveOrderReleaseBlocker()
-                        .setBlockerType("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"))));
-        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
-        assertTrue(error.getMessage().contains("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"));
+                        .setBlockerType("LOSS_REPLENISHMENT_SOURCE_INVALID"))));
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("LOSS_REPLENISHMENT_SOURCE_INVALID"));
+        org.mockito.Mockito.verifyNoInteractions(backfillMapper);
+    }
+
+    @Test
+    void completionPreservesEveryLossBlockerAndItsProcessingEvidence() {
+        var unbound = new MesTeamLeaderActiveOrderReleaseBlocker()
+                .setBlockerType("LOSS_REPLENISHMENT_MATERIAL_UNBOUND")
+                .setFieldCode("materialCode")
+                .setObjectType("REPLENISHMENT_ITEM").setObjectId("379").setObjectCode("SIM-COPY-BL")
+                .setReason("补料物料尚未关联所属工序").setSuggestion("请在订单详情签名关联");
+        var unsigned = new MesTeamLeaderActiveOrderReleaseBlocker()
+                .setBlockerType("LOSS_SIGNATURE_REQUIRED").setObjectType("PROCESS").setObjectId("101")
+                .setRouteProcessId(101L).setProcessId(1L).setReason("正式损耗签名不完整")
+                .setSuggestion("请核对正式损耗签名");
+        when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
+                .setProcessSources(List.of()).setBlockers(List.of(unbound, unsigned)));
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+        var response = cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowExceptionAdvice.toResult(error);
+        assertTrue(response.getCode() != 0);
+        var blockers = response.getData().getBlockers();
+        assertEquals(2, blockers.size());
+        assertEquals(unbound.getReason(), blockers.get(0).getReason());
+        assertEquals(unbound.getSuggestion(), blockers.get(0).getSuggestion());
+        assertEquals("379", blockers.get(0).getObjectId());
+        assertEquals("SIM-COPY-BL", blockers.get(0).getObjectCode());
+        assertEquals(unbound.getFieldCode(), blockers.get(0).getFieldCode());
+        assertEquals(101L, blockers.get(1).getRouteProcessId());
         org.mockito.Mockito.verifyNoInteractions(backfillMapper);
     }
 

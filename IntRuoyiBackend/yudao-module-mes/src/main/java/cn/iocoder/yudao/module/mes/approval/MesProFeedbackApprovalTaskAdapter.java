@@ -115,13 +115,6 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
         };
         Map<Long, MesProFeedbackDO> candidates = new LinkedHashMap<>();
         rows.forEach(row -> candidates.put(requireFeedbackId(row), row));
-        if (context.getViewType() == ApprovalTaskViewType.DONE && !context.isGlobalView()) {
-            List<Long> reviewedIds = formalReviewProjection.reviewedFeedbackIds(context.getLoginUserId());
-            if (!reviewedIds.isEmpty()) {
-                feedbackMapper.selectUnifiedFormalApprovalSources(reviewedIds, context.getKeyword()).stream()
-                        .forEach(row -> candidates.put(requireFeedbackId(row), row));
-            }
-        }
         List<MesProFeedbackDO> ordered = candidates.values().stream()
                 .sorted(Comparator.comparing(MesProFeedbackDO::getId).reversed()).toList();
         Map<Long, MesFeedbackFormalReviewProjection.Fact> formal = formalReviewProjection.read(ordered);
@@ -130,15 +123,13 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
         for (MesProFeedbackDO row : ordered) {
             MesFeedbackFormalReviewProjection.Fact fact = formal.get(row.getId());
-            boolean done = fact == null ? isApprovalDone(row) : fact.reviewed();
+            // Production review belongs to report management, in every approval-center view.
+            if (fact != null) continue;
+            boolean done = isApprovalDone(row);
             if (context.getViewType() == ApprovalTaskViewType.TODO && done
                     || context.getViewType() == ApprovalTaskViewType.DONE && !done) continue;
-            if (fact != null && context.getViewType() != ApprovalTaskViewType.MY_INITIATED
-                    && !context.isGlobalView()
-                    && !Objects.equals(context.getLoginUserId(), fact.reviewed()
-                    ? fact.reviewerId() : row.getApproveUserId())) continue;
             total++;
-            if (window.limit() > 0) summaries.add(fact == null ? toSummary(row) : toFormalSummary(row, fact));
+            if (window.limit() > 0) summaries.add(toSummary(row));
         }
         if (window.limit() == 0) return new PageResult<>(List.of(), total);
         return window.slice(
@@ -166,26 +157,6 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
             throw new IllegalStateException("MES_FEEDBACK_TIMELINE_ACCESS_DENIED: " + feedbackId);
         }
         return buildFormalTimeline(feedback, fact);
-    }
-
-    private ApprovalTaskSummary toFormalSummary(MesProFeedbackDO feedback, MesFeedbackFormalReviewProjection.Fact fact) {
-        ApprovalTaskSummary summary = toSummary(feedback);
-        String status = fact.reviewed() ? fact.review().getReviewStatus() : "PENDING";
-        summary.setBusinessStatus(!fact.reviewed() ? "待生产组长复核" : "APPROVED".equals(status) ? "生产复核通过" : "生产复核驳回")
-                .setCurrentNodeCode(status).setCurrentNodeName("生产组长报工复核")
-                .setAssigneeUserId(fact.reviewed() ? fact.reviewerId() : feedback.getApproveUserId())
-                .setInitiatedAt(fact.event().getServerSubmitTime()).setTaskCreatedAt(fact.event().getServerSubmitTime())
-                .setTaskCompletedAt(fact.reviewed() ? fact.review().getReviewedAt() : null)
-                .setApprovalResult(!fact.reviewed() ? null : "APPROVED".equals(status)
-                        ? ApprovalTaskReviewResult.APPROVE : ApprovalTaskReviewResult.REJECT)
-                .setApprovalRemark(fact.reviewed() ? fact.review().getReviewRemark() : null)
-                .setAvailableActions(PROCESS_ACTIONS)
-                .setDetailRoute("/mes/pro/process-pool/production-leader")
-                .setDetailQuery(Map.of("eventId", String.valueOf(fact.event().getId())))
-                .setBusinessContextTags(fact.reviewed()
-                        ? List.of("生产事件 " + fact.event().getId(), "复核签名 " + fact.review().getReviewSignatureId())
-                        : List.of("生产事件 " + fact.event().getId()));
-        return summary;
     }
 
     private List<ApprovalTaskTimelineEntry> buildFormalTimeline(MesProFeedbackDO feedback,

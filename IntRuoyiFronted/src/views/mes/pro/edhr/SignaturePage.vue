@@ -21,10 +21,8 @@
         @quick-filter-query="signatureQuickFilter.applyQuickFilter"
         @column-change="saveSignatureColumnConfig"
         @pagination="getList"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="list = $event"
-        :list-rows="list"
-        @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -229,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ContentWrap } from '@/components/ContentWrap'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -330,6 +328,7 @@ const resolveInitialExecutionId = () => {
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   executionId: resolveInitialExecutionId() as string | number | undefined,
@@ -384,11 +383,15 @@ const formatSnapshotValue = (value?: string | number | null) => {
 
 const formatSignatureSignedAt = (signedAt?: string | number | Date) => formatEdhrDateTime(signedAt, '')
 
+let signatureRequestSequence = 0
 const getList = async () => {
+  const request = ++signatureRequestSequence
+  const isCurrent = () => request === signatureRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrExecutionSignaturePage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       executionId: parsePositiveRouteQueryId(queryParams.executionId) || undefined,
@@ -399,14 +402,18 @@ const getList = async () => {
       processInstanceId: queryParams.processInstanceId?.trim() || undefined,
       bpmTaskId: queryParams.bpmTaskId?.trim() || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 签名记录加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -426,24 +433,6 @@ const openExecution = async (row: EdhrSignatureSummaryVO) => {
 }
 
 onMounted(() => getList())
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize,
-    executionId: parsePositiveRouteQueryId(queryParams.executionId) || undefined,
-    executionCode: queryParams.executionCode?.trim() || undefined,
-    actionType: queryParams.actionType,
-    actorId: Number.isFinite(queryParams.actorId) ? queryParams.actorId : undefined,
-    actorName: queryParams.actorName?.trim() || undefined,
-    processInstanceId: queryParams.processInstanceId?.trim() || undefined,
-    bpmTaskId: queryParams.bpmTaskId?.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrExecutionSignaturePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

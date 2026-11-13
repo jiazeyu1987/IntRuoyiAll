@@ -180,10 +180,11 @@
         v-model:limit="queryParams.pageSize"
         @update:quick-filter-state="handleQuickFilterStateUpdate"
         @pagination="getHistoryList"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="historyList = $event"
-        :list-rows="historyList"
-        @column-filter-reset="getHistoryList"
+        server-filter
+        :server-filter-query="getHistoryList"
+
+
+
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
@@ -283,7 +284,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -473,15 +475,13 @@ const loadStatus = async () => {
   }
 }
 
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { historyLoading.value = value }, { flush: 'sync' })
 const getHistoryList = async () => {
-  historyLoading.value = true
-  try {
-    const data = await getBackupPlanHistoryPage(queryParams)
-    historyList.value = data.list || []
-    total.value = data.total || 0
-  } finally {
-    historyLoading.value = false
-  }
+  return await listPageRequest.run(() => getBackupPlanHistoryPage({ ...queryParams }), data => {
+    historyList.value = data.list
+    total.value = data.total
+  })
 }
 
 const loadAll = async () => {
@@ -557,34 +557,14 @@ const openBackupDetail = (row: BackupPlanBackupPointVO) => {
 
 onMounted(loadAll)
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getBackupPlanHistoryPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
-  {
-    key: 'backupId',
-    label: '生成时间',
-    type: 'text',
-    getValue: (row) => [formatBackupGeneratedTime(row)].join(' ')
-  },
-  {
-    key: 'recoverabilityStatus',
-    label: '结果',
-    type: 'text',
-    getValue: (row) => [row.recoverabilityStatus === 'RECOVERABLE' ? '成功' : '需检查'].join(' ')
-  },
-  {
-    key: 'recoverabilityStatus',
-    label: '是否可恢复',
-    type: 'text',
-    getValue: (row) =>
-      [row.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复'].join(' ')
-  }
+  { key: 'generatedTime', label: '生成时间', type: 'text', getValue: formatBackupGeneratedTime },
+  { key: 'backupMode', label: '类型', type: 'text', getValue: formatBackupType },
+  { key: 'backupChain', label: '备份链', type: 'text', getValue: formatBackupChain },
+  { key: 'result', label: '结果', type: 'text', getValue: row => row.recoverabilityStatus === 'RECOVERABLE' ? '成功' : '需检查' },
+  { key: 'recoverabilityStatus', label: '是否可恢复', type: 'text', getValue: row => row.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复' },
+  { key: 'manifestPath', label: '保存位置', type: 'text', getValue: formatBackupStorageLabel }
 ])
 </script>
 

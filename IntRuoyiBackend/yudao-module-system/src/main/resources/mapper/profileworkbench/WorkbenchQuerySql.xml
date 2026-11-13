@@ -7,7 +7,7 @@
 <bind name="queryValidated" value="q.validated()"/>
 <choose>
 <!-- An unfiltered total validates uniqueness and counts the same business rows in one scan. -->
-<when test="q.visibilityFilter.partition == null and q.taskType == null and q.filterField == null">
+<when test="q.visibilityFilter.partition == null and q.taskType == null and q.filterField == null and (q.listFilters == null or q.listFilters == '')">
 SELECT CASE WHEN COUNT(*)=COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))
  THEN COUNT(*) ELSE NULL END
 FROM (<include refid="${baseRef}"/>) r
@@ -38,7 +38,7 @@ FROM (<include refid="${baseRef}"/>) b
 </where>
 </sql>
 <!-- Keep optional boundaries adjacent: JSQLParser treats consecutive blank lines as an end of statement. -->
-<sql id="conditions"><if test="q.taskType != null">AND CAST(CONVERT(r.task_type USING utf8mb4) AS BINARY)=CAST(CONVERT(#{q.taskType} USING utf8mb4) AS BINARY)</if><if test="q.filterField != null and q.filterValue != ''">
+<sql id="conditions"><if test="q.listFilters != null and q.listFilters != '' and !q.listFilterWrapper.emptyOfNormal">AND (${q.listFilterWrapper.sqlSegment})</if><if test="q.taskType != null">AND CAST(CONVERT(r.task_type USING utf8mb4) AS BINARY)=CAST(CONVERT(#{q.taskType} USING utf8mb4) AS BINARY)</if><if test="q.filterField != null and q.filterValue != ''">
 AND <choose><when test="q.filterOperator == 'eq'"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>=CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY)</when>
 <when test="q.filterOperator == 'contains'">LOCATE(CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY),<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>) &gt; 0</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose></if><if test="q.visibilityFilter.partition != null">
 AND <if test="q.visibilityFilter.partition == 'visible'">NOT</if> EXISTS(

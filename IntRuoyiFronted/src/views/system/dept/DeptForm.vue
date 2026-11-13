@@ -79,7 +79,7 @@ const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const formData = ref({
   id: undefined,
   title: '',
-  parentId: undefined,
+  parentId: undefined as number | undefined,
   name: undefined,
   sort: undefined,
   leaderUserId: undefined,
@@ -101,12 +101,15 @@ const userList = ref<UserApi.UserVO[]>([]) // 用户列表
 const existingSupervisor = ref<DeptApi.DeptSupervisorVO>()
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (type: string, id?: number, parentId?: number) => {
   dialogVisible.value = true
   dialogTitle.value = t('action.' + type)
   formType.value = type
   resetForm()
   existingSupervisor.value = undefined
+  if (type === 'create' && parentId !== undefined) {
+    formData.value.parentId = parentId
+  }
   // 修改时，设置数据
   if (id) {
     formLoading.value = true

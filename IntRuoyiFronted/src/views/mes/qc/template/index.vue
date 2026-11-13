@@ -12,10 +12,8 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -170,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -192,6 +190,7 @@ const loading = ref(true) // 列表的加载中
 const list = ref<QcTemplateVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined,
@@ -264,13 +263,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    QcTemplateApi.getTemplatePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

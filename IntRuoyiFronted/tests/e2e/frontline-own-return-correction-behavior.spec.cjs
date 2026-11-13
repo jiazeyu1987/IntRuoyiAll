@@ -47,7 +47,9 @@ test('actual dialog template compiles and neither frontline screen offers the re
   const walk = node => [node, ...(node.children || []).flatMap(walk)]
   const buttons = walk(parent.template.ast).filter(n => n.type === 1 && n.props.some(p => p.type === 6 && p.name === 'data-frontline-own-return-entry'))
   assert.equal(buttons.length, 0)
-  assert.doesNotMatch(parent.template.content, /退回待修改/)
+  assert.match(parent.template.content, /复核状态：{{ pqcReviewLabel }}/)
+  assert.match(parent.template.content, /退回待修改 {{ pqcReviewCounts.returned }}/)
+  assert.match(parent.template.content, /FrontlineReturnCorrectionPanel v-if="!isPqcMode"/)
   for (const marker of ['data-pqc-fullscreen-toggle', 'data-production-fullscreen-toggle']) {
     assert.ok(walk(parent.template.ast).some(n => n.type === 1 && n.tag === 'button' && n.props.some(p => p.type === 6 && p.name === marker)))
   }
@@ -61,7 +63,7 @@ test('production home action retains readable 18px text after the actual stage s
   const scale = vue.ref(1)
   const actualStyle = Function('computed', 'productionViewportScale', 'PRODUCTION_CANVAS_WIDTH', 'PRODUCTION_CANVAS_HEIGHT',
     `return ${declaration.initializer.getText(ast)}`)(vue.computed, scale, 1920, 1080)
-  assert.match(parent.styles[0].content, /\.frontline-production-stage \.frontline-return-actions > button\s*\{\s*font-size:\s*var\(--frontline-production-return-action-font-size\)/)
+  assert.match(fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/feedback/frontlineFixedTemplate.scss'), 'utf8'), /\.frontline-production-stage \.frontline-return-actions > button\s*\{\s*font-size:\s*var\(--frontline-production-return-action-font-size\)/)
   for (const value of [1, 0.5, 0.7]) {
     scale.value = value
     assert.ok(Math.abs(parseFloat(actualStyle.value['--frontline-production-return-action-font-size']) * value - 18) < 0.001)

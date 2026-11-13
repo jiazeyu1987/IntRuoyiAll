@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -348,14 +350,18 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     default PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> selectPqcReleasePage(
             PageParam pageParam, Long tenantId, Long actorUserId, String viewStatus,
-            String workOrderCode, String batchCode, Long applicationId, Long pqcReleaseWorkTaskId) {
+            String workOrderCode, String batchCode, Long applicationId, Long pqcReleaseWorkTaskId, String managementBlocker) {
         if (pageParam == null || tenantId == null || actorUserId == null || viewStatus == null) {
             throw new IllegalArgumentException("PQC release page query is incomplete");
         }
         IPage<MesProcessPoolActiveOrderReleaseApplicationDO> page =
                 new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
         selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode,
-                applicationId, pqcReleaseWorkTaskId);
+                applicationId, pqcReleaseWorkTaskId, managementBlocker,
+                ListFilterQueryUtils.wrapper(pageParam, java.util.Map.ofEntries(java.util.Map.entry("workOrderCode",text("CONCAT(COALESCE(a.work_order_code,'--'), ' ',COALESCE(a.batch_code,'--'))")),
+                        java.util.Map.entry("applicationId",text("CONCAT(a.id, ' ', COALESCE(DATE_FORMAT(a.applied_at,'%Y-%m-%d %H:%i:%s'), '--'))")),
+                        java.util.Map.entry("releaseStatusDisplay",text("CONCAT(CASE WHEN role_config.view_status = 'PENDING' THEN CASE WHEN display_review.review_status = 'pending_review' THEN '评审中' WHEN display_review.disposition = 'concession_release' THEN '待让步签字' ELSE '待放行' END WHEN role_config.view_status = 'COMPLETED' THEN CASE WHEN display_review.review_status = 'closed' AND display_review.closed_at >= a.applied_at AND display_review.disposition = 'void' OR a.application_status = 'BATCH_VOIDED' THEN '已作废' WHEN display_review.review_status = 'closed' AND display_review.closed_at >= a.applied_at AND display_review.disposition = 'rework' THEN '已返工' WHEN display_review.review_status = 'closed' AND display_review.closed_at >= a.applied_at AND display_review.disposition = 'concession_release' THEN '已让步放行' ELSE '已放行' END ELSE CASE role_config.view_status WHEN 'RELEASED' THEN '已放行' WHEN 'VOIDED' THEN '已作废' WHEN 'REWORKED' THEN '已返工' WHEN 'CONCESSION_RELEASED' THEN '已让步放行' END END, ' ', CASE WHEN display_review.review_status = 'pending_review' THEN 'QA评审中' ELSE '' END)")),
+                        java.util.Map.entry("nonconformanceReason",text("CONCAT(COALESCE(display_review.nonconformance_reason,''), ' ', COALESCE(DATE_FORMAT(display_review.closed_at,'%Y-%m-%d %H:%i:%s'),'--'), ' ', COALESCE(role_config.blocker_reason,'管理者代表未配置'), ' ', CASE WHEN role_config.view_status = 'PENDING' AND role_config.blocker_reason IS NOT NULL THEN '请为当前租户的管理者代表角色分配启用账号后刷新列表' ELSE '' END)")))));
         return new PageResult<>(page.getRecords(), page.getTotal());
     }
 
@@ -397,6 +403,8 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "            AND (next_round.id IS NULL OR round_r.frozen_at &lt; next_round.applied_at)",
             "          ORDER BY round_r.id DESC LIMIT 1",
             "       )",
+            "LEFT JOIN mes_pro_edhr_nonconformance_review display_review ON display_review.id = COALESCE((SELECT c.id FROM mes_pro_edhr_nonconformance_review c WHERE c.tenant_id = a.tenant_id AND c.deleted = 0 AND c.source_type = 'PQC_RELEASE' AND c.source_id = a.id ORDER BY c.id DESC LIMIT 1), (SELECT c.id FROM mes_pro_edhr_nonconformance_review c WHERE c.tenant_id = a.tenant_id AND c.deleted = 0 AND c.source_type = 'ACTIVE_ORDER' AND c.active_order_id = a.active_order_id AND (a.applied_at IS NULL OR COALESCE(c.frozen_at,c.closed_at,c.create_time) &gt;= a.applied_at) AND COALESCE(c.frozen_at,c.closed_at,c.create_time) IS NOT NULL AND (next_round.id IS NULL OR COALESCE(c.frozen_at,c.closed_at,c.create_time) &lt; next_round.applied_at) ORDER BY c.id DESC LIMIT 1))",
+            "CROSS JOIN (SELECT #{managementBlocker} AS blocker_reason, #{viewStatus} AS view_status) role_config",
             "WHERE a.tenant_id = #{tenantId} AND a.deleted = 0",
             "  AND CONCAT(',', REPLACE(COALESCE(t.candidate_user_snapshot, ''), ' ', ''), ',')",
             "      LIKE CONCAT('%,', #{actorUserId}, ',%')",
@@ -451,6 +459,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "      )))",
             "  </when>",
             "</choose>",
+            "<if test='ew != null and !ew.emptyOfNormal'> AND (${ew.sqlSegment}) </if>",
             "ORDER BY a.id DESC",
             "</script>"
     })
@@ -462,7 +471,9 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             @Param("workOrderCode") String workOrderCode,
             @Param("batchCode") String batchCode,
             @Param("applicationId") Long applicationId,
-            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId);
+            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId,
+            @Param("managementBlocker") String managementBlocker,
+            @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filters);
 
     /** Page decoration deliberately retains its historical frozen/closed/create timestamp semantics. */
     @Select({

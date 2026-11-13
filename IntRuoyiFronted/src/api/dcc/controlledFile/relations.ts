@@ -25,6 +25,16 @@ export const getProjectReferenceUsage = async (selectedFileId: string) => {
   })
   return validateReferenceUsageSummary(result, id)
 }
+/** One bounded request per visible page; every result must match the requested exact version. */
+export const getProjectReferenceUsageBatch = async (selectedFileIds: string[]) => {
+  const ids = selectedFileIds.map(referenceIdentity)
+  if (!ids.length || ids.length > 200 || new Set(ids).size !== ids.length)
+    throw new Error('引用计数批量查询身份无效')
+  const result = await request.post({ url: '/dcc/project-file-references/usage-batch',
+    data: { selectedFileIds: ids }, ignoreErrorMessage: true })
+  if (!Array.isArray(result) || result.length !== ids.length) throw new Error('引用计数批量响应不完整')
+  return result.map((row, index) => validateReferenceUsageSummary(row, ids[index]))
+}
 export const getProjectReferenceUsagePage = async (
   context: ReferenceUsageContext,
   pageNo: number,

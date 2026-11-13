@@ -11,10 +11,11 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="listColumnFilterDefinitions0"
@@ -115,7 +116,8 @@
   <LoginLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -144,15 +146,13 @@ const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
 
 /** 查询列表 */
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { loading.value = value }, { flush: 'sync' })
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await LoginLogApi.getLoginLogPage(queryParams)
+  return await listPageRequest.run(() => LoginLogApi.getLoginLogPage({ ...queryParams }), data => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 /** 搜索按钮操作 */
@@ -197,13 +197,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    LoginLogApi.getLoginLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

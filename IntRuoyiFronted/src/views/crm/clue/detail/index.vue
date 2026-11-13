@@ -37,9 +37,7 @@
           @quit-team="close"
         />
       </el-tab-pane>
-      <el-tab-pane label="操作日志">
-        <OperateLogV2 :log-list="logList" />
-      </el-tab-pane>
+      
     </el-tabs>
   </el-col>
 
@@ -57,8 +55,8 @@ import PermissionList from '@/views/crm/permission/components/PermissionList.vue
 import CrmTransferForm from '@/views/crm/permission/components/TransferForm.vue'
 import FollowUpList from '@/views/crm/followup/index.vue'
 import { BizTypeEnum } from '@/api/crm/permission'
-import type { OperateLogVO } from '@/api/system/operatelog'
-import { getOperateLogPage } from '@/api/crm/operateLog'
+
+
 
 defineOptions({ name: 'CrmClueDetail' })
 
@@ -76,7 +74,7 @@ const getClue = async () => {
   loading.value = true
   try {
     clue.value = await ClueApi.getClue(clueId.value)
-    await getOperateLog()
+    
   } finally {
     loading.value = false
   }
@@ -103,14 +101,8 @@ const handleTransform = async () => {
 }
 
 /** 获取操作日志 */
-const logList = ref<OperateLogVO[]>([]) // 操作日志列表
-const getOperateLog = async () => {
-  const data = await getOperateLogPage({
-    bizType: BizTypeEnum.CRM_CLUE,
-    bizId: clueId.value
-  })
-  logList.value = data.list
-}
+ // 操作日志列表
+
 
 const close = () => {
   delView(unref(currentRoute))

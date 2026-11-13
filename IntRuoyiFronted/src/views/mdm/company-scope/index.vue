@@ -29,10 +29,8 @@
       @quick-filter-query="companyScopeQuickFilter.applyQuickFilter"
       @column-change="saveCompanyScopeColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -140,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -173,6 +171,7 @@ const formRules: FormRules = {
   name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }]
 }
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   keyword: undefined as string | undefined,
@@ -227,6 +226,7 @@ const getList = async () => {
     list.value = []
     total.value = 0
     message.error(loadError.value)
+    throw error
   } finally {
     loading.value = false
   }
@@ -281,14 +281,6 @@ const companyScopeQuickFilter = useTableQuickFilter(
   'mdm.companyScope.main', companyScopeQuickFilterDefinitions, queryParams, getList
 )
 onMounted(() => { void getList() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getOwnedCompanyPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

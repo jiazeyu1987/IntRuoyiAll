@@ -5,48 +5,63 @@ const { test } = require('node:test')
 const ts = require('typescript')
 const root = path.resolve(__dirname, '../..')
 const component = fs.readFileSync(path.join(root, 'src/views/mes/pro/route/RouteReleaseOwners.vue'), 'utf8')
-const helper = fs.readFileSync(path.join(root, 'src/views/mes/pro/route/routeReleaseOwners.ts'), 'utf8')
-const js = ts.transpileModule(helper, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
-const exportsObject = {}
-Function('exports', js)(exportsObject)
-const { loadReleaseOwner } = exportsObject
-const role = { id: 23, code: 'MES_PQC_RELEASE_OWNER', name: 'PQC负责人', status: 0 }
+const api = fs.readFileSync(path.join(root, 'src/api/mes/pro/route/index.ts'), 'utf8')
 
-test('two cards match the authoritative production and market release role codes', () => {
-  assert.match(component, /label: '生产放行', code: 'MES_PQC_RELEASE_OWNER'/)
-  assert.match(component, /label: '上市放行', code: 'MES_MANAGEMENT_REPRESENTATIVE'/)
-  assert.doesNotMatch(component, /saveEdhrRouteReleaseApprovalRule|具体人员/)
-  for (const [file, code] of [
-    ['processpool/team/MesTeamLeaderActiveOrderReleaseGenerationService.java', 'PQC_RELEASE_OWNER'],
-    ['productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java', 'MANAGEMENT_REPRESENTATIVE']
-  ]) {
-    const source = fs.readFileSync(path.join(root, '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro', file), 'utf8')
-    assert.ok(source.includes(`MesProductionReleaseRoleCodes.${code}`))
+function createPanel(getReleaseOwner) {
+  const script = component.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  const js = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  const requireMock = name => {
+    if (name === 'vue') return { ref: value => ({ value }), onMounted: () => {} }
+    assert.equal(name, '@/api/mes/pro/route')
+    return { ProRouteApi: { getReleaseOwner } }
   }
+  return Function('require', 'exports', js + '\nreturn { owners, loading, loadOwners }')(requireMock, {})
+}
+
+test('panel uses the business endpoint and distinguishes loading failure', () => {
+  assert.doesNotMatch(component, /api\/system|loadReleaseOwner\(/)
+  assert.match(api, /url: '\/mes\/pro\/route\/release-owner'/)
+  assert.match(component, /owner\.error \? '加载失败'/)
 })
 
-test('uses exact role code and loads all member pages for the selected role', async () => {
-  const users = Array.from({ length: 101 }, (_, id) => ({ id }))
-  const result = await loadReleaseOwner(role.code,
-    async () => ({ list: [{ ...role, id: 99, code: role.code + '_OTHER' }, role], total: 2 }),
-    async query => {
-      assert.equal(query.roleId, role.id)
-      return { list: users.slice((query.pageNo - 1) * 100, query.pageNo * 100), total: 101 }
-    })
-  assert.equal(result.role.id, role.id)
-  assert.equal(result.users.length, 101)
-})
-
-test('missing, duplicate and disabled roles fail before members are read', async () => {
-  for (const list of [[], [role, role], [{ ...role, status: 1 }]]) {
-    await assert.rejects(loadReleaseOwner(role.code, async () => ({ list, total: list.length }),
-      async () => assert.fail('invalid role must not load members')))
+test('both formal roles display all members including disabled accounts', async () => {
+  const codes = []
+  const users = Array.from({ length: 101 }, (_, id) => ({ id, status: id === 100 ? 1 : 0 }))
+  const panel = createPanel(async code => {
+    codes.push(code)
+    return { role: { id: 23, name: code }, users }
+  })
+  await panel.loadOwners()
+  assert.deepEqual(codes, ['MES_PQC_RELEASE_OWNER', 'MES_MANAGEMENT_REPRESENTATIVE'])
+  for (const owner of panel.owners.value) {
+    assert.equal(owner.role.name, owner.code)
+    assert.equal(owner.users.length, 101)
+    assert.equal(owner.users[100].status, 1)
+    assert.equal(owner.error, '')
   }
+  assert.equal(panel.loading.value, false)
 })
 
-test('failed requests propagate and empty roles remain unassigned', async () => {
-  await assert.rejects(loadReleaseOwner(role.code, async () => { throw new Error('无权限') }, async () => {}), /无权限/)
-  await assert.rejects(loadReleaseOwner(role.code, async () => ({ list: [role], total: 1 }), async () => { throw new Error('用户加载失败') }), /用户加载失败/)
-  const result = await loadReleaseOwner(role.code, async () => ({ list: [role], total: 1 }), async () => ({ list: [], total: 0 }))
-  assert.deepEqual(result.users, [])
+test('one failure preserves the other card and refresh clears stale errors', async () => {
+  let failed = true
+  const panel = createPanel(async code => {
+    if (failed && code === 'MES_PQC_RELEASE_OWNER') throw new Error('默认权限角色已停用：PQC负责人')
+    return { role: { id: 23, name: code }, users: [] }
+  })
+  await panel.loadOwners()
+  assert.match(panel.owners.value[0].error, /已停用/)
+  assert.equal(panel.owners.value[0].role, undefined)
+  assert.ok(panel.owners.value[1].role)
+  failed = false
+  await panel.loadOwners()
+  assert.equal(panel.owners.value[0].error, '')
+  assert.ok(panel.owners.value[0].role)
+  assert.deepEqual(panel.owners.value[0].users, [])
+})
+
+test('request failures remain explicit for both cards', async () => {
+  const panel = createPanel(async () => { throw new Error('没有该操作权限') })
+  await panel.loadOwners()
+  assert.ok(panel.owners.value.every(owner => owner.error === '没有该操作权限'))
+  assert.equal(panel.loading.value, false)
 })

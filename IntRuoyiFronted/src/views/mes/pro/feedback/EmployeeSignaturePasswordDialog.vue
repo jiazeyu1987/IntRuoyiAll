@@ -5,9 +5,9 @@
     <p>当前方式：{{ currentType === 'PIN' ? '六位 PIN 码' : currentType === 'PASSWORD' ? '签名密码' : '读取中' }}。修改设置须验证当前签名凭据。</p>
     <el-form v-loading="loading" label-width="130px" @submit.prevent>
       <el-form-item label="签名方式"><el-radio-group v-model="credentialType" :disabled="loading || saving || !currentType"><el-radio value="PIN">六位 PIN 码</el-radio><el-radio value="PASSWORD">签名密码</el-radio></el-radio-group></el-form-item>
-      <el-form-item label="当前签名凭据"><el-input v-model="currentPassword" type="password" show-password autocomplete="off" :placeholder="currentType === 'PIN' ? '请输入当前六位 PIN 码' : '请输入当前签名密码'" /></el-form-item>
-      <el-form-item label="新 PIN 码"><el-input v-model="newPin" type="password" show-password inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="留空保留当前 PIN 码" /></el-form-item>
-      <el-form-item label="确认新 PIN 码"><el-input v-model="confirmPin" type="password" show-password inputmode="numeric" maxlength="6" autocomplete="new-password" /></el-form-item>
+      <el-form-item label="当前签名凭据"><SignatureCredentialInput v-if="currentType" v-model="currentPassword" :credential-type="currentType" password-label="签名密码" :disabled="loading || saving" /></el-form-item>
+      <el-form-item label="新 PIN 码"><PinCodeInput v-model="newPin" :disabled="loading || saving" /></el-form-item>
+      <el-form-item label="确认新 PIN 码"><PinCodeInput v-model="confirmPin" :disabled="loading || saving" /></el-form-item>
       <el-form-item label="新签名密码"><el-input v-model="newPassword" type="password" show-password autocomplete="new-password" placeholder="留空保留当前签名密码" /></el-form-item>
       <el-form-item label="确认新密码"><el-input v-model="confirmation" type="password" show-password autocomplete="new-password" /></el-form-item>
     </el-form>
@@ -20,6 +20,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import PinCodeInput from '@/components/SignatureCredentialInput/PinCodeInput.vue'
 import { changeEmployeeSignaturePassword, getEmployeeSignatureQualification, type EmployeeSignatureScope } from '@/api/mes/pro/employeeSignatureCredential'
 const props = defineProps<{ scope?: EmployeeSignatureScope; employeeName: string; disabled: boolean }>()
 const message = useMessage()
@@ -63,6 +65,7 @@ const save = async () => {
   try {
     await changeEmployeeSignaturePassword({ ...props.scope, currentPassword: currentPassword.value, credentialType: credentialType.value,
       ...(newPassword.value ? { newPassword: newPassword.value } : {}), ...(newPin.value ? { newPin: newPin.value } : {}) })
+    window.dispatchEvent(new Event('signature-settings-changed'))
     visible.value = false; message.success('签名设置已更新，请按所选方式提交。')
   } catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
   finally { currentPassword.value = ''; newPassword.value = ''; confirmation.value = ''; newPin.value = ''; confirmPin.value = ''; saving.value = false }

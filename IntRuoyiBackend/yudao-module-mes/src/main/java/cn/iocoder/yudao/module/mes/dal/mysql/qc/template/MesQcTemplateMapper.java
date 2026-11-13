@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.qc.template;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtils;
@@ -17,6 +18,19 @@ import java.util.List;
  */
 @Mapper
 public interface MesQcTemplateMapper extends BaseMapperX<MesQcTemplateDO> {
+
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("name", ListFilterQueryUtils.text("name")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator")),
+            java.util.Map.entry("types", ListFilterQueryUtils.textCollection("REPLACE(types, ',', ' ')", "SELECT 1 FROM JSON_TABLE(CONCAT('[',types,']'), '$[*]' COLUMNS (value VARCHAR(20) PATH '$')) jt WHERE 1=1", "jt.value"))
+    );
+
+
 
     default PageResult<MesQcTemplateDO> selectPage(MesQcTemplatePageReqVO reqVO) {
         LambdaQueryWrapperX<MesQcTemplateDO> query = new LambdaQueryWrapperX<MesQcTemplateDO>()

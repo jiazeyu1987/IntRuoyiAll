@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -74,6 +75,15 @@ public class BusinessApprovalPolicyController {
     public CommonResult<BusinessApprovalPolicyRespVO> savePolicy(
             @Valid @RequestBody BusinessApprovalPolicySaveReqVO reqVO) {
         return success(policyService.savePolicy(reqVO));
+    }
+
+    @DeleteMapping("/{policyId}")
+    @Operation(summary = "删除平台业务审批策略草稿")
+    // 未发布草稿的清理沿用草稿创建权限；已发布及停用版本由服务层禁止删除。
+    @PreAuthorize("@ss.hasPermission('bpm:business-approval-policy:create')")
+    public CommonResult<Boolean> deleteDraftPolicy(@PathVariable("policyId") Long policyId) {
+        policyService.deleteDraftPolicy(policyId);
+        return success(true);
     }
 
     @PostMapping("/{policyId}/publish")

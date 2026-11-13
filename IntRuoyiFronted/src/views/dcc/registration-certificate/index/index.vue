@@ -31,10 +31,8 @@
             @pagination="loadPage"
             v-model:sort-state="currentSortState"
             @sort-change="handleCurrentSortChange"
-            :load-filter-rows="loadColumnFilterRows0"
-            @filtered-rows="list = $event"
-            :list-rows="list"
-            @column-filter-reset="loadPage"
+            server-filter
+            :server-filter-query="loadPage"
             :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
@@ -272,10 +270,8 @@
             @pagination="loadOldIndexPage"
             v-model:sort-state="oldSortState"
             @sort-change="handleOldSortChange"
-            :load-filter-rows="loadColumnFilterRows1"
-            @filtered-rows="oldList = $event"
-            :list-rows="oldList"
-            @column-filter-reset="loadOldIndexPage"
+            server-filter
+            :server-filter-query="loadOldIndexPage"
             :column-filter-definitions="listColumnFilterDefinitions1"
           >
             <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -438,7 +434,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
 import CategoryFilters from '../shared/CategoryFilters.vue'
 import MyApplications from '../upload/MyApplications.vue'
@@ -491,8 +488,10 @@ const REGISTRATION_CERTIFICATE_MANAGER_ROLE = 'dcc_registration_certificate_appr
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
 const activeTab = ref<'current' | 'old' | 'test' | 'applications'>('current')
-const loading = ref(false)
-const oldLoading = ref(false)
+const currentRequest = useLatestListRequest()
+const oldRequest = useLatestListRequest()
+const loading = currentRequest.loading
+const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
@@ -518,8 +517,8 @@ type RegistrationCertificateSortChange = RegistrationCertificateSortState & {
   column?: unknown
 }
 
-const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
-const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
+const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10, listFilters: undefined as string | undefined })
+const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10, listFilters: undefined as string | undefined })
 const currentSortState = ref<RegistrationCertificateSortState>({})
 const oldSortState = ref<RegistrationCertificateSortState>({})
 const canUploadRegistrationCertificate = computed(() =>
@@ -853,25 +852,17 @@ const syncRegistrationCertificateQueryFromRoute = () => {
 }
 
 const loadPage = async () => {
-  loading.value = true
-  try {
-    const page = await getRegistrationCertificatePage(queryParams)
+  await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
     list.value = page.list
     total.value = page.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const loadOldIndexPage = async () => {
-  oldLoading.value = true
-  try {
-    const page = await getRegistrationCertificateOldIndexPage(oldQueryParams)
+  await oldRequest.run(() => getRegistrationCertificateOldIndexPage({ ...oldQueryParams }), (page) => {
     oldList.value = page.list
     oldTotal.value = page.total
-  } finally {
-    oldLoading.value = false
-  }
+  })
 }
 
 const applyRegistrationCertificateSort = (
@@ -1062,13 +1053,6 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getRegistrationCertificatePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -1097,13 +1081,6 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows1 = async () => {
-  const params = { ...oldQueryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getRegistrationCertificateOldIndexPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
   {

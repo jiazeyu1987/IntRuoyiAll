@@ -9,10 +9,9 @@
       v-model:page="localPageNo"
       :total="pageTotal"
       @pagination="emitPageChange"
-      :load-filter-rows="loadColumnFilterRows0"
-      :list-rows="awards"
-      @filtered-rows="emit('filteredRows', $event)"
-      @column-filter-reset="emitPageChange"
+      server-filter
+      :query-model="queryModel"
+      :server-filter-query="serverFilterQuery"
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -89,7 +88,8 @@ defineOptions({ name: 'AwardListTable' })
 
 const props = defineProps<{
   awards: ShowroomAwardPageRowRespVO[]
-  loadFilterRows: () => Promise<ShowroomAwardPageRowRespVO[]>
+  queryModel: { pageNo: number; listFilters?: string }
+  serverFilterQuery: () => Promise<unknown>
   loading?: boolean
   generatingCoverAwardId?: number | null
   keyword?: string
@@ -100,7 +100,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   search: [keyword: string]
-  filteredRows: [rows: ShowroomAwardPageRowRespVO[]]
   pageChange: [pagination: { pageNo: number; pageSize: number }]
   edit: [award: ShowroomAwardPageRowRespVO]
   generateCover: [award: ShowroomAwardPageRowRespVO]
@@ -128,10 +127,6 @@ const resetSearch = () => {
 }
 const emitPageChange = () => {
   emit('pageChange', { pageNo: localPageNo.value, pageSize: localPageSize.value })
-}
-
-const loadColumnFilterRows0 = async () => {
-  return props.loadFilterRows()
 }
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [

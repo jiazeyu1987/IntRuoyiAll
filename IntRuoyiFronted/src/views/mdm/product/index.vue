@@ -18,10 +18,8 @@
       @quick-filter-query="handleQuery"
       @column-change="saveProductColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -325,7 +323,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules, UploadFile, UploadUserFile } from 'element-plus'
@@ -415,6 +413,7 @@ type MdmProductPageQuery = ProductApi.MdmProductPageReqVO & {
 }
 
 const queryParams = reactive<MdmProductPageQuery>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   productMasterId: undefined,
@@ -708,14 +707,6 @@ watch(
     await getList()
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProductApi.getProductPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
