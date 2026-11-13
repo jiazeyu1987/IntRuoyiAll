@@ -227,7 +227,7 @@ const props = withDefaults(
     multiFilterState?: ListMultiFilterState
     queryLoading?: boolean
     queryButtonAttrs?: Record<string, unknown>
-    resetFilters?: () => void | Promise<void>
+    resetFilters?: () => void | Promise<void | boolean>
     showMultiFilterOperators?: boolean
     columns?: UserTableColumnState[]
     columnSaving?: boolean

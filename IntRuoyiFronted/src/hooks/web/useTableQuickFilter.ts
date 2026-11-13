@@ -121,7 +121,7 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
   tableKey: string,
   filterDefinitions: MaybeRefOrGetter<TableQuickFilterDefinition[]>,
   queryParams: T,
-  reload: () => void | Promise<void>
+  reload: () => void | Promise<void | boolean>
 ) => {
   const definitions = computed(() => toValue(filterDefinitions))
   const state = reactive<TableQuickFilterState>({

@@ -41,6 +41,8 @@ declare global {
   }
 
   interface PageParam {
+    /** JSON encoded column filters, shared with the backend PageParam. */
+    listFilters?: string
     pageSize?: number
     pageNo?: number
   }

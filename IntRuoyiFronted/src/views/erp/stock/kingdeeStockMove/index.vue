@@ -228,6 +228,17 @@ const {
   saveConfig: saveStockMoveColumnConfig
 } = useUserTableColumns(STOCK_MOVE_TABLE_KEY, stockMoveDefaultColumns)
 
+const getBillDateRequestRange = () => {
+  if (!queryParams.billDate || queryParams.billDate.length !== 2) return undefined
+  return [`${queryParams.billDate[0]} 00:00:00`, `${queryParams.billDate[1]} 23:59:59`]
+}
+
+const getList = () => listRequest.run(
+  () => ErpKingdeeStockMoveApi.getStockMovePage({ ...queryParams, billDate: getBillDateRequestRange() }),
+  (data) => { list.value = data.list; total.value = data.total }
+)
+
+
 const {
   state: stockMoveQuickFilterState,
   selectedDefinition: stockMoveSelectedFilterDefinition,
@@ -242,17 +253,6 @@ const {
 )
 
 const firstItem = (row: ErpKingdeeStockMoveVO) => row.items?.[0]
-
-const getBillDateRequestRange = () => {
-  if (!queryParams.billDate || queryParams.billDate.length !== 2) return undefined
-  return [`${queryParams.billDate[0]} 00:00:00`, `${queryParams.billDate[1]} 23:59:59`]
-}
-
-const getList = () => listRequest.run(
-  () => ErpKingdeeStockMoveApi.getStockMovePage({ ...queryParams, billDate: getBillDateRequestRange() }),
-  (data) => { list.value = data.list; total.value = data.total }
-)
-
 
 onMounted(getList)
 
