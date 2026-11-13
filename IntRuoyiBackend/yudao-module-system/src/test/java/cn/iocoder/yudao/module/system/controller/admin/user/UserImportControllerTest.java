@@ -14,6 +14,38 @@ import static org.mockito.Mockito.*;
 
 class UserImportControllerTest {
     @Test
+    void unsupportedAndAmbiguousHeadersDoNotInvokeService() {
+        for (List<String> headers : List.of(List.of("姓名", "邮箱"),
+                List.of("登录名称", "用户名称", "用户昵称"))) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            FastExcelFactory.write(output).sheet("用户").doWrite(List.of(headers,
+                    java.util.Collections.nCopies(headers.size(), "operator01")));
+            assertRejected(output.toByteArray(), "表头不匹配");
+        }
+    }
+
+    @Test
+    void exportedXlsReadsAccountNicknameAndStatusByHeaderEvenWhenReordered() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        FastExcelFactory.write(output).excelType(cn.idev.excel.support.ExcelTypeEnum.XLS)
+                .sheet("用户").doWrite(List.of(
+                        List.of("用户昵称", "帐号状态", "用户名称", "用户编号"),
+                        List.of("操作员", "关闭", "xujianhai", "9001")));
+        UserController controller = new UserController();
+        AdminUserService service = mock(AdminUserService.class);
+        ReflectionTestUtils.setField(controller, "userService", service);
+        try (var dict = mockStatic(cn.iocoder.yudao.framework.dict.core.DictFrameworkUtils.class)) {
+            dict.when(() -> cn.iocoder.yudao.framework.dict.core.DictFrameworkUtils.parseDictDataValue("common_status", "关闭"))
+                    .thenReturn("1");
+            controller.importExcel(new MockMultipartFile("file", output.toByteArray()), false);
+            verify(service).importUserList(argThat(rows -> rows.size() == 1
+                    && "xujianhai".equals(rows.get(0).getUsername())
+                    && "操作员".equals(rows.get(0).getNickname())
+                    && Integer.valueOf(1).equals(rows.get(0).getStatus())), eq(false));
+        }
+    }
+
+    @Test
     void headerOnlyWorkbookDoesNotInvokeService() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         FastExcelFactory.write(output, UserImportExcelVO.class).sheet("用户").doWrite(List.of());
@@ -64,6 +96,7 @@ class UserImportControllerTest {
                         && rows.get(0).getDeptId().equals(7L)
                         && rows.get(0).getSex().equals(1)
                         && rows.get(0).getStatus().equals(0)
+                        && rows.get(0).getNickname().equals("操作员")
                         && rows.get(0).getUsername().equals("operator_01")), eq(true));
             }
         }

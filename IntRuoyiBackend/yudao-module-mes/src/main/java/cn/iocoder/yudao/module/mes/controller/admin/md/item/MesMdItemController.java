@@ -254,7 +254,10 @@ public class MesMdItemController {
                         item.setItemOrProduct(itemType.getItemOrProduct());
                     });
             MapUtils.findAndThen(unitMeasureMap, item.getUnitMeasureId(),
-                    unitMeasure -> item.setUnitMeasureName(unitMeasure.getName()));
+                    unitMeasure -> {
+                        item.setUnitMeasureName(unitMeasure.getName());
+                        item.setUnitMeasureCode(unitMeasure.getCode());
+                    });
             MapUtils.findAndThen(productMasterMap, item.getProductMasterId(),
                     productMaster -> item.setProductMasterCode(productMaster.getProductCode()));
         });

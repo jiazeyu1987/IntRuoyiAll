@@ -349,10 +349,45 @@ public class UserController {
                 throw ServiceExceptionUtil.invalidParamException(
                         "用户导入文件格式错误或文件已损坏，请使用用户导入模板");
             }
-            list = FastExcelFactory.read(input, UserImportExcelVO.class, null)
-                    .excelType(format == FileMagic.OLE2
-                            ? ExcelTypeEnum.XLS : ExcelTypeEnum.XLSX)
-                    .autoCloseStream(false).doReadAllSync();
+            ExcelTypeEnum excelType = format == FileMagic.OLE2 ? ExcelTypeEnum.XLS : ExcelTypeEnum.XLSX;
+            List<Map<Integer, String>> headers = new java.util.ArrayList<>();
+            // 两种正式文件的“用户名称”含义不同，必须先按表头确定格式，不能逐行猜测账号。
+            FastExcelFactory.read(input, new cn.idev.excel.event.AnalysisEventListener<Map<Integer, String>>() {
+                @Override
+                public void invokeHeadMap(Map<Integer, String> head, cn.idev.excel.context.AnalysisContext context) {
+                    headers.add(head);
+                }
+
+                @Override
+                public void invoke(Map<Integer, String> row, cn.idev.excel.context.AnalysisContext context) { }
+
+                @Override
+                public void doAfterAllAnalysed(cn.idev.excel.context.AnalysisContext context) { }
+
+                @Override
+                public boolean hasNext(cn.idev.excel.context.AnalysisContext context) {
+                    return headers.isEmpty();
+                }
+            }).excelType(excelType).autoCloseStream(false).sheet(0).doRead();
+            var columns = headers.isEmpty() ? List.<String>of() : headers.get(0).values();
+            boolean template = columns.contains("登录名称") && columns.contains("用户名称")
+                    && !columns.contains("用户昵称");
+            boolean exported = columns.contains("用户名称") && columns.contains("用户昵称")
+                    && !columns.contains("登录名称");
+            if (!template && !exported) {
+                throw ServiceExceptionUtil.invalidParamException(
+                        "用户导入表头不匹配：请上传用户导入模板（登录名称、用户名称）或导出用户文件（用户名称、用户昵称）");
+            }
+            try (InputStream rows = file.getInputStream()) {
+                if (exported) {
+                    List<UserRespVO> users = FastExcelFactory.read(rows, UserRespVO.class, null)
+                            .excelType(excelType).autoCloseStream(false).doReadAllSync();
+                    list = convertExportedUsersForImport(users);
+                } else {
+                    list = FastExcelFactory.read(rows, UserImportExcelVO.class, null)
+                            .excelType(excelType).autoCloseStream(false).doReadAllSync();
+                }
+            }
         } catch (ExcelAnalysisException | IOException
                  | org.apache.poi.openxml4j.exceptions.NotOfficeXmlFileException ex) {
             var error = ServiceExceptionUtil.invalidParamException(
@@ -365,6 +400,29 @@ public class UserController {
                     cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_IMPORT_LIST_IS_EMPTY);
         }
         return list;
+    }
+
+    private List<UserImportExcelVO> convertExportedUsersForImport(List<UserRespVO> users) {
+        // 导出中的部门名称属于源环境，不使用源部门编号关联目标租户。
+        Map<String, List<DeptDO>> departments = users.stream()
+                .anyMatch(user -> user.getDeptName() != null && !user.getDeptName().isBlank())
+                ? deptService.getDeptList(new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO())
+                    .stream().collect(java.util.stream.Collectors.groupingBy(DeptDO::getName))
+                : Map.of();
+        return users.stream().map(user -> {
+            UserImportExcelVO row = cn.iocoder.yudao.framework.common.util.object.BeanUtils
+                    .toBean(user, UserImportExcelVO.class);
+            if (user.getDeptName() != null && !user.getDeptName().isBlank()) {
+                List<DeptDO> matches = departments.getOrDefault(user.getDeptName(), List.of());
+                if (matches.size() != 1) {
+                    throw ServiceExceptionUtil.invalidParamException("用户[" + user.getUsername() + "]的部门["
+                            + user.getDeptName() + "]在目标租户中" + (matches.isEmpty() ? "不存在" : "存在重名")
+                            + "，请先完善部门或使用导入模板明确填写目标部门编号");
+                }
+                row.setDeptId(matches.get(0).getId());
+            }
+            return row;
+        }).toList();
     }
 
     @PostMapping("/import-dingtalk")

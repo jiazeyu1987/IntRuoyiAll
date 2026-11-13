@@ -174,8 +174,9 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         }
     }
 
-    private void validateItemTypeExists(Long itemTypeId) {
-        if (itemTypeService.getItemType(itemTypeId) == null) {
+    private MesMdItemTypeDO validateItemTypeExists(Long itemTypeId) {
+        MesMdItemTypeDO itemType = itemTypeService.getItemType(itemTypeId);
+        if (itemType == null) {
             throw exception(MD_ITEM_TYPE_NOT_EXISTS);
         }
         // 校验必须是叶子分类（没有子分类）
@@ -183,6 +184,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         if (CollUtil.isNotEmpty(children)) {
             throw exception(MD_ITEM_TYPE_NOT_LEAF);
         }
+        return itemType;
     }
 
     private void validateUnitMeasureExists(Long unitMeasureId) {
@@ -317,7 +319,13 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             // 2.2 校验分类是否存在
             Long productMasterId;
             try {
-                validateItemTypeExists(importItem.getItemTypeId());
+                MesMdItemTypeDO itemType = validateItemTypeExists(importItem.getItemTypeId());
+                // 跨环境导入时，源分类编号不能指向目标环境的另一个分类。
+                if (StrUtil.isNotBlank(importItem.getItemTypeName())
+                        && !java.util.Objects.equals(importItem.getItemTypeName(), itemType.getName())) {
+                    respVO.getFailureCodes().put(key, "物料分类编号与名称不一致，请填写目标环境的正确分类编号");
+                    return;
+                }
                 productMasterId = resolveProductMasterId(importItem.getProductMasterCode());
             } catch (ServiceException ex) {
                 respVO.getFailureCodes().put(key, ex.getMessage());

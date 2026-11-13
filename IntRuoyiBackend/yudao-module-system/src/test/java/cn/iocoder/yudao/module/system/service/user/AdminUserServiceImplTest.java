@@ -137,6 +137,43 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportExportedUsers_persistsTargetDepartmentAndHonorsUpdateSupport() throws Exception {
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        ReflectionTestUtils.setField(controller, "deptService", deptService);
+        DeptDO targetDept = new DeptDO();
+        targetDept.setId(80L);
+        targetDept.setName("生产部");
+        when(deptService.getDeptList(any(cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO.class)))
+                .thenReturn(List.of(targetDept));
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        var output = new java.io.ByteArrayOutputStream();
+        cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
+                List.of("用户名称", "用户昵称", "部门名称"),
+                List.of("departmentuser01", "操作员", "生产部")));
+        var file = new org.springframework.mock.web.MockMultipartFile("file", output.toByteArray());
+
+        var created = controller.importExcel(file, false).getData();
+        assertEquals(List.of("departmentuser01"), created.getCreateUsernames());
+        AdminUserDO stored = userMapper.selectByUsername("departmentuser01");
+        assertEquals(80L, stored.getDeptId());
+        assertEquals("操作员", stored.getNickname());
+        // BaseDbUnitTest 未安装生产环境的租户插入拦截器，补齐本条测试记录的租户归属。
+        stored.setTenantId(1L);
+        userMapper.updateById(stored);
+
+        targetDept.setId(81L);
+        var rejected = controller.importExcel(file, false).getData();
+        assertEquals(USER_USERNAME_EXISTS.getMsg(), rejected.getFailureUsernames().get("departmentuser01"));
+        assertEquals(80L, userMapper.selectById(stored.getId()).getDeptId());
+
+        var updated = controller.importExcel(file, true).getData();
+        assertEquals(List.of("departmentuser01"), updated.getUpdateUsernames());
+        assertEquals(81L, userMapper.selectById(stored.getId()).getDeptId());
+        verify(deptService, atLeastOnce()).validateDeptList(argThat(ids -> ids.contains(81L)));
+    }
+
+    @Test
     public void testCreatUser_success() {
         // 准备参数
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
