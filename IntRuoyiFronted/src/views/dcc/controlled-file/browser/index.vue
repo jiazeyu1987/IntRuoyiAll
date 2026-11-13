@@ -449,6 +449,9 @@
                 >
                   撤销检出
                 </el-button>
+                <el-button v-if="canOpenCheckoutMaintenance(row)"
+                  data-testid="dcc-checkout-maintenance" link type="primary"
+                  @click="openCheckoutMaintenance(row)">维护详情</el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPreview"
                   link
@@ -1769,6 +1772,16 @@ const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
 
 const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(file.checkedOutBy && String(file.checkedOutBy) === String(userStore.getUser.id))
+
+const canOpenCheckoutMaintenance = (row: ControlledFileBrowserRow) =>
+  browserMode.value === 'working' && isValidBrowserOptionId(getSelectedVersion(row).id)
+  && !['OBSOLETE', 'SUPERSEDED'].includes(getSelectedVersion(row).status)
+  && getVersionOptions(row).some(isCheckedOutByCurrentUser)
+
+const openCheckoutMaintenance = (row: ControlledFileBrowserRow) => {
+  if (!canOpenCheckoutMaintenance(row)) return
+  openManagement(getSelectedVersion(row).id)
+}
 
 const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   file.canEditFile === true

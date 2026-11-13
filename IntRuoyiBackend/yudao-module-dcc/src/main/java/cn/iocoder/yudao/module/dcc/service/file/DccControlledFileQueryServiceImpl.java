@@ -201,13 +201,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (userId == null || tenant == null || TenantContextHolder.isIgnore() || file == null
                 || file.getId() == null || file.getMasterId() == null || Boolean.TRUE.equals(file.getDeleted())
                 || !Objects.equals(tenant, file.getTenantId()) || DccArchiveAccessService.isArchived(file)
-                || !Objects.equals(file.getCheckedOutBy(), userId)
                 || !DccAccessUserIdentity.isEnabledTenantUser(userId, adminUserApi.getUser(userId))) return false;
         var checkout = checkoutMapper.selectActiveByMasterIdForRead(tenant, file.getMasterId());
         return checkout != null && !Boolean.TRUE.equals(checkout.getDeleted())
                 && "ACTIVE".equals(checkout.getStatus()) && Objects.equals(tenant, checkout.getTenantId())
                 && Objects.equals(file.getMasterId(), checkout.getMasterId())
-                && Objects.equals(file.getId(), checkout.getBaseIterationId())
+                && checkout.getBaseIterationId() != null
                 && Objects.equals(userId, checkout.getActorId());
     }
 

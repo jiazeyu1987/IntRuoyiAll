@@ -73,10 +73,37 @@ class DccCheckoutDownloadTest {
         assertThrows(RuntimeException.class, () -> download(700L));
         verifyNoInteractions(fixture.storage);
     }
-    @Test void endedCheckoutAndAnotherVersionOfSameMasterAreDenied() {
+    @Test void endedAndMissingCheckoutAreDenied() {
         checkout.setStatus("CHECKED_IN");
         assertThrows(RuntimeException.class, () -> download(null));
-        checkout.setStatus("ACTIVE"); checkout.setBaseIterationId(19L);
+        checkout.setStatus("ACTIVE"); checkout.setBaseIterationId(null);
+        assertThrows(RuntimeException.class, () -> download(700L));
+        verifyNoInteractions(fixture.storage);
+    }
+    @Test void ownerDownloadsAnotherNonObsoleteVersionOfSameLogicalFile() {
+        fixture.file.setCheckedOutBy(null);
+        checkout.setBaseIterationId(21L);
+        assertTrue(fixture.service.canDownloadCheckedOutVersion(99L, fixture.file));
+        assertEquals("source.docx", download(null).fileName());
+    }
+    @Test void ownerDownloadsExactAttachmentsOfAnotherNonObsoleteVersion() {
+        fixture.file.setCheckedOutBy(null);
+        checkout.setBaseIterationId(21L);
+        assertEquals("notes.json", download(700L).fileName());
+        verify(fixture.attachments).getAttachment(20L, 700L);
+    }
+    @Test void anotherMasterOrTenantNeverInheritsCheckoutAuthorization() {
+        checkout.setMasterId(701L);
+        assertThrows(RuntimeException.class, () -> download(null));
+        checkout.setMasterId(700L); checkout.setTenantId(2L);
+        assertThrows(RuntimeException.class, () -> download(700L));
+        verifyNoInteractions(fixture.storage);
+    }
+    @Test void missingOrDeletedLogicalCheckoutDeniesBothDownloads() {
+        checkout.setDeleted(true);
+        assertThrows(RuntimeException.class, () -> download(null));
+        when(((DccControlledFileCheckoutMapper)fixture.port("checkoutMapper"))
+                .selectActiveByMasterIdForRead(1L, 700L)).thenReturn(null);
         assertThrows(RuntimeException.class, () -> download(700L));
         verifyNoInteractions(fixture.storage);
     }
@@ -88,14 +115,12 @@ class DccCheckoutDownloadTest {
         }
         verifyNoInteractions(fixture.storage);
     }
-    @Test void tenantDeletionAndReleasedFileLockAreDenied() {
+    @Test void tenantDeletionAndIgnoreContextAreDenied() {
         fixture.file.setTenantId(2L);
         assertThrows(RuntimeException.class, () -> download(null));
         fixture.file.setTenantId(1L); fixture.file.setDeleted(true);
         assertThrows(RuntimeException.class, () -> download(null));
-        fixture.file.setDeleted(false); fixture.file.setCheckedOutBy(null);
-        assertThrows(RuntimeException.class, () -> download(null));
-        fixture.file.setCheckedOutBy(99L); TenantContextHolder.setIgnore(true);
+        fixture.file.setDeleted(false); TenantContextHolder.setIgnore(true);
         assertThrows(RuntimeException.class, () -> download(null));
         verifyNoInteractions(fixture.storage);
     }

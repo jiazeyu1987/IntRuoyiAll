@@ -19,7 +19,7 @@ test('only the current maintenance detail with server checkout authority exposes
   assert.equal(allowed({ isWorkingBrowserDetailCurrent: { value: false } }), false)
   assert.equal(allowed({ fileDetail: { value: { canDownloadCheckedOut: false } } }), false)
 })
-for (const name of ['index.vue', 'ControlledFileAttachments.vue']) {
+for (const name of ['index.vue', 'ControlledFileAttachments.vue', '../browser/index.vue']) {
   test(`${name} compiles after wiring checkout Word and attachment downloads`, () => {
     const filename = new URL(`../src/views/dcc/controlled-file/detail/${name}`, import.meta.url).pathname
     const { descriptor, errors } = parse(readFileSync(new URL(`../src/views/dcc/controlled-file/detail/${name}`, import.meta.url), 'utf8'), { filename })
@@ -54,4 +54,32 @@ test('existing download-body action chooses Word for own checkout even without o
 test('More menu reuses Download body without a separate checkout Word item', () => {
   assert.match(detail, /v-if="checkoutDownloadAllowed \|\| controlledDownloadAllowed"[^>]+handleDetailMoreCommand\('download-body'\)[^>]*>下载正文/)
   assert.doesNotMatch(detail, />下载检出 Word<\//)
+})
+
+const browser = readFileSync(new URL('../src/views/dcc/controlled-file/browser/index.vue', import.meta.url), 'utf8')
+const maintenanceRule = browser.match(/const canOpenCheckoutMaintenance = \(row: ControlledFileBrowserRow\) =>([\s\S]*?)\r?\n\r?\nconst openCheckoutMaintenance/)[1]
+const maintenanceAllowed = ({ mode = 'working', selected = { id: '20', status: 'WORKING' }, owner = '99' } = {}) => {
+  const context = { browserMode: { value: mode }, isValidBrowserOptionId: id => /^[1-9]\d*$/.test(id),
+    getSelectedVersion: () => selected, getVersionOptions: () => [{ id: '21', checkedOutBy: owner }],
+    isCheckedOutByCurrentUser: file => String(file.checkedOutBy) === '99', row: {} }
+  return new Function(...Object.keys(context), `return (${maintenanceRule})`)(...Object.values(context))
+}
+test('checkout owner can enter selected draft and active maintenance from working browser only', () => {
+  assert.equal(maintenanceAllowed(), true)
+  assert.equal(maintenanceAllowed({ selected: { id: '20', status: 'ACTIVE' } }), true)
+  assert.equal(maintenanceAllowed({ owner: '88' }), false)
+  assert.equal(maintenanceAllowed({ owner: null }), false)
+  assert.equal(maintenanceAllowed({ mode: 'controlled' }), false)
+  assert.equal(maintenanceAllowed({ selected: { id: '20', status: 'OBSOLETE' } }), false)
+  assert.equal(maintenanceAllowed({ selected: { id: '20', status: 'SUPERSEDED' } }), false)
+})
+test('maintenance opens the selected iteration instead of the old working route identity', () => {
+  const handler = browser.match(/const openCheckoutMaintenance = \(row: ControlledFileBrowserRow\) => \{([\s\S]*?)\r?\n\}/)[1]
+  const opened = []
+  new Function('row', 'canOpenCheckoutMaintenance', 'openManagement', 'getSelectedVersion', handler)(
+    {}, () => true, id => opened.push(id), () => ({ id: '2054545668044084629' }))
+  assert.deepEqual(opened, ['2054545668044084629'])
+  new Function('row', 'canOpenCheckoutMaintenance', 'openManagement', 'getSelectedVersion', handler)(
+    {}, () => false, id => opened.push(id), () => ({ id: 'other' }))
+  assert.deepEqual(opened, ['2054545668044084629'])
 })
