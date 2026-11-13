@@ -3950,6 +3950,13 @@ const currentSignerLabel = computed(() => {
   return user?.nickname || user?.username || '-'
 })
 const actionDialogSubmitFlowText = computed(() => {
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL') {
+    if (actionDialog.mode === 'reject') {
+      return '本轮审批结束，保留正文、意见和签名记录。申请人修改后重新提交，开启新一轮审批。'
+    }
+    // 批准合同可能要求全部或任一批准人完成，提交前不按人数预测下一节点。
+    return '提交后按本轮批准规则及实际进度流转，请以本次签名提交结果为准。'
+  }
   if (actionDialog.mode === 'reject') {
     return '驳回后由申请人修改并重新提交。'
   }
@@ -4605,6 +4612,9 @@ const approvalActionLabels = computed(() => {
   }
 })
 const actionDialogTitle = computed(() => {
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL') {
+    return actionDialog.mode === 'reject' ? '会签批准驳回' : '会签批准通过'
+  }
   if (canShowSignoffAssignment.value && actionDialog.mode === 'reject') return '部门负责人驳回'
   if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW') {
     return actionDialog.mode === 'reject' ? '会签驳回' : '会签通过'
@@ -7360,10 +7370,22 @@ const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
 
 const buildActionSuccessMessage = (
   mode: DccApprovalActionMode,
-  response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response']
+  response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response'],
+  taskDefinitionKey?: string
 ) => {
   const actionText = mode === 'approve' ? '本次审批已通过并签名' : '本次任务已驳回并签名'
   if (!response) return actionText
+  if (taskDefinitionKey === 'MATRIX_APPROVAL') {
+    if (mode === 'approve' && response.nextStatus === 'PENDING_MATRIX_APPROVAL') {
+      return `${actionText}；等待其他批准人完成批准。`
+    }
+    if (mode === 'approve' && response.nextStatus === 'PENDING_DOC_CONTROL_REVIEW') {
+      return `${actionText}；下一节点：文控审核`
+    }
+    if (mode === 'reject' && response.nextStatus === 'REJECTED') {
+      return `${actionText}；本轮审批结束，保留正文、意见和签名记录。申请人修改后重新提交，开启新一轮审批。`
+    }
+  }
   const status = getDccControlledFileStatusLabel(response.nextStatus as DccControlledFileStatus)
   return `${actionText}；当前状态：${status}`
 }
@@ -7373,6 +7395,7 @@ const readActionDialogRequest = () => ({
   contextKey: actionDialogContextKey.value,
   fileId: controlledFileId.value,
   taskId: String(approvalTodoTask.value?.id || ''),
+  taskDefinitionKey: approvalTodoTask.value?.taskDefinitionKey,
   processInstanceId: approvalProcessInstanceId.value,
   action: actionDialog.mode,
   fileNumber: fileDetail.value?.fileNumber || '',
@@ -7521,7 +7544,7 @@ const submitActionDialog = async () => {
       }
       return
     }
-    message.success(buildActionSuccessMessage(request.action, result.response))
+    message.success(buildActionSuccessMessage(request.action, result.response, request.taskDefinitionKey))
     const closed = await closeActionDialog(true)
     if (closed && actionDialogGeneration === request.generation + 1 && actionDialogContextKey.value === request.contextKey) {
       if (!await returnToCompletedTaskInbox()) await reloadAll()
