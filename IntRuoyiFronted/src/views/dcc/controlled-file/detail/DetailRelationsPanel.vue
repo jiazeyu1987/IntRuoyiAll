@@ -6,7 +6,8 @@
     <el-table
       v-if="selectedSource && !unavailableReason && files.length"
       :data="files"
-      empty-text="所选版本未关联文件"
+      data-user-table-column-explicit
+      empty-text="暂无关联文件"
       aria-label="所选版本固定关联集合"
     >
       <el-table-column prop="fileName" label="文件名称" />
@@ -28,7 +29,7 @@
         ></el-table-column
       >
     </el-table>
-    <p v-if="!loading && !error && !unavailableReason && selectedSource && !files.length">暂无关联文件。</p>
+    <p v-if="!loading && !error && !unavailableReason && selectedSource && !files.length">暂无关联文件</p>
     <el-dialog v-model="previewVisible" title="固定关联版本正文" width="88vw" destroy-on-close>
       <ProtectedPdfViewer
         v-if="previewSource"

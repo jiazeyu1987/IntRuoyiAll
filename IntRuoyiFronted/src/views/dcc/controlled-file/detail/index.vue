@@ -541,7 +541,7 @@
       :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
     <ContentWrap v-else-if="isApprovalUploadHandlingPage" class="dcc-detail-surface">
       <p class="font-600">关联文件</p>
-      <p>当前文件未绑定项目关联信息。</p>
+      <p>暂无关联文件</p>
     </ContentWrap>
 
     </section>
