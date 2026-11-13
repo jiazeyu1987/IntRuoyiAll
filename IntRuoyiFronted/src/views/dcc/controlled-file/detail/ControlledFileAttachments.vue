@@ -5,8 +5,9 @@
       <el-button v-else-if="attachments.length" size="small" @click="listVisible = true">附件（{{ attachments.length }}）</el-button>
       <span v-else-if="file" class="text-13px text-[var(--el-text-color-secondary)]">无附件</span>
     </template>
-    <el-dialog v-if="toolbar" v-model="listVisible" title="文件附件" width="720px" append-to-body>
-      <ControlledFileAttachments :file="file" :body-read-context="bodyReadContext" :context-error="contextError" compact />
+    <el-dialog v-if="toolbar" v-model="listVisible" title="文件附件" width="720px" append-to-body
+      @open="$emit('preview-open')" @closed="$emit('preview-close')">
+      <ControlledFileAttachments :file="file" :body-read-context="bodyReadContext" :context-error="contextError" :review="review" compact />
     </el-dialog>
     <template v-if="!toolbar">
     <div v-if="!compact || validationError || attachments.length" class="mb-12px flex items-center justify-between gap-12px">
@@ -31,9 +32,11 @@
       </el-table-column>
     </el-table>
     <p v-else-if="!validationError && file" class="text-13px text-[var(--el-text-color-secondary)]">{{ compact ? '无附件' : '暂无文件附件' }}</p>
-    <ProtectedPdfViewer v-if="inline && previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName" compact review-toolbar />
-    <el-dialog v-if="!inline" v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close>
-      <ProtectedPdfViewer v-if="previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName || '附件预览'" />
+    <ProtectedPdfViewer v-if="inline && previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName" compact hide-reading-details review-toolbar />
+    <el-dialog v-if="!inline" v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close append-to-body>
+      <ProtectedPdfViewer v-if="previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName || '附件预览'" :compact="review" :review-toolbar="review" :hide-reading-details="review">
+        <template #document-entry><span>附件：{{ selected?.fileName }}</span></template>
+      </ProtectedPdfViewer>
     </el-dialog>
     </template>
   </section>
@@ -50,7 +53,8 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean; review?: boolean }>()
+defineEmits<{ 'preview-open': []; 'preview-close': [] }>()
 const listVisible = ref(false)
 const userStore = useUserStoreWithOut()
 const actionError = ref(''), downloading = ref(''), selected = ref<ControlledFileAttachmentVO>(), previewVisible = ref(false)

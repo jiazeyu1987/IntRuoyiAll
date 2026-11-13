@@ -37,9 +37,9 @@
       <el-button size="small" aria-label="缩小" :disabled="!compactCanZoomOut" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.decreaseZoom() : handleZoomOut()">缩小</el-button>
       <span aria-live="polite">{{ compactZoomPercent }}%</span>
       <el-button size="small" aria-label="放大" :disabled="!compactCanZoomIn" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.increaseZoom() : handleZoomIn()">放大</el-button>
-      <el-button size="small" @click="expanded = !expanded">{{ expanded ? '退出放大预览' : '放大预览' }}</el-button>
       <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="旋转" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.rotatePreview() : handleRotateRight()">旋转</el-button>
       <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="复原" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.resetView() : handleResetViewerTransform()">复原</el-button>
+      <el-button size="small" @click="expanded = !expanded">{{ expanded ? '退出放大预览' : '放大预览' }}</el-button>
       <div v-if="reviewToolbar && resolvedWatermarkText" class="protected-preview-badge review-preview-badge" data-testid="protected-preview-badge">
         <span>{{ resolvedWatermarkLabel }}</span>
         <span class="protected-preview-badge__hint">禁止截图/外传</span>
@@ -426,7 +426,7 @@
       v-else-if="!loading && !errorMessage"
       description="暂无可预览的文件内容"
     />
-    <details v-if="hideReadingDetails && watermarkDetail" class="protected-viewer-trace-details">
+    <details v-if="hideReadingDetails && !reviewToolbar && watermarkDetail" class="protected-viewer-trace-details">
       <summary>预览追溯信息</summary>
       <div>{{ watermarkDetail }}</div>
       <div v-if="registeredPreviewVisible">本次预览登记时间：{{ registeredPreviewLabel }}</div>
@@ -2082,6 +2082,7 @@ watch(
 .protected-viewer-shell--compact .protected-viewer-toolbar { padding-bottom: 6px; margin-bottom: 0; }
 .protected-viewer-shell--compact.protected-viewer-shell--expanded { height: auto; }
 .protected-viewer-shell--review { height: auto; }
+.protected-viewer-shell--review.protected-viewer-shell--expanded { z-index: var(--el-index-popper); }
 .protected-viewer-shell--review .review-preview-badge { margin-left: auto; }
 .protected-viewer-shell--review > .protected-viewer-frame { max-height: 75vh; padding-bottom: 24px; }
 .protected-viewer-shell--review > :deep(.onlyoffice-viewer-shell) { flex: none; height: 75vh; min-height: 360px; }
