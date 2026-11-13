@@ -1670,7 +1670,7 @@
           @click="handleResetFixedSimulationActiveOrder"
         >
           <Icon icon="ep:refresh-right" class="mr-5px" />
-          重置
+          重置测试订单
         </el-button>
         <el-button class="app-test-button"
           v-if="testModeEnabled"
