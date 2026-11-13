@@ -34,11 +34,12 @@ const savedAttachmentFacts = () => ({
     { attachmentId: '9223372036854775702', controlledFileId: '11', fileName: 'Two.docx', attachmentPurpose: 'ATTACHMENT', sortNo: 1 }
   ]
 })
+const confirmationText = value => typeof value === 'string' ? value : value.props.sections.map(section => section.title + '：' + section.items.map(item => item.label + '：' + [].concat(item.value).join('、')).join('；')).join('；')
 const actual = { targetMarkets: ['CE'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' }
 const saved = { controlledFileId: '11', projectId: '5', applicationType: 'UPLOAD', defaultSource: actual, actual, effectiveMode: 'AFTER_STANDARDIZATION_SIGNATURE', effectiveDate: null, selectedSignoffDepartmentIds: ['7'], selectedDistributionDepartmentIds: ['8'], needTraining: false, changeDescription: '本次说明', canSubmit: true, unavailableReason: null, draftApprovalMatrix: matrixHelper.matrixFixture() }
 function host(overrides = {}) {
   const calls = { writes: [], events: [], confirmations: [], defaults: 0 }
-  const c = { exports: {}, Error, JSON, Promise, structuredClone, ...vue, ...departments, ...effects, ...matrixModule, approvalMatrixState: vue.ref(), getTenantId: () => '1', getVisitTenantId: () => undefined, validateAttributes: value => value,
+  const c = { exports: {}, Error, JSON, Promise, structuredClone, ...vue, ApplicationConfirmationContent: {}, ...departments, ...effects, ...matrixModule, approvalMatrixState: vue.ref(), getTenantId: () => '1', getVisitTenantId: () => undefined, validateAttributes: value => value,
     props: { file: { id: '11', masterId: '1', status: 'WORKING', versionNo: 'A/1', categoryId: 2, fileTypeTaxonomyId: '4', dccProjectCodeId: '5', revisionBaseActiveControlledFileId: '10', sourceOriginalFileName: 'source.pdf', fileNumber: 'SOP-1', categoryName: 'SOP' } },
     newActionPreparationEligible: vue.ref(false), preparedNewActionBaseline: vue.ref(false), newActionPreparationFacts: vue.ref(),
     generation: 0, selectionGeneration: 0, working: vue.ref(true), initial: vue.ref(true), opened: vue.ref(false), loading: vue.ref(false), busy: vue.ref(false), error: vue.ref(''), snapshot: vue.ref(), selectedApplicationFile: vue.ref(), revisionOptions: vue.ref(), preparationBlockers: vue.ref([]),
@@ -49,9 +50,9 @@ function host(overrides = {}) {
     listHistoricalRelations: async () => [], listCurrentRelations: async id => ({ sourceControlledFileId: id, files: [] }),
     getSimpleDeptList: async () => [{ id: 7, name: '会签甲', status: 0 }, { id: 8, name: '下发乙', status: 0 }], getSimpleUserList: async () => [{ id: 9, nickname: '批准丙', status: 0 }],
     checkControlledFileRouteReadiness: async () => matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [{ stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: ['7'] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ['9'], approveMethod: 'ALL' }] }),
-    ...versionDisplay, readApplicationOrdinaryAttachmentExpectation: revisions.readApplicationOrdinaryAttachmentExpectation,
+    ...versionDisplay, sameApplicationProjectAttributes: revisions.sameApplicationProjectAttributes, readApplicationOrdinaryAttachmentExpectation: revisions.readApplicationOrdinaryAttachmentExpectation,
     generateUUID: () => 'K', isWorkflowId: value => value === '11', buildInitialCommand: revisions.buildInitialCommand,
-    submitControlledFileWorkingIteration: async (id, payload) => { calls.writes.push({ id, payload }); return '11' }, emit: (...args) => calls.events.push(args), message: { success() {} }, ElMessageBox: { confirm: async content => calls.confirmations.push(content) }, ...overrides
+    submitControlledFileWorkingIteration: async (id, payload) => { calls.writes.push({ id, payload }); return '11' }, emit: (...args) => calls.events.push(args), message: { success() {} }, ElMessageBox: { confirm: async content => calls.confirmations.push(confirmationText(content)) }, ...overrides
   }
   c.props.file = { canEditFile: true, ...savedAttachmentFacts(), ...c.props.file }
   const code = ['isPublicMatrixExecution', 'applicationProjection', 'applicationFacts', 'applicationSelectionError', 'revisionApplicationBlocker', 'revisionApplicationReady', 'applicationMatrixScope', 'displaySavedNewAction', 'prepareNewActionBaseline', 'open', 'refreshPanelMatrix', 'preparePanelMatrix', 'confirmation', 'departmentSelectionKey', 'saveAttributes', 'readRevisionTargetVersion', 'submitRevision', 'submitInitial'].map(declaration).join('\n') + '\nexports={open,prepareNewActionBaseline,saveAttributes,submitInitial,submitRevision,applicationFacts,revisionApplicationReady,revisionApplicationBlocker};'
@@ -247,7 +248,7 @@ test('saved PUBLIC application shows approval groups from its exact original raw
 
 test('IC13 saved panel cancels exact before/after review without submitting or overwriting saved facts', async () => {
   const { c, calls } = host({ checkControlledFileRouteReadiness: async () => matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [{ stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ['9'], approveMethod: 'ALL' }] }, {}, 1, 2) })
-  await c.exports.open(); c.ElMessageBox.confirm = async content => { calls.confirmations.push(content); throw 'cancel' }
+  await c.exports.open(); c.ElMessageBox.confirm = async content => { calls.confirmations.push(confirmationText(content)); throw 'cancel' }
   await c.exports.submitInitial()
   assert.equal(calls.writes.length, 0); assert.equal(calls.confirmations.length, 1)
   assert.equal(c.effectiveMode.value, 'AFTER_STANDARDIZATION_SIGNATURE'); assert.deepEqual(Array.from(c.selectedDistributionDepartments.value), ['8'])
@@ -279,7 +280,7 @@ test('IC16 an already prepared different definition cannot be silently substitut
   const { c, calls } = host()
   await c.exports.open()
   c.ElMessageBox.confirm = async content => {
-    calls.confirmations.push(content)
+    calls.confirmations.push(confirmationText(content))
     const next = matrixHelper.matrixReadiness({ ready: true, nodes: [], blockers: [] })
     next.preparedProcessDefinitionId = 'dcc-controlled-file-upload:6:new-exact'
     next.preparedDefinitionDigest = 'b'.repeat(64)
@@ -348,7 +349,7 @@ test('PUBLIC initial confirmation shows its formal original approval group witho
 test('PUBLIC original group change during business confirmation is refused even when matrix expected fields stay the same', async () => {
   const { c, calls } = host()
   await c.exports.open()
-  c.ElMessageBox.confirm = async text => { calls.confirmations.push(text); c.approvalGroups.value[0].applied = false }
+  c.ElMessageBox.confirm = async text => { calls.confirmations.push(confirmationText(text)); c.approvalGroups.value[0].applied = false }
   await c.exports.submitInitial()
   assert.equal(calls.writes.length, 0)
   assert.match(c.error.value, /原组|批准组|配置.*变化/)
@@ -391,7 +392,7 @@ for (const intent of ['PARTIAL', 'REPLACEMENT']) {
     c.ElMessageBox.confirm = async () => { throw 'cancel' }
     await c.exports.prepareNewActionBaseline()
     assert.equal(c.exports.revisionApplicationReady.value, false)
-    c.ElMessageBox.confirm = async text => calls.confirmations.push(text)
+    c.ElMessageBox.confirm = async text => calls.confirmations.push(confirmationText(text))
     await c.exports.prepareNewActionBaseline()
     assert.equal(c.exports.revisionApplicationReady.value, intent === 'REPLACEMENT', c.error.value)
     assert.equal(saves, 0)

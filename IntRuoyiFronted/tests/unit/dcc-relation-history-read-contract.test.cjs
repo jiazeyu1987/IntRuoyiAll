@@ -35,12 +35,10 @@ test('cross-round, foreign-file, lossy stage identity and mixed member identitie
     await assert.rejects(load(evidence(r)).getControlledFileApplicationEvidence(file,'OBSOLETE',round))
   }
 })
-test('application history passes only the selected persisted round into readonly stage evidence',()=>{
+test('application history passes only selected evidence into consolidated approval records',()=>{
   const source=read('src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue')
-  const binding=source.match(/<DetailRelationStageEvidence\b[\s\S]*?\/>/)?.[0]
-  assert.ok(binding,'the actual history panel must bind the formal stage projection')
-  for(const prop of ['evidence','tenant-id','file-id','application-type','bpm-round','attribute-round','context-key'])
-    assert.match(binding,new RegExp(':'+prop+'='))
-  assert.match(binding,/evidence\.relationEvidence/)
+  const binding=source.match(/<DetailApprovalRecords\b[\s\S]*?\/>/)?.[0]
+  assert.ok(binding,'the actual history panel must bind its selected application evidence')
+  assert.match(binding,/:evidence="evidence"/)
   assert.doesNotMatch(binding,/currentActive|latestControlled/)
 })

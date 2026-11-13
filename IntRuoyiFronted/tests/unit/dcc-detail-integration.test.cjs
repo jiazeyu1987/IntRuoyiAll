@@ -10,6 +10,11 @@ const root = path.resolve(__dirname, '../..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const clone = value => JSON.parse(JSON.stringify(value))
 const attrs = market => ({ targetMarkets: [market], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' })
+// 申请规则按今天校验生效日期；固定单元测试时钟，使日期场景不随运行日期失效。
+class ApplicationTestDate extends Date {
+  constructor(...args) { super(...(args.length ? args : ['2026-10-20T12:00:00Z'])) }
+  static now() { return new Date('2026-10-20T12:00:00Z').getTime() }
+}
 const attributes = moduleFrom(read('src/views/dcc/controlled-file/project-attributes/state.ts'))
 const revision = moduleFrom(read('src/views/dcc/controlled-file/revision/revision-model.ts'), () => attributes)
 const uploadDepartments = moduleFrom(read('src/views/dcc/controlled-file/upload/signoff-departments.ts'))
@@ -21,7 +26,7 @@ const actionProjection = moduleFrom(read('src/api/form-center/actionProjection.t
 const lifecycle = moduleFrom(read('src/views/dcc/controlled-file/shared/lifecycle.ts'), () => actionProjection)
 function moduleFrom(source, resolve = id => { throw new Error(id) }) {
   const script = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  const context = { exports: {}, require: resolve, Error, Date, structuredClone,
+  const context = { exports: {}, require: resolve, Error, Date: ApplicationTestDate, structuredClone,
     useMessage: () => ({ success() {} }) }
   vm.runInNewContext(script, context)
   return context.exports
@@ -45,7 +50,7 @@ function mount(name, props, dependencies) {
 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const baseline = { id: 10, masterId: 100, dccProjectCodeId: 20, categoryId: 30, fileTypeTaxonomyId: 40, status: 'ACTIVE', versionNo: 'A/1', title: '说明.pdf',
-  attachments: [], ordinaryAttachmentManifestHash: 'a'.repeat(64) }
+  canEditFile: true, attachments: [], ordinaryAttachmentManifestHash: 'a'.repeat(64) }
 const draft = { controlledFileId: '12', projectId: '20', applicationType: 'UPLOAD', defaultSource: attrs('CE'), actual: attrs('FDA'), canSubmit: true,
   unavailableReason: null, effectiveMode: 'PRESET_DATE', effectiveDate: '2026-11-01', selectedDistributionDepartmentIds: ['50'], needTraining: false, selectedSignoffDepartmentIds: null, changeDescription: '初始申请', draftApprovalMatrix: matrixHelper.matrixFixture({ categoryId: '30', taxonomyId: '40', approvalIds: ['60'] }) }
 const options = { controlledBaselineId: '10', baselineVersionNo: 'A/1', masterId: '100', sourceOriginalFileName: '说明.pdf', partialTarget: { versionNo: 'A/2', unavailableReason: null }, replacementTarget: { versionNo: 'B/1', unavailableReason: null }, checkedOutBy: null, checkedOutByName: null, checkedOutTime: null, lockedReason: null, iterations: [
@@ -102,6 +107,32 @@ function application({ file = baseline, confirm = async () => true, readDraft = 
   })
   return { ...panel, requests, relationReads, defaultsReads: () => defaultsReads }
 }
+test('application preparation refuses absent or denied edit authorization before loading draft facts', async () => {
+  for (const canEditFile of [false, undefined]) {
+    let reads = 0
+    const panel = application({ file: { ...baseline, id: 12, status: 'WORKING', canEditFile },
+      readDraft: async () => { reads++; return clone(draft) } })
+    try {
+      await panel.state.open()
+      assert.equal(reads, 0)
+      assert.match(panel.state.error, /未获.*编辑授权/)
+      assert.equal(panel.state.opened, false)
+      assert.equal(panel.requests.length, 0)
+    } finally { panel.app.unmount() }
+  }
+})
+
+test('past preset effective date still blocks submission under the fixed test clock', async () => {
+  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' },
+    readDraft: async () => ({ ...clone(draft), effectiveDate: '2026-10-19', selectedSignoffDepartmentIds: ['50'] }) })
+  try {
+    await panel.state.open()
+    await panel.state.submitInitial()
+    assert.match(panel.state.error, /预设生效日期不能早于今天/)
+    assert.equal(panel.requests.length, 0)
+  } finally { panel.app.unmount() }
+})
+
 test('INITIAL preparation reads original draft actual/default separately and never replaces unknown departments with current matrix', async () => {
   const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' } })
   try {
@@ -189,21 +220,21 @@ test('a stale revision command with different effective mode or distribution ref
 
 test('revision confirmation reads the controlled baseline current relations actually frozen by submission', async () => {
   const shown = []
-  const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(text) })
+  const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)) })
   try {
     await panel.state.open(); await panel.state.selectIteration('12')
     const command = revision.buildRevisionCommand('10', '12', 'PARTIAL', '修订', 'key', panel.state.applicationFacts)
     await panel.state.submitRevision(command)
-    assert.match(shown[0], /正式冻结关联.pdf · B\/1/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
+    assert.match(shown[0], /正式冻结关联.pdf（版本 B\/1）/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
     assert.deepEqual(panel.relationReads, [{ mode: 'current', id: '10' }])
   } finally { panel.app.unmount() }
 })
 
 test('initial rework confirmation reads saved draft relations even when its detail DTO omits them', async () => {
-  const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text) })
+  const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)) })
   try {
     await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
-    assert.match(shown[0], /正式冻结关联.pdf · B\/1/)
+    assert.match(shown[0], /正式冻结关联.pdf（版本 B\/1）/)
     assert.deepEqual(panel.relationReads, [{ mode: 'history', id: '12' }])
     assert.equal(panel.requests.length, 1)
     assert.equal(panel.requests[0].payload.relatedFiles, undefined)
@@ -212,7 +243,7 @@ test('initial rework confirmation reads saved draft relations even when its deta
 
 test('unavailable or incomplete saved relations block confirmation instead of displaying an empty set', async () => {
   for (const response of [undefined, [{ fileName: 'missing-version.pdf' }], new Error('relation access denied')]) {
-    const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+    const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)),
       readRelations: async () => { if (response instanceof Error) throw response; return response } })
     try {
       await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
@@ -224,7 +255,7 @@ test('unavailable or incomplete saved relations block confirmation instead of di
 
 test('a saved relation response for a former draft cannot open a confirmation in another file context', async () => {
   const pending = deferred(), started = deferred(), shown = []
-  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)),
     readRelations: () => { started.resolve(); return pending.promise } })
   try {
     await panel.state.open(); panel.state.selectedDepartments = ['50']

@@ -1573,7 +1573,7 @@
       "source": "IntRuoyiFronted/src/views/system/user/index.vue",
       "kind": "permission",
       "value": "bpm:task:manager-query",
-      "reason": "已有用户管理页面在账号停用后自动打开交接确认，并保留账号行交接入口，复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+      "reason": "已有用户管理页面在账号停用后自动打开交接确认，并保留账号行交接入口，复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。 已有用户管理页面的主管待办交接入口复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
     },
     {
       "source": "IntRuoyiFronted/src/views/system/user/SupervisorHandoverDialog.vue",
@@ -2127,7 +2127,7 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
       "kind": "permission",
       "value": "dcc:project-code:update",
-      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。 内部浏览组件继续复用既有 dcc:project-code:update 维护项目文件夹；QMS、通用文件库的管理入口复用后端按现有两库编辑授权返回的 library.canEdit 和文件 canEditFile，不新增权限标识、独立菜单、路由或角色/套餐授权。管理操作沿用既有受控文件详情与审批流程。"
     },
     {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
@@ -3403,6 +3403,12 @@
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:review",
       "reason": "超限草稿为既有生产组长工作台内部组件，复用活跃订单查询及生产提交复核权限；服务按租户、原负责组长、员工范围、草稿版本及电子签名校验，不新增菜单、权限或角色及套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ReviewDocumentPreview.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/detail/ReviewDocumentPreview",
+      "reason": "受控文件已有详情和审批页面内的正文与附件切换组件，无独立菜单或路由；复用现有正文、附件查询及审批上下文授权，不新增权限标识、角色或租户套餐授权。"
     }
   ]
 }

@@ -1,74 +1,32 @@
 <template>
   <section data-testid="dcc-relation-stage-evidence">
-    <p class="font-600">本轮关联阶段证据</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="!error && (!projection || !projection.recorded)"
-      title="本轮签名关联阶段未记录"
-      type="info"
-      :closable="false"
-    />
-    <article v-for="stage in projection?.stages || []" :key="stage.snapshot.header.id">
-      <p class="font-600"
-        >{{ stageLabel(stage.snapshot.header.stageCode) }} · 义务
-        {{ stage.snapshot.header.obligationId }}</p
-      >
-      <p
-        >原义务部门：{{ obligationDepartmentName(stage.snapshot.header) }} · 当时签名人：{{
-          signatureFact(stage.snapshot.header.signatureId)?.actorNicknameSnapshot?.trim() ||
-          '未记录'
-        }}
-        · 签名人当时部门：{{
-          signatureFact(stage.snapshot.header.signatureId)?.actorDeptNameSnapshot?.trim() ||
-          '未记录'
-        }}</p
-      >
-      <p
-        >审计身份：义务部门 #{{ stage.snapshot.header.departmentId ?? '未记录' }} · 签名人 #{{
-          stage.snapshot.header.actorId
-        }}
-        · 服务器签名时间 {{ stage.snapshot.header.signedAt }}</p
-      >
-      <p
-        >DCC 签名投影 #{{ stage.snapshot.header.signatureId }} ·
-        {{ signatureLabel(stage.signatureEvidenceStatus) }} ·
-        {{ stage.signatureIdentityMatches ? '签名身份对应本节点' : '签名身份不匹配' }}</p
-      >
-      <p>{{ stage.snapshot.header.reason }}</p>
-      <el-table
-        :data="stage.snapshot.members"
-        :aria-label="`义务 ${stage.snapshot.header.obligationId} 当时完整关联集合`"
-      >
-        <el-table-column prop="fileNameSnapshot" label="当时关联文件" />
-        <el-table-column prop="fileNumberSnapshot" label="冻结编号" />
-        <el-table-column prop="versionNoSnapshot" label="固定所选版本"
-          ><template #default="{ row }">{{
-            getDccVersionDisplayText(row.versionNoSnapshot)
-          }}</template></el-table-column
-        >
-        <el-table-column label="本节点来源"
-          ><template #default="{ row }">{{
-            row.supplemental ? '本次补充' : row.origin === 'UPLOAD' ? '原上传选择' : '此前已签补充'
-          }}</template></el-table-column
-        >
-        <el-table-column label="整改安排"
-          ><template #default="{ row }">{{
-            row.assigneeUserId == null
-              ? '本节点未安排'
-              : `负责人 ${row.assigneeUserId} · 期限 ${row.dueAt}`
-          }}</template></el-table-column
-        >
-        <el-table-column label="正文"
-          ><template #default="{ row }"
-            ><el-button
-              link
-              :loading="readingId === row.selectedControlledFileId"
-              :disabled="Boolean(readingId)"
-              @click="openPreview(row)"
-              >查看固定版本</el-button
-            ></template
-          ></el-table-column
-        >
+    <p v-if="!error && !visibleStages.length">暂无关联阶段证据</p>
+    <article v-for="stage in visibleStages" :key="stage.snapshot.header.id">
+      <p v-if="!stage.signatureIdentityMatches">关联文件确认：签名身份不一致</p>
+      <p v-if="stage.signatureEvidenceStatus !== 'VALID'">关联文件确认：{{ signatureLabel(stage.signatureEvidenceStatus) }}</p>
+      <p v-if="!stage.snapshot.members.length">本节点未确认关联文件</p>
+      <el-table v-else :data="stage.snapshot.members" data-user-table-column-explicit aria-label="本节点确认的关联文件">
+        <el-table-column prop="fileNameSnapshot" label="文件名称" />
+        <el-table-column prop="fileNumberSnapshot" label="业务编号" />
+        <el-table-column label="固定版本">
+          <template #default="{ row }">{{ getDccVersionDisplayText(row.versionNoSnapshot) }}</template>
+        </el-table-column>
+        <el-table-column v-if="stage.snapshot.members.some(member => member.assigneeUserId != null)" label="整改要求" min-width="280">
+          <template #default="{ row }">
+            <template v-if="row.assigneeUserId != null">
+              <p>责任人：{{ stage.assigneeNames?.[String(row.assigneeUserId)] || '姓名未记录' }}</p>
+              <p>期限：{{ row.dueAt }}</p>
+              <p>具体要求：{{ getDccSignatureOpinionLabel(stage.snapshot.header.reason) }}</p>
+            </template>
+            <span v-else>未安排整改</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="查看">
+          <template #default="{ row }">
+            <el-button link :loading="readingId === row.selectedControlledFileId" :disabled="Boolean(readingId)" @click="openPreview(row)">查看固定版本</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </article>
     <el-dialog
@@ -89,7 +47,8 @@
   </section>
 </template>
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { getDccSignatureOpinionLabel } from '../shared/signature-evidence'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import { getControlledFileRelationPermissions } from '@/api/dcc/controlledFile/applicationRead'
 import { buildDccControlledFilePreviewSource } from '@/api/common/filePreview'
@@ -168,12 +127,21 @@ const props = defineProps<{
   bpmRound: string
   attributeRound: number
   contextKey: string
+  signatureId?: string | number
+  taskId?: string
+  remediationOnly?: boolean
   signatureFacts?: RelationSignatureFact[]
   nodeRecords?: ControlledFileApplicationNodeRecord[]
 }>()
 const projection = ref<RelationRoundEvidenceView | null>(null),
   error = ref(''),
   previewId = ref('')
+const visibleStages = computed(() => (projection.value?.stages || []).filter(stage =>
+  (props.signatureId == null || stage.snapshot.header.signatureId === String(props.signatureId))
+  && (props.taskId == null || stage.snapshot.header.taskId === props.taskId))
+  .map(stage => props.remediationOnly ? { ...stage, snapshot: { ...stage.snapshot,
+    members: stage.snapshot.members.filter(member => member.assigneeUserId != null) } } : stage)
+  .filter(stage => !props.remediationOnly || stage.snapshot.members.length > 0))
 const readingId = ref('')
 const previewSource = ref<ReturnType<typeof buildDccControlledFilePreviewSource>>()
 let generation = 0,
@@ -201,16 +169,6 @@ const factIdentity = (value: string | number | undefined): string => {
   if (typeof value === 'number' && !Number.isSafeInteger(value))
     throw new Error('签名事实身份精度损失')
   return identity(typeof value === 'number' ? String(value) : value)
-}
-const signatureFact = (id: string): RelationSignatureFact | undefined =>
-  props.signatureFacts?.find((row) => row.id != null && factIdentity(row.id) === id)
-const obligationDepartmentName = (header: RelationStageHeaderView): string => {
-  if (header.departmentName?.trim()) return header.departmentName.trim()
-  const rows = (props.nodeRecords || []).filter(row => header.actionType === 'ASSIGN' && row.actionType === 'ASSIGN'
-    && String(row.controlledFileId) === header.sourceFileId && row.bpmRound === header.processInstanceId
-    && row.taskId === header.taskId && String(row.signatureId) === header.signatureId
-    && String(row.actorId) === header.actorId && row.stageCode === header.stageCode)
-  return rows.length === 1 ? rows[0].assignmentTarget?.obligationDepartmentName?.trim() || '未记录' : '未记录'
 }
 const instant = (value: unknown): string => {
   const valueText = text(value),
@@ -338,7 +296,7 @@ const openPreview = async (member: RelationStageMemberView) => {
   previewSource.value = undefined
   try {
     if (!projection.value) throw new Error('本轮关联阶段尚未读取')
-    const saved = projection.value.stages
+    const saved = visibleStages.value
       .flatMap((stage) => stage.snapshot.members)
       .find(
         (row) =>
@@ -377,11 +335,6 @@ const openPreview = async (member: RelationStageMemberView) => {
     if (token === generation && sequence === readSequence) readingId.value = ''
   }
 }
-const stageLabels: Record<string, string> = {
-  MATRIX_REVIEW: '会签阶段',
-  MATRIX_APPROVAL: '批准阶段',
-  DOC_CONTROL_REVIEW: '文控审核阶段'
-}
 const signatureLabels: Record<string, string> = {
   VALID: '签名证据有效',
   INVALID: '签名证据异常',
@@ -389,7 +342,6 @@ const signatureLabels: Record<string, string> = {
   IDENTITY_MISMATCH: '签名身份不一致',
   UNRECORDED: '签名状态未记录'
 }
-const stageLabel = (code: string) => stageLabels[code] || '审批阶段'
 const signatureLabel = (status: string) => signatureLabels[status] || `签名状态：${status}`
 watch(
   () => [
@@ -400,7 +352,9 @@ watch(
     props.applicationType,
     props.bpmRound,
     props.attributeRound,
-    props.signatureFacts
+    props.signatureFacts,
+    props.signatureId,
+    props.taskId
   ],
   () => {
     generation++

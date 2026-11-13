@@ -10,7 +10,7 @@ import java.util.Objects;
 @Service
 public class DccApplicationHistoryGuard {
     @Resource private BpmProcessInstanceService processes;
-    public void require(DccControlledFileDO file,String type,String round) {
+    public org.flowable.engine.history.HistoricProcessInstance require(DccControlledFileDO file,String type,String round) {
         var history=processes.getHistoricProcessInstance(round);
         String key="UPLOAD".equals(type)?DccControlledFileProcessDefinitionKeys.UPLOAD
                 :"REVISION".equals(type)?DccControlledFileProcessDefinitionKeys.REVISION
@@ -29,5 +29,6 @@ public class DccApplicationHistoryGuard {
         } else if(!Objects.equals(file.getId().toString(),history.getBusinessKey())
                 || !Objects.equals(String.valueOf(file.getRequesterId()),history.getStartUserId()))
             throw new IllegalStateException("内容申请轮次与真实BPM业务对象或申请人不一致");
+        return history;
     }
 }

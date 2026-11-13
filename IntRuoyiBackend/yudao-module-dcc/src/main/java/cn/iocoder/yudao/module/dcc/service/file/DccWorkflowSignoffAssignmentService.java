@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignoffAssignment
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.flowable.engine.RuntimeService;
@@ -71,12 +72,17 @@ public class DccWorkflowSignoffAssignmentService {
                 if(!Objects.equals(tenant,user.getTenantId())) throw new IllegalStateException("会签候选目录包含其他租户账号");
                 if(!Integer.valueOf(0).equals(user.getStatus()) || user.getPostIds()==null || user.getPostIds().isEmpty()) continue;
                 if(!Objects.equals(user.getDeptId(),row.getDepartmentId())) continue;
-                if(user.getNickname()==null || user.getNickname().isBlank()) throw new IllegalStateException("会签候选账号名称缺失");
-                options.put(user.getId(),new DccSignoffAssignmentContext.AssigneeOption(user.getId(),user.getNickname()));
+                options.put(user.getId(),new DccSignoffAssignmentContext.AssigneeOption(user.getId(),candidateName(user),user.getUsername()));
             }
         }
         return new DccSignoffAssignmentContext(fileId,task.getProcessInstanceId(),taskId,row.getObligationId(),processDefinitionKey,
                 row.getDepartmentId(),row.getDepartmentName(),row.getAssigneeUserId(),assigned,canAssign,java.util.List.copyOf(options.values()));
+    }
+
+    private static String candidateName(AdminUserRespDTO user) {
+        String name=user.getNickname()==null || user.getNickname().isBlank()?user.getUsername():user.getNickname();
+        if(name==null || name.isBlank()) throw new IllegalStateException("会签候选账号姓名和账号名称均缺失");
+        return name;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -137,6 +143,7 @@ public class DccWorkflowSignoffAssignmentService {
                 || row.getDepartmentId()==null || !Objects.equals(row.getDepartmentId(),candidate.getDeptId())) denied();
         if(candidate.getPostIds()==null || candidate.getPostIds().isEmpty())
             throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+        String assigneeName=candidateName(candidate);
         if (nativeProcess) readinessService.requireReadyParticipants("MATRIX_REVIEW", java.util.List.of(candidate.getId()));
         else readinessService.requireReadyObsoleteParticipants("MATRIX_REVIEW", java.util.List.of(candidate.getId()));
         var prepared=prepareRelationStage(actorId,fileId,file.getProcessInstanceId(),task.getProcessInstanceId(),task.getId(),
@@ -157,7 +164,7 @@ public class DccWorkflowSignoffAssignmentService {
                         signature.getSignatureId(),signature.getSignedAt(),signature.getEvidenceHash()));
         if (snapshotMapper.updateById(DccControlledFileTaskAssigneeSnapshotDO.builder().id(row.getId())
                 .processInstanceId(task.getProcessInstanceId()).assigneeUserId(candidate.getId())
-                .assigneeName(candidate.getNickname()).bpmTaskId(task.getId()).nodeInstanceId(task.getExecutionId())
+                .assigneeName(assigneeName).bpmTaskId(task.getId()).nodeInstanceId(task.getExecutionId())
                 .assignmentSignatureId(signature.getSignatureId()).assignmentPayloadHash(payloadHash)
                 .assignedTime(signature.getSignedAt()).build()) != 1)
             throw new IllegalStateException("会签指派证据保存失败");

@@ -116,6 +116,32 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
         verify(taskService).setAssignee("task-51","99");
         verify(bpmTaskService,never()).approveTask(any(),any());
         assertThrows(RuntimeException.class,()->service.requireAssigned(99L,10L,task));
+        var capture=ArgumentCaptor.forClass(DccControlledFileTaskAssigneeSnapshotDO.class);
+        verify(snapshotMapper).updateById(capture.capture());
+        var saved=capture.getValue();
+        row.setAssignmentSignatureId(saved.getAssignmentSignatureId());
+        row.setAssignedTime(saved.getAssignedTime());
+        row.setBpmTaskId(saved.getBpmTaskId());
+        row.setAssigneeUserId(saved.getAssigneeUserId());
+        assertDoesNotThrow(()->service.requireReviewActor(99L,10L,task,"APPROVE"));
+    }
+    @Test void accountOnlyAssigneeNameSurvivesTheSignedAssignmentSnapshot() {
+        when(adminUserApi.getUser(100L)).thenReturn(new AdminUserRespDTO().setId(100L)
+                .setTenantId(1L).setStatus(0).setDeptId(51L).setPostIds(java.util.Set.of(10L))
+                .setNickname(" ").setUsername("reviewer100"));
+        service.assign(99L,10L,request(100L));
+        var capture=ArgumentCaptor.forClass(DccControlledFileTaskAssigneeSnapshotDO.class);
+        verify(snapshotMapper).updateById(capture.capture());
+        assertEquals("reviewer100",capture.getValue().getAssigneeName());
+        verify(taskService).setAssignee("task-51","100");
+        verify(bpmTaskService,never()).approveTask(any(),any());
+    }
+    @Test void missingBothAssigneeNamesRefusesBeforeSignatureOrAssignment() {
+        when(adminUserApi.getUser(100L)).thenReturn(new AdminUserRespDTO().setId(100L)
+                .setTenantId(1L).setStatus(0).setDeptId(51L).setPostIds(java.util.Set.of(10L)));
+        assertThrows(IllegalStateException.class,()->service.assign(99L,10L,request(100L)));
+        verifyNoInteractions(signatureService,taskService);
+        verify(snapshotMapper,never()).updateById(any(DccControlledFileTaskAssigneeSnapshotDO.class));
     }
     @Test void otherAssigneeIsPersistedPerDepartmentAndMustSignSeparately() {
         service.assign(99L,10L,request(100L));
@@ -235,6 +261,18 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
         assertEquals(java.util.List.of(102L),service.assignmentContext(99L,10L,"task-51").assigneeOptions().stream()
                 .map(DccSignoffAssignmentContext.AssigneeOption::id).toList());
         verifyNoInteractions(signatureService,taskService,remediationService);
+    }
+    @Test void assignmentCandidatesUseAccountWhenNameMissingAndExposeAccountForDisambiguation() {
+        when(adminUserApi.getUserListByDeptIds(java.util.List.of(51L))).thenReturn(java.util.List.of(
+                new AdminUserRespDTO().setId(102L).setTenantId(1L).setStatus(0).setDeptId(51L)
+                        .setNickname(" ").setUsername("reviewer102").setPostIds(java.util.Set.of(10L)),
+                new AdminUserRespDTO().setId(103L).setTenantId(1L).setStatus(0).setDeptId(51L)
+                        .setNickname("会签人").setUsername("reviewer103").setPostIds(java.util.Set.of(10L))));
+        var options=service.assignmentContext(99L,10L,"task-51").assigneeOptions();
+        assertEquals("reviewer102",options.stream().filter(user->user.id().equals(102L)).findFirst().orElseThrow().name());
+        var named=options.stream().filter(user->user.id().equals(103L)).findFirst().orElseThrow();
+        assertEquals("会签人",named.name());
+        assertEquals("reviewer103",named.username());
     }
     @Test void publicAssignmentReadRejectsUnrelatedActorOrMissingRealObligation() {
         assertThrows(RuntimeException.class,()->org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"assignmentContext",100L,10L,"task-51"));

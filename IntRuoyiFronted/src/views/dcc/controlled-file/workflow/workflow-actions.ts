@@ -69,7 +69,7 @@ export const submitSignoffAssignment = async (
     if (saved !== true) return { success: false, error: '指派未返回成功保存结果，请核对正式指派事实' }
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : '指派签名失败，请核对签名授权及本部门办理资格' }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 

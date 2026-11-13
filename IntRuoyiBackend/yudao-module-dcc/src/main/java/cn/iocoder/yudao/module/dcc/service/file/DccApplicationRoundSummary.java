@@ -11,6 +11,10 @@ public class DccApplicationRoundSummary {
     private String applicationType;
     private String bpmRound;
     private Integer attributeRound;
+    private java.util.Date applicationTime;
+    private String revisionChangeType;
+    private String revisionSourceVersionNo;
+    private String changeDescription;
     /** A verified per-row read result; an absent value never supplies an execution rule. */
     private DccBoundWorkflowContractResolver.RoundFlowContract flowContract;
 }

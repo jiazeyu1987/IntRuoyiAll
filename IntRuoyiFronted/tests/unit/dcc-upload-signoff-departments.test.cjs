@@ -22,6 +22,7 @@ const preview = (selection, response = async () => ready([department])) => {
     formData: { categoryId: category, dccProjectCodeId: '3', fileTypeTaxonomyId: '4', selectedDistributionDepartmentIds: [department], processType: 'CONTROLLED_FILE', selectedSignoffDepartmentIds: selection },
     isCustomApprovalSource: ref(false), selectedFileTypeTaxonomyPath: ref({approvalSourceMode:'PUBLIC_MATRIX'}),
     isExternalReview: ref(false), routeReadinessRequestSeq: 0, routeReadiness: ref(undefined),
+    autoUploadDepartmentSelections: ref({ signoff: [], distribution: [] }),
     routeReadinessLoading: ref(false), routeReadinessError: ref(''), routeReadinessSelectionKey: ref(''),
     signoffSelectionCategoryKey: helpers.signoffCategoryKey(category, 'CONTROLLED_FILE'),
     resolveUploadErrorMessage: error => error.message,
@@ -82,12 +83,16 @@ test('G04 first default preview adopts formal mandatory and optional departments
   assert.deepEqual(Array.from(state.context.formData.selectedSignoffDepartmentIds), ['51', '52'])
   assert.deepEqual(Array.from(state.context.formData.selectedDistributionDepartmentIds), ['51', '52'])
   assert.notEqual(state.context.formData.selectedSignoffDepartmentIds, state.context.formData.selectedDistributionDepartmentIds)
+  assert.deepEqual(Array.from(state.context.autoUploadDepartmentSelections.value.signoff), ['51', '52'])
+  assert.deepEqual(Array.from(state.context.autoUploadDepartmentSelections.value.distribution), ['51', '52'])
   state.context.formData.selectedSignoffDepartmentIds = ['52', '53']
   await state.refresh()
   assert.equal(state.context.routeReadiness.value.ready, true, state.context.routeReadinessError.value)
   assert.deepEqual(Array.from(state.calls[1].selectedSignoffDepartmentIds), ['52', '53'])
   assert.deepEqual(Array.from(state.context.formData.selectedSignoffDepartmentIds), ['52', '53'])
   assert.deepEqual(Array.from(state.context.formData.selectedDistributionDepartmentIds), ['51', '52'])
+  assert.deepEqual(Array.from(state.context.autoUploadDepartmentSelections.value.signoff), ['51', '52'])
+  assert.deepEqual(Array.from(state.context.autoUploadDepartmentSelections.value.distribution), ['51', '52'])
   assert.equal(state.context.routeReadiness.value.matrixAfter.nodes.find(node => node.id === '42').marker, '◎')
 })
 

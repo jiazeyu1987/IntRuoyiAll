@@ -39,7 +39,7 @@ test('business opinion presentation preserves original evidence', () => {
   assert.equal(api.getDccSignatureOpinionLabel(raw), '同意')
   assert.equal(api.getDccSignatureOpinionLabel('请检查正文中的哈希说明'), '请检查正文中的哈希说明')
   assert.equal(raw, '同意；会签指派事实：部门=10，人员=99，哈希=abcdef')
-  assert.match(read('views/dcc/controlled-file/detail/DetailApplicationHistory.vue'), /getDccSignatureOpinionLabel\(row.comment\)/)
+  assert.match(read('views/dcc/controlled-file/detail/DetailApprovalRecords.vue'), /getDccSignatureOpinionLabel\(row.comment\)/)
 })
 test('PDF uses original content without another formal stamp and retains trace overlay', () => {
   const source = read('views/dcc/controlled-file/view/index.vue')
@@ -91,5 +91,7 @@ test('changed Vue components compile and narrow action cells wrap', () => {
   }
   const css = read('views/dcc/controlled-file/browser/index.vue').match(/\.browser-row-actions \{([^}]+)\}/)[1]
   assert.match(css, /flex-wrap: wrap/); assert.doesNotMatch(css, /grid-template-columns/)
-  assert.match(read('views/dcc/controlled-file/detail/index.vue'), /主文档预览/)
+  const detail = read('views/dcc/controlled-file/detail/index.vue')
+  assert.match(detail, /data-testid="dcc-approval-upload-file-preview"/)
+  assert.match(detail, /:preview-source="detailBodyPreviewState.source"/)
 })

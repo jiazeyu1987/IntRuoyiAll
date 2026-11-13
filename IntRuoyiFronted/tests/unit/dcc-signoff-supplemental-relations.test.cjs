@@ -14,7 +14,7 @@ function moduleFrom(source, dependencies = {}) {
 }
 function component(file, dependencies) {
   const compiled = compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate: true })
-  return moduleFrom(compiled.content, dependencies).default
+  return moduleFrom(compiled.content, { ...dependencies, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } }).default
 }
 const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
 const { FileSelectorState } = moduleFrom(read('src/views/dcc/controlled-file/relations/selector-state.ts'))
@@ -30,10 +30,12 @@ const rel2 = Object.freeze({ ...rel1, controlledFileId: REL2, masterId: '102',
 const remediation = Object.freeze({ relatedMasterId: rel1.masterId, assigneeUserId: ASSIGNEE, dueAt: '2026-12-01 12:00:00' })
 const drain = async () => { for (let i = 0; i < 20; i++) { await Promise.resolve(); await vue.nextTick() } }
 
-function renderer() {
+function renderer(host) {
   const remove = node => { if (node.parent) { const at = node.parent.children.indexOf(node); if (at >= 0) node.parent.children.splice(at, 1) } }
   return vue.createRenderer({
-    createElement: type => ({ type, props: {}, children: [] }), createText: text => ({ text }), createComment: () => ({ comment: true }),
+    querySelector: () => teleportTarget,
+    querySelector: () => host,
+    createElement: type => ({ type, props: {}, children: [], querySelector: () => null, scrollIntoView() {}, focus() {} }), createText: text => ({ text }), createComment: () => ({ comment: true }),
     insert(node, parent, anchor) { remove(node); parent.children ||= []; const at = parent.children.indexOf(anchor); parent.children.splice(at < 0 ? parent.children.length : at, 0, node); node.parent = parent },
     remove, setText(node, text) { node.text = text }, setElementText(node, text) { node.text = text; node.children = [] },
     patchProp(node, key, before, value) { node.props[key] = value }, parentNode: node => node.parent,
@@ -48,7 +50,7 @@ const control = (tag, props) => ({ inheritAttrs: false, props,
       onInput: next => emit('update:modelValue', next), onChange: next => emit('update:modelValue', next) }, slots.default?.())
   } })
 
-function fixture(processDefinitionKey = 'dcc-controlled-file-upload') {
+function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError, saveWait) {
   const writes = [], selectorQueries = [], selectorErrors = [], selectors = [], history = [rel1]
   let choice = rel2
   const context = { controlledFileId: MAIN, processInstanceId: ROUND, taskId: TASK,
@@ -85,11 +87,11 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload') {
         vue.h('button', { onClick: () => emit('update:modelValue', false) }, 'unit:取消候选')
       ]) : null
     } }
-  const Signing = component('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue', { './workflow-actions': actions })
+  const Signing = component('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue', { './workflow-actions': actions, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } })
   const Arrangements = component('src/views/dcc/controlled-file/detail/DetailRelationArrangements.vue', {
     '../shared/version-display': { getDccVersionDisplayText: value => value }, '../workflow/workflow-actions': actions })
   const lifecycle = moduleFrom(read('src/api/dcc/controlledFile/workflowLifecycle.ts'), {
-    '@/config/axios': { default: { post: async request => { writes.push(plain(request)); return true } } } })
+    '@/config/axios': { default: { post: async request => { writes.push(plain(request)); if (saveWait) await saveWait; if (saveError) throw saveError; return true } } } })
   const forbiddenWrite = () => { throw Error('Relations must be saved in the existing signed assignment, not a separate relation write') }
   const Detail = component('src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue', {
     '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => context,
@@ -110,7 +112,10 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload') {
     '../basic-data/components/project-folder-tree': moduleFrom(read('src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts')),
     '../workflow/workflow-actions': actions
   })
-  const host = { children: [] }, app = renderer().createApp(Detail, { fileId: MAIN, processInstanceId: ROUND, taskId: TASK })
+  const host = { children: [] }, blocked = vue.ref(false)
+  const app = renderer(host).createApp({ setup: () => () => vue.h(Detail,
+    { fileId: MAIN, processInstanceId: ROUND, taskId: TASK, blocked: blocked.value },
+    { actions: ({ disabled }) => vue.h('button', { disabled, onClick: () => { blocked.value = true } }, '驳回') }) })
   app.directive('loading', {})
   app.component('ContentWrap', { setup: (props, { slots }) => () => vue.h('section', slots.default?.()) })
   app.component('ElButton', { inheritAttrs: false, props: ['disabled', 'loading'], setup: (props, { attrs, slots }) =>
@@ -120,6 +125,8 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload') {
   app.component('ElOption', { props: ['label'], setup: props => () => vue.h('option', props.label) })
   app.component('ElAlert', { props: ['title'], setup: props => () => vue.h('aside', props.title) })
   app.component('ElTag', { setup: (props, { slots }) => () => vue.h('span', slots.default?.()) })
+  app.component('ElForm', { setup: (props, { slots }) => () => vue.h('form', slots.default?.()) })
+  app.component('ElFormItem', { props: ['label'], setup: (props, { slots }) => () => vue.h('div', [vue.h('label', props.label), slots.default?.()]) })
   app.component('ElTable', { setup: () => () => vue.h('table') })
   app.component('ElTableColumn', { setup: () => () => vue.h('td') })
   app.component('ElCheckbox', control('input', ['modelValue', 'disabled']))
@@ -131,11 +138,11 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload') {
   const open = () => click(/补充.*关联|后补.*关联/)
   const sign = async () => {
     await input('搜索并选择本部门会签人', ASSIGNEE)
-    await input('指派意见', 'DCC241016C22 本人签名指派')
-    await input('当前账号签名密码', 'unit-only')
-    await click('签名确认指派')
+    await input('请输入指派意见', 'DCC241016C22 本人签名指派')
+    await input('请输入所选签名方式的六位 PIN 码或密码', 'unit-only')
+    await click('确认指派并签名')
   }
-  return { app, host, writes, selectorQueries, selectorErrors, selectors, history, context, click, open, sign,
+  return { app, host, writes, selectorQueries, selectorErrors, selectors, history, context, click, open, sign, input, one, blocked,
     choose: row => { choice = row }, async selectRel2() { await open(); await click('unit:选择候选'); await click('unit:确认候选') } }
 }
 function assertSigned(h, extras, revision = false) {
@@ -157,6 +164,12 @@ for (const process of ['dcc-controlled-file-upload', 'dcc-controlled-file-revisi
     try {
       await drain(); await h.selectRel2()
       assert.deepEqual(h.selectorErrors, [])
+      assert.match(text(h.host), /原有关联文件：1 个/)
+      assert.match(text(h.host), /本次补充 1 个/)
+      assert.match(text(h.host), /文件编号：DCC241016C22REL2 · 关联版本：A\/1/)
+      assert.match(text(h.host), /原有关联继续保留/)
+      assert.match(text(h.host), /DCC241016C22Rel1-A.pdf.*A\/1/)
+      assert.match(text(h.host), /DCC241016C22Rel2-A.pdf.*A\/1/)
       await h.sign(); assertSigned(h, [REL2], process.endsWith('revision'))
       assert.equal(h.selectors.at(-1).purpose, 'relations')
       assert.equal(h.selectors.at(-1).source.controlledFileId, MAIN)
@@ -201,5 +214,57 @@ test('R22-01 the real parent wires the existing relations selector to its exact 
     assert.match(h.selectorErrors.at(-1), /PROJECT_MISMATCH/)
     assert.equal(h.writes.length, 0)
     await h.click('unit:取消候选'); await h.sign(); assertSigned(h, [])
+  } finally { h.app.unmount() }
+})
+
+
+test('failed signed assignment keeps confirmed supplemental files and form input for correction', async () => {
+  const h = fixture('dcc-controlled-file-upload', new Error('指派保存失败：请核对当前办理资格'))
+  try {
+    await drain(); await h.selectRel2(); await h.sign()
+    assert.equal(h.writes.length, 1)
+    assert.match(text(h.host), /指派保存失败：请核对当前办理资格/)
+    assert.match(text(h.host), /DCC241016C22Rel2-A.pdf/)
+    const inputs = find(h.host, node => ['input', 'select'].includes(node.type))
+    assert.equal(inputs.find(node => node.props.placeholder === '搜索并选择本部门会签人').props.value, ASSIGNEE)
+    assert.equal(inputs.find(node => node.props.placeholder === '请输入指派意见').props.value, 'DCC241016C22 本人签名指派')
+    assert.equal(h.context.assigned, false)
+  } finally { h.app.unmount() }
+})
+
+
+test('real assignment footer disables reject and duplicate signing while pending and preserves confirmed data after failure', async () => {
+  let rejectSave
+  const saveWait = new Promise((_resolve, reject) => { rejectSave = reject })
+  const h = fixture('dcc-controlled-file-upload', undefined, saveWait)
+  try {
+    await drain(); await h.selectRel2()
+    await h.input('搜索并选择本部门会签人', ASSIGNEE)
+    await h.input('请输入指派意见', '本次指派意见')
+    await h.input('请输入所选签名方式的六位 PIN 码或密码', 'unit-only')
+    const confirm = () => h.one(n => n.type === 'button' && text(n) === '确认指派并签名')
+    const rejection = () => h.one(n => n.type === 'button' && text(n) === '驳回')
+    assert.equal(Boolean(rejection().props.disabled), false)
+    const submit = confirm().props.onClick
+    const pending = submit()
+    await drain()
+    assert.equal(h.writes.length, 1)
+    assert.equal(rejection().props.disabled, true)
+    assert.equal(h.one(n => n.type === 'button' && text(n) === '处理中').props.disabled, true)
+    assert.equal(h.one(n => n.props?.['aria-label'] === '当前任务操作').props['aria-busy'], true)
+    await submit()
+    assert.equal(h.writes.length, 1)
+    rejectSave(new Error('签名密码错误'))
+    await pending; await drain()
+    assert.equal(Boolean(confirm().props.disabled), false)
+    assert.equal(Boolean(rejection().props.disabled), false)
+    assert.match(text(h.host), /签名密码错误/)
+    assert.match(text(h.host), /DCC241016C22Rel2-A.pdf/)
+    assert.equal(h.one(n => n.props?.placeholder === '请输入指派意见').props.value, '本次指派意见')
+    assert.deepEqual(h.writes[0].data.supplementalRelatedControlledFileIds, [REL2])
+    await h.click('驳回')
+    assert.equal(h.blocked.value, true)
+    assert.equal(confirm().props.disabled, true)
+    await submit(); assert.equal(h.writes.length, 1)
   } finally { h.app.unmount() }
 })

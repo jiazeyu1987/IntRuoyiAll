@@ -7,5 +7,5 @@ test('missing node contract is an error; real empty history is allowed',()=>{con
 test('shared attachment list is wired to handling, management and the normal controlled viewer',()=>{
  const f=fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue','utf8'),v=fs.readFileSync('src/views/dcc/controlled-file/detail/ControlledFileBrowseRecords.vue','utf8')
  assert.ok(f.includes('<ControlledFileAttachments'));assert.ok(v.includes('<ControlledFileAttachments'))
- assert.ok(f.includes('show-node-records'));assert.ok(f.includes('前序节点记录')||fs.readFileSync('src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue','utf8').includes('前序节点记录'))
+ assert.ok(f.includes('show-node-records'));assert.ok(fs.readFileSync('src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue','utf8').includes('<DetailApprovalRecords'))
 })

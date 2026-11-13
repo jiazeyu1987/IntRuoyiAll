@@ -135,7 +135,7 @@ function setup(value = evidence()) {
   vm.runInContext(
     ts.transpileModule(
       script +
-        '\nglobalThis.state={projection,error,previewId,openPreview, get previewSource(){return typeof previewSource === "undefined" ? undefined : previewSource}, closePreview: typeof closePreview === "undefined" ? undefined : closePreview}',
+        '\nglobalThis.state={projection,error,previewId,openPreview,visibleStages, get previewSource(){return typeof previewSource === "undefined" ? undefined : previewSource}, closePreview: typeof closePreview === "undefined" ? undefined : closePreview}',
       { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }
     ).outputText,
     c
@@ -298,6 +298,9 @@ test('real Vue mount displays independent same-actor obligations and preserved i
       signedAt: '2026-10-11 13:00:02'
     })
   value.stages[0].snapshot.header.departmentName = '原义务质量部'
+  value.stages[0].snapshot.members[0].assigneeUserId = '8'
+  value.stages[0].snapshot.members[0].dueAt = '2026-11-15 12:00:00'
+  value.stages[0].assigneeNames = { '8': '整改负责人甲' }
   value.stages.push({
     snapshot: {
       header: secondHeader,
@@ -331,6 +334,11 @@ test('real Vue mount displays independent same-actor obligations and preserved i
     if (dep === 'vue') return vue
     if (dep === '@/api/common/filePreview')
       return require('./dcc-fixed-version-preview-test-loader.cjs')().common
+    if (dep === '../shared/signature-evidence') {
+      const helper = { exports: {} }
+      vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/signature-evidence.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, helper)
+      return helper.exports
+    }
     if (dep === '../shared/version-display') {
       const helper = { exports: {} }
       vm.runInNewContext(
@@ -421,26 +429,10 @@ test('real Vue mount displays independent same-actor obligations and preserved i
     app.mount(root)
     await vue.nextTick()
     const visible = textContent(root)
-    for (const text of [
-      'dept-5',
-      'dept-6',
-      '原A.pdf',
-      '补充B.pdf',
-      'A/1',
-      'B/1',
-      '2026-10-11 12:00:01',
-      '2026-10-11 13:00:02',
-      '签名证据异常',
-      '签名记录缺失',
-      '本次补充',
-      '当时签名甲',
-      '当时实际研发部',
-      '原义务质量部',
-      '未记录'
-    ])
+    for (const text of ['原A.pdf', '补充B.pdf', 'A/1', 'B/1', '签名证据异常', '签名记录缺失', '签名身份不一致', '整改负责人甲', '2026-11-15 12:00:00', '真实意见'])
       assert.ok(visible.includes(text), text)
-    assert.ok(!visible.includes('签名人 7'))
-    assert.ok(!visible.includes('义务部门：当时实际研发部'))
+    for (const text of ['dept-5', 'dept-6', 'DCC 签名投影', '本次补充', '审计身份'])
+      assert.ok(!visible.includes(text), text)
     assert.equal(value.stages[0].snapshot.members.length, 1)
     assert.equal(value.stages[1].snapshot.members.length, 2)
     assert.equal((visible.match(/原A.pdf/g) || []).length, 2)
@@ -454,7 +446,7 @@ test('template presents each immutable obligation, fixed file version, real serv
   assert.match(text, /signedAt/)
   assert.match(text, /versionNoSnapshot/)
   assert.match(text, /supplemental/)
-  assert.match(text, /DCC 签名投影/)
+  assert.doesNotMatch(parse(text).descriptor.template.content, /DCC 签名投影|审计身份|obligationId|assigneeUserId }}|本节点来源/)
   assert.doesNotMatch(
     text,
     /replaceCurrentRelations|createGrant|requestGrant|download|el-select|el-checkbox|el-input/
@@ -471,4 +463,32 @@ test('template presents each immutable obligation, fixed file version, real serv
     }).errors,
     []
   )
+})
+
+
+test('node expansion only displays and opens files bound to the exact signature and task', async () => {
+  const c = setup()
+  c.props.signatureId = '9007199254740995'
+  c.props.taskId = 'task-1'
+  c.reset()
+  assert.equal(c.state.visibleStages.value.length, 1)
+  c.props.taskId = 'different-task'
+  c.reset()
+  assert.equal(c.state.visibleStages.value.length, 0)
+  await c.state.openPreview(member())
+  assert.equal(c.state.previewId.value, '')
+  assert.match(c.state.error.value, /正式固定成员/)
+  assert.equal(c.calls.length, 0)
+})
+
+test('approval expansion lists only remediation files and leaves the complete signed set intact', () => {
+  const value = evidence()
+  value.stages[0].snapshot.members.push(member({ relatedMasterId: '301', selectedControlledFileId: '32',
+    assigneeUserId: '8', dueAt: '2026-11-12 12:00:00' }))
+  const c = setup(value)
+  c.props.remediationOnly = true
+  c.reset()
+  assert.equal(c.state.visibleStages.value[0].snapshot.members.length, 1)
+  assert.equal(c.state.visibleStages.value[0].snapshot.members[0].assigneeUserId, '8')
+  assert.equal(value.stages[0].snapshot.members.length, 2)
 })

@@ -41,6 +41,38 @@ function mount(props, { rounds = async () => clone(rows), evidence = async (id, 
 const rows = [{ controlledFileId: '10', applicationType: 'UPLOAD', bpmRound: 'native-U', attributeRound: 1 }, { controlledFileId: '10', applicationType: 'OBSOLETE', bpmRound: 'obsolete-O', attributeRound: 2 }]
 const attrs = m => ({ targetMarkets: [m], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' })
 const frozen = (id, type, bpm) => ({ controlledFileId: id, applicationType: type, bpmRound: bpm, attributeRound: bpm === 'obsolete-O' ? 2 : 1, recorded: true, defaultSource: attrs('CE'), actualAttributes: attrs(bpm === 'obsolete-O' ? 'FDA' : 'NMPA'), signatures: [{ processInstanceId: bpm }] })
+
+test('application information names business actions and selects a single saved submission', async () => {
+  const p = mount({ fileId: '10' }, { rounds: async () => [rows[0]] })
+  try {
+    await flush()
+    assert.equal(p.state.evidence.bpmRound, 'native-U')
+    assert.equal(p.state.applicationLabel('UPLOAD'), '初始上传')
+    assert.equal(p.state.applicationLabel('REVISION', 'PARTIAL'), '局部变更')
+    assert.equal(p.state.applicationLabel('REVISION', 'REPLACEMENT'), '换版变更')
+    assert.equal(p.state.applicationLabel('REVISION'), '变更类型未记录')
+    assert.equal(p.state.marketLabels.CE, 'CE 欧盟')
+    assert.equal(p.state.identityLabels.NA, '不适用')
+    assert.deepEqual(clone(p.state.evidence.actualAttributes), attrs('NMPA'))
+  } finally { p.app.unmount() }
+})
+
+test('historical application selection keeps its own business description and time', async () => {
+  const history = [
+    { ...rows[0], applicationType: 'REVISION', bpmRound: 'revision-old', revisionChangeType: 'PARTIAL', revisionSourceVersionNo: 'A/0', changeDescription: '旧申请说明', applicationTime: 1000 },
+    { ...rows[0], applicationType: 'REVISION', bpmRound: 'revision-new', attributeRound: 2, revisionChangeType: 'REPLACEMENT', revisionSourceVersionNo: 'A/1', changeDescription: '新申请说明', applicationTime: 2000 }
+  ]
+  const p = mount({ fileId: '10' }, { rounds: async () => history, evidence: async (id, type, bpm) => ({ ...frozen(id, type, bpm), attributeRound: bpm === 'revision-old' ? 1 : 2 }) })
+  try {
+    await flush()
+    for (const row of history) {
+      await p.state.selectRound(p.state.roundKey(row))
+      assert.equal(p.state.selectedRound.changeDescription, row.changeDescription)
+      assert.equal(p.state.selectedRound.applicationTime, row.applicationTime)
+      assert.equal(p.state.selectedRound.revisionSourceVersionNo, row.revisionSourceVersionNo)
+    }
+  } finally { p.app.unmount() }
+})
 test('approval route uses verified BPM read context rather than immediately trusting route or file native BPM', () => {
   const helper = moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
   const input = { fileId: '10', nativeBpmRound: 'native-U', requestedBpmRound: 'obsolete-O', requestedTaskId: 'task-O', contextKey: 'O:file10' }

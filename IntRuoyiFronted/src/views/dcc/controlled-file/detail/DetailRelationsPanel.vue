@@ -1,35 +1,19 @@
 <template>
   <ContentWrap class="dcc-detail-surface" v-loading="loading" data-testid="dcc-detail-relations">
-    <p class="font-600">所选版本关联</p>
-    <p data-testid="dcc-detail-frozen-relation-scope">历史关联按所选版本或申请冻结记录展示。</p>
+    <p class="font-600">关联文件</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <p v-if="selectedSource"
-      >关联来源：{{ selectedSource.fileName }} ·
-      {{ getDccVersionDisplayText(selectedSource.versionNo) }} · 文件 #{{
-        selectedSource.controlledFileId
-      }}</p
-    >
-    <p v-if="applicationSelection"
-      >所选申请：{{ applicationSelection.applicationType }} · BPM
-      {{ applicationSelection.bpmRound }} · 属性第 {{ applicationSelection.attributeRound }} 轮</p
-    >
     <el-alert v-if="unavailableReason" :title="unavailableReason" type="info" :closable="false" />
     <el-table
-      v-if="selectedSource && !unavailableReason"
+      v-if="selectedSource && !unavailableReason && files.length"
       :data="files"
       empty-text="所选版本未关联文件"
       aria-label="所选版本固定关联集合"
     >
-      <el-table-column prop="fileName" label="冻结关联文件" />
-      <el-table-column prop="fileNumber" label="冻结编号" />
-      <el-table-column label="固定所选版本"
+      <el-table-column prop="fileName" label="文件名称" />
+      <el-table-column prop="fileNumber" label="文件编号" />
+      <el-table-column label="固定版本"
         ><template #default="{ row }">{{
           getDccVersionDisplayText(row.versionNo)
-        }}</template></el-table-column
-      >
-      <el-table-column v-if="applicationSelection" label="关联来源"
-        ><template #default="{ row }">{{
-          row.origin === 'UPLOAD' ? '原上传选择' : '后补选择'
         }}</template></el-table-column
       >
       <el-table-column label="正文"
@@ -44,19 +28,7 @@
         ></el-table-column
       >
     </el-table>
-    <DetailRelationStageEvidence
-      v-if="applicationEvidence && relationEvidence && applicationSelection && selectedSource"
-      :key="selectedSource.contextKey"
-      :evidence="relationEvidence"
-      :tenant-id="relationEvidence.tenantId"
-      :file-id="relationEvidence.fileId"
-      :application-type="applicationSelection.applicationType"
-      :bpm-round="applicationSelection.bpmRound"
-      :attribute-round="applicationSelection.attributeRound"
-      :context-key="selectedSource.contextKey"
-      :signature-facts="applicationEvidence.signatures"
-      :node-records="applicationEvidence.nodeRecords"
-    />
+    <p v-if="!loading && !error && !unavailableReason && selectedSource && !files.length">暂无关联文件。</p>
     <el-dialog v-model="previewVisible" title="固定关联版本正文" width="88vw" destroy-on-close>
       <ProtectedPdfViewer
         v-if="previewSource"
@@ -85,7 +57,6 @@ import { listHistoricalRelations } from '@/api/dcc/controlledFile/relations'
 import type { SelectorSource } from '../relations/DccFileSelector.vue'
 import { serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import ProtectedPdfViewer from '../view/index.vue'
-import DetailRelationStageEvidence from './DetailRelationStageEvidence.vue'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import {
   detailIdentity,

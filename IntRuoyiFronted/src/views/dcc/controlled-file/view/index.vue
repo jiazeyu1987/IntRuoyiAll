@@ -1,7 +1,10 @@
 <template>
   <div
     v-loading="loading"
+    ref="viewerShellRef"
     class="protected-viewer-shell"
+    :class="{ 'protected-viewer-shell--compact': compact, 'protected-viewer-shell--expanded': expanded, 'protected-viewer-shell--review': reviewToolbar }"
+    @keyup.esc="expanded = false"
     @copy="blockPreviewInteraction"
     @cut="blockPreviewInteraction"
     @paste="blockPreviewInteraction"
@@ -9,12 +12,12 @@
     @dragstart="blockPreviewInteraction"
     @scroll.capture="handlePdfScroll"
   >
-    <div class="protected-viewer-toolbar">
+    <div v-if="!reviewToolbar" class="protected-viewer-toolbar">
       <div>
-        <div class="protected-viewer-title">{{ title || '受控文件预览' }}</div>
+        <div class="protected-viewer-title">{{ compact ? '提交前预览' : (title || '受控文件预览') }}</div>
       </div>
       <div class="protected-viewer-toolbar__actions">
-        <span v-if="registeredPreviewVisible" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
+        <span v-if="registeredPreviewVisible && !hideReadingDetails" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
           本次预览登记时间：{{ registeredPreviewLabel }}
         </span>
         <div
@@ -29,7 +32,21 @@
       </div>
     </div>
 
-    <div v-if="readingSupported" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
+    <div v-if="compact" class="protected-viewer-compact-tools" data-testid="upload-preview-toolbar">
+      <slot v-if="reviewToolbar" name="document-entry"></slot>
+      <el-button size="small" aria-label="缩小" :disabled="!compactCanZoomOut" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.decreaseZoom() : handleZoomOut()">缩小</el-button>
+      <span aria-live="polite">{{ compactZoomPercent }}%</span>
+      <el-button size="small" aria-label="放大" :disabled="!compactCanZoomIn" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.increaseZoom() : handleZoomIn()">放大</el-button>
+      <el-button size="small" @click="expanded = !expanded">{{ expanded ? '退出放大预览' : '放大预览' }}</el-button>
+      <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="旋转" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.rotatePreview() : handleRotateRight()">旋转</el-button>
+      <el-button v-if="canTransformPreview || resolvedPreviewKind === 'OFFICE'" size="small" aria-label="复原" @click="resolvedPreviewKind === 'OFFICE' ? officeViewerRef?.resetView() : handleResetViewerTransform()">复原</el-button>
+      <div v-if="reviewToolbar && resolvedWatermarkText" class="protected-preview-badge review-preview-badge" data-testid="protected-preview-badge">
+        <span>{{ resolvedWatermarkLabel }}</span>
+        <span class="protected-preview-badge__hint">禁止截图/外传</span>
+      </div>
+    </div>
+
+    <div v-if="readingSupported && !hideReadingDetails" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
       <template v-if="readingSummary">
         <span>累计有效阅读时间：{{ readingSummary.accumulatedSeconds }} 秒</span>
         <span>首次打开：{{ formatReadingOpenedAt(readingSummary.firstOpenedAt) }}</span>
@@ -63,19 +80,19 @@
     <template v-if="resolvedPreviewKind === 'PDF'">
       <div v-if="pageEntries.length" class="protected-viewer-pdf-tools" data-testid="protected-viewer-pdf-tools">
         <div class="protected-viewer-pdf-tools__row">
+          <el-input v-model="pdfSearchQuery" class="protected-viewer-pdf-tools__query" size="small" aria-label="PDF 正文关键字" :disabled="!pdfCanSearch" placeholder="搜索 PDF 正文" @keyup.enter="handlePdfSearch" />
+          <el-button size="small" aria-label="搜索 PDF 正文" :disabled="!pdfCanSearch || !pdfSearchQuery.trim()" @click="handlePdfSearch">搜索</el-button>
+          <el-button size="small" aria-label="上一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchPrevious">上一处</el-button>
+          <el-button size="small" aria-label="下一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchNext">下一处</el-button>
+          <span role="status" aria-live="polite">{{ pdfSearchMessage }}</span>
+        </div>
+        <div class="protected-viewer-pdf-tools__row preview-navigation">
           <el-button size="small" aria-label="上一页" :disabled="pdfCurrentPage <= 1" @click="goToPdfPage(pdfCurrentPage - 1)">上一页</el-button>
           <span aria-live="polite">第 {{ pdfCurrentPage }} / {{ pageEntries.length }} 页</span>
           <el-button size="small" aria-label="下一页" :disabled="pdfCurrentPage >= pageEntries.length" @click="goToPdfPage(pdfCurrentPage + 1)">下一页</el-button>
           <el-input v-model="pdfPageInput" class="protected-viewer-pdf-tools__page" size="small" aria-label="PDF 页码" inputmode="numeric" @keyup.enter="handlePdfPageJump" />
           <el-button size="small" aria-label="跳转页码" @click="handlePdfPageJump">跳转</el-button>
           <span v-if="pdfNavigationError" role="alert" class="protected-viewer-pdf-tools__error">{{ pdfNavigationError }}</span>
-        </div>
-        <div class="protected-viewer-pdf-tools__row">
-          <el-input v-model="pdfSearchQuery" class="protected-viewer-pdf-tools__query" size="small" aria-label="PDF 正文关键字" :disabled="!pdfCanSearch" placeholder="搜索 PDF 正文" @keyup.enter="handlePdfSearch" />
-          <el-button size="small" aria-label="搜索 PDF 正文" :disabled="!pdfCanSearch || !pdfSearchQuery.trim()" @click="handlePdfSearch">搜索</el-button>
-          <el-button size="small" aria-label="上一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchPrevious">上一处</el-button>
-          <el-button size="small" aria-label="下一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchNext">下一处</el-button>
-          <span role="status" aria-live="polite">{{ pdfSearchMessage }}</span>
         </div>
         <div v-if="pdfSearchMatches[pdfSearchMatchIndex]" class="protected-viewer-pdf-tools__excerpt">
           第 {{ pdfSearchMatches[pdfSearchMatchIndex].pageNumber }} 页：{{ pdfSearchMatches[pdfSearchMatchIndex].excerpt }}
@@ -84,7 +101,7 @@
       </div>
       <div v-if="pageEntries.length" ref="viewerFrameRef" class="protected-viewer-frame protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -122,7 +139,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -139,7 +156,8 @@
           <div class="protected-viewer-page__header">第 {{ page.pageNumber }} / {{ pageEntries.length }} 页</div>
           <div class="protected-viewer-page__canvas-wrap">
             <div class="protected-viewer-page__canvas-viewport" :style="getPdfPageViewportStyle(page)">
-              <div class="protected-viewer-transform-stage" :style="pdfPreviewTransformStyle">
+              <div class="protected-viewer-transform-stage" :style="getPdfPreviewTransformStyle(page)">
+                <div v-for="(box, index) in pdfMatchBoxes(page.pageNumber)" :key="index" class="protected-viewer-pdf-match" :style="box" data-testid="pdf-active-match"></div>
                 <canvas
                   :ref="(element) => bindCanvasRef(page.pageNumber, element)"
                   class="protected-viewer-canvas"
@@ -163,7 +181,7 @@
     <template v-else-if="resolvedPreviewKind === 'IMAGE'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -201,7 +219,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -235,7 +253,7 @@
     <template v-else-if="resolvedPreviewKind === 'VIDEO'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--transformable">
         <div
-          v-if="canTransformPreview"
+          v-if="canTransformPreview && !compact"
           class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
           data-testid="protected-viewer-transform-controls"
         >
@@ -250,7 +268,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -290,7 +308,7 @@
     <template v-else-if="resolvedPreviewKind === 'AUDIO'">
       <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--audio">
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -323,16 +341,8 @@
     </template>
 
     <template v-else-if="resolvedPreviewKind === 'TEXT'">
-      <div v-if="textPreviewContent" class="protected-viewer-frame protected-viewer-frame--text protected-viewer-frame--transformable">
+      <template v-if="textPreviewContent">
         <div class="protected-viewer-text-tools" data-testid="protected-viewer-text-tools">
-          <div class="protected-viewer-text-tools__row">
-            <el-button size="small" aria-label="上一页" :disabled="textCurrentPage <= 1" @click="goToTextPage(textCurrentPage - 1)">上一页</el-button>
-            <span aria-live="polite">第 {{ textCurrentPage }} / {{ textPageEntries.length }} 页（每 {{ TEXT_LINES_PER_PAGE }} 行）</span>
-            <el-button size="small" aria-label="下一页" :disabled="textCurrentPage >= textPageEntries.length" @click="goToTextPage(textCurrentPage + 1)">下一页</el-button>
-            <el-input v-model="textPageInput" class="protected-viewer-text-tools__page" size="small" aria-label="文本页码" inputmode="numeric" @keyup.enter="handleTextPageJump" />
-            <el-button size="small" aria-label="跳转页码" @click="handleTextPageJump">跳转</el-button>
-            <span v-if="textNavigationError" role="alert">{{ textNavigationError }}</span>
-          </div>
           <div class="protected-viewer-text-tools__row">
             <el-input v-model="textSearchQuery" class="protected-viewer-text-tools__query" size="small" aria-label="文本正文关键字" placeholder="搜索文本正文" @keyup.enter="handleTextSearch" />
             <el-button size="small" aria-label="搜索文本正文" :disabled="!textSearchQuery.trim()" @click="handleTextSearch">搜索</el-button>
@@ -340,8 +350,17 @@
             <el-button size="small" aria-label="下一处匹配" :disabled="!textSearchMatches.length" @click="moveTextSearchMatch(1)">下一处</el-button>
             <span role="status" aria-live="polite">{{ textSearchMessage }}</span>
           </div>
+          <div class="protected-viewer-text-tools__row preview-navigation">
+            <el-button size="small" aria-label="上一页" :disabled="textCurrentPage <= 1" @click="goToTextPage(textCurrentPage - 1)">上一页</el-button>
+            <span aria-live="polite">第 {{ textCurrentPage }} / {{ textPageEntries.length }} 页（每 {{ TEXT_LINES_PER_PAGE }} 行）</span>
+            <el-button size="small" aria-label="下一页" :disabled="textCurrentPage >= textPageEntries.length" @click="goToTextPage(textCurrentPage + 1)">下一页</el-button>
+            <el-input v-model="textPageInput" class="protected-viewer-text-tools__page" size="small" aria-label="文本页码" inputmode="numeric" @keyup.enter="handleTextPageJump" />
+            <el-button size="small" aria-label="跳转页码" @click="handleTextPageJump">跳转</el-button>
+            <span v-if="textNavigationError" role="alert">{{ textNavigationError }}</span>
+          </div>
         </div>
-        <div v-if="canTransformPreview" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
+      <div class="protected-viewer-frame protected-viewer-frame--text protected-viewer-frame--transformable">
+        <div v-if="canTransformPreview && !compact" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
           <span class="protected-viewer-transform-controls__status">{{ viewerZoomPercent }}% / {{ viewerRotationDegrees }}°</span>
           <div class="protected-viewer-transform-controls__grid">
             <el-button size="small" :disabled="viewerZoomPercent >= MAX_VIEWER_ZOOM_PERCENT" aria-label="放大" @click="handleZoomIn">放大</el-button>
@@ -351,7 +370,7 @@
           </div>
         </div>
         <div
-          v-if="resolvedWatermarkText"
+          v-if="resolvedWatermarkText && !hideReadingDetails"
           class="protected-viewer-corner-watermark"
           data-testid="protected-preview-corner-watermark"
         >
@@ -377,11 +396,15 @@
           </div>
         </div>
       </div>
+      </template>
       <el-empty v-else-if="!loading && !errorMessage" description="暂无可预览的文本内容" />
     </template>
 
     <template v-else-if="resolvedPreviewKind === 'OFFICE'">
       <OnlyOfficeReadOnlyViewer
+        ref="officeViewerRef"
+        :compact="compact"
+        :hide-trace-details="hideReadingDetails"
         :key="renderVersion"
         :base-url="resolvedOnlyOfficeBaseUrl"
         :document-url="resolvedOnlyOfficeDocumentUrl"
@@ -403,6 +426,11 @@
       v-else-if="!loading && !errorMessage"
       description="暂无可预览的文件内容"
     />
+    <details v-if="hideReadingDetails && watermarkDetail" class="protected-viewer-trace-details">
+      <summary>预览追溯信息</summary>
+      <div>{{ watermarkDetail }}</div>
+      <div v-if="registeredPreviewVisible">本次预览登记时间：{{ registeredPreviewLabel }}</div>
+    </details>
   </div>
 </template>
 
@@ -424,6 +452,7 @@ import {
   buildPreviewWatermarkDetail,
   getPreviewWatermarkBadgeLabel,
   getProtectedViewerRenderScale,
+  getProtectedPdfFitScale,
   resolveViewerErrorMessage,
   shouldBlockPreviewShortcut
 } from './presentation'
@@ -452,13 +481,28 @@ const props = defineProps<{
   previewUnavailableReason?: string
   watermark?: ControlledPreviewWatermark | null
   title?: string
+  compact?: boolean
+  reviewToolbar?: boolean
+  hideReadingDetails?: boolean
 }>()
+const expanded = ref(false)
+const viewerShellRef = ref<HTMLDivElement>()
+const pdfAvailableWidth = ref(0)
+let pdfResizeObserver: ResizeObserver | null = null
+
+const officeViewerRef = ref<InstanceType<typeof OnlyOfficeReadOnlyViewer>>()
+const compactZoomPercent = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? (officeViewerRef.value?.previewZoomValue ?? 100) : viewerZoomPercent.value)
+const compactCanZoomOut = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? officeViewerRef.value?.canZoomOut : canTransformPreview.value && !loading.value && !errorMessage.value && viewerZoomPercent.value > MIN_VIEWER_ZOOM_PERCENT)
+const compactCanZoomIn = computed(() => resolvedPreviewKind.value === 'OFFICE'
+  ? officeViewerRef.value?.canZoomIn : canTransformPreview.value && !loading.value && !errorMessage.value && viewerZoomPercent.value < MAX_VIEWER_ZOOM_PERCENT)
 const emit = defineEmits<{
   opened: [event: { source: OnlineFilePreviewSource; metadata: ControlledFilePreviewMetadataVO }]
 }>()
 
 interface ViewerCanvasPageProxy extends PdfTextPage {
-  getViewport: (params: { scale: number }) => { width: number; height: number }
+  getViewport: (params: { scale: number }) => { width: number; height: number; convertToViewportRectangle?: (rect: number[]) => number[] }
   render: (params: {
     canvasContext: CanvasRenderingContext2D
     viewport: { width: number; height: number }
@@ -486,6 +530,16 @@ const pdfPageRefMap = new Map<number, HTMLElement>()
 const pdfCurrentPage = ref(1)
 const pdfPageInput = ref('1')
 const pdfNavigationError = ref('')
+const pdfTextGeometry = shallowRef<Record<number, Array<{ start: number; end: number; left: number; top: number; width: number; height: number }>>>({})
+const pdfMatchBoxes = (pageNumber: number) => {
+  const match = pdfSearchMatches.value[pdfSearchMatchIndex.value]
+  if (!match || match.pageNumber !== pageNumber) return []
+  const end = match.offset + pdfSubmittedSearchQuery.value.normalize('NFKC').replace(/\s+/gu, ' ').length
+  return (pdfTextGeometry.value[pageNumber] || []).filter(box => box.end > match.offset && box.start < end).map(box => ({
+    left: `${box.left + box.width * Math.max(0, match.offset - box.start) / (box.end - box.start)}px`, top: `${box.top}px`,
+    width: `${box.width * (Math.min(box.end, end) - Math.max(box.start, match.offset)) / (box.end - box.start)}px`, height: `${box.height}px`
+  }))
+}
 const pdfTextPages = ref<string[]>([])
 const pdfTextStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const pdfSearchError = ref('')
@@ -500,7 +554,7 @@ const pdfSearchMessage = computed(() => {
   if (pdfTextStatus.value !== 'ready') return ''
   if (!pdfCanSearch.value) return '当前 PDF 无可搜索文本，扫描件或纯图页面不支持文字搜索。'
   if (!pdfSubmittedSearchQuery.value) return '可搜索 PDF 正文文本'
-  if (!pdfSearchMatches.value.length) return '未找到匹配的正文文本'
+  if (!pdfSearchMatches.value.length) return '未找到匹配内容'
   return `第 ${pdfSearchMatchIndex.value + 1} / ${pdfSearchMatches.value.length} 处匹配`
 })
 const renderVersion = ref(0)
@@ -642,10 +696,12 @@ const viewerScale = computed(() => viewerZoomPercent.value / 100)
 const previewTransform = computed(
   () => `scale(${viewerScale.value}) rotate(${viewerRotationDegrees.value}deg)`
 )
-const pdfPreviewTransformStyle = computed(() => ({
-  transform: previewTransform.value,
+const getPdfScale = (page: { width: number; height: number }) =>
+  viewerScale.value * getProtectedPdfFitScale(page.width, page.height, pdfAvailableWidth.value, viewerRotationDegrees.value)
+const getPdfPreviewTransformStyle = (page: { width: number; height: number }) => ({
+  transform: `translate(-50%, -50%) scale(${getPdfScale(page)}) rotate(${viewerRotationDegrees.value}deg)`,
   transformOrigin: 'center center'
-}))
+})
 const flatPreviewViewportStyle = computed(() => getPdfPageViewportStyle(flatPreviewSize.value))
 const flatPreviewTransformStyle = computed(() => ({
   width: `${flatPreviewContainerWidth.value}px`,
@@ -682,7 +738,7 @@ const textPageSegments = computed(() => {
 })
 const textSearchMessage = computed(() => {
   if (!textSubmittedSearchQuery.value) return '可搜索文本正文'
-  if (!textSearchMatches.value.length) return '未找到匹配的正文文本'
+  if (!textSearchMatches.value.length) return '未找到匹配内容'
   return `第 ${textSearchMatchIndex.value + 1} / ${textSearchMatches.value.length} 处匹配`
 })
 const resolvedOnlinePreviewSource = computed<OnlineFilePreviewSource | null>(() => {
@@ -903,6 +959,7 @@ const resetPdfTools = () => {
   pdfCurrentPage.value = 1
   pdfPageInput.value = '1'
   pdfNavigationError.value = ''
+  pdfTextGeometry.value = {}
   pdfTextPages.value = []
   pdfTextStatus.value = 'idle'
   pdfSearchError.value = ''
@@ -1096,7 +1153,7 @@ const handleResetViewerTransform = () => {
 }
 
 const getPdfPageViewportStyle = (page: { width: number; height: number }) => {
-  const scale = viewerScale.value
+  const scale = resolvedPreviewKind.value === 'PDF' ? getPdfScale(page) : viewerScale.value
   const isQuarterTurn = viewerRotationDegrees.value % 180 !== 0
   const width = isQuarterTurn ? page.height : page.width
   const height = isQuarterTurn ? page.width : page.height
@@ -1277,6 +1334,24 @@ const renderPdfPages = async (
     }
     const viewport = page.getViewport({ scale })
     const renderViewport = page.getViewport({ scale: scale * outputScale })
+    const content = await page.getTextContent()
+    if (!isCurrentRenderVersion(currentRenderVersion)) return
+    let rawText = ''
+    const boxes: typeof pdfTextGeometry.value[number] = []
+    for (const item of content.items) {
+      if (typeof item.str !== 'string') continue
+      const start = rawText.normalize('NFKC').replace(/\s+/gu, ' ').trimStart().length
+      rawText += item.str
+      const end = rawText.normalize('NFKC').replace(/\s+/gu, ' ').trimStart().length
+      if (item.transform && item.width !== undefined && item.height !== undefined && viewport.convertToViewportRectangle) {
+        const [x, y] = item.transform.slice(4)
+        const rect = viewport.convertToViewportRectangle([x, y, x + item.width, y + item.height])
+        boxes.push({ start, end, left: Math.min(rect[0], rect[2]), top: Math.min(rect[1], rect[3]), width: Math.abs(rect[2] - rect[0]), height: Math.abs(rect[3] - rect[1]) })
+      }
+      if (item.hasEOL) rawText += '\n'
+    }
+    pdfTextGeometry.value = { ...pdfTextGeometry.value, [pageEntry.pageNumber]: boxes }
+
     canvas.width = Math.ceil(renderViewport.width)
     canvas.height = Math.ceil(renderViewport.height)
     canvas.style.width = `${Math.ceil(viewport.width)}px`
@@ -1417,6 +1492,15 @@ const handleWindowKeydown = (event: KeyboardEvent) => {
 
 onMounted(() => {
   previewUnmounted = false
+  if (viewerShellRef.value) {
+    const measure = () => {
+      // Reserve both frame and canvas wrapper padding, borders and scrollbar.
+      pdfAvailableWidth.value = Math.max(1, (viewerFrameRef.value?.clientWidth || viewerShellRef.value!.clientWidth) - 64)
+    }
+    pdfResizeObserver = new ResizeObserver(measure)
+    pdfResizeObserver.observe(viewerShellRef.value)
+    measure()
+  }
   window.addEventListener('keydown', handleWindowKeydown, true)
   window.addEventListener('focus', handleReadingActivityChange)
   window.addEventListener('blur', handleReadingActivityChange)
@@ -1447,6 +1531,7 @@ const handleOfficeError = (event: { documentUrl: string; message: string }) => {
 
 onBeforeUnmount(() => {
   previewUnmounted = true
+  pdfResizeObserver?.disconnect()
   renderVersion.value += 1
   void resetPreviewState()
   clearRegisteredPreview()
@@ -1479,6 +1564,32 @@ watch(
 </script>
 
 <style scoped>
+.protected-viewer-compact-tools {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  background: var(--el-bg-color);
+}
+
+.protected-viewer-shell--compact :deep(.onlyoffice-viewer-toolbar) {
+  display: none;
+}
+
+.protected-viewer-shell--expanded {
+  position: fixed;
+  inset: 20px;
+  z-index: 3000;
+  padding: 16px;
+  overflow: auto;
+  background: var(--el-bg-color);
+  box-shadow: 0 0 0 20px rgb(0 0 0 / 40%);
+}
+
 .protected-viewer-shell {
   min-width: 0;
   max-width: 100%;
@@ -1733,6 +1844,13 @@ watch(
   transition: width 0.16s ease, height 0.16s ease;
 }
 
+.protected-viewer-page__canvas-viewport > .protected-viewer-transform-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+}
+
 .protected-viewer-transform-stage {
   position: relative;
   display: inline-flex;
@@ -1949,4 +2067,36 @@ watch(
     white-space: normal;
   }
 }
+
+.protected-viewer-shell--compact {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.protected-viewer-shell--compact > .protected-viewer-toolbar,
+.protected-viewer-shell--compact > .protected-viewer-compact-tools { flex-shrink: 0; }
+.protected-viewer-shell--compact > :deep(.onlyoffice-viewer-shell) { flex: 1; min-height: 0; }
+.protected-viewer-shell--compact > .protected-viewer-frame { flex: 1; min-height: 0; overflow: auto; }
+.protected-viewer-shell--compact .protected-viewer-toolbar { padding-bottom: 6px; margin-bottom: 0; }
+.protected-viewer-shell--compact.protected-viewer-shell--expanded { height: auto; }
+.protected-viewer-shell--review { height: auto; }
+.protected-viewer-shell--review .review-preview-badge { margin-left: auto; }
+.protected-viewer-shell--review > .protected-viewer-frame { max-height: 75vh; padding-bottom: 24px; }
+.protected-viewer-shell--review > :deep(.onlyoffice-viewer-shell) { flex: none; height: 75vh; min-height: 360px; }
+.protected-viewer-trace-details { flex-shrink: 0; margin-top: 8px; padding: 8px 0; color: var(--el-text-color-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.protected-viewer-trace-details summary { cursor: pointer; }
+</style>
+
+<style scoped>
+.protected-viewer-pdf-tools,
+.protected-viewer-text-tools { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+.protected-viewer-pdf-tools__row,
+.protected-viewer-text-tools__row { flex: 1; }
+.protected-viewer-pdf-tools__row > [role="status"],
+.protected-viewer-text-tools__row > [role="status"] { white-space: nowrap; }
+.preview-navigation { flex: 0 0 auto; margin-left: auto; }
+.protected-viewer-pdf-match { position: absolute; background: rgb(255 176 0 / 45%); outline: 2px solid #e08a00; pointer-events: none; z-index: 1; }
+.protected-viewer-pdf-tools__excerpt { flex-basis: 100%; }
 </style>

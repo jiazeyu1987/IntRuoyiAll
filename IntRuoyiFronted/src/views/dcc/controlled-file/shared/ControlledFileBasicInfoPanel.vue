@@ -56,22 +56,22 @@
       border
       class="controlled-file-basic-info-panel__descriptions"
     >
-      <el-descriptions-item label="文件类别">
-        {{ categoryName || '-' }}
+      <el-descriptions-item label="项目">
+        <el-link
+          v-if="file?.dccProjectCodeId"
+          type="primary"
+          @click="emit('openDccProjectCode', file.dccProjectCodeId)"
+        >
+          {{ formatDccProjectCodeLink(file) }}
+        </el-link>
+        <span v-else>未绑定 DCC 项目代码</span>
       </el-descriptions-item>
-      <el-descriptions-item label="受控目录">
+      <el-descriptions-item label="存储文件夹">
         {{ directoryName || '-' }}
       </el-descriptions-item>
-      <el-descriptions-item label="文件名称">
-        {{ file?.fileName || '-' }}
+      <el-descriptions-item label="文件分类">
+        {{ categoryName || '-' }}
       </el-descriptions-item>
-      <template v-if="file?.importSource === 'CONTROLLED_IMPORT'">
-        <el-descriptions-item label="上传来源">已受控文件上传</el-descriptions-item>
-        <el-descriptions-item label="原受控时间">{{ formatControlledFileDateTime(file.controlledTime) }}</el-descriptions-item>
-        <el-descriptions-item label="原生效时间">{{ formatControlledFileDateTime(file.effectiveTime) }}</el-descriptions-item>
-        <el-descriptions-item label="本次上传人">{{ file.importedBy || '未记录' }}</el-descriptions-item>
-        <el-descriptions-item label="本次上传时间">{{ formatControlledFileDateTime(file.importedTime) }}</el-descriptions-item>
-      </template>
       <el-descriptions-item label="产品编号">
         {{ file?.productCode || '-' }}
       </el-descriptions-item>
@@ -93,16 +93,24 @@
           </el-button>
         </span>
       </el-descriptions-item>
-      <el-descriptions-item label="DCC基础条目">
-        <el-link
-          v-if="file?.dccProjectCodeId"
-          type="primary"
-          @click="emit('openDccProjectCode', file.dccProjectCodeId)"
-        >
-          {{ formatDccProjectCodeLink(file) }}
-        </el-link>
-        <span v-else>未绑定 DCC 项目代码</span>
+      <el-descriptions-item label="编制人">{{ file?.fileOwnerNicknameSnapshot || file?.fileOwnerUsernameSnapshot || '未记录' }}</el-descriptions-item>
+      <el-descriptions-item label="培训要求">
+        {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode" label="申请生效方式">{{ effectiveFacts(file).modeText }}</el-descriptions-item>
+      <el-descriptions-item label="提交备注" :span="column">
+        {{ file?.remark || '-' }}
+      </el-descriptions-item>
+      <el-descriptions-item label="文件名称">
+        {{ file?.fileName || '-' }}
+      </el-descriptions-item>
+      <template v-if="file?.importSource === 'CONTROLLED_IMPORT'">
+        <el-descriptions-item label="上传来源">已受控文件上传</el-descriptions-item>
+        <el-descriptions-item label="原受控时间">{{ formatControlledFileDateTime(file.controlledTime) }}</el-descriptions-item>
+        <el-descriptions-item label="原生效时间">{{ formatControlledFileDateTime(file.effectiveTime) }}</el-descriptions-item>
+        <el-descriptions-item label="本次上传人">{{ file.importedBy || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="本次上传时间">{{ formatControlledFileDateTime(file.importedTime) }}</el-descriptions-item>
+      </template>
       <el-descriptions-item label="文件类别 I">
         {{ file?.fileTypeLevel1 || '-' }}
       </el-descriptions-item>
@@ -117,9 +125,6 @@
       </el-descriptions-item>
       <el-descriptions-item label="文件类别 V">
         {{ file?.fileTypeLevel5 || '-' }}
-      </el-descriptions-item>
-      <el-descriptions-item label="培训要求">
-        {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
       <el-descriptions-item label="当前执行受控版本">
         {{ getDccVersionDisplayText(file?.currentActiveVersionNo) }}
@@ -143,9 +148,6 @@
       <el-descriptions-item label="流程定义">
         {{ file?.processDefinitionKey || '-' }}
       </el-descriptions-item>
-      <el-descriptions-item label="提交备注" :span="column">
-        {{ file?.remark || '-' }}
-      </el-descriptions-item>
       <el-descriptions-item v-if="file?.rejectReason" label="驳回原因" :span="column">
         {{ file.rejectReason }}
       </el-descriptions-item>
@@ -162,7 +164,7 @@
 <script lang="ts" setup>
 import type { ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
 import { formatControlledFileDateTime } from '../detail/presentation'
-import { formatDelayedEffectiveFact } from '../workflow/effective-facts'
+import { effectiveFacts, formatDelayedEffectiveFact } from '../workflow/effective-facts'
 import { getDccVersionDisplayText } from './version-display'
 
 defineOptions({ name: 'ControlledFileBasicInfoPanel' })

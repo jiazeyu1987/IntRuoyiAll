@@ -418,7 +418,16 @@ public class DccRelationStageSnapshotService {
                     if(!exact)state="IDENTITY_MISMATCH";
                     else if(state==null || state.isBlank())state="UNRECORDED";
                 }
-                stages.add(new DccRelationRoundEvidence.StageEvidence(new Saved(head,members),state,exact));
+                // Display names are read separately; signed historical member facts remain immutable.
+                var assigneeNames=new HashMap<String,String>();
+                for(var member:members)if(member.assigneeUserId()!=null && !assigneeNames.containsKey(member.assigneeUserId().toString())) {
+                    var names=store.jdbc().queryForList("SELECT nickname FROM system_users WHERE tenant_id=? AND id=? AND deleted=0",
+                            String.class,tenant,member.assigneeUserId());
+                    if(names.size()>1)throw fail("DCC_RELATION_ASSIGNEE_IDENTITY_INVALID");
+                    if(names.size()==1 && names.get(0)!=null && !names.get(0).isBlank())
+                        assigneeNames.put(member.assigneeUserId().toString(),names.get(0));
+                }
+                stages.add(new DccRelationRoundEvidence.StageEvidence(new Saved(head,members),state,exact,assigneeNames));
                 for(var member:members)if(member.supplemental())putFixed(all,new Selection(member.relatedMasterId(),member.selectedControlledFileId(),member.projectId(),
                         member.fileNumberSnapshot(),member.fileNameSnapshot(),member.versionNoSnapshot(),member.origin(),false));
             }

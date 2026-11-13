@@ -103,7 +103,7 @@ const ref = value => ({ value })
 const pageFreeze = (formData, overrides = {}) => {
   const calls = []
   const state = {
-    formData, isExternalReview: ref(false), isCustomApprovalSource: ref(false), selectedFileTypeTaxonomyPath: ref({approvalSourceMode:'PUBLIC_MATRIX'}), buildUploadEffectiveChoice: helpers.buildUploadEffectiveChoice,
+    formData, libraryScope: ref('PROJECT'), isLibraryUpload: ref(false), isExternalReview: ref(false), isCustomApprovalSource: ref(false), selectedFileTypeTaxonomyPath: ref({approvalSourceMode:'PUBLIC_MATRIX'}), buildUploadEffectiveChoice: helpers.buildUploadEffectiveChoice,
     resolveTodayDate: () => '2026-10-14', projectFoldersLoading: ref(false), projectFoldersError: ref(''),
     selectedProjectFolder: ref({ id: '9007199254740993', projectCodeId: '5', active: true }),
     projectAttributesLoading: ref(false), projectAttributesPanel: ref({ getSnapshot: () => ({
@@ -129,6 +129,8 @@ test('G12 actual page freeze accepts empty/missing/whitespace explanation in sav
       const frozen = freeze(saving)
       assert.equal(frozen.projectFolderChangeReason, reason)
       assert.equal(frozen.projectFolderId, original.projectFolderId)
+      assert.equal(frozen.libraryScope, 'PROJECT')
+      assert.deepEqual(JSON.parse(JSON.stringify(frozen.projectAttributes)), actual)
       assert.deepEqual(calls, saving ? [] : ['approvers', 'people'])
       frozen.fileName = 'changed.pdf'
       assert.equal(original.fileName, '操作规程.pdf')
