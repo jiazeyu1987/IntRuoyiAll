@@ -34,6 +34,7 @@ export interface BatchRecordTotalRecognitionParameter {
 }
 
 export interface BatchRecordTotalRecognitionEquipmentGroup {
+  equipmentRequired?: boolean
   equipmentOptions?: BatchRecordTotalRecognitionEquipmentOption[]
   parameters?: BatchRecordTotalRecognitionParameter[]
   selectionMode?: string

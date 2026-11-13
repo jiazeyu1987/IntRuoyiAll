@@ -506,6 +506,7 @@ export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number
   processId?: number
   plannedQuantity?: number | string
+  upperQuantity?: number | string
   allocatedQuantity?: number | string
   remainingQuantity?: number | string
   quantityConflict?: boolean

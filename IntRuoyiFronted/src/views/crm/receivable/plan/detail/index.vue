@@ -12,9 +12,7 @@
       <el-tab-pane label="详细资料">
         <ReceivablePlanDetailsInfo :receivable-plan="receivablePlan" />
       </el-tab-pane>
-      <el-tab-pane label="操作日志">
-        <OperateLogV2 :log-list="logList" />
-      </el-tab-pane>
+      
       <el-tab-pane label="团队成员">
         <PermissionList
           ref="permissionListRef"
@@ -37,8 +35,8 @@ import ReceivablePlanDetailsHeader from './ReceivablePlanDetailsHeader.vue'
 import ReceivablePlanDetailsInfo from './ReceivablePlanDetailsInfo.vue'
 import PermissionList from '@/views/crm/permission/components/PermissionList.vue' // 团队成员列表（权限）
 import { BizTypeEnum } from '@/api/crm/permission'
-import { OperateLogVO } from '@/api/system/operatelog'
-import { getOperateLogPage } from '@/api/crm/operateLog'
+
+
 import ReceivablePlanForm from '@/views/crm/receivable/plan/ReceivablePlanForm.vue'
 
 defineOptions({ name: 'CrmReceivablePlanDetail' })
@@ -57,7 +55,7 @@ const getReceivablePlan = async (id: number) => {
   loading.value = true
   try {
     receivablePlan.value = await ReceivablePlanApi.getReceivablePlan(id)
-    await getOperateLog(id)
+    
   } finally {
     loading.value = false
   }
@@ -70,17 +68,8 @@ const openForm = (type: string, id?: number) => {
 }
 
 /** 获取操作日志 */
-const logList = ref<OperateLogVO[]>([]) // 操作日志列表
-const getOperateLog = async (receivablePlanId: number) => {
-  if (!receivablePlanId) {
-    return
-  }
-  const data = await getOperateLogPage({
-    bizType: BizTypeEnum.CRM_RECEIVABLE_PLAN,
-    bizId: receivablePlanId
-  })
-  logList.value = data.list
-}
+ // 操作日志列表
+
 
 /** 关闭窗口 */
 const { delView } = useTagsViewStore() // 视图操作

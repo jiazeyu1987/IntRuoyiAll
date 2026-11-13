@@ -118,11 +118,11 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
             var rows=approvalQueries.window(query).stream().map(this::requireFeedback).toList();
             var formal=formalReviewProjection.read(rows);var summaries=new ArrayList<ApprovalTaskSummary>();
             for(var row:rows){
-                var fact=formal.get(row.getId());boolean done=fact==null?isApprovalDone(row):fact.reviewed();
+                // Production review remains in report management, outside every approval-center view.
+                if (formal.containsKey(row.getId())) continue;
+                boolean done = isApprovalDone(row);
                 if(context.getViewType()==ApprovalTaskViewType.TODO&&done || context.getViewType()==ApprovalTaskViewType.DONE&&!done)continue;
-                if(fact!=null && context.getViewType()!=ApprovalTaskViewType.MY_INITIATED && !context.isGlobalView()
-                        && !Objects.equals(context.getLoginUserId(),fact.reviewed()?fact.reviewerId():row.getApproveUserId()))continue;
-                summaries.add(fact==null?toSummary(row):toFormalSummary(row,fact));
+                summaries.add(toSummary(row));
             }
             if(split.hasDynamicFilters())cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.enrichUsers(summaries,filterUsers);
             return new PageResult<>(summaries,total);
@@ -146,26 +146,6 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
             throw new IllegalStateException("MES_FEEDBACK_TIMELINE_ACCESS_DENIED: " + feedbackId);
         }
         return buildFormalTimeline(feedback, fact);
-    }
-
-    private ApprovalTaskSummary toFormalSummary(MesProFeedbackDO feedback, MesFeedbackFormalReviewProjection.Fact fact) {
-        ApprovalTaskSummary summary = toSummary(feedback);
-        String status = fact.reviewed() ? fact.review().getReviewStatus() : "PENDING";
-        summary.setBusinessStatus(!fact.reviewed() ? "待生产组长复核" : "APPROVED".equals(status) ? "生产复核通过" : "生产复核驳回")
-                .setCurrentNodeCode(status).setCurrentNodeName("生产组长报工复核")
-                .setAssigneeUserId(fact.reviewed() ? fact.reviewerId() : feedback.getApproveUserId())
-                .setInitiatedAt(fact.event().getServerSubmitTime()).setTaskCreatedAt(fact.event().getServerSubmitTime())
-                .setTaskCompletedAt(fact.reviewed() ? fact.review().getReviewedAt() : null)
-                .setApprovalResult(!fact.reviewed() ? null : "APPROVED".equals(status)
-                        ? ApprovalTaskReviewResult.APPROVE : ApprovalTaskReviewResult.REJECT)
-                .setApprovalRemark(fact.reviewed() ? fact.review().getReviewRemark() : null)
-                .setAvailableActions(PROCESS_ACTIONS)
-                .setDetailRoute("/mes/pro/process-pool/production-leader")
-                .setDetailQuery(Map.of("eventId", String.valueOf(fact.event().getId())))
-                .setBusinessContextTags(fact.reviewed()
-                        ? List.of("生产事件 " + fact.event().getId(), "复核签名 " + fact.review().getReviewSignatureId())
-                        : List.of("生产事件 " + fact.event().getId()));
-        return summary;
     }
 
     private List<ApprovalTaskTimelineEntry> buildFormalTimeline(MesProFeedbackDO feedback,

@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
+import cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService;
+
 import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
@@ -82,6 +84,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION
 @Service
 @Validated
 public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegulationService {
+
+    @jakarta.annotation.Resource
+    private MesVersionOperateLogService versionOperateLogService;
 
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService equipmentConfigService;
@@ -258,6 +263,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .setRegulationCode(StrUtil.trim(reqVO.getRegulationCode()))
                 .setRegulationName(StrUtil.trim(reqVO.getRegulationName()));
 
+        versionOperateLogService.qa("发布", context.regulation(),
+                publishedVersions.isEmpty() ? null : publishedVersions.get(0), context.version());
         return buildVersionResp(context.regulation(), context.version());
     }
 
@@ -962,6 +969,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     var old = previousItems.get(StrUtil.trim(item.getItemCode()));
                     if (old != null && StrUtil.isNotBlank(old.getEquipmentUnboundReason())
                             && StrUtil.isBlank(item.getEquipmentUnboundReason())
+                            && !Boolean.FALSE.equals(item.getEquipmentRequired())
                             && (dccProjectCode == null ? CollUtil.isEmpty(item.getEquipmentOptions())
                                 : equipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                                     dccProjectCode.getId(), previous.getId(), List.of(item.getItemCode()))
@@ -987,6 +995,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .snapshotJson(snapshotJson)
                     .build();
             versionMapper.insert(version);
+            versionOperateLogService.qa(previous == null ? "创建" : "升版", regulation, previous, version);
         } else {
             int updated = versionMapper.update(new MesQaInspectionRegulationVersionDO()
                     .setDraftRevision(version.getDraftRevision() + 1)
@@ -1210,6 +1219,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .inspectionMethod(source.getInspectionMethod())
                 .inspectionTool(source.getInspectionTool())
                 .equipmentUnboundReason(snapshotItem == null ? null : snapshotItem.getEquipmentUnboundReason())
+                .equipmentRequired(snapshotItem == null ? null : snapshotItem.getEquipmentRequired())
                 .samplingPlanText(source.getSamplingPlanText())
                 .standardText(source.getStandardText())
                 .standardLowerLimit(source.getStandardLowerLimit())
@@ -1706,6 +1716,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     private static void validateItemEquipmentOptions(MesQaInspectionRegulationSaveReqVO.InspectionItem item) {
+        if (Boolean.FALSE.equals(item.getEquipmentRequired())
+                && (CollUtil.isNotEmpty(item.getEquipmentOptions()) || StrUtil.isNotBlank(item.getEquipmentUnboundReason()))) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".无需设备时不得保留设备绑定或待绑定原因");
+        }
         if (CollUtil.isEmpty(item.getEquipmentOptions())) {
             return;
         }

@@ -160,7 +160,7 @@ class DccTrainingRecordDutyDatabaseTest extends DccOfflineTrainingEntryDatabaseT
         assertNull(files.selectById(20L).getTrainingRecordFileId());assertEquals("PENDING_APPLICANT_TRAINING_RECORD",files.selectById(20L).getStatus());
         assertEquals("AVAILABLE",ticketRows.selectList().get(0).getStatus());
         assertEquals(1,actualEngine.getRuntimeService().createExecutionQuery().activityId("TRAINING").count());
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
     }
 
     @Test
@@ -182,7 +182,7 @@ class DccTrainingRecordDutyDatabaseTest extends DccOfflineTrainingEntryDatabaseT
     @Test
     void actualTrainingRuleProducesOfficialWorkMessageWithoutContentApproverIdentity() {
         new TransactionTemplate(manager).executeWithoutResult(s->actualTraining.notifyWaiting(files.selectById(20L)));
-        assertEquals(88L,((Number)jdbc.queryForMap("SELECT user_id FROM system_notify_message WHERE tenant_id=1").get("user_id")).longValue());
+        assertEquals(88L,((Number)jdbc.queryForMap("SELECT user_id FROM system_tenant_notify_message WHERE tenant_id=1").get("user_id")).longValue());
         assertEquals(1,actualTraining.listForActor(88L).size());
         assertFalse(actualCategories.hasCategoryPermission(2L,88L,DccFileCategoryPermissionActionEnum.APPROVE));
         assertEquals(99L,files.selectById(20L).getRequesterId());

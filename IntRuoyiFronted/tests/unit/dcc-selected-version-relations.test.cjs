@@ -146,6 +146,7 @@ function moduleOf(source, deps = {}) {
   )(exports, (id) => {
     if (id === 'vue') return vue
     if (id in deps) return deps[id]
+    if (id === '../shared/signature-evidence') return moduleOf(fs.readFileSync(path.join(root, 'src/views/dcc/controlled-file/shared/signature-evidence.ts'), 'utf8'))
     if (id.endsWith('.vue'))
       return { __esModule: true, default: { render: () => vue.h('unused-viewer') } }
     throw Error('unexpected import ' + id)
@@ -248,10 +249,12 @@ function mount(options = {}) {
           vue.h(tag, attrs, slots.default?.())
     })
   app.directive('loading', {})
+  let renderedRows
   app.component('el-table', {
     props: ['data'],
     setup: (props, { slots }) => {
-      vue.provide('rows', vue.toRef(props, 'data'))
+      renderedRows = vue.toRef(props, 'data')
+      vue.provide('rows', renderedRows)
       return () => vue.h('table', {}, slots.default?.())
     }
   })
@@ -277,7 +280,8 @@ function mount(options = {}) {
     state: host.$.subTree.component.setupState,
     app,
     preview,
-    visible: () => text(tree)
+    visible: () => text(tree),
+    renderedRows: () => renderedRows.value
   }
 }
 test('exact approval evidence shows frozen names without everyday target rights; body still rejects', async () => {
@@ -341,6 +345,84 @@ const drain = async () => {
   await vue.nextTick()
 }
 
+test('approval related MJMJ keeps AB/1 name, number and body even when AB/2 exists', async () => {
+  const frozen = {
+    ...snapshot(),
+    fileName: '项目三个属性静态分析报告-20261011.txt',
+    fileNumber: 'MJMJ',
+    versionNo: 'AB/1'
+  }
+  const options = {
+    props: { applicationSelection: selection, bodyReadContext: {
+      intent: 'APPROVAL_TASK', controlledFileId: file.id, expectedVersionNo: file.versionNo,
+      applicationType: selection.applicationType, bpmRound: selection.bpmRound, taskId: 'task-1'
+    } },
+    getEvidence: async () => {
+      const result = evidence()
+      result.relationEvidence.completeSelections = [{
+        ...selected('31', '300', frozen.fileName),
+        fileNumber: frozen.fileNumber, versionNo: frozen.versionNo
+      }]
+      return result
+    },
+    getMetadata: async id => {
+      assert.equal(id, '31', 'must never resolve the current or latest target ID 32')
+      return { ...metadata(id), versionNo: 'AB/1', fileName: '后来重命名.txt',
+        fileNumber: 'NEW-MJMJ', currentActiveControlledFileId: '32', latestControlledFileId: '32' }
+    }
+  }
+  const display = mount({ ...options, inline: true })
+  try {
+    await drain()
+    for (const value of [frozen.fileName, 'MJMJ', 'AB/1', '查看固定版本'])
+      assert.ok(display.visible().includes(value), value)
+    assert.doesNotMatch(display.visible(), /后来重命名|NEW-MJMJ|AB\/2/)
+  } finally { display.app.unmount() }
+  const c = mount(options)
+  try {
+    await drain()
+    await c.state.openPreview(c.state.files[0])
+    assert.equal(c.state.error, '')
+    const source = c.state.previewSource
+    const meta = await c.preview.common.getOnlineFilePreviewMetadata(source)
+    await c.preview.common.previewOnlineFileWithWatermark(source, meta)
+    const request = c.preview.calls.metadata[0]
+    assert.match(request.url, /\/31\/preview-metadata$/)
+    const wire = request.params.bodyReadContext
+    assert.deepEqual(JSON.parse(Buffer.from(wire, 'base64url')), {
+      intent: 'VERSION_HISTORY', controlledFileId: '31', expectedVersionNo: 'AB/1'
+    })
+    assert.equal(c.preview.calls.binary[0].config.headers['X-DCC-Body-Read-Context'], wire)
+    assert.match(c.preview.calls.binary[0].url, /\/31\/preview$/)
+    assert.deepEqual(c.calls.filter(call => call[0] === 'metadata'), [['metadata', '31']])
+    assert.doesNotMatch(c.visible(), /后来重命名|NEW-MJMJ|AB\/2/)
+  } finally { c.app.unmount() }
+})
+
+test('AB/1 authority failure never retries the newer version or opens a body', async () => {
+  let opening = false
+  const c = mount({
+    getHistory: async () => [{ ...snapshot(), versionNo: 'AB/1' }],
+    getMetadata: async id => {
+      assert.ok([file.id, '31'].includes(id))
+      if (id === file.id) return metadata(id)
+      if (opening) throw Error('AB/1 正文权限已撤销')
+      return { ...metadata(id), versionNo: 'AB/1', latestControlledFileId: '32' }
+    }
+  })
+  try {
+    await drain()
+    opening = true
+    await c.state.openPreview(c.state.files[0])
+    assert.equal(c.state.error, 'AB/1 正文权限已撤销')
+    assert.equal(c.state.previewSource, undefined)
+    assert.equal(c.state.previewId, '')
+    assert.equal(c.preview.calls.metadata.length, 0)
+    assert.equal(c.preview.calls.binary.length, 0)
+    assert.ok(c.calls.every(call => call[1] !== '32'))
+  } finally { c.app.unmount() }
+})
+
 test('history A/1 loads only its snapshot; current A/2 and target X/2 are never requested', async () => {
   const c = mount()
   try {
@@ -373,7 +455,8 @@ test('real compiled Vue template renders frozen X/1 and no current-version secti
   }
 })
 test('selected exact application reads complete upload, supplement and remediation evidence instead of version history', async () => {
-  const c = mount({ inline: true, props: { applicationSelection: selection } })
+  const frozenEvidence = evidence(), before = JSON.stringify(frozenEvidence)
+  const c = mount({ inline: true, props: { applicationSelection: selection }, getEvidence: async () => frozenEvidence })
   try {
     await drain()
     assert.deepEqual(
@@ -381,17 +464,13 @@ test('selected exact application reads complete upload, supplement and remediati
       [['evidence', file.id, 'REVISION', 'round-A1']]
     )
     assert.equal(c.calls.filter((row) => ['history', 'current'].includes(row[0])).length, 0)
-    for (const text of [
-      '上传X',
-      '后补Z',
-      '原上传选择',
-      '本次补充',
-      '负责人 71',
-      '2026-10-16 12:00:00',
-      '签名证据异常',
-      '当时负责人'
-    ])
-      assert.ok(c.visible().includes(text), text)
+    for (const text of ['上传X', '后补Z']) assert.ok(c.visible().includes(text), text)
+    for (const internal of ['原上传选择', '本次补充', '负责人 71', '签名投影']) assert.ok(!c.visible().includes(internal), internal)
+    assert.equal(frozenEvidence.relationEvidence.stages[0].signatureEvidenceStatus, 'INVALID')
+    assert.equal(frozenEvidence.relationEvidence.stages[0].snapshot.members[1].assigneeUserId, '71')
+    assert.equal(JSON.stringify(frozenEvidence), before, 'display consolidation must not rewrite signed evidence')
+    assert.equal(c.renderedRows().length, 2)
+    assert.equal(new Set(c.renderedRows().map(row => row.controlledFileId)).size, 2)
   } finally {
     c.app.unmount()
   }
@@ -736,7 +815,7 @@ test('explicit unresolved application context never falls back to the version sn
   }
 })
 
-test('working source displays draft while formal request identity and version validation stay exact', async () => {
+test('working source is not repeated in the relation list while requests and fixed versions stay exact', async () => {
   const c = mount({
     inline: true,
     props: { file: { ...file, versionNo: 'A/1-2' } },
@@ -749,7 +828,7 @@ test('working source displays draft while formal request identity and version va
   })
   try {
     await drain()
-    assert.match(c.visible(), /草稿/)
+    assert.match(c.visible(), /关联文件/)
     assert.doesNotMatch(c.visible(), /A\/1-2/)
     assert.match(c.visible(), /X\/1/)
     assert.deepEqual(c.calls, [

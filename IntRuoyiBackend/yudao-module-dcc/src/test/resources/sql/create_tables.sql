@@ -3163,7 +3163,7 @@ CREATE TABLE IF NOT EXISTS dcc_source_name_reservation (
  UNIQUE (tenant_id, source_name_key)
 );
 
-CREATE TABLE IF NOT EXISTS infra_file(id BIGINT PRIMARY KEY,config_id BIGINT,name VARCHAR(256),path VARCHAR(1024),url VARCHAR(1024),type VARCHAR(128),size BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted TINYINT DEFAULT 0);
+CREATE TABLE IF NOT EXISTS infra_file(id BIGINT PRIMARY KEY,tenant_id BIGINT NOT NULL DEFAULT 1,config_id BIGINT,name VARCHAR(256),path VARCHAR(1024),url VARCHAR(1024),type VARCHAR(128),size BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted TINYINT DEFAULT 0);
 
 CREATE ALIAS IF NOT EXISTS HEX FOR "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.utf8Hex";
 
@@ -3330,3 +3330,5 @@ CREATE TABLE IF NOT EXISTS dcc_project_file_reference (
  created_by BIGINT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(tenant_id,project_id,folder_id,master_id)
 );
+
+CREATE TABLE IF NOT EXISTS infra_tenant_file_config(id BIGINT,tenant_id BIGINT,storage INT,config VARCHAR(8192),deleted TINYINT DEFAULT 0,PRIMARY KEY(id,tenant_id));

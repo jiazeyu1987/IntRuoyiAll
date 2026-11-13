@@ -1020,11 +1020,8 @@
           <RecordChangeUserSelect v-model="reopenApproverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
         </el-form-item>
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="reopenForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="submitReopenBatch"
           />
         </el-form-item>
@@ -1118,11 +1115,8 @@
           />
         </el-form-item>
         <el-form-item label="签名凭据" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="specialNodeSkipForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前签名凭据（PIN 码或密码）"
             @keyup.enter="submitSpecialNodeSkip"
           />
         </el-form-item>
@@ -1403,13 +1397,7 @@
           </template>
           <el-empty v-else description="暂无批次信息" />
         </el-tab-pane>
-        <el-tab-pane label="放行事件" name="release">
-          <ReleaseEventListPane
-            v-if="traceRecordReleaseTransactionId"
-            :release-transaction-id="traceRecordReleaseTransactionId"
-          />
-          <el-empty v-else description="当前批次尚未生成放行事务，暂无事务事件" />
-        </el-tab-pane>
+        
         <el-tab-pane label="变更记录" name="change">
           <FormTraceChangeTab
             v-if="traceRecordBatchExecutionId"
@@ -1418,17 +1406,7 @@
           />
           <el-empty v-else description="当前批次不存在，暂无变更记录" />
         </el-tab-pane>
-        <el-tab-pane label="操作审计" name="audit">
-          <OperationAuditListPane
-            v-if="traceRecordBatchExecutionId"
-            object-type="BATCH_EXECUTION"
-            :object-id="traceRecordBatchExecutionId"
-            :batch-execution-id="traceRecordBatchExecutionId"
-            :show-object-filters="false"
-            :hide-recordbook-mode="!isRecordbookEnabledForCurrentTask"
-          />
-          <el-empty v-else description="当前批次不存在，暂无操作审计记录" />
-        </el-tab-pane>
+        
         <el-tab-pane label="偏差" name="deviation">
           <DeviationTracePane
             v-if="traceRecordBatchExecutionId"
@@ -1436,41 +1414,7 @@
           />
           <el-empty v-else description="当前批次不存在，暂无偏差" />
         </el-tab-pane>
-        <el-tab-pane v-if="showFieldResponsibilityTab" label="字段责任" name="fieldResponsibility">
-          <div class="edhr-batch-detail__trace-field-responsibility">
-            <div class="edhr-batch-detail__trace-field-responsibility-head">
-              <div>
-                <div class="edhr-batch-detail__trace-field-responsibility-title">单元填写责任</div>
-                <div class="edhr-batch-detail__muted">
-                  按真实执行记录进入现有字段责任汇总，查看首次有效填写人、当前值最后操作人和填写时间。
-                </div>
-              </div>
-              <el-tag size="small" effect="plain">
-                {{ fieldResponsibilityEntries.length }} 张表单
-              </el-tag>
-            </div>
-            <div
-              v-if="fieldResponsibilityEntries.length"
-              class="edhr-batch-detail__process-evidence-grid"
-            >
-              <button
-                v-for="entry in fieldResponsibilityEntries"
-                :key="entry.key"
-                type="button"
-                class="edhr-batch-detail__process-evidence-item"
-                @click="openFieldResponsibility(entry)"
-              >
-                <span>{{
-                  entry.processName || entry.batchRecordReportName || entry.executionCode
-                }}</span>
-                <small>{{ entry.batchRecordReportName || '--' }} / {{ entry.executionCode }}</small>
-                <small>{{ entry.statusLabel }} / 提交 {{ entry.submittedAtText }}</small>
-                <small>查看当前责任汇总</small>
-              </button>
-            </div>
-            <el-empty v-else description="当前批次暂无可查看字段责任的执行记录" />
-          </div>
-        </el-tab-pane>
+        
         <el-tab-pane label="域追溯" name="domain">
           <DomainTraceListPane
             v-if="traceRecordBatchExecutionId"
@@ -1534,11 +1478,8 @@
       />
       <el-form label-width="110px">
         <el-form-item label="电子签名" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="releaseSignatureForm.password"
-            type="password"
-            show-password
-            placeholder="请输入负责人电子签名凭据（PIN 码或密码）"
             @keyup.enter="confirmReleaseSignatureSubmit"
           />
         </el-form-item>
@@ -1615,6 +1556,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -1709,8 +1651,6 @@ import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import DomainTraceListPane from '@/views/mes/pro/edhr/components/DomainTraceListPane.vue'
-import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
-import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
 import FormTraceChangeTab from '@/views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue'
 import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
@@ -3462,26 +3402,8 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       }),
       disabled: executionRequired
     },
-    {
-      key: 'field-audit',
-      label: '字段审计',
-      description: '展示当前工序字段修改、修改原因和哈希链证据。',
-      path: '/mes/pro/feedback/edhr-field-audit',
-      query: buildSelectedProcessEvidenceQuery({ executionId }),
-      disabled: executionRequired
-    },
-    {
-      key: 'operation-audit',
-      label: '操作审计',
-      description: '当前工序对象级操作、权限决策和结果。',
-      path: '/mes/pro/feedback/edhr-operation-audit',
-      query: buildSelectedProcessEvidenceQuery({
-        objectType: 'BATCH_RECORD_EXECUTION',
-        objectId: executionId,
-        hideRecordbookMode: !isRecordbookEnabledForCurrentTask.value ? 'true' : undefined
-      }),
-      disabled: executionRequired
-    },
+
+
     {
       key: 'record-change',
       label: '变更记录',
@@ -3567,15 +3489,11 @@ const selectedProcessEvidenceGroups = computed<ProcessEvidenceGroup[]>(() => {
       label: '审计追溯',
       description: '字段、操作、变更与主数据追溯证据。',
       itemKeys: [
-        'field-audit',
-        'operation-audit',
         'record-change',
         'unified-change',
         'domain-trace'
       ],
       items: resolveItems([
-        'field-audit',
-        'operation-audit',
         'record-change',
         'unified-change',
         'domain-trace'
@@ -5227,22 +5145,7 @@ const openTraceRecordGroup = () => {
   traceRecordDrawerVisible.value = true
 }
 
-const openFieldResponsibility = async (entry: TraceRecordFieldResponsibilityEntry) => {
-  if (!entry.executionId) {
-    throw new Error('字段责任入口缺少执行 ID，不能打开责任汇总。')
-  }
-  const query: Record<string, string> = {
-    view: 'responsibility',
-    executionId: String(entry.executionId),
-    returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
-  }
-  appendDefinedQuery(query, 'batchExecutionId', traceRecordBatchExecutionId.value)
-  appendDefinedQuery(query, 'batchExecutionCode', detail.value?.batchExecutionCode)
-  await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit',
-    query
-  })
-}
+
 
 const releaseActionContextKey = () => JSON.stringify([approvalInvalidation.syncSession().key, route.query.id])
 const releaseUiContextKey = () => JSON.stringify([releaseActionContextKey(), route.fullPath])

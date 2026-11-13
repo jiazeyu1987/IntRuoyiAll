@@ -63,6 +63,7 @@ public class PermissionServiceImpl implements PermissionService {
     private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
 
     private static final Pattern LOG_PERMISSION_PATTERN = Pattern.compile("(^|[:\\-])log([:\\-]|$)");
+    private static final String EDHR_AUDITOR_ROLE_CODE = "edhr_auditor";
 
     @Resource
     private RoleMenuMapper roleMenuMapper;
@@ -96,6 +97,9 @@ public class PermissionServiceImpl implements PermissionService {
         if (ArrayUtil.isEmpty(permissions)) {
             return true;
         }
+
+        permissions = filterPlatformPermissions(userId, permissions);
+        if (permissions.length == 0) return false;
 
         // 情况一：动态权益优先判断。无静态角色的责任型用户也可能拥有最小入口权限。
         for (String permission : permissions) {
@@ -132,11 +136,24 @@ public class PermissionServiceImpl implements PermissionService {
         return false;
     }
 
+    private String[] filterPlatformPermissions(Long userId, String[] permissions) {
+        if (Arrays.stream(permissions).noneMatch(PlatformConfigurationAccess::isPlatformPermission)) return permissions;
+        Long tenantId = TenantContextHolder.getTenantId();
+        var user = SecurityFrameworkUtils.getLoginUser();
+        TenantDO tenant = user != null && tenantId != null ? tenantMapper.selectById(tenantId) : null;
+        if (PlatformConfigurationAccess.isPlatformContext(user, userId, tenantId, tenant)) return permissions;
+        // Apply before dynamic grants, permanent super-admin and temporary role checks.
+        return Arrays.stream(permissions).filter(permission -> !PlatformConfigurationAccess.isPlatformPermission(permission))
+                .toArray(String[]::new);
+    }
+
     @Override
     public boolean hasAnyPermissionsInRoles(Collection<Long> roleIds, String... permissions) {
         if (CollectionUtil.isEmpty(roleIds) || ArrayUtil.isEmpty(permissions)) {
             return false;
         }
+        permissions = filterPlatformPermissions(SecurityFrameworkUtils.getLoginUserId(), permissions);
+        if (permissions.length == 0) return false;
         List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
         if (CollUtil.isEmpty(roles)) {
             return false;
@@ -456,12 +473,26 @@ public class PermissionServiceImpl implements PermissionService {
             }
         }
 
-        Set<Long> menuIds = convertSet(roleMenuMapper.selectListByRoleId(roleIds), RoleMenuDO::getMenuId);
+        List<RoleMenuDO> roleMenus = roleMenuMapper.selectListByRoleId(roleIds);
+        Set<Long> menuIds = convertSet(roleMenus, RoleMenuDO::getMenuId);
         if (CollUtil.isEmpty(menuIds)) {
             return false;
         }
         List<MenuDO> menus = menuService.getMenuList(menuIds);
-        return menus.stream().anyMatch(menu -> menu != null && isLogPermission(menu.getPermission()));
+        Set<Long> auditorRoleIds = convertSet(roles, RoleDO::getId,
+                role -> role != null && EDHR_AUDITOR_ROLE_CODE.equals(role.getCode()));
+        for (MenuDO menu : menus) {
+            if (menu == null || !isLogPermission(menu.getPermission())) {
+                continue;
+            }
+            // Only the eDHR auditor's log queries are assignable. Keep each grant tied to
+            // its role, so combining an auditor with another log role cannot bypass protection.
+            if (roleMenus.stream().anyMatch(grant -> Objects.equals(grant.getMenuId(), menu.getId())
+                    && !(auditorRoleIds.contains(grant.getRoleId()) && menu.getPermission().endsWith(":query")))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isLogPermission(String permission) {

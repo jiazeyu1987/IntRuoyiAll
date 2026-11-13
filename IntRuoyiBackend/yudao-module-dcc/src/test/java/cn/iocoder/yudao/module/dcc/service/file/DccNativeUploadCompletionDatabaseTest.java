@@ -100,7 +100,7 @@ class DccNativeUploadCompletionDatabaseTest extends DccNativeUploadSupervisorWor
         wire(workflow,"deptApi",departments);
         currentMatrix(1);
     }
-    @BeforeEach void completionScope(TestInfo info)throws Exception{completedEndScenario=info.getTestMethod().orElseThrow().getDeclaringClass()==DccNativeUploadCompletionDatabaseTest.class;if(!completedEndScenario)return;formalRosterReady=false;for(String sql:new org.springframework.core.io.ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);jdbc.update("DELETE FROM system_notify_message");jdbc.update("DELETE FROM dcc_controlled_file_signature_binding");}
+    @BeforeEach void completionScope(TestInfo info)throws Exception{completedEndScenario=info.getTestMethod().orElseThrow().getDeclaringClass()==DccNativeUploadCompletionDatabaseTest.class;if(!completedEndScenario)return;formalRosterReady=false;for(String sql:new org.springframework.core.io.ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);jdbc.update("DELETE FROM system_tenant_notify_message");jdbc.update("DELETE FROM dcc_controlled_file_signature_binding");}
     @Override DccControlledFileSubmitIterationReqVO nativeSubmitRequest(DccControlledFileRouteReadinessRespVO p){
         var request=super.nativeSubmitRequest(p);
         var attachments=(DccControlledFileAttachmentService)ReflectionTestUtils.getField(workflow,"attachmentService");
@@ -121,7 +121,7 @@ class DccNativeUploadCompletionDatabaseTest extends DccNativeUploadSupervisorWor
         realPreviewSubmissionSupervisorAndLaterNativeStagesEachRequireIndependentHmac();
         var file=files.selectById(20L);assertEquals("ACTIVE",file.getStatus());
         var batch=sqlMapper(DccDistributionBatchMapper.class).selectList().get(0);assertEquals("SENT",batch.getStatus());
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
         var recipients=sqlMapper(DccControlledFileDistributionRecipientMapper.class).selectList();assertEquals(2,recipients.size());
         assertTrue(recipients.stream().allMatch(row->row.getReadAt()==null&&row.getAcknowledgedAt()==null));
         var jobs=sqlMapper(DccControlledFileMessageJobMapper.class).selectList();assertEquals(2,jobs.size());
@@ -129,9 +129,9 @@ class DccNativeUploadCompletionDatabaseTest extends DccNativeUploadSupervisorWor
         assertEquals(2,sqlMapper(DccDistributionDispatchAttemptMapper.class).selectList().size());
         assertEquals(5,sqlMapper(DccControlledFileSignatureBindingMapper.class).selectList().size());
         assertNativeDocumentSignatureRead(true);consumeExactNativeDistributionRecipients();
-        var before=jdbc.queryForList("SELECT * FROM system_notify_message ORDER BY id");
+        var before=jdbc.queryForList("SELECT * FROM system_tenant_notify_message ORDER BY id");
         doThrow(new IllegalStateException("today roster must not be read on frozen replay")).when(nativeRoster).resolve(any());
-        assertEquals("SENT",nativeBatches.processAutomaticBatch(batch.getId()).status());assertEquals(before,jdbc.queryForList("SELECT * FROM system_notify_message ORDER BY id"));
+        assertEquals("SENT",nativeBatches.processAutomaticBatch(batch.getId()).status());assertEquals(before,jdbc.queryForList("SELECT * FROM system_tenant_notify_message ORDER BY id"));
     }
     void assertNativeDocumentSignatureRead(boolean signed){
         var query=new DccControlledFileQueryServiceImpl();var history=new DccApplicationHistoryGuard();wire(history,"processes",ReflectionTestUtils.getField(finalization,"processes"));

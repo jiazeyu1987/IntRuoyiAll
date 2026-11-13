@@ -712,6 +712,8 @@ public class MesFixedTestOrderInitializer {
             String header = "erp_kingdee_production_" + kind + "_list";
             String fk = "production_" + kind + "_list_id";
             List<Map<String, Object>> items = graph.sourceRows(table, "production_order_no=?", WORK_ORDER_CODE);
+            if (kind.equals("replenishment")) items = items.stream()
+                    .filter(item -> !MesFixedTestOrderReplenishmentPolicy.isHistoricalCopy(item)).toList();
             if (kind.equals("pick") && items.isEmpty()) throw blocked("参考工单没有正式ERP领料明细");
             for (Map<String, Object> item : items) {
                 Entry entry = graph.include(table, item.get("id"));

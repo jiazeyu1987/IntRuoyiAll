@@ -33,6 +33,21 @@ class MesSimplePqcPublishServiceTest {
   assertTrue(error.getMessage().contains("请填写器具未绑定原因"));
   verify(regulations,never()).publish(any()); verify(equipment,never()).replaceItemConfigs(any());
  }
+ @Test void manuallyDisabledEquipmentKeepsOriginalToolWithoutPendingBinding() {
+  var q=request(null);var item=q.getProcesses().get(0).getItems().get(0);
+  item.setEquipmentRequired(false);
+  service.publish(q);
+  assertEquals("检测专用泵筒",item.getInspectionTool());
+  assertNull(item.getEquipmentUnboundReason());
+  verify(regulations).publish(q);
+  verify(equipment).replaceItemConfigs(argThat(c->c.getEquipmentGroups().isEmpty()));
+  verifyNoInteractions(machinery,mapper);
+ }
+ @Test void disabledEquipmentCannotRetainPendingBindingReason() {
+  var q=request("待绑定");q.getProcesses().get(0).getItems().get(0).setEquipmentRequired(false);
+  assertThrows(RuntimeException.class,()->service.publish(q));
+  verifyNoInteractions(regulations,equipment,machinery);
+ }
  @Test void explicitPendingBindingPreservesToolAndReasonWithoutInventingEquipment() {
   var q=request("真实器具尚无台账，待QA补齐"); service.publish(q);
   var i=q.getProcesses().get(0).getItems().get(0);

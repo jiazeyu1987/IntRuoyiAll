@@ -15,6 +15,9 @@ import java.util.Collection;
 @Data
 public class MailSendMessage {
 
+    @NotNull(message = "租户编号不能为空")
+    private Long tenantId;
+
     /**
      * 邮件日志编号
      */

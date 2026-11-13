@@ -42,6 +42,10 @@ export interface ControlledFileApplicationRound {
   applicationType: DccApplicationType
   bpmRound: string
   attributeRound: number
+  applicationTime?: string | number | readonly number[] | null
+  revisionChangeType?: string | null
+  revisionSourceVersionNo?: string | null
+  changeDescription?: string | null
   flowContract?: ControlledFileRoundFlowContract | null
 }
 export interface ControlledFileApplicationProgress extends ControlledFileApplicationRound {
@@ -228,7 +232,7 @@ export interface SignoffAssignmentContext {
   assigneeUserId: string | null
   assigned: boolean
   canAssign: boolean
-  assigneeOptions: Array<{ id: string; name: string }>
+  assigneeOptions: Array<{ id: string; name: string; username?: string }>
 }
 export interface ControlledFileRevisionOptions {
   controlledBaselineId: Identity
@@ -268,6 +272,8 @@ export interface ControlledFileApplicationEvidence {
     taskId?: string | null
     processInstanceId: string
     actorNicknameSnapshot?: string | null
+    evidenceStatus?: string | null
+    comment?: string | null
     actionType?: string | null
     actorDeptNameSnapshot?: string | null
     signedAt?: string | number | readonly number[] | null
@@ -467,6 +473,7 @@ export interface RelationRoundEvidence {
   stages: Array<{
     signatureEvidenceStatus: string
     signatureIdentityMatches: boolean
+    assigneeNames?: Record<string, string>
     snapshot: {
       header: {
         id: string; tenantId: string; sourceFileId: string; sourceMasterId: string; projectId: string

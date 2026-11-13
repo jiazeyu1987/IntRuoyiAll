@@ -1,23 +1,28 @@
 <template>
   <ContentWrap class="simple-parser-layout" v-loading="busy" :element-loading-text="busyText">
     <div ref="projectEditor">
-    <SimpleParserHeader
-      v-model:project-id="projectId"
-      title="简易PQC解析"
-      import-accept=".doc,.docx"
-      :projects="projects"
-      :busy="busy"
-      :has-content="!!draft"
-      :published="published"
-      publish-permission="mes:qc-template:update"
-      @search="searchProjects"
-      @import="importWord"
-      @export="exportWord"
-      @save="saveLocal"
-      @restore="restoreLocal"
-      @preview="preview"
-    />
-    <el-alert v-if="projectIssue && !published" :title="projectIssue.message" type="warning" :closable="false" />
+      <SimpleParserHeader
+        v-model:project-id="projectId"
+        title="简易PQC解析"
+        import-accept=".doc,.docx"
+        :projects="projects"
+        :busy="busy"
+        :has-content="!!draft"
+        :published="published"
+        publish-permission="mes:qc-template:update"
+        @search="searchProjects"
+        @import="importWord"
+        @export="exportWord"
+        @save="saveLocal"
+        @restore="restoreLocal"
+        @preview="preview"
+      />
+      <el-alert
+        v-if="projectIssue && !published"
+        :title="projectIssue.message"
+        type="warning"
+        :closable="false"
+      />
     </div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <section v-if="published" class="parser-published-result">
@@ -232,7 +237,10 @@
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
                   label="巡检检验水平 / AQL"
-                  ><SamplingRuleEditor v-model:inspection-level="item.inspectionLevel" v-model:aql="item.aql" /></el-form-item>
+                  ><SamplingRuleEditor
+                    v-model:inspection-level="item.inspectionLevel"
+                    v-model:aql="item.aql"
+                /></el-form-item>
               </div>
               <p
                 v-if="
@@ -244,7 +252,19 @@
               <el-form-item label="检验器具及设备要求"
                 ><el-input v-model="item.inspectionTool" data-issue-field="inspectionTool"
               /></el-form-item>
-              <el-form-item ref="equipmentEditor" label="选择设备编号（名称自动带出）">
+              <el-form-item label="需要设备">
+                <el-switch
+                  :model-value="needsEquipment(item)"
+                  aria-label="需要设备"
+                  @change="toggleEquipment"
+                />
+                <span>关闭后保留检验要求，无需绑定设备或填写编号。</span>
+              </el-form-item>
+              <el-form-item
+                v-if="needsEquipment(item)"
+                ref="equipmentEditor"
+                label="选择设备编号（名称自动带出）"
+              >
                 <el-select
                   :model-value="item.equipmentOptions.map((e) => e.equipmentId)"
                   multiple
@@ -262,7 +282,7 @@
                 </el-select>
               </el-form-item>
               <el-form-item
-                v-if="!item.equipmentOptions.length && isNonSensoryTool(item.inspectionTool)"
+                v-if="needsEquipment(item) && !item.equipmentOptions.length"
                 label="确认器具暂未绑定"
               >
                 <el-input
@@ -273,7 +293,9 @@
                 />
                 <p>{{ EQUIPMENT_UNBOUND_NOTICE }}</p>
               </el-form-item>
-              <el-button :disabled="!item.equipmentOptions.length" @click="applyEquipment"
+              <el-button
+                :disabled="!needsEquipment(item) || !item.equipmentOptions.length"
+                @click="applyEquipment"
                 >应用到相同器具要求的项目</el-button
               >
               <el-button v-if="matchingItem" @click="reuseItem"
@@ -343,7 +365,12 @@
     >
       <template v-if="draft">
         <p>所属项目：{{ selectedProject }}</p>
-        <el-alert v-if="projectIssue" :title="projectIssue.message" type="warning" :closable="false" />
+        <el-alert
+          v-if="projectIssue"
+          :title="projectIssue.message"
+          type="warning"
+          :closable="false"
+        />
         <h3>发布内容</h3>
         <p>{{ draft.regulationName }} · {{ draft.versionNo }}</p>
         <p>{{
@@ -395,7 +422,8 @@
               ><p v-if="i.failureRule">不合格处理：{{ i.failureRule }}</p
               ><p
                 >抽样：{{ i.samplingPlanText }}；首检
-                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatInspectionLevel(i) }}</p
+                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检
+                {{ formatInspectionLevel(i) }}</p
               ><p
                 v-if="
                   i.applicableInspectionTypes.includes('PATROL') && /AQL/i.test(i.samplingPlanText)
@@ -403,9 +431,11 @@
                 >{{ MATRIX_SAMPLING_RULE }}</p
               ><p
                 >设备：{{
-                  i.equipmentOptions
-                    .map((e) => `${e.equipmentNumber} / ${e.equipmentName}`)
-                    .join('、') || i.inspectionTool
+                  i.equipmentRequired === false
+                    ? '无需设备'
+                    : i.equipmentOptions
+                        .map((e) => `${e.equipmentNumber} / ${e.equipmentName}`)
+                        .join('、') || i.inspectionTool
                 }}</p
               ><p v-if="i.equipmentUnboundReason"
                 >器具未绑定原因：{{ i.equipmentUnboundReason }}；{{ EQUIPMENT_UNBOUND_NOTICE }}</p
@@ -438,7 +468,13 @@
                 :value="m.id"
               />
             </el-select>
-            <el-button v-else link type="primary" :disabled="busy || published" @click="editIssue(issue)">
+            <el-button
+              v-else
+              link
+              type="primary"
+              :disabled="busy || published"
+              @click="editIssue(issue)"
+            >
               定位修改
             </el-button>
           </template>
@@ -476,18 +512,18 @@ import {
   type QaInspectionRegulationPublishedVersionVO
 } from '@/api/mes/qc/template'
 import {
-  getProjectCodePage,
-  getProjectCode,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
+  getSimpleParserProjects,
+  getSimpleParserProject,
+  type SimpleParserProject
+} from '@/api/mes/pro/batchrecordreport/simpleParserProjects'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import { createPqcWord, readPqcWord, pqcWordFilename, pqcWordMime } from '../parser/simplePqcWord'
 import {
   MATRIX_SAMPLING_RULE,
+  needsEquipment,
   EQUIPMENT_UNBOUND_NOTICE,
-  isNonSensoryTool,
   makeDraft,
   nextVersion,
   validateDraft,
@@ -505,7 +541,7 @@ const trialSession = ref(0)
 const finalEditor = ref<{ $el: HTMLElement }>()
 const projectId = ref<number>()
 const projectEditor = ref<HTMLElement>()
-const projects = ref<DccProjectCodeRespVO[]>([])
+const projects = ref<SimpleParserProject[]>([])
 const draft = ref<Draft>()
 const baseline = ref<QaInspectionRegulationPublishedVersionVO | null>(null)
 const machinery = ref<DvMachineryVO[]>([])
@@ -532,12 +568,21 @@ const projectIssue = computed<DraftIssue | undefined>(() => {
   if (!projectId.value) return undefined
   const project = projects.value.find((p) => p.id === projectId.value)
   if (!project)
-    return { message: '所属项目信息未载入，请重新预览以核实当前项目', field: 'metadata', target: 'project' }
+    return {
+      message: '所属项目信息未载入，请重新预览以核实当前项目',
+      field: 'metadata',
+      target: 'project'
+    }
   return undefined
 })
 const changes = computed(() => (draft.value ? differences(draft.value, baseline.value) : []))
 const issues = computed(() =>
-  draft.value ? [...(projectIssue.value ? [projectIssue.value] : []), ...validateDraft(draft.value, confirmedUnbound.value)] : []
+  draft.value
+    ? [
+        ...(projectIssue.value ? [projectIssue.value] : []),
+        ...validateDraft(draft.value, confirmedUnbound.value)
+      ]
+    : []
 )
 const matchingItem = computed(() => {
   const ps =
@@ -607,20 +652,20 @@ async function run(action: () => Promise<void>, text = '正在处理，请稍候
 async function searchProjects(keyword = '') {
   try {
     const selected = projects.value.find((p) => p.id === projectId.value)
-    const candidates = (
-      await getProjectCodePage({ pageNo: 1, pageSize: 100, keyword, status: 'ENABLE' })
-    ).list
-    projects.value = selected && !candidates.some((p) => p.id === selected.id)
-      ? [selected, ...candidates]
-      : candidates
+    const candidates = await getSimpleParserProjects(keyword)
+    projects.value =
+      selected && !candidates.some((p) => p.id === selected.id)
+        ? [selected, ...candidates]
+        : candidates
   } catch (e) {
     error.value = `产品列表加载失败：${String(e)}`
   }
 }
 async function loadResources() {
   if (!projectId.value) throw new Error('请先选择所属项目')
-  const project = await getProjectCode(projectId.value)
-  if (!project || project.id !== projectId.value) throw new Error('所属项目详情返回不一致，请重新选择项目')
+  const project = await getSimpleParserProject(projectId.value)
+  if (!project || project.id !== projectId.value)
+    throw new Error('所属项目详情返回不一致，请重新选择项目')
   projects.value = [project, ...projects.value.filter((p) => p.id !== project.id)]
   const current = await QcTemplateApi.getCurrentQaRegulation(projectId.value)
   const versions = await QcTemplateApi.listQaRegulationVersions(projectId.value)
@@ -812,6 +857,13 @@ function selectIssueEquipment(issue: DraftIssue, ids: number[]) {
   if (busy.value || published.value) return
   selectEquipment(ids, issueEquipment(issue))
 }
+function toggleEquipment(required: boolean) {
+  item.value!.equipmentRequired = required
+  if (!required) {
+    item.value!.equipmentOptions = []
+    item.value!.equipmentUnboundReason = undefined
+  }
+}
 function selectEquipment(ids: number[], target = item.value!) {
   target.equipmentOptions = ids.map((id, index) => {
     const m = machinery.value.find((m) => m.id === id)
@@ -825,16 +877,20 @@ function selectEquipment(ids: number[], target = item.value!) {
       sort: index + 1
     }
   })
-  if (ids.length) target.equipmentUnboundReason = undefined
+  if (ids.length) {
+    target.equipmentRequired = true
+    target.equipmentUnboundReason = undefined
+  }
   confirmedUnbound.value = confirmedUnbound.value.filter((code) => code !== target.itemCode)
 }
 async function applyEquipment() {
   if (!item.value!.equipmentOptions.length) throw new Error('请先选择设备，未绑定原因需逐项确认')
   const matches = draft
     .value!.processes.flatMap((p) => p.items)
-    .filter((i) => i.inspectionTool === item.value!.inspectionTool)
+    .filter((i) => i.equipmentRequired !== false && i.inspectionTool === item.value!.inspectionTool)
   await message.confirm(`将当前设备选择应用到器具要求完全相同的 ${matches.length} 个项目？`)
   matches.forEach((i) => {
+    i.equipmentRequired = item.value!.equipmentRequired
     i.equipmentOptions = copy(item.value!.equipmentOptions)
     i.equipmentUnboundReason = undefined
   })
@@ -851,7 +907,8 @@ function reuseItem() {
     'critical',
     'failureRule',
     'equipmentOptions',
-    'equipmentUnboundReason'
+    'equipmentUnboundReason',
+    'equipmentRequired'
   ] as const
   const supplement = Object.fromEntries(
     fields.map((f) => [f, copy(old[f] ?? (f === 'equipmentOptions' ? [] : null))])
@@ -966,7 +1023,9 @@ async function focusIssue() {
   await nextTick()
   if (issue.target === 'project') {
     projectEditor.value?.scrollIntoView({ block: 'center' })
-    projectEditor.value?.querySelector<HTMLElement>('[role="combobox"]')?.focus({ preventScroll: true })
+    projectEditor.value
+      ?.querySelector<HTMLElement>('[role="combobox"]')
+      ?.focus({ preventScroll: true })
     return
   }
   const container =

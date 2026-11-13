@@ -92,11 +92,12 @@ public class DccCatalogPackageService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Integer> importWorkbook(byte[] bytes) throws IOException {
         long tenant = tenant();
+        boolean importAdministrator = isAdministrator() || security.hasAnyRoles("dcc_project_code_admin");
         var sheets = DccCatalogWorkbook.read(bytes, schema(tenant));
         long sourceTenant = Long.parseLong(required(sheets.get(0).rows().get(0), "tenant", "导入说明"));
         if (sourceTenant < 0) throw invalid("工作簿来源租户无效");
         boolean crossTenant = sourceTenant != tenant;
-        if (crossTenant && !isAdministrator()) throw invalid("跨租户工作簿仅允许管理员导入");
+        if (crossTenant && !importAdministrator) throw invalid("跨租户工作簿仅允许系统管理员、租户管理员或项目代码管理员导入");
         Map<String, List<Map<String, String>>> incoming = new LinkedHashMap<>();
         for (int i = 0; i < SPECS.size(); i++) incoming.put(SPECS.get(i).name(), sheets.get(i + 1).rows());
         validateGraph(incoming);
@@ -130,7 +131,7 @@ public class DccCatalogPackageService {
                 preserveEntrustedBindings(spec, row, old);
                 validateExternal(spec, row, old, tenant);
                 if (spec.name().equals("注册证")) {
-                    if (!isAdministrator()) companyScope.validateUserCompanyAccess(getLoginUserId(), Long.valueOf(row.get("owner_company_id")));
+                    if (!importAdministrator) companyScope.validateUserCompanyAccess(getLoginUserId(), Long.valueOf(row.get("owner_company_id")));
                     if (old != null) beforeCertificates.put(sourceId, old);
                     else newCertificates.add(sourceId);
                 }

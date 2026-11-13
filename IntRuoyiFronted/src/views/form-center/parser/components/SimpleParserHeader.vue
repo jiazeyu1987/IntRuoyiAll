@@ -3,10 +3,10 @@
     <h2>{{ title }}</h2>
     <div class="parser-actions">
       <el-select
-        v-if="requiresProject"
+        v-if="requiresProject || showProject"
         :model-value="projectId"
-        aria-label="所属项目"
-        placeholder="选择所属项目"
+        :aria-label="requiresProject ? '所属项目' : '参考项目（通用规程仍供所有项目共用）'"
+        :placeholder="requiresProject ? '选择所属项目' : '选择参考项目（通用规程共享）'"
         filterable
         remote
         :remote-method="(keyword: string) => emit('search', keyword)"
@@ -19,7 +19,6 @@
           v-for="project in projects"
           :key="project.id"
           :value="project.id"
-          :disabled="project.occupied"
           :label="`${project.projectCode} / ${project.projectName}${project.occupied ? '（已有工艺流程）' : ''}`"
         />
       </el-select>
@@ -61,6 +60,7 @@ const props = withDefaults(
     title: string
     projectId?: number
     requiresProject?: boolean
+    showProject?: boolean
     projects: Array<{ id: number; projectCode: string; projectName: string; occupied?: boolean }>
     projectLoading?: boolean
     busy: boolean

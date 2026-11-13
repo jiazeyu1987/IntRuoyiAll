@@ -10,10 +10,10 @@ const { parse, compileScript, compileTemplate, compileStyle } = require('vue/com
 const viewer = fs.readFileSync(path.resolve(__dirname, '../../src/views/dcc/controlled-file/view/index.vue'), 'utf8')
 
 // Executes the production SFC script with isolated request/DOM adapters. This is not browser E2E.
-function loadViewer({ kind = 'TEXT', text = 'selected controlled body', unavailableReason, deny } = {}) {
+function loadViewer({ kind = 'TEXT', text = 'selected controlled body', unavailableReason, deny, compact = false } = {}) {
   const descriptor = parse(viewer).descriptor
   const bytes = new TextEncoder().encode(text)
-  const props = vue.reactive({ controlledFileId: 'selected-version', title: 'selected controlled preview' })
+  const props = vue.reactive({ controlledFileId: 'selected-version', title: 'selected controlled preview', compact })
   const calls = [], lifecycle = {}, revoked = [], observers = []
   const metadata = { previewKind: kind, fileName: 'selected.txt', previewRegisteredAt: '2026-10-15T00:30:10Z',
     previewUnavailableReason: unavailableReason, watermarkTraceCode: 'selected-trace',
@@ -277,4 +277,32 @@ test('existing protection transform assertions execute in isolation without star
     readUtf8: file => fs.readFileSync(file, 'utf8'), viewerPath: path.resolve(__dirname, '../../src/views/dcc/controlled-file/view/index.vue'),
     assert, assertContains: (text, token) => assert.ok(text.includes(token), 'Missing transform contract: ' + token)
   })
+})
+
+
+test('upload compact toolbar renders once and preserves protected text transforms and watermark', async () => {
+  const r = loadViewer({ compact: true })
+  await r.api.loadPreview()
+  const rendered = await renderViewer(r)
+  assert.equal(rendered.find(node => node.props?.['data-testid'] === 'upload-preview-toolbar').length, 1)
+  assert.equal(rendered.find(node => node.props?.['data-testid'] === 'protected-viewer-transform-controls').length, 0)
+  assert.ok(rendered.find(node => node.props?.['data-testid'] === 'protected-preview-watermark-overlay').length)
+  assert.equal(r.api.compactZoomPercent.value, 100)
+  r.api.handleZoomIn()
+  assert.equal(r.api.compactZoomPercent.value, 125)
+  r.api.handleZoomOut()
+  assert.equal(r.api.compactZoomPercent.value, 100)
+  r.api.expanded.value = true
+  await vue.nextTick()
+  assert.ok(rendered.find(node => String(node.props?.class).includes('protected-viewer-shell--expanded')).length)
+  rendered.app.unmount()
+})
+
+test('upload toolbar tracks the Office viewer actual zoom state and bounds', () => {
+  const r = loadViewer({ compact: true })
+  r.api.resolvedPreviewKind.value = 'OFFICE'
+  r.api.officeViewerRef.value = { previewZoomValue: 150, canZoomOut: true, canZoomIn: false }
+  assert.equal(r.api.compactZoomPercent.value, 150)
+  assert.equal(r.api.compactCanZoomOut.value, true)
+  assert.equal(r.api.compactCanZoomIn.value, false)
 })

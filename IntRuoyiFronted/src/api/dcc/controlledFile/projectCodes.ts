@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import type { ControlledFileVO } from './workflow'
 import type { DccFileTypeTaxonomyVO } from './fileTypeTaxonomies'
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 export const DCC_PROJECT_CODE_STATUS_ENABLE = 'ENABLE'
 export const DCC_PROJECT_CODE_STATUS_DISABLE = 'DISABLE'
@@ -204,6 +205,12 @@ export const getProjectCodePage = async (
   return await request.get({ url: '/dcc/project-codes/page', params })
 }
 
+/** Dropdowns need every authorized match, including projects beyond the first page. */
+export const getProjectCodeOptions = async (
+  params: Omit<DccProjectCodePageReqVO, 'pageNo' | 'pageSize'> = {}
+): Promise<DccProjectCodeRespVO[]> =>
+  loadAllListPages<DccProjectCodeRespVO>((pagination) => getProjectCodePage({ ...params, ...pagination }))
+
 export const getProjectCode = async (id: number | string): Promise<DccProjectCodeRespVO> => {
   return await request.get({ url: `/dcc/project-codes/${id}` })
 }
@@ -231,6 +238,11 @@ export const replaceProjectCodeAccessRules = async (
   data: DccProjectAccessRuleBatchSaveReqVO
 ): Promise<DccProjectAccessRuleRespVO[]> => {
   return await request.put({ url: `/dcc/project-codes/${projectCodeId}/access-rules`, data })
+}
+
+/** Read-only project navigation metadata; never requires taxonomy maintenance authority. */
+export const getProjectCodeFileTaxonomies = async (id: number | string): Promise<DccFileTypeTaxonomyVO[]> => {
+  return await request.get({ url: `/dcc/project-codes/${id}/file-taxonomies` })
 }
 
 export const getProjectCodeControlledFilesPage = async (

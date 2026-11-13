@@ -92,6 +92,7 @@ function documentLines(content: SimpleWordContent) {
       lines.push(
         `设备 / 参数组 ${groupIndex + 1}（${group.selectionMode === 'MULTIPLE' ? '多选' : '单选'}）`
       )
+      if (group.equipmentRequired === false) lines.push('本组已关闭：设备及专属参数不参与发布')
       group.equipmentOptions?.forEach((device) =>
         lines.push(`  设备：${device.name || ''}  ${device.code || ''}`)
       )

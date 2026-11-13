@@ -48,12 +48,8 @@
         ><el-input v-model="reason" type="textarea" maxlength="500" aria-label="补料关联原因"
       /></el-form-item>
       <el-form-item label="签名凭据" required
-        ><el-input
+        ><SignatureCredentialInput
           v-model="password"
-          type="password"
-          autocomplete="off"
-          show-password
-          aria-label="补料关联签名凭据（PIN 码或密码）"
       /></el-form-item>
     </el-form>
     <template #footer>
@@ -71,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import {

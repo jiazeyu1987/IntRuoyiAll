@@ -457,12 +457,13 @@ const handleVerify = async () => {
 
 const backToPage = async () => {
   await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit',
+    path: '/system/log/operate-log',
     query: detail.value?.executionId
       ? {
+          logSource: 'field',
           executionId: String(detail.value.executionId)
         }
-      : undefined
+      : { logSource: 'field' }
   })
 }
 
@@ -475,7 +476,7 @@ watch(
       route.query.auditItemId
     ] as const,
   ([routeName]) => {
-    if (routeName !== 'MesProFeedbackEdhrFieldAuditDetail') {
+    if (routeName !== 'SystemOperateLog' || route.query.logSource !== 'field-detail') {
       return
     }
     const nextDetailQuery = parseDetailQuery()

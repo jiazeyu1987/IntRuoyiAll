@@ -88,6 +88,19 @@ import static org.mockito.Mockito.when;
 class MesFrontlinePqcContextServiceTest {
 
     @Test
+    void inspectionQuantityCannotExceedWorkOrderTotal() {
+        MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(9, new BigDecimal("10"));
+        MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(10, new BigDecimal("10.00"));
+        var error = assertThrows(ServiceException.class, () ->
+                MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(14, new BigDecimal("10")));
+        assertTrue(error.getMessage().contains("检验数量不能大于总数量"));
+        assertThrows(ServiceException.class, () ->
+                MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(1, null));
+        assertThrows(ServiceException.class, () ->
+                MesFrontlinePqcContextServiceImpl.assertPqcInspectionWithinOrderQuantity(1, BigDecimal.ZERO));
+    }
+
+    @Test
     void resolveSelectedEquipmentAcceptsTrimmedManualEquipmentTextWithoutId() {
         MesFrontlinePqcInspectionItem item = new MesFrontlinePqcInspectionItem(
                 "ID-001", "外观", "目视", "合格", "检验设备", "全检",
@@ -245,6 +258,34 @@ class MesFrontlinePqcContextServiceTest {
         }));
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "NULL, 1040506118, PQC 损耗数量不能为空，请填写损耗数量",
+            "-1, 1040506119, PQC 损耗数量不能小于 0，当前损耗数量为 -1",
+            "6, 1040506120, PQC 损耗数量（6）不能大于实际检验数量（5），请核对后提交"
+    }, nullValues = "NULL")
+    void initialSubmissionReportsExactScrapQuantityViolationBeforeSigning(
+            Integer scrapQuantity, Integer errorCode, String message) {
+        long taskId = 9101L;
+        when(pqcTaskMapper.selectByIdForUpdate(taskId)).thenReturn(pendingTask(taskId));
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of(pqcEmployeeScope(3001L, 3002L)));
+        when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(3001L), enabledUser(3002L)));
+        var command = MesFrontlinePqcSubmitCommand.builder()
+                .activeOrderId(ACTIVE_ORDER_ID).pqcTaskId(taskId)
+                .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                .actualEmployeeId(3002L).actualInspectionQuantity(5).scrapQuantity(scrapQuantity)
+                .signaturePassword("test-password").build();
+
+        var error = assertThrows(ServiceException.class, () -> service.submitPqcInspection(3001L, command));
+
+        assertEquals(errorCode, error.getCode());
+        assertEquals(message, error.getMessage());
+        verify(signatureService, never()).validatePqcSubmitSignature(any(), any());
+        verify(eventService, never()).createPqcInspectionEvent(any());
+        verify(pqcTaskMapper, never()).updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString());
+    }
+
     @BeforeEach
     void setUp() {
         activeOrderMapper = mock(MesProcessPoolActiveOrderMapper.class);
@@ -286,6 +327,10 @@ class MesFrontlinePqcContextServiceTest {
                 pieceDetailMapper, itemService, scopeMapper,
                 adminUserApi, eventService, pqcRecordMapper, signatureService, nonconformanceReviewService,
                 gxpAuditService);
+        var historyReader = mock(MesFrontlinePqcReviewHistoryReader.class);
+        when(historyReader.read(any(), any(), any())).thenReturn(
+                new MesFrontlinePqcReviewHistoryReader.Projection("PENDING", List.of()));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "pqcReviewHistoryReader", historyReader);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
     }
 
@@ -1128,6 +1173,7 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(lockedQaAggregate("RETIRED", firstProcess, secondProcess));
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
+                        .actualInspectionQuantity(5).submittedEventId(10101L)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
@@ -1144,6 +1190,7 @@ class MesFrontlinePqcContextServiceTest {
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build(),
                 MesPqcInspectionTaskDO.builder().id(9103L).activeOrderId(ACTIVE_ORDER_ID)
+                        .actualInspectionQuantity(5).submittedEventId(10103L)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
@@ -1168,6 +1215,15 @@ class MesFrontlinePqcContextServiceTest {
                         productionSubmitEvent(9202L, 30002L, 40002L),
                         productionSubmitEvent(9203L, 30003L, 40003L)));
 
+        for (long taskId : List.of(9101L, 9103L)) {
+            when(processPoolEventMapper.selectListPqcByTaskId("MES_PQC_INSPECTION_TASK", taskId))
+                    .thenReturn(List.of(new MesProProcessPoolEventDO().setId(taskId + 1000)
+                            .setRawPayload("{\"scrapQuantity\":0}")));
+            when(pieceDetailMapper.selectListByTaskId(taskId)).thenReturn(
+                    java.util.stream.IntStream.rangeClosed(1, 5).mapToObj(sample ->
+                            new MesPqcInspectionPieceDetailDO().setTaskId(taskId).setItemCode("ID-001")
+                                    .setSampleNo(sample).setMeasuredValue("合格")).toList());
+        }
         List<MesFrontlinePqcProcessRespVO> result = service.listProcessesByActiveOrder(ACTIVE_ORDER_ID);
 
         assertEquals(2, result.size());

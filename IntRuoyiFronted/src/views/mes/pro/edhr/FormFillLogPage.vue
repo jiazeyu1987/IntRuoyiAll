@@ -196,6 +196,7 @@
           @reset="resetProductionReportRevisionQuery"
           :query-loading="productionReportRevisionLoading"
           table-key="mes.edhr.productionReportRevision"
+          :query-model="productionReportRevisionQuery"
           v-model:page="productionReportRevisionQuery.pageNo"
           v-model:limit="productionReportRevisionQuery.pageSize"
           :total="productionReportRevisionTotal"

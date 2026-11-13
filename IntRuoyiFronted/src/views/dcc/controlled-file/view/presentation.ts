@@ -231,3 +231,9 @@ export const resolveViewerErrorMessage = (error: unknown, fallback: string) => {
   }
   return fallback
 }
+
+// Zoom is relative to the width available for this page, including rotated pages.
+export const getProtectedPdfFitScale = (width: number, height: number, availableWidth: number, rotation: number) => {
+  const pageWidth = rotation % 180 === 0 ? width : height
+  return availableWidth > 0 && pageWidth > 0 ? availableWidth / pageWidth : 1
+}

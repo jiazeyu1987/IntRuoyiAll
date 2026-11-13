@@ -12,11 +12,11 @@ export const confirmProjectProductApplication = async (
   payload: DccProjectProductCreateReqVO,
   leaders: LeaderChoice[],
   templates: TemplateChoice[],
-  reviewer: DccProjectReviewerRole,
+  reviewer: DccProjectReviewerRole | undefined,
   resubmission: boolean
 ): Promise<void> => {
   const captured = JSON.parse(JSON.stringify(payload)) as DccProjectProductCreateReqVO
-  const configured = requireProjectReviewerRole(reviewer)
+  const configured = resubmission ? requireProjectReviewerRole(reviewer!) : undefined
   const attributes = validateAttributes(captured.defaultAttributes)
   const leaderId = reviewerIdentity(captured.projectLeaderUserId)
   const templateId = reviewerIdentity(captured.folderTemplateId)
@@ -40,15 +40,17 @@ export const confirmProjectProductApplication = async (
     ['是否为生产方', choices[attributes.actualManufacturer!]],
     ['文件转移', choices[attributes.documentTransfer!]],
     ['转移至', attributes.transferTo || '未选择转移'],
-    ['审核方式', `${configured.roleName}：单环节，由任一当前合格角色成员审批`],
-    ['当前审核候选', configured.candidates.map(row => `${row.nickname}（${row.username}）`).join('、')],
+    ...(configured ? [
+      ['审核方式', `${configured.roleName}：单环节，由任一当前合格角色成员审批`],
+      ['当前审核候选', configured.candidates.map(row => `${row.nickname}（${row.username}）`).join('、')]
+    ] as [string, string][] : []),
     ['备注', captured.remark || '未填写'],
-    [resubmission ? '重提说明' : '新建申请原因', (resubmission ? captured.resubmissionReason : captured.creationReason) || '']
+    [resubmission ? '重提说明' : '新建原因', (resubmission ? captured.resubmissionReason : captured.creationReason) || '']
   ]
   await ElMessageBox.confirm(h('div', { 'data-testid': 'dcc-project-product-confirmation', style: { maxHeight: '65vh', overflowY: 'auto' } }, [
-    h('p', '请核对本次项目、产品及默认属性，提交后进入审核。'),
+    h('p', resubmission ? '请核对本次项目、产品及默认属性，提交后进入审核。' : '请核对本次项目、产品及默认属性，确认后直接创建，无需审核。'),
     h('dl', fields.flatMap(([label, value]) => [h('dt', { class: 'font-600 mt-8px' }, label), h('dd', { class: 'm-0 break-all' }, value)]))
-  ]), resubmission ? '核对重新提交的项目及产品申请' : '核对新建项目及产品申请', {
-    confirmButtonText: '提交申请', cancelButtonText: '返回修改', closeOnClickModal: false
+  ]), resubmission ? '核对重新提交的项目及产品申请' : '核对新建项目及产品', {
+    confirmButtonText: resubmission ? '提交申请' : '确认创建', cancelButtonText: '返回修改', closeOnClickModal: false
   })
 }

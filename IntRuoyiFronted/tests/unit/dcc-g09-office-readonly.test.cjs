@@ -211,3 +211,17 @@ test('Office SFC retains watermarks and compiles', () => {
   assert.ok(classes.includes('onlyoffice-viewer-frame__overlay'))
   assert.ok(classes.includes('onlyoffice-viewer-frame__watermark'))
 })
+
+test('upload Office preview fits page width without relaxing controlled permissions', async () => {
+  const r = office()
+  r.props.compact = true
+  await r.api.mountEditor()
+  const config = r.configs[0]
+  assert.equal(config.editorConfig.customization.zoom, -2)
+  assert.equal(config.type, 'embedded')
+  assert.equal(config.document.title, '受控预览')
+  assert.equal(config.height, '100%')
+  for (const name of ['edit', 'comment', 'review', 'download', 'print', 'copy']) {
+    assert.equal(config.document.permissions[name], false)
+  }
+})

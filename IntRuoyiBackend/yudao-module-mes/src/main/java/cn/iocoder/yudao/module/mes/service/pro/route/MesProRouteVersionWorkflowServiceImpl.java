@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
+import cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService;
+
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
@@ -47,6 +49,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 @Service
 @Validated
 public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersionWorkflowService {
+
+    @jakarta.annotation.Resource
+    private MesVersionOperateLogService versionOperateLogService;
 
     public static final String ROUTE_VERSION_APPROVAL_PROCESS_DEFINITION_KEY = "mes-route-version-approval-v1";
 
@@ -136,6 +141,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         routeVersionMapper.insert(candidate);
         platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(),
                 reqVO.getChangeReason());
+        versionOperateLogService.route("升版", active, candidate, SecurityFrameworkUtils.getLoginUserId());
         return candidate;
     }
 

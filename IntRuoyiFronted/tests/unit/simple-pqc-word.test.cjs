@@ -102,6 +102,19 @@ const draft = {
   ]
 }
 const bytes = createPqcWord(draft, '7', ['I3'])
+
+test('manual equipment opt-out survives Word export without changing the inspection requirement', () => {
+  const disabled = JSON.parse(JSON.stringify(draft))
+  const item = disabled.processes[0].items[0]
+  item.equipmentRequired = false
+  item.equipmentOptions = []
+  delete item.equipmentUnboundReason
+  const output = createPqcWord(disabled, '7', [])
+  assert.equal(JSON.stringify(readPqcWord(output, '7', 129).draft), JSON.stringify(disabled))
+  const xml = new PizZip(output).file('word/document.xml').asText()
+  assert.match(xml, /人工确认无需设备/)
+  assert.match(xml, /检验器具及设备要求：压力计/)
+})
 test('exported DOCX restores all edited fields, order, provenance and equipment exactly', () => {
   const restored = readPqcWord(bytes, '7', 129)
   assert.equal(JSON.stringify(restored.draft), JSON.stringify(draft))
@@ -169,6 +182,10 @@ for (const common of [false, true])
       },
       '@/api/mes/dv/machinery': {
         DvMachineryApi: { getMachineryPage: async () => ({ list: [], total: 0 }) }
+      },
+      '@/api/mes/pro/batchrecordreport/simpleParserProjects': {
+        getSimpleParserProjects: async () => [],
+        getSimpleParserProject: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' })
       },
       '@/api/dcc/controlledFile/projectCodes': {
         getProjectCodePage: async () => ({ list: [] }),

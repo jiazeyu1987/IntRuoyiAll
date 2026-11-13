@@ -66,7 +66,7 @@ export interface UploadSubmitFieldErrors {
   versionNo?: string
 }
 
-export interface UploadConfirmationRow { label: string; value: string }
+export interface UploadConfirmationRow { label: string; value: string; items?: string[]; empty?: boolean }
 export interface UploadConfirmationFacts {
   projectName?: string
   folderName?: string
@@ -126,7 +126,8 @@ export const buildUploadConfirmationSummary = (
     }
     if (!Array.isArray(facts.relatedFiles)) throw new Error('提交确认缺少关联选择')
     rows.push({ label: '关联文件', value: facts.relatedFiles.length ? facts.relatedFiles.map(file =>
-      `${confirmedText(file.fileName, '关联文件名称')} · ${confirmedText(file.versionNo, '关联受控版本')}${file.pendingEffect ? ' · 待生效' : ''}`).join('；') : '未关联' })
+      `${confirmedText(file.fileName, '关联文件名称')} · ${confirmedText(file.versionNo, '关联受控版本')}${file.pendingEffect ? ' · 待生效' : ''}`).join('；') : '未关联',
+      items: facts.relatedFiles.map(file => `${file.fileName} · ${file.versionNo}${file.pendingEffect ? ' · 待生效' : ''}`) })
     if (!Array.isArray(facts.signoffDepartments) || !facts.signoffDepartments.length) throw new Error('提交确认缺少会签部门')
     rows.push({ label: '会签部门', value: facts.signoffDepartments.map(department => confirmedText(department.name, '会签部门名称')).join('、') })
     const ids = normalizeDistributionDepartments(draft.selectedDistributionDepartmentIds)
@@ -135,10 +136,12 @@ export const buildUploadConfirmationSummary = (
       throw new Error('提交确认下发部门与本次实际名单不一致')
     rows.push({ label: '下发部门', value: ids.length
       ? facts.distributionDepartments.map(department => confirmedText(department.name, '下发部门名称')).join('、') : '未选择下发部门' },
-      { label: '下发范围', value: '受控且已生效后，向所选下发部门的全部人员下发；签收不增加下载、打印或编制权限。' })
+      { label: '下发范围', value: '文件同时满足受控且已生效后，按现有规则向所选下发部门的全部人员下发；签收不增加下载、打印或编辑权限。' })
   }
   if (!Array.isArray(facts.approvers) || !facts.approvers.length) throw new Error('提交确认缺少批准人')
   rows.push({ label: '批准人', value: facts.approvers.map(account =>
+    `${confirmedText(account.name, '批准人名称')}${account.deptName ? `（${account.deptName}）` : ''}`).join('；') },
+    { label: '批准人账号', value: facts.approvers.map(account =>
     `${confirmedText(account.name, '批准人名称')}${account.deptName ? `（${account.deptName}）` : ''} · 账号ID ${confirmedText(account.id, '批准人身份')}`).join('；') },
     { label: '批准规则', value: confirmedText(facts.approvalRule, '批准规则') })
   if (draft.approvalMatrixSelection?.approvalSourceMode === 'APPLICATION_CUSTOM') {
@@ -156,11 +159,11 @@ export const buildUploadConfirmationSummary = (
   }
   if (facts.approvalGroups) for (const group of facts.approvalGroups)
     rows.push({ label: `原批准组 ${group.sourceNodeId}`, value: confirmedText(group.summary, '原批准组规则') })
-  if (facts.runtimeCapabilityLimitations?.length) rows.push({ label: '运行能力说明', value: facts.runtimeCapabilityLimitations.join('；') })
   if (draft.processType === 'CONTROLLED_FILE') rows.push({ label: '培训', value: draft.needTraining ? '需要培训' : '不需要培训' })
   rows.push({ label: '附件', value: facts.attachments?.length
-      ? facts.attachments.map(file => confirmedText(file.fileName, '附件名称')).join('；') : '未上传' },
-    { label: '提交备注', value: draft.remark?.trim() || '未填写' })
+      ? facts.attachments.map(file => confirmedText(file.fileName, '附件名称')).join('；') : '未上传',
+      items: (facts.attachments ?? []).map(file => file.fileName) },
+    { label: '提交备注', value: draft.remark?.trim() || '未填写', empty: !draft.remark?.trim() })
   return rows
 }
 

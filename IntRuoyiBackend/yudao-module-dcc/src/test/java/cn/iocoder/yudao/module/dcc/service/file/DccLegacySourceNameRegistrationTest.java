@@ -45,18 +45,24 @@ class DccLegacySourceNameRegistrationTest extends BaseDbUnitTest {
     @MockBean DccLegacyRegistrationSourceEnvironment sourceEnvironment;
     @TempDir Path temp;
     JdbcTemplate jdbc;AdminUserRespDTO account;LoginUser login;
+    boolean createdAuditActorTable;
     final byte[] body="real-test-body".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     final String uuid="92ca05d0-aec8-11f1-a944-02b4e226a5ef";
     @BeforeEach void setup() throws Exception {
         try(var c=dataSource.getConnection()){assertTrue(c.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         TenantContextHolder.setTenantId(1L);jdbc=new JdbcTemplate(dataSource);
+        try(var connection=dataSource.getConnection();var tables=connection.getMetaData().getTables(null,null,"system_users",null)) {
+            createdAuditActorTable=!tables.next();
+        }
+        if(createdAuditActorTable)jdbc.execute("CREATE TABLE system_users(id BIGINT PRIMARY KEY,tenant_id BIGINT,status INT,username VARCHAR(64),nickname VARCHAR(64),deleted INT DEFAULT 0)");
+        jdbc.update("INSERT INTO system_users(id,tenant_id,status,username,nickname) VALUES(99,1,0,'real-unit-admin','Unit Document Control')");
         new ResourceDatabasePopulator(new ClassPathResource("sql/dcc_b_gxp_audit_tables.sql")).execute(dataSource);
-        jdbc.update("DELETE FROM gxp_audit_event");jdbc.update("DELETE FROM gxp_audit_ledger_sequence");jdbc.update("DELETE FROM gxp_audit_policy_operation");
+        jdbc.update("DELETE FROM gxp_audit_event");jdbc.update("DELETE FROM gxp_audit_ledger_sequence");jdbc.update("DELETE FROM gxp_audit_policy_operation");jdbc.update("DELETE FROM gxp_audit_policy_activation");
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,status,dcc_project_code_id,file_type_taxonomy_leaf_id,normalized_file_number) VALUES(10,1,2,3,'historical','N-1','ACTIVE_CHAIN',5,6,'N-1')");
         jdbc.update("INSERT INTO dcc_controlled_file_name_claim(id,tenant_id,master_id,normalized_name) VALUES(7,1,10,'historical')");
         jdbc.update("INSERT INTO dcc_controlled_file(id,tenant_id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,file_number,version_no,status,requester_id,submitter_id,source_sha256) VALUES(20,1,10,2,3,100,100,'historical','historical','N-1','A/1','ACTIVE',99,99,?)",DigestUtil.sha256Hex(body));
         jdbc.update("INSERT INTO infra_file(id,config_id,name,path,size) VALUES(100,28,'SOP.pdf','original/100',?)",body.length);
-        jdbc.update("INSERT INTO infra_file_config(id,storage,config) VALUES(28,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
+        jdbc.update("INSERT INTO infra_tenant_file_config(id,tenant_id,storage,config) VALUES(28,1,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
         jdbc.update("INSERT INTO dcc_controlled_file_source_ownership(tenant_id,controlled_file_id,source_file_id,origin_source_file_id,source_sha256,ownership_type,claimed_time) VALUES(1,20,100,100,?,'EXCLUSIVE',CURRENT_TIMESTAMP)",DigestUtil.sha256Hex(body));
         when(sourceEnvironment.identity()).thenReturn(Map.of("database_name","ruoyi-vue-pro","server_uuid",uuid));
         when(storage.getFileContent(28L,"original/100")).thenReturn(body);
@@ -66,7 +72,10 @@ class DccLegacySourceNameRegistrationTest extends BaseDbUnitTest {
         login=new LoginUser();login.setId(99L);login.setTenantId(1L);login.setUserType(UserTypeEnum.ADMIN.getValue());login.setInfo(Map.of("username",account.getUsername(),"nickname",account.getNickname()));
         SecurityFrameworkUtils.setLoginUser(login,new org.springframework.mock.web.MockHttpServletRequest());
     }
-    void policy(){jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability) VALUES(1,'isolated-unit-policy',?,'SERVICE_METHOD',?,'DCC','DCC_LEGACY_SOURCE_NAME_SCOPE','ACTIVATE','REQUIRED_CATEGORY_AND_TEXT','NOT_REQUIRED','ABSENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','LEGACY-ACT-01','dcc-owner','GXP')",DccLegacySourceNameRegistrationService.OPERATION,DccLegacySourceNameRegistrationService.class.getName()+"#activateVerifiedScope");}
+    void policy(){
+        jdbc.update("INSERT INTO gxp_audit_ledger_sequence(tenant_id,next_ledger_sequence) VALUES(1,1)");
+        jdbc.update("INSERT INTO gxp_audit_policy_activation(tenant_id,policy_version,policy_hash,request_id,actor_id,approval_reference,activated_at_utc,effective_after_sequence,canonical_activation_json,activation_hash) VALUES(1,'isolated-unit-policy',?,'tenant-file-registration-test',99,'ISOLATED_TEST',CURRENT_TIMESTAMP,0,'{}',?)","0".repeat(64),"1".repeat(64));
+        jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability) VALUES(1,'isolated-unit-policy',?,'SERVICE_METHOD',?,'DCC','DCC_LEGACY_SOURCE_NAME_SCOPE','ACTIVATE','REQUIRED_CATEGORY_AND_TEXT','NOT_REQUIRED','ABSENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','LEGACY-ACT-01','dcc-owner','GXP')",DccLegacySourceNameRegistrationService.OPERATION,DccLegacySourceNameRegistrationService.class.getName()+"#activateVerifiedScope");}
     Map<String,Object> row(String table,long id){return jdbc.queryForMap("SELECT * FROM "+table+" WHERE id=?",id);}
     DccLegacyNameVerifiedScope seal() throws Exception {
         var e=new DccLegacyNameVerifiedScope.Evidence(7L,10L,20L,100L,28L,"A/1","SOP.pdf","original/100",DigestUtil.sha256Hex(body),body.length,20,"http://127.0.0.1:9000","originals","us-east-1",true,"historical",null,null,null,5L,6L,"N-1",null,
@@ -135,7 +144,7 @@ class DccLegacySourceNameRegistrationTest extends BaseDbUnitTest {
     }
     @Test void officialKernelLateAppendFailureRollsBackAlreadyPreparedRegistryAndVerifiedScope() throws Exception {
         policy();var sealed=seal();jdbc.execute("ALTER TABLE gxp_audit_event ADD CONSTRAINT reject_test_activation CHECK (actor_id<>99)");
-        try {assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->registration.activateVerifiedScope(sealed));zero();assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_ledger_sequence",Integer.class));}
+        try {assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->registration.activateVerifiedScope(sealed));zero();assertEquals(1L,jdbc.queryForObject("SELECT next_ledger_sequence FROM gxp_audit_ledger_sequence WHERE tenant_id=1",Long.class));}
         finally {jdbc.execute("ALTER TABLE gxp_audit_event DROP CONSTRAINT reject_test_activation");}
     }
     @Test void firstRegistrationAndConcurrentNewUseTheActualUniqueRegistryAndFailClosedUnresolvedGate() throws Exception {
@@ -152,5 +161,5 @@ class DccLegacySourceNameRegistrationTest extends BaseDbUnitTest {
     }
     DccLegacyNameVerifiedScope reload() throws Exception {var manifest=temp.resolve("manifest.json");return DccLegacyNameVerifiedScope.fromProtectedArtifact(manifest,DigestUtil.sha256Hex(Files.readAllBytes(manifest)),temp.resolve("facts.jsonl"),temp.resolve("receipt.json"),temp.resolve("results.jsonl"),temp.resolve("decision.json"));}
     void resealReceipt() throws Exception {var path=temp.resolve("receipt.json");var proof=JsonUtils.parseObject(Files.readString(path),Map.class);proof.put("resultsSha256",DigestUtil.sha256Hex(Files.readAllBytes(temp.resolve("results.jsonl"))));Files.writeString(path,JsonUtils.toJsonString(proof));var manifest=JsonUtils.parseObject(Files.readString(temp.resolve("manifest.json")),Map.class);manifest.put("bytesReceiptSha256",DigestUtil.sha256Hex(Files.readAllBytes(path)));Files.writeString(temp.resolve("manifest.json"),JsonUtils.toJsonString(manifest));}
-    @AfterEach void cleanup(){jdbc.update("DELETE FROM dcc_controlled_file_source_ownership WHERE controlled_file_id=20");jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_file_config WHERE id=28");jdbc.update("DELETE FROM gxp_audit_event");jdbc.update("DELETE FROM gxp_audit_ledger_sequence");jdbc.update("DELETE FROM gxp_audit_policy_operation");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
+    @AfterEach void cleanup(){if(createdAuditActorTable)jdbc.execute("DROP TABLE system_users");else jdbc.update("DELETE FROM system_users WHERE id=99 AND tenant_id=1");jdbc.update("DELETE FROM dcc_controlled_file_source_ownership WHERE controlled_file_id=20");jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_tenant_file_config WHERE tenant_id=1 AND id=28");jdbc.update("DELETE FROM gxp_audit_event");jdbc.update("DELETE FROM gxp_audit_ledger_sequence");jdbc.update("DELETE FROM gxp_audit_policy_operation");jdbc.update("DELETE FROM gxp_audit_policy_activation");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
 }

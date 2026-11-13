@@ -47,6 +47,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_NEGATIVE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -243,8 +247,162 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"configured", "wrongNumber", "disabled"})
+    void ownReturnSavesOnlyConfiguredEquipmentSnapshotsAndAudit(String equipmentState) {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var rejected = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();
+        rejected.setTenantId(1L);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(f.eventMapper.selectById(Fixture.EVENT_ID),
+                rejected, 5001L, 0L, "1900000000000000001");
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(f.service, "ownReturnService", own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID, 5001L, 91L, 0L, Fixture.ACTOR_ID, "PQC")).thenReturn(context);
+        var configs = mock(cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService.class);
+        ReflectionTestUtils.setField(f.service, "itemEquipmentConfigService", configs);
+        var command = f.command("2.5");
+        String itemCode = command.getItemResults().get(0).getItemCode();
+        command.getItemResults().get(0).setSelectedEquipmentId(24L);
+        command.getItemResults().get(0).setSelectedEquipmentNumber("FM-E-24");
+        when(configs.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(any(), any(), any()))
+                .thenReturn(java.util.Map.of(itemCode, List.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentOption(
+                        itemCode, 24L, "WEIGHT-15N", "15N砝码", "FM-E-24", false, 1))));
+        if ("wrongNumber".equals(equipmentState)) command.getItemResults().get(0).setSelectedEquipmentNumber("WRONG");
+        if ("disabled".equals(equipmentState)) {
+            when(configs.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(any(), any(), any())).thenReturn(java.util.Map.of());
+        }
+        if (!"configured".equals(equipmentState)) {
+            assertThrows(ServiceException.class, () -> f.service.correctOwnReturned(command, 5001L, 91L, 0L));
+            verifyNoInteractions(f.signatureService, f.revisionService);
+            return;
+        }
+        f.service.correctOwnReturned(command, 5001L, 91L, 0L);
+        var change = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(f.revisionService).updatePqcInspectionRecord(change.capture());
+        assertTrue(change.getValue().getAfterPayload().contains("15N砝码"));
+        assertTrue(change.getValue().getAfterPayload().contains("FM-E-24"));
+        assertTrue(change.getValue().getChangedFields().stream()
+                .anyMatch(field -> field.getFieldCode().equals("PQC.EQUIPMENT." + itemCode)));
+        verify(own).complete(context, 701L, Fixture.ACTOR_ID);
+        verifyNoInteractions(f.aggregationService);
+    }
+
+    @Test
+    void originalPqcFormAllowsOnlyTheOwnersReturnedSubmittedTask() {
+        var service = mock(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextServiceImpl.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS);
+        var tasks = mock(MesPqcInspectionTaskMapper.class);
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service, "pqcTaskMapper", tasks);
+        ReflectionTestUtils.setField(service, "ownReturnService", own);
+        org.mockito.Mockito.doReturn(mock(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeCandidate.class))
+                .when(service).requirePqcEmployee(101L, 101L);
+        var task = MesPqcInspectionTaskDO.builder().id(11L).submittedEventId(1011L).activeOrderId(1L)
+                .regulationVersionId(2L).qaProcessId(3L).taskStatus("SUBMITTED").build();
+        when(tasks.selectById(11L)).thenReturn(task);
+        var option = new cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcProcessRespVO.PqcTaskOption();
+        option.setPqcTaskId(11L);
+        option.setTaskStatus("SUBMITTED");
+        var process = new cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcProcessRespVO();
+        process.setRegulationVersionId(2L);
+        process.setQaProcessId(3L);
+        process.setRouteId(4L);
+        process.setPqcTaskOptions(List.of(option));
+        org.mockito.Mockito.doReturn(List.of(process)).when(service).listProcessesByActiveOrder(1L);
+        when(own.listOwnReturned(101L, "PQC")).thenReturn(List.of(new MesFrontlineReturnCorrectionService.ReturnRow(
+                "123", 1011L, 1L, 9L, 0L, "WO-1", "检验", "数值不正确", LocalDateTime.now())));
+
+        assertEquals(101L, service.switchPqcActualEmployee(101L, 1L, 2L, 3L, 11L, 101L).actualEmployeeId());
+        when(own.listOwnReturned(101L, "PQC")).thenReturn(List.of());
+        assertThrows(ServiceException.class, () -> service.switchPqcActualEmployee(101L, 1L, 2L, 3L, 11L, 101L));
+    }
+
+    @Test
+    void ownReturnedPqcCanResubmitExpandedSamplesFromOriginalForm() {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var rejected = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();
+        rejected.setTenantId(1L);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(
+                f.eventMapper.selectById(Fixture.EVENT_ID), rejected, 5001L, 0L, "1900000000000000001");
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(f.service, "ownReturnService", own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID, 5001L, 91L, 0L, Fixture.ACTOR_ID, "PQC")).thenReturn(context);
+        var result = new MesFrontlineReturnCorrectionService.CorrectionResult(Fixture.EVENT_ID, 701L, List.of());
+        when(own.complete(context, 701L, Fixture.ACTOR_ID)).thenReturn(result);
+
+        assertEquals(result, f.service.correctOwnReturned(f.command(List.of("2.5", "3.0"), 0), 5001L, 91L, 0L));
+        var persisted = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(f.revisionService).updatePqcInspectionRecord(persisted.capture());
+        assertEquals(2, JsonUtils.parseTree(persisted.getValue().getAfterPayload()).path("actualInspectionQuantity").intValue());
+        verify(own).complete(context, 701L, Fixture.ACTOR_ID);
+        verifyNoInteractions(f.aggregationService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {0L, 80L})
+    void ownReturnedPqcCanResignUnchangedValuesForEachRejectedRound(long previousReturn) {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        f.pieceDetailMapper.selectListByTaskId(Fixture.TASK_ID).get(0).setMeasuredValue("合格").setItemResult("合格");
+        var event = f.eventMapper.selectById(Fixture.EVENT_ID);
+        var before = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(event.getRawPayload());
+        if (previousReturn > 0) {
+            before.put("pqcResubmissionRejectedReviewId", previousReturn);
+            before.put("supersededReviewId", previousReturn);
+        }
+        event.setRawPayload(before.toString());
+        var rejected = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();
+        rejected.setTenantId(1L);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(event, rejected, 5001L, 0L, "1900000000000000001");
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(f.service, "ownReturnService", own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID, 5001L, 91L, 0L, Fixture.ACTOR_ID, "PQC")).thenReturn(context);
+        var result = new MesFrontlineReturnCorrectionService.CorrectionResult(Fixture.EVENT_ID, 701L, List.of());
+        when(own.complete(context, 701L, Fixture.ACTOR_ID)).thenReturn(result);
+
+        assertEquals(result, f.service.correctOwnReturned(f.command("合格"), 5001L, 91L, 0L));
+
+        var revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        var audit = (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService)
+                ReflectionTestUtils.getField(f.service, "gxpAuditService");
+        var ordered = org.mockito.Mockito.inOrder(f.signatureService, f.revisionService, audit, own);
+        ordered.verify(f.signatureService).recordFieldChangeSignature(any());
+        ordered.verify(f.revisionService).updatePqcInspectionRecord(revision.capture());
+        ordered.verify(audit).append(any());
+        ordered.verify(own).complete(context, 701L, Fixture.ACTOR_ID);
+        var saved = revision.getValue();
+        assertEquals(9102L, saved.getRevisionSignatureId());
+        assertEquals(1, saved.getChangedFields().size());
+        var change = saved.getChangedFields().get(0);
+        assertEquals("PQC.RESUBMISSION_REJECTED_REVIEW_ID", change.getFieldCode());
+        assertEquals(previousReturn == 0 ? "" : String.valueOf(previousReturn), change.getBeforeValue());
+        assertEquals("91", change.getAfterValue());
+        var after = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(saved.getAfterPayload());
+        assertEquals(91L, after.path("supersededReviewId").longValue());
+        assertEquals(91L, after.path("pqcResubmissionRejectedReviewId").longValue());
+        before.remove(List.of("supersededReviewId", "pqcResubmissionRejectedReviewId"));
+        after.remove(List.of("supersededReviewId", "pqcResubmissionRejectedReviewId"));
+        assertEquals(before, after, "Unchanged resubmission must preserve original inspection content");
+        assertEquals("REJECTED", rejected.getReviewStatus());
+        verifyNoInteractions(f.aggregationService);
+    }
+
+    @Test
+    void ordinaryPqcCorrectionStillRequiresRealValueChanges() {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        f.pieceDetailMapper.selectListByTaskId(Fixture.TASK_ID).get(0).setMeasuredValue("合格").setItemResult("合格");
+        var error = assertThrows(ServiceException.class, () -> f.service.correct(f.command("合格")));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED.getCode(), error.getCode());
+        verifyNoInteractions(f.signatureService, f.revisionService, f.handoffService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"sampleQuantity","equipment","aggregated"})
-    void ownReturnedPqcCannotChangeFrozenSampleOrEquipmentOrAnAlreadyApprovedRound(String defect) {
+    void ownReturnedPqcRejectsMismatchedSampleQuantityEquipmentOrAnAlreadyApprovedRound(String defect) {
         Fixture f=new Fixture("NUMERIC",decimal("1"),decimal("5"),1);
         var rejected=MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
                 .leaderType("PQC").reviewStatus("REJECTED").build();rejected.setTenantId(1L);
@@ -747,6 +905,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 () -> fixture.auditAggregateMapper);
         // Collaborator mocks are completed fixture instances; do not lifecycle-autowire their own internals.
         context.getBeanFactory().registerSingleton("ownReturnService", mock(MesFrontlineReturnCorrectionService.class));
+        context.getBeanFactory().registerSingleton("itemEquipmentConfigService", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService.class));
         context.getBeanFactory().registerSingleton("handoffService", fixture.handoffService);
         context.refresh();
         // Normal @Resource injection, including future production audit dependency; no reflective field-exists skip.
@@ -1240,6 +1399,27 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     }
 
     @Test
+    void distinguishesMissingAndNegativeScrapQuantityBeforeOwnReturnLookup() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(fixture.service, "ownReturnService", own);
+        var command = fixture.command(List.of("合格"), 0);
+        command.setScrapQuantity(null);
+        ServiceException missing = assertThrows(ServiceException.class,
+                () -> fixture.service.correctOwnReturned(command, 5001L, 91L, 0L));
+        assertEquals(PRO_PQC_SCRAP_QUANTITY_REQUIRED.getCode(), missing.getCode());
+        assertEquals("PQC 损耗数量不能为空，请填写损耗数量", missing.getMessage());
+
+        command.setScrapQuantity(-1);
+        ServiceException negative = assertThrows(ServiceException.class,
+                () -> fixture.service.correctOwnReturned(command, 5001L, 91L, 0L));
+        assertEquals(PRO_PQC_SCRAP_QUANTITY_NEGATIVE.getCode(), negative.getCode());
+        assertEquals("PQC 损耗数量不能小于 0，当前损耗数量为 -1", negative.getMessage());
+        verifyNoInteractions(own, fixture.signatureService, fixture.revisionService);
+        verify(fixture.eventMapper, never()).selectById(any());
+    }
+
+    @Test
     void rejectsScrapQuantityAboveActualInspectionQuantityBeforeLoadingEvent() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
 
@@ -1247,7 +1427,8 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 () -> fixture.service.correct(fixture.command(
                         List.of("合格", "合格", "合格", "合格", "合格"), 10)));
 
-        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        assertEquals(PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL.getCode(), error.getCode());
+        assertEquals("PQC 损耗数量（10）不能大于实际检验数量（5），请核对后提交", error.getMessage());
         verify(fixture.eventMapper, never()).selectByIdForUpdate(any());
         verify(fixture.signatureService, never()).recordFieldChangeSignature(any());
         verify(fixture.revisionService, never()).updatePqcInspectionRecord(any());
@@ -1262,13 +1443,64 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 () -> fixture.service.correct(fixture.command(
                         List.of("不合格", "不合格", "合格", "合格", "合格"), 1)));
 
-        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        assertEquals(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES.getCode(), error.getCode());
+        assertEquals("PQC 损耗数量（1）不能小于不合格样本数（2，按样本序号去重），请核对检验结果和损耗数量后提交",
+                error.getMessage());
         verify(fixture.signatureService, never()).recordFieldChangeSignature(any());
         verify(fixture.revisionService, never()).updatePqcInspectionRecord(any());
         verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
         verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
         verify(fixture.pieceDetailMapper, never()).insertBatch(any());
         verify(fixture.pqcRecordMapper, never()).updateById(any(MesProProcessPoolPqcRecordDO.class));
+    }
+
+    @Test
+    void ownReturnRejectsScrapBelowFailedSampleCountBeforeSignatureAndCompletion() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        fixture.freezeSamplePlan(2);
+        var rejected = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();
+        rejected.setTenantId(1L);
+        when(fixture.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(
+                fixture.eventMapper.selectById(Fixture.EVENT_ID), rejected, 5001L, 0L, "return-task");
+        var own = mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(fixture.service, "ownReturnService", own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID, 5001L, 91L, 0L, Fixture.ACTOR_ID, "PQC"))
+                .thenReturn(context);
+
+        var error = assertThrows(ServiceException.class, () -> fixture.service.correctOwnReturned(
+                fixture.command(List.of("不合格", "不合格"), 1), 5001L, 91L, 0L));
+
+        assertEquals(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES.getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("损耗数量（1）不能小于不合格样本数（2"));
+        verifyNoInteractions(fixture.signatureService, fixture.revisionService);
+        verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
+        verify(own, never()).complete(any(), any(), any());
+    }
+
+    @Test
+    void failedSampleFloorCountsEachSampleNumberOnlyOnceAcrossItems() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        var command = fixture.command(List.of("合格"), 1);
+        List<MesPqcInspectionPieceDetailDO> details = List.of(
+                MesPqcInspectionPieceDetailDO.builder().sampleNo(1).itemCode("A").judgement("FAILURE").build(),
+                MesPqcInspectionPieceDetailDO.builder().sampleNo(1).itemCode("B").judgement("FAILURE").build());
+        ReflectionTestUtils.invokeMethod(fixture.service, "validateScrapQuantityAgainstPieceDetails", command, details);
+        command.setScrapQuantity(0);
+        var error = assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
+                fixture.service, "validateScrapQuantityAgainstPieceDetails", command, details));
+        assertEquals("PQC 损耗数量（0）不能小于不合格样本数（1，按样本序号去重），请核对检验结果和损耗数量后提交",
+                error.getMessage());
+    }
+
+    @Test
+    void positiveScrapStillMakesInspectionFailWhenAllSamplesPass() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        assertEquals(701L, fixture.service.correct(fixture.command(List.of("合格"), 1)));
+        var record = ArgumentCaptor.forClass(MesProProcessPoolPqcRecordDO.class);
+        verify(fixture.pqcRecordMapper).updateById(record.capture());
+        assertEquals("FAILURE", record.getValue().getInspectionResult());
     }
 
     @Test

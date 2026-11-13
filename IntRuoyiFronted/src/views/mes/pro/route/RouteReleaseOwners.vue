@@ -9,7 +9,7 @@
       <el-select model-value="ROLE_GROUP" disabled size="small" aria-label="负责人来源">
         <el-option label="权限角色" value="ROLE_GROUP" />
       </el-select>
-      <el-select :model-value="owner.role?.id" disabled size="small" :aria-label="`${owner.label}权限角色`" placeholder="默认角色未配置">
+      <el-select :model-value="owner.role?.id" disabled size="small" :aria-label="`${owner.label}权限角色`" :placeholder="loading ? '加载中' : owner.error ? '加载失败' : '默认角色未配置'">
         <el-option v-if="owner.role" :label="owner.role.name" :value="owner.role.id" />
       </el-select>
       <el-alert v-if="owner.error" :title="owner.error" type="error" :closable="false" />
@@ -23,14 +23,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { getRolePage, type RoleVO } from '@/api/system/role'
-import { getUserPage, type UserVO } from '@/api/system/user'
-import { loadReleaseOwner } from './routeReleaseOwners'
+import { ProRouteApi, type RouteReleaseOwnerVO } from '@/api/mes/pro/route'
 
 const loading = ref(false)
 const owners = ref([
-  { label: '生产放行', code: 'MES_PQC_RELEASE_OWNER', role: undefined as RoleVO | undefined, users: [] as UserVO[], error: '' },
-  { label: '上市放行', code: 'MES_MANAGEMENT_REPRESENTATIVE', role: undefined as RoleVO | undefined, users: [] as UserVO[], error: '' }
+  { label: '生产放行', code: 'MES_PQC_RELEASE_OWNER', role: undefined as RouteReleaseOwnerVO['role'] | undefined, users: [] as RouteReleaseOwnerVO['users'], error: '' },
+  { label: '上市放行', code: 'MES_MANAGEMENT_REPRESENTATIVE', role: undefined as RouteReleaseOwnerVO['role'] | undefined, users: [] as RouteReleaseOwnerVO['users'], error: '' }
 ])
 const loadOwners = async () => {
   if (loading.value) return
@@ -41,7 +39,7 @@ const loadOwners = async () => {
       owner.users = []
       owner.error = ''
       try {
-        const result = await loadReleaseOwner(owner.code, getRolePage, getUserPage)
+        const result = await ProRouteApi.getReleaseOwner(owner.code)
         owner.role = result.role
         owner.users = result.users
       } catch (error) {

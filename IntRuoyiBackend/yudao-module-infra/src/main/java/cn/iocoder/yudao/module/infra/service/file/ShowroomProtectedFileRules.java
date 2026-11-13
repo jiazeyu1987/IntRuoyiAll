@@ -18,7 +18,8 @@ final class ShowroomProtectedFileRules {
 
     static boolean isProtectedShowroomFile(FileDO file) {
         return file != null && isProtectedFileConfig(file.getConfigId())
-                && file.getPath() != null && file.getPath().startsWith(FILE_PATH_PREFIX);
+                && file.getPath() != null
+                && file.getPath().replaceFirst("^tenants/[0-9]+/", "").startsWith(FILE_PATH_PREFIX);
     }
 
 }

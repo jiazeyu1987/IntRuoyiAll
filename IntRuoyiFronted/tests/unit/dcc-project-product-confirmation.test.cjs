@@ -29,7 +29,9 @@ function host({ confirm = async () => {}, configuration = async () => ({ ...revi
     confirmProjectProductApplication: async (...values) => { confirmations.push(values); await confirm(context) },
     createDccProjectProductRequest: async value => { writes.push({ value }); return '9007199254740999' },
     resubmitDccProjectProductRequest: async (id, value) => { writes.push({ id, value }); return '9007199254740999' },
-    message: { success: value => successes.push(value) }, resetProjectProductForm() {}, loadProjectProductRequests: async () => {},
+    message: { success: value => successes.push(value) }, resetProjectProductForm() {}, getList: async () => {}, loadProjectProductRequests: async () => {
+      context.projectProductRequests.value = [{id:'9007199254740999',reviewContract:'DIRECT_CREATE_V1',status:'COMPLETED',generatedProjectCodeId:'101',generatedProductCatalogId:'102',relationId:'103'}]
+    },
     Error, JSON
   }
   vm.runInNewContext(ts.transpileModule(handler + '\n globalThis.submit = submitProjectProductRequest', {
@@ -55,7 +57,7 @@ test('confirmed rejected request cannot drift to another request while review is
 })
 test('reviewer changed after confirmation is displayed and must be reconfirmed before any write', async () => {
   let reads = 0
-  const h = host({ configuration: async () => reads++ ? { ...reviewer, candidates: [{ userId: '8', username: 'new-review', nickname: '新审核人' }] } : { ...reviewer } })
+  const h = host({ rejectedId:'9007199254740993',configuration: async () => reads++ ? { ...reviewer, candidates: [{ userId: '8', username: 'new-review', nickname: '新审核人' }] } : { ...reviewer } })
   await h.submit()
   assert.equal(h.confirmations.length, 1)
   assert.equal(h.writes.length, 0)
@@ -119,13 +121,13 @@ function confirmationHelper(confirm) {
     throw Error(name)
   }).confirmProjectProductApplication
 }
-test('actual review summary uses safe Vue text and includes the role, every candidate and three attributes', async () => {
+test('new creation confirmation uses safe Vue text and needs no reviewer configuration', async () => {
   let body, options
   const confirm = confirmationHelper(async (message, title, config) => { body = message; options = config })
   const h = host()
   h.context.projectProductForm.productName = '<img src=x onerror=alert(1)>'
   h.context.projectProductForm.defaultAttributes = { ...attrs, targetMarkets: ['OTHER'], otherMarket: '目标市场说明', documentTransfer: 'Y', transferTo: '目标项目' }
-  await confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, reviewer, false)
+  await confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, undefined, false)
   const texts = []
   function visit(node) {
     if (typeof node === 'string') { texts.push(node); return }
@@ -136,9 +138,10 @@ test('actual review summary uses safe Vue text and includes the role, every cand
   }
   visit(body)
   const rendered = texts.join(' ')
-  for (const value of ['项目A', 'PA', 'P-01', '<img src=x onerror=alert(1)>', '模板A', '是否为注册人', '是否为生产方', '目标市场说明', '目标项目', reviewer.roleName, reviewer.candidates[0].username, reviewer.candidates[1].username, '备注', '新项目申请'])
+  for (const value of ['项目A', 'PA', 'P-01', '<img src=x onerror=alert(1)>', '模板A', '是否为注册人', '是否为生产方', '目标市场说明', '目标项目', '备注', '新项目申请','直接创建，无需审核'])
     assert.ok(rendered.includes(value), value)
-  assert.equal(options.confirmButtonText, '提交申请')
+  assert.equal(rendered.includes('当前审核候选'),false)
+  assert.equal(options.confirmButtonText, '确认创建')
   assert.equal(options.cancelButtonText, '返回修改')
 })
 test('missing leader or disabled folder template fails before opening the review', async () => {
@@ -147,6 +150,6 @@ test('missing leader or disabled folder template fails before opening the review
   const h = host()
   await assert.rejects(confirm(h.context.projectProductForm, [], h.context.folderTemplates.value, reviewer, false), /负责人|模板/)
   await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, [{ id: 9, name: '模板A', active: false }], reviewer, false), /负责人|模板/)
-  await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, { ...reviewer, candidates: [] }, false), /角色|成员|未就绪/)
+  await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, { ...reviewer, candidates: [] }, true), /角色|成员|未就绪/)
   assert.equal(opened, 0)
 })

@@ -473,54 +473,7 @@
       </el-table>
     </div>
 
-    <div class="operation-panel">
-      <div class="panel-title">最近操作</div>
-      <el-table :data="operations" height="240" empty-text="暂无操作记录">
-        <el-table-column label="时间" width="170">
-          <template #default="{ row }">
-            {{ operationRequestedAtText(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="环境" width="90">
-          <template #default="{ row }">{{
-            operationHistoryEnvironmentText(row.environment)
-          }}</template>
-        </el-table-column>
-        <el-table-column label="动作" min-width="140">
-          <template #default="{ row }">
-            {{ operationActionText(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="范围" width="100">
-          <template #default="{ row }">
-            {{ operationPublishScopeText(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="对象" min-width="130">
-          <template #default="{ row }">
-            {{ operationTargetText(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" prop="status" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="原因" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">{{ operationReasonText(row) }}</template>
-        </el-table-column>
-        <el-table-column label="摘要" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">{{ operationSummaryText(row) }}</template>
-        </el-table-column>
-        <el-table-column label="日志" width="90" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" :disabled="!row.resultLogPath" @click="openLog(row)">
-              查看日志
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    
 
     <el-dialog v-model="restartDialog.visible" title="确认重启" width="460px">
       <el-form label-width="92px">
@@ -833,22 +786,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="logDialog.visible"
-      :title="logDialog.title"
-      width="820px"
-      class="runtime-log-dialog"
-    >
-      <div class="log-toolbar">
-        <el-tag :type="statusTagType(logDialog.status)">{{ statusText(logDialog.status) }}</el-tag>
-        <el-tag v-if="logDialog.truncated" type="warning" effect="light">已截取尾部</el-tag>
-        <el-button :loading="logDialog.loading" @click="loadOperationLog">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          刷新
-        </el-button>
-      </div>
-      <pre class="log-content">{{ logDialog.content || '暂无日志内容' }}</pre>
-    </el-dialog>
+    
 
     <OpsIncidentDrawer
       v-model:visible="incidentDrawerVisible"
@@ -918,7 +856,6 @@ const inspectionRun = ref<RuntimeControlApi.RuntimeControlInspectionRunVO>()
 const incidentDrawerVisible = ref(false)
 const remoteRootCleanupSubmitting = ref(false)
 let pollingTimer: number | undefined
-let logPollingTimer: number | undefined
 
 const opsLoading = reactive({
   ownerMatrix: false,
@@ -1043,15 +980,7 @@ const operationDialog = reactive<{
   selectedRecoverySetCandidateId: ''
 })
 
-const logDialog = reactive({
-  visible: false,
-  title: '查看日志',
-  operationId: '',
-  status: '',
-  content: '',
-  truncated: false,
-  loading: false
-})
+
 
 const operationPreview = reactive({
   loading: false,
@@ -2099,7 +2028,7 @@ const submitOperation = async () => {
     operationDialog.visible = false
     message.success('运维动作已提交')
     await loadOverview()
-    await openLog(operation)
+
   } catch (error) {
     reportActionError(error)
   } finally {
@@ -2243,46 +2172,9 @@ const candidateReason = (
   return ''
 }
 
-const openLog = async (operation: RuntimeControlOperationVO) => {
-  if (!operation.operationId) return
-  logDialog.visible = true
-  logDialog.operationId = operation.operationId
-  logDialog.title = `${operationActionText(operation)} / ${operation.operationId}`
-  logDialog.status = operation.status
-  logDialog.content = ''
-  logDialog.truncated = false
-  await loadOperationLog()
-  startLogPolling()
-}
 
-const loadOperationLog = async () => {
-  if (!logDialog.operationId || logDialog.loading) {
-    return
-  }
-  logDialog.loading = true
-  try {
-    const log = await RuntimeControlApi.getRuntimeControlOperationLog(logDialog.operationId)
-    logDialog.status = log.status
-    logDialog.content = log.content
-    logDialog.truncated = log.truncated
-  } catch (error) {
-    reportActionError(error)
-  } finally {
-    logDialog.loading = false
-  }
-}
 
-const startLogPolling = () => {
-  stopLogPolling()
-  logPollingTimer = window.setInterval(loadOperationLog, 3000)
-}
 
-const stopLogPolling = () => {
-  if (logPollingTimer) {
-    window.clearInterval(logPollingTimer)
-    logPollingTimer = undefined
-  }
-}
 
 const openRestart = async (environment: string, component: string) => {
   restartDialog.environment = environment
@@ -2417,17 +2309,8 @@ onBeforeUnmount(() => {
   if (pollingTimer) {
     window.clearInterval(pollingTimer)
   }
-  stopLogPolling()
 })
 
-watch(
-  () => logDialog.visible,
-  (visible) => {
-    if (!visible) {
-      stopLogPolling()
-    }
-  }
-)
 </script>
 
 <style scoped>

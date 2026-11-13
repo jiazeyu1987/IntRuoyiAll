@@ -15,9 +15,7 @@
       <el-tab-pane label="详细资料">
         <ContactDetailsInfo :contact="contact" />
       </el-tab-pane>
-      <el-tab-pane label="操作日志">
-        <OperateLogV2 :log-list="logList" />
-      </el-tab-pane>
+      
       <el-tab-pane label="团队成员">
         <PermissionList
           ref="permissionListRef"
@@ -49,8 +47,8 @@ import ContactDetailsInfo from '@/views/crm/contact/detail/ContactDetailsInfo.vu
 import BusinessList from '@/views/crm/business/components/BusinessList.vue' // 商机列表
 import PermissionList from '@/views/crm/permission/components/PermissionList.vue' // 团队成员列表（权限）
 import { BizTypeEnum } from '@/api/crm/permission'
-import { OperateLogVO } from '@/api/system/operatelog'
-import { getOperateLogPage } from '@/api/crm/operateLog'
+
+
 import ContactForm from '@/views/crm/contact/ContactForm.vue'
 import CrmTransferForm from '@/views/crm/permission/components/TransferForm.vue'
 import FollowUpList from '@/views/crm/followup/index.vue'
@@ -69,7 +67,7 @@ const getContact = async () => {
   loading.value = true
   try {
     contact.value = await ContactApi.getContact(contactId.value)
-    await getOperateLog(contactId.value)
+    
   } finally {
     loading.value = false
   }
@@ -88,17 +86,8 @@ const transfer = () => {
 }
 
 /** 获取操作日志 */
-const logList = ref<OperateLogVO[]>([]) // 操作日志列表
-const getOperateLog = async (contactId: number) => {
-  if (!contactId) {
-    return
-  }
-  const data = await getOperateLogPage({
-    bizType: BizTypeEnum.CRM_CONTACT,
-    bizId: contactId
-  })
-  logList.value = data.list
-}
+ // 操作日志列表
+
 
 /** 关闭窗口 */
 const { delView } = useTagsViewStore() // 视图操作

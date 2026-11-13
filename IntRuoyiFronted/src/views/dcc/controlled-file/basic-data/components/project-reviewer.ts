@@ -55,7 +55,13 @@ export const canReviewProjectProduct = (
 
 export const projectRequestContract = (row: Pick<DccProjectProductCreateRespVO,
   'reviewContract' | 'reviewerRoleId' | 'reviewerRoleCode' | 'configuredReviewerUserId'
-  | 'configuredReviewerUsername' | 'configuredReviewerNickname' | 'canReview' | 'status'>): 'ROLE_SINGLE_REVIEW_V1' | 'LEGACY' => {
+  | 'configuredReviewerUsername' | 'configuredReviewerNickname' | 'canReview' | 'status'>): 'DIRECT_CREATE_V1' | 'ROLE_SINGLE_REVIEW_V1' | 'LEGACY' => {
+  if (row.reviewContract === 'DIRECT_CREATE_V1') {
+    if (row.status !== 'COMPLETED' || row.canReview === true || row.reviewerRoleId != null || row.reviewerRoleCode != null
+      || row.configuredReviewerUserId != null || row.configuredReviewerUsername != null || row.configuredReviewerNickname != null)
+      throw new Error('直接创建记录状态或审核字段不一致')
+    return 'DIRECT_CREATE_V1'
+  }
   if (row.reviewContract == null) {
     if (row.reviewerRoleId != null || row.reviewerRoleCode != null) throw new Error('历史项目申请包含不完整的角色审核合同')
     return 'LEGACY'
@@ -73,6 +79,7 @@ export const canHandleProjectRequest = (row: DccProjectProductCreateRespVO, acto
   action: 'review' | 'approve' | 'retry', access: ProjectRequestAccess): boolean => {
   if (!row || !validIdentity(row.id) || !validIdentity(actor) || !access.query) return false
   try {
+    if (projectRequestContract(row) === 'DIRECT_CREATE_V1') return false
     if (projectRequestContract(row) === 'ROLE_SINGLE_REVIEW_V1')
       return action === 'review' && row.status === 'PENDING_REVIEW' && row.canReview === true && access.review
     if (!access.update) return false

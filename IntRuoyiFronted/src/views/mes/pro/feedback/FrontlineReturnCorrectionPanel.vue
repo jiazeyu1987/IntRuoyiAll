@@ -138,11 +138,8 @@
           >更正原因<textarea v-model="reason" maxlength="500" aria-label="更正原因"></textarea>
         </label>
         <label
-          >本人签名凭据（PIN 码或密码）<input
+          >本人签名凭据（PIN 码或密码）<SignatureCredentialInput
             v-model="password"
-            type="password"
-            autocomplete="new-password"
-            aria-label="本人签名凭据（PIN 码或密码）"
         /></label>
       </fieldset>
     </template>
@@ -177,6 +174,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { computed, ref, watch, onBeforeUnmount, onDeactivated } from 'vue'

@@ -9,10 +9,10 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item v-if="credentialType === 'PIN'" label="新 PIN 码">
-        <el-input v-model="newPin" type="password" show-password inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="留空保留当前 PIN，修改时输入六位数字" :disabled="!loaded || saving" />
+        <PinCodeInput v-model="newPin" :disabled="!loaded || saving" label="新 PIN 码" />
       </el-form-item>
       <el-form-item v-if="credentialType === 'PIN'" label="确认新 PIN 码">
-        <el-input v-model="confirmPin" type="password" show-password inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="再次输入新 PIN 码" :disabled="!loaded || saving" />
+        <PinCodeInput v-model="confirmPin" :disabled="!loaded || saving" label="确认新 PIN 码" />
       </el-form-item>
       <el-form-item v-if="credentialType === 'PASSWORD'" label="密码签名">
         <span>签名时使用当前登录密码，修改登录密码后同步生效。</span>
@@ -28,6 +28,7 @@
   </section>
 </template>
 <script lang="ts" setup>
+import PinCodeInput from '@/components/SignatureCredentialInput/PinCodeInput.vue'
 import { getSignatureSettings, updateSignatureSettings, type SignatureCredentialType } from '@/api/system/user/profile'
 const router = useRouter()
 const message = useMessage()
@@ -64,7 +65,8 @@ const save = async () => {
   try {
     await updateSignatureSettings({ credentialType: credentialType.value, password: password.value, ...(credentialType.value === 'PIN' && newPin.value ? { newPin: newPin.value } : {}) })
     newPin.value = ''; confirmPin.value = ''; password.value = ''
-    message.success('签名设置已保存，请按所选方式输入签名凭据')
+    window.dispatchEvent(new Event('signature-settings-changed'))
+    message.success('签名设置已保存，后续电子签名统一使用所选方式')
   } catch (cause) { error.value = errorText(cause) }
   finally { saving.value = false; password.value = '' }
 }

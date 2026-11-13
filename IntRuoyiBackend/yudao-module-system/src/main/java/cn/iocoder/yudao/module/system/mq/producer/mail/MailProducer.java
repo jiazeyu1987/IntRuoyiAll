@@ -40,6 +40,7 @@ public class MailProducer {
                                     Long accountId, String nickname, String title, String content,
                                     File[] attachments) {
         MailSendMessage message = new MailSendMessage()
+                .setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .setLogId(sendLogId)
                 .setToMails(toMails).setCcMails(ccMails).setBccMails(bccMails)
                 .setAccountId(accountId).setNickname(nickname)

@@ -74,6 +74,20 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineDeviceAccountContextService contextService;
     @Resource
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSignatureSettingsService signatureSettings;
+
+    @GetMapping("/employee/signature-settings")
+    @Operation(summary = "读取当前生产范围所选员工的签名方式")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSignatureSettingsService.Settings> getEmployeeSignatureSettings(
+            @RequestParam @NotNull Long activeOrderId, @RequestParam @NotNull Long routeId,
+            @RequestParam @NotNull Long routeProcessId, @RequestParam @NotNull Long processId,
+            @RequestParam @NotNull Long actualEmployeeId, @RequestParam String identityDomain) {
+        return success(signatureSettings.get(activeOrderId, routeId, routeProcessId, processId,
+                actualEmployeeId, identityDomain));
+    }
+
     @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEmployeeSignaturePasswordChangeFacade employeeSignatureCredentials;
     @GetMapping("/employee-profile/signature-qualification")
     @Operation(summary="读取当前生产范围员工签名资格")
@@ -378,7 +392,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setWorkstationId(process.workstationId());
         respVO.setWorkstationCode(process.workstationCode());
         respVO.setWorkstationName(process.workstationName());
-        respVO.setProductionQuantityFactor(process.productionQuantityFactor());
+        respVO.setLossCoefficient(process.lossCoefficient());
         respVO.setTargetQuantity(process.targetQuantity());
         respVO.setSubmittedQuantity(process.submittedQuantity());
         return respVO;

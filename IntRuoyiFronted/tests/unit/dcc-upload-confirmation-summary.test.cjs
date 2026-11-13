@@ -34,6 +34,24 @@ test('confirmation refuses missing formal facts instead of inventing defaults', 
   }
 })
 
+test('confirmation materials keep exact names and counts, and generic capability notes are omitted', () => {
+  const rows = helpers.buildUploadConfirmationSummary(draft, { fileName: 'SOP.PDF' }, {
+    ...facts, attachments: [{ fileName: '补充；材料.pdf' }, { fileName: '附件二.docx' }],
+    runtimeCapabilityLimitations: ['通用运行能力说明']
+  })
+  assert.deepEqual(Array.from(rows.find(row => row.label === '附件').items), ['补充；材料.pdf', '附件二.docx'])
+  assert.equal(rows.find(row => row.label === '关联文件').items.length, 1)
+  assert.equal(rows.some(row => row.label === '运行能力说明'), false)
+  assert.doesNotMatch(rows.find(row => row.label === '批准人').value, /账号ID/)
+  assert.match(rows.find(row => row.label === '批准人账号').value, /账号ID/)
+  const empty = helpers.buildUploadConfirmationSummary(draft, { fileName: 'SOP.PDF' }, { ...facts, relatedFiles: [] })
+  assert.equal(empty.find(row => row.label === '关联文件').value, '未关联')
+  assert.equal(empty.find(row => row.label === '附件').value, '未上传')
+  assert.equal(empty.find(row => row.label === '提交备注').empty, true)
+  const literalRemark = helpers.buildUploadConfirmationSummary({ ...draft, remark: '未填写' }, { fileName: 'SOP.PDF' }, facts)
+  assert.equal(literalRemark.find(row => row.label === '提交备注').empty, false)
+})
+
 test('matrix approvers resolve exact Long identities only from official enabled accounts', () => {
   const accounts = people.approvalUserOptions([{ id: long, nickname: '批准甲', deptName: '法规部' }])
   const resolved = people.resolvedUploadApprovers({ nodes: [{ stageCode: 'MATRIX_APPROVAL', resolvedUserIds: [long], approveMethod: 'ALL' }] }, accounts)
@@ -50,12 +68,16 @@ test('enabled-user and approver contracts reject unsafe, disabled, duplicate or 
   for (const ids of [[], [long, long], [9007199254740992]]) assert.throws(() => people.resolvedUploadApprovers({ nodes: [{ stageCode: 'MATRIX_APPROVAL', resolvedUserIds: ids, approveMethod: 'ALL' }] }, accounts))
 })
 
-test('public upload has explicit effective date input and honest working/formal version wording', () => {
+test('upload keeps explicit external-review dates, controlled version facts and the initial version format hint', () => {
   const page = fs.readFileSync('src/views/dcc/controlled-file/upload/index.vue', 'utf8')
   assert.doesNotMatch(page, /effectiveDate:\s*resolveTodayDate\(\)|formData\.effectiveDate\s*=\s*resolveTodayDate\(\)/)
   assert.doesNotMatch(page, /系统允许补录历史生效日期|当前有效版本|后续大小版本统一通过/)
-  assert.match(page, /检入.*小版本/)
-  assert.match(page, /局部变更.*换版变更.*审批/)
+  assert.match(page, /<el-form-item v-if="isExternalReview" label="生效日期" prop="effectiveDate">\s*<el-date-picker\s+v-model="formData\.effectiveDate"/)
+  const versionPanel = page.slice(page.indexOf('data-testid="dcc-upload-current-version-panel"'), page.indexOf(':label="isExternalReview ?'))
+  assert.match(versionPanel, /受控版本/)
+  assert.match(versionPanel, /currentVersionInfo\.currentVersionNo/)
+  assert.match(versionPanel, /currentVersionInfo\.status/)
+  assert.match(page, /格式：修订字母\/数字，如 A\/1；字母不含 I、O，数字 1～9。/)
 })
 
 test('IC31 confirmation shows detached compiler and direct supervisor with their actual official departments',()=>{

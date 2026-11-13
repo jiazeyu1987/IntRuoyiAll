@@ -1,8 +1,8 @@
 package cn.iocoder.yudao.module.system.dal.dataobject.sms;
 
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated;
 import cn.iocoder.yudao.module.system.enums.sms.SmsReceiveStatusEnum;
 import cn.iocoder.yudao.module.system.enums.sms.SmsSendStatusEnum;
 import com.baomidou.mybatisplus.annotation.KeySequence;
@@ -20,7 +20,8 @@ import java.util.Map;
  * @author zzf
  * @since 2021-01-25
  */
-@TableName(value = "system_sms_log", autoResultMap = true)
+@TenantIsolated
+@TableName(value = "system_tenant_sms_log", autoResultMap = true)
 @KeySequence("system_sms_log_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -28,8 +29,7 @@ import java.util.Map;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TenantIgnore
-public class SmsLogDO extends BaseDO {
+public class SmsLogDO extends TenantBaseDO {
 
     /**
      * 自增编号

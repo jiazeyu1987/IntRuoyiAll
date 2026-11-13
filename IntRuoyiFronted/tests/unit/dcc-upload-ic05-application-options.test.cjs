@@ -34,6 +34,7 @@ const readiness = (selected, distribution, transport) => {
     getTenantId: () => '1', getVisitTenantId: () => undefined, referenceIdentity: String, uploadFileTypeIdentity: String, createControlledFileUploadSessionId: () => 'scope',
     isCustomApprovalSource: ref(false), selectedFileTypeTaxonomyPath: ref({approvalSourceMode:'PUBLIC_MATRIX'}),
     isExternalReview: ref(false), routeReadinessRequestSeq: 0, routeReadiness: ref(), routeReadinessLoading: ref(false), routeReadinessError: ref(''), routeReadinessSelectionKey: ref(''),
+    autoUploadDepartmentSelections: ref({ signoff: [], distribution: [] }),
     signoffSelectionCategoryKey: departments.signoffCategoryKey('2', 'CONTROLLED_FILE'), resolveUploadErrorMessage: error => error.message,
     checkControlledFileRouteReadiness: async request => { calls.push(request); const result = transport ? await transport(request) : route(request.selectedSignoffDepartmentIds || ['7', long]); return require('./dcc-upload-test-loader.cjs').matrixReadiness(result) }
   }
@@ -47,9 +48,13 @@ test('actual readiness initially copies the public defaults then never overwrite
   assert.equal(calls[0].selectedSignoffDepartmentIds, undefined)
   assert.deepEqual(Array.from(c.formData.selectedSignoffDepartmentIds), ['7', long])
   assert.deepEqual(Array.from(c.formData.selectedDistributionDepartmentIds), ['7', long])
+  assert.deepEqual(Array.from(c.autoUploadDepartmentSelections.value.signoff), ['7', long])
+  assert.deepEqual(Array.from(c.autoUploadDepartmentSelections.value.distribution), ['7', long])
   c.formData.selectedSignoffDepartmentIds = ['8']; c.formData.selectedDistributionDepartmentIds = []
   await c.exports.run()
   assert.deepEqual(Array.from(c.formData.selectedDistributionDepartmentIds), [])
+  assert.deepEqual(Array.from(c.autoUploadDepartmentSelections.value.signoff), ['7', long])
+  assert.deepEqual(Array.from(c.autoUploadDepartmentSelections.value.distribution), ['7', long])
   assert.equal(calls.length, 2)
 })
 
@@ -204,7 +209,19 @@ test('external review preserves its independent date-only contract without a new
   assert.equal(Object.hasOwn(payload, 'effectiveMode'), false); assert.equal(payload.effectiveDate, '2099-10-11')
   assert.throws(() => helpers.buildSubmitPayload({ ...external, effectiveDate: null }, uploaded), /日期/)
   const page = fs.readFileSync(file('index.vue'), 'utf8')
-  assert.match(page, /<el-form-item v-if="!isExternalReview" label="生效方式"/)
+  const template = parse(page).descriptor.template.ast
+  const findEffectiveMode = node => {
+    if (node.type === 1 && node.tag === 'el-form-item' && node.props.some(prop =>
+      prop.type === 6 && prop.name === 'prop' && prop.value?.content === 'effectiveMode')) return node
+    for (const child of node.children || []) {
+      const found = findEffectiveMode(child)
+      if (found) return found
+    }
+  }
+  const field = findEffectiveMode(template)
+  assert.ok(field, 'the effective-mode field must exist')
+  assert.ok(field.props.some(prop => prop.type === 7 && prop.name === 'if' && prop.exp?.content === '!isExternalReview'),
+    'external review must retain its independent date-only form')
 })
 
 test('real submitter service hands the exact new choices to its production submit dependency', async () => {
@@ -248,7 +265,7 @@ test('the actual form presents immediate/delayed business choices and separate e
   assert.match(descriptor.template.content, /文控审核后立即生效/); assert.match(descriptor.template.content, /延迟生效/)
   assert.match(descriptor.template.content, /v-model="formData.effectiveMode"/)
   assert.match(descriptor.template.content, /v-model="formData.selectedDistributionDepartmentIds"/)
-  assert.match(descriptor.template.content, /所选.*部门.*全.*人员|所选.*部门.*全员/)
+  assert.match(descriptor.template.content, /首次按会签部门带出，可独立调整/)
   compileScript(descriptor, { id: 'ic05' })
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: file('index.vue'), id: 'ic05' }).errors, [])
 })
@@ -268,7 +285,7 @@ test('IC31 actual payload builders preserve native source pairs and allow absent
   assert.throws(()=>helpers.buildWorkingDraftPayload({...draft,approvalMatrixSelection:partial},uploaded),/主管.*来源/)
 })
 
- test('one source retains attachments in both submit and working drafts', () => {
+test('one source retains attachments and independent drawing sessions in both submit and working drafts', () => {
   const source = { ...uploaded, fileName: 'source.docx' }
   const attachment = { ...uploaded, uploadTicket: 'ATTACHMENT', sessionId: 'attachment-session', fileName: 'evidence.pdf' }
   for (const build of [helpers.buildSubmitPayload, helpers.buildWorkingDraftPayload]) {
@@ -279,6 +296,40 @@ test('IC31 actual payload builders preserve native source pairs and allow absent
     assert.equal(result.originalUploadTicket, source.uploadTicket)
     assert.equal(result.sourceUploadTicket, source.uploadTicket)
     assert.equal(result.attachmentUploadTickets[0].uploadTicket, 'ATTACHMENT')
-    assert.throws(() => build(draft, source, { ...uploaded, uploadTicket: 'drawing-ticket', sessionId: 'other' }), /会话/)
+    assert.equal(result.attachmentUploadTickets[0].sessionId, 'attachment-session')
+    const drawing = { ...uploaded, uploadTicket: 'drawing-ticket', sessionId: 'drawing-session', fileName: 'drawing.pdf' }
+    const withDrawing = build(draft, source, drawing, [attachment])
+    assert.equal(withDrawing.sessionId, source.sessionId)
+    assert.equal(withDrawing.drawingPdfSessionId, 'drawing-session')
+    assert.equal(withDrawing.drawingPdfUploadTicket, 'drawing-ticket')
+    assert.equal(withDrawing.attachmentUploadTickets[0].sessionId, 'attachment-session')
+    assert.throws(() => build(draft, source, { ...drawing, sessionId: '' }), /上传票据或文件身份不完整/)
+    assert.throws(() => build(draft, source, undefined, [{ ...attachment, sessionId: '' }]), /上传票据或文件身份不完整/)
+  }
+})
+
+test('submit and draft services preserve independent attachment tickets and block invalid identities before transport', async () => {
+  const calls = []
+  const service = helpers.createUploadSubmitterService({
+    submit: async payload => { calls.push({ action: 'SUBMIT', payload }); return '31' },
+    createWorking: async payload => { calls.push({ action: 'SAVE', payload }); return '32' }
+  })
+  const attachment = { ...uploaded, uploadTicket: 'ATTACHMENT', sessionId: 'attachment-session', fileName: 'evidence.pdf' }
+  for (const [method, action, expected] of [['submit', 'SUBMIT', '31'], ['saveDraft', 'SAVE', '32']]) {
+    assert.equal(await service[method](draft, uploaded, undefined, [attachment]), expected)
+    const last = calls.at(-1)
+    assert.equal(last.action, action)
+    assert.equal(last.payload.sessionId, uploaded.sessionId)
+    assert.equal(last.payload.attachmentUploadTickets[0].uploadTicket, attachment.uploadTicket)
+    assert.equal(last.payload.attachmentUploadTickets[0].sessionId, attachment.sessionId)
+    const count = calls.length
+    for (const invalid of [
+      { ...attachment, sessionId: '' }, { ...attachment, uploadTicket: '' },
+      { ...attachment, fileName: '' }, { ...attachment, expireTime: 1 },
+      { ...attachment, uploadTicket: uploaded.uploadTicket }
+    ]) {
+      await assert.rejects(service[method](draft, uploaded, undefined, [invalid]), /上传票据|上传票据或文件身份不完整/)
+      assert.equal(calls.length, count, 'invalid ticket must never reach the transport')
+    }
   }
 })

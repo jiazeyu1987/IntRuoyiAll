@@ -111,6 +111,14 @@ test('DOCX roundtrip preserves every editor field, bindings, order, extra metada
       fs.writeFileSync(process.env.SIMPLE_WORD_VERIFY_FILE, Buffer.from(bytes))
   }
 })
+test('disabled equipment group retains source parameters and its opt-out through Word export', async () => {
+  const original = content()
+  original.processes[0].value.equipmentGroups[0].equipmentRequired = false
+  const bytes = await (await exportSimpleWord(template, original)).arrayBuffer()
+  assert.deepEqual(plain(await readSimpleWord(bytes)), original)
+  assert.match(new PizZip(bytes).file('word/document.xml').asText(), /本组已关闭/)
+})
+
 test('ordinary Word stays on the existing recognition path; invalid ZIP fails', async () => {
   assert.equal(await readSimpleWord(template), undefined)
   await assert.rejects(() => readSimpleWord(new Uint8Array([1, 2, 3]).buffer))

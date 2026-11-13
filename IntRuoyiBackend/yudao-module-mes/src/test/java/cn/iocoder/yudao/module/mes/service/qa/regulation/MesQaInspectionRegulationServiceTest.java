@@ -68,6 +68,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesQaInspectionRegulationServiceTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
+
     private static final Long DCC_PROJECT_ID = 147L;
     private static final Long REGULATION_ID = 61L;
     private static final Long VERSION_ID = 62L;
@@ -116,6 +119,7 @@ class MesQaInspectionRegulationServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "equipmentConfigService",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "aggregateDetailMapper", aggregateDetailMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "versionOperateLogService", versionOperateLogService);
         lenient().when(regulationMapper.selectByIdForUpdate(REGULATION_ID)).thenReturn(publishedRegulation());
         lenient().when(versionMapper.selectByIdForUpdate(any(Long.class)))
                 .thenAnswer(call -> versionMapper.selectById(call.<Long>getArgument(0)));
@@ -305,6 +309,7 @@ class MesQaInspectionRegulationServiceTest {
 
         assertNull(result.getDccProjectCodeId());
         assertEquals("PUBLISHED", result.getLifecycleStatus());
+        verify(versionOperateLogService).qa(org.mockito.ArgumentMatchers.eq("发布"), any(), any(), any());
         verify(regulationMapper).selectCommonByCode(request.getRegulationCode());
         var root = ArgumentCaptor.forClass(MesQaInspectionRegulationDO.class);
         verify(regulationMapper).insert(root.capture());

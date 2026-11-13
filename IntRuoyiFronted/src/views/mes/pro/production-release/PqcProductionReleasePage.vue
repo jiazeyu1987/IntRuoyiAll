@@ -214,13 +214,9 @@
             />
           </el-form-item>
           <el-form-item label="签名凭据" required>
-            <el-input
+            <SignatureCredentialInput
               v-model="releaseForm.signaturePassword"
-              type="password"
               data-pqc-production-release-signature-password
-              show-password
-              autocomplete="current-password"
-              placeholder="请输入当前账号电子签名凭据（PIN 码或密码）"
               @keyup.enter="submitRelease"
             />
           </el-form-item>
@@ -256,6 +252,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('PQC_RELEASE')

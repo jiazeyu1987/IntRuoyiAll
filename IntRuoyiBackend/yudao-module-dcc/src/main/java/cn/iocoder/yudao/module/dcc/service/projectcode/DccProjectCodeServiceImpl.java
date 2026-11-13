@@ -383,7 +383,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private boolean hasFullProjectCodeScope(Long userId) {
-        return permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSION);
+        return permissionApi.hasAnyRoles(userId, "dcc_project_code_admin")
+                || permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSION);
     }
 
     private boolean hasAssignmentExecuteScope(Long userId) {

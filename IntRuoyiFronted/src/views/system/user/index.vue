@@ -7,6 +7,14 @@
     <!-- 左侧部门树 -->
     <el-col :span="4" :xs="24">
       <ContentWrap class="h-1/1">
+        <div class="flex flex-wrap gap-8px px-15px pt-15px" v-if="checkPermi(['system:dept:create', 'system:dept:update'])">
+          <el-button v-if="checkPermi(['system:dept:create'])" type="primary" plain size="small" @click="openDeptForm('create')">
+            新增部门
+          </el-button>
+          <el-button v-if="checkPermi(['system:dept:update']) && checkPermi(['system:dept:query'])" plain size="small" :disabled="selectedDeptId === undefined" @click="openDeptForm('update')">
+            编辑部门
+          </el-button>
+        </div>
         <DeptTreeSelect :key="deptTreeRenderKey" :departments="departments" show-supervisor @node-click="handleDeptNodeClick" />
       </ContentWrap>
     </el-col>
@@ -321,6 +329,7 @@
   </el-row>
 
   <SupervisorHandoverDialog ref="handoverRef" />
+  <DeptForm ref="deptFormRef" @success="refreshAfterDeptChange" />
   <!-- 添加或修改用户对话框 -->
   <UserForm ref="formRef" @success="getList" />
   <!-- 用户导入对话框 -->
@@ -365,6 +374,7 @@ import UserAssignRoleForm from './UserAssignRoleForm.vue'
 import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
 import UserDirectSupervisorDialog from './UserDirectSupervisorDialog.vue'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
+import DeptForm from '@/views/system/dept/DeptForm.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
   buildDeptLeaderLookup,
@@ -469,6 +479,22 @@ const loadDeptMetadata = async () => {
   departments.value = deptList
   deptLeaderByDeptId.value = buildDeptLeaderLookup(deptList)
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
+}
+
+const deptFormRef = ref<InstanceType<typeof DeptForm>>()
+const openDeptForm = (type: 'create' | 'update') => {
+  if (type === 'update' && selectedDeptId.value === undefined) return
+  return deptFormRef.value?.open(type, type === 'update' ? selectedDeptId.value : undefined,
+    type === 'create' ? selectedDeptId.value : undefined)
+}
+const refreshAfterDeptChange = async () => {
+  await loadDeptMetadata()
+  if (selectedDeptId.value !== undefined && !deptNameById.value.has(selectedDeptId.value)) {
+    queryParams.deptId = undefined
+    deptTreeRenderKey.value += 1
+  }
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const buildUserTableRows = (users: UserApi.UserListVO[]): UserTableRow[] =>

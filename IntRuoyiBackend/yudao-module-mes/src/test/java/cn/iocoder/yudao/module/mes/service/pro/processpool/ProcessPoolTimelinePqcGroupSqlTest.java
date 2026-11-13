@@ -104,9 +104,9 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             productionPageSchema(db);
             try (var st = db.createStatement()) {
                 st.execute("CREATE TABLE mes_pro_process_pool_report_allocation(id BIGINT,tenant_id BIGINT,event_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,allocated_quantity DECIMAL,lifecycle_status VARCHAR(40),deleted INT DEFAULT 0)");
-                st.execute("CREATE TABLE mes_pro_process_pool_active_order_process_snapshot(tenant_id BIGINT,active_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,planned_quantity_snapshot DECIMAL,deleted INT DEFAULT 0)");
+                st.execute("CREATE TABLE mes_pro_process_pool_active_order_process_snapshot(tenant_id BIGINT,active_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,planned_quantity_snapshot DECIMAL,erp_fixed_quantity_snapshot DECIMAL,production_config_snapshot_json VARCHAR,deleted INT DEFAULT 0)");
                 st.executeUpdate("INSERT INTO mes_pro_process_pool_report_allocation(id,tenant_id,event_id,active_order_id,work_order_id,route_process_id,process_id,allocated_quantity,lifecycle_status) VALUES(1,1,101,10,20,30,40,60,'CURRENT'),(2,1,102,10,20,30,40,50,'CURRENT'),(3,1,103,10,20,31,40,900,'CURRENT'),(4,1,104,10,20,30,40,900,'SUPERSEDED'),(5,2,101,10,20,30,40,900,'CURRENT')");
-                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(tenant_id,active_order_id,route_process_id,process_id,planned_quantity_snapshot) VALUES(1,10,30,40,100)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(tenant_id,active_order_id,route_process_id,process_id,planned_quantity_snapshot,erp_fixed_quantity_snapshot,production_config_snapshot_json) VALUES(1,10,30,40,900,100,'{\"lossCoefficient\":1}')");
                 st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_release_application(tenant_id,active_order_id,release_transaction_id) VALUES(1,10,50)");
                 st.executeUpdate("INSERT INTO mes_pro_edhr_release_transaction(id,tenant_id,release_status) VALUES(50,1,'RELEASED')");
             }
@@ -234,11 +234,20 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
             req.setEventIds(Set.of(101L, 102L, 103L));
             req.setPqcFormView("CURRENT");
-            assertEquals(2, productionCount(db, params));
-            req.setSubmissionReviewStatus("APPROVED");
             assertEquals(1, productionCount(db, params));
+            req.setSubmissionReviewStatus("PENDING");
+            assertEquals(1, productionCount(db, params));
+            req.setSubmissionReviewStatus("APPROVED");
+            assertEquals(0, productionCount(db, params));
+            req.setSubmissionReviewStatus(null);
+            review(db, 1, 203, 103, "REJECTED");
+            assertEquals(0, productionCount(db, params));
+            review(db, 1, 204, 103, "PENDING");
+            assertEquals(1, productionCount(db, params));
+            review(db, 1, 205, 103, "APPROVED");
+            assertEquals(0, productionCount(db, params));
             req.setSubmissionReviewStatus(null); req.setPqcFormView("HISTORY");
-            assertEquals(2, productionCount(db, params));
+            assertEquals(3, productionCount(db, params));
             req.setEventIds(Set.of());
             assertEquals(0, productionCount(db, params));
         }

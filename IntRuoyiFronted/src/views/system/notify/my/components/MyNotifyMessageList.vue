@@ -1,10 +1,5 @@
 <template>
   <div class="my-notify-message-list" :class="{ 'my-notify-message-list--embedded': embedded }">
-    <ActiveOrderHandoffPanel
-      v-if="canReadActiveOrderHandoffs"
-      ref="handoffPanelRef"
-      hide-when-empty
-    />
     <component :is="contentWrapper" class="my-notify-message-list__section">
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <UnifiedListTemplate
@@ -180,7 +175,6 @@ import BusinessMessageContent from '@/components/BusinessMessageContent/Business
 import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
 import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
 import { listOwnPendingReleaseOutcomes } from '@/api/mes/pro/productionRelease/notification'
@@ -222,12 +216,10 @@ const router = useRouter()
 const userStore = useUserStore()
 const canReadReleaseOutcomes = computed(() => hasPermission(['mes:pro-edhr-work-task:query']))
 const notifyTableRef = ref<TableInstance>()
-const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
 const refreshTableLayout = async () => {
   if (!props.active) return
   await nextTick()
   notifyTableRef.value?.doLayout()
-  await handoffPanelRef.value?.refreshLayout()
 }
 watch(
   () => props.active,
@@ -241,14 +233,6 @@ const NOTIFY_TABLE_KEY = 'system.notify.my-message'
 
 const embedded = computed(() => props.embedded)
 const contentWrapper = computed(() => (props.embedded ? 'div' : 'ContentWrap'))
-const canReadActiveOrderHandoffs = computed(() =>
-  hasPermission([
-    'mes:pro-feedback:query',
-    'mes:pro-process-pool-team-leader:query',
-    'mes:pro-edhr-nonconformance-review:query',
-    'mes:pro-edhr-work-task:query'
-  ])
-)
 
 const notifyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'templateNickname', label: '发送人', width: 180 },

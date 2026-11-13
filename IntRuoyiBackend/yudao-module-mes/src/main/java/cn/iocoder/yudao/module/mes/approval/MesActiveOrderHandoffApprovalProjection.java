@@ -44,6 +44,7 @@ public class MesActiveOrderHandoffApprovalProjection {
         var rows=context.isGlobalView()?tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
                 .eq(MesActiveOrderHandoffTaskDO::getTenantId,tenant())):tasks.own(tenant(),context.getLoginUserId());
         return rows.stream().filter(t->!Boolean.TRUE.equals(t.getNotificationOnly()))
+                .filter(t->!Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(t.getTaskType()))
                 .filter(t->context.getViewType()==ApprovalTaskViewType.TODO?"TODO".equals(t.getStatus())&&handoff.current(t)
                                 && !"QA_DECISION_HANDOFF".equals(t.getTaskType())
                         :"DONE".equals(t.getStatus())&&(context.isGlobalView()||Objects.equals(t.getCompletedBy(),context.getLoginUserId())))

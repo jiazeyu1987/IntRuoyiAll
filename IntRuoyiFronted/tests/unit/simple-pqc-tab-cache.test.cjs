@@ -59,7 +59,11 @@ test('unsaved PQC state survives tab switches and is released when the tab close
       '../parser/useParserEditing': loadEditing(vue), './useParserEditing': loadEditing(vue),
     '../parser/components/SimplePqcTrialPreview.vue': {},
     '@/api/mes/qc/template': {}, '@/api/mes/dv/machinery': {},
-    '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }) },
+    '@/api/mes/pro/batchrecordreport/simpleParserProjects': {
+        getSimpleParserProjects: async () => [],
+        getSimpleParserProject: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' })
+      },
+      '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }) },
     '@/utils/auth': {}, '@/store/modules/user': {},
     '../parser/simplePqc': load(read('src/views/form-center/parser/simplePqc.ts'), {}),
     '../parser/simplePqcWord': load(read('src/views/form-center/parser/simplePqcWord.ts'), { pizzip: require('pizzip') })

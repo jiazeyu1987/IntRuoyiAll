@@ -10,8 +10,12 @@
       <el-descriptions-item label="用户编号">
         {{ detailData.userId }}
       </el-descriptions-item>
-      <el-descriptions-item label="模版编号">
+      <el-descriptions-item v-if="detailData.templateId != null" label="模板编号">
         {{ detailData.templateId }}
+      </el-descriptions-item>
+      <el-descriptions-item v-if="detailData.sourceTemplateId != null" label="原始模板编号">
+        {{ detailData.sourceTemplateId }}
+        <span v-if="detailData.templateId == null">（历史模板已删除）</span>
       </el-descriptions-item>
       <el-descriptions-item label="模板编码">
         {{ detailData.templateCode }}

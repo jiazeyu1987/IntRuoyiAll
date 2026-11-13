@@ -1,6 +1,6 @@
 // Read-only PDF text; never creates annotations or persisted edits.
 export interface PdfTextPage {
-  getTextContent(): Promise<{ items: Array<{ str?: string; hasEOL?: boolean }> }>
+  getTextContent(): Promise<{ items: Array<{ str?: string; hasEOL?: boolean; transform?: number[]; width?: number; height?: number }> }>
   cleanup?(): void
 }
 

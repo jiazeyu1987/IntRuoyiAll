@@ -84,6 +84,9 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
     private GxpAuditService approvalAuditService;
 
     @MockitoBean
+    private cn.iocoder.yudao.module.infra.api.config.ConfigApi configApi;
+
+    @MockitoBean
     private TenantProperties tenantProperties;
     @MockitoBean
     private TenantPackageService tenantPackageService;
@@ -200,6 +203,7 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
         // 调用
         TenantContextHolder.setTenantId(1L);
         Long tenantId = tenantService.createTenant(reqVO);
+        verify(configApi).initializeTenantConfiguration();
         // 断言
         assertNotNull(tenantId);
         assertEquals(1L, TenantContextHolder.getTenantId());

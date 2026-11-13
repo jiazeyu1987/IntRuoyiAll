@@ -75,9 +75,17 @@ public class MesFixedTestOrderDataService {
         String headerTable = "erp_kingdee_production_" + kind + "_list";
         String itemTable = headerTable + "_item";
         String fk = "production_" + kind + "_list_id";
-        List<Map<String, Object>> items = source(itemTable, "production_order_no", WORK_ORDER_CODE).stream()
+        var sourceItems = source(itemTable, "production_order_no", WORK_ORDER_CODE);
+        int removedSimulations = "replenishment".equals(kind) && dataSet == MesFixedTestOrderDataSet.FIRST
+                ? removeHistoricalReplenishments(tenant, actor, order, sourceItems) : 0;
+        List<Map<String, Object>> items = sourceItems.stream()
+                .filter(item -> !"replenishment".equals(kind)
+                        || !MesFixedTestOrderReplenishmentPolicy.isHistoricalCopy(item))
                 .map(dataSet::document).toList();
-        if (items.isEmpty()) throw blocked("参考租户缺少固定测试订单的" + name);
+        if (items.isEmpty()) {
+            if ("replenishment".equals(kind)) return new DocumentResult(name, 0, removedSimulations, 0, 0);
+            throw blocked("参考租户缺少固定测试订单的" + name);
+        }
         // Validate the complete source before writing; existing documents stay untouched in fill mode.
         Map<Object, Map<String, Object>> headers = new LinkedHashMap<>();
         Map<Object, Object> headerIds = new LinkedHashMap<>();
@@ -135,7 +143,52 @@ public class MesFixedTestOrderDataService {
                     itemIds.get(item.get("id")), tenant, actor, dataSet);
             created++;
         }
-        return new DocumentResult(name, created, deleted, skipped - repaired, repaired);
+        return new DocumentResult(name, created, deleted + removedSimulations, skipped - repaired, repaired);
+    }
+
+    private int removeHistoricalReplenishments(long tenant, long actor, Map<String, Object> order,
+                                               List<Map<String, Object>> sourceItems) {
+        var copies = sourceItems.stream().filter(MesFixedTestOrderReplenishmentPolicy::isHistoricalCopy).toList();
+        if (copies.isEmpty()) return 0;
+        List<Map<String, Object>> localCopies = new ArrayList<>();
+        for (var sourceItem : copies) {
+            var local = existing("erp_kingdee_production_replenishment_list_item", tenant,
+                    Map.of("source_line_key", required(sourceItem, "source_line_key")));
+            if (local == null) continue;
+            if (!Objects.equals(local.get("production_order_no"), order.get("code"))
+                    || !MesFixedTestOrderReplenishmentPolicy.isHistoricalCopy(local)
+                    || !equalValue(local.get("material_number"), sourceItem.get("material_number"))
+                    || !equalValue(local.get("actual_quantity"), sourceItem.get("actual_quantity")))
+                throw blocked("历史模拟补料已变更，不能自动移除");
+            localCopies.add(local);
+        }
+        if (localCopies.isEmpty()) return 0;
+        var activeOrders = jdbc.queryForList("SELECT id,active_status FROM mes_pro_process_pool_active_order"
+                + " WHERE tenant_id=? AND work_order_id=? AND deleted=0 FOR UPDATE", tenant, required(order, "id"));
+        for (var active : activeOrders) {
+            Object activeId = required(active, "id");
+            if (!"ACTIVE".equals(active.get("active_status"))
+                    || !jdbc.queryForList("SELECT id FROM mes_pro_process_pool_active_order_completion_receipt"
+                    + " WHERE tenant_id=? AND active_order_id=? AND deleted=0", tenant, activeId).isEmpty()
+                    || !jdbc.queryForList("SELECT id FROM mes_pro_edhr_operation_audit_event"
+                    + " WHERE tenant_id=? AND object_type='ACTIVE_ORDER_REPLENISHMENT' AND object_id=? AND deleted=0",
+                    tenant, activeId.toString()).isEmpty())
+                throw blocked("订单已有完工或签名补料证据，不能移除历史模拟补料");
+        }
+        actionLog.recordPreparation(actor, ((Number) required(order, "id")).longValue(), false,
+                Map.of("reason", "移除旧工具复制的模拟补料，固定测试订单没有该补料需求", "removedItems", localCopies));
+        for (var item : localCopies) {
+            int changed = jdbc.update("UPDATE erp_kingdee_production_replenishment_list_item SET deleted=1,updater=?"
+                    + " WHERE id=? AND tenant_id=? AND deleted=0", Long.toString(actor), required(item, "id"), tenant);
+            if (changed != 1) throw blocked("历史模拟补料移除失败");
+            Object headerId = required(item, "production_replenishment_list_id");
+            jdbc.update("UPDATE erp_kingdee_production_replenishment_list SET deleted=1,updater=?"
+                    + " WHERE id=? AND tenant_id=? AND deleted=0 AND NOT EXISTS"
+                    + " (SELECT 1 FROM erp_kingdee_production_replenishment_list_item WHERE tenant_id=?"
+                    + " AND production_replenishment_list_id=? AND deleted=0)",
+                    Long.toString(actor), headerId, tenant, tenant, headerId);
+        }
+        return localCopies.size();
     }
 
     private DocumentResult prepareMaterials(Map<String, Object> order, long tenant, long actor, boolean rebuild,
@@ -251,9 +304,20 @@ public class MesFixedTestOrderDataService {
         List<Object> args = new ArrayList<>(); args.add(tenant);
         StringJoiner where = new StringJoiner(" AND ");
         key.forEach((field, value) -> { where.add(field + "=?"); args.add(value); });
-        var rows = jdbc.queryForList("SELECT * FROM " + table + " WHERE tenant_id=? AND deleted=0 AND " + where + " FOR UPDATE", args.toArray());
+        // The tenant row serializes fixture preparation. Do not gap-lock missing document
+        // identities: ERP synchronization inserts unrelated headers and lines concurrently.
+        String query = "SELECT * FROM " + table + " WHERE tenant_id=? AND deleted=0 AND " + where;
+        var rows = jdbc.queryForList(query, args.toArray());
         if (rows.size() > 1) throw blocked("当前租户测试单据身份不唯一：" + table);
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) return null;
+        // Lock the exact existing row by primary key and recheck its business identity.
+        List<Object> lockedArgs = new ArrayList<>();
+        lockedArgs.add(required(rows.get(0), "id"));
+        lockedArgs.addAll(args);
+        var locked = jdbc.queryForList("SELECT * FROM " + table + " WHERE id=? AND tenant_id=? AND deleted=0 AND "
+                + where + " FOR UPDATE", lockedArgs.toArray());
+        if (locked.size() != 1) throw blocked("当前租户测试单据已变化，请核对后重新操作：" + table);
+        return locked.get(0);
     }
 
     private List<Map<String, Object>> source(String table, String field, Object value) {

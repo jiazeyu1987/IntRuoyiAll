@@ -172,6 +172,23 @@ class DccCatalogPackageServiceTest {
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=10", Integer.class));
         assertEquals("77", jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=10", String.class));
     }
+    @Test void projectCodeAdministratorImportsIntoCurrentTenantWithoutCompanyGrants() throws Exception {
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
+        jdbc.update("UPDATE dcc_project_code SET project_leader_user_id='77' WHERE tenant_id=10");
+        byte[] workbook = service.exportWorkbook();
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(false);
+        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
+        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccess(any(), any());
+        doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccessBatch(any(), any());
+        TenantContextHolder.setTenantId(11L);
+        assertEquals(10, service.importWorkbook(workbook).get("created"));
+        assertEquals(0, service.importWorkbook(workbook).get("created"));
+        assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
+        assertEquals("77", jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=10", String.class));
+        assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
+        verifyNoInteractions(scope);
+        assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
+    }
     @Test void preservesBitFlagsOnCrossTenantInsertAndRepeatedUpdate() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
         jdbc.update("UPDATE dcc_registration_certificate SET status='DRAFT',current_version_id=NULL,current_snapshot_id=NULL WHERE tenant_id=10");

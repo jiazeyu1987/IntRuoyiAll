@@ -4,6 +4,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentOption;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
@@ -58,6 +60,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_NEGATIVE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES;
 
 @Service
 public class MesProcessPoolPqcInspectionCorrectionService {
@@ -89,6 +95,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService electronicSignatureQueryService;
     @Resource
     private MesFrontlineReturnCorrectionService ownReturnService;
+    @Resource
+    private MesPqcItemEquipmentConfigService itemEquipmentConfigService;
     @Resource
     private MesActiveOrderHandoffService handoffService;
 
@@ -189,10 +197,18 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
         List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskIdForUpdate(task.getId());
         validateExistingDetails(task, existingDetails);
-        if (ownReturn != null) {
-            validateOwnReturnedFrozenFields(command, task, existingDetails);
-        }
+        Map<String, MesPqcItemEquipmentOption> changedEquipment = ownReturn == null ? Map.of()
+                : resolveOwnReturnedEquipmentChanges(command, task, existingDetails);
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
+        for (var detail : updatedDetails) {
+            var equipment = changedEquipment.get(detail.getItemCode());
+            if (equipment != null) {
+                detail.setSelectedEquipmentId(equipment.equipmentId());
+                detail.setSelectedEquipmentCode(equipment.equipmentCode());
+                detail.setSelectedEquipmentName(equipment.equipmentName());
+                detail.setSelectedEquipmentNumber(equipment.equipmentNumber());
+            }
+        }
         validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
         String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
@@ -224,6 +240,19 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
         List<MesProcessPoolEventRevisionFieldChangeBO> changes = buildChanges(
                 event, task, command, existingDetails, updatedDetails, inspectionResult);
+        if (ownReturn != null) {
+            // A signed resubmission changes its review-round association even when inspection values stay unchanged.
+            // Persist and audit that association explicitly; never invent inspection-value changes.
+            ObjectNode beforePayload = requireObject(event.getRawPayload(), "rawPayload");
+            if (changes.isEmpty()) {
+                afterPayload = beforePayload.deepCopy();
+                afterPayload.put("supersededReviewId", ownReturn.review().getId());
+            }
+            afterPayload.put("pqcResubmissionRejectedReviewId", ownReturn.review().getId());
+            addChange(changes, "PQC.RESUBMISSION_REJECTED_REVIEW_ID", "PQC重新提交对应的退回轮次",
+                    text(beforePayload.get("pqcResubmissionRejectedReviewId")),
+                    String.valueOf(ownReturn.review().getId()));
+        }
         if (changes.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
         }
@@ -608,9 +637,15 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (command.getActualInspectionQuantity() == null || command.getActualInspectionQuantity() <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "actualInspectionQuantity");
         }
-        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0
-                || command.getScrapQuantity() > command.getActualInspectionQuantity()) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
+        if (command.getScrapQuantity() == null) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_REQUIRED);
+        }
+        if (command.getScrapQuantity() < 0) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_NEGATIVE, command.getScrapQuantity());
+        }
+        if (command.getScrapQuantity() > command.getActualInspectionQuantity()) {
+            throw exception(PRO_PQC_SCRAP_QUANTITY_EXCEEDS_ACTUAL,
+                    command.getScrapQuantity(), command.getActualInspectionQuantity());
         }
         if (CollUtil.isEmpty(command.getItemResults())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults");
@@ -665,20 +700,33 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
     }
 
-    private void validateOwnReturnedFrozenFields(MesProcessPoolPqcInspectionCorrectionCommand command,
-                                                MesPqcInspectionTaskDO task,
-                                                List<MesPqcInspectionPieceDetailDO> details) {
-        if (!Objects.equals(command.getActualInspectionQuantity(), task.getActualInspectionQuantity())) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenInspectionQuantity");
-        }
+    private Map<String, MesPqcItemEquipmentOption> resolveOwnReturnedEquipmentChanges(
+            MesProcessPoolPqcInspectionCorrectionCommand command, MesPqcInspectionTaskDO task,
+            List<MesPqcInspectionPieceDetailDO> details) {
+        Map<String, MesPqcItemEquipmentOption> changes = new LinkedHashMap<>();
+        Map<String, List<MesPqcItemEquipmentOption>> options = null;
         for (var requested : command.getItemResults()) {
             var original = details.stream().filter(d -> Objects.equals(d.getItemCode(), requested.getItemCode()))
                     .findFirst().orElseThrow(() -> exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode"));
-            if (!Objects.equals(original.getSelectedEquipmentId(), requested.getSelectedEquipmentId())
-                    || !Objects.equals(original.getSelectedEquipmentNumber(), requested.getSelectedEquipmentNumber())) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenEquipment");
+            if (Objects.equals(original.getSelectedEquipmentId(), requested.getSelectedEquipmentId())
+                    && Objects.equals(original.getSelectedEquipmentNumber(), requested.getSelectedEquipmentNumber())) {
+                continue;
             }
+            if (requested.getSelectedEquipmentId() == null || StrUtil.isBlank(requested.getSelectedEquipmentNumber())) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.configuredEquipmentRequired");
+            }
+            if (options == null) {
+                options = itemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                        task.getDccProjectCodeId(), task.getRegulationVersionId(), MesPqcInspectionItemPlan.require(task).keySet());
+            }
+            var selected = options.getOrDefault(requested.getItemCode(), List.of()).stream()
+                    .filter(option -> Objects.equals(option.equipmentId(), requested.getSelectedEquipmentId())
+                            && Objects.equals(option.equipmentNumber(), requested.getSelectedEquipmentNumber()))
+                    .findFirst().orElseThrow(() -> exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                            "ownReturn.configuredEquipmentRequired"));
+            changes.put(requested.getItemCode(), selected);
         }
+        return changes;
     }
 
     private List<MesPqcInspectionPieceDetailDO> buildUpdatedDetails(
@@ -840,6 +888,16 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             addChange(changes, "PQC.ITEM." + itemCode, "PQC项目：" + itemCode,
                     beforeSamples.get(itemCode), afterSamples.get(itemCode));
         }
+        for (var before : beforeDetails.stream().collect(Collectors.toMap(
+                MesPqcInspectionPieceDetailDO::getItemCode, Function.identity(), (left, right) -> left)).values()) {
+            var after = afterDetails.stream().filter(d -> Objects.equals(d.getItemCode(), before.getItemCode()))
+                    .findFirst().orElseThrow();
+            addChange(changes, "PQC.EQUIPMENT." + before.getItemCode(), "PQC检验设备：" + before.getItemName(),
+                    JsonUtils.toJsonString(java.util.Arrays.asList(before.getSelectedEquipmentId(), before.getSelectedEquipmentCode(),
+                            before.getSelectedEquipmentName(), before.getSelectedEquipmentNumber())),
+                    JsonUtils.toJsonString(java.util.Arrays.asList(after.getSelectedEquipmentId(), after.getSelectedEquipmentCode(),
+                            after.getSelectedEquipmentName(), after.getSelectedEquipmentNumber())));
+        }
         return changes;
     }
 
@@ -932,7 +990,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 .distinct()
                 .count();
         if (command.getScrapQuantity() < failedSampleCount) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
+            throw exception(PRO_PQC_SCRAP_QUANTITY_BELOW_FAILED_SAMPLES,
+                    command.getScrapQuantity(), failedSampleCount);
         }
     }
 

@@ -61,3 +61,18 @@ DELETE FROM "gxp_audit_policy_version";
 DELETE FROM "gxp_audit_coverage_report";
 DELETE FROM "gxp_audit_daily_manifest";
 DELETE FROM "gxp_audit_seal_watermark";
+
+DELETE FROM "system_tenant_mail_account";
+DELETE FROM "system_tenant_sms_channel";
+DELETE FROM "system_tenant_mail_template";
+DELETE FROM "system_tenant_sms_template";
+DELETE FROM "system_tenant_notify_template";
+DELETE FROM "system_tenant_mail_log";
+DELETE FROM "system_tenant_sms_log";
+DELETE FROM "system_tenant_sms_code";
+
+DELETE FROM "system_tenant_notify_message";
+
+DELETE FROM system_tenant_dict_data;
+DELETE FROM system_tenant_dict_type;
+DELETE FROM system_tenant_dict_snapshot;

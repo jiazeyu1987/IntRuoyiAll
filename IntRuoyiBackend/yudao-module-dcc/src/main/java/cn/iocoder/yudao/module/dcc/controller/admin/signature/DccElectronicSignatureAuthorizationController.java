@@ -49,7 +49,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @PutMapping("/{userId}")
     @Operation(summary = "更新DCC电子签名授权")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<DccSignatureAuthorizationRespVO> updateAuthorization(
             @PathVariable("userId") Long userId,
             @Valid @RequestBody DccElectronicSignatureAuthorizationUpdateReqVO reqVO) {
@@ -106,7 +106,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @PostMapping("/{userId}/unlock")
     @Operation(summary = "解锁DCC电子签名授权")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<DccSignatureAuthorizationRespVO> unlockAuthorization(
             @PathVariable("userId") Long userId,
             @Valid @RequestBody DccElectronicSignatureAuthorizationUnlockReqVO reqVO) {

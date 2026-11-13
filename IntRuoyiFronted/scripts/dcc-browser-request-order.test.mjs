@@ -17,7 +17,8 @@ const setup = () => {
   const context = {
     isCurrentDirectorySearch: { value: true }, selectedDirectoryId: { value: 1 },
     list: { value: [] }, total: { value: 0 }, loading: { value: false },
-    browserListErrorMessage: { value: '' }, route: { path: '/dcc/browser' },
+    browserListErrorMessage: { value: '' }, route: { path: '/dcc/browser', query: {} },
+    browserMode: { value: 'storage' },
     page: 1, tenant: 1,
     buildBrowserRouteStateKey: () => String(context.page),
     markBrowserListLoadedForState: () => {}, clearBrowserLoadedListState: () => {},
@@ -33,6 +34,18 @@ const setup = () => {
   return { context, requests }
 }
 const result = id => ({ list: [{ id, canPreview: id === 'B' }], total: id === 'B' ? 2 : 1 })
+
+test('storage pagination keeps the total until the requested page returns', async () => {
+  const { context: c, requests } = setup()
+  c.total.value = 34; c.page = 2
+  const pending = c.getList()
+  assert.equal(c.total.value, 34)
+  assert.equal(c.loading.value, true)
+  requests[0].resolve({ list: [{ id: 'page-2' }], total: 34 })
+  await pending
+  assert.equal(c.list.value[0].id, 'page-2')
+  assert.equal(c.total.value, 34)
+})
 
 for (const staleFails of [false, true]) {
   test(`old directory ${staleFails ? 'failure' : 'success'} cannot overwrite B`, async () => {

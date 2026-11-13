@@ -141,6 +141,14 @@
                         <testInclude>**/MesReportAllocationCommandServiceTest.java</testInclude>
                         <testInclude>**/MesTeamLeaderReportConfirmationServiceTest.java</testInclude>
                         <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteCandidateConfigServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderFifoAllocationServiceTest.java</testInclude>
+                        <testInclude>**/MesReportAllocationOrderChangeServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionControllerTest.java</testInclude>
+                        <testInclude>**/MesFrontlineActiveOrderControllerTest.java</testInclude>
+                        <testInclude>**/MesProductionReleaseQuantityLimitTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</testInclude>
                     </testIncludes></configuration>
                 </plugin>
                 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
@@ -159,6 +167,14 @@
                         <include>**/MesReportAllocationCommandServiceTest.java</include>
                         <include>**/MesTeamLeaderReportConfirmationServiceTest.java</include>
                         <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
+                        <include>**/MesProRouteCandidateConfigServiceTest.java</include>
+                        <include>**/MesProRouteServiceImplTest.java</include>
+                        <include>**/MesTeamLeaderFifoAllocationServiceTest.java</include>
+                        <include>**/MesReportAllocationOrderChangeServiceTest.java</include>
+                        <include>**/MesProRouteVersionControllerTest.java</include>
+                        <include>**/MesFrontlineActiveOrderControllerTest.java</include>
+                        <include>**/MesProductionReleaseQuantityLimitTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</include>
                     </includes><failIfNoTests>false</failIfNoTests></configuration>
                 </plugin>
             </plugins></build>
@@ -982,6 +998,34 @@
                                 <include>**/MesReleaseTaskNotificationReliabilityTest.java</include>
                                 <include>**/MesProductionReleaseControllerJsonTest.java</include>
                                 <include>**/MesEdhrOpinionSignatureChainTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-version-operate-log-tests</id>
+            <properties>
+                <mes.test-output-directory>${project.build.directory}/version-operate-log-test-classes</mes.test-output-directory>
+            </properties>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesVersionOperateLogServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionWorkflowServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionLifecycleServiceTest.java</testInclude>
+                        <testInclude>**/MesQaInspectionRegulationServiceTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesVersionOperateLogServiceTest.java</include>
+                        <include>**/MesProRouteServiceImplTest.java</include>
+                        <include>**/MesProRouteVersionWorkflowServiceTest.java</include>
+                        <include>**/MesProRouteVersionLifecycleServiceTest.java</include>
+                        <include>**/MesQaInspectionRegulationServiceTest.java</include>
                     </includes></configuration>
                 </plugin>
             </plugins></build>

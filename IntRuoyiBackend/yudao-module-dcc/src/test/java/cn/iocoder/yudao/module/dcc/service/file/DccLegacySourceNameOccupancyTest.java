@@ -36,7 +36,7 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   assertEquals(Long.valueOf(0L),ReflectionTestUtils.invokeMethod(bean,"countUnresolved",1L));
  }
  void legacyFixture() {
-  jdbc.update("INSERT INTO infra_file_config(id,storage,config) VALUES(28,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
+  jdbc.update("INSERT INTO infra_tenant_file_config(id,tenant_id,storage,config) VALUES(28,1,20,?)","{\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"originals\",\"region\":\"us-east-1\",\"enablePathStyleAccess\":true}");
   jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,status) VALUES(10,1,2,3,'old-template','OLD-1','ACTIVE_CHAIN')");
   jdbc.update("INSERT INTO dcc_controlled_file_name_claim(id,tenant_id,master_id,normalized_name) VALUES(7,1,10,'old-template')");
   jdbc.update("INSERT INTO dcc_controlled_file(id,tenant_id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,file_number,version_no,status,requester_id,submitter_id,change_type,source_sha256) VALUES(20,1,10,2,3,100,100,'old-template','old-template','OLD-1','A/1','ACTIVE',99,99,'NEW',?)","a".repeat(64));
@@ -173,16 +173,16 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
  @org.junit.jupiter.params.provider.ValueSource(strings={"endpoint","bucket","region","enablePathStyleAccess","storage","deleted"})
  void sourceStorageLocatorDriftCannotReuseOldObjectProof(String field) {
   legacyFixture();
-  if("storage".equals(field))jdbc.update("UPDATE infra_file_config SET storage=10 WHERE id=28");
-  else if("deleted".equals(field))jdbc.update("UPDATE infra_file_config SET deleted=1 WHERE id=28");
-  else {var config=cn.hutool.json.JSONUtil.parseObj(jdbc.queryForObject("SELECT config FROM infra_file_config WHERE id=28",String.class));config.set(field,"enablePathStyleAccess".equals(field)?false:"changed");jdbc.update("UPDATE infra_file_config SET config=? WHERE id=28",config.toString());}
+  if("storage".equals(field))jdbc.update("UPDATE infra_tenant_file_config SET storage=10 WHERE id=28");
+  else if("deleted".equals(field))jdbc.update("UPDATE infra_tenant_file_config SET deleted=1 WHERE id=28");
+  else {var config=cn.hutool.json.JSONUtil.parseObj(jdbc.queryForObject("SELECT config FROM infra_tenant_file_config WHERE id=28",String.class));config.set(field,"enablePathStyleAccess".equals(field)?false:"changed");jdbc.update("UPDATE infra_tenant_file_config SET config=? WHERE id=28",config.toString());}
   assertEquals(1,claims.countUnresolvedNames(1L));
   assertThrows(IllegalStateException.class,()->names.requireSourceName(files.selectById(20L)));
  }
  @Test void storageCredentialRotationDoesNotChangeVerifiedObjectLocation() {
-  legacyFixture();var config=cn.hutool.json.JSONUtil.parseObj(jdbc.queryForObject("SELECT config FROM infra_file_config WHERE id=28",String.class));
+  legacyFixture();var config=cn.hutool.json.JSONUtil.parseObj(jdbc.queryForObject("SELECT config FROM infra_tenant_file_config WHERE id=28",String.class));
   config.set("accessKey","new-test-credential");config.set("accessSecret","new-test-secret");
-  jdbc.update("UPDATE infra_file_config SET config=? WHERE id=28",config.toString());
+  jdbc.update("UPDATE infra_tenant_file_config SET config=? WHERE id=28",config.toString());
   assertEquals(0,claims.countUnresolvedNames(1L));assertEquals("SOP.pdf",names.requireSourceName(files.selectById(20L)));
  }
  @Test void mixedModernAndLegacyIdentityRetentionCoversBothWithoutChangingOldClaim() {
@@ -284,5 +284,5 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
  }
  public static String jsonExtract(String value,String path){if(value==null)return null;var n=cn.hutool.json.JSONUtil.parseObj(value).get(path.substring(2));return n==null?null:cn.hutool.json.JSONUtil.toJsonStr(n);}
  public static String jsonUnquote(String value){if(value==null)return null;if(value.startsWith("\""))return cn.hutool.json.JSONUtil.parseArray("["+value+"]").getStr(0);return value;}
- @AfterEach void cleanupOwnSidecars(){jdbc.update("DELETE FROM dcc_legacy_source_name_evidence");jdbc.update("DELETE FROM dcc_source_name_reservation");jdbc.update("DELETE FROM dcc_legacy_source_name_scope");jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_file_config WHERE id=28");}
+ @AfterEach void cleanupOwnSidecars(){jdbc.update("DELETE FROM dcc_legacy_source_name_evidence");jdbc.update("DELETE FROM dcc_source_name_reservation");jdbc.update("DELETE FROM dcc_legacy_source_name_scope");jdbc.update("DELETE FROM infra_file WHERE id=100");jdbc.update("DELETE FROM infra_tenant_file_config WHERE id=28");}
 }

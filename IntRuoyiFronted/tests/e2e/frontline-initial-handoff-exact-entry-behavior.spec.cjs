@@ -45,14 +45,14 @@ test('已定位后切错工单或PQC任务阻止提交',async()=>{const p=harnes
 test('失效交接在真实签名打开与确认方法入口阻止业务动作',async()=>{
  const statements=ast.statements.filter(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>['handleValidate','handleConfirmPqcSubmit'].includes(d.name.getText(ast)))).map(s=>s.getText(ast)).join('\n')
  const errors=[],code=ts.transpileModule(statements,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
- const handlers=Function('hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},{value:true},e=>errors.push(e))
+ const handlers=Function('payloadLoading','hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},{value:false},{value:true},e=>errors.push(e))
  await handlers.handleValidate();await handlers.handleConfirmPqcSubmit();assert.equal(errors.length,2);assert.ok(errors.every(e=>e.includes('交接任务已失效')))
 })
 
 async function assertSubmissionBlocked(h){
  const statements=ast.statements.filter(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>['handleValidate','handleConfirmPqcSubmit'].includes(d.name.getText(ast)))).map(s=>s.getText(ast)).join('\n')
  const errors=[],code=ts.transpileModule(statements,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
- const handlers=Function('hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},h.page.isInitialHandoffBlocked,e=>errors.push(e))
+ const handlers=Function('payloadLoading','hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},{value:false},h.page.isInitialHandoffBlocked,e=>errors.push(e))
  await handlers.handleValidate();await handlers.handleConfirmPqcSubmit()
  assert.equal(errors.length,2);assert.ok(errors.every(e=>e.includes('交接任务已失效')))
  // No other dependencies are injected: reaching any signature/submit work would throw.

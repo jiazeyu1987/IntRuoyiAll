@@ -89,6 +89,9 @@ import static org.mockito.Mockito.when;
 class MesProRouteServiceImplTest {
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
+
+    @Mock
     private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock
     private DccProjectCodeMapper dccProjectCodeMapper;
@@ -1005,7 +1008,7 @@ class MesProRouteServiceImplTest {
                 .id(routeVersionId)
                 .routeId(routeId)
                 .routeSnapshotJson("""
-                        {"routeId":922119,"configSnapshots":{"routeStartProductionLeaders":[{"productionLineId":71,"candidateSourceType":"USERS","candidateSourceIds":[912397],"candidateSourceNames":["王五"],"sort":1}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":922119,"configSnapshots":{"lossCoefficient":1.25,"routeStartProductionLeaders":[{"productionLineId":71,"candidateSourceType":"USERS","candidateSourceIds":[912397],"candidateSourceNames":["王五"],"sort":1}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build();
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
@@ -1024,6 +1027,7 @@ class MesProRouteServiceImplTest {
 
         JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
 
+        assertEquals(new BigDecimal("1.25"), snapshot.getJSONObject("configSnapshots").getBigDecimal("lossCoefficient"));
         JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
         assertEquals(4, owners.size());
         assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));

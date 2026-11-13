@@ -294,11 +294,6 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             throw new IllegalStateException("生产补料单查询未返回结果集合");
         }
         if (items.isEmpty()) {
-            if (Boolean.TRUE.equals(command.getRequireNoReplenishmentConfirmation())
-                    && !Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo())) {
-                blockers.add(blocker("NO_REPLENISHMENT_CONFIRMATION_REQUIRED", null, "WORK_ORDER", workOrder.getId(),
-                        null, "完成时未查到生产补料单，需要确认无补料信息", "确认后按无正式损耗完成；取消则不完成"));
-            }
             return result;
         }
         var explicitBindings = replenishmentBindings.read(command.getActiveOrderId());
@@ -346,8 +341,12 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             if (owners.size() != 1) {
                 blockers.add(blocker(owners.isEmpty() ? "LOSS_REPLENISHMENT_MATERIAL_UNBOUND"
                                 : "LOSS_REPLENISHMENT_MATERIAL_AMBIGUOUS", null, "REPLENISHMENT_ITEM", item.getId(),
-                        null, "补料物料未能唯一匹配订单工序输入物料：" + item.getMaterialNumber(),
-                        "请核对补料物料与工序输入物料配置"));
+                        null, "补料单「" + header.getSourceBillNo() + "」的物料「"
+                                + item.getMaterialName() + "」（" + item.getMaterialNumber()
+                                + "）未能唯一匹配订单工序输入物料",
+                        owners.isEmpty() ? "请打开订单详情，进入“补料工序关联”，核对所属工序后由本人签名关联，再重新申请"
+                                : "请核对补料物料与工序输入物料配置，消除多工序匹配后重新申请")
+                        .setObjectCode(header.getSourceBillNo()));
                 continue;
             }
             result.computeIfAbsent(owners.get(0).getRouteProcessId(), ignored -> new ArrayList<>())

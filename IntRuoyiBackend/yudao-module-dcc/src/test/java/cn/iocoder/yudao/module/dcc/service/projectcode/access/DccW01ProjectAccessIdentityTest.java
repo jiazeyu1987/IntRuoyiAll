@@ -47,6 +47,40 @@ class DccW01ProjectAccessIdentityTest {
         when(projects.selectById(100L)).thenReturn(project);
     }
     @AfterEach void clear() { TenantContextHolder.clear(); }
+    @Test void projectCodeAdministratorSeesEveryTenantProjectWithoutAssignmentsOrAcl() {
+        when(users.getUser(99L)).thenReturn(user());
+        when(permissions.hasAnyRoles(99L, "dcc_project_code_admin")).thenReturn(true);
+        var first = projects.selectById(100L);
+        var second = DccProjectCodeDO.builder().id(101L).status("ENABLE").build(); second.setTenantId(1L);
+        var foreign = DccProjectCodeDO.builder().id(102L).status("ENABLE").build(); foreign.setTenantId(2L);
+        var disabled = DccProjectCodeDO.builder().id(103L).status("DISABLE").build(); disabled.setTenantId(1L);
+        var library = DccProjectCodeDO.builder().id(104L).status("ENABLE").libraryScope("QMS").build(); library.setTenantId(1L);
+        when(projects.selectList()).thenReturn(List.of(first, second, foreign, disabled, library));
+        when(projects.selectById(101L)).thenReturn(second);
+        when(projects.selectById(102L)).thenReturn(foreign);
+        when(projects.selectById(103L)).thenReturn(disabled);
+        when(projects.selectById(104L)).thenReturn(library);
+
+        assertEquals(List.of(100L, 101L), service.listReadableProjectIds(99L));
+        assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, 100L));
+        assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, 101L));
+        assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 102L));
+        assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 103L));
+        assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 104L));
+        assertFalse(service.hasProjectOwner(99L, 100L));
+        assertFalse(service.hasProjectEditorOrOwner(99L, 100L));
+        verifyNoInteractions(assignments);
+    }
+
+    @Test void projectCodeAdministratorStillRequiresEnabledTenantAccount() {
+        when(permissions.hasAnyRoles(99L, "dcc_project_code_admin")).thenReturn(true);
+        for (var account : List.of(user().setStatus(1), user().setTenantId(2L))) {
+            when(users.getUser(99L)).thenReturn(account);
+            assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
+            assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
+        }
+    }
+
     AdminUserRespDTO user() {
         return new AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(0)
                 .setUsername("admin").setNickname("正式账号").setDeptId(20L).setPostIds(Set.of(30L));

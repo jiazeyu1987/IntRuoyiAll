@@ -117,6 +117,7 @@ export interface QaInspectionRegulationItemVO {
   sourceOriginalMethod?: string
   equipmentOptions: QaInspectionRegulationItemEquipmentVO[]
   equipmentUnboundReason?: string
+  equipmentRequired?: boolean
 }
 
 export interface QaInspectionRegulationProcessVO {

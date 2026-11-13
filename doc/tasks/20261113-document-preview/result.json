@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "url": "http://127.0.0.1:8063/dcc/controlled-file/detail/2054545668044084658?application=1&from=approval-center&bodyReadContext=eyJpbnRlbnQiOiJBUFBST1ZBTF9ISVNUT1JZIiwiY29udHJvbGxlZEZpbGVJZCI6IjIwNTQ1NDU2NjgwNDQwODQ2NTgiLCJleHBlY3RlZFZlcnNpb25ObyI6IkEvMSIsImFwcGxpY2F0aW9uVHlwZSI6IlVQTE9BRCIsImJwbVJvdW5kIjoiMDVjMTgyOGYtZGYwZS0xMWYxLTg3N2YtYjA4MmUyNWVjNTQ4In0&viewer=1",
+  "fileNumber": "PREVIEW-20261113-01",
+  "account": "DCC241016C12R3L1",
+  "linesPerPage": 80,
+  "cases": [
+    "keyword click search",
+    "enter search",
+    "previous hit",
+    "next hit",
+    "cross-page hit",
+    "active highlight",
+    "previous page",
+    "next page",
+    "page jump",
+    "first/last disabled",
+    "no match",
+    "attachment identity and search isolation",
+    "return main reset"
+  ]
+}

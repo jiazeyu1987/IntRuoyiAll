@@ -87,6 +87,59 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void deletingDraftKeepsPublishedPolicyEffective() {
+        BusinessApprovalPolicyRespVO published = policyService.savePolicy(directReq());
+        policyService.publishPolicy(published.getId());
+        BusinessApprovalPolicyRespVO draft = policyService.savePolicy(directReq());
+
+        policyService.deleteDraftPolicy(draft.getId());
+
+        assertEquals(null, policyMapper.selectById(draft.getId()));
+        assertEquals(BusinessApprovalPolicy.STATUS_PUBLISHED, policyMapper.selectById(published.getId()).getStatus());
+        assertEquals(published.getId(), resolveService.resolve(
+                BusinessApprovalPolicyResolveServiceTest.baseContext().build()).getPolicyId());
+    }
+
+    @Test
+    void publishedAndDisabledPoliciesCannotBeDeleted() {
+        BusinessApprovalPolicyRespVO policy = policyService.savePolicy(directReq());
+        policyService.publishPolicy(policy.getId());
+        BusinessApprovalException publishedError = assertThrows(BusinessApprovalException.class,
+                () -> policyService.deleteDraftPolicy(policy.getId()));
+        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_STATUS_INVALID, publishedError.getErrorCode());
+        assertEquals("PUBLISHED", policyMapper.selectById(policy.getId()).getStatus());
+
+        policyService.disablePolicy(policy.getId());
+        BusinessApprovalException disabledError = assertThrows(BusinessApprovalException.class,
+                () -> policyService.deleteDraftPolicy(policy.getId()));
+        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_STATUS_INVALID, disabledError.getErrorCode());
+        assertEquals("DISABLED", policyMapper.selectById(policy.getId()).getStatus());
+    }
+
+    @Test
+    void anotherTenantCannotDeleteDraft() {
+        BusinessApprovalPolicyRespVO draft = policyService.savePolicy(directReq());
+        TenantContextHolder.setTenantId(123L);
+        try {
+            BusinessApprovalException error = assertThrows(BusinessApprovalException.class,
+                    () -> policyService.deleteDraftPolicy(draft.getId()));
+            assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND, error.getErrorCode());
+        } finally {
+            TenantContextHolder.setTenantId(122L);
+        }
+        assertEquals("DRAFT", policyMapper.selectById(draft.getId()).getStatus());
+    }
+
+    @Test
+    void repeatedDraftDeletionFailsExplicitly() {
+        BusinessApprovalPolicyRespVO draft = policyService.savePolicy(directReq());
+        policyService.deleteDraftPolicy(draft.getId());
+        BusinessApprovalException error = assertThrows(BusinessApprovalException.class,
+                () -> policyService.deleteDraftPolicy(draft.getId()));
+        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND, error.getErrorCode());
+    }
+
+    @Test
     void publishDirectPolicyDoesNotRequireProcessDefinitionKey() {
         BusinessApprovalPolicyRespVO respVO = policyService.savePolicy(directReq());
 

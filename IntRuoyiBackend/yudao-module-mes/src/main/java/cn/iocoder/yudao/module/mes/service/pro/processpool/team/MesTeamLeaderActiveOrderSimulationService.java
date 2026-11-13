@@ -318,7 +318,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         int reviewCount = 0;
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             ProcessIdentity process = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
-            BigDecimal plannedQuantity = requirePlannedQuantity(activeOrder, snapshot);
+            BigDecimal plannedQuantity = requireProductionTargetQuantity(activeOrder, snapshot);
             BigDecimal allocatedQuantity = allocatedByProcess.getOrDefault(process, BigDecimal.ZERO);
             BigDecimal remainingQuantity = plannedQuantity.subtract(allocatedQuantity);
             if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1484,7 +1484,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         Map<ProcessIdentity, BigDecimal> targets = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             targets.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                    requirePlannedQuantity(activeOrder, snapshot));
+                    requireProductionTargetQuantity(activeOrder, snapshot));
         }
         return targets;
     }
@@ -1579,13 +1579,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return List.copyOf(distinctIdentities);
     }
 
-    private static BigDecimal requirePlannedQuantity(MesProcessPoolActiveOrderDO activeOrder,
+    private static BigDecimal requireProductionTargetQuantity(MesProcessPoolActiveOrderDO activeOrder,
                                                      MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
-        BigDecimal plannedQuantity = snapshot.getPlannedQuantitySnapshot();
-        if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
-        }
-        return plannedQuantity;
+        return MesProductionQuantityRange.of(snapshot).lower();
     }
 
     private static BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {

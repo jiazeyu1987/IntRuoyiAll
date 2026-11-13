@@ -106,7 +106,7 @@ class DccOfflineTrainingApprovalTransactionTest extends DccFileOwnerPublicApprov
         assertEquals(1,unifiedRows.selectList().size());
         assertEquals(0,engine.getTaskService().createTaskQuery().processInstanceId(bpm).count());
         assertEquals(1,engine.getRuntimeService().createExecutionQuery().processInstanceId(bpm).activityId("TRAINING").count());
-        var message=jdbc.queryForMap("SELECT user_id,template_params FROM system_notify_message WHERE tenant_id=1");
+        var message=jdbc.queryForMap("SELECT user_id,template_params FROM system_tenant_notify_message WHERE tenant_id=1");
         assertEquals(OWNER,((Number)message.get("user_id")).longValue());
         assertTrue(message.get("template_params").toString().contains(Long.toString(FILE)));
         assertTrue(message.get("template_params").toString().contains(bpm));
@@ -143,7 +143,7 @@ class DccOfflineTrainingApprovalTransactionTest extends DccFileOwnerPublicApprov
         var saved=files.selectById(FILE);
         assertEquals("PENDING_MATRIX_APPROVAL",saved.getStatus());assertNull(saved.getApprovedTime());
         assertNull(saved.getFileOwnerUserId());assertEquals(0,signatures.selectListByControlledFileId(FILE).size());
-        assertEquals(0,unifiedRows.selectList().size());assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(0,unifiedRows.selectList().size());assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
         assertNotNull(engine.getTaskService().createTaskQuery().taskId(task).singleResult());
         assertEquals(0,engine.getHistoryService().createHistoricTaskInstanceQuery().taskId(task).finished().count());
         assertEquals(0,engine.getRuntimeService().createExecutionQuery().processInstanceId(bpm).activityId("TRAINING").count());

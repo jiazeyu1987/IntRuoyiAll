@@ -1454,12 +1454,30 @@ class MesFixedTestOrderInitializerTest {
     @Test
     void explicitDataPreparationRollsBackAllDocumentsWhenRequiredSourceIsMissing() {
         var service = dataReference();
-        jdbc.update("DELETE FROM erp_kingdee_production_replenishment_list_item WHERE tenant_id=1");
+        jdbc.update("DELETE FROM erp_kingdee_production_pick_list_item WHERE tenant_id=1");
         TenantContextHolder.setTenantId(165L);
         try {
             assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepare(77L)));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list WHERE tenant_id=165", Integer.class));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void historicalCopiedReplenishmentIsNotImportedOrRegenerated() {
+        var service = dataReference();
+        String raw = "{\"simulatedCopyFrom\":\"BL-OLD\",\"targetProductionOrderNo\":\""
+                + MesFixedTestOrderInitializer.WORK_ORDER_CODE + "\"}";
+        jdbc.update("UPDATE erp_kingdee_production_replenishment_list_item SET source_bill_no='SIM-COPY-BL-OLD-20260905',raw_payload=? WHERE tenant_id=1 AND id=221", raw);
+        TenantContextHolder.setTenantId(165L);
+        try {
+            var first = tx.execute(s -> service.prepare(77L));
+            var second = tx.execute(s -> service.prepare(77L));
+            assertEquals(0, first.documents().get(2).createdCount());
+            assertEquals(0, second.documents().get(2).createdCount());
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_replenishment_list_item WHERE tenant_id=165", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_replenishment_list WHERE tenant_id=165", Integer.class));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_replenishment_list_item WHERE tenant_id=1 AND id=221", Integer.class));
         } finally { TenantContextHolder.clear(); }
     }
 
@@ -1675,7 +1693,7 @@ class MesFixedTestOrderInitializerTest {
         try {
             tx.executeWithoutResult(s -> service.prepare(77L));
             var firstOrder = jdbc.queryForMap("SELECT * FROM mes_pro_work_order WHERE tenant_id=165");
-            jdbc.update("DELETE FROM erp_kingdee_production_replenishment_list_item WHERE tenant_id=1");
+            jdbc.update("DELETE FROM erp_kingdee_production_pick_list_item WHERE tenant_id=1");
             assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepareSecond(77L)));
             assertEquals(List.of(firstOrder), jdbc.queryForList("SELECT * FROM mes_pro_work_order WHERE tenant_id=165"));
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list WHERE tenant_id=165", Integer.class));

@@ -11,6 +11,7 @@ public interface ErrorCodeConstants {
 
     // ========== 参数配置 1-001-000-000 ==========
     ErrorCode CONFIG_NOT_EXISTS = new ErrorCode(1_001_000_001, "参数配置不存在");
+    ErrorCode CONFIG_PLATFORM_READ_ONLY = new ErrorCode(1_001_000_012, "该参数属于平台运行配置，不能通过租户参数设置修改");
     ErrorCode CONFIG_KEY_DUPLICATE = new ErrorCode(1_001_000_002, "参数配置 key 重复");
     ErrorCode CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE = new ErrorCode(1_001_000_003, "不能删除类型为系统内置的参数配置");
     ErrorCode CONFIG_GET_VALUE_ERROR_IF_VISIBLE = new ErrorCode(1_001_000_004, "获取参数配置失败，原因：不允许获取不可见配置");

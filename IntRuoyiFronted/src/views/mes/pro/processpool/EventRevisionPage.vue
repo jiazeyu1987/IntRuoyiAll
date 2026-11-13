@@ -38,11 +38,8 @@
           </el-col>
           <el-col :xs="24" :md="12">
             <el-form-item label="签名凭据">
-              <el-input
+              <SignatureCredentialInput
                 v-model="revisionForm.signaturePassword"
-                type="password"
-                show-password
-                autocomplete="current-password"
               />
             </el-form-item>
           </el-col>
@@ -131,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 import { ElMessage } from 'element-plus'
 import {

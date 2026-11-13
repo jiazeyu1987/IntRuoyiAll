@@ -10,35 +10,25 @@ function setup() {
   const task = { pqcTaskId: 1, inspectionItems: [{ itemCode: 'I', plannedInspectionQuantity: 50 },
     { itemCode: 'S3', plannedInspectionQuantity: 13 }] }
   const drafts = { 1: { inspectionQuantity: 50 }, 2: { inspectionQuantity: 50 } }
-  const errors = []
-  const context = { exports: {}, activePqcTaskOption: { value: task }, pqcDraft: { inspectionQuantity: 50 },
-    getPqcTaskDraft: option => drafts[option.pqcTaskId], message: { error: text => errors.push(text) },
-    markPqcTaskTouched() {}, resizePqcPieceValuesForCurrentTask() {} }
-  vm.runInNewContext(ts.transpileModule(fragment + '\nexports.update = updatePqcItemQuantity; exports.quantity = getPqcInspectionQuantityForItem;',
+  const context = { exports: {}, getPqcTaskDraft: option => drafts[option.pqcTaskId] }
+  vm.runInNewContext(ts.transpileModule(fragment + '\nexports.quantity = getPqcInspectionQuantityForItem;',
     { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, context)
-  return { ...context.exports, task, drafts, errors, context }
+  return { ...context.exports, task, drafts }
 }
 
-test('stricter per-item sampling keeps the frozen minima and uses maximum actual as task quantity', () => {
+test('per-item sampling uses each frozen minimum when the separate input is removed', () => {
   const state = setup()
-  state.update('S3', { target: { value: '20' } })
-  assert.equal(state.quantity(state.task, 'S3'), 20)
+  assert.equal(state.quantity(state.task, 'S3'), 13)
   assert.equal(state.quantity(state.task, 'I'), 50)
-  assert.equal(state.context.pqcDraft.inspectionQuantity, 50)
-  state.update('I', { target: { value: '60' } })
-  assert.equal(state.context.pqcDraft.inspectionQuantity, 60)
   assert.equal(state.task.inspectionItems[0].plannedInspectionQuantity, 50)
   assert.equal(state.task.inspectionItems[1].plannedInspectionQuantity, 13)
   assert.equal(state.drafts[2].inspectionQuantity, 50)
 })
 
-test('under-sampling and fractional quantities are rejected without changing current draft', () => {
+test('existing per-item draft quantities remain readable without changing the frozen plan', () => {
   const state = setup()
-  for (const value of ['12', '13.5', '0', '', 'NaN']) {
-    const input = { value }
-    state.update('S3', { target: input })
-    assert.equal(input.value, '13')
-    assert.equal(state.quantity(state.task, 'S3'), 13)
-  }
-  assert.equal(state.errors.length, 5)
+  state.drafts[1].itemQuantities = { S3: 20 }
+  assert.equal(state.quantity(state.task, 'S3'), 20)
+  assert.equal(state.quantity(state.task, 'I'), 50)
+  assert.equal(state.task.inspectionItems[1].plannedInspectionQuantity, 13)
 })

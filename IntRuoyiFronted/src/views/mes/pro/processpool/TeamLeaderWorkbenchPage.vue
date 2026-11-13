@@ -1,6 +1,4 @@
 <template>
-  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
-  <ProductionQuantityDrafts v-if="isProductionLeader" leader />
   <ContentWrap v-if="!showPqcModuleTabs && !showProductionModuleTabs">
     <div class="team-leader-workbench__header">
       <div>
@@ -66,6 +64,11 @@
         label="报工历史"
         name="reportHistory"
         data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
       />
       <el-tab-pane
         label="活跃订单池"
@@ -583,6 +586,11 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
@@ -1015,9 +1023,6 @@
                 {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第
                 {{ row.roundNo || '--' }} 轮
               </span>
-              <div data-pqc-leader-original-event-ids>
-                原提交事件：{{ formatSubmissionSourceEventIds(row).split(' ').join('、') }}
-              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -1365,7 +1370,7 @@
                   复核
                 </el-button>
                 <el-button
-                  v-if="canCorrectSubmission(row)"
+                  v-if="activeLeaderTab !== 'PQC' && canCorrectSubmission(row)"
                   link
                   type="warning"
                   :data-team-leader-correction-event-id="String(row.id)"
@@ -1454,23 +1459,7 @@
           >
             {{ resolveSubmissionLossQuantity(detail) }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="!isPqcSubmissionRow(detail)" label="复核日志">
-            <div class="team-leader-workbench__review-log" data-team-leader-review-log>
-              <el-tag
-                :type="resolveSubmissionReviewTagType(detail.submissionReviewStatus)"
-                effect="plain"
-              >
-                {{ resolveSubmissionReviewStatusText(detail.submissionReviewStatus) }}
-              </el-tag>
-              <span v-if="detail.submissionReviewRemark" class="team-leader-workbench__review-text">
-                {{ detail.submissionReviewRemark }}
-              </span>
-              <span v-if="detail.submissionReviewedAt" class="team-leader-workbench__review-meta">
-                复核人 {{ detail.submissionReviewLeaderUserId || '--' }} ·
-                {{ formatDateTime(detail.submissionReviewedAt) }}
-              </span>
-            </div>
-          </el-descriptions-item>
+          
           <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
             <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
               {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
@@ -1544,6 +1533,38 @@
   </ContentWrap>
 
   <ContentWrap
+    v-if="showProductionQuantityDraftsModule"
+    :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+    data-team-leader-quantity-drafts-tab
+  >
+    <el-tabs
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+    </el-tabs>
+    <ProductionQuantityDrafts leader />
+  </ContentWrap>
+
+  <ContentWrap
     v-if="showProductionActiveOrderModule"
     :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
     data-team-leader-active-order-config
@@ -1561,6 +1582,11 @@
         label="报工历史"
         name="reportHistory"
         data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
       />
       <el-tab-pane
         label="活跃订单池"
@@ -1644,7 +1670,7 @@
           @click="handleResetFixedSimulationActiveOrder"
         >
           <Icon icon="ep:refresh-right" class="mr-5px" />
-          重置
+          重置测试订单
         </el-button>
         <el-button class="app-test-button"
           v-if="testModeEnabled"
@@ -1652,7 +1678,7 @@
           type="warning"
           :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 1"
           :disabled="activeOrderTestResetBlocked"
-          title="补齐固定测试订单的生产订单、领料单、补料单和生产用料清单，已有数据跳过"
+          title="补齐固定测试订单单据，已有数据跳过；无补料来源不生成补料单，并移除旧工具复制的模拟补料"
           data-team-leader-prepare-fixed-test-data
           @click="handlePrepareFixedTestOrderData(1)"
         >
@@ -1955,6 +1981,21 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
+    <el-alert
+      v-if="releaseApplicationErrorMessage"
+      class="mt-12px"
+      title="生产放行申请未完成"
+      type="error"
+      :closable="false"
+      show-icon
+      data-team-leader-active-order-release-error
+    >
+      <p>{{ releaseApplicationErrorOrder?.workOrderCode }}：{{ releaseApplicationErrorMessage }}</p>
+      <el-button v-if="releaseApplicationErrorOrder" link type="primary"
+        @click="openActiveOrderSubmissionDetail(releaseApplicationErrorOrder)">
+        查看订单详情并处理缺项
+      </el-button>
+    </el-alert>
     <el-alert
       v-if="releaseApplicationBlockers.length"
       class="mt-12px"
@@ -2298,6 +2339,11 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
@@ -2401,6 +2447,11 @@
         label="报工历史"
         name="reportHistory"
         data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
       />
       <el-tab-pane
         label="活跃订单池"
@@ -2767,105 +2818,7 @@
     destroy-on-close
     data-team-leader-submission-detail-drawer
   >
-    <div v-loading="detailLoading">
-      <el-descriptions
-        v-if="detail"
-        :column="1"
-        border
-        class="team-leader-workbench__detail-descriptions"
-        label-width="400px"
-        data-team-leader-structured-detail
-      >
-        <el-descriptions-item label="服务端提交时间">
-          {{ formatDateTime(detail.submittedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="employeeDetailLabel">
-          {{ detail.actualEmployeeUserName || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="工序">
-          {{ detail.processName || detail.processCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="生产工单">
-          {{ detail.workOrderCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="提交摘要">
-          {{ formatSubmittedSummary(detail.submittedSummary) }}
-        </el-descriptions-item>
-        <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
-          <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
-            {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="detail && isPqcSubmissionRow(detail)" label="PQC项目明细">
-          <el-table
-            :data="resolvePqcItemSnapshotDetails(detail)"
-            border
-            size="small"
-            data-pqc-leader-item-snapshot-table
-            empty-text="PQC提交内容缺少正式项目明细"
-          >
-            <el-table-column label="检验项目" min-width="120">
-              <template #default="{ row }">{{ row.itemName || row.itemCode || '--' }}</template>
-            </el-table-column>
-            <el-table-column label="检验设备" min-width="140">
-              <template #default="{ row }">
-                {{ row.selectedEquipmentName || row.selectedEquipmentCode || '--' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
-            <el-table-column label="损耗数量" min-width="100">
-              <template #default="{ row }">
-                <span data-pqc-leader-detail-item-loss-quantity>
-                  {{ formatPqcItemLossQuantity(row) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="接收标准" min-width="180">
-              <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
-            </el-table-column>
-            <el-table-column label="检验方法" prop="inspectionMethod" min-width="180" />
-            <el-table-column label="样本值" min-width="180">
-              <template #default="{ row }">
-                <span data-pqc-leader-detail-sample-values>
-                  {{ formatPqcSnapshotSampleValues(row) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="判定" min-width="100">
-              <template #default="{ row }">{{ formatPqcJudgement(row.judgement || row.itemResult) }}</template>
-            </el-table-column>
-          </el-table>
-        </el-descriptions-item>
-      </el-descriptions>
-      <div
-        v-if="detail && isPqcSubmissionRow(detail)"
-        class="team-leader-workbench__submission-log"
-        data-pqc-submission-log
-      >
-        <div class="team-leader-workbench__submission-log-title">PQC提交日志</div>
-        <el-descriptions
-          :column="1"
-          border
-          class="team-leader-workbench__detail-descriptions"
-          label-width="400px"
-        >
-          <el-descriptions-item label="提交事件编号">
-            {{ detail.id || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="PQC检验员">
-            {{ detail.actualEmployeeUserName || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="服务端提交时间">
-            {{ formatDateTime(detail.submittedAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="签名编号">
-            <span data-pqc-submission-signature-id>
-              {{ detail.electronicSignatureId || '--' }}
-            </span>
-          </el-descriptions-item>
-        </el-descriptions>
-      </div>
-    </div>
+    
     <template #footer>
       <el-button
         v-if="detail && isProductionLeader && canAllocateSubmission(detail)"
@@ -3580,12 +3533,8 @@
         />
       </el-form-item>
       <el-form-item label="电子签名" required data-team-leader-review-signature>
-        <el-input
+        <SignatureCredentialInput
           v-model="reviewForm.reviewSignaturePassword"
-          type="password"
-          show-password
-          autocomplete="new-password"
-          placeholder="请输入所选签名方式的六位 PIN 码或密码"
           data-team-leader-review-signature-password
         />
       </el-form-item>
@@ -4109,12 +4058,8 @@
           />
         </el-form-item>
         <el-form-item label="签名凭据" prop="signaturePassword">
-          <el-input
+          <SignatureCredentialInput
             v-model="correctionForm.signaturePassword"
-            type="password"
-            show-password
-            autocomplete="current-password"
-            placeholder="请输入当前登录账号的签名凭据（PIN 码或密码）"
             data-production-report-correction-signature-password
             @keyup.enter="submitCorrection"
           />
@@ -4196,11 +4141,10 @@
 </template>
 
 <script setup lang="ts">
-import WorkflowInteractionLog from './components/WorkflowInteractionLog.vue'
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
 import {useWorkflowInteractionLog} from './workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
-const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
@@ -4209,7 +4153,6 @@ import { useTestMode } from '@/store/modules/testMode'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
-import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { h, watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { receivePqcReleaseCorrection } from '@/api/mes/pro/productionRelease/correction'
@@ -4587,7 +4530,7 @@ const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detai
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'activeOrder'
+  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -4656,6 +4599,8 @@ const activeOrderSyncedCandidates = ref<TeamLeaderActiveOrderCandidateRespVO[]>(
 let activeOrderCandidateRequest = 0
 const releaseApplicationSubmittingId = ref<number | string>()
 const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
+const releaseApplicationErrorMessage = ref('')
+const releaseApplicationErrorOrder = ref<TeamLeaderActiveOrderRespVO>()
 const releaseApplicationIdempotencyKeys = new Map<number | string, string>()
 const releaseApplicationLocks = reactive(new Map<number | string, ActiveOrderReleaseApplicationLockState>())
 const releaseApplicationUncertainMessage = ref('')
@@ -4940,6 +4885,11 @@ const showProductionReportHistoryModule = computed(
 const isProductionReportHistoryTab = computed(
   () => isProductionLeader.value && activeProductionModuleTab.value === 'reportHistory'
 )
+const showProductionQuantityDraftsModule = computed(
+  () =>
+    isProductionLeader.value &&
+    (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'quantityDrafts')
+)
 const showProductionActiveOrderModule = computed(
   () =>
     isProductionLeader.value &&
@@ -5155,7 +5105,7 @@ const resolveActiveOrderProcessCeiling = (
     String(item.routeProcessId) === String(event?.routeProcessId)
   ) ?? []
   if (matches.length !== 1) return undefined
-  const quantity = Number(matches[0].plannedQuantity)
+  const quantity = Number(matches[0].upperQuantity)
   return Number.isFinite(quantity) && quantity > 0 ? quantity : undefined
 }
 
@@ -5307,7 +5257,7 @@ const submissionMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>((
       operators: ['eq'],
       placeholder: '轮次'
     },
-    {
+    ...(activeLeaderTab.value === 'PQC' ? [] : [{
       key: 'submissionReviewStatus',
       label: '复核状态',
       type: 'select',
@@ -5318,7 +5268,7 @@ const submissionMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>((
         { label: '不正确', value: 'REJECTED' }
       ],
       placeholder: '复核状态'
-    }
+    } as ListMultiFilterDefinition])
   ]
 })
 
@@ -8811,7 +8761,9 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     roundNo: normalizePositiveNumber(queryParams.roundNo),
     submissionReviewStatus: isPqcFormHistoryTab.value
       ? 'APPROVED'
-      : queryParams.submissionReviewStatus || undefined,
+      : activeLeaderTab.value === 'PQC'
+        ? 'PENDING'
+        : queryParams.submissionReviewStatus || undefined,
     pqcFormView: isPqcFormHistoryTab.value
       ? 'HISTORY'
       : activeLeaderTab.value === 'PQC'
@@ -10148,25 +10100,17 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   releaseApplicationSubmittingId.value = row.id
   releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
   releaseApplicationBlockers.value = []
+  releaseApplicationErrorMessage.value = ''
+  releaseApplicationErrorOrder.value = undefined
   releaseApplicationUncertainMessage.value = ''
   let result: TeamLeaderActiveOrderReleaseApplyRespVO | undefined
   let recovered = false
   try {
-    result = await applyWithNoReplenishmentConfirmation(
-      (confirmNoReplenishmentInfo) => applyTeamLeaderActiveOrderRelease({
-        activeOrderId: request.activeOrderId,
-        idempotencyKey: request.idempotencyKey,
-        applyRemark: '生产组长提交生产放行申请',
-        confirmNoReplenishmentInfo
-      }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()}),
-      () => ElMessageBox.confirm(
-        '完成时未查到生产补料单。确认后将按无正式损耗完成订单；取消则不完成。',
-        '确认无补料信息',
-        { type: 'warning', confirmButtonText: '确认无补料信息', cancelButtonText: '取消' }
-      ),
-      (error) => resolveErrorMessage(error, '生产完工失败'),
-      isCurrent
-    )
+    result = await applyTeamLeaderActiveOrderRelease({
+      activeOrderId: request.activeOrderId,
+      idempotencyKey: request.idempotencyKey,
+      applyRemark: '生产组长提交生产放行申请'
+    }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     if (!result) {
       if (!isCurrent()) return
       releaseApplicationLocks.delete(request.rowId)
@@ -10189,9 +10133,11 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
       if (!isCurrent()) return
       const failure = resolveActiveOrderReleaseFailure(writeError)
       releaseApplicationBlockers.value = failure?.blockers ?? []
+      releaseApplicationErrorOrder.value = row
+      releaseApplicationErrorMessage.value = failure?.blockers[0].reason ?? resolveErrorMessage(writeError, '生产完工或放行申请失败')
       releaseApplicationLocks.delete(request.rowId)
       releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, failure?.blockers[0].reason ?? '生产完工或放行申请失败'))
+      ElMessage.error(releaseApplicationErrorMessage.value)
       releaseApplicationSubmittingId.value = undefined
       return
     }
@@ -10592,15 +10538,16 @@ const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
     const result = await (dataSet === 2 ? prepareSecondFixedTestOrderData() : prepareFixedTestOrderData())
     if (!result?.workOrderCode?.trim() || result.documents?.length !== 4 ||
       result.documents.some(row => !row.name || !Number.isInteger(row.createdCount) || row.createdCount < 0 ||
-        row.deletedCount !== 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0 ||
+        !Number.isInteger(row.deletedCount) || row.deletedCount < 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0 ||
         !Number.isInteger(row.repairedCount) || row.repairedCount < 0)) {
       throw new Error('数据回执不完整，请核对单据后再操作')
     }
     const label = dataSet === 2 ? '数据2' : '数据'
     const message = `${label}补齐完成（生产订单：${result.workOrderCode}）：` + result.documents
-      .map(row => `${row.name}新增${row.createdCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条`).join('；')
+      .map(row => `${row.name}新增${row.createdCount}条、移除旧模拟数据${row.deletedCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条`).join('；')
     activeOrderTestDataReceipt.value = { success: true, message }
-    ElMessage.success(result.documents.some(row => row.repairedCount > 0)
+    ElMessage.success(result.documents.some(row => row.deletedCount > 0)
+      ? `${label}补齐完成，旧模拟补料已移除` : result.documents.some(row => row.repairedCount > 0)
       ? `${label}补齐完成，错误用料单关联已修复` : `${label}补齐完成，已有数据已跳过`)
   } catch (error) {
     const message = resolveErrorMessage(error, '数据补齐失败，请核对单据')
@@ -10652,7 +10599,7 @@ const handleResetFixedSimulationActiveOrder = async () => {
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
     // Known prerequisite failures roll back; transport failures remain uncertain.
     const errorCode = Number((error as { code?: number | string })?.code)
-    if (!writeCompleted && [1040760394, 1040502000, 1040506111, 1040760324].includes(errorCode)) {
+    if (!writeCompleted && [1040760394, 1040502000, 1040506111, 1040760324, 1040760414].includes(errorCode)) {
       const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${reason}`
       activeOrderTestResetReceipt.value = { state: 'rejected', message: rejectedMessage }
       ElMessage.error(rejectedMessage)

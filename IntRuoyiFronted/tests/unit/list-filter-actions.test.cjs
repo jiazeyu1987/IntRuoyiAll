@@ -415,6 +415,58 @@ test('column filtering applies to the complete source, pages results and refresh
   }
 })
 
+function assertFilterDataContract(node, label) {
+  const bound = (name) => node.props.some(prop => prop.name === 'bind' && prop.arg?.content === name)
+  const event = (name) => node.props.some(prop => prop.name === 'on' && prop.arg?.content === name)
+  const serverFilter = node.props.some(prop =>
+    prop.name === 'server-filter' ||
+    (prop.name === 'bind' && prop.arg?.content === 'server-filter' && prop.exp?.content === 'true')
+  )
+  assert.ok(bound('columns'), `${label} must provide its own columns`)
+  if (serverFilter) {
+    // Server filters query all matching records through the paged endpoint.
+    assert.ok(bound('server-filter-query'), `${label} must provide server-filter-query`)
+  } else if (['rows', 'filter-rows', 'load-filter-rows'].some(bound)) {
+    return 'local'
+  } else {
+    // These pages map their registered filters to dedicated endpoint parameters.
+    for (const name of ['filter-definitions', 'quick-filter-state'])
+      assert.ok(bound(name), `${label} must provide ${name}`)
+    for (const name of ['update:quick-filter-state', 'quick-filter-query'])
+      assert.ok(event(name), `${label} must wire ${name}`)
+  }
+  for (const name of ['query-model', 'total'])
+    assert.ok(bound(name), `${label} must provide ${name}`)
+  for (const name of ['page', 'limit'])
+    assert.ok(
+      node.props.some(prop => prop.name === 'model' && prop.arg?.content === name) ||
+      (bound(name) && (event(`update:${name}`) || event('pagination'))),
+      `${label} must bind ${name}`
+    )
+  assert.ok(event('pagination') || (event('update:page') && event('update:limit')), `${label} must wire pagination`)
+  return serverFilter ? 'server' : 'quick'
+}
+
+test('filter wiring audit rejects incomplete server and page-owned query paths', () => {
+  const node = (attrs) => parse(`<template><UnifiedListTemplate ${attrs} /></template>`).descriptor.template.ast.children[0]
+  const paging = ':columns="columns" :query-model="query" :total="total" v-model:page="query.pageNo" v-model:limit="query.pageSize" @pagination="reload"'
+  const server = `${paging} server-filter :server-filter-query="reload"`
+  assert.equal(assertFilterDataContract(node(server), 'server fixture'), 'server')
+  assert.throws(() => assertFilterDataContract(node(server.replace(':server-filter-query="reload"', '')), 'server fixture'), /must provide server-filter-query/)
+  assert.throws(() => assertFilterDataContract(node(server.replace('@pagination="reload"', '')), 'server fixture'), /must wire pagination/)
+  const forwarded = server.replace('v-model:page="query.pageNo"', ':page="query.pageNo" @update:page="updatePage"')
+  assert.equal(assertFilterDataContract(node(forwarded), 'forwarded server fixture'), 'server')
+  assert.throws(() => assertFilterDataContract(node(forwarded.replace('@update:page="updatePage"', '').replace('@pagination="reload"', '')), 'server fixture'), /must bind page/)
+  const eventDriven = forwarded.replace('v-model:limit="query.pageSize"', ':limit="query.pageSize" @update:limit="updateLimit"').replace('@pagination="reload"', '')
+  assert.equal(assertFilterDataContract(node(eventDriven), 'event-driven server fixture'), 'server')
+  const quick = `${paging} :filter-definitions="fields" :quick-filter-state="state" @update:quick-filter-state="update" @quick-filter-query="query"`
+  assert.equal(assertFilterDataContract(node(quick), 'quick fixture'), 'quick')
+  assert.throws(() => assertFilterDataContract(node(quick.replace('@quick-filter-query="query"', '')), 'quick fixture'), /must wire quick-filter-query/)
+  assert.throws(() => assertFilterDataContract(node(quick.replace(':filter-definitions="fields"', '')), 'quick fixture'), /must provide filter-definitions/)
+  assert.equal(assertFilterDataContract(node(':columns="columns" :rows="allRows"'), 'local fixture'), 'local')
+  assert.throws(() => assertFilterDataContract(node(':columns="columns"'), 'unwired fixture'), /must provide filter-definitions/)
+})
+
 test('every standard list avoids duplicate actions and custom filters wire query/reset', () => {
   function walk(dir) {
     return fs
@@ -435,11 +487,9 @@ test('every standard list avoids duplicate actions and custom filters wire query
     const ast = parse(source).descriptor.template.ast
     function visit(node) {
       if (node.tag === 'UnifiedListTemplate') {
-        const bound = (name) => node.props.some(prop => prop.name === 'bind' && prop.arg?.content === name)
-        assert.ok(bound('columns'), `${file} must provide its own columns`)
-        assert.ok(['rows', 'filter-rows', 'load-filter-rows'].some(bound), `${file} must provide complete filter data`)
+        const mode = assertFilterDataContract(node, file)
         assert.ok(!node.props.some(prop => prop.arg?.content === 'show-query-form' && prop.exp?.content === 'false'), `${file} must expose its standard filter`)
-        if (
+        if (mode !== 'server' &&
           node.children.some(
             (child) =>
               child.tag === 'template' &&

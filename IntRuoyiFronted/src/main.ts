@@ -46,6 +46,12 @@ import VueDOMPurifyHTML from 'vue-dompurify-html' // 解决v-html 的安全隐�
 import { setupWangEditorPlugin } from '@/views/bpm/model/form/PrintTemplate'
 
 import print from 'vue3-print-nb' // 打印插件
+import { setupBrowserAutocomplete } from '@/plugins/browserAutocomplete'
+
+const stopBrowserAutocomplete = setupBrowserAutocomplete()
+if (import.meta.hot) {
+  import.meta.hot.dispose(stopBrowserAutocomplete)
+}
 
 // 创建实例
 const setupAll = async () => {

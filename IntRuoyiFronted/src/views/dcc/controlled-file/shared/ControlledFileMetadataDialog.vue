@@ -215,7 +215,7 @@ import {
 } from '@/api/dcc/controlledFile/directories'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
+  getProjectCodeOptions,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
@@ -568,13 +568,11 @@ const loadFileTypeTaxonomies = async () => {
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   try {
-    const data = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 50,
+    const data = await getProjectCodeOptions({
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
-    projectCodeOptions.value = data.list
+    projectCodeOptions.value = data
     const currentId = props.file?.dccProjectCodeId
     if (currentId && !projectCodeOptions.value.some((projectCode) => String(projectCode.id) === String(currentId))) {
       metadataForm.dccProjectCodeId = currentId

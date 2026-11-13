@@ -60,6 +60,7 @@
 <script lang="ts" setup>
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import * as DictDataApi from '@/api/system/dict/dict.data'
+import { useDictStore } from '@/store/modules/dict'
 import { CommonStatusEnum } from '@/utils/constants'
 
 defineOptions({ name: 'SystemDictDataForm' })
@@ -157,6 +158,7 @@ const submitForm = async () => {
       await DictDataApi.updateDictData(data)
       message.success(t('common.updateSuccess'))
     }
+    useDictStore().invalidateDict()
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success')

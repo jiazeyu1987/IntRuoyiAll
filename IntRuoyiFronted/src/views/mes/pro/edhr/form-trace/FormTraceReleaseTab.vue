@@ -164,15 +164,7 @@
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-release:event-query']"
-                  link
-                  type="primary"
-                  :disabled="!row.releaseTransactionId"
-                  @click="openEventDrawer(row)"
-                >
-                  事务事件
-                </el-button>
+                
                 <el-button
                   v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
                   link
@@ -247,43 +239,7 @@
       />
     </el-drawer>
 
-    <el-drawer v-model="eventDrawerVisible" title="电子批记录放行事务事件" size="82%" class="edhr-form-trace-release__drawer">
-      <el-table
-        v-loading="eventLoading"
-        :data="eventList"
-        stripe
-        :show-overflow-tooltip="true"
-        empty-text="暂无事务事件"
-      >
-        <el-table-column label="事件" width="120">
-          <template #default="{ row }">
-            <el-tag>{{ resolveReleaseEventLabel(row.eventType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态变化" width="190">
-          <template #default="{ row }">
-            {{ resolveReleaseStatusLabel(row.fromStatus) }} → {{ resolveReleaseStatusLabel(row.toStatus) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="幂等键" min-width="230" prop="idempotencyKey" />
-        <el-table-column label="签核证据" min-width="230" prop="signoffEvidenceHash" />
-        <el-table-column label="原因/意见" min-width="260">
-          <template #default="{ row }">
-            <div>{{ row.reason || row.opinion || '--' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作人" width="110" prop="actorUserId" />
-        <el-table-column label="发生时间" width="170">
-          <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
-        </el-table-column>
-      </el-table>
-      <Pagination
-        :total="eventTotal"
-        v-model:page="eventQuery.pageNo"
-        v-model:limit="eventQuery.pageSize"
-        @pagination="loadEventList"
-      />
-    </el-drawer>
+    
     <BatchExecutionTraceDrawer
       v-model="traceDrawerVisible"
       :context="traceContext"
@@ -297,12 +253,12 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getEdhrReleaseCheckItemPage,
-  getEdhrReleaseEventPage,
+  
   getEdhrReleasePage,
   type EdhrReleaseCheckItemPageReqVO,
   type EdhrReleaseCheckItemVO,
-  type EdhrReleaseEventPageReqVO,
-  type EdhrReleaseEventRespVO,
+  
+  
   type EdhrReleasePageReqVO,
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
@@ -329,7 +285,7 @@ import {
   resolveReleaseCheckResultLabel,
   resolveReleaseCheckResultTagType,
   resolveReleaseCheckSourceObjectTypeLabel,
-  resolveReleaseEventLabel,
+  
   resolveReleaseStatusLabel,
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
@@ -354,7 +310,7 @@ const EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES = [EDHR_BATCH_STATUS_REJECTED] 
 
 const loading = ref(false)
 const checkItemLoading = ref(false)
-const eventLoading = ref(false)
+
 const printLoadingBatchExecutionId = ref<string>()
 const exportLoadingBatchExecutionId = ref<string>()
 const isArchiveActionBusy = (id: string) =>
@@ -364,14 +320,14 @@ const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
 const total = ref(0)
 const drawerVisible = ref(false)
-const eventDrawerVisible = ref(false)
+
 const traceDrawerVisible = ref(false)
 const currentRow = ref<EdhrReleaseRowVO>()
 const traceContext = ref<BatchExecutionTraceContext>()
 const checkItems = ref<EdhrReleaseCheckItemVO[]>([])
-const eventList = ref<EdhrReleaseEventRespVO[]>([])
+
 const checkItemTotal = ref(0)
-const eventTotal = ref(0)
+
 const autoOpenedTraceKey = ref('')
 
 const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
@@ -393,12 +349,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   checkResult: ''
 })
 
-const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  releaseTransactionId: '',
-  eventType: ''
-})
+
 
 const releaseDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'releaseObject', label: objectColumnLabel, minWidth: 250 },
@@ -598,39 +549,9 @@ const getCheckItems = async () => {
   }
 }
 
-const openEventDrawer = async (row: EdhrReleaseRowVO) => {
-  if (!row.releaseTransactionId) {
-    actionError.value = '该放行记录尚未生成放行事务，暂无事务事件。'
-    return
-  }
-  currentRow.value = row
-  eventDrawerVisible.value = true
-  eventQuery.pageNo = 1
-  eventQuery.releaseTransactionId = row.releaseTransactionId
-  await loadEventList()
-}
 
-const loadEventList = async () => {
-  if (!eventQuery.releaseTransactionId) {
-    eventList.value = []
-    eventTotal.value = 0
-    return
-  }
-  eventLoading.value = true
-  actionError.value = ''
-  try {
-    const data = await getEdhrReleaseEventPage(eventQuery)
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    eventList.value = []
-    eventTotal.value = 0
-    actionError.value = resolveErrorMessage(error, '电子批记录放行事务事件加载失败。')
-    message.error(resolveErrorMessage(error, actionError.value))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
+
 
 const formatDateTime = (value?: string | number) => {
   return formatEdhrDateTime(value)

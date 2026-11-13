@@ -60,14 +60,7 @@
           @import-role="openImport"
           @success="refreshCategories"
         />
-        <el-button
-          v-hasPermi="['system:gxp-audit:query']"
-          class="permission-role-toolbar__action"
-          plain
-          @click="permissionAuditRef?.open()"
-        >
-          权限审计
-        </el-button>
+
         <UserTableColumnSettings
           :columns="roleColumns"
           :show-reset="false"
@@ -326,7 +319,7 @@
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
   <RoleDataPermissionForm ref="dataPermissionFormRef" @success="getList" />
-  <PermissionAuditDialog ref="permissionAuditRef" />
+
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
@@ -386,7 +379,7 @@ const total = ref(0) // 列表的总页数
 const list = ref<RoleApi.RoleVO[]>([]) // 列表的数据
 const categoryList = ref<RoleApi.RoleCategoryVO[]>([])
 const highlightedRoleId = ref<number>()
-const permissionAuditRef = ref<InstanceType<typeof PermissionAuditDialog>>()
+
 const roleTableRef = ref()
 const roleListRef = ref<InstanceType<typeof UnifiedListTemplate>>()
 const selectedRoleIds = ref<number[]>([])

@@ -14,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -26,8 +25,7 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
     @Mock MesProFeedbackMapper feedbackMapper;
     @Mock MesProFeedbackService feedbackService;
     @Mock MesFeedbackFormalReviewProjection projection;
-    @Mock
-    private cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper approvalQueries;
+    @Mock cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper approvalQueries;
     @InjectMocks MesProFeedbackApprovalTaskAdapter adapter;
 
     @org.junit.jupiter.api.BeforeEach
@@ -45,23 +43,6 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
         verifyNoInteractions(feedbackService);
     }
 
-    @Test void actualReviewerSeesDoneAndFormalActorTimeReasonSignatureEvenWhenOriginalApproverDiffers() {
-        MesProFeedbackDO source = feedback(5660L);
-        stubCandidates(List.of(source));
-        when(projection.read(List.of(source))).thenReturn(Map.of(5660L, approved()));
-        var page = adapter.page(query(341L, ApprovalTaskViewType.DONE, 1, 10));
-        assertEquals(1L, page.getTotal());
-        var row = page.getList().get(0);
-        assertEquals(341L, row.getAssigneeUserId()); assertEquals(ApprovalTaskReviewResult.APPROVE, row.getApprovalResult());
-        assertEquals(approved().review().getReviewedAt(), row.getTaskCompletedAt());
-        assertEquals("旧冻结事件正式复核", row.getApprovalRemark());
-        assertEquals(Set.of("PROCESS_IN_MODULE"), row.getAvailableActions());
-        assertEquals("/mes/pro/process-pool/production-leader", row.getDetailRoute());
-        assertEquals(Map.of("eventId", "282240"), row.getDetailQuery());
-        assertTrue(row.getBusinessContextTags().contains("复核签名 12743"));
-        assertEquals(MesProFeedbackStatusEnum.APPROVING.getStatus(), source.getStatus());
-    }
-
     @Test void designatedApproverDoesNotSeeOtherReviewersDoneAndTimelineIsDenied() {
         MesProFeedbackDO source = feedback(5660L);
         stubCandidates(List.of(source));
@@ -69,28 +50,6 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
         assertEquals(0L, adapter.page(query(340L, ApprovalTaskViewType.DONE, 1, 10)).getTotal());
         when(feedbackMapper.selectById(5660L)).thenReturn(source);
         assertThrows(IllegalStateException.class, () -> adapter.listTimeline(timeline(340L)));
-    }
-
-    @Test void pendingFormalTaskOnlyAllowsProcessInModule() {
-        MesProFeedbackDO source = feedback(5660L);
-        stubCandidates(List.of(source));
-        when(projection.read(List.of(source))).thenReturn(Map.of(5660L,
-                new MesFeedbackFormalReviewProjection.Fact(event(282240L, 5660L), null)));
-        var row = adapter.page(query(340L, ApprovalTaskViewType.TODO, 1, 10)).getList().get(0);
-        assertEquals("PENDING", row.getCurrentNodeCode()); assertNull(row.getTaskCompletedAt());
-        assertEquals(Set.of("PROCESS_IN_MODULE"), row.getAvailableActions());
-        assertNull(row.getApprovalResult());
-    }
-
-    @Test void rejectedFormalDecisionUsesSignedReviewInsteadOfLegacyDraftHeuristic() {
-        MesProFeedbackDO source = feedback(5660L).setApproveUserId(341L);
-        stubCandidates(List.of(source));
-        when(projection.read(List.of(source))).thenReturn(Map.of(5660L,
-                new MesFeedbackFormalReviewProjection.Fact(event(282240L, 5660L), review(282240L, "REJECTED"))));
-        var row = adapter.page(query(341L, ApprovalTaskViewType.DONE, 1, 10)).getList().get(0);
-        assertEquals(ApprovalTaskReviewResult.REJECT, row.getApprovalResult());
-        assertEquals("REJECTED", row.getCurrentNodeCode());
-        assertEquals(MesProFeedbackStatusEnum.APPROVING.getStatus(), source.getStatus());
     }
 
     @Test void mixedRowsFilterBeforePaginationAndKeepConsistentTotals() {
@@ -129,32 +88,30 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
         verifyNoInteractions(feedbackService);
     }
 
-    @Test void reviewerDiscoveryKeepsKeywordFilteringAndDeduplicatesBeforePaging() {
+    @Test void productionReviewNeverEntersAnyApprovalViewOrCount() {
         MesProFeedbackDO source = feedback(5660L).setApproveUserId(341L);
-        var context = query(341L, ApprovalTaskViewType.DONE, 1, 1).setKeyword("FB-5660");
-        stubCandidates(List.of(source));
-        when(projection.read(List.of(source))).thenReturn(Map.of(5660L, approved()));
-        assertEquals(1L, adapter.page(context).getTotal());
-        assertTrue(adapter.page(context.setPageNo(2)).getList().isEmpty());
-        verify(projection, times(2)).read(List.of(source));
-    }
-
-    @Test void initiatorGetsFormalDecisionAndGlobalDoneKeepsActualReviewerWithoutScopeExpansion() {
-        MesProFeedbackDO source = feedback(5660L);
-        stubCandidates(List.of(source));
-        when(projection.read(List.of(source))).thenReturn(Map.of(5660L, approved()));
-        var initiated = adapter.page(query(342L, ApprovalTaskViewType.MY_INITIATED, 1, 10));
-        assertEquals(1L, initiated.getTotal());
-        assertEquals(ApprovalTaskReviewResult.APPROVE, initiated.getList().get(0).getApprovalResult());
-        stubCandidates(List.of(source));
-        var global = adapter.page(query(999L, ApprovalTaskViewType.DONE, 1, 10).setGlobalView(true));
-        assertEquals(1L, global.getTotal()); assertEquals(341L, global.getList().get(0).getAssigneeUserId());
+        for (var fact : List.of(approved(),
+                new MesFeedbackFormalReviewProjection.Fact(event(282240L, 5660L), null),
+                new MesFeedbackFormalReviewProjection.Fact(event(282240L, 5660L), review(282240L, "REJECTED")))) {
+            for (var view : List.of(ApprovalTaskViewType.TODO, ApprovalTaskViewType.DONE, ApprovalTaskViewType.MY_INITIATED)) {
+                for (boolean global : List.of(false, true)) {
+                    stubCandidates(List.of(source));
+                    when(projection.read(List.of(source))).thenReturn(Map.of(5660L, fact));
+                    var context = query(341L, view, 1, 10).setGlobalView(global);
+                    var page = adapter.page(context);
+                    assertEquals(0L, page.getTotal(), view + " global=" + global);
+                    assertTrue(page.getList().isEmpty());
+                    assertEquals(0L, adapter.window(context, new ApprovalQueryWindow(0, 0)).getTotal());
+                }
+            }
+        }
         verify(projection, never()).reviewedFeedbackIds(any());
+        verifyNoInteractions(feedbackService);
     }
 
     @Test void proofEligibilityScansFixedWindowsAndCountsExactlyWithoutColumnFilters() {
         var rows = java.util.stream.LongStream.range(1000, 1403)
-                .mapToObj(id -> feedback(id).setApproveUserId(341L)).toList();
+                .mapToObj(id -> feedback(id).setApproveUserId(341L).setStatus(MesProFeedbackStatusEnum.UNCHECK.getStatus())).toList();
         var byId = rows.stream().collect(java.util.stream.Collectors.toMap(MesProFeedbackDO::getId, row -> row));
         var offsets = new java.util.ArrayList<Integer>();
         when(approvalQueries.query(any())).thenAnswer(call -> new cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX<Long>());
@@ -173,14 +130,14 @@ class MesProFeedbackFormalApprovalTaskAdapterTest {
             var facts = new java.util.HashMap<Long, MesFeedbackFormalReviewProjection.Fact>();
             for (var row : batch) {
                 long eventId = row.getId() + 10000;
-                facts.put(row.getId(), new MesFeedbackFormalReviewProjection.Fact(event(eventId, row.getId()),
-                        (row.getId() - 1000) % 3 == 0 ? review(eventId, "APPROVED") : null));
+                if ((row.getId() - 1000) % 3 == 0) facts.put(row.getId(),
+                        new MesFeedbackFormalReviewProjection.Fact(event(eventId, row.getId()), review(eventId, "APPROVED")));
             }
             return facts;
         });
         var result = adapter.page(query(341L, ApprovalTaskViewType.DONE, 2, 10));
-        assertEquals(135L, result.getTotal());
-        assertEquals(java.util.stream.LongStream.range(10, 20).mapToObj(i -> String.valueOf(1000 + i * 3)).toList(),
+        assertEquals(268L, result.getTotal());
+        assertEquals(java.util.stream.LongStream.range(1000, 1403).filter(id -> (id - 1000) % 3 != 0).skip(10).limit(10).mapToObj(String::valueOf).toList(),
                 result.getList().stream().map(cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary::getSourceTaskId).toList());
         assertEquals(List.of(0, 200, 400), offsets);
         verify(projection, times(3)).read(anyList());

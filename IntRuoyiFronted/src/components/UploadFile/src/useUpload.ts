@@ -1,6 +1,6 @@
 import * as FileApi from '@/api/infra/file'
+import { authContextRevision } from '@/utils/auth'
 import {
-  UploadRawFile,
   UploadRequestOptions,
   UploadProgressEvent
 } from 'element-plus/es/components/upload/src/upload'
@@ -20,8 +20,16 @@ export const useUpload = (directory?: string) => {
   const isClientUpload = UPLOAD_TYPE.CLIENT === import.meta.env.VITE_UPLOAD_TYPE
   // 重写ElUpload上传方法
   const httpRequest = async (options: UploadRequestOptions) => {
+    const revision = authContextRevision.value
+    const isRequestContextCurrent = () => authContextRevision.value === revision
+    const assertCurrentContext = () => {
+      if (!isRequestContextCurrent()) {
+        throw new Error('登录或租户已切换，请在当前租户重新上传文件')
+      }
+    }
     // 文件上传进度监听
     const uploadProgressHandler = (evt: AxiosProgressEvent) => {
+      if (!isRequestContextCurrent()) return
       const upEvt: UploadProgressEvent = Object.assign(evt.event)
       upEvt.percent = evt.progress ? evt.progress * 100 : 0
       options.onProgress(upEvt) // 触发 el-upload 的 on-progress
@@ -32,37 +40,44 @@ export const useUpload = (directory?: string) => {
       // 1.1 生成文件名称
       const fileName = options.file.name || options.filename
       // 1.2 获取文件预签名地址
-      const presignedInfo = await FileApi.getFilePresignedUrl(fileName, directory)
+      const presignedInfo = await FileApi.getFilePresignedUrl(
+        fileName,
+        directory,
+        isRequestContextCurrent
+      )
+      assertCurrentContext()
       // 1.3 上传文件（不能使用 ElUpload 的 ajaxUpload 方法的原因：其使用的是 FormData 上传，Minio 不支持）
-      return axios
-        .put(presignedInfo.uploadUrl, options.file, {
-          headers: {
-            'Content-Type': options.file.type || 'application/octet-stream'
-          },
-          onUploadProgress: uploadProgressHandler
-        })
-        .then(() => {
-          // 1.4. 记录文件信息到后端（异步）
-          createFile(presignedInfo, options.file, fileName)
-          // 通知成功，数据格式保持与后端上传的返回结果一致
-          return { data: presignedInfo.url }
-        })
+      await axios.put(presignedInfo.uploadUrl, options.file, {
+        headers: {
+          'Content-Type': options.file.type || 'application/octet-stream'
+        },
+        onUploadProgress: uploadProgressHandler
+      })
+      assertCurrentContext()
+      // 元数据登记成功后才允许表单使用该文件。
+      await FileApi.createFile(
+        {
+          configId: presignedInfo.configId,
+          url: presignedInfo.url,
+          path: presignedInfo.path,
+          name: fileName,
+          type: options.file.type || 'application/octet-stream',
+          size: options.file.size
+        },
+        isRequestContextCurrent
+      )
+      assertCurrentContext()
+      return { data: presignedInfo.url }
     } else {
       // 模式二：后端上传
-      // 重写 el-upload httpRequest 文件上传成功会走成功的钩子，失败走失败的钩子
-      return new Promise((resolve, reject) => {
-        FileApi.updateFile({ file: options.file, directory }, uploadProgressHandler)
-          .then((res) => {
-            if (res.code === 0) {
-              resolve(res)
-            } else {
-              reject(res)
-            }
-          })
-          .catch((res) => {
-            reject(res)
-          })
-      })
+      const res = await FileApi.updateFile(
+        { file: options.file, directory },
+        uploadProgressHandler,
+        isRequestContextCurrent
+      )
+      assertCurrentContext()
+      if (res.code !== 0) throw res
+      return res
     }
   }
 
@@ -70,25 +85,6 @@ export const useUpload = (directory?: string) => {
     uploadUrl,
     httpRequest
   }
-}
-
-/**
- * 创建文件信息
- * @param vo 文件预签名信息
- * @param file 文件
- * @param fileName
- */
-function createFile(vo: FileApi.FilePresignedUrlRespVO, file: UploadRawFile, fileName: string) {
-  const fileVo = {
-    configId: vo.configId,
-    url: vo.url,
-    path: vo.path,
-    name: fileName,
-    type: file.type || 'application/octet-stream',
-    size: file.size
-  }
-  FileApi.createFile(fileVo)
-  return fileVo
 }
 
 /**

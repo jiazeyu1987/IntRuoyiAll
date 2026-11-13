@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 
 /** Read-only authoritative resolver shared by frontline batch lookup and completion freezing. */
 @Component
@@ -47,7 +50,8 @@ public class MesFormalProductionPickListSourceResolver {
         List<ErpKingdeeProductionPickListItemDO> discovered =
                 pickListItemMapper.selectListByProductionOrderNo(productionOrderNo);
         if (discovered == null || discovered.isEmpty()) {
-            throw invalid("FORMAL_PICK_LIST_REQUIRED:" + productionOrderNo);
+            throw new ServiceException(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(),
+                    "当前系统缺少生产订单(" + productionOrderNo + ")对应的领料单,请在确保ERP里存在然后在系统里进行同步");
         }
         if (discovered.stream().anyMatch(item -> item == null || item.getProductionPickListId() == null)) {
             throw invalid("PICK_LIST_ID_REQUIRED:" + productionOrderNo);

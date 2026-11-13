@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
+import cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService;
+
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -25,6 +27,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 
 @Service
 public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersionLifecycleService {
+
+    @jakarta.annotation.Resource
+    private MesVersionOperateLogService versionOperateLogService;
 
     public static final String STATUS_DRAFT = "DRAFT";
     public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
@@ -112,6 +117,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         candidate.setLifecycleStatus(STATUS_ACTIVE);
         candidate.setPublishedBy(publisherId);
         candidate.setPublishedTime(publishedTime);
+        versionOperateLogService.route("发布", active, candidate, publisherId);
         return candidate;
     }
 

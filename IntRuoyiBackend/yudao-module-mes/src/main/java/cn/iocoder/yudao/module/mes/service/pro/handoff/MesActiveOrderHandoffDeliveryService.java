@@ -28,7 +28,10 @@ public class MesActiveOrderHandoffDeliveryService {
     public void schedule(MesActiveOrderHandoffTaskDO task) {
         require(TransactionSynchronizationManager.isSynchronizationActive(),"通知意图必须加入正式交接事务");
         require(!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消");
-        validate(task); audit.lock(); Long currentTenant=tenant();
+        validate(task);
+        // Production and PQC reviews retain workbench responsibility without notification delivery.
+        if (Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
+        audit.lock(); Long currentTenant=tenant();
         String params=JsonUtils.toJsonString(Map.of("activeOrderId",task.getActiveOrderId().toString(),
                 "taskName",label(task.getTaskType()),"actionUrl",task.getActionUrl(),"reason",task.getReason(),"handoffTaskId",task.getId().toString(),"handoffType",task.getTaskType()));
         var recipients=candidates(task.getCandidateUserSnapshot());
@@ -79,7 +82,7 @@ public class MesActiveOrderHandoffDeliveryService {
     private void dispatchPending(Long taskId) {
         var task = tasks.selectById(taskId);
         require(task != null, "交接通知原任务不存在");
-        if ("CANCELED".equals(task.getStatus())) return;
+        if ("CANCELED".equals(task.getStatus()) || Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
         for(var row:mapper.forTask(tenant(),taskId)) {
             if(!"PENDING".equals(row.getStatus()))continue;
             try { dispatch(row,"正式业务提交后自动投递交接通知"); }
@@ -88,7 +91,7 @@ public class MesActiveOrderHandoffDeliveryService {
     }
     private void dispatch(MesActiveOrderHandoffDeliveryDO row,String reason) {
         var task=tasks.selectById(row.getHandoffTaskId());
-        require(task!=null&&!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消或交接不存在");
+        require(task!=null&&!Set.of("PQC_HANDOFF", "PQC_REVIEW", "PRODUCTION_REVIEW").contains(task.getTaskType()),"生产复核、PQC检验接手及复核通知已取消或交接不存在");
         var attempt=transactions.recordAttempt(row.getId(),row.getRowVersion(),reason);
         try {
             var request=new NotifySendSingleToUserIdempotentReqDTO();request.setUserId(attempt.getUserId());request.setTemplateCode(TEMPLATE);request.setBusinessKey(attempt.getBusinessKey());

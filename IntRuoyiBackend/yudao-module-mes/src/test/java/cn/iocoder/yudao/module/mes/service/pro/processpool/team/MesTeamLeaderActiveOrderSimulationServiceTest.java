@@ -707,6 +707,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .routeVersionId(448L)
                 .routeProcessId(routeProcessId)
                 .processId(processId)
+                .erpFixedQuantitySnapshot(new BigDecimal("200.000000"))
                 .plannedQuantitySnapshot(new BigDecimal("200.000000"))
                 .build();
     }

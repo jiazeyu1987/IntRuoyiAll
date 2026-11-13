@@ -546,7 +546,7 @@ import {
 } from '@/api/mes/pro/batchrecordreport'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
+  getProjectCodeOptions,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import QaInspectionRegulationParserPanel from './components/QaInspectionRegulationParserPanel.vue'
@@ -812,13 +812,11 @@ const handleOpenProductionPublishDialog = async () => {
 const loadPublishProjectCodes = async (keyword = '') => {
   publishProjectCodeLoading.value = true
   try {
-    const page = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 50,
+    const page = await getProjectCodeOptions({
       keyword: keyword.trim() || undefined,
       status: DCC_PROJECT_CODE_STATUS_ENABLE
     })
-    publishProjectCodeOptions.value = page.list || []
+    publishProjectCodeOptions.value = page
   } catch (error) {
     publishProjectCodeOptions.value = []
     publishErrorMessage.value = resolveParseErrorMessage(error, 'DCC 项目代码加载失败')

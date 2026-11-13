@@ -77,7 +77,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
         assertEquals("旧版精洗", process.processName());
         assertEquals(301L, process.workstationId());
         assertEquals("WS-OLD", process.workstationCode());
-        assertEquals(new BigDecimal("1.500000"), process.productionQuantityFactor());
+        assertEquals(new BigDecimal("1.1"), process.lossCoefficient());
         assertEquals(new BigDecimal("100.000000"), process.targetQuantity());
         assertEquals(new BigDecimal("0.000000"), process.submittedQuantity());
         assertEquals(Boolean.FALSE, process.checkFlag());

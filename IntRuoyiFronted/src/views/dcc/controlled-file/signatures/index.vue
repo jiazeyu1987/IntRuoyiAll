@@ -278,7 +278,7 @@
                 >
                   解锁
                 </el-button>
-                <el-button link type="primary" @click="openAuthorizationAudit(row)">审计</el-button>
+                
               </div>
             </template>
           </el-table-column>
@@ -367,110 +367,7 @@
     </template>
   </el-dialog>
 
-  <el-drawer
-    v-model="authorizationAuditDrawer.visible"
-    title="授权审计"
-    size="760px"
-    style="max-width: 100vw"
-  >
-    <el-alert
-      v-if="authorizationAuditDrawer.inlineError"
-      :closable="false"
-      class="mb-16px"
-      show-icon
-      type="error"
-      :title="authorizationAuditDrawer.inlineError"
-    />
-    <UnifiedListTemplate
-      class="dcc-signature-list-template dcc-signature-audit-template"
-      :key="authorizationAuditOpenGeneration"
-      table-key="dcc.electronicSignature.authorizationAudit"
-      :query-model="authorizationAuditDrawer"
-      :filter-definitions="emptyQuickFilterDefinitions"
-      :show-quick-filter="false"
-      :show-quick-filter-label="false"
-      :quick-filter-state="authorizationAuditQuickFilter.state"
-      :selected-filter-definition="authorizationAuditQuickFilter.selectedDefinition.value"
-      :operator-options="authorizationAuditQuickFilter.operatorOptions.value"
-      :columns="authorizationAuditColumns"
-      :column-saving="authorizationAuditColumnSaving"
-      :total="authorizationAuditDrawer.total"
-      v-model:page="authorizationAuditDrawer.pageNo"
-      v-model:limit="authorizationAuditDrawer.pageSize"
-      @update:quick-filter-state="authorizationAuditQuickFilter.updateState"
-      @quick-filter-query="authorizationAuditQuickFilter.applyQuickFilter"
-      @column-change="saveAuthorizationAuditColumnConfig"
-      @column-reset="resetAuthorizationAuditColumnConfig"
-      @pagination="loadAuthorizationAuditPage"
-      server-filter
-      :server-filter-query="loadAuthorizationAuditPage"
-      :column-filter-definitions="listColumnFilterDefinitions2"
-    >
-      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table
-          v-loading="authorizationAuditDrawer.loading"
-          data-user-table-column-explicit
-          data-user-table-key="dcc.electronicSignature.authorizationAudit"
-          :data="resolveRows(authorizationAuditDrawer.list)"
-          empty-text="暂无授权审计"
-          @header-dragend="handleAuthorizationAuditHeaderDragend"
-          @sort-change="handleTemplateSortChange"
-        >
-          <el-table-column
-            v-if="isAuthorizationAuditColumnVisible('operatedAt')"
-            label="操作时间"
-            align="center"
-            :width="getAuthorizationAuditColumnWidthString('operatedAt', 180)"
-            prop="operatedAt" :formatter="dateTimeValueFormatter"
-            v-bind="sortColumnAttrs('operatedAt')"
-          />
-          <el-table-column
-            v-if="isAuthorizationAuditColumnVisible('operatorName')"
-            label="操作人"
-            :min-width="getAuthorizationAuditColumnMinWidthString('operatorName', 140)"
-            prop="operatorName"
-            v-bind="sortColumnAttrs('operatorName')"
-          />
-          <el-table-column
-            v-if="isAuthorizationAuditColumnVisible('beforeState')"
-            label="变更前"
-            align="center"
-            :width="getAuthorizationAuditColumnWidthString('beforeState', 120)"
-            prop="beforeState"
-            v-bind="sortColumnAttrs('beforeState')"
-          >
-            <template #default="{ row }">
-              <el-tag :type="getDccSignatureAuthorizationStateTagType(row.beforeState)" size="small">
-                {{ getDccSignatureAuthorizationStateLabel(row.beforeState) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isAuthorizationAuditColumnVisible('afterState')"
-            label="变更后"
-            align="center"
-            :width="getAuthorizationAuditColumnWidthString('afterState', 120)"
-            prop="afterState"
-            v-bind="sortColumnAttrs('afterState')"
-          >
-            <template #default="{ row }">
-              <el-tag :type="getDccSignatureAuthorizationStateTagType(row.afterState)" size="small">
-                {{ getDccSignatureAuthorizationStateLabel(row.afterState) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isAuthorizationAuditColumnVisible('reason')"
-            label="原因"
-            :min-width="getAuthorizationAuditColumnMinWidthString('reason', 260)"
-            prop="reason"
-            show-overflow-tooltip
-            v-bind="sortColumnAttrs('reason')"
-          />
-        </el-table>
-      </template>
-    </UnifiedListTemplate>
-  </el-drawer>
+
 </template>
 
 <script lang="ts" setup>
@@ -488,12 +385,12 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import {
   fetchDccSignatureEvidencePdfArtifact,
-  getDccElectronicSignatureAuthorizationAuditPage,
+  
   getDccElectronicSignatureAuthorizationPage,
   getDccElectronicSignaturePage,
   unlockDccElectronicSignatureAuthorization,
   updateDccElectronicSignatureAuthorization,
-  type DccElectronicSignatureAuthorizationAuditVO,
+  
   type DccElectronicSignatureAuthorizationVO,
   type DccElectronicSignatureVO
 } from '@/api/dcc/controlledFile/signatures'
@@ -517,12 +414,14 @@ import {
 } from '../shared/signature-evidence'
 import { formatDccSimpleUserLabel } from '../shared/utils'
 import { openControlledFileViewer } from '../shared/viewer-navigation'
-import { dateTimeValueFormatter, formatDateTimeValue } from '@/utils/formatTime'
+import {  formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileSignatures' })
 const userStore = useUserStore()
 const canManageAuthorizations = computed(() =>
-  userStore.getRoles.includes('electronic_signature_admin') || userStore.getRoles.includes('super_admin')
+  userStore.getRoles.includes('electronic_signature_admin') ||
+  userStore.getRoles.includes('tenant_admin') ||
+  userStore.getRoles.includes('super_admin')
 )
 
 type ActiveTab = 'records' | 'authorizations'
@@ -616,26 +515,8 @@ const {
   saveConfig: saveAuthorizationColumnConfig
 } = useUserTableColumns('dcc.electronicSignature.authorizations', authorizationDefaultColumns)
 
-const authorizationAuditDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'operatedAt', label: '操作时间', width: 180 },
-  { key: 'operatorName', label: '操作人', minWidth: 140 },
-  { key: 'beforeState', label: '变更前', width: 120 },
-  { key: 'afterState', label: '变更后', width: 120 },
-  { key: 'reason', label: '原因', minWidth: 260 }
-]
-const {
-  columns: authorizationAuditColumns,
-  saving: authorizationAuditColumnSaving,
-  isColumnVisible: isAuthorizationAuditColumnVisible,
-  getColumnWidthString: getAuthorizationAuditColumnWidthString,
-  getColumnMinWidthString: getAuthorizationAuditColumnMinWidthString,
-  handleHeaderDragend: handleAuthorizationAuditHeaderDragend,
-  saveConfig: saveAuthorizationAuditColumnConfig,
-  resetConfig: resetAuthorizationAuditColumnConfig
-} = useUserTableColumns(
-  'dcc.electronicSignature.authorizationAudit',
-  authorizationAuditDefaultColumns
-)
+
+
 
 const recordRequest = useLatestListRequest()
 const recordLoading = recordRequest.loading
@@ -780,19 +661,6 @@ const authorizationActionDialog = reactive({
   reason: '',
   reasonError: '',
   inlineError: ''
-})
-
-const authorizationAuditDrawer = reactive({
-  listFilters: undefined as string | undefined,
-  visible: false,
-  loading: false,
-  inlineError: '',
-  target: undefined as DccElectronicSignatureAuthorizationVO | undefined,
-  list: [] as DccElectronicSignatureAuthorizationAuditVO[],
-  pageNo: 1,
-  pageSize: 10,
-  total: 0,
-  quickFilter: undefined as TableQuickFilterValue | undefined
 })
 
 const toControlledFileStatus = (status: string | undefined): ControlledFileStatusLike => {
@@ -1066,56 +934,6 @@ const submitAuthorizationActionDialog = async () => {
   }
 }
 
-const authorizationAuditOpenGeneration = ref(0)
-let auditRequestGeneration = 0
-const loadAuthorizationAuditPage = async () => {
-  const generation = ++auditRequestGeneration
-  const target = authorizationAuditDrawer.target
-  if (!target) throw new Error('请选择授权审计用户')
-  authorizationAuditDrawer.loading = true
-  authorizationAuditDrawer.inlineError = ''
-  try {
-    const data = await getDccElectronicSignatureAuthorizationAuditPage(target.userId, {
-      pageNo: authorizationAuditDrawer.pageNo,
-      pageSize: authorizationAuditDrawer.pageSize,
-      listFilters: authorizationAuditDrawer.listFilters
-    })
-    if (generation !== auditRequestGeneration || authorizationAuditDrawer.target?.userId !== target.userId) return false
-    authorizationAuditDrawer.list = data.list
-    authorizationAuditDrawer.total = data.total
-    return true
-  } catch (error) {
-    if (generation !== auditRequestGeneration || authorizationAuditDrawer.target?.userId !== target.userId) throw error
-    authorizationAuditDrawer.inlineError = resolveSignaturePageErrorMessage(
-      error,
-      '授权审计加载失败，请查看错误提示后重试。'
-    )
-    throw error
-  } finally {
-    if (generation === auditRequestGeneration) authorizationAuditDrawer.loading = false
-  }
-}
-
-const authorizationAuditQuickFilter = useTableQuickFilter(
-  'dcc.electronicSignature.authorizationAudit',
-  emptyQuickFilterDefinitions,
-  authorizationAuditDrawer,
-  loadAuthorizationAuditPage
-)
-
-const openAuthorizationAudit = async (row: DccElectronicSignatureAuthorizationVO) => {
-  authorizationAuditOpenGeneration.value++
-  authorizationAuditDrawer.listFilters = undefined
-  authorizationAuditDrawer.visible = true
-  authorizationAuditDrawer.target = row
-  authorizationAuditDrawer.pageNo = 1
-  authorizationAuditDrawer.pageSize = 10
-  authorizationAuditDrawer.list = []
-  authorizationAuditDrawer.total = 0
-  authorizationAuditDrawer.inlineError = ''
-  await authorizationAuditQuickFilter.resetQuickFilter()
-}
-
 const isTabVisible = (tab: ActiveTab) => !props.singleTab || props.singleTab === tab
 
 watch(
@@ -1240,20 +1058,8 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
 ])
 
 
-const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
-  {
-    key: 'beforeState',
-    label: '变更前',
-    type: 'text',
-    getValue: (row) => [getDccSignatureAuthorizationStateLabel(row.beforeState)].join(' ')
-  },
-  {
-    key: 'afterState',
-    label: '变更后',
-    type: 'text',
-    getValue: (row) => [getDccSignatureAuthorizationStateLabel(row.afterState)].join(' ')
-  }
-])
+
+
 </script>
 
 <style scoped>

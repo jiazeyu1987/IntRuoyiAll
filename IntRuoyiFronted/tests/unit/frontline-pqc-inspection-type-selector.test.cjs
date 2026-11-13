@@ -14,9 +14,9 @@ const sourceDir = path.resolve('src/views/mes/pro/feedback')
 const selectorPath = path.join(sourceDir, 'FrontlinePqcInspectionTypeSelector.vue')
 const artifacts = path.resolve('.runtime/pqc-inspection-ui')
 const tabs = [
-  { ruleKey: 'FIRST', type: 'FIRST', label: '首检' },
-  { ruleKey: 'PATROL', type: 'PATROL', label: '巡检' },
-  { ruleKey: 'FINAL', type: 'FINAL', label: '末检' }
+  { ruleKey: 'FIRST', type: 'FIRST', label: '首检', submittedCount: 3, totalCount: 8 },
+  { ruleKey: 'PATROL', type: 'PATROL', label: '巡检', submittedCount: 1, totalCount: 8 },
+  { ruleKey: 'FINAL', type: 'FINAL', label: '末检', submittedCount: 0, totalCount: 8 }
 ]
 
 test('existing PQC page delegates the new control to its original task selection and submit flow', () => {
@@ -116,14 +116,15 @@ test('patrol creation and selection use arbitrary server rounds without time slo
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const openPatrol = () => page.locator('[data-pqc-inspection-type-tab="PATROL"]').click()
+  const openPatrol = () => page.locator('[data-pqc-patrol-options]').click()
   try {
     await page.goto(pathToFileURL(html).href)
-    assert.deepEqual(await page.locator('[data-pqc-inspection-type-tab] strong').allTextContents(), ['首检', '巡检', '末检'])
+    assert.deepEqual(await page.locator('[data-pqc-inspection-type-tab] strong').allTextContents(), ['首检(3/8)', '巡检(1/8)', '末检(0/8)'])
+    await page.evaluate(() => { window.selectorState.tabs[0].submittedCount = 4 })
+    assert.equal(await page.locator('[data-pqc-inspection-type-tab="FIRST"] strong').innerText(), '首检(4/8)')
     assert.doesNotMatch(await page.locator('#app').innerText(), /上午|下午/)
-    await openPatrol()
-    assert.match(await page.getByRole('dialog').innerText(), /尚未创建巡检/)
-    await page.locator('[data-pqc-create-patrol]').click()
+    await page.locator('[data-pqc-inspection-type-tab="PATROL"]').click()
+    assert.equal(await page.getByRole('dialog').isVisible(), false)
     assert.equal(await page.evaluate(() => window.created), 1)
     assert.deepEqual(await page.evaluate(() => window.selections), [])
     // Creation is owned by the parent/API. The component never fabricates a round.
@@ -138,11 +139,16 @@ test('patrol creation and selection use arbitrary server rounds without time slo
         { roundNo: 12, pendingCount: 3, totalCount: 3, createTime: new Date(2026, 10, 5, 15, 30, 0).getTime() }
       ]
     })
+    await page.locator('[data-pqc-inspection-type-tab="PATROL"]').click()
+    assert.deepEqual(await page.evaluate(() => window.selections), [12])
+    assert.equal(await page.getByRole('dialog').isVisible(), false)
+    assert.equal(await page.evaluate(() => window.created), 1)
+    await page.evaluate(() => { window.selections = [] })
     await openPatrol()
     assert.match(await page.locator('[data-pqc-patrol-round="1"]').innerText(), /2026-11-04 09:15:30/)
     assert.match(await page.locator('[data-pqc-patrol-round="2"]').innerText(), /2026-11-04 11:20:40/)
     assert.match(await page.locator('[data-pqc-patrol-round="12"]').innerText(), /2026-11-05 15:30:00/)
-    assert.equal(await page.locator('[data-pqc-patrol-round="1"]').isDisabled(), true)
+    assert.equal(await page.locator('[data-pqc-patrol-round="1"]').isDisabled(), false)
     const visibleCards = await page.locator('.pqc-inspection-selector__rules').evaluate(grid => {
       const viewport = grid.getBoundingClientRect()
       return [...grid.children].filter(card => {
@@ -189,8 +195,12 @@ test('patrol creation and selection use arbitrary server rounds without time slo
     await page.evaluate(() => { window.selectorState.disabled = true })
     assert.equal(await page.getByRole('dialog').isVisible(), false)
     assert.equal(await page.locator('[data-pqc-inspection-type-tab="PATROL"]').isDisabled(), true)
+    assert.equal(await page.locator('[data-pqc-patrol-options]').isDisabled(), true)
     await page.evaluate(() => { window.selectorState.disabled = false })
     await page.screenshot({ path: path.join(artifacts, 'selector-desktop.png') })
+    const mainBounds = await page.locator('[data-pqc-inspection-type-tab="PATROL"]').boundingBox()
+    const addBounds = await page.locator('[data-pqc-patrol-options]').boundingBox()
+    assert.ok(Math.abs(mainBounds.width / addBounds.width - 2) < 0.05)
     await page.setViewportSize({ width: 390, height: 844 })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.screenshot({ path: path.join(artifacts, 'selector-mobile.png') })

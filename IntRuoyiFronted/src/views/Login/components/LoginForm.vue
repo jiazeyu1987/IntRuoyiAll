@@ -16,9 +16,9 @@
           <LoginFormTitle class="w-full" />
         </el-form-item>
       </el-col>
-      <el-col v-if="loginErrorMessage" :span="24" class="px-10px">
+      <el-col v-if="displayLoginError" :span="24" class="px-10px">
         <el-alert
-          :title="loginErrorMessage"
+          :title="displayLoginError"
           type="error"
           :closable="false"
           show-icon
@@ -37,7 +37,6 @@
             :placeholder="t('login.tenantNamePlaceholder')"
             :loading="tenantListLoading"
             @change="handleTenantSelection"
-            @visible-change="handleTenantDropdownVisibleChange"
           >
             <template #prefix>
               <component :is="iconHouse" />
@@ -136,8 +135,8 @@
           show-icon
         />
       </el-col>
-      <el-col v-if="loginErrorMessage" :span="24" class="px-10px">
-        <el-alert :title="loginErrorMessage" type="error" :closable="false" show-icon />
+      <el-col v-if="displayLoginError" :span="24" class="px-10px">
+        <el-alert :title="displayLoginError" type="error" :closable="false" show-icon />
       </el-col>
       <el-col :span="24" class="px-10px">
         <el-form-item :label="t('profile.password.oldPassword')" prop="oldPassword">
@@ -217,6 +216,7 @@ const permissionStore = usePermissionStore()
 const redirect = ref<string>('')
 const loginLoading = ref(false)
 const loginErrorMessage = ref('')
+const displayLoginError = computed(() => loginErrorMessage.value || permissionStore.initializationError)
 const passwordChangeRequired = ref(false)
 const passwordChangeSubmitting = ref(false)
 const changePasswordForm = reactive({
@@ -247,12 +247,11 @@ const passwordChangeRules = {
 }
 const tenantOptions = ref<{ id: number; name: string }[]>([])
 const tenantListLoading = ref(false)
-let tenantSelectedByUser = false
 const loginData = reactive({
   isShowPassword: false,
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
   loginForm: {
-    tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',
+    tenantName: '',
     username: '',
     password: '',
     rememberMe: false
@@ -284,52 +283,19 @@ const applyLoginFormCache = (loginForm?: authUtil.LoginFormType) => {
   }
   loginData.loginForm = {
     ...loginData.loginForm,
-    username: loginForm.username ? loginForm.username : loginData.loginForm.username,
-    password: loginForm.password ? loginForm.password : loginData.loginForm.password,
-    rememberMe: loginForm.rememberMe,
-    tenantName: loginForm.tenantName ? loginForm.tenantName : loginData.loginForm.tenantName
-  }
-}
-
-const handleTenantNameChange = (tenantName: string) => {
-  const loginForm = authUtil.getLoginFormByTenantName(tenantName)
-  if (!loginForm) {
-    return
-  }
-  loginData.loginForm = {
-    ...loginData.loginForm,
-    tenantName: loginForm.tenantName,
     username: loginForm.username,
-    password: loginForm.password,
-    rememberMe: loginForm.rememberMe
+    password: '',
+    rememberMe: loginForm.rememberMe,
+    tenantName: loginForm.tenantName
   }
 }
 
-const handleTenantSelection = (tenantName: string) => {
-  tenantSelectedByUser = true
-  handleTenantNameChange(tenantName)
-}
-
-const handleTenantDropdownVisibleChange = (visible: boolean) => {
-  if (!visible) {
-    handleTenantNameChange(loginData.loginForm.tenantName)
-  }
+const handleTenantSelection = () => {
+  loginData.loginForm.password = ''
 }
 
 const getLoginFormCache = () => {
   applyLoginFormCache(authUtil.getLoginForm())
-}
-// 根据域名，获得租户信息
-const getTenantByWebsite = async () => {
-  if (loginData.tenantEnable === 'true') {
-    const website = location.host
-    const res = await LoginApi.getTenantByWebsite(website)
-    if (res && !tenantSelectedByUser && !loginLoading.value && !passwordChangeRequired.value) {
-      loginData.loginForm.tenantName = res.name
-      handleTenantNameChange(res.name)
-      authUtil.setTenantId(res.id)
-    }
-  }
 }
 const isPasswordChangeRequiredError = (error: unknown) => {
   const errorLike = error as any
@@ -347,20 +313,16 @@ const completeLogin = async (loginForm: authUtil.LoginFormType, tenantId: number
     text: '正在加载系统中...',
     background: 'rgba(0, 0, 0, 0.7)'
   })
-  if (loginForm.rememberMe && !passwordChangeRequired.value) {
-    authUtil.setLoginForm(loginForm)
-  } else {
-    authUtil.removeLoginForm(loginForm.tenantName)
-  }
+  authUtil.setLoginForm(loginForm)
   authUtil.setToken(res)
-  if (!redirect.value) {
-    redirect.value = '/'
+  if (!redirect.value || redirect.value === '/' || redirect.value === '/index') {
+    redirect.value = '/user/profile'
   }
   if (redirect.value.indexOf('sso') !== -1) {
     window.location.href = window.location.href.replace('/login?redirect=', '')
   } else {
     try {
-      await push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
+      await push({ path: redirect.value })
     } catch (error) {
       loginErrorMessage.value = resolveLoginErrorMessage(error, 'permission')
       throw error
@@ -372,6 +334,7 @@ const completeLogin = async (loginForm: authUtil.LoginFormType, tenantId: number
 const handleLogin = async () => {
   loginLoading.value = true
   loginErrorMessage.value = ''
+  permissionStore.initializationError = ''
   try {
     const tenantId = await getTenantId()
     if (!tenantId) {
@@ -404,6 +367,7 @@ const submitRequiredPasswordChange = async () => {
   passwordChangeSubmitting.value = true
   loginLoading.value = true
   loginErrorMessage.value = ''
+  permissionStore.initializationError = ''
   let passwordChangeAttempted = false
   try {
     const tenantId = await getTenantId()
@@ -455,7 +419,12 @@ watch(
 onMounted(() => {
   getLoginFormCache()
   loadTenantOptions()
-  getTenantByWebsite()
+  // 租户和用户名独立于“记住我”保存，密码不进入缓存。
+  watch(
+    () => [loginData.loginForm.tenantName, loginData.loginForm.username, loginData.loginForm.rememberMe],
+    () => authUtil.setLoginForm({ ...loginData.loginForm }),
+    { flush: 'sync' }
+  )
 })
 </script>
 

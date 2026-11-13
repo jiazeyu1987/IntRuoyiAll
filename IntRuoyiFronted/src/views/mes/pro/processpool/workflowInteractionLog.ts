@@ -20,7 +20,7 @@ export function useWorkflowInteractionLog(scope: WorkflowLogScope | (() => Workf
   const record = async (outcome: 'CANCELED' | 'BLOCKED', control: string) => {
     const session = currentSession()
     if (!user.getUser.id || !getTenantId() || !getAccessToken()) {
-      saveError.value='操作日志保存失败：登录身份已失效。'
+      saveError.value='取消/拦截交互日志未保存：登录身份已失效。业务提交结果请查看提交记录。'
       return
     }
     saving.value++
@@ -29,7 +29,7 @@ export function useWorkflowInteractionLog(scope: WorkflowLogScope | (() => Workf
         outcome,control}, ignoreErrorMessage:true, skipAuthRefreshReplay:true,
         isRequestContextCurrent:()=>session===currentSession()})
     } catch {
-      saveError.value='操作日志保存失败，取消或拦截记录尚未确认，请联系管理员核对。'
+      saveError.value='取消/拦截交互日志保存未确认，请联系管理员核对；业务提交结果请查看提交记录。'
     } finally { saving.value-- }
   }
   const blocked = (control='页面校验未通过') => { if(installed)void record('BLOCKED',control) }
@@ -51,7 +51,7 @@ export function useWorkflowInteractionLog(scope: WorkflowLogScope | (() => Workf
     await nextTick()
     await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))
     if(session!==currentSession()) {
-      saveError.value='操作日志保存失败：操作期间登录身份已改变，未以其他人员身份补记。'
+      saveError.value='取消/拦截交互日志未保存：操作期间登录身份已改变，未以其他人员身份补记。业务提交结果请查看提交记录。'
       if(dialog)pending.delete(dialog)
       return
     }

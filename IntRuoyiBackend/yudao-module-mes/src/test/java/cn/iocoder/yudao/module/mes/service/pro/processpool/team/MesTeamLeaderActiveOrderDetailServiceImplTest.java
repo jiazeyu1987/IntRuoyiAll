@@ -822,17 +822,39 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
-    @Test
-    void missingSupplementMaterialReportsItsCodeInsteadOfProcessSnapshot() {
-        var supplement = new cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO();
-        supplement.setMaterialNumber("A002.09.001.113017");
-        ServiceException error = assertThrows(ServiceException.class, () ->
-                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
-                        "loadMaterialByCode", 8101L, List.of(supplement)));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUPPLEMENT_MATERIAL_REQUIRED.getCode(), error.getCode());
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("8101"));
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("A002.09.001.113017"));
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("物料列表同步"));
+    @ParameterizedTest
+    @ValueSource(strings = {"MISSING", "NO_ID", "NO_CODE", "VALID"})
+    void supplementDisplayKeepsSourceFactsWhenMasterDataIsMissingOrIncomplete(String state) {
+        String code = "A002.09.001.113017";
+        var supplement = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO.builder()
+                .id(1L).productionReplenishmentListId(11L).materialNumber(code).materialName("补料名称")
+                .materialSpecification("补料规格").lotNumber("LOT-A")
+                .requestedQuantity(new BigDecimal("12")).actualQuantity(new BigDecimal("10"))
+                .baseActualQuantity(new BigDecimal("20")).build();
+        if (!"MISSING".equals(state)) {
+            when(itemMapper.selectByCode(code)).thenReturn(MesMdItemDO.builder()
+                    .id("NO_ID".equals(state) ? null : 101L)
+                    .code("NO_CODE".equals(state) ? " " : code).build());
+        }
+        java.util.Map<String, MesMdItemDO> materials = org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(service, "loadMaterialByCode", 8101L, List.of(supplement));
+        var header = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO.builder()
+                .id(11L).sourceBillNo("BL-11").build();
+        java.util.Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> grouped =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "groupSupplementMaterials",
+                        8101L, List.of(supplement), java.util.Map.of(11L, header), materials);
+        var result = grouped.get(code).get(0);
+        assertEquals("VALID".equals(state) ? 101L : null, result.getMaterialId());
+        assertEquals(code, result.getMaterialCode());
+        assertEquals("补料名称", result.getMaterialName());
+        assertEquals("补料规格", result.getMaterialSpecification());
+        assertEquals(List.of("LOT-A"), result.getBatchCodes());
+        assertEquals(new BigDecimal("12"), result.getRequestedQuantity());
+        assertEquals(new BigDecimal("10"), result.getActualQuantity());
+        assertEquals(new BigDecimal("20"), result.getBaseActualQuantity());
+        assertEquals(List.of(11L), result.getSourceReplenishmentListIds());
+        assertEquals(List.of("BL-11"), result.getSourceReplenishmentListNos());
+        assertEquals(List.of(1L), result.getSourceReplenishmentListItemIds());
     }
 
     @Mock private MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader;

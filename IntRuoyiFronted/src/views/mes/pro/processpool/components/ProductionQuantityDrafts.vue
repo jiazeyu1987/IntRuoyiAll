@@ -36,7 +36,7 @@
           </el-form-item>
           <el-alert v-if="decision === 'HISTORY_ERROR'" type="info" :closable="false" title="请先在生产提交记录中完成全部或部分重新分配。系统会检查历史调整后是否已为本次填写腾出足够数量。" />
           <el-form-item label="处理说明（请明确正确订单、数量或历史分配调整情况）"><el-input v-model="reason" type="textarea" maxlength="1000" /></el-form-item>
-          <el-form-item label="组长电子签名密码"><el-input v-model="password" type="password" autocomplete="off" /></el-form-item>
+          <el-form-item label="组长电子签名密码"><SignatureCredentialInput v-model="password" /></el-form-item>
         </el-form>
       </template>
       <template #footer><el-button :disabled="saving" @click="reviewOpen = false">取消</el-button><el-button type="primary" :loading="saving" @click="submitReview">签署处理结果</el-button></template>
@@ -44,6 +44,7 @@
   </el-card>
 </template>
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOwnQuantityDrafts, getLeaderQuantityDrafts, reviewQuantityDraft, type ProductionQuantityDraft } from '@/api/mes/pro/feedback/quantityDraft'

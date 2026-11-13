@@ -124,9 +124,10 @@ public class MesReportAllocationOrderChangeService {
                 .collect(Collectors.groupingBy(this::targetKey, LinkedHashMap::new, Collectors.toList()));
         for (Map.Entry<TargetKey, List<MesProcessPoolReportAllocationDO>> entry : byTarget.entrySet()) {
             TargetKey key = entry.getKey();
-            MesTeamLeaderOrderProcessTarget target = targetService.requireTarget(key.activeOrderId(),
+            targetService.requireTarget(key.activeOrderId(),
                     key.workOrderId(), key.routeProcessId(), key.processId());
-            BigDecimal remaining = newErpQuantity.multiply(target.productionQuantityFactor());
+            BigDecimal remaining = newErpQuantity.multiply(targetService.requireLossCoefficient(
+                    key.activeOrderId(), key.routeProcessId(), key.processId()));
             for (MesProcessPoolReportAllocationDO row : entry.getValue().stream()
                     .sorted(Comparator.comparing(MesProcessPoolReportAllocationDO::getId)).toList()) {
                 BigDecimal kept = remaining.max(BigDecimal.ZERO).min(row.getAllocatedQuantity());

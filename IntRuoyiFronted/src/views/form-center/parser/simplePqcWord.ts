@@ -105,6 +105,9 @@ export function createPqcWord(
         ['巡检检验水平', item.inspectionLevel],
         ['AQL', item.aql],
         ['检验器具及设备要求', item.inspectionTool],
+        ...(item.equipmentRequired === false
+          ? [['需要设备', '否（人工确认无需设备）'] as [string, string]]
+          : []),
         ['器具未绑定原因', item.equipmentUnboundReason],
         [
           '设备编号 / 名称',
@@ -189,6 +192,7 @@ export function readPqcWord(
             typeof item.itemName === 'string' &&
             (item.equipmentUnboundReason == null ||
               typeof item.equipmentUnboundReason === 'string') &&
+            (item.equipmentRequired == null || typeof item.equipmentRequired === 'boolean') &&
             Array.isArray(item.equipmentOptions) &&
             Array.isArray(item.applicableInspectionTypes)
         )

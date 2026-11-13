@@ -19,10 +19,12 @@ const js = ts.transpileModule(selected, { compilerOptions: { target: ts.ScriptTa
 function harness() {
   let rows = [{ id: 4609 }]
   let failure
+  let pageLoader
   const calls = [], errors = [], instances = []
   const api = { getMyNotifyMessagePage: async params => {
     calls.push({ ...params })
     if (failure) throw failure
+    if (pageLoader) return pageLoader(params)
     return { list: rows, total: rows.length }
   } }
   const Notify = vue.defineComponent({
@@ -33,7 +35,7 @@ function harness() {
       Function('exports', ts.transpileModule(inboxSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(inboxModule.exports)
       const context = { ...vue, NotifyMessageApi: api, ...inboxModule.exports,
         props: { active: true }, canReadReleaseOutcomes: { value: false }, refreshTableLayout: async () => {} }
-      const state = Function(...Object.keys(context), `${js}; return { loading, list, total, loadError };`)(...Object.values(context))
+      const state = Function(...Object.keys(context), `${js}; return { loading, list, total, loadError, queryParams, getList };`)(...Object.values(context))
       instances.push(state)
       return () => vue.h('section', state.list.value.map(row => vue.h('span', String(row.id))))
     }
@@ -60,6 +62,7 @@ function harness() {
   return {
     Notify, calls, errors, instances,
     setRows: value => { rows = value }, setFailure: value => { failure = value },
+    setPageLoader: value => { pageLoader = value },
     mount(render) {
       const app = renderer.createApp({ render })
       app.config.errorHandler = error => errors.push(error)
@@ -139,5 +142,56 @@ test('failed cached refresh exposes the original error and ends loading without 
   assert.equal(h.instances[0].loadError.value, failure.message)
   assert.equal(h.instances[0].loading.value, false)
   assert.deepEqual(h.instances[0].list.value, [])
+  assert.equal(h.instances[0].total.value, 0)
+  app.unmount()
+})
+
+test('翻到第2页、中间页和末页时总数不清零，目标页和消息内容保持一致', async () => {
+  const h = harness()
+  const messages = Array.from({ length: 83 }, (_, index) => ({ id: 9000 - index }))
+  h.setPageLoader(async params => ({
+    list: messages.slice((params.pageNo - 1) * params.pageSize, params.pageNo * params.pageSize),
+    total: messages.length
+  }))
+  const app = h.mount(() => vue.h(h.Notify))
+  await flush()
+  const state = h.instances[0]
+  for (const pageNo of [2, 5, 9]) {
+    let resolvePage
+    h.setPageLoader(() => new Promise(resolve => { resolvePage = resolve }))
+    state.queryParams.pageNo = pageNo
+    const request = state.getList()
+    await vue.nextTick()
+    assert.equal(state.total.value, 83, '等待接口返回时不能把分页器的总数清零')
+    assert.equal(state.loading.value, true)
+    assert.equal(state.queryParams.pageNo, pageNo)
+    assert.equal(h.calls.at(-1).pageNo, pageNo)
+    const pageRows = messages.slice((pageNo - 1) * 10, pageNo * 10)
+    resolvePage({ list: pageRows, total: 83 })
+    await request
+    assert.equal(state.queryParams.pageNo, pageNo)
+    assert.deepEqual(state.list.value.map(row => row.id), pageRows.map(row => row.id))
+    assert.equal(state.total.value, 83)
+  }
+  assert.deepEqual(h.calls.map(call => call.pageNo), [1, 2, 5, 9])
+  app.unmount()
+})
+
+test('真实总数减少导致目标页越界时仍重新查询最后有效页', async () => {
+  const h = harness()
+  h.setPageLoader(async params => ({
+    list: Array.from({ length: 10 }, (_, index) => ({ id: (params.pageNo - 1) * 10 + index })),
+    total: 83
+  }))
+  const app = h.mount(() => vue.h(h.Notify))
+  await flush()
+  const state = h.instances[0]
+  h.setPageLoader(async params => ({ list: params.pageNo === 2 ? [{ id: 88 }] : [], total: 11 }))
+  state.queryParams.pageNo = 9
+  await state.getList()
+  assert.equal(state.queryParams.pageNo, 2)
+  assert.equal(state.total.value, 11)
+  assert.deepEqual(state.list.value.map(row => row.id), [88])
+  assert.deepEqual(h.calls.map(call => call.pageNo), [1, 9, 2])
   app.unmount()
 })

@@ -267,15 +267,7 @@ const approvalEvidenceEntrypoints: ApprovalEvidenceEntrypoint[] = [
     permission: 'mes:pro-batch-record-execution:signature-query',
     actionType: 'view'
   },
-  {
-    id: 'edhr-field-audit-evidence',
-    label: 'eDHR字段审计证据',
-    description: '进入字段审计链导出字段变更证据，用于核对变更前后内容、修改原因和审计追踪完整性。',
-    sourcePage: '字段审计链',
-    routePath: '/mes/pro/feedback/edhr-field-audit',
-    permission: 'mes:pro-batch-record-execution:field-audit-query',
-    actionType: 'export'
-  },
+  
   {
     id: 'approval-sequence-evidence',
     label: '审批中心顺序证据',

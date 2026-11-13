@@ -83,13 +83,13 @@ const applyDefaultsBlock = between(
 )
 assert.match(
   applyDefaultsBlock,
-  /item\.lastSelectedEquipmentId[\s\S]*item\.lastSelectedEquipmentNumber/,
-  'Default application must read both last selected equipment id and number.'
+  /const selectedOption = getUniquePqcEquipmentOptions\(item\)\[0\]/,
+  'An unselected inspection card must default to its first selectable equipment.'
 )
 assert.match(
   applyDefaultsBlock,
-  /option\.equipmentId === item\.lastSelectedEquipmentId[\s\S]*option\.equipmentNumber === item\.lastSelectedEquipmentNumber/,
-  'Default equipment must still be validated against current formal equipment options.'
+  /selection\.selectedEquipmentId = selectedOption\.equipmentId[\s\S]*selection\.selectedEquipmentNumber = selectedOption\.equipmentNumber/,
+  'Default equipment id and number must come from the same current formal option.'
 )
 assert.match(
   applyDefaultsBlock,

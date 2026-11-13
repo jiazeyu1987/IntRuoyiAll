@@ -52,6 +52,8 @@ public class SmsSendServiceImpl implements SmsSendService {
 
     @Resource
     private SmsProducer smsProducer;
+    @Resource
+    private SmsReceiptTenantRouter receiptTenantRouter;
 
     @Override
     @DataPermission(enable = false) // 发送短信时，无需考虑数据权限
@@ -184,8 +186,9 @@ public class SmsSendServiceImpl implements SmsSendService {
             return;
         }
         // 更新短信日志的接收结果. 因为量一般不大，所以先使用 for 循环更新
-        receiveResults.forEach(result -> smsLogService.updateSmsReceiveResult(result.getLogId(), result.getSerialNo(),
-                result.getSuccess(), result.getReceiveTime(), result.getErrorCode(), result.getErrorMsg()));
+        receiveResults.forEach(result -> receiptTenantRouter.route(channelCode, result,
+                logId -> smsLogService.updateSmsReceiveResult(logId, result.getSerialNo(),
+                        result.getSuccess(), result.getReceiveTime(), result.getErrorCode(), result.getErrorMsg())));
     }
 
 }

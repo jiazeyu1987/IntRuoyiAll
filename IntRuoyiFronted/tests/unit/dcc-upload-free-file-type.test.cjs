@@ -10,10 +10,13 @@ const ref = value => ({ value })
 const block = (start, next) => { const from=page.indexOf(start), to=page.indexOf(next,from); assert.ok(from>0 && to>from); return page.slice(from,to) }
 function execute(source, state, name) { const c={exports:{},Error,JSON,String,Number,Promise,...state}; vm.runInNewContext(ts.transpileModule(source+'\nexports.handler='+name,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c); return {c,handler:c.exports.handler} }
 test('empty optional project template is not a core upload error and does not supply taxonomy', async () => {
- const s={formData:{dccProjectCodeId:'5'},projectFileTemplateLoading:ref(false),projectFileTemplateError:ref(''),projectFileTemplateItems:ref([]),fileTypeTaxonomies:ref([{id:'9007199254740993',active:true}]),getProjectCodeFileTemplate:async()=>({items:[],taxonomyOptions:[]}),resolveUploadErrorMessage:e=>e.message,message:{error:()=>{}},projectTemplateRequestSequence:0}
+ const reads=[]
+ const s={isLibraryUpload:ref(false),formData:{dccProjectCodeId:'5'},projectFileTemplateLoading:ref(false),projectFileTemplateError:ref(''),projectFileTemplateItems:ref([]),fileTypeTaxonomies:ref([{id:'9007199254740993',active:true}]),getProjectCodeFileTemplate:async id=>{reads.push(id);return {items:[],taxonomyOptions:[]}},resolveUploadErrorMessage:e=>e.message,message:{error:()=>{}},projectTemplateRequestSequence:0}
  await execute(block('const loadProjectFileTemplate =','const applyDccProjectCodeProductNumber ='),s,'loadProjectFileTemplate').handler('5')
+ assert.deepEqual(reads,['5'])
  assert.equal(s.projectFileTemplateError.value,'')
  assert.equal(s.fileTypeTaxonomies.value.length,1)
+ assert.equal(s.projectFileTemplateLoading.value,false)
 })
 test('actual chosen file name is the source context before preview even without any template item', async () => {
  const calls=[],file={uid:1,name:'Arbitrary.SOP.docx',raw:{name:'Arbitrary.SOP.docx',type:'application/docx'}}
@@ -72,14 +75,17 @@ test('actual type selection resolves the exact formal category and never takes t
  }
 })
 test('optional template failure stays auxiliary and preserves independently loaded core types',async()=>{
- const s={formData:{dccProjectCodeId:'5'},projectFileTemplateLoading:ref(false),projectFileTemplateError:ref(''),projectFileTemplateItems:ref([]),fileTypeTaxonomies:ref([{id:'11',active:true}]),getProjectCodeFileTemplate:async()=>{throw Error('参考模板无法读取')},resolveUploadErrorMessage:e=>e.message,projectTemplateRequestSequence:0}
+ const reads=[]
+ const s={isLibraryUpload:ref(false),formData:{dccProjectCodeId:'5'},projectFileTemplateLoading:ref(false),projectFileTemplateError:ref(''),projectFileTemplateItems:ref([]),fileTypeTaxonomies:ref([{id:'11',active:true}]),getProjectCodeFileTemplate:async id=>{reads.push(id);throw Error('参考模板无法读取')},resolveUploadErrorMessage:e=>e.message,projectTemplateRequestSequence:0}
  await execute(block('const loadProjectFileTemplate =','const applyDccProjectCodeProductNumber ='),s,'loadProjectFileTemplate').handler('5')
+ assert.deepEqual(reads,['5'])
  assert.match(s.projectFileTemplateError.value,/参考模板/);assert.equal(s.fileTypeTaxonomies.value.length,1)
+ assert.equal(s.projectFileTemplateLoading.value,false)
 })
 test('actual single type form renders complete enabled path even without a project template',()=>{
  const {descriptor}=parse(page)
  const find=n=>{if(n.type===1 && n.tag==='el-form-item' && n.props.some(p=>p.type===6&&p.name==='label'&&p.value?.content==='文件类型'))return n;for(const c of n.children||[]){const found=find(c);if(found)return found}}
- const node=find(descriptor.template.ast),values={isExternalReview:false,formData:{dccProjectCodeId:'5',fileTypeTaxonomyId:'9007199254740993'},submitLoading:false,fileTypeOptionsLoading:false,fileTypeOptionsError:'',fileTypeCategoryError:'',uploadFileTypeOptions:[{id:'9007199254740993',names:['设计','报告','任意报告']},{id:'15',names:['通用文件','其他类型','其他'],approvalSourceMode:'APPLICATION_CUSTOM',uploadBlocker:null}],handleFileTypeTaxonomyChange:()=>{}}
+ const node=find(descriptor.template.ast),values={isExternalReview:false,formData:{dccProjectCodeId:'5',fileTypeTaxonomyId:'9007199254740993'},submitLoading:false,fileTypeOptionsLoading:false,categoryOptionsLoading:false,categoryOptionsError:'',fileTypeOptionsError:'',fileTypeCategoryError:'',uploadFileTypeOptions:[{id:'9007199254740993',names:['设计','报告','任意报告']},{id:'15',names:['通用文件','其他类型','其他'],approvalSourceMode:'APPLICATION_CUSTOM',uploadBlocker:null}],handleFileTypeTaxonomyChange:()=>{}}
  const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const values=__values;'+Object.keys(values).map(k=>'const '+k+'=values.'+k).join('\n')+'</script>').descriptor,{id:'actual-single-type',inlineTemplate:true})
  const env={exports:{},require:()=>vue,__values:values};vm.runInNewContext(ts.transpileModule(compiled.content,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,env)
  const renderer=vue.createRenderer({createElement:type=>({type,children:[],props:{}}),createText:text=>({text}),createComment:()=>({}),insert:(c,p)=>p.children.push(c),remove(){},setText:(n,t)=>{n.text=t},setElementText:(n,t)=>{n.text=t},patchProp:(n,k,_old,v)=>{n.props[k]=v},parentNode:()=>null,nextSibling:()=>null})
@@ -96,4 +102,46 @@ test('actual single type form renders complete enabled path even without a proje
   vm.runInNewContext(ts.transpileModule(block('const isCustomApprovalSource =','const handleCustomMatrixChange =')+'\nexports.custom=isCustomApprovalSource',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)
   assert.equal(context.exports.custom.value,true)
  }finally{app.unmount()}
+})
+
+test('file information keeps ordered fields, paired inputs, readonly matches and separate supplementary uploads', () => {
+ const {descriptor}=parse(page)
+ const walk=n=>[n,...(n.children||[]).flatMap(walk)]
+ const attr=(n,key)=>n.props?.find(p=>p.type===6&&p.name===key)?.value?.content
+ const nodes=walk(descriptor.template.ast)
+ const section=nodes.find(n=>attr(n,'data-testid')==='dcc-upload-section-file')
+ assert.ok(section)
+ const fields=walk(section).filter(n=>n.tag==='el-form-item')
+ assert.deepEqual(fields.map(n=>attr(n,'prop')).filter(Boolean),[
+  'fileName','fileName','fileTypeTaxonomyId','categoryId','categoryId','fileNumber','versionNo','productCode','projectFolderChangeReason'
+ ])
+ assert.deepEqual(fields.filter(n=>!attr(n,'prop')).map(n=>attr(n,'label')),['关联文件','附件'])
+ const pairs=walk(section).filter(n=>attr(n,'class')==='upload-file-pair')
+ assert.equal(pairs.length,2)
+ assert.deepEqual(walk(pairs[0]).filter(n=>n.tag==='el-form-item').map(n=>attr(n,'prop')),['fileNumber','versionNo'])
+ assert.deepEqual(walk(pairs[1]).filter(n=>n.tag==='el-form-item').map(n=>attr(n,'label')),['关联文件','附件'])
+ const type=fields.find(n=>attr(n,'prop')==='fileTypeTaxonomyId')
+ assert.ok(walk(type).some(n=>n.tag==='el-select'&&attr(n,'class')==='!w-full'))
+ const category=fields.find(n=>attr(n,'prop')==='categoryId'&&n.loc.source.includes('v-else'))
+ assert.match(category.loc.source,/selectedCategory\?\.name/)
+ assert.match(category.loc.source,/自动匹配/)
+ assert.ok(!walk(category).some(n=>['el-input','el-select'].includes(n.tag)))
+ const number=fields.find(n=>attr(n,'prop')==='fileNumber')
+ for(const key of ['currentVersionLookupLoading','currentVersionLookupError','currentVersionInfo.fileName','currentVersionInfo.currentVersionNo',
+  'currentVersionInfo.status','currentVersionInfo.modifying','currentVersionProjectionBlockReason','isRequestedVersionDuplicate',
+  'currentVersionStatusLabel','currentVersionFiles']) assert.ok(number.loc.source.includes(key),key)
+ for (const key of ['originalFilePath','sourceFilePath','stampedFilePath','publishedFilePath']) assert.ok(descriptor.scriptSetup.content.includes(key),key)
+ const product=fields.find(n=>attr(n,'prop')==='productCode')
+ assert.ok(!walk(product).some(n=>n.tag==='el-input'))
+ const details=walk(product).find(n=>n.tag==='details')
+ assert.ok(details&&!details.props.some(p=>p.name==='open'))
+ assert.match(details.loc.source,/查看详情/)
+ for(const key of ['source','productMasterId','productCatalogId','productRelationId','productCreateRequestId']) assert.ok(details.loc.source.includes(key),key)
+ assert.match(product.loc.source,/projectProduct.productName/)
+ const reason=fields.find(n=>attr(n,'prop')==='projectFolderChangeReason')
+ assert.ok(walk(reason).some(n=>n.tag==='el-input'&&attr(n,'maxlength')==='500'))
+ assert.match(reason.loc.source,/选填/)
+ assert.match(section.loc.source,/ref="attachmentUploadRef"/)
+ assert.match(section.loc.source,/:on-remove="handleAttachmentRemove"/)
+ assert.doesNotMatch(section.loc.source,/ref="uploadRef"/)
 })

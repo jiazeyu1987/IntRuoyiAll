@@ -129,7 +129,6 @@ const query = reactive({ pageNo: 1, pageSize: 10, operationId: operations[0].val
 const loadRows = async () => {
   loading.value = true
   rows.value = []
-  total.value = 0
   try {
     const result = await getGxpAuditEventPage({
       ...query,
@@ -137,6 +136,9 @@ const loadRows = async () => {
     })
     rows.value = result.list
     total.value = result.total
+  } catch (error) {
+    total.value = 0
+    throw error
   } finally {
     loading.value = false
   }

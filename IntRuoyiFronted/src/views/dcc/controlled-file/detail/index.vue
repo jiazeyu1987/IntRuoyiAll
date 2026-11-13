@@ -27,11 +27,10 @@
           <el-tag :type="getDetailStatusTagType(fileDetail.status)">{{ getDetailStatusLabel(fileDetail.status) }}</el-tag>
         </div>
         <section class="detail-viewer-page__body" data-testid="dcc-controlled-preview-file-pane">
-          <ProtectedPdfViewer
+          <ReviewDocumentPreview
             v-if="detailBodyPreviewState.source"
-            :controlled-file-id="controlledFileId"
-            :preview-source="detailBodyPreviewState.source"
-            :title="fileDetail.fileName"
+            :controlled-file-id="controlledFileId" :source="detailBodyPreviewState.source"
+            :file="fileDetail" :context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error"
           />
         </section>
       </template>
@@ -68,11 +67,12 @@
   </ContentWrap>
 
   <template v-else>
+    <div class="dcc-detail-layout" :class="{ 'dcc-review-layout': isApprovalUploadHandlingPage }">
     <ContentWrap class="dcc-detail-surface">
       <div class="detail-header-shell">
         <div>
           <div class="detail-identity-row flex items-center gap-10px">
-            <div class="detail-file-name">{{ fileDetail?.title || '受控文件详情' }}</div>
+            <div class="detail-file-name">{{ fileDetail?.fileName || fileDetail?.title || '受控文件详情' }}</div>
             <el-tag :type="getDetailStatusTagType(fileDetail?.status)">
               {{ getDetailStatusLabel(fileDetail?.status) }}
             </el-tag>
@@ -85,7 +85,7 @@
           <div class="mt-8px flex flex-wrap items-center gap-10px text-13px text-[var(--el-text-color-secondary)]">
             <span>文件编号：{{ fileDetail?.fileNumber || '-' }}</span>
             <span>版本：{{ getDccVersionDisplayText(fileDetail?.versionNo) }}</span>
-            <span>生效日期：{{ formatControlledFileDate(fileDetail?.effectiveDate) }}</span>
+            <span v-if="!isApprovalUploadHandlingPage">生效日期：{{ formatControlledFileDate(fileDetail?.effectiveDate) }}</span>
           </div>
         </div>
         <div class="detail-action-bar">
@@ -322,90 +322,64 @@
       />
     </ContentWrap>
 
-    <ContentWrap class="dcc-detail-surface">
-      <PublicationFollowupPanel :controlled-file-id="controlledFileId" :read-selection="detailReadSelectionState.selection" />
-    </ContentWrap>
-
+    <ReviewSectionNavigation v-if="isApprovalUploadHandlingPage" :sections="reviewSections" />
     <template v-if="isApprovalUploadHandlingPage">
+      <section ref="reviewOverviewRef" class="review-section">
       <ContentWrap class="dcc-detail-surface mt-16px" data-testid="dcc-approval-upload-view">
-        <div class="detail-table-header mb-12px">
-          <div>
-            <div class="text-16px font-700">上传提交信息</div>
-            <div
-              class="mt-4px text-13px text-[var(--el-text-color-secondary)]"
-              data-testid="dcc-approval-upload-submission-summary"
-            >
-              提交范围：审批中心上传审批；审批阶段：{{ currentStageLabel }}
-            </div>
-          </div>
-          <el-tag type="warning" effect="plain">审批要求</el-tag>
+        <div class="approval-file-overview-scroll">
+        <el-descriptions class="approval-file-overview" title="文件概览" :column="3" label-width="112px" border data-testid="dcc-approval-file-overview">
+          <el-descriptions-item label="项目">{{ currentDccProjectCodeText }}</el-descriptions-item>
+          <el-descriptions-item label="存储文件夹">{{ fileDetail?.projectFolderName || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="文件分类">{{ categoryNameMap.get(fileDetail?.categoryId || 0) || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="产品编号">{{ fileDetail?.productCode || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="产品名称">{{ fileDetail?.productName || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="编制人">{{ fileDetail?.fileOwnerNicknameSnapshot || fileDetail?.fileOwnerUsernameSnapshot || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="提交备注"><span class="whitespace-pre-wrap">{{ fileDetail?.remark || '无' }}</span></el-descriptions-item>
+          <el-descriptions-item label="申请生效方式">
+            {{ fileDetail?.effectiveMode ? effectiveFacts(fileDetail).modeText : '未记录' }}
+            <span v-if="fileDetail?.effectiveDate">（预设生效日期：{{ fileDetail.effectiveDate }}）</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="培训要求">{{ approvalHandlingTrainingText }}</el-descriptions-item>
+        </el-descriptions>
         </div>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-descriptions title="文件信息" :column="1" border>
-              <el-descriptions-item label="DCC 项目">
-                {{ currentDccProjectCodeText }}
-              </el-descriptions-item>
-              <el-descriptions-item label="文件分类">
-                {{ categoryNameMap.get(fileDetail?.categoryId || 0) || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="提交目录">
-                {{ controlledBrowserDirectoryPath }}
-              </el-descriptions-item>
-              <el-descriptions-item label="文件名称">
-                {{ fileDetail?.title || fileDetail?.fileName || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="文件编号">
-                {{ fileDetail?.fileNumber || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="产品编号">
-                {{ fileDetail?.productCode || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="版本号">
-                {{ getDccVersionDisplayText(fileDetail?.versionNo) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="生效日期">
-                {{ formatControlledFileDate(fileDetail?.effectiveDate) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="提交备注">
-                {{ fileDetail?.remark || '-' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="培训要求">
-                {{ approvalHandlingTrainingText }}
-              </el-descriptions-item>
-              <el-descriptions-item label="本次申请流程">{{ approvalHandlingProcessText }}</el-descriptions-item>
-            </el-descriptions>
-          </el-col>
-          <el-col :span="12">
-            <div
-              class="dcc-approval-upload-preview"
-              data-testid="dcc-approval-upload-file-preview"
-            >
-              <div class="mb-10px text-15px font-600">主文档预览</div>
-              <el-alert v-if="detailBodyPreviewState.error" :title="detailBodyPreviewState.error" type="error" :closable="false" show-icon />
-              <ProtectedPdfViewer
-                v-if="detailBodyPreviewState.source"
-                ref="approvalBodyViewerRef"
-                :controlled-file-id="controlledFileId"
-                :preview-source="detailBodyPreviewState.source"
-                :title="fileDetail?.title || '主文档预览'"
-              />
-            </div>
-          </el-col>
-        </el-row>
       </ContentWrap>
+      </section>
+      <section ref="reviewBodyRef" class="review-section">
+      <ContentWrap class="dcc-detail-surface">
+        <section class="dcc-approval-upload-preview min-w-0 w-full" data-testid="dcc-approval-upload-file-preview">
+          <div class="mb-10px text-15px font-600">正文与附件</div>
+          <el-alert v-if="detailBodyPreviewState.error" :title="detailBodyPreviewState.error" type="error" :closable="false" show-icon />
+          <div ref="reviewBodyContentRef"></div>
+          <ReviewDocumentPreview
+            ref="approvalBodyViewerRef" hide-reading-details :controlled-file-id="controlledFileId"
+            :source="detailBodyPreviewState.source" :file="fileDetail"
+            :context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error"
+          />
+        </section>
+      </ContentWrap>
+      </section>
 
+      <section ref="reviewTaskRef" class="review-section">
       <ContentWrap
         v-loading="approvalLoading"
         class="dcc-detail-surface mt-16px"
         data-testid="dcc-approval-upload-action-panel"
       >
-        <div class="mb-10px text-15px font-600">审批要求：{{ approvalActionLabels.dialogTitle }}</div>
-        <div v-if="approvalTodoTask" class="rounded-8px border border-solid border-[var(--el-border-color)] p-16px">
-          <div class="text-14px font-600">当前任务：{{ currentApprovalTaskName }}</div>
-          <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
+        <div v-if="!isActualSignoffReviewPage" class="mb-10px text-15px font-600">当前任务</div>
+        <div v-if="approvalTodoTask">
+          <div v-if="isActualSignoffReviewPage" class="flex items-center justify-between gap-16px" data-testid="dcc-signoff-current-task">
+            <div>
+              <div class="text-15px font-600">{{ currentApprovalTaskName }}</div>
+              <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">已完成 {{ actualSignoffStage?.completionText || '尚未读取' }}</div>
+            </div>
+            <el-tag>待处理</el-tag>
+          </div>
+          <template v-else>
+          <div v-if="!canShowSignoffAssignment" class="text-14px font-600">{{ currentApprovalTaskName }}</div>
+          <div v-if="!canShowSignoffAssignment" class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
             {{ currentStageSameLayerHint }}
           </div>
+          </template>
           <div
             v-if="isReturnedApplicantTask"
             class="mt-6px text-13px text-[var(--el-color-warning)]"
@@ -413,7 +387,20 @@
           >
             有流程回退，需先到受控浏览检出并检入修正文档，生成新的待提交受控文件版本后再提交审批。
           </div>
-          <div class="mt-14px flex flex-wrap gap-8px">
+          <DetailSignoffAssignment
+            ref="signoffAssignmentRef"
+            v-if="fileDetail && approvalTodoTask && canShowSignoffAssignment"
+            :blocked="actionDialog?.visible"
+            :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
+            @state="handleSignoffAssignmentState" @saved="handleSignoffAssignmentSaved"
+          >
+            <template #actions="{ disabled }">
+              <el-button type="danger" plain :disabled="disabled" @click="openActionDialog('reject')">
+                {{ approvalActionLabels.rejectText }}
+              </el-button>
+            </template>
+          </DetailSignoffAssignment>
+          <div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage" class="mt-14px flex flex-wrap gap-8px">
             <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
               去修改正文
             </el-button>
@@ -437,15 +424,17 @@
             </el-button>
           </div>
         </div>
-        <el-empty v-else :image-size="72" description="当前没有待处理审批任务" />
+        <p v-else-if="isSupervisorReviewPage" class="text-13px text-[var(--el-text-color-secondary)]">{{ supervisorReviewBlockedReason }}</p>
+        <p v-else class="text-13px text-[var(--el-text-color-secondary)]">当前没有待处理审批任务</p>
       </ContentWrap>
+      </section>
     </template>
 
-    <ContentWrap class="dcc-detail-surface" v-if="!showLifecycleTraceSections">
+    <ContentWrap class="dcc-detail-surface" v-if="!showLifecycleTraceSections && !isApprovalUploadHandlingPage">
       <ControlledFileAttachments :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
     </ContentWrap>
 
-    <ContentWrap class="dcc-detail-surface" v-if="fileDetail" data-testid="dcc-detail-formal-version-facts">
+    <ContentWrap class="dcc-detail-surface" v-if="fileDetail && !isApprovalUploadHandlingPage" data-testid="dcc-detail-formal-version-facts">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="实际变更类型">{{ revisionChangeLabel(fileDetail.revisionChangeType) }}</el-descriptions-item>
         <el-descriptions-item label="文件记录身份">#{{ fileDetail.id }}</el-descriptions-item>
@@ -501,12 +490,14 @@
       @submitted="handleApplicationSubmitted" @prepare-body="prepareApplicationBody"
     />
     <DetailSignoffAssignment
-      v-if="fileDetail && approvalTodoTask && canShowSignoffAssignment"
+      ref="signoffAssignmentRef"
+      v-if="!isApprovalUploadHandlingPage && fileDetail && approvalTodoTask && canShowSignoffAssignment"
+      :blocked="actionDialog?.visible"
       :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
       @state="handleSignoffAssignmentState" @saved="handleSignoffAssignmentSaved"
     >
-      <template #actions>
-        <el-button type="danger" plain @click="openActionDialog('reject')">
+      <template #actions="{ disabled }">
+        <el-button type="danger" plain :disabled="disabled" @click="openActionDialog('reject')">
           {{ approvalActionLabels.rejectText }}
         </el-button>
       </template>
@@ -518,6 +509,8 @@
         :save="saveDelayedConfirmation" @saved="reloadAll" />
     </ContentWrap>
 
+    <section ref="reviewApplicationRef" :class="{ 'review-section': isApprovalUploadHandlingPage }">
+    <div v-if="isApprovalUploadHandlingPage && !isSupervisorReviewPage" class="mb-12px text-15px font-600" data-testid="dcc-approval-application-heading">申请与审批</div>
     <DetailApplicationHistory
       v-if="fileDetail?.id && hasRelationApplicationContext" :key="relationApplicationContextKey" :file-id="fileDetail.id"
       :expected-version-no="fileDetail.versionNo"
@@ -529,9 +522,11 @@
       :context-error="applicationRoundSelection.blockedReason"
       :lock-primary-round="applicationRoundSelection.lockPrimaryRound" show-node-records
       @selection-change="onApplicationSelectionChange" />
+    </section>
     <el-alert
       v-if="relationApplicationSelectionError" :title="relationApplicationSelectionError"
       type="error" :closable="false" />
+    <section ref="reviewRelationsRef" :class="{ 'review-section': isApprovalUploadHandlingPage, 'review-section--last': isApprovalUploadHandlingPage }">
     <DetailRelationsPanel
       v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
       :key="String(fileDetail.id)" :file="fileDetail"
@@ -539,6 +534,14 @@
       :application-selection="relationApplicationSelection"
       :body-read-context="detailReadSelectionState.selection?.bodyReadContext || (detailBodyPreviewState.context?.intent !== 'DAILY' ? detailBodyPreviewState.context : undefined)"
       :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
+    <ContentWrap v-else-if="isApprovalUploadHandlingPage" class="dcc-detail-surface">
+      <p class="font-600">关联文件</p>
+      <p>当前文件未绑定项目关联信息。</p>
+    </ContentWrap>
+
+    </section>
+    <PublicationFollowupPanel v-if="fileDetail && isWorkingBrowserDetailCurrent && !detailReadSelectionState.error"
+      :controlled-file-id="controlledFileId" :read-selection="detailReadSelectionState.selection" />
 
     <template v-if="showLifecycleTraceSections">
     <ContentWrap data-testid="dcc-detail-project-code-linkage" class="dcc-detail-surface mt-16px">
@@ -556,10 +559,7 @@
             <Icon icon="ep:connection" class="mr-5px" />
             关联文档入口
           </el-button>
-          <el-button plain :disabled="!fileDetail" @click="openDccProjectCodeTrace">
-            <Icon icon="ep:document" class="mr-5px" />
-            修正追溯入口
-          </el-button>
+          
         </div>
       </div>
       <div class="detail-project-code-linkage-grid">
@@ -1991,8 +1991,12 @@
 
     <el-dialog
       v-model="actionDialog.visible"
-      :title="approvalActionLabels.dialogTitle"
-      width="520px"
+      class="dcc-signature-dialog"
+      :title="actionDialogTitle"
+      width="min(640px, calc(100vw - 32px))"
+      :close-on-click-modal="!actionDialog.submitting"
+      :close-on-press-escape="!actionDialog.submitting"
+      :show-close="!actionDialog.submitting"
       destroy-on-close
     >
       <el-alert
@@ -2045,62 +2049,40 @@
           title="最终批准条件已就绪"
         />
       </div>
-      <el-descriptions class="mb-16px" :column="2" border>
-        <el-descriptions-item label="文件编号">
-          {{ fileDetail?.fileNumber || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="版本">
-          {{ getDccVersionDisplayText(fileDetail?.versionNo) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="当前阶段">
-          {{ currentStageLabel }}
-        </el-descriptions-item>
-        <el-descriptions-item label="签名含义">
-          {{ actionDialogSignatureMeaning }}
-        </el-descriptions-item>
-        <el-descriptions-item label="签名人">
-          {{ currentSignerLabel }}
-        </el-descriptions-item>
-        <el-descriptions-item label="签名动作">
-          {{ actionDialog.mode === 'reject' ? '驳回签名' : '通过签名' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="任务ID" :span="2">
-          {{ approvalTodoTask?.id || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="提交后流转" :span="2">
-          {{ actionDialogSubmitFlowText }}
-        </el-descriptions-item>
-        <el-descriptions-item label="电子签名审计证据" :span="2">
-          本次签名会写入电子签名审计证据，包含签名人、节点、动作、时间、哈希与审计快照。
-        </el-descriptions-item>
-        <el-descriptions-item label="证据前置" :span="2">
-          版本、源文件摘要、受控副本摘要状态
-        </el-descriptions-item>
-      </el-descriptions>
-      <el-form label-width="96px">
-        <el-form-item label="签名凭据" :error="actionDialog.fieldErrors.password">
-          <el-input
-            v-model="actionDialog.form.password"
-            name="dcc-actionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!actionDialog.passwordFocused"
-            @focus="actionDialog.passwordFocused = true"
-            clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
-          />
-        </el-form-item>
+      <section class="action-signature-file" aria-label="文件摘要">
+        <div class="action-signature-file__heading">
+          <Icon icon="ep:document" :size="32" class="action-signature-file__icon" aria-hidden="true" />
+          <span class="action-signature-file__name">{{ fileDetail?.fileName }}</span>
+        </div>
+        <dl class="action-signature-file__facts">
+          <div><dt>文件编号</dt><dd>{{ fileDetail?.fileNumber || '-' }}</dd></div>
+          <div><dt>版本</dt><dd>{{ getDccVersionDisplayText(fileDetail?.versionNo) }}</dd></div>
+          <div class="action-signature-file__signer"><dt>签名人</dt><dd>{{ currentSignerLabel }}</dd></div>
+        </dl>
+      </section>
+
+      <div class="action-signature-flow" :class="{ 'action-signature-flow--reject': actionDialog.mode === 'reject' }">
+        <strong>提交后流转</strong>
+        <span>{{ actionDialogSubmitFlowText }}</span>
+      </div>
+      <el-form label-width="136px" label-position="left" :disabled="actionDialog.submitting">
         <el-form-item
-          :label="actionDialog.mode === 'reject' ? '驳回原因' : '审批意见'"
+          :label="actionDialog.mode === 'reject' ? '驳回原因（必填）' : '审批意见（选填）'"
           :required="actionDialog.mode === 'reject'"
           :error="actionDialog.fieldErrors.reason"
         >
           <el-input
             v-model="actionDialog.form.reason"
             :autosize="{ minRows: 3, maxRows: 6 }"
-            :placeholder="actionDialog.mode === 'reject' ? '请输入驳回原因' : '可填写审批意见（选填）'"
+            :placeholder="actionDialog.mode === 'reject' ? '请填写具体的驳回原因，便于申请人修改' : '请输入审批意见'"
             type="textarea"
+          />
+        </el-form-item>
+        <el-form-item label="电子签名" required :error="actionDialog.fieldErrors.password">
+          <SignatureCredentialInput
+            v-model="actionDialog.form.password"
+            name="dcc-actionDialog-signature-password"
+            clearable
           />
         </el-form-item>
 
@@ -2235,15 +2217,19 @@
         </template>
       </el-form>
       <template #footer>
-        <el-button @click="closeActionDialog">取消</el-button>
-        <el-button type="primary" :loading="actionDialog.submitting" @click="submitActionDialog">
-          确认签名
+        <el-button :type="actionDialog.mode === 'reject' ? 'danger' : 'primary'" :class="{ 'action-signature-confirm--approve': actionDialog.mode === 'approve' }" :loading="actionDialog.submitting" @click="submitActionDialog">
+          {{ actionDialog.submitting ? '提交中' : actionDialog.mode === 'reject' ? '确认驳回并签名' : '确认批准并签名' }}
         </el-button>
+        <el-button :disabled="actionDialog.submitting" @click="closeActionDialog">取消</el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="taskActionDialog.visible"
+      :close-on-click-modal="!taskActionDialog.submitting"
+      :close-on-press-escape="!taskActionDialog.submitting"
+      :show-close="!taskActionDialog.submitting"
+      class="dcc-signature-dialog"
       :title="taskActionDialogTitle"
       width="560px"
       destroy-on-close
@@ -2256,7 +2242,7 @@
         type="error"
         :title="taskActionDialog.inlineError"
       />
-      <el-form label-width="96px">
+      <el-form label-width="136px" label-position="left" :disabled="taskActionDialog.submitting">
         <el-form-item
           v-if="taskActionDialog.mode === 'return'"
           label="回退节点"
@@ -2302,20 +2288,7 @@
             />
           </el-form-item>
         </template>
-        <el-form-item label="签名凭据" :error="taskActionDialog.fieldErrors.password">
-          <el-input
-            v-model="taskActionDialog.form.password"
-            name="dcc-taskActionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!taskActionDialog.passwordFocused"
-            @focus="taskActionDialog.passwordFocused = true"
-            clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
-          />
-        </el-form-item>
-        <el-form-item label="处理意见" :error="taskActionDialog.fieldErrors.reason">
+        <el-form-item label="处理意见" required :error="taskActionDialog.fieldErrors.reason">
           <el-input
             v-model="taskActionDialog.form.reason"
             :autosize="{ minRows: 3, maxRows: 6 }"
@@ -2323,12 +2296,19 @@
             type="textarea"
           />
         </el-form-item>
+        <el-form-item label="电子签名" required :error="taskActionDialog.fieldErrors.password">
+          <SignatureCredentialInput
+            v-model="taskActionDialog.form.password"
+            name="dcc-taskActionDialog-signature-password"
+            clearable
+          />
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="closeTaskActionDialog">取消</el-button>
         <el-button type="primary" :loading="taskActionDialog.submitting" @click="submitTaskActionDialog">
           确认签名
         </el-button>
+        <el-button :disabled="taskActionDialog.submitting" @click="closeTaskActionDialog">取消</el-button>
       </template>
     </el-dialog>
 
@@ -2370,6 +2350,10 @@
 
     <el-dialog
       v-model="electronicReceiptDialog.visible"
+      :close-on-click-modal="!electronicReceiptDialog.submitting"
+      :close-on-press-escape="!electronicReceiptDialog.submitting"
+      :show-close="!electronicReceiptDialog.submitting"
+      class="dcc-signature-dialog"
       title="电子发放签收"
       width="520px"
       destroy-on-close
@@ -2382,20 +2366,7 @@
         type="error"
         :title="electronicReceiptDialog.inlineError"
       />
-      <el-form label-width="96px">
-        <el-form-item label="签名凭据" :error="electronicReceiptDialog.fieldErrors.password">
-          <el-input
-            v-model="electronicReceiptDialog.form.password"
-            name="dcc-electronicReceiptDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!electronicReceiptDialog.passwordFocused"
-            @focus="electronicReceiptDialog.passwordFocused = true"
-            clearable
-            placeholder="请输入所选签名方式的六位 PIN 码或密码"
-            show-password
-            type="password"
-          />
-        </el-form-item>
+      <el-form label-width="136px" label-position="left" :disabled="electronicReceiptDialog.submitting">
         <el-form-item label="签收意见">
           <el-input
             v-model="electronicReceiptDialog.form.comment"
@@ -2406,9 +2377,15 @@
             type="textarea"
           />
         </el-form-item>
+        <el-form-item label="电子签名" required :error="electronicReceiptDialog.fieldErrors.password">
+          <SignatureCredentialInput
+            v-model="electronicReceiptDialog.form.password"
+            name="dcc-electronicReceiptDialog-signature-password"
+            clearable
+          />
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="closeElectronicReceiptDialog">取消</el-button>
         <el-button
           type="primary"
           :disabled="isElectronicReceiptConfirmDisabled"
@@ -2420,6 +2397,7 @@
           </template>
           <template v-else>确认签收</template>
         </el-button>
+        <el-button :disabled="electronicReceiptDialog.submitting" @click="closeElectronicReceiptDialog">取消</el-button>
       </template>
     </el-dialog>
 
@@ -2491,6 +2469,19 @@
       </template>
     </el-dialog>
 
+    <SupervisorReviewActions v-if="isActualSignoffReviewPage"
+      :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
+      :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
+      approve-text="批准通过"
+      :blocked-reason="signoffReviewBlockedReason" :submitting="actionDialog.submitting || actionDialog.visible"
+      @approve="openActionDialog('approve')" @reject="openActionDialog('reject')" />
+    <SupervisorReviewActions v-if="isSupervisorReviewPage"
+      :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
+      :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
+      :blocked-reason="supervisorReviewBlockedReason" :submitting="actionDialog.submitting"
+      @approve="openActionDialog('approve')" @reject="openActionDialog('reject')" />
+    <div v-if="canShowSignoffAssignment" class="h-120px" aria-hidden="true"></div>
+    </div>
   </template>
 
   <el-dialog
@@ -2804,15 +2795,18 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
-
+import ReviewDocumentPreview from './ReviewDocumentPreview.vue'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
+import SupervisorReviewActions from './SupervisorReviewActions.vue'
+import ReviewSectionNavigation from './ReviewSectionNavigation.vue'
 import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, requireDelayedConfirmationRound, type ApplicationApprovalRead } from './application-round-context'
 import { getControlledFileApplicationRounds, getControlledFileApplicationProgress } from '@/api/dcc/controlledFile/applicationRead'
 import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, getNativeApprovalProcessText, resolveSignatureDuty, resolveRecordedSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
@@ -2822,7 +2816,7 @@ import DetailLifecycleProjectionRepairDialog from './DetailLifecycleProjectionRe
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import DetailSignoffAssignment from './DetailSignoffAssignment.vue'
 import DelayedEffectiveConfirmationPanel from '../workflow/DelayedEffectiveConfirmationPanel.vue'
-import { formatDelayedEffectiveFact } from '../workflow/effective-facts'
+import { effectiveFacts, formatDelayedEffectiveFact } from '../workflow/effective-facts'
 import { getDelayedEffectiveConfirmation, confirmDelayedEffectiveness, type DelayedEffectiveConfirmationContext,
   type DelayedEffectiveConfirmationCommand } from '@/api/dcc/controlledFile/applicationRead'
 import DetailObsoleteApplication from './DetailObsoleteApplication.vue'
@@ -2921,7 +2915,6 @@ import {
 import {
   DCC_APPROVAL_WRONG_PASSWORD_MESSAGE,
   getDccApprovalActionLabels,
-  getDccApprovalSignatureMeaningPreview,
   resolveDccApprovalSignatureErrorMessage,
   submitDccApprovalAction,
   validateDccApprovalActionForm,
@@ -2934,6 +2927,7 @@ import {
   type DccTaskStageProgress
 } from '../shared/approval'
 import {
+  getDccControlledFileStatusLabel,
   hasDccControlledFileActionProjection,
   isDccControlledFileActionAllowed,
   isDccControlledFileWithdrawableStatus,
@@ -3058,6 +3052,7 @@ const userNameMap = ref(new Map<number, string>())
 const deptNameMap = ref(new Map<number, string>())
 const departmentList = ref<DeptVO[]>([])
 const approvalTodoTask = ref<any>()
+const signoffAssignmentRef = ref<InstanceType<typeof DetailSignoffAssignment>>()
 const signoffAssignmentState = ref<{ fileId: string; taskId: string; assigned: boolean | undefined }>()
 const isSignoffTask = computed(() => !isExternalReviewProcess.value && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW')
 const approvalProcessInstanceId = computed(() => detailReadSelectionState.value.error ? ''
@@ -3083,7 +3078,7 @@ const currentApprovalTaskName = computed(() => {
     if (state?.fileId !== String(fileDetail.value?.id || '') || state.taskId !== String(task?.id || '')
       || typeof state.assigned !== 'boolean')
       return '会签阶段（正在核验指派状态）'
-    return state.assigned ? '实际会签人会签' : '部门负责人签名指派'
+    return state.assigned ? '会签批准' : '部门负责人签名指派'
   }
   return resolveDccStageDisplayName(task?.taskDefinitionKey, task?.name)
 })
@@ -3416,7 +3411,7 @@ const applicantTrainingRecordDialog = reactive({
   file: undefined as ControlledFileUploadRespVO | undefined
 })
 
-const approvalBodyViewerRef = ref<InstanceType<typeof ProtectedPdfViewer>>()
+const approvalBodyViewerRef = ref<InstanceType<typeof ReviewDocumentPreview>>()
 const actionDialog = reactive({
   visible: false,
   passwordFocused: false,
@@ -3590,11 +3585,48 @@ const isBrowserTraceabilityPage = computed(
   () => String(route.query.traceability || '') === '1'
 )
 watch(delayedConfirmationIdentity,loadDelayedConfirmation,{flush:'post'})
+// 办理页按入口共用布局，不能按审核节点限定，否则会签批准会退回普通详情布局。
 const isApprovalUploadHandlingPage = computed(
   () =>
     String(route.query.handling || '') === 'approval' &&
     String(route.query.from || '') === 'approval-center'
 )
+const reviewOverviewRef = ref<HTMLElement>()
+const reviewBodyRef = ref<HTMLElement>()
+const reviewBodyContentRef = ref<HTMLElement>()
+const reviewTaskRef = ref<HTMLElement>()
+const reviewApplicationRef = ref<HTMLElement>()
+const reviewRelationsRef = ref<HTMLElement>()
+const reviewSections = [
+  { label: '文件概览', element: () => reviewOverviewRef.value },
+  { label: '正文与附件', element: () => reviewBodyRef.value },
+  { label: '当前任务', element: () => reviewTaskRef.value },
+  { label: '申请与审批', element: () => reviewApplicationRef.value },
+  { label: '关联文件', element: () => reviewRelationsRef.value }
+]
+const isSupervisorReviewPage = computed(() => isApprovalUploadHandlingPage.value
+  && (approvalTodoTask.value?.taskDefinitionKey === 'SUPERVISOR_REVIEW'
+    || fileDetail.value?.status === 'PENDING_SUPERVISOR_REVIEW'))
+const isActualSignoffReviewPage = computed(() => isApprovalUploadHandlingPage.value && isSignoffTask.value && signoffReadyForReview.value)
+const actualSignoffStage = computed(() => displayStageProgressList.value.find(stage => stage.stageCode === 'MATRIX_REVIEW'))
+const signoffReviewBlockedReason = computed(() => {
+  if (approvalLoading.value) return '正在读取当前会签任务，请稍候。'
+  if (!checkPermi(['dcc:controlled-file:review'])) return '当前账号缺少会签权限。'
+  if (!isWorkingBrowserDetailCurrent.value) return '文件或账号上下文已变化，请刷新页面后会签。'
+  if (approvalProgressError.value || applicationRoundSelection.value.blockedReason)
+    return approvalProgressError.value || applicationRoundSelection.value.blockedReason
+  return signoffReadyForReview.value ? '' : '当前会签指派状态尚未核验。'
+})
+const supervisorReviewBlockedReason = computed(() => {
+  if (approvalLoading.value) return '正在读取当前审核任务，请稍候。'
+  if (!checkPermi(['dcc:controlled-file:review'])) return '当前账号缺少审核权限，请联系管理员配置主管审核权限。'
+  if (!isWorkingBrowserDetailCurrent.value) return '文件或账号上下文已变化，请刷新页面后审核。'
+  if (approvalProgressError.value || applicationRoundSelection.value.blockedReason)
+    return `${approvalProgressError.value || applicationRoundSelection.value.blockedReason}；请刷新核对本次申请。`
+  if (!approvalTodoTask.value || approvalTodoTask.value.taskDefinitionKey !== 'SUPERVISOR_REVIEW')
+    return '当前没有分配给您的主管审核任务，请由当前任务的主管办理。'
+  return ''
+})
 const showFullDetailSections = computed(() => !isApprovalUploadHandlingPage.value)
 const showDetailManagementActions = computed(
   () =>
@@ -3879,13 +3911,28 @@ const isCurrentActiveVersion = computed(() => {
 })
 const currentSignerLabel = computed(() => {
   const user = userStore.getUser
-  return user?.nickname || (user?.id ? `用户 #${user.id}` : '-')
+  return user?.nickname || user?.username || '-'
 })
 const actionDialogSubmitFlowText = computed(() => {
   if (actionDialog.mode === 'reject') {
-      return '签名驳回后结束本轮，保留正文、意见和签名；申请人重新填写并提交新轮审批。'
+    return '驳回后由申请人修改并重新提交。'
   }
-  return getNativeApprovalProcessText(approvalProgressScope.value)
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW' && !canShowSignoffAssignment.value) {
+    const stages = displayStageProgressList.value
+    const index = stages.findIndex(stage => stage.stageCode === 'MATRIX_REVIEW')
+    const stage = stages[index]
+    if (!stage || stage.totalCount < 1) return '会签进度尚未核验，请重新读取本轮任务。'
+    if (stage.totalCount - stage.approvedCount > 1) return '本次通过后，仍需等待其他会签人完成会签。'
+    return stages[index + 1] ? `下一节点：${stages[index + 1].stageName}` : '未能确认下一流程节点，请核对本轮审批流程。'
+  }
+  if (approvalTodoTask.value?.taskDefinitionKey === 'SUPERVISOR_REVIEW') {
+    const stages = displayStageProgressList.value
+    const index = stages.findIndex(stage => stage.stageCode === 'SUPERVISOR_REVIEW')
+    return index >= 0 && stages[index + 1]
+      ? `下一节点：${stages[index + 1].stageName}`
+      : '未能确认下一流程节点，请核对本轮审批流程。'
+  }
+  return '本次提交后，请在当前任务查看最新处理进度。'
 })
 const getStageRouteSnapshot = (stage: ApprovalProgressStage) => {
   if (approvalProgressScope.value?.bpmRound !== fileDetail.value?.processInstanceId) return undefined
@@ -4521,14 +4568,15 @@ const approvalActionLabels = computed(() => {
     dialogTitle: '申请人返工修改'
   }
 })
-const actionDialogSignatureMeaning = computed(() => {
-  if (isReturnedApplicantTask.value && actionDialog.mode === 'approve') {
-    return '流程回退处理通过'
+const actionDialogTitle = computed(() => {
+  if (canShowSignoffAssignment.value && actionDialog.mode === 'reject') return '部门负责人驳回'
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW') {
+    return actionDialog.mode === 'reject' ? '会签驳回' : '会签通过'
   }
-  return getDccApprovalSignatureMeaningPreview(
-    approvalTodoTask.value?.taskDefinitionKey,
-    actionDialog.mode
-  )
+  if (approvalTodoTask.value?.taskDefinitionKey === 'SUPERVISOR_REVIEW') {
+    return actionDialog.mode === 'reject' ? '直属主管审核驳回' : '直属主管审核通过'
+  }
+  return actionDialog.mode === 'reject' ? '驳回并签名' : '批准并签名'
 })
 const isFourthNodeApprovalTask = computed(
   () =>
@@ -5478,21 +5526,7 @@ const openDccProjectCode = (projectCodeId: number) => {
   })
 }
 
-const openDccProjectCodeTrace = () => {
-  if (!fileDetail.value?.id) {
-    return
-  }
-  router.push({
-    path: '/dcc/controlled-file/logs',
-    query: {
-      logType: 'PROJECT_CODE_CHANGE',
-      controlledFileId: String(fileDetail.value.id),
-      projectCodeId: fileDetail.value.dccProjectCodeId
-        ? String(fileDetail.value.dccProjectCodeId)
-        : undefined
-    }
-  })
-}
+
 
 const handleMetadataSaved = async () => {
   await reloadAll()
@@ -7261,11 +7295,10 @@ const buildActionSuccessMessage = (
   mode: DccApprovalActionMode,
   response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response']
 ) => {
-  const actionText = mode === 'approve' ? '签名通过并已提交审批' : '已签名驳回任务'
-  if (!response) {
-    return actionText
-  }
-  return `${actionText}，版本 ${getDccVersionDisplayText(response.versionNo)}，证据 ${response.evidenceHashShort}`
+  const actionText = mode === 'approve' ? '本次审批已通过并签名' : '本次任务已驳回并签名'
+  if (!response) return actionText
+  const status = getDccControlledFileStatusLabel(response.nextStatus as DccControlledFileStatus)
+  return `${actionText}；当前状态：${status}`
 }
 
 const readActionDialogRequest = () => ({
@@ -7776,6 +7809,137 @@ const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() =
 </script>
 
 <style scoped>
+.action-signature-file {
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.action-signature-file__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.action-signature-file__icon {
+  flex-shrink: 0;
+  font-size: 32px;
+  color: var(--el-text-color-secondary);
+}
+
+.action-signature-file__name {
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.action-signature-file__facts {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px 24px;
+  margin: 0;
+}
+
+.action-signature-file__facts > div {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
+.action-signature-file__facts dt {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.action-signature-file__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.action-signature-file__signer {
+  grid-column: 1 / -1;
+}
+
+.action-signature-flow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  background: #e6f8f1;
+  border-radius: 8px;
+}
+
+.action-signature-flow > strong {
+  flex-shrink: 0;
+  color: #00695c;
+}
+
+.action-signature-flow > span {
+  padding-left: 20px;
+  border-left: 1px solid var(--el-border-color);
+  overflow-wrap: anywhere;
+}
+
+.action-signature-flow--reject {
+  background: var(--el-color-danger-light-9);
+}
+
+.action-signature-flow--reject > strong {
+  color: var(--el-color-danger-dark-2);
+}
+
+.action-signature-confirm--approve {
+  --el-button-bg-color: #008f7a;
+  --el-button-border-color: #008f7a;
+  --el-button-hover-bg-color: #20a18b;
+  --el-button-hover-border-color: #20a18b;
+  --el-button-active-bg-color: #007563;
+  --el-button-active-border-color: #007563;
+}
+
+.approval-file-overview-scroll { overflow-x: auto; }
+.approval-file-overview { min-width: 900px; }
+.approval-file-overview :deep(.el-descriptions__table) { table-layout: fixed; }
+.approval-file-overview :deep(.el-descriptions__cell) { padding: 12px 16px; }
+.dcc-detail-layout { display: contents; }
+.dcc-review-layout {
+  display: block;
+  min-width: 0;
+  --el-color-primary: #008f86;
+  --el-color-primary-light-9: #e6f5f2;
+}
+.dcc-review-layout :deep(.dcc-detail-surface) {
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+/* ContentWrap 默认以行内 bodyStyle 设置内边距，办理页统一覆盖。 */
+.dcc-review-layout :deep(.dcc-detail-surface > .el-card__body) { padding: 20px !important; }
+.dcc-review-layout .detail-header-shell { align-items: center; gap: 20px; }
+.dcc-review-layout .detail-file-name { font-size: 22px; font-weight: 700; }
+.dcc-review-layout .detail-action-bar { min-width: 0; }
+.dcc-review-layout :deep(.el-descriptions__title),
+.dcc-review-layout :deep(.review-section .el-card__body > p.font-600),
+.dcc-review-layout :deep(.review-section .mb-10px.font-600),
+.dcc-review-layout [data-testid="dcc-approval-application-heading"] { font-size: 18px; }
+.dcc-review-layout :deep(.el-descriptions__cell) { padding: 10px 14px; }
+.dcc-review-layout :deep(.el-table__cell) { padding-top: 10px; padding-bottom: 10px; }
+.dcc-review-layout :deep(.el-table th.el-table__cell) { font-size: 14px; }
+@media (max-width: 767px) {
+  .dcc-review-layout :deep(.dcc-detail-surface > .el-card__body) { padding: 12px !important; }
+  .dcc-review-layout .detail-file-name { font-size: 18px; }
+}
+
+.review-section { min-width: 0; scroll-margin-top: 64px; }
+.review-section--last { min-height: calc(100vh - 240px); }
+.review-section :deep(.el-descriptions__cell) { overflow-wrap: anywhere; }
+.review-section :deep(.el-descriptions__label) { white-space: nowrap; }
+
 .dcc-detail-surface {
   --el-color-primary: #008f86;
   --el-color-primary-light-3: #4db1aa;
@@ -8532,5 +8696,13 @@ const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() =
   .detail-lifecycle-timeline__title {
     white-space: normal;
   }
+}
+</style>
+
+<style>
+.dcc-signature-dialog .el-dialog__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
 }
 </style>

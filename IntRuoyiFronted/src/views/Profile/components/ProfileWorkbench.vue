@@ -460,7 +460,7 @@ const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {
       PRODUCTION_RETURN: '去更正生产',
       PQC_HANDOFF: '去检验',
       PQC_REVIEW: '去复核检验',
-      PQC_RETURN: '去更正检验',
+      PQC_RETURN: '去填写检验',
       QA_DECISION_HANDOFF: '去接手'
     }
     return labels[row.action.payload.taskType] ?? '查看任务'

@@ -15,8 +15,8 @@ function moduleFrom(source, dependencies = {}) {
   return context.exports
 }
 const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
-const renderer = () => vue.createRenderer({ createElement: type => ({ type, children: [] }), createText: text => ({ text }),
-  createComment: () => ({}), insert: (node, parent) => parent.children.push(node), remove() {}, setText() {},
+const renderer = () => vue.createRenderer({ querySelector: () => ({ children: [] }), createElement: type => ({ type, children: [] }), createText: text => ({ text }),
+  createComment: () => ({}), querySelector: () => ({ children: [] }), insert: (node, parent) => parent.children.push(node), remove() {}, setText() {},
   setElementText(node, text) { node.text = text }, patchProp() {}, parentNode: () => null, nextSibling: () => null })
 function mount(file, props, dependencies = {}, inlineTemplate = false) {
   const component = moduleFrom(compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate }).content, dependencies).default
@@ -83,12 +83,13 @@ test('actual signer never mounts assignment inputs or loads assignment relation 
 test('actual component template has one department candidate selector and no ALL option', () => {
   const descriptor = parse(read('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue')).descriptor
   const compiled = compileScript(descriptor, { id: 'department-template', inlineTemplate: true })
-  const component = moduleFrom(compiled.content, { './workflow-actions': actions }).default
+  const selectors = []
+  const component = moduleFrom(compiled.content, { './workflow-actions': actions, '@/views/system/user/components/UserSelectV2.vue': { default: { props: ['userOptions'], setup(props) { selectors.push(props.userOptions); return () => vue.h('span') } } } }).default
   const values = [], optionLabels = [], mounted = []
   const app = renderer().createApp(component, { fileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
     departmentName: 'A部门', users: [{ id: '99', name: '本人' }], assigned: false, save: async () => true,
     loadAllUsers: async () => [{ id: '200', name: 'B部门人员' }] })
-  for (const name of ['ElSelect', 'ElOption', 'ElInput', 'ElButton']) app.component(name, {
+  for (const name of ['ElSelect', 'ElOption', 'ElInput', 'ElButton', 'ElForm', 'ElFormItem']) app.component(name, {
     props: ['value', 'label'], setup(props, { slots }) {
       mounted.push(name)
       if (name === 'ElOption') { values.push(props.value); optionLabels.push(props.label) }
@@ -97,9 +98,9 @@ test('actual component template has one department candidate selector and no ALL
   })
   try {
     app.mount({ children: [] })
-    assert.equal(mounted.filter(name => name === 'ElSelect').length, 1)
-    assert.deepEqual(values, ['99'])
-    assert.equal(optionLabels.some(label => /全员|其他部门/.test(label)), false)
+    assert.equal(selectors.length, 1)
+    assert.deepEqual(Array.from(selectors[0], user => user.id), ['99'])
+    assert.equal(selectors[0].some(user => /全员|其他部门/.test(user.nickname)), false)
   } finally { app.unmount() }
 })
 
@@ -124,6 +125,20 @@ test('department member and self can each sign but a selection removed from curr
   } finally { panel.app.unmount() }
 })
 
+test('candidate labels distinguish duplicate names with accounts and retain account-only names', async () => {
+  const panel = assignment()
+  try {
+    panel.props.users = [
+      { id: '99', name: '张三', username: 'zhang.a' },
+      { id: '100', name: '张三', username: 'zhang.b' },
+      { id: '101', name: 'reviewer101', username: 'reviewer101' },
+      { id: '102', name: '李四', username: 'li.si' }
+    ]
+    await vue.nextTick()
+    assert.deepEqual(panel.props.users.map(panel.state.userLabel), ['张三（zhang.a）', '张三（zhang.b）', 'reviewer101', '李四'])
+  } finally { panel.app.unmount() }
+})
+
 test('actual detail save refuses an injected user outside the exact department context', async () => {
   const writes = [], peopleReads = []
   const context = { controlledFileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
@@ -133,7 +148,7 @@ test('actual detail save refuses an injected user outside the exact department c
     { fileId: '10', processInstanceId: 'round-a', taskId: 'task-a' }, {
       '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => context },
       '@/api/dcc/controlledFile/workflowLifecycle': { assignWorkflowSignoff: async (...args) => { writes.push(args); return true } },
-      '@/api/dcc/controlledFile/relations': {},
+      '@/api/dcc/controlledFile/relations': { listHistoricalRelations: async () => [] },
       '@/api/system/user': { getSimpleUserList: async () => { peopleReads.push(true); return [] } },
       '../workflow/workflow-actions': actions
     })

@@ -822,8 +822,9 @@ const openResponsibilityAuditDetail = async (row: EdhrFieldResponsibilityItemRes
     return
   }
   await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit/detail',
+    path: '/system/log/operate-log',
     query: {
+      logSource: 'field-detail',
       executionId: String(responsibilityQueryParams.executionId),
       auditItemId: String(row.latestAuditItemId)
     }
@@ -910,8 +911,9 @@ const handleVerify = async () => {
 
 const openDetail = async (row: EdhrFieldAuditEntryVO) => {
   await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit/detail',
+    path: '/system/log/operate-log',
     query: {
+      logSource: 'field-detail',
       executionId: String(row.executionId),
       auditBatchId: row.auditBatchId ? String(row.auditBatchId) : undefined,
       auditItemId: String(row.id)

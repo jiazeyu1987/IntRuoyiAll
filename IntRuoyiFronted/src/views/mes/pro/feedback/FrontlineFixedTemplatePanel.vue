@@ -1,6 +1,5 @@
 <template>
   <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
-  <ProductionQuantityDrafts v-if="!isPqcMode && !hasReturnNotification" ref="quantityDraftList" @restore="restoreQuantityDraft" />
   <el-alert v-if="quantityDraftId && !isPqcMode" type="warning" :closable="false" :title="quantityDraftMessage" data-production-quantity-blocked />
   <section
     ref="frontlinePanelRef"
@@ -8,16 +7,22 @@
     data-pqc-fullscreen-root
     :class="{
       'is-pqc-fullscreen': isPqcFullscreen,
+      'is-pqc-mode': isPqcMode,
       'is-production-mode': !isPqcMode,
       'is-production-fullscreen': isProductionFullscreen
     }"
   >
-    <FrontlineReturnCorrectionPanel ref="returnCorrectionPanel" :mode="props.mode" />
+    <FrontlineReturnCorrectionPanel v-if="!isPqcMode" ref="returnCorrectionPanel" :mode="props.mode" />
     <p v-if="hasReturnNotification" role="status" data-own-return-only-entry>
       当前通知仅用于原退回任务更正，请在本人退回更正面板核对原记录。
     </p>
     <div
       v-if="isPqcMode && !hasReturnNotification"
+      class="frontline-pqc-stage"
+      data-frontline-pqc-stage
+      :style="pqcStageStyle"
+    >
+    <div
       class="frontline-operator-screen is-pqc"
       data-frontline-pqc-operator
     >
@@ -44,7 +49,7 @@
           </div>
           <FrontlinePqcCompletionSummary
             v-if="isFrontlinePqcProcess(deviceState.selectedProcess)"
-            :tasks="deviceState.selectedProcess.pqcTaskOptions"
+            :processes="allSwitchablePqcProcessOptions"
           />
         </button>
         <div
@@ -68,7 +73,6 @@
             :disabled="isPqcProcessNavigationBlocked"
             @click="openPicker('process')"
           >
-            <div class="top-label">检验工序</div>
             <div class="top-value">{{ selectedProcessLabel }}</div>
           </button>
           <button
@@ -89,7 +93,6 @@
           disabled
           aria-disabled="true"
         >
-          <div class="top-label">员工</div>
           <div class="top-value">{{ selectedEmployeeLabel }}</div>
         </button>
         <div class="frontline-return-actions">
@@ -127,7 +130,7 @@
         <section class="frontline-pqc-piece-dialog">
           <h3>{{ activePqcInspectionItem.label }}（{{ activePqcItemQuantity }}件）</h3>
           <FrontlinePqcNumericEntry
-            v-if="activePqcInspectionItem.type === 'number'"
+            v-if="activePqcInspectionItem.type === 'number' && !pqcSelectedTaskReadonly"
             v-model="pqcPieceDraftValues"
             :quantity="activePqcItemQuantity"
             :unit="activePqcInspectionItem.unit"
@@ -143,13 +146,17 @@
               class="frontline-pqc-piece-row"
             >
               <strong>{{ pieceIndex }}</strong>
-              <div class="frontline-pqc-piece-choice">
+              <div v-if="activePqcInspectionItem.type === 'number'" class="frontline-pqc-piece-choice">
+                {{ pqcPieceDraftValues[pieceIndex - 1] }} {{ activePqcInspectionItem.unit }}
+              </div>
+              <div v-else class="frontline-pqc-piece-choice">
                 <el-switch
                   class="frontline-pqc-piece-switch"
                   data-pqc-piece-choice-switch
                   inline-prompt
                   active-text="合格"
                   inactive-text="不合格"
+                  :disabled="pqcSelectedTaskReadonly"
                   :model-value="pqcPieceDraftValues[pieceIndex - 1] === '合格'"
                   :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}${pqcPieceDraftValues[pieceIndex - 1] || '合格'}`"
                   @update:model-value="updatePqcPieceChoice(pieceIndex - 1, $event)"
@@ -160,6 +167,7 @@
           <footer class="frontline-pqc-piece-actions">
             <button type="button" data-pqc-piece-return @click="closePqcPieceInspection(false)">返回</button>
             <button
+              v-if="!pqcSelectedTaskReadonly"
               type="button"
               class="primary"
               data-pqc-piece-confirm
@@ -240,7 +248,6 @@
               data-pqc-inspection-tabs
               aria-label="PQC检验项目切换"
             >
-              <h3 class="frontline-pqc-section-title">检验项目</h3>
               <button
                 v-for="item in pqcInspectionItems"
                 :key="item.key"
@@ -256,7 +263,7 @@
               </button>
             </nav>
             <article
-              v-if="activePqcTabItem"
+              v-if="activePqcTabItem && !pqcSelectedTaskReadonly"
               class="frontline-pqc-content-item"
               data-pqc-active-inspection-panel
               :data-pqc-inspection-entry="activePqcTabItem.key"
@@ -273,13 +280,13 @@
                   }"
                 >
                   <span>
-                    <strong>检验设备</strong>
                     <input
                       v-if="hasPqcEquipmentOptions(activePqcTabItem) && isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                       class="pqc-select-custom-input"
                       :value="getPqcCustomEquipmentText(activePqcTabItem.key)"
                       maxlength="64"
                       data-pqc-custom-equipment-input
+                      :disabled="Boolean(activePqcTaskOption?.returnedSubmission)"
                       aria-label="手动输入检验设备"
                       placeholder="请输入检验设备"
                       @input="updatePqcCustomEquipmentText(activePqcTabItem.key, $event)"
@@ -291,6 +298,7 @@
                     type="button"
                     class="pqc-select-custom-return"
                     data-pqc-custom-equipment-return
+                    :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain"
                     aria-label="返回检验设备选项"
                     @click="returnToPqcEquipmentOptions(activePqcTabItem.key)"
                   >
@@ -302,6 +310,7 @@
                     class="pqc-select-native"
                     :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId ?? ''"
                     data-pqc-equipment-select
+                    :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain"
                     aria-label="选择检验设备"
                     @change="updatePqcItemSelectedEquipment(activePqcTabItem.key, $event)"
                   >
@@ -313,7 +322,7 @@
                     >
                       {{ formatPqcEquipmentLabel(option) }}
                     </option>
-                    <option :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
+                    <option v-if="!activePqcTaskOption?.returnedSubmission" :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
                   </select>
                   <div
                     v-if="getPqcSelectedEquipmentParameters(activePqcTabItem).length"
@@ -327,16 +336,6 @@
 
               </div>
 
-              <div class="frontline-pqc-number-field">
-                <label for="frontlinePqcItemQuantity">本项目实际抽样</label>
-                <input id="frontlinePqcItemQuantity" type="number" inputmode="numeric"
-                  aria-label="本项目实际抽样数量" data-pqc-item-actual-quantity
-                  :min="getPqcPlannedQuantityForItem(activePqcTaskOption!, activePqcTabItem.key)"
-                  :value="getPqcItemQuantity(activePqcTabItem.key)"
-                  @change="updatePqcItemQuantity(activePqcTabItem.key, $event)" />
-                <span>件（规程至少 {{ getPqcPlannedQuantityForItem(activePqcTaskOption!, activePqcTabItem.key) }} 件）</span>
-              </div>
-              <h3 class="frontline-pqc-section-title">检验操作</h3>
               <div
                 class="frontline-pqc-choice-actions"
                 :class="{ 'is-number': activePqcTabItem.type === 'number' }"
@@ -375,6 +374,45 @@
               </div>
             </article>
 
+            <article v-else-if="activePqcTabItem && pqcSelectedTaskReadonly" class="frontline-pqc-content-item" data-pqc-submitted-inspection>
+              <template v-if="pqcSubmittedItem">
+                <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
+                  <div class="pqc-select-card is-selected" data-pqc-equipment-card>
+                    <span><span>{{ pqcSubmittedItem.selectedEquipmentNumber || '无设备' }}</span></span>
+                  </div>
+                </div>
+                <div class="frontline-pqc-choice-actions" :class="{ 'is-number': activePqcTabItem.type === 'number' }">
+                  <button
+                    v-if="activePqcTabItem.type === 'choice'"
+                    type="button"
+                    class="pass"
+                    data-pqc-bulk-pass
+                    :class="{ active: isPqcSubmittedChoiceActive('合格') }"
+                    disabled
+                  >全部合格</button>
+                  <button
+                    v-if="activePqcTabItem.type === 'choice'"
+                    type="button"
+                    class="fail"
+                    data-pqc-bulk-fail
+                    :class="{ active: isPqcSubmittedChoiceActive('不合格') }"
+                    disabled
+                  >全部不良</button>
+                  <button
+                    type="button"
+                    class="manual"
+                    data-pqc-piece-open-button
+                    :class="{ active: !isPqcSubmittedChoiceActive('合格') && !isPqcSubmittedChoiceActive('不合格') }"
+                    @click="openPqcPieceInspection(activePqcTabItem.key)"
+                  >
+                    <span>{{ activePqcTabItem.type === 'number' ? '快速填写' : '逐件选择' }}</span>
+                    <em>已填 {{ pqcSubmittedItem.sampleValues.filter(value => value.trim()).length }}/{{ pqcSubmittedItem.sampleValues.length }}</em>
+                    <strong aria-hidden="true">&gt;</strong>
+                  </button>
+                </div>
+              </template>
+              <p v-else role="alert">已提交记录缺少当前卡片的正式检验数据，请刷新订单后重试。</p>
+            </article>
             <div v-else class="frontline-pqc-empty-state" data-pqc-empty-inspection>
               {{ pqcInspectionEmptyText }}
             </div>
@@ -385,6 +423,15 @@
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
+          <div v-show="false" class="frontline-pqc-review-summary" data-pqc-review-summary role="status">
+            <strong>复核状态：{{ pqcReviewLabel }}</strong>
+            <span>本订单待复核 {{ pqcReviewCounts.pending }} · 复核通过 {{ pqcReviewCounts.confirmed }} · 退回待修改 {{ pqcReviewCounts.returned }}</span>
+            <span v-if="pqcReviewCounts.unavailable" role="alert">{{ pqcReviewCounts.unavailable }} 项复核状态缺失，请刷新订单。</span>
+            <span>检验提交进度与复核通过分别统计；检验结果见当前卡片正式记录。</span>
+            <span v-if="activePqcTaskOption">检验任务编号：{{ activePqcTaskOption.pqcTaskId }}</span>
+            <span v-if="activePqcTaskOption?.submittedEventId">正式事件编号：{{ activePqcTaskOption.submittedEventId }}</span>
+            <button v-if="activePqcTaskOption" type="button" data-pqc-review-history-open @click="pqcReviewHistoryDialog?.showModal()">复核历史与追溯</button>
+          </div>
           <h3 class="frontline-pqc-section-title">数量填写</h3>
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
@@ -392,26 +439,27 @@
               <button
                 type="button"
                 aria-label="检验减少"
-                disabled
+                :disabled="pqcSelectedTaskReadonly || pqcSelectedItemQuantity <= pqcSelectedItemMinimum"
                 @click="adjustPqcQuantity('inspectionQuantity', -1)"
               >
                 -
               </button>
               <input
                 id="frontlinePqcInspectionQuantity"
-                readonly
-                :value="pqcDraft.inspectionQuantity ?? ''"
+                :value="pqcSelectedItemQuantity || ''"
                 type="number"
-                min="0"
+                :min="pqcSelectedItemMinimum"
+                :max="pqcOrderTotalQuantity"
                 inputmode="numeric"
                 data-pqc-inspection-quantity
+                :readonly="pqcSelectedTaskReadonly"
                 aria-label="检验数量"
-                @input="updatePqcQuantity('inspectionQuantity', $event)"
+                @change="updatePqcQuantity('inspectionQuantity', $event)"
               />
               <button
                 type="button"
                 aria-label="检验增加"
-                disabled
+                :disabled="pqcSelectedTaskReadonly || !activePqcTabKey || pqcOrderTotalQuantity == null || pqcSelectedItemQuantity >= pqcOrderTotalQuantity"
                 @click="adjustPqcQuantity('inspectionQuantity', 1)"
               >
                 +
@@ -423,28 +471,41 @@
               <button
                 type="button"
                 aria-label="损耗减少"
+                :disabled="pqcSelectedTaskReadonly"
                 @click="adjustPqcQuantity('scrapQuantity', -1)"
               >
                 -
               </button>
               <input
                 id="frontlinePqcScrapQuantity"
-                :value="pqcDraft.scrapQuantity ?? ''"
+                :value="pqcDisplayedScrapQuantity ?? ''"
                 type="number"
                 min="0"
                 inputmode="numeric"
                 data-pqc-scrap-quantity
+                :readonly="pqcSelectedTaskReadonly"
+                :max="pqcInspectionQuantity"
                 @input="updatePqcQuantity('scrapQuantity', $event)"
               />
               <button
                 type="button"
                 aria-label="损耗增加"
+                :disabled="pqcSelectedTaskReadonly || normalizePqcQuantity(pqcDisplayedScrapQuantity) >= pqcInspectionQuantity"
                 @click="adjustPqcQuantity('scrapQuantity', 1)"
               >
                 +
               </button>
               <span>件</span>
             </div>
+          </div>
+          <div
+            v-if="activePqcTaskOption?.returnedSubmission"
+            class="frontline-pqc-return-warning"
+            data-pqc-return-warning
+            role="alert"
+          >
+            <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+            <p>退回原因：{{ activePqcTaskOption.returnedSubmission.row.rejectionReason }}；请修改后重新提交。</p>
           </div>
           <div
             class="frontline-inline-error-slot"
@@ -495,7 +556,7 @@
           <button
             class="frontline-pqc-reset-button"
             type="button"
-            :disabled="payloadLoading || pqcSubmitResultUncertain || pqcPatrolRoundCreating"
+            :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain || pqcPatrolRoundCreating"
             @click="handleResetPqc"
           >
             重填
@@ -507,7 +568,7 @@
             data-pqc-submit-open-signature
             @click="handleValidate"
           >
-            {{ payloadLoading ? '提交中' : '提交' }}
+            {{ pqcSelectedTaskReadonly ? pqcReviewLabel : payloadLoading ? '提交中' : activePqcTaskOption?.returnedSubmission ? '修改后重新提交' : '提交' }}
           </button>
         </footer>
       </main>
@@ -523,13 +584,14 @@
         <section class="frontline-pqc-signature-dialog">
           <h3>电子签名</h3>
           <p>确认后将生成本次PQC正式提交签名。</p>
-          <label for="frontlinePqcSignaturePassword">签名凭据</label>
-          <input
+          <p data-pqc-signature-method>当前签名方式：{{ pqcSignatureCredentialType === 'PIN' ? '六位 PIN 码' : '登录密码' }}。可在个人中心的电子签名设置中修改。</p>
+          <label for="frontlinePqcSignaturePassword">{{ pqcSignatureCredentialType === 'PIN' ? 'PIN 码' : '登录密码' }}</label>
+          <SignatureCredentialInput
             id="frontlinePqcSignaturePassword"
-            v-model="pqcSignaturePassword"
-            type="password"
-            autocomplete="current-password"
+            :model-value="pqcSignaturePassword" :credential-type="pqcSignatureCredentialType"
+            :disabled="payloadLoading"
             data-pqc-signature-password
+            @update:model-value="handlePqcSignatureCredentialUpdate"
             @keyup.enter="handleConfirmPqcSubmit"
           />
           <div>
@@ -556,6 +618,7 @@
         PQC正式提交结果不确定，状态确认失败。请刷新页面或联系组长核对后再操作，当前页面已锁定重复提交。
       </section>
 
+    </div>
     </div>
 
     <div
@@ -655,7 +718,6 @@
             :disabled="isProductionSelectionSwitchLocked"
             @click="openPicker('employee')"
           >
-            <div class="top-label">员工</div>
             <div class="top-value">{{ selectedEmployeeLabel }}</div>
           </button>
           <div class="frontline-return-actions frontline-production-top-actions">
@@ -799,6 +861,11 @@
               <input
                 class="value-box"
                 id="frontlineProductionOutputQuantity"
+                name="productionOutputQuantity"
+                type="number"
+                min="0"
+                step="1"
+                autocomplete="off"
                 data-production-output-quantity
                 :value="productionDraft.outputQuantity ?? ''"
                 inputmode="numeric"
@@ -830,96 +897,163 @@
               <span class="unit">件</span>
             </div>
 
-            <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
-              <div class="frontline-production-defect-grid defect-grid">
-                <div
-                  v-for="defect in configuredDefectReasons"
-                  :key="defect.key"
-                  class="frontline-production-defect-card defect-card"
-                  :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
-                  :data-defect-key="defect.key"
+            <div class="frontline-production-operation-area">
+              <div class="frontline-production-operation-fields">
+                <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
+                  <div class="frontline-production-defect-grid defect-grid">
+                    <div
+                      v-for="defect in configuredDefectReasons"
+                      :key="defect.key"
+                      class="frontline-production-defect-card defect-card"
+                      :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
+                      :data-defect-key="defect.key"
+                    >
+                      <span class="frontline-production-defect-name defect-name">{{ defect.label }}</span>
+                      <button
+                        type="button"
+                        class="frontline-production-defect-step defect-step"
+                        :aria-label="`${defect.label}减少`"
+                        :disabled="payloadLoading"
+                        @click="adjustProductionDefectQuantity(defect.key, -1)"
+                      >
+                        -
+                      </button>
+                      <input
+                        class="frontline-production-defect-qty defect-qty"
+                        :value="getProductionDefectQuantity(defect.key)"
+                        inputmode="numeric"
+                        :aria-label="`${defect.label}数量`"
+                        :disabled="payloadLoading"
+                        @input="updateProductionDefectQuantity(defect.key, $event)"
+                      />
+                      <button
+                        type="button"
+                        class="frontline-production-defect-step defect-step"
+                        :aria-label="`${defect.label}增加`"
+                        :disabled="payloadLoading"
+                        @click="adjustProductionDefectQuantity(defect.key, 1)"
+                      >
+                        +
+                      </button>
+                      <span class="frontline-production-defect-unit defect-unit">件</span>
+                    </div>
+                  </div>
+                </section>
+                <section
+                  v-if="configuredProductionMaterials.length > 0"
+                  class="frontline-production-material-tabs"
+                  data-frontline-production-material-tabs
+                  role="group"
+                  aria-label="物料切换"
                 >
-                  <span class="frontline-production-defect-name defect-name">{{ defect.label }}</span>
+                  <button
+                    v-for="material in configuredProductionMaterials"
+                    :key="material.key"
+                    class="frontline-production-material-tab"
+                    :class="{
+                      'is-selected': material.key === selectedProductionMaterialKey,
+                      'is-complete': isProductionMaterialCompletionEntered(material.key)
+                    }"
+                    type="button"
+                    role="tab"
+                    data-frontline-production-material-tab
+                    :aria-selected="material.key === selectedProductionMaterialKey"
+                    :aria-label="formatProductionMaterialTabLabel(material)"
+                    :disabled="payloadLoading"
+                    @click="switchProductionMaterial(material.key)"
+                  >
+                    <strong>
+                      {{ material.materialName }}<small
+                        v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
+                      > / {{ material.materialCode }}</small>
+                    </strong>
+                  </button>
+                </section>
+              </div>
+              <div
+                class="frontline-production-clearance-confirmations"
+                data-production-clearance-confirmations
+                aria-label="清场确认"
+              >
+                <div
+                  v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"
+                  :key="confirmation.key"
+                  class="frontline-production-clearance-confirmation"
+                >
                   <button
                     type="button"
-                    class="frontline-production-defect-step defect-step"
-                    :aria-label="`${defect.label}减少`"
-                    :disabled="payloadLoading"
-                    @click="adjustProductionDefectQuantity(defect.key, -1)"
+                    class="frontline-production-clearance-label"
+                    data-production-clearance-detail-trigger
+                    :aria-label="`${confirmation.label}完整说明`"
+                    @click="openProductionClearanceConfirmationDetail(confirmation.key)"
                   >
-                    -
+                    <span>{{ confirmation.label }}</span>
+                    <small>详情</small>
                   </button>
-                  <input
-                    class="frontline-production-defect-qty defect-qty"
-                    :value="getProductionDefectQuantity(defect.key)"
-                    inputmode="numeric"
-                    :aria-label="`${defect.label}数量`"
-                    :disabled="payloadLoading"
-                    @input="updateProductionDefectQuantity(defect.key, $event)"
-                  />
-                  <button
-                    type="button"
-                    class="frontline-production-defect-step defect-step"
-                    :aria-label="`${defect.label}增加`"
-                    :disabled="payloadLoading"
-                    @click="adjustProductionDefectQuantity(defect.key, 1)"
-                  >
-                    +
-                  </button>
-                  <span class="frontline-production-defect-unit defect-unit">件</span>
+                  <label class="frontline-production-clearance-checkbox">
+                    <input
+                      v-model="productionClearanceConfirmationDraft[confirmation.key]"
+                      type="checkbox"
+                      data-production-clearance-checkbox
+                      :disabled="payloadLoading"
+                      :aria-label="`${confirmation.label}是否确认`"
+                    />
+                    <span aria-hidden="true">✓</span>
+                    <em>已选</em>
+                  </label>
                 </div>
               </div>
-            </section>
-            <section
-              v-if="configuredProductionMaterials.length > 0"
-              class="frontline-production-material-tabs"
-              data-frontline-production-material-tabs
-              role="group"
-              aria-label="物料切换"
-            >
-              <button
-                v-for="material in configuredProductionMaterials"
-                :key="material.key"
-                class="frontline-production-material-tab"
-                :class="{
-                  'is-selected': material.key === selectedProductionMaterialKey,
-                  'is-complete': isProductionMaterialCompletionEntered(material.key)
-                }"
-                type="button"
-                role="tab"
-                data-frontline-production-material-tab
-                :aria-selected="material.key === selectedProductionMaterialKey"
-                :aria-label="formatProductionMaterialTabLabel(material)"
-                :disabled="payloadLoading"
-                @click="switchProductionMaterial(material.key)"
+              <div
+                class="frontline-inline-error-slot"
+                data-frontline-error-slot
+                :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
+                role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
               >
-                <strong>
-                  {{ material.materialName }}<small
-                    v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
-                  > / {{ material.materialCode }}</small>
-                </strong>
-              </button>
-            </section>
-            <div
-              class="frontline-inline-error-slot"
-              data-frontline-error-slot
-              :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-            >
-              <template v-if="frontlineErrorMessage">
-                <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
-                <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+                <template v-if="frontlineErrorMessage">
+                  <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+                  <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+                  <button
+                    type="button"
+                    data-frontline-error-dismiss
+                    aria-label="关闭错误提示"
+                    @click="clearFrontlineError"
+                  >
+                    <Icon icon="ep:close" :size="24" aria-hidden="true" />
+                  </button>
+                </template>
+              </div>
+              <el-alert v-if="productionSubmitReadPending" title="生产提交已成功，当前工序结果尚未读取完成。请重试读取，勿再次提交。" type="warning" :closable="false">
+                <el-button :loading="payloadLoading" @click="retryProductionSubmitRead">重试读取结果</el-button>
+              </el-alert>
+              <footer class="frontline-production-submit-bar bottom">
                 <button
+                  class="frontline-production-reset-button minor-btn"
                   type="button"
-                  data-frontline-error-dismiss
-                  aria-label="关闭错误提示"
-                  @click="clearFrontlineError"
+                  :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitReadPending || productionSubmitWritePending"
+                  @click="handleResetProduction"
                 >
-                  <Icon icon="ep:close" :size="24" aria-hidden="true" />
+                  重填
                 </button>
-              </template>
+                <button
+                  class="frontline-production-submit-button submit-btn"
+                  type="button"
+                  data-production-submit-open-confirmation
+                  :disabled="isSubmitBlocked"
+                  @click="handleValidate"
+                >
+                  <span>
+                    {{
+                      payloadLoading
+                        ? '提交中'
+                        : submitConfirmationOpen
+                          ? '等待确认'
+                          : '正式提交'
+                    }}
+                  </span>
+                </button>
+              </footer>
             </div>
           </section>
 
@@ -1162,71 +1296,7 @@
                 </div>
               </template>
             </div>
-            <div
-              class="frontline-production-clearance-confirmations"
-              data-production-clearance-confirmations
-              aria-label="清场确认"
-            >
-              <div
-                v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"
-                :key="confirmation.key"
-                class="frontline-production-clearance-confirmation"
-              >
-                <button
-                  type="button"
-                  class="frontline-production-clearance-label"
-                  data-production-clearance-detail-trigger
-                  :aria-label="`${confirmation.label}完整说明`"
-                  @click="openProductionClearanceConfirmationDetail(confirmation.key)"
-                >
-                  <span>{{ confirmation.label }}</span>
-                  <small>详情</small>
-                </button>
-                <label class="frontline-production-clearance-checkbox">
-                  <input
-                    v-model="productionClearanceConfirmationDraft[confirmation.key]"
-                    type="checkbox"
-                    data-production-clearance-checkbox
-                    :disabled="payloadLoading"
-                    :aria-label="`${confirmation.label}是否确认`"
-                  />
-                  <span aria-hidden="true">✓</span>
-                  <em>已选</em>
-                </label>
-              </div>
-            </div>
           </section>
-
-          <el-alert v-if="productionSubmitReadPending" title="生产提交已成功，当前工序结果尚未读取完成。请重试读取，勿再次提交。" type="warning" :closable="false">
-            <el-button :loading="payloadLoading" @click="retryProductionSubmitRead">重试读取结果</el-button>
-          </el-alert>
-          <footer class="frontline-production-submit-bar bottom">
-            <button
-              class="frontline-production-reset-button minor-btn"
-              type="button"
-              :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitReadPending || productionSubmitWritePending"
-              @click="handleResetProduction"
-            >
-              重填
-            </button>
-            <button
-              class="frontline-production-submit-button submit-btn"
-              type="button"
-              data-production-submit-open-confirmation
-              :disabled="isSubmitBlocked"
-              @click="handleValidate"
-            >
-              <span>
-                {{
-                  payloadLoading
-                    ? '提交中'
-                    : submitConfirmationOpen
-                      ? '等待确认'
-                      : '正式提交'
-                }}
-              </span>
-            </button>
-          </footer>
         </main>
       </div>
     </div>
@@ -1291,14 +1361,13 @@
           for="frontlineProductionSignaturePassword"
         >
           <span>签名凭据（PIN 码或密码）</span>
-          <input
+          <SignatureCredentialInput
             id="frontlineProductionSignaturePassword"
-            v-model="productionSignaturePassword"
-            type="password"
+            disable-autofill
+            v-model="productionSignaturePassword" :employee-scope="employeeSignaturePasswordScope"
+            :frontline-scope="productionSignatureScope"
             data-production-submit-signature-password
-            autocomplete="current-password"
             :disabled="payloadLoading"
-            placeholder="请输入所选员工签名凭据（PIN 码或密码）"
             @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
           />
         </label>
@@ -1476,6 +1545,33 @@
     </div>
   </section>
   <dialog
+    ref="pqcReviewHistoryDialog" class="pqc-review-history-dialog" aria-labelledby="pqc-review-history-title"
+  >
+    <h2 id="pqc-review-history-title">PQC复核历史与追溯</h2>
+    <template v-if="activePqcTaskOption">
+      <p>检验任务编号 {{ activePqcTaskOption.pqcTaskId }} · 第 {{ activePqcTaskOption.roundNo }} 轮 · 当前复核状态：{{ pqcReviewLabel }}</p>
+      <p v-if="activePqcTaskOption.submittedEventId">正式事件编号：{{ activePqcTaskOption.submittedEventId }}</p>
+      <p>检验结果以正式样本记录为准，复核通过不替代检验结果。</p>
+      <table v-if="activePqcTaskOption.reviewHistory?.length" data-pqc-review-history>
+        <caption>当前正式事件的复核记录（含历次退回）</caption>
+        <thead><tr><th>复核编号 / 轮次</th><th>复核状态</th><th>意见</th><th>复核人</th><th>时间 / 更正版本</th></tr></thead>
+        <tbody>
+          <tr v-for="review in activePqcTaskOption.reviewHistory" :key="review.reviewId">
+            <td>{{ review.reviewId }}<span v-if="review.reviewRound != null"> / 第 {{ review.reviewRound }} 轮</span></td>
+            <td>{{ formatPqcReviewStatus(review.reviewStatus) }}</td>
+            <td>{{ review.reviewRemark || '未填写意见' }}</td>
+            <td>{{ review.reviewerName || `用户编号 ${review.reviewerUserId}` }}</td>
+            <td>{{ formatPqcReviewTime(review.reviewedAt) }}<span v-if="review.revisionId != null"> / {{ review.revisionId }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else-if="!activePqcTaskOption.submittedEventId" data-pqc-review-history-empty>当前任务尚未正式提交，暂无复核记录。</p>
+      <p v-else-if="!Array.isArray(activePqcTaskOption.reviewHistory)" role="alert" data-pqc-review-history-missing>复核历史数据缺失，请刷新核对。</p>
+      <p v-else data-pqc-review-history-empty>当前正式事件暂无复核记录。</p>
+    </template>
+    <button type="button" @click="pqcReviewHistoryDialog?.close()">关闭</button>
+  </dialog>
+  <dialog
 ref="pqcRoundOperationDialog" class="pqc-round-operation-dialog" aria-labelledby="pqc-round-operation-title"
     @cancel="pqcPatrolRoundCreating && $event.preventDefault()">
     <h2 id="pqc-round-operation-title">{{ pqcRoundOperation.mode === 'CANCEL' ? `撤销第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'RESTORE' ? `恢复第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'DRAFT' ? '移动当前工序草稿' : '更正已提交轮次' }}</h2>
@@ -1507,17 +1603,20 @@ v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled=
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
-import ProductionQuantityDrafts from '@/views/mes/pro/processpool/components/ProductionQuantityDrafts.vue'
-import type { ProductionQuantityDraft } from '@/api/mes/pro/feedback/quantityDraft'
 import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
 import { cloneDeep } from 'lodash-es'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
+import { submitReturnedPqcInspection } from '@/api/mes/pro/feedback/pqcReturnedSubmission'
 import EmployeeSignaturePasswordDialog from './EmployeeSignaturePasswordDialog.vue'
+import { getSignatureSettings, type SignatureCredentialType } from '@/api/system/user/profile'
 import FrontlinePqcInspectionTypeSelector from './FrontlinePqcInspectionTypeSelector.vue'
+import { getPqcProcessProgress } from './frontlinePqcProgress'
+import { getPqcReviewLabel, getPqcReviewCounts, formatPqcReviewStatus, formatPqcReviewTime } from './frontlinePqcReviewDisplay'
 import FrontlinePqcCompletionSummary from './FrontlinePqcCompletionSummary.vue'
 import FrontlinePqcNumericEntry from './FrontlinePqcNumericEntry.vue'
 import { isPqcNumericValue } from './pqcNumericEntry'
@@ -1574,6 +1673,7 @@ import {
 } from './frontlineTemplate'
 import {
   isExecutableFrontlinePqcTaskOption,
+  resolveFrontlinePqcTaskInvalidFields,
   resolveFrontlinePqcTaskAvailabilityIssue
 } from './frontlinePqcTaskAvailability'
 import {
@@ -1786,6 +1886,8 @@ type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
 })
+// Immediate watchers below read the mode during setup, before the panel is mounted.
+const isPqcMode = computed(() => props.mode === 'pqc')
 
 const message = useMessage()
 const workflowLog = useWorkflowInteractionLog(() => props.mode === 'pqc' ? 'PQC' : 'PRODUCTION')
@@ -1824,17 +1926,18 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
 const route = useRoute()
+const router = useRouter()
 watch(
   [() => returnCorrectionPanel.value, () => JSON.stringify(route.query)],
   async ([panel]) => {
-    if (panel && route.query.returnTaskId !== undefined) {
+    if (!isPqcMode.value && panel && route.query.returnTaskId !== undefined) {
       await (panel as InstanceType<typeof FrontlineReturnCorrectionPanel>).openTask(route.query)
     }
   },
   { immediate: true, flush: 'post' }
 )
 const userStore = useUserStore()
-const hasReturnNotification = computed(() => route.query.returnTaskId !== undefined)
+const hasReturnNotification = computed(() => !isPqcMode.value && route.query.returnTaskId !== undefined)
 // Initial handoffs and own-return tasks have separate formal navigation contracts.
 const initialHandoffTask = ref<HandoffTask>()
 const initialHandoffLoading = ref(false)
@@ -1919,7 +2022,6 @@ const FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH = 128
 const productionSubmitDraftKey = ref(createProductionSubmitDraftKey())
 const quantityDraftId = ref<number>()
 const quantityDraftMessage = ref('')
-const quantityDraftList = ref<InstanceType<typeof ProductionQuantityDrafts>>()
 let productionFormalSubmitConfirmationResolver: ((confirmed: boolean) => void) | undefined
 const activePicker = ref<PickerType>()
 const activeOrderKeyword = ref('')
@@ -1985,6 +2087,7 @@ const selectedPqcPatrolRound = ref<number>()
 const pqcPatrolRoundCreating = ref(false)
 const pqcTouchedTaskIds = reactive(new Set<number>())
 const pqcRoundOperationDialog = ref<HTMLDialogElement>()
+const pqcReviewHistoryDialog = ref<HTMLDialogElement>()
 const pqcRoundOperation = reactive({ mode: 'DRAFT' as 'DRAFT' | 'SUBMITTED' | 'CANCEL' | 'RESTORE',
   roundNo: 0, sourceTaskId: undefined as number | undefined, targetTaskId: undefined as number | undefined,
   error: '' })
@@ -1996,9 +2099,9 @@ const pqcPieceValues = reactive<Record<string, string[]>>({})
 const pqcItemSelections = reactive<Record<string, PqcItemSelection>>({})
 const pqcSignatureDialogVisible = ref(false)
 const pqcSignaturePassword = ref('')
+const pqcSignatureCredentialType = ref<SignatureCredentialType>()
 const pqcSubmitResultUncertain = ref(false)
 
-const isPqcMode = computed(() => props.mode === 'pqc')
 const isProductionSubmitErrorAcknowledgementPending = computed(() =>
   !isPqcMode.value && Boolean(frontlineErrorMessage.value)
 )
@@ -2011,6 +2114,11 @@ const isProductionSelectionSwitchLocked = computed(() =>
 const PRODUCTION_CANVAS_WIDTH = 1920
 const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
+const pqcStageStyle = computed(() => ({
+  '--frontline-pqc-scale': String(productionViewportScale.value),
+  width: `${PRODUCTION_CANVAS_WIDTH * productionViewportScale.value}px`,
+  height: `${PRODUCTION_CANVAS_HEIGHT * productionViewportScale.value}px`
+}))
 let productionViewportScaleFrame: number | undefined
 let productionViewportResizeObserver: ResizeObserver | undefined
 let processSelectionRequestId = 0
@@ -2039,7 +2147,7 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
   }
   const username = userStore.getUser?.username?.trim()
   const nickname = userStore.getUser?.nickname?.trim()
-  const displayName = username || nickname || String(userId)
+  const displayName = nickname
   return {
     userId: currentLoginUserId.value,
     username,
@@ -2061,6 +2169,20 @@ const employeeSignaturePasswordScope = computed(() => {
     activeOrderId, routeId: submitContext.routeId,
     routeProcessId: submitContext.routeProcessId, processId: submitContext.processId,
     employeeProfileId: employee.employeeProfileId, identityDomain: 'MES_EMPLOYEE_PROFILE' as const
+  }
+})
+const productionSignatureScope = computed(() => {
+  const employee = deviceState.selectedEmployee
+  const activeOrderId = deviceState.selectedActiveOrder?.activeOrderId
+  const submitContext = deviceState.runtimeConfig?.productionSubmitContext
+  if (!employee || !activeOrderId || !submitContext?.routeId || !submitContext.routeProcessId || !submitContext.processId) {
+    throw new Error('所选员工的签名上下文不完整，请重新选择订单、工序和员工。')
+  }
+  return {
+    activeOrderId, routeId: submitContext.routeId,
+    routeProcessId: submitContext.routeProcessId, processId: submitContext.processId,
+    actualEmployeeId: employee.userId,
+    identityDomain: employee.systemUserId ? 'SYSTEM_USER' as const : 'MES_EMPLOYEE_PROFILE' as const
   }
 })
 
@@ -2136,8 +2258,8 @@ const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 const productionQuantityRangeLabel = computed(() => {
   const process = deviceState.selectedProcess
-  if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.productionQuantityFactor === undefined) return ''
-  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；累计上限 ${formatProductionQuantity(process.targetQuantity * process.productionQuantityFactor)}`
+  if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.lossCoefficient === undefined) return ''
+  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；累计上限 ${formatProductionQuantity(process.targetQuantity * process.lossCoefficient)}`
 })
 
 const productionSopFileUrl = ref('')
@@ -2252,6 +2374,7 @@ const productionScrapQuantity = computed(() =>
 const pqcInspectionQuantity = computed(() =>
   normalizePqcQuantity(pqcDraft.inspectionQuantity)
 )
+const pqcOrderTotalQuantity = computed(() => selectedActiveOrder.value?.quantity)
 
 const normalizePqcInspectionItemName = (itemName?: string) =>
   itemName?.trim() || ''
@@ -2274,6 +2397,11 @@ const hasPqcTaskOptionSnapshot = (
 
 const getPqcTaskOptions = (process?: FrontlinePqcProcessVO) =>
   (process?.pqcTaskOptions || []).filter(hasPqcTaskOptionSnapshot)
+
+const getBrowsablePqcTaskOptions = (process?: FrontlinePqcProcessVO): PqcTaskOptionSnapshot[] =>
+  (process?.pqcTaskOptions || []).filter((option): option is PqcTaskOptionSnapshot =>
+    ['PENDING', 'SUBMITTED', 'CONFIRMED'].includes(option.taskStatus) &&
+    resolveFrontlinePqcTaskInvalidFields(option).length === 0)
 
 const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspectionItem => ({
     key: item.itemCode,
@@ -2323,7 +2451,7 @@ const resolveSelectedPqcInspectionItemKey = (process: FrontlinePqcProcessVO) => 
     return selectedKey
   }
   const selectedTask = activePqcTaskOptionId.value
-    ? getPqcTaskOptions(process).find((option) => option.pqcTaskId === activePqcTaskOptionId.value)
+    ? getBrowsablePqcTaskOptions(process).find((option) => option.pqcTaskId === activePqcTaskOptionId.value)
     : undefined
   const taskItemKey = resolvePqcProcessItemKey(process, normalizePqcTaskOptionItemKey(selectedTask))
   return taskItemKey || process.inspectionItems[0]?.itemCode
@@ -2332,7 +2460,7 @@ const resolveSelectedPqcInspectionItemKey = (process: FrontlinePqcProcessVO) => 
 const getPqcTaskOptionsForInspectionItem = (
   process: FrontlinePqcProcessVO,
   itemKey?: PqcInspectionItemKey
-) => getPqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
+) => getBrowsablePqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
 
 const getPqcTaskOptionsByRule = (
   process: FrontlinePqcProcessVO,
@@ -2350,20 +2478,20 @@ const getPqcTaskOptionForRule = (
 ) => getPqcTaskOptionsByRule(process, ruleKey, itemKey)[0] ||
   getPqcTaskOptionsByRule(process, ruleKey)[0]
 
-const hasExecutablePqcTaskForRule = (
+const hasBrowsablePqcTaskForRule = (
   process: FrontlinePqcProcessVO,
   ruleKey: FrontlinePqcInspectionRuleKey
 ) => getPqcTaskOptionsByRule(process, ruleKey).length > 0
 
 const findFirstPqcInspectionRuleKey = (processes: FrontlinePqcProcessVO[]) =>
   PQC_INSPECTION_RULE_ORDER.find((ruleKey) =>
-    processes.some((process) => hasExecutablePqcTaskForRule(process, ruleKey))
+    processes.some((process) => hasBrowsablePqcTaskForRule(process, ruleKey))
   )
 
 const findFirstPqcProcessForInspectionRule = (
   processes: FrontlinePqcProcessVO[],
   ruleKey: FrontlinePqcInspectionRuleKey
-) => processes.find((process) => hasExecutablePqcTaskForRule(process, ruleKey))
+) => processes.find((process) => hasBrowsablePqcTaskForRule(process, ruleKey))
 
 const preferPqcTaskOption = (
   options: PqcTaskOptionSnapshot[],
@@ -2404,7 +2532,7 @@ const getDefaultPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   }
   const selectedItemOptions = getPqcTaskOptionsForInspectionItem(process, selectedItemKey)
   return preferPqcTaskOption(
-    selectedItemOptions.length > 0 ? selectedItemOptions : getPqcTaskOptions(process)
+    selectedItemOptions.length > 0 ? selectedItemOptions : getBrowsablePqcTaskOptions(process)
   )
 }
 
@@ -2413,7 +2541,7 @@ const getSelectedPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   const selectedRuleKey = selectedPqcInspectionRuleKey.value
   const selectedTaskId = activePqcTaskOptionId.value
   const selectedTask = selectedTaskId
-    ? getPqcTaskOptions(process).find((option) =>
+    ? getBrowsablePqcTaskOptions(process).find((option) =>
       option.pqcTaskId === selectedTaskId &&
       (!selectedRuleKey || option.inspectionRuleKey === selectedRuleKey) &&
       (selectedRuleKey !== 'PATROL' || selectedPqcPatrolRound.value === undefined ||
@@ -2433,17 +2561,20 @@ const pqcInspectionTypeTabs = computed<{
   ruleKey: FrontlinePqcInspectionRuleKey
   type: InspectionType
   label: string
+  submittedCount: number
+  totalCount: number
 }[]>(() => {
   return PQC_INSPECTION_RULE_ORDER
     .filter((ruleKey) => allSwitchablePqcProcessOptions.value.some((process) =>
       ruleKey === 'PATROL' || ruleKey === 'FINAL'
         ? process.inspectionTypeRules.some((rule) => rule.key === ruleKey && rule.required) &&
           process.inspectionItems.some((item) => item.applicableInspectionTypes.includes(ruleKey))
-        : hasExecutablePqcTaskForRule(process, ruleKey)))
+        : hasBrowsablePqcTaskForRule(process, ruleKey)))
     .map((ruleKey) => ({
       ruleKey,
       type: PQC_INSPECTION_RULE_TYPES[ruleKey],
-      label: ruleKey === 'FINAL' && !pqcFinalCreated.value ? '新建末检' : PQC_INSPECTION_RULE_LABELS[ruleKey]
+      label: ruleKey === 'FINAL' && !pqcFinalCreated.value ? '新建末检' : PQC_INSPECTION_RULE_LABELS[ruleKey],
+      ...getPqcProcessProgress(allSwitchablePqcProcessOptions.value, ruleKey, selectedPqcPatrolRound.value)
     }))
 })
 
@@ -2497,6 +2628,20 @@ const pqcTaskAvailabilityIssue = computed(() =>
     ? resolveFrontlinePqcTaskAvailabilityIssue(deviceState.selectedProcess)
     : undefined
 )
+
+const pqcSelectedTaskReadonly = computed(() =>
+  ['SUBMITTED', 'CONFIRMED'].includes(activePqcTaskOption.value?.taskStatus || ''))
+const pqcReviewLabel = computed(() => getPqcReviewLabel(activePqcTaskOption.value))
+const pqcReviewCounts = computed(() => getPqcReviewCounts(
+  allSwitchablePqcProcessOptions.value.flatMap(process => process.pqcTaskOptions)))
+const pqcSubmittedItem = computed(() => activePqcTaskOption.value?.submittedInspection?.items
+  .find(item => item.itemCode === activePqcTabKey.value))
+const isPqcSubmittedChoiceActive = (result: PqcChoiceResult) => {
+  const values = pqcSubmittedItem.value?.sampleValues
+  return Boolean(values?.length && values.every(value => value === result))
+}
+const pqcDisplayedScrapQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? activePqcTaskOption.value?.submittedInspection?.scrapQuantity : pqcDraft.scrapQuantity)
 
 const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
   isFrontlinePqcProcess(deviceState.selectedProcess)
@@ -2606,17 +2751,20 @@ const pqcSubmitContextKey = () => {
     isFrontlinePqcProcess(process) ? [process.activeOrderId, process.routeId, process.qaProcessId,
       process.pqcTaskOptions.map((option) => [option.pqcTaskId, option.regulationVersionId,
         option.qaProcessId, option.taskStatus, option.inspectionRuleKey, option.inspectionType, option.businessDate,
-        option.shiftCode, option.roundNo, option.plannedInspectionQuantity, option.inspectionTypeRule,
+        option.shiftCode, option.roundNo, option.returnedSubmission?.row.rejectedReviewId, option.returnedSubmission?.row.expectedRevisionId, option.plannedInspectionQuantity, option.inspectionTypeRule,
         option.inspectionItems])] : undefined
   ])
 }
 const pqcSubmitGuard = createFormalActionGuard(pqcSubmitContextKey)
 const pqcActionInProgress = ref(false)
 const pqcMethodWrites = new Set<string>()
-const pqcMethodReceipts = new Map<string, FrontlinePqcInspectionSubmitRespVO>()
+const pqcMethodReceipts = new Map<string, Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>>()
 const pqcUncertainMethods = new Set<string>()
 const pqcMethodKey = (sessionKey: string, payload: FrontlinePqcInspectionSubmitReqVO) =>
-  JSON.stringify([sessionKey, payload.activeOrderId, payload.pqcTaskId])
+  JSON.stringify([sessionKey, payload.activeOrderId, payload.pqcTaskId,
+    isFrontlinePqcProcess(deviceState.selectedProcess)
+      ? deviceState.selectedProcess.pqcTaskOptions.find(task => task.pqcTaskId === payload.pqcTaskId)?.returnedSubmission?.row.rejectedReviewId
+      : undefined])
 const invalidatePqcSubmitContext = () => {
   pqcSubmitGuard.invalidate()
   if (pqcActionInProgress.value) payloadLoading.value = false
@@ -2647,6 +2795,7 @@ const isSubmitBlocked = computed(() =>
 )
 
 const isPqcSubmitBlocked = computed(() =>
+  pqcSelectedTaskReadonly.value ||
   payloadLoading.value ||
   pqcPatrolRoundCreating.value ||
   hasReturnNotification.value ||
@@ -2672,7 +2821,7 @@ const statusText = computed(() => {
     return '请选择工序'
   }
   if (isPqcMode.value && pqcSelectedStageSubmitted.value) {
-    return '当前工序本次检验已提交，请选择其他待检工序。'
+    return `${pqcReviewLabel.value}，可切换工序或卡片查看正式检验记录。`
   }
   if (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) {
     return '当前工序缺少PQC任务或QA规程快照'
@@ -2703,7 +2852,7 @@ const pqcInspectionEmptyText = computed(() => {
     return '请先选择PQC工序'
   }
   if (pqcSelectedStageSubmitted.value) {
-    return '当前工序本次检验已提交，请选择其他待检工序。'
+    return `${pqcReviewLabel.value}，可切换工序或卡片查看正式检验记录。`
   }
   if (pqcTaskAvailabilityIssue.value?.message) {
     return pqcTaskAvailabilityIssue.value.message
@@ -2954,6 +3103,15 @@ const buildProductionMaterialDeviceMemoryStorageKey = (memoryKey: string) => {
   return `${PRODUCTION_MATERIAL_DEVICE_MEMORY_STORAGE_PREFIX}:${loginUserId}:${memoryKey}`
 }
 
+const buildProductionProcessDeviceMemoryKey = () => {
+  // 后端的 Long 产品ID超出 JS 安全整数范围时以字符串返回，记忆键必须保留原始精度。
+  const productId = String(deviceState.selectedActiveOrder?.productId ?? '')
+  if (!/^[1-9]\d*$/.test(productId)) {
+    throw new Error('设备参数记忆缺少当前订单的产品身份。')
+  }
+  return buildProductionMaterialDeviceMemoryKey(`product:${productId}`)
+}
+
 const parseProductionMaterialDeviceMemory = (
   raw: string,
   storageKey: string
@@ -3042,6 +3200,10 @@ const restoreProductionMaterialDraft = (materialKey: string) => {
       productionDefectDraft[defect.key] = 0
     }
   }
+  restoreProductionDeviceDraft(materialDraft)
+}
+
+const restoreProductionDeviceDraft = (materialDraft: ProductionMaterialDeviceDraftState) => {
   replaceReactiveRecord(
     deviceParameterDraft,
     cloneProductionDeviceParameters(materialDraft.deviceParameters)
@@ -3076,6 +3238,12 @@ const clearProductionMaterialDrafts = () => {
 const syncProductionMaterialDrafts = (materials: ProductionMaterialOption[]) => {
   if (!materials.length) {
     clearProductionMaterialDrafts()
+    if (!isPqcMode.value && deviceState.runtimeConfig && isFrontlineProductionProcess(deviceState.selectedProcess)) {
+      const memory = loadProductionMaterialDeviceMemory(buildProductionProcessDeviceMemoryKey())
+      if (memory) {
+        restoreProductionDeviceDraft(memory)
+      }
+    }
     ensureProductionDefaultDeviceSelection(visibleDeviceCards.value)
     return
   }
@@ -3242,7 +3410,7 @@ const filteredPqcProcessOptions = computed(() => {
     return allSwitchablePqcProcessOptions.value
   }
   return allSwitchablePqcProcessOptions.value.filter((process) =>
-    hasExecutablePqcTaskForRule(process, ruleKey)
+    hasBrowsablePqcTaskForRule(process, ruleKey)
   )
 })
 
@@ -3663,6 +3831,18 @@ const buildProductionClearanceConfirmationPayload = () =>
 const rememberProductionMaterialDeviceDrafts = (
   submittedMaterials: ProFrontlineFeedbackMaterialReqVO[]
 ) => {
+  if (!configuredProductionMaterials.value.length) {
+    const memoryKey = buildProductionProcessDeviceMemoryKey()
+    const memory: ProductionMaterialDeviceDraftState = {
+      selectedDeviceKey: selectedProductionDeviceKey.value,
+      selectedDeviceKeys: [...selectedProductionDeviceKeys.value],
+      deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
+      deviceMeteringValidity: { ...deviceMeteringValidityDraft }
+    }
+    saveProductionMaterialDeviceMemory(memoryKey, memory)
+    productionMaterialLastDeviceDrafts[memoryKey] = memory
+    return
+  }
   persistActiveProductionMaterialDraft()
   const submittedMaterialKeys = new Set(
     submittedMaterials.map((material) => String(material.materialId))
@@ -3687,16 +3867,12 @@ const rememberProductionMaterialDeviceDrafts = (
 }
 
 const resetProductionSubmissionDraft = () => {
+  // 重建物料草稿会清空数量，并恢复该产品上次提交的设备及参数。
   resetProductionMaterialDrafts()
   productionDraft.outputQuantity = undefined
   for (const defect of configuredDefectReasons.value) {
     productionDefectDraft[defect.key] = 0
   }
-  for (const deviceKey of Object.keys(deviceParameterDraft)) {
-    delete deviceParameterDraft[deviceKey]
-  }
-  resetProductionDeviceMeteringValidityDraft()
-  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
   resetProductionClearanceConfirmations()
   Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
   payloadPreview.value = undefined
@@ -3708,88 +3884,6 @@ const handleResetProduction = () => {
   resetProductionSubmissionDraft()
   quantityDraftId.value = undefined
   quantityDraftMessage.value = ''
-}
-
-const restoreQuantityDraft = async (saved: ProductionQuantityDraft) => {
-  try {
-    const request = JSON.parse(saved.requestJson) as ProFrontlineFeedbackSubmitReqVO
-    const order = deviceState.activeOrderOptions.find(item => String(item.activeOrderId) === String(saved.activeOrderId))
-    if (!order) throw new Error('草稿原订单已不可填写，请先由组长核对订单状态。')
-    await handleSelectActiveOrder(order, { routeProcessId: saved.routeProcessId, processId: saved.processId })
-    const employee = deviceState.employeeOptions.find(item =>
-      String(item.userId) === String(saved.employeeId) &&
-      (item.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE') === saved.identityDomain
-    )
-    if (!employee) throw new Error('草稿签名员工已不在当前工序的可选范围，未恢复填写。')
-    await handleSelectEmployee(employee)
-    const selectedProcess = deviceState.selectedProcess
-    if (String(deviceState.selectedActiveOrder?.activeOrderId) !== String(saved.activeOrderId) ||
-        !isFrontlineProductionProcess(selectedProcess) || String(selectedProcess.processId) !== String(saved.processId) ||
-        String(selectedProcess.routeProcessId) !== String(saved.routeProcessId) ||
-        String(context.actualEmployeeId) !== String(saved.employeeId) ||
-        (deviceState.selectedEmployee?.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE') !== saved.identityDomain) {
-      throw new Error('当前订单、工序或员工与草稿不一致，未恢复填写。')
-    }
-    resetProductionSubmissionDraft()
-    const clearance = request.rawPayload?.clearanceConfirmations
-    for (const confirmation of FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS) {
-      productionClearanceConfirmationDraft[confirmation.key] = Array.isArray(clearance) && clearance.some(
-        item => item?.key === confirmation.key && item?.confirmed === true
-      )
-    }
-    for (const material of request.materialDetails || []) {
-      const key = String(material.materialId)
-      const state = productionMaterialDrafts[key]
-      if (!state) throw new Error(`草稿物料 ${material.materialId} 不属于当前冻结工序`)
-      state.outputQuantity = material.outputQuantity
-      state.defectQuantities = Object.fromEntries(configuredDefectReasons.value.map(reason => [reason.key,
-        (material.lossDetails || []).find(loss => loss.reasonId === reason.reasonId)?.quantity || 0]))
-      state.selectedDeviceKeys = []
-      state.deviceParameters = {}
-      state.deviceMeteringValidity = {}
-      for (const selected of material.selectedDevices || []) {
-        const device = findProductionDeviceCardById(selected.deviceId)
-        if (!device) throw new Error(`草稿设备 ${selected.deviceId} 不属于当前冻结工序`)
-        state.selectedDeviceKeys.push(device.key)
-        state.deviceMeteringValidity[device.key] = selected.inMeteringValidityPeriod
-        state.deviceParameters[device.key] = {}
-        for (const reading of material.deviceParameterReadings || []) {
-          if (reading.deviceId !== selected.deviceId) continue
-          const parameter = device.parameters.find(item => item.parameterCode === reading.parameterCode)
-          if (!parameter) throw new Error(`草稿设备参数 ${reading.parameterCode} 不属于当前冻结配置`)
-          state.deviceParameters[device.key][reading.parameterCode] = isBooleanParameter(parameter)
-            ? reading.value === 1 : reading.textValue ?? reading.value
-        }
-      }
-      state.selectedDeviceKey = state.selectedDeviceKeys[0]
-    }
-    if (selectedProductionMaterialKey.value) restoreProductionMaterialDraft(selectedProductionMaterialKey.value)
-    if (!(request.materialDetails || []).length) {
-      productionDraft.outputQuantity = request.feedbackPayload.outputQuantity
-      for (const reason of configuredDefectReasons.value) {
-        productionDefectDraft[reason.key] = request.feedbackPayload.lossDetails?.find(loss => loss.reasonId === reason.reasonId)?.quantity || 0
-      }
-      selectedProductionDeviceKeys.value = []
-      for (const selected of request.feedbackPayload.selectedDevices || []) {
-        const device = findProductionDeviceCardById(selected.deviceId)
-        if (!device) throw new Error(`草稿设备 ${selected.deviceId} 不属于当前冻结工序`)
-        selectedProductionDeviceKeys.value.push(device.key)
-        deviceMeteringValidityDraft[device.key] = selected.inMeteringValidityPeriod
-        deviceParameterDraft[device.key] = {}
-        for (const reading of request.feedbackPayload.deviceParameterReadings || []) {
-          if (reading.deviceId !== selected.deviceId) continue
-          const parameter = device.parameters.find(item => item.parameterCode === reading.parameterCode)
-          if (!parameter) throw new Error(`草稿设备参数 ${reading.parameterCode} 不属于当前冻结配置`)
-          deviceParameterDraft[device.key][reading.parameterCode] = isBooleanParameter(parameter)
-            ? reading.value === 1 : reading.textValue ?? reading.value
-        }
-      }
-      selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
-    }
-    quantityDraftId.value = saved.id
-    quantityDraftMessage.value = saved.status === 'BLOCKED' ? '草稿已恢复，等待组长签署处理；本次尚未形成正式报工。' : `组长已处理：${saved.reviewReason}。请核对订单和数量，重新签名提交。`
-    clearFrontlineError()
-  } catch (error) { showFrontlineError(error) }
 }
 
 const normalizePqcQuantity = (value?: number) => {
@@ -3817,8 +3911,11 @@ const getPqcTaskDraftKey = (taskOption: PqcTaskOptionSnapshot | undefined): PqcT
 }
 
 const createPqcTaskDraftState = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => ({
-  inspectionQuantity: taskOption.plannedInspectionQuantity,
-  scrapQuantity: undefined
+  inspectionQuantity: taskOption.returnedSubmission?.pqc?.actualInspectionQuantity ?? taskOption.plannedInspectionQuantity,
+  scrapQuantity: taskOption.returnedSubmission?.pqc?.scrapQuantity,
+  itemQuantities: taskOption.returnedSubmission?.pqc
+    ? Object.fromEntries(taskOption.returnedSubmission.pqc.items.map(item => [item.itemCode, item.sampleValues.length]))
+    : undefined
 })
 
 const getPqcTaskDraft = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => {
@@ -3882,30 +3979,17 @@ const getPqcPlannedQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey
 const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) =>
   getPqcTaskDraft(taskOption).itemQuantities?.[itemKey] ?? getPqcPlannedQuantityForItem(taskOption, itemKey)
 
-const updatePqcItemQuantity = (itemKey: PqcInspectionItemKey, event: Event) => {
-  const option = activePqcTaskOption.value
-  if (!option) return
-  const input = event.target as HTMLInputElement
-  const quantity = Number(input.value)
-  const minimum = getPqcPlannedQuantityForItem(option, itemKey)
-  if (!Number.isSafeInteger(quantity) || quantity < minimum) {
-    input.value = String(getPqcInspectionQuantityForItem(option, itemKey))
-    message.error(`本项目实际抽样数量不能少于规程要求的${minimum}件`)
-    return
-  }
-  markPqcTaskTouched()
-  const draft = getPqcTaskDraft(option)
-  draft.itemQuantities = { ...draft.itemQuantities, [itemKey]: quantity }
-  draft.inspectionQuantity = Math.max(...option.inspectionItems.map(item =>
-    getPqcInspectionQuantityForItem(option, item.itemCode)))
-  pqcDraft.inspectionQuantity = draft.inspectionQuantity
-  resizePqcPieceValuesForCurrentTask(option)
-}
-
-const activePqcItemQuantity = computed(() => activePqcTaskOption.value && activePqcInspectionKey.value
+const activePqcItemQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? pqcPieceDraftValues.value.length : activePqcTaskOption.value && activePqcInspectionKey.value
   ? getPqcInspectionQuantityForItem(activePqcTaskOption.value, activePqcInspectionKey.value) : 0)
 const getPqcItemQuantity = (itemKey: PqcInspectionItemKey) => activePqcTaskOption.value
   ? getPqcInspectionQuantityForItem(activePqcTaskOption.value, itemKey) : 0
+
+const pqcSelectedItemQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? pqcSubmittedItem.value?.sampleValues.length ?? 0
+  : activePqcTabKey.value ? getPqcItemQuantity(activePqcTabKey.value) : 0)
+const pqcSelectedItemMinimum = computed(() => activePqcTaskOption.value && activePqcTabKey.value
+  ? getPqcPlannedQuantityForItem(activePqcTaskOption.value, activePqcTabKey.value) : 0)
 
 const isPqcNumericResultType = (resultType: FrontlinePqcResultType) => resultType === 'NUMERIC'
 
@@ -3935,6 +4019,22 @@ const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
     ? `巡检 · 第 ${option.roundNo} 轮`
     : PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
 
+const hydrateReturnedPqcTask = (option: PqcTaskOptionSnapshot) => {
+  getPqcTaskDraft(option)
+  if (option.returnedSubmission?.pqc) {
+    for (const item of option.returnedSubmission.pqc.items) {
+      const key = getPqcPieceStateKeyForTask(item.itemCode, option)
+      if (!key) throw new Error('退回检验记录缺少原填写上下文。')
+      if (!pqcPieceValues[key]) {
+        pqcPieceValues[key] = item.sampleValues.slice()
+        const selection = getPqcItemSelection(item.itemCode, option)
+        selection.selectedEquipmentId = item.selectedEquipmentId
+        selection.selectedEquipmentNumber = item.selectedEquipmentNumber
+      }
+    }
+  }
+}
+
 const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   const storedDraft = getPqcTaskDraft(option)
   activePqcTaskOptionId.value = option.pqcTaskId
@@ -3956,6 +4056,7 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
         : option.inspectionItems[0]?.itemCode
   }
   applyPqcItemEquipmentDefaults(option.inspectionItems.map(mapPqcInspectionItem), option)
+  hydrateReturnedPqcTask(option)
 }
 
 const clearPqcTaskOptionDraft = () => {
@@ -4011,23 +4112,18 @@ const applyPqcItemEquipmentDefaults = (
   items: PqcInspectionItem[],
   taskOption: PqcTaskOptionSnapshot
 ) => {
+  if (taskOption.returnedSubmission) return
   for (const item of items) {
     const selection = getPqcItemSelection(item.key, taskOption)
     if (selection.selectedEquipmentId || selection.selectedEquipmentNumber) {
       continue
     }
-    if (!item.lastSelectedEquipmentId || !item.lastSelectedEquipmentNumber) {
-      continue
-    }
-    const selectedOption = item.equipmentOptions.find((option) =>
-      option.equipmentId === item.lastSelectedEquipmentId &&
-      option.equipmentNumber === item.lastSelectedEquipmentNumber
-    )
+    const selectedOption = getUniquePqcEquipmentOptions(item)[0]
     if (!selectedOption) {
       continue
     }
-    selection.selectedEquipmentId = item.lastSelectedEquipmentId
-    selection.selectedEquipmentNumber = item.lastSelectedEquipmentNumber
+    selection.selectedEquipmentId = selectedOption.equipmentId
+    selection.selectedEquipmentNumber = selectedOption.equipmentNumber
   }
 }
 
@@ -4120,6 +4216,7 @@ const hasCompletedPqcEquipmentSelection = (item: PqcInspectionItem) => {
 }
 
 const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
+  if (pqcSelectedTaskReadonly.value || payloadLoading.value || pqcSubmitResultUncertain.value) return
   markPqcTaskTouched()
   const value = (event.target as HTMLSelectElement).value
   const selection = getPqcItemSelection(itemKey)
@@ -4147,6 +4244,7 @@ const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Even
 }
 
 const returnToPqcEquipmentOptions = (itemKey: PqcInspectionItemKey) => {
+  if (pqcSelectedTaskReadonly.value || payloadLoading.value || pqcSubmitResultUncertain.value) return
   markPqcTaskTouched()
   const selection = getPqcItemSelection(itemKey)
   selection.selectedEquipmentId = undefined
@@ -4587,6 +4685,16 @@ const assertPqcPieceContext = () => {
 }
 
 const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
+  if (pqcSelectedTaskReadonly.value) {
+    const item = activePqcTaskOption.value?.submittedInspection?.items.find(item => item.itemCode === itemKey)
+    if (!item) {
+      showFrontlineError('已提交记录缺少当前卡片的正式检验数据，请刷新订单后重试。')
+      return
+    }
+    pqcPieceDraftValues.value = item.sampleValues.slice()
+    activePqcInspectionKey.value = itemKey
+    return
+  }
   try {
     assertPqcPieceContext()
   } catch (error) {
@@ -4599,7 +4707,7 @@ const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
 
 const closePqcPieceInspection = (saveChanges: boolean) => {
   const itemKey = activePqcInspectionKey.value
-  if (saveChanges && itemKey) {
+  if (saveChanges && itemKey && !pqcSelectedTaskReadonly.value) {
     if (activePqcInspectionItem.value?.type === 'number') {
       const invalidIndex = pqcPieceDraftValues.value.findIndex(value => value.trim() && !isPqcNumericValue(value, activePqcInspectionItem.value?.standardPrecision))
       if (invalidIndex >= 0) {
@@ -4623,6 +4731,7 @@ const applyPqcBulkChoice = (
   itemKey: PqcInspectionItemKey,
   result: PqcChoiceResult
 ) => {
+  if (pqcSelectedTaskReadonly.value) return
   try {
     assertPqcPieceContext()
   } catch (error) {
@@ -4637,6 +4746,7 @@ const applyPqcBulkChoice = (
 }
 
 const updatePqcPieceChoice = (index: number, value: boolean | string | number) => {
+  if (pqcSelectedTaskReadonly.value) return
   if (value === true) {
     pqcPieceDraftValues.value[index] = '合格'
     return
@@ -4867,23 +4977,69 @@ const executePqcRoundOperation = async () => {
   } finally { pqcPatrolRoundCreating.value = false }
 }
 
-const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
-  markPqcTaskTouched()
-  const inputValue = (event.target as HTMLInputElement).value
-  pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
-  persistCurrentPqcTaskDraft()
-  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
-    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+const assertPqcInspectionWithinOrderQuantity = (quantity: number) => {
+  const total = pqcOrderTotalQuantity.value
+  if (total == null || !Number.isFinite(total) || total <= 0) {
+    throw new Error('缺少有效的订单总数量，无法填写检验数量。')
+  }
+  if (quantity > total) {
+    throw new Error(`检验数量不能大于总数量（${total}件）。`)
   }
 }
 
-const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
-  markPqcTaskTouched()
-  pqcDraft[field] = Math.max(0, normalizePqcQuantity(pqcDraft[field]) + delta)
-  persistCurrentPqcTaskDraft()
-  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
-    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+const setPqcQuantity = (field: PqcQuantityField, value: number | undefined) => {
+  if (pqcSelectedTaskReadonly.value) return
+  const quantity = normalizePqcQuantity(value)
+  if (field === 'inspectionQuantity') {
+    const option = activePqcTaskOption.value
+    const itemKey = activePqcTabKey.value
+    if (!option || !itemKey) {
+      showFrontlineError('请先选择检验项目。')
+      return
+    }
+    try {
+      assertPqcInspectionWithinOrderQuantity(quantity)
+    } catch (error) {
+      showFrontlineError(resolveErrorMessage(error))
+      return
+    }
+    if (quantity < getPqcPlannedQuantityForItem(option, itemKey)) {
+      showFrontlineError('检验数量不能小于规程要求的抽样数量。')
+      return
+    }
+    const taskQuantity = Math.max(...option.inspectionItems.map(item =>
+      item.itemCode === itemKey ? quantity : getPqcInspectionQuantityForItem(option, item.itemCode)))
+    if (taskQuantity < normalizePqcQuantity(pqcDraft.scrapQuantity)) {
+      showFrontlineError('损耗数量不能大于检验数量。')
+      return
+    }
+    markPqcTaskTouched()
+    const draft = getPqcTaskDraft(option)
+    draft.itemQuantities = { ...draft.itemQuantities, [itemKey]: quantity }
+    pqcDraft.inspectionQuantity = taskQuantity
+    persistCurrentPqcTaskDraft()
+    resizePqcPieceValuesForCurrentTask(option)
+    return
   }
+  if (quantity > pqcInspectionQuantity.value) {
+    showFrontlineError('损耗数量不能大于检验数量。')
+    return
+  }
+  markPqcTaskTouched()
+  pqcDraft[field] = value === undefined ? undefined : quantity
+  persistCurrentPqcTaskDraft()
+}
+
+const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
+  const input = event.target as HTMLInputElement
+  setPqcQuantity(field, input.value === '' ? undefined : Number(input.value))
+  const quantity = field === 'inspectionQuantity' ? pqcSelectedItemQuantity.value : pqcDraft[field]
+  input.value = quantity === undefined ? '' : String(quantity)
+}
+
+const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
+  const quantity = field === 'inspectionQuantity' ? pqcSelectedItemQuantity.value : pqcDraft[field]
+  setPqcQuantity(field, Math.max(0, normalizePqcQuantity(quantity) + delta))
 }
 
 const resolvePqcTaskSummaryState = (
@@ -4902,7 +5058,7 @@ const updatePqcSubmittedTasksInProcess = (
 ): FrontlinePqcProcessVO => {
   const pqcTaskOptions = process.pqcTaskOptions.map((taskOption) =>
     submittedTaskIds.has(taskOption.pqcTaskId)
-      ? { ...taskOption, taskStatus: 'SUBMITTED' as FrontlinePqcTaskStatus }
+      ? { ...taskOption, returnedSubmission: undefined, taskStatus: 'SUBMITTED' as FrontlinePqcTaskStatus, currentReviewStatus: 'PENDING' as const }
       : taskOption
   )
   const countStatus = (status: FrontlinePqcTaskStatus) =>
@@ -4987,7 +5143,7 @@ const resetPqcSubmissionDraft = (submittedPqcTaskId?: number) => {
 }
 
 const handleResetPqc = () => {
-  if (pqcSubmitResultUncertain.value) {
+  if (pqcSelectedTaskReadonly.value || pqcSubmitResultUncertain.value) {
     return
   }
   resetPqcSubmissionDraft()
@@ -5018,7 +5174,7 @@ const parseCssPixelValue = (value: string) => {
 
 const resolveProductionViewportScale = () => {
   const panel = frontlinePanelRef.value
-  if (!panel || isPqcMode.value) {
+  if (!panel) {
     return 1
   }
   const rect = panel.getBoundingClientRect()
@@ -5028,13 +5184,15 @@ const resolveProductionViewportScale = () => {
     rect.width - parseCssPixelValue(style.paddingLeft) - parseCssPixelValue(style.paddingRight)
   )
   const widthScale = availableWidth / PRODUCTION_CANVAS_WIDTH
-  const fullscreenHeightScale = isProductionFullscreen.value
+  // 两种填写模式都扣除导航区域，保证底部操作完整留在当前视口。
+  const availableHeight = isProductionFullscreen.value || isPqcFullscreen.value
     ? Math.max(
       0,
       rect.height - parseCssPixelValue(style.paddingTop) - parseCssPixelValue(style.paddingBottom)
-    ) / PRODUCTION_CANVAS_HEIGHT
-    : 1
-  const nextScale = Math.min(1, widthScale, fullscreenHeightScale)
+    )
+    : Math.max(0, window.innerHeight - Math.max(0, rect.top) - parseCssPixelValue(style.paddingBottom))
+  const heightScale = availableHeight / PRODUCTION_CANVAS_HEIGHT
+  const nextScale = Math.min(1, widthScale, heightScale)
   if (!Number.isFinite(nextScale) || nextScale <= 0) {
     return 1
   }
@@ -5046,10 +5204,6 @@ const updateProductionViewportScale = () => {
 }
 
 const scheduleProductionViewportScaleUpdate = () => {
-  if (isPqcMode.value) {
-    productionViewportScale.value = 1
-    return
-  }
   if (productionViewportScaleFrame !== undefined) {
     window.cancelAnimationFrame(productionViewportScaleFrame)
   }
@@ -5308,6 +5462,7 @@ const handleSelectActiveOrder = async (
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
   try {
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, activeOrder.activeOrderId)
     processes = await selectFrontlinePqcActiveOrder(
       deviceState,
       activeOrder,
@@ -5350,7 +5505,7 @@ const handleSelectProcess = async (
     isPqcMode.value &&
     isFrontlinePqcProcess(process) &&
     selectedRuleKey &&
-    !hasExecutablePqcTaskForRule(process, selectedRuleKey)
+    !hasBrowsablePqcTaskForRule(process, selectedRuleKey)
   ) {
     showFrontlineError(`当前工序没有可执行的${PQC_INSPECTION_RULE_LABELS[selectedRuleKey]}任务。`)
     return
@@ -5383,6 +5538,11 @@ const handleSelectProcess = async (
     context.workOrderId = undefined
   }
   if (isPqcMode.value) {
+    if (isFrontlinePqcProcess(selectedProcess)) {
+      for (const option of getBrowsablePqcTaskOptions(selectedProcess)) {
+        if (option.returnedSubmission) hydrateReturnedPqcTask(option)
+      }
+    }
     applyPqcTaskSnapshotToDraft(selectedProcess)
   }
   employeeTemplateCode.value = undefined
@@ -5430,6 +5590,10 @@ const handleNavigatePqcProcess = async (direction: -1 | 1) => {
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
     showFrontlineError('一线PQC员工必须使用当前登录账号。')
+    return
+  }
+  if (isPqcMode.value && pqcSelectedTaskReadonly.value) {
+    deviceState.selectedEmployee = employee
     return
   }
   const shouldClosePickerImmediately = !isPqcMode.value
@@ -5692,21 +5856,22 @@ const handleProductionFormalSubmit = async () => {
       quantityDraftId.value = submitResult.quantityDraftId
       quantityDraftMessage.value = submitResult.quantityBlockMessage || '本次填写已拦截，请生产组长核对处理后重新提交。'
       showFrontlineError(quantityDraftMessage.value)
-      await quantityDraftList.value?.load()
       return
     }
     if (submitResult.submissionStatus !== 'SUBMITTED' || !submitResult.processPoolEventId) {
       throw new Error('生产提交未返回有效正式回执，请核对后再操作。')
     }
-    approvalInvalidation.publishEdhrSuccess(approvalEvent)
     writeSucceeded = true
-    const finish = () => {
+    // 只在正式提交成功后保存；刷新工序可能重建草稿，必须先记住本次设备与参数。
+    if (isCurrent()) {
       try { rememberProductionMaterialDeviceDrafts(materialDetails) }
       catch (memoryError) { message.warning(`报工已成功，但默认设备和参数记忆保存失败：${resolveErrorMessage(memoryError)}`) }
+    }
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    const finish = () => {
       resetProductionSubmissionDraft()
       quantityDraftId.value = undefined
       quantityDraftMessage.value = ''
-      void quantityDraftList.value?.load()
       openProductionSubmitSuccessDialog()
       showParameterAuditWarning(submitResult)
       clearFrontlineError()
@@ -5728,8 +5893,12 @@ const handleProductionFormalSubmit = async () => {
 }
 
 const assertPqcSignatureAndQuantityReady = (requirePassword = false) => {
+  assertPqcInspectionWithinOrderQuantity(pqcInspectionQuantity.value)
   if (pqcInspectionQuantity.value <= 0) {
     throw new Error('PQC检验数量必须大于0。')
+  }
+  if (normalizePqcQuantity(pqcDraft.scrapQuantity) > pqcInspectionQuantity.value) {
+    throw new Error('损耗数量不能大于检验数量。')
   }
   if (requirePassword && !pqcSignaturePassword.value.trim()) {
     throw new Error('请输入所选员工的电子签名凭据（PIN 码或密码）。')
@@ -5769,6 +5938,7 @@ const assertPqcFormalSubmissionReady = () => {
 }
 
 const handleValidate = async () => {
+  if (payloadLoading.value) return
   if (hasReturnNotification.value) {
     showFrontlineError('退回通知仅允许更正原任务，禁止普通填写提交。')
     return
@@ -5812,7 +5982,22 @@ const handleValidate = async () => {
   Object.assign(draft.fieldValues, buildPqcFieldValues())
   payloadPreview.value = undefined
   pqcSignaturePassword.value = ''
-  pqcSignatureDialogVisible.value = true
+  pqcSignatureCredentialType.value = undefined
+  const isCurrent = pqcSubmitGuard.capture()
+  payloadLoading.value = true
+  try {
+    const settings = await getSignatureSettings()
+    if (!isCurrent()) return
+    if (settings.credentialType !== 'PIN' && settings.credentialType !== 'PASSWORD') {
+      throw new Error('签名方式缺失或无效，请联系管理员核对签名设置。')
+    }
+    pqcSignatureCredentialType.value = settings.credentialType
+    pqcSignatureDialogVisible.value = true
+  } catch (error) {
+    if (isCurrent()) showFrontlineError(error)
+  } finally {
+    if (isCurrent()) payloadLoading.value = false
+  }
 }
 
 const closePqcSignatureDialog = () => {
@@ -5858,6 +6043,15 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (
   return true
 }
 
+const handlePqcSignatureCredentialUpdate = (value: string) => {
+  if (!pqcSignatureDialogVisible.value || payloadLoading.value) return
+  const previous = pqcSignaturePassword.value
+  pqcSignaturePassword.value = value
+  if (pqcSignatureCredentialType.value === 'PIN' && /^[0-9]{6}$/.test(value) && value !== previous) {
+    return handleConfirmPqcSubmit()
+  }
+}
+
 const handleConfirmPqcSubmit = async () => {
   if (hasReturnNotification.value) {
     showFrontlineError('退回通知仅允许更正原任务，禁止普通PQC提交。')
@@ -5868,6 +6062,14 @@ const handleConfirmPqcSubmit = async () => {
     return
   }
   if (payloadLoading.value || pqcSubmitResultUncertain.value) return
+  if (!pqcSignatureCredentialType.value) {
+    showFrontlineError('请重新打开电子签名窗口，读取本人的签名方式。')
+    return
+  }
+  if (pqcSignatureCredentialType.value === 'PIN' && !/^[0-9]{6}$/.test(pqcSignaturePassword.value)) {
+    showFrontlineError('当前签名方式为 PIN，请输入本人六位数字 PIN 码。')
+    return
+  }
   if (!pqcSignaturePassword.value.trim()) {
     showFrontlineError('请输入所选员工的电子签名凭据（PIN 码或密码）。')
     return
@@ -5900,7 +6102,7 @@ const handleConfirmPqcSubmit = async () => {
   pqcActionInProgress.value = true
   payloadLoading.value = true
   try {
-    const submitReceipts: FrontlinePqcInspectionSubmitRespVO[] = []
+    const submitReceipts: Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>[] = []
     for (let index = 0; index < submitPayloads.length; index++) {
       if (!isCurrent()) return
       const submitPayload = submitPayloads[index]
@@ -5911,7 +6113,18 @@ const handleConfirmPqcSubmit = async () => {
         continue
       }
       try {
-        const submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(submitPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvents[index].session.key) })
+        const task = isFrontlinePqcProcess(deviceState.selectedProcess)
+          ? deviceState.selectedProcess.pqcTaskOptions.find(option => option.pqcTaskId === submitPayload.pqcTaskId)
+          : undefined
+        const returned = task?.returnedSubmission
+        const options = { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvents[index].session.key) }
+        let submitReceipt: Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>
+        if (returned) {
+          const corrected = await submitReturnedPqcInspection(returned, submitPayload, options)
+          submitReceipt = { pqcEventId: corrected.eventId }
+        } else {
+          submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(submitPayload, options)
+        }
         pqcMethodReceipts.set(methodKey, submitReceipt)
         approvalInvalidation.publishEdhrSuccess(approvalEvents[index])
         if (!isCurrent()) return
@@ -5934,6 +6147,28 @@ const handleConfirmPqcSubmit = async () => {
         : `PQC正式提交成功，事件编号 ${eventIds}`
     )
     resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
+    const orderId = submitPayloads[0].activeOrderId
+    const selectedProcess = deviceState.selectedProcess
+    try {
+      const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
+          deviceState.selectedProcess !== selectedProcess) return
+      deviceState.processOptions = processes
+      if (isFrontlinePqcProcess(selectedProcess)) {
+        const refreshedProcess = processes.find(process =>
+          process.regulationVersionId === selectedProcess.regulationVersionId &&
+          process.qaProcessId === selectedProcess.qaProcessId)
+        if (!refreshedProcess) throw new Error('刷新后缺少原PQC工序')
+        await handleSelectProcess(refreshedProcess)
+      }
+      if (route.query.returnTaskId !== undefined && route.query.handoffType === 'PQC_RETURN') {
+        await router.replace({ path: route.path, query: {} })
+      }
+    } catch (error) {
+      if (deviceState.selectedActiveOrder?.activeOrderId === orderId) {
+        showFrontlineError(`提交已成功，但已提交数据刷新失败：${resolveErrorMessage(error)}。请刷新订单后查看。`)
+      }
+    }
   } catch (error) {
     if (isCurrent() && !pqcSubmitResultUncertain.value) showFrontlineError(error)
   } finally {
@@ -6655,6 +6890,10 @@ const buildPqcInspectionSubmitPayloadForTask = (
   }
   assertPqcSubmissionSampleQuantitiesForTask(taskOption)
   const taskDraft = getPqcTaskDraft(taskOption)
+  assertPqcInspectionWithinOrderQuantity(getPqcInspectionQuantityForTask(taskOption))
+  if (normalizePqcQuantity(taskDraft.scrapQuantity) > getPqcInspectionQuantityForTask(taskOption)) {
+    throw new Error('损耗数量不能大于检验数量。')
+  }
   const inspectionResult = resolvePqcResultForTask(taskOption)
   const itemResults = buildPqcItemResultsPayload(taskOption)
   const pqcItemDetails = buildPqcItemDetailsPayload(taskOption)
@@ -6990,13 +7229,9 @@ const formatPqcLoginEmployeeLabel = (employee?: FrontlineEmployeeCandidateVO) =>
     return '未选择'
   }
   if (isCurrentLoginEmployee(employee)) {
-    const username = userStore.getUser?.username?.trim()
-    if (username) {
-      return username
-    }
-    return '未选择'
+    return userStore.getUser?.nickname?.trim() || '未设置姓名'
   }
-  return formatEmployeeLabel(employee)
+  return employee.nickname?.trim() || '未设置姓名'
 }
 
 const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
@@ -7033,7 +7268,23 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
   }
   pqcActiveOrderRefreshPromise = (async () => {
     if (hasInitialHandoffQuery.value) { await initializeInitialHandoffSelection(); return }
+    if (route.query.returnTaskId !== undefined) { await initializePqcReturnedSelection(); return }
     const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+    if (deviceState.selectedActiveOrder && !payloadLoading.value && !pqcActionInProgress.value) {
+      const selected = deviceState.selectedProcess
+      const orderId = deviceState.selectedActiveOrder.activeOrderId
+      const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId || deviceState.selectedProcess !== selected) return
+      if (isFrontlinePqcProcess(selected)) {
+        const refreshed = processes.find(process => process.regulationVersionId === selected.regulationVersionId && process.qaProcessId === selected.qaProcessId)
+        const rounds = (process: FrontlinePqcProcessVO) => JSON.stringify(process.pqcTaskOptions.map(task => [task.pqcTaskId, task.taskStatus, task.returnedSubmission?.row.rejectedReviewId]))
+        if (refreshed && rounds(refreshed) !== rounds(selected)) {
+          clearPqcLocalTaskData(refreshed.pqcTaskOptions.map(task => task.pqcTaskId))
+          deviceState.processOptions = processes
+          await handleSelectProcess(refreshed)
+        }
+      }
+    }
     if (!deviceState.selectedActiveOrder) {
       const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
       if (initialActiveOrder) {
@@ -7048,6 +7299,35 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
   } finally {
     pqcActiveOrderRefreshPromise = undefined
   }
+}
+
+const initializePqcReturnedSelection = async () => {
+  const epoch = ++initialHandoffEpoch
+  deviceState.selectedActiveOrder = undefined
+  deviceState.selectedProcess = undefined
+  clearPqcExecutionSelection()
+  const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+  if (epoch !== initialHandoffEpoch) return
+  const order = activeOrders.find(candidate => String(candidate.activeOrderId) === String(route.query.activeOrderId))
+  if (!order || order.readBlocked) throw new Error('原退回检验订单不可填写，请重新打开订单。')
+  const processes = await ProFeedbackApi.getPqcProcesses(order.activeOrderId, currentLoginUserId.value)
+  if (epoch !== initialHandoffEpoch) return
+  const matches = processes.flatMap(process =>
+    process.pqcTaskOptions.filter(option => option.returnedSubmission &&
+      option.returnedSubmission.row.returnTaskId === route.query.returnTaskId &&
+      String(option.returnedSubmission.row.eventId) === String(route.query.eventId) &&
+      String(option.returnedSubmission.row.rejectedReviewId) === String(route.query.rejectedReviewId)
+    ).map(option => ({ process, option })))
+  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从一线PQC打开订单查看。')
+  const { process, option } = matches[0]
+  invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
+  await handleSelectActiveOrder(order)
+  if (epoch !== initialHandoffEpoch) return
+  selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
+  if (option.inspectionType === 'PATROL') selectedPqcPatrolRound.value = option.roundNo
+  await handleSelectProcess(process)
+  if (epoch !== initialHandoffEpoch) return
+  applyPqcTaskOptionToDraft(option)
 }
 
 const isolateOwnReturnNotification = () => {
@@ -7149,6 +7429,10 @@ const initializeInitialHandoffSelection = async () => {
 watch(() => JSON.stringify(route.query), async () => {
   if (!initialHandoffPageMounted) return
   if (hasReturnNotification.value) { isolateOwnReturnNotification(); return }
+  if (isPqcMode.value && route.query.returnTaskId !== undefined) {
+    try { await initializePqcReturnedSelection() } catch (error) { showFrontlineError(error) }
+    return
+  }
   if (hasInitialHandoffQuery.value) await initializeInitialHandoffSelection()
   else { ++initialHandoffEpoch; initialHandoffTask.value = undefined; initialHandoffLoading.value = false; initialHandoffInvalid.value = false }
 })
@@ -7166,14 +7450,12 @@ onMounted(async () => {
   window.addEventListener('resize', scheduleProductionViewportScaleUpdate)
   window.addEventListener('focus', handlePqcForegroundRefresh)
   try {
-    if (!isPqcMode.value) {
-      if (typeof ResizeObserver !== 'function') {
-        throw new Error('当前浏览器不支持一线生产填写页面缩放观察。')
-      }
-      productionViewportResizeObserver = new ResizeObserver(scheduleProductionViewportScaleUpdate)
-      if (frontlinePanelRef.value) {
-        productionViewportResizeObserver.observe(frontlinePanelRef.value)
-      }
+    if (typeof ResizeObserver !== 'function') {
+      throw new Error('当前浏览器不支持一线填写页面缩放观察。')
+    }
+    productionViewportResizeObserver = new ResizeObserver(scheduleProductionViewportScaleUpdate)
+    if (frontlinePanelRef.value) {
+      productionViewportResizeObserver.observe(frontlinePanelRef.value)
     }
     syncPqcFullscreenState()
     initialHandoffPageMounted = true
@@ -7203,6 +7485,8 @@ onMounted(async () => {
     catalog.value = loadedCatalog
     Object.assign(draft.fieldValues, buildProductionFieldValues())
   } catch (error) {
+    // Catalog failures occur before the order query; keep them visible in the order picker.
+    if (isPqcMode.value) deviceState.lastError = resolveErrorMessage(error)
     showFrontlineError(error)
   } finally {
     frontlineInitializing.value = false
@@ -7234,6 +7518,13 @@ onUnmounted(() => {
 </style>
 
 <style scoped>
+.frontline-pqc-review-summary { display: flex; flex-direction: column; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #b8c9be; border-radius: 10px; color: #20352b; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.frontline-pqc-review-summary button { align-self: start; padding: 5px 12px; border: 1px solid #7b9585; border-radius: 6px; background: #fff; color: inherit; font: inherit; cursor: pointer; }
+.pqc-review-history-dialog { box-sizing: border-box; width: min(960px, calc(100% - 40px)); max-height: calc(100% - 40px); overflow: auto; border: 1px solid #a9bcb1; border-radius: 16px; padding: 24px; color: #20352b; }
+.pqc-review-history-dialog::backdrop { background: #14251db3; }
+.pqc-review-history-dialog table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.pqc-review-history-dialog th, .pqc-review-history-dialog td { padding: 10px; text-align: left; border-bottom: 1px solid #d7e0da; overflow-wrap: anywhere; }
+.pqc-review-history-dialog button { margin-top: 20px; padding: 8px 20px; font: inherit; }
 .pqc-round-operation-dialog { margin: auto; width: min(560px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow-y: auto; box-sizing: border-box; border: 2px solid #ccd7d0; border-radius: 20px; padding: 24px; color: #20352b; font: inherit; background: white; }
 .pqc-round-operation-dialog::backdrop { background: #14251db3; }
 .pqc-round-operation-dialog h2 { margin: 0 0 20px; font-size: 25px; }

@@ -214,16 +214,7 @@
               />
             </el-form-item>
             <el-form-item label="签名凭据" required>
-              <el-input
-                v-model="disposeForm.signaturePassword"
-                data-edhr-ncr-signature-password
-                type="password"
-                show-password
-                autocomplete="new-password"
-                placeholder="请输入本人电子签名凭据（PIN 码或密码）"
-              >
-                <template #prefix><Icon icon="ep:lock" /></template>
-              </el-input>
+              <SignatureCredentialInput v-model="disposeForm.signaturePassword" data-edhr-ncr-signature-password />
             </el-form-item>
 
           </el-form>

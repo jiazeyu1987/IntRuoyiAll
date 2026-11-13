@@ -346,8 +346,8 @@ public class ShowroomApiRuntime {
     private final ShowroomReleasePublisherService releasePublisherService;
     private final ShowroomReleaseAutoPublishService releaseAutoPublishService;
     private final ShowroomPublicReleaseReadbackVerifier publicReleaseReadbackVerifier;
-    private final ReentrantLock productBatchNarrationAutoCheckLock = new ReentrantLock();
-    private final ReentrantLock productBatchNarrationScriptTaskLock = new ReentrantLock();
+    private final java.util.concurrent.ConcurrentMap<Long, ReentrantLock> productBatchNarrationAutoCheckLocks = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<Long, ReentrantLock> productBatchNarrationScriptTaskLocks = new java.util.concurrent.ConcurrentHashMap<>();
     private final ReentrantLock productTranslatePublishBatchTaskLock = new ReentrantLock();
     private volatile ProductTranslatePublishBatchTaskState productTranslatePublishBatchTaskState =
             emptyProductTranslatePublishBatchTaskState();
@@ -1050,13 +1050,13 @@ public class ShowroomApiRuntime {
         if (!currentState.enabled()) {
             return;
         }
-        if (!productBatchNarrationAutoCheckLock.tryLock()) {
+        if (!productBatchNarrationAutoCheckLock().tryLock()) {
             return;
         }
         try {
             executeProductBatchNarrationAudioLocked(currentState);
         } finally {
-            productBatchNarrationAutoCheckLock.unlock();
+            productBatchNarrationAutoCheckLock().unlock();
         }
     }
 
@@ -1095,13 +1095,13 @@ public class ShowroomApiRuntime {
         if (!currentState.active()) {
             return;
         }
-        if (!productBatchNarrationScriptTaskLock.tryLock()) {
+        if (!productBatchNarrationScriptTaskLock().tryLock()) {
             return;
         }
         try {
             executeProductNarrationScriptBatchTaskLocked(currentState);
         } finally {
-            productBatchNarrationScriptTaskLock.unlock();
+            productBatchNarrationScriptTaskLock().unlock();
         }
     }
 
@@ -3535,7 +3535,7 @@ public class ShowroomApiRuntime {
 
     private ShowroomAdminController.ProductBatchGenerateRespVO executeManualProductBatchNarrationAudio(
             ProductBatchNarrationAutoCheckCriteria criteria) {
-        if (!productBatchNarrationAutoCheckLock.tryLock()) {
+        if (!productBatchNarrationAutoCheckLock().tryLock()) {
             throw new IllegalStateException(PRODUCT_BATCH_AUDIO_AUTO_CHECK_RUNNING_MESSAGE);
         }
         try {
@@ -3546,7 +3546,7 @@ public class ShowroomApiRuntime {
                     emptyProductBatchNarrationAutoCheckFailure());
             return executeProductBatchNarrationAudioLocked(initialState);
         } finally {
-            productBatchNarrationAutoCheckLock.unlock();
+            productBatchNarrationAutoCheckLock().unlock();
         }
     }
 
@@ -3791,14 +3791,21 @@ public class ShowroomApiRuntime {
         return new ProductBatchNarrationAutoCheckFailureData("", null);
     }
 
+    private ReentrantLock productBatchNarrationAutoCheckLock() {
+        return productBatchNarrationAutoCheckLocks.computeIfAbsent(TenantContextHolder.getRequiredTenantId(), id -> new ReentrantLock());
+    }
+
+    private ReentrantLock productBatchNarrationScriptTaskLock() {
+        return productBatchNarrationScriptTaskLocks.computeIfAbsent(TenantContextHolder.getRequiredTenantId(), id -> new ReentrantLock());
+    }
+
     private void triggerProductBatchNarrationScriptTaskAsync() {
-        CompletableFuture.runAsync(() -> {
-            try {
-                runScheduledProductBatchNarrationScriptAutoCheck();
-            } catch (RuntimeException ignored) {
-                // State is persisted by the locked executor path; callers re-read status from storage.
-            }
-        });
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        CompletableFuture.runAsync(() -> cn.iocoder.yudao.framework.tenant.core.util.TenantUtils.execute(
+                tenantId, this::runScheduledProductBatchNarrationScriptAutoCheck))
+                .whenComplete((result, failure) -> {
+                    if (failure != null) log.error("Narration script task failed for tenant {}", tenantId, failure);
+                });
     }
 
     private ProductNarrationScriptBatchExecutionSummary summarizeProductNarrationScriptBatch(
@@ -4028,7 +4035,7 @@ public class ShowroomApiRuntime {
         ProductNarrationScriptBatchTaskFailureData failure = JsonUtils.parseObjectQuietly(
                 getConfigValue(PRODUCT_BATCH_NARRATION_SCRIPT_FAILURE_KEY, null),
                 ProductNarrationScriptBatchTaskFailureData.class);
-        boolean normalizedRunning = active && running && productBatchNarrationScriptTaskLock.isLocked();
+        boolean normalizedRunning = active && running && productBatchNarrationScriptTaskLock().isLocked();
         return new ProductNarrationScriptBatchTaskState(
                 active,
                 normalizedRunning,

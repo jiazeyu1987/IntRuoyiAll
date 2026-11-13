@@ -227,7 +227,7 @@ function targetRange(parameter: Parameter) {
 }
 const devices = computed(() =>
   (props.process.equipmentGroups || []).flatMap((group, g) =>
-    (group.equipmentOptions || []).map((equipment, e) => ({
+    (group.equipmentRequired === false ? [] : group.equipmentOptions || []).map((equipment, e) => ({
       key: `${g}:${e}`,
       groupIndex: g,
       label: nameCode(equipment),
@@ -238,7 +238,7 @@ const devices = computed(() =>
 type Device = (typeof devices.value)[number]
 const parameterOnlyGroups = computed(() =>
   (props.process.equipmentGroups || []).flatMap((group, g) =>
-    !group.equipmentOptions?.length && group.parameters?.length
+    group.equipmentRequired !== false && !group.equipmentOptions?.length && group.parameters?.length
       ? [{ key: `${g}:-1`, parameters: group.parameters }]
       : []
   )

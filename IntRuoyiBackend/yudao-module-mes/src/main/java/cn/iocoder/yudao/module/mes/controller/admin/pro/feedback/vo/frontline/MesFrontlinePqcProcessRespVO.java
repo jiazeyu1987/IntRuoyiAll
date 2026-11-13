@@ -68,6 +68,9 @@ public class MesFrontlinePqcProcessRespVO {
         private String cancelReason;
         private Long submittedEventId;
         private String submittedContentHash;
+        private SubmittedInspection submittedInspection;
+        private List<PqcReviewHistory> reviewHistory;
+        private String currentReviewStatus;
         private Integer ruleSort;
         private QaInspectionTypeRule inspectionTypeRule;
         private Boolean finalInspectionApplicable;
@@ -79,6 +82,33 @@ public class MesFrontlinePqcProcessRespVO {
         private LocalDateTime createTime;
         private Integer plannedInspectionQuantity;
         private List<PqcInspectionItem> inspectionItems;
+    }
+
+    @Data
+    public static class PqcReviewHistory {
+        private Long reviewId;
+        private Long eventId;
+        private String reviewStatus;
+        private String reviewRemark;
+        private LocalDateTime reviewedAt;
+        private Long reviewerUserId;
+        private String reviewerName;
+        private Integer reviewRound;
+        private Long revisionId;
+    }
+
+    @Data
+    public static class SubmittedInspection {
+        private Integer actualInspectionQuantity;
+        private Integer scrapQuantity;
+        private List<SubmittedInspectionItem> items;
+    }
+
+    @Data
+    public static class SubmittedInspectionItem {
+        private String itemCode;
+        private String selectedEquipmentNumber;
+        private List<String> sampleValues;
     }
 
     @Data

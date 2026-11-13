@@ -68,6 +68,12 @@ public class DccProjectReviewerRoleService {
     }
     public boolean isRoleContract(DccProjectProductCreateRequestDO request) {
         if(request==null)throw exception(CONTRACT_INVALID);
+        if(DccProjectProductCreateService.DIRECT_CREATE_CONTRACT.equals(request.getReviewContract())) {
+            if(request.getReviewerRoleId()!=null || request.getReviewerRoleCode()!=null
+                    || request.getConfiguredReviewerUserId()!=null || request.getReviewerUserId()!=null
+                    || request.getApproverUserId()!=null) throw exception(CONTRACT_INVALID);
+            return false;
+        }
         if(request.getReviewContract()==null){
             if(request.getReviewerRoleId()!=null || request.getReviewerRoleCode()!=null)throw exception(CONTRACT_INVALID);
             return false;

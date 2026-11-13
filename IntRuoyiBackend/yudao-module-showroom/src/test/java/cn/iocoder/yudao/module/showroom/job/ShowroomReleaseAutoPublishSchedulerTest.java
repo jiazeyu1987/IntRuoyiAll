@@ -74,7 +74,9 @@ class ShowroomReleaseAutoPublishSchedulerTest {
     void scheduleShouldExecuteOnlyConfiguredBindingTenantWhenOtherTenantsExist() {
         ShowroomReleaseAutoPublishScheduler scheduler = newScheduler();
         when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L, 121L, 122L));
-        when(autoPublishService.inspectState()).thenReturn(dirtyState(), dirtyState());
+        when(autoPublishService.inspectState()).thenAnswer(call ->
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId().equals(122L)
+                        ? dirtyState() : cleanState());
         lenient().when(configService.getConfigByKey("showroom.release.auto-publish.site-key"))
                 .thenReturn(config("showroom.release.auto-publish.site-key", "yingtai-showroom"));
         lenient().when(configService.getConfigByKey("showroom.release.auto-publish.stage"))
@@ -142,7 +144,30 @@ class ShowroomReleaseAutoPublishSchedulerTest {
         verify(autoPublishService, never()).processDirtyReleaseIfDue(anyString(), anyString());
     }
 
+    @Test
+    void foreignSiteCannotPublishAndDoesNotPreventTheOwningTenantFromRunning() {
+        ShowroomReleaseAutoPublishScheduler scheduler = newScheduler();
+        when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(11L, 22L));
+        when(autoPublishService.inspectState()).thenAnswer(call -> {
+            assertEquals(false, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.isIgnore());
+            return dirtyState();
+        });
+        when(configService.getConfigByKey("showroom.release.auto-publish.site-key"))
+                .thenReturn(config("site", "tenant-b"));
+        when(configService.getConfigByKey("showroom.release.auto-publish.stage"))
+                .thenReturn(config("stage", "TEST"));
+        when(siteBindingMapper.selectEnabledBySiteStage("tenant-b", "TEST"))
+                .thenReturn(siteBinding("tenant-b", "TEST", 22L));
+        when(autoPublishService.processDirtyReleaseIfDue("tenant-b", "TEST")).thenAnswer(call -> {
+            assertEquals(22L, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+            return result(ShowroomReleaseAutoPublishService.ReleaseAutoPublishAction.PUBLISHED, "release-b");
+        });
+        assertThrows(ShowroomReleaseApiException.class, scheduler::schedule);
+        verify(autoPublishService).processDirtyReleaseIfDue("tenant-b", "TEST");
+    }
+
     private ShowroomReleaseAutoPublishScheduler newScheduler() {
+        lenient().when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1001L));
         ShowroomReleaseAutoPublishScheduler scheduler = new ShowroomReleaseAutoPublishScheduler();
         ReflectionTestUtils.setField(scheduler, "tenantFrameworkService", tenantFrameworkService);
         ReflectionTestUtils.setField(scheduler, "autoPublishService", autoPublishService);

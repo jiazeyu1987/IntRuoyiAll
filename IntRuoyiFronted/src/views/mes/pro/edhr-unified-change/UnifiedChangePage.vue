@@ -119,14 +119,7 @@
                 >
                   影响范围
                 </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-change:event-query']"
-                  link
-                  type="primary"
-                  @click="openEventDrawer(row)"
-                >
-                  事件
-                </el-button>
+                
                 <el-button
                   v-hasPermi="['mes:pro-edhr-change:unified-submit']"
                   link
@@ -211,32 +204,7 @@
         />
       </el-drawer>
 
-      <el-drawer v-model="eventDrawerVisible" title="统一变更事件" size="82%" class="edhr-unified-change__drawer">
-        <el-table
-          v-loading="eventLoading"
-          :data="eventList"
-          stripe
-          :show-overflow-tooltip="true"
-          empty-text="暂无统一变更事件"
-        >
-          <el-table-column label="事件" width="170" prop="eventType" />
-          <el-table-column label="状态变化" width="190">
-            <template #default="{ row }">{{ row.fromStatus || '--' }} -> {{ row.toStatus || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="原因" min-width="260" prop="reason" />
-          <el-table-column label="签核证据" min-width="220" prop="signoffEvidenceHash" />
-          <el-table-column label="事件摘要" min-width="230" prop="evidenceHash" />
-          <el-table-column label="发生时间" width="170">
-            <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
-          </el-table-column>
-        </el-table>
-        <Pagination
-          :total="eventTotal"
-          v-model:page="eventQuery.pageNo"
-          v-model:limit="eventQuery.pageSize"
-          @pagination="loadEventList"
-        />
-      </el-drawer>
+      
 
       <el-dialog v-model="changeDialogVisible" :title="changeDialogTitle" width="720px">
         <el-alert
@@ -325,14 +293,14 @@
 import {
   approveEdhrUnifiedChange,
   createEdhrUnifiedChange,
-  getEdhrUnifiedChangeEventPage,
+  
   getEdhrUnifiedChangeImpactPage,
   getEdhrUnifiedChangePage,
   recalculateEdhrUnifiedChangeImpact,
   requestEdhrUnifiedChangeEffect,
   submitEdhrUnifiedChange,
-  type EdhrUnifiedChangeEventPageReqVO,
-  type EdhrUnifiedChangeEventRespVO,
+  
+  
   type EdhrUnifiedChangeImpactPageReqVO,
   type EdhrUnifiedChangeImpactRespVO,
   type EdhrUnifiedChangeObjectType,
@@ -369,19 +337,19 @@ const message = useMessage()
 
 const loading = ref(false)
 const impactLoading = ref(false)
-const eventLoading = ref(false)
+
 const changeSubmitting = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 const changeError = ref('')
 const list = ref<EdhrUnifiedChangeRespVO[]>([])
 const impactList = ref<EdhrUnifiedChangeImpactRespVO[]>([])
-const eventList = ref<EdhrUnifiedChangeEventRespVO[]>([])
+
 const total = ref(0)
 const impactTotal = ref(0)
-const eventTotal = ref(0)
+
 const impactDrawerVisible = ref(false)
-const eventDrawerVisible = ref(false)
+
 const changeDialogVisible = ref(false)
 const changeMode = ref<ChangeMode>('CREATE')
 const selectedRow = ref<EdhrUnifiedChangeRespVO>()
@@ -406,12 +374,7 @@ const impactQuery = reactive<EdhrUnifiedChangeImpactPageReqVO>({
   riskLevel: ''
 })
 
-const eventQuery = reactive<EdhrUnifiedChangeEventPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  changeRequestId: 0,
-  eventType: ''
-})
+
 
 const changeForm = reactive<ChangeForm>({
   controlledObjectType: 'FORM_TEMPLATE',
@@ -619,9 +582,7 @@ const runChangeAction = async (action: () => Promise<void>) => {
     if (impactDrawerVisible.value) {
       await loadImpactList()
     }
-    if (eventDrawerVisible.value) {
-      await loadEventList()
-    }
+    
   } catch (error) {
     changeError.value = resolveErrorMessage(error, 'eDHR统一变更提交失败，请查看后端错误信息。')
     message.error(resolveErrorMessage(error, changeError.value))
@@ -730,38 +691,9 @@ const loadImpactList = async () => {
   }
 }
 
-const openEventDrawer = async (row: EdhrUnifiedChangeRespVO) => {
-  if (!row.id) {
-    actionError.value = '变更申请缺失，无法查询事件。'
-    return
-  }
-  eventQuery.pageNo = 1
-  eventQuery.changeRequestId = row.id
-  eventDrawerVisible.value = true
-  await loadEventList()
-}
 
-const loadEventList = async () => {
-  if (!eventQuery.changeRequestId) {
-    eventList.value = []
-    eventTotal.value = 0
-    return
-  }
-  eventLoading.value = true
-  actionError.value = ''
-  try {
-    const data = await getEdhrUnifiedChangeEventPage(eventQuery)
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    eventList.value = []
-    eventTotal.value = 0
-    actionError.value = resolveErrorMessage(error, 'eDHR统一变更事件加载失败。')
-    message.error(resolveErrorMessage(error, actionError.value))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
+
 
 const resolveObjectTypeLabel = (type?: string) => {
   if (type === 'DHR_TEMPLATE') return 'DHR模板'

@@ -34,6 +34,9 @@ import static org.mockito.ArgumentMatchers.any;
 class MesProRouteVersionLifecycleServiceTest {
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
+
+    @Mock
     private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
 
     @InjectMocks
@@ -94,6 +97,7 @@ class MesProRouteVersionLifecycleServiceTest {
                 snapshotUpdate.getRouteSnapshotFormatVersion());
         assertEquals(activeSnapshot, active.getRouteSnapshotJson());
         assertEquals(activeHashBefore, active.getRouteSnapshotSha256());
+        verify(versionOperateLogService).route("发布", active, candidate, 607L);
     }
 
     @Test
@@ -213,6 +217,7 @@ class MesProRouteVersionLifecycleServiceTest {
         assertEquals(candidate.getId(), published.getId());
         assertEquals(Boolean.TRUE, published.getActive());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE, published.getLifecycleStatus());
+        org.mockito.Mockito.verifyNoInteractions(versionOperateLogService);
         verify(publishProjectionService, never()).projectCandidate(any(MesProRouteVersionDO.class));
         verify(routeVersionMapper, never()).selectActiveByRouteId(candidate.getRouteId());
         verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));

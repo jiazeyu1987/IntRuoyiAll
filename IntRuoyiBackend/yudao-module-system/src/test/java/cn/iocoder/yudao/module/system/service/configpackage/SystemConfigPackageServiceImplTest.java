@@ -46,7 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import(SystemConfigPackageServiceImpl.class)
+@Import({SystemConfigPackageServiceImpl.class, SystemConfigPackageServiceImplTest.TenantSqlConfiguration.class})
 class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     private static final List<String> AVAILABLE_COMPONENTS = List.of(
@@ -73,12 +73,16 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
     private DataSource dataSource;
     @MockitoBean
     private GxpAuditService gxpAuditService;
+    @MockitoBean
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
 
     private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void initJdbcTemplate() {
         jdbcTemplate = new JdbcTemplate(dataSource);
+        when(approvalAuthority.lockTenantApprovalAuthority(any())).thenAnswer(invocation ->
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(invocation.getArgument(0), 1L));
     }
 
     @Test
@@ -198,9 +202,7 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         jdbcTemplate.update("DELETE FROM system_role_menu WHERE tenant_id = 1");
         jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = 1");
-        jdbcTemplate.update("DELETE FROM system_menu");
         jdbcTemplate.update("DELETE FROM system_users WHERE tenant_id = 1");
-        seedMenu(9000L, "配置包中心-已漂移", "system/config-package/index");
         seedRole(10L, "配置管理员-已漂移");
         seedRole(11L, "多余角色");
         seedUser(20L, "operator", "target-password-hash");
@@ -229,9 +231,7 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         jdbcTemplate.update("DELETE FROM system_role_menu WHERE tenant_id = 1");
         jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = 1");
-        jdbcTemplate.update("DELETE FROM system_menu");
         jdbcTemplate.update("DELETE FROM system_users WHERE tenant_id = 1");
-        seedMenu(9000L, "配置包中心-已漂移", "system/config-package/index");
         seedRole(10L, "配置管理员-已漂移");
         seedUser(20L, "operator", "target-password-hash");
 
@@ -258,9 +258,7 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         jdbcTemplate.update("DELETE FROM system_role_menu WHERE tenant_id = 1");
         jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = 1");
-        jdbcTemplate.update("DELETE FROM system_menu");
         jdbcTemplate.update("DELETE FROM system_users WHERE tenant_id = 1");
-        seedMenu(9000L, "配置包中心-已漂移", "system/config-package/index");
         seedRole(10L, "配置管理员-已漂移");
         seedUser(20L, "operator", "target-password-hash");
         SystemConfigPackagePrecheckRespVO precheck = service.precheck(desiredPackage, AVAILABLE_COMPONENTS);
@@ -269,7 +267,7 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
         assertThrows(IllegalStateException.class,
                 () -> service.importPackage(desiredPackage, true, precheck.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS));
 
-        assertEquals("配置包中心-已漂移", menuMapper.selectById(9000L).getName());
+        assertEquals("配置包中心", menuMapper.selectById(9000L).getName());
         assertEquals("配置管理员-已漂移", roleMapper.selectById(10L).getName());
         assertEquals("target-password-hash", userMapper.selectById(20L).getPassword());
     }
@@ -305,6 +303,66 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
             assertFalse("source-password-hash".equals(importedUser.getPassword()));
         } finally {
             TenantContextHolder.setTenantId(1L);
+        }
+    }
+
+    @Test
+    void platformMenuChangesMustRejectImportWithoutChangingEitherTenant() {
+        seedConfigPackageMenu("Platform");
+        byte[] saved = service.exportPackage();
+        jdbcTemplate.update("UPDATE system_menu SET name='New platform definition' WHERE id=9000");
+        var result = service.precheck(saved, AVAILABLE_COMPONENTS);
+        assertFalse(result.getValid());
+        assertTrue(result.getBlockingErrors().stream().anyMatch(error -> error.contains("平台共用定义")));
+        assertThrows(RuntimeException.class, () -> service.importPackage(saved, true, result.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS));
+        assertEquals("New platform definition", menuMapper.selectById(9000L).getName());
+    }
+
+    @Test
+    void crossTenantImportCopiesDictionariesWithoutChangingSourceOrGlobalTemplates() {
+        seedConfigPackageMenu("Platform");
+        jdbcTemplate.update("INSERT INTO system_tenant_dict_type (id,tenant_id,name,type,deleted_time) VALUES (500,1,'Mode','mode','1970-01-01')");
+        jdbcTemplate.update("INSERT INTO system_tenant_dict_data (id,tenant_id,dict_type,value,label) VALUES (501,1,'mode','1','Production')");
+        byte[] saved = service.exportPackage();
+        TenantContextHolder.setTenantId(2L);
+        var result = service.precheck(saved, AVAILABLE_COMPONENTS);
+        assertTrue(result.getValid(), result.getBlockingErrors().toString());
+        service.importPackage(saved, true, result.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS);
+        jdbcTemplate.update("UPDATE system_tenant_dict_data SET label='Test' WHERE tenant_id=2");
+        assertEquals("Production", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE tenant_id=1", String.class));
+        assertEquals("Test", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE tenant_id=2", String.class));
+        assertEquals(0L, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM system_dict_data", Long.class));
+        verify(approvalAuthority).incrementLockedAuthorityRevision(2L, 1L);
+        org.mockito.Mockito.verify(approvalAuthority, org.mockito.Mockito.never()).incrementLockedAuthorityRevision(org.mockito.ArgumentMatchers.eq(1L), any());
+    }
+
+    @Test
+    void sameTenantRestoreAndAuditRollbackCannotChangeAnotherTenantsDictionary() {
+        seedConfigPackageMenu("Platform");
+        jdbcTemplate.update("INSERT INTO system_tenant_dict_type (id,tenant_id,name,type,deleted_time) VALUES (500,1,'Mode','mode','1970-01-01'),(600,2,'Mode','mode','1970-01-01')");
+        jdbcTemplate.update("INSERT INTO system_tenant_dict_data (id,tenant_id,dict_type,value,label) VALUES (501,1,'mode','1','Saved'),(601,2,'mode','1','Other tenant')");
+        byte[] saved = service.exportPackage();
+        jdbcTemplate.update("UPDATE system_tenant_dict_data SET label='Current' WHERE tenant_id=1");
+        var precheck = service.precheck(saved, AVAILABLE_COMPONENTS);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("AUDIT_FAILED"));
+        assertThrows(IllegalStateException.class, () -> service.importPackage(saved, true, precheck.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS));
+        assertEquals("Current", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE id=501", String.class));
+        assertEquals("Other tenant", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE id=601", String.class));
+        org.mockito.Mockito.reset(gxpAuditService);
+        service.importPackage(saved, true, precheck.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS);
+        assertEquals("Saved", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE id=501", String.class));
+        assertEquals("Other tenant", jdbcTemplate.queryForObject("SELECT label FROM system_tenant_dict_data WHERE id=601", String.class));
+    }
+
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    static class TenantSqlConfiguration {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Lazy(false)
+        org.springframework.beans.factory.InitializingBean tenantInterceptor(com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor interceptor) {
+            return () -> cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtils.addInterceptor(interceptor,
+                    new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+                            new cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor(
+                                    new cn.iocoder.yudao.framework.tenant.config.TenantProperties())), 0);
         }
     }
 

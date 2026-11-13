@@ -46,6 +46,9 @@ import static org.mockito.Mockito.when;
 class MesProRouteVersionWorkflowServiceTest {
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
+
+    @Mock
     private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
 
     @InjectMocks
@@ -84,6 +87,7 @@ class MesProRouteVersionWorkflowServiceTest {
 
         ArgumentCaptor<MesProRouteVersionDO> captor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
         verify(routeVersionMapper).insert(captor.capture());
+        verify(versionOperateLogService).route("升版", active, captor.getValue(), 507L);
         JSONObject config = JSON.parseObject(captor.getValue().getRouteSnapshotJson())
                 .getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertEquals(10, config.getBigDecimal("overagePercent").intValueExact());

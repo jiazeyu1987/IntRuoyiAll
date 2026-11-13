@@ -78,6 +78,7 @@
           :route-id="formData.id"
           :route-name="formData.name"
           :active-route-version-no="formData.activeRouteVersionNo"
+          :active-route-version-id="formData.activeRouteVersionId"
           :form-type="productionConfigFormType"
           :submitting="formLoading"
           :target-route-process-id="targetRouteProcessId"

@@ -89,7 +89,7 @@ export class ProjectBrowserState {
   }
   async loadProjects() {
     const token = ++this.projectsSequence
-    this.projectLoading = true; this.projectError = ''; this.projects = []; this.projectsTotal = 0
+    this.projectLoading = true; this.projectError = ''; this.projects = []
     try {
       const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: this.projectPageSize, keyword: this.projectKeyword, listFilters: this.projectListFilters })
       if (token !== this.projectsSequence) return false

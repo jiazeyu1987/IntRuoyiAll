@@ -92,6 +92,8 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String inspectionTool;
         @Schema(description = "器具未绑定原因；仅记录待补齐台账，不代表可执行检验")
         private String equipmentUnboundReason;
+        @Schema(description = "人工确认是否需要设备；false 表示无需设备，保留原文检验要求")
+        private Boolean equipmentRequired;
         private String samplingPlanText;
         private String standardText;
         private BigDecimal standardLowerLimit;

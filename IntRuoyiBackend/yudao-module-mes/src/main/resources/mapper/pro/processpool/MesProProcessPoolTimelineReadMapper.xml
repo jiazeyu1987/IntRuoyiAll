@@ -232,6 +232,8 @@
         </if>
         <if test="reqVO.pqcFormView == 'CURRENT'">
             AND pool_event.event_type = 'PQC_INSPECTION'
+            AND (latest_submission_review.review_status IS NULL
+                 OR latest_submission_review.review_status = 'PENDING')
             AND NOT EXISTS (
                 SELECT 1
                 FROM mes_pro_process_pool_active_order_release_application release_application
@@ -570,7 +572,7 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.listFilters != null or reqVO.submissionReviewStatus != null or reqVO.pqcFormView == 'HISTORY' or reqVO.allocationView == 'WORKBENCH'">
+        <if test="reqVO.listFilters != null or reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
         <include refid="ListFilterPayloadJoins"/>
@@ -778,6 +780,12 @@
         ORDER BY pool_event.id ASC
     </select>
 
+    <sql id="FrozenProductionQuantityCeiling">
+        (process_snapshot.erp_fixed_quantity_snapshot * COALESCE(
+            CAST(JSON_UNQUOTE(JSON_EXTRACT(process_snapshot.production_config_snapshot_json,
+                '$.lossCoefficient')) AS DECIMAL(24,6)), 1.1))
+    </sql>
+
     <select id="selectReportAllocationsByEventIds"
             resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO">
         SELECT allocation.event_id AS eventId,
@@ -787,17 +795,17 @@
                work_order.code AS workOrderCode,
                allocation.allocated_quantity AS allocatedQuantity,
                CASE
-                   WHEN process_snapshot.planned_quantity_snapshot IS NULL THEN NULL
+                   WHEN process_snapshot.erp_fixed_quantity_snapshot IS NULL THEN NULL
                    ELSE GREATEST(
                        COALESCE(order_process_allocation.total_allocated_quantity, 0)
-                           - process_snapshot.planned_quantity_snapshot,
+                           - <include refid="FrozenProductionQuantityCeiling"/>,
                        0
                    )
                END AS overageQuantity,
                CASE
-                   WHEN process_snapshot.planned_quantity_snapshot IS NULL THEN NULL
+                   WHEN process_snapshot.erp_fixed_quantity_snapshot IS NULL THEN NULL
                    WHEN COALESCE(order_process_allocation.total_allocated_quantity, 0)
-                           > process_snapshot.planned_quantity_snapshot THEN TRUE
+                           > <include refid="FrozenProductionQuantityCeiling"/> THEN TRUE
                    ELSE FALSE
                END AS needsAdjustment,
                CASE WHEN EXISTS (

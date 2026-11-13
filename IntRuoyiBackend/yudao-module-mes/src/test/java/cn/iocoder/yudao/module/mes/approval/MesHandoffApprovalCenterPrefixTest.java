@@ -66,6 +66,22 @@ class MesHandoffApprovalCenterPrefixTest {
     }
 
     @Test
+    void productionAndPqcReviewsAreExcludedFromTodoAndDone() {
+        for (String type : List.of("PRODUCTION_REVIEW", "PQC_REVIEW")) {
+            var task = target(type);
+            when(tasks.own(1L, 12L)).thenReturn(List.of(task));
+            when(tasks.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(task));
+            for (boolean global : List.of(false, true)) {
+                for (var view : List.of(ApprovalTaskViewType.TODO, ApprovalTaskViewType.DONE)) {
+                    task.setStatus(view == ApprovalTaskViewType.TODO ? "TODO" : "DONE").setCompletedBy(12L);
+                    assertTrue(projection.list(ApprovalTaskQueryContext.of(12L, view,
+                            ApprovalModuleCode.EDHR, null, 1, 20, global)).isEmpty());
+                }
+            }
+        }
+    }
+
+    @Test
     void prefixProjectsExistingFormalModuleEntryAndTotalWithoutAllLoading() {
         var task = task();
         when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,"生产",400L, null))

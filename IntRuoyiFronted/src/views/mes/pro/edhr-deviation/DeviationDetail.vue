@@ -409,7 +409,7 @@
     <el-dialog v-model="signVisible" title="电子签名" width="480px">
       <el-form :model="signForm" label-width="100px">
         <el-form-item label="签名节点"><el-select v-model="signForm.node"><el-option v-for="node in mySignNodes" :key="node" :label="nodeLabels[node]" :value="node" /></el-select></el-form-item>
-        <el-form-item label="密码"><el-input v-model="signForm.password" type="password" show-password /></el-form-item>
+        <el-form-item label="密码"><SignatureCredentialInput v-model="signForm.password" /></el-form-item>
         <el-form-item label="签名意见"><el-input v-model="signForm.comment" type="textarea" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="signVisible = false">取消</el-button><el-button type="primary" :loading="signing" @click="signHandling">确认签名</el-button></template>
@@ -425,7 +425,7 @@
           <el-input v-model="ncrCreateForm.remark" type="textarea" :rows="2" maxlength="500" />
         </el-form-item>
         <el-form-item label="签名凭据" required>
-          <el-input v-model="ncrCreateForm.signaturePassword" type="password" show-password autocomplete="new-password" />
+          <SignatureCredentialInput v-model="ncrCreateForm.signaturePassword" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -437,6 +437,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import BusinessEvidenceDetails from '../processpool/components/BusinessEvidenceDetails.vue'

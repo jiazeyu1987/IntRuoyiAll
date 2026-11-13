@@ -126,14 +126,7 @@
                 >
                   管理员干预
                 </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-flow-intervention:event-query']"
-                  link
-                  type="primary"
-                  @click="openEventDrawer(row)"
-                >
-                  流程日志
-                </el-button>
+                
               </div>
             </template>
           </el-table-column>
@@ -147,48 +140,7 @@
         />
       </div>
 
-      <el-drawer v-model="eventDrawerVisible" title="流程日志" size="82%" class="edhr-flow-intervention__drawer">
-        <el-table
-          v-loading="eventLoading"
-          :data="flowEventList"
-          stripe
-          :show-overflow-tooltip="true"
-          empty-text="暂无流程日志"
-        >
-          <el-table-column label="事件" width="150" prop="eventType" />
-          <el-table-column label="状态变化" width="180">
-            <template #default="{ row }">
-              {{ row.fromStatus || '--' }} -> {{ row.toStatus || '--' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="权限" min-width="250">
-            <template #default="{ row }">
-              <div>{{ row.permissionCode || '--' }}</div>
-              <div class="edhr-flow-intervention__muted">{{ row.permissionDecision || '--' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="目标处理人" width="130" prop="targetUserId" />
-          <el-table-column label="原因" min-width="240" prop="reason" />
-          <el-table-column label="签核证据" min-width="230" prop="signoffEvidenceHash" />
-          <el-table-column label="完整性复检" width="140">
-            <template #default="{ row }">
-              <el-tag :type="resolveIntegrityTag(row.integrityCheckResult)">
-                {{ resolveIntegrityLabel(row.integrityCheckResult) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="证据摘要" min-width="230" prop="evidenceHash" />
-          <el-table-column label="发生时间" width="170">
-            <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
-          </el-table-column>
-        </el-table>
-        <Pagination
-          :total="eventTotal"
-          v-model:page="eventQuery.pageNo"
-          v-model:limit="eventQuery.pageSize"
-          @pagination="loadFlowEventList"
-        />
-      </el-drawer>
+      
 
       <el-dialog v-model="interventionDialogVisible" :title="interventionDialogTitle" width="620px">
         <el-alert
@@ -265,15 +217,15 @@
 <script setup lang="ts">
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
-  getEdhrFlowEventPage,
+  
   getEdhrFlowInterventionPage,
   submitAddSignIntervention,
   submitAdminIntervention,
   submitReturnIntervention,
   submitTransferIntervention,
   submitWithdrawIntervention,
-  type EdhrFlowEventPageReqVO,
-  type EdhrFlowEventRespVO,
+  
+  
   type EdhrFlowInterventionAction,
   type EdhrFlowInterventionBaseReqVO,
   type EdhrFlowInterventionPageReqVO,
@@ -287,7 +239,7 @@ defineOptions({ name: 'MesProEdhrFlowIntervention' })
 const message = useMessage()
 
 const loading = ref(false)
-const eventLoading = ref(false)
+
 const interventionSubmitting = ref(false)
 const targetUserLoading = ref(false)
 const targetUserError = ref('')
@@ -295,11 +247,11 @@ const loadError = ref('')
 const actionError = ref('')
 const interventionError = ref('')
 const list = ref<EdhrFlowInterventionRespVO[]>([])
-const flowEventList = ref<EdhrFlowEventRespVO[]>([])
+
 const targetUserOptions = ref<UserApi.UserVO[]>([])
 const total = ref(0)
-const eventTotal = ref(0)
-const eventDrawerVisible = ref(false)
+
+
 const interventionDialogVisible = ref(false)
 const interventionMode = ref<EdhrFlowInterventionAction>('RETURN')
 const selectedRow = ref<EdhrFlowInterventionRespVO>()
@@ -315,14 +267,7 @@ const queryParams = reactive<EdhrFlowInterventionPageReqVO>({
   interventionStatus: ''
 })
 
-const eventQuery = reactive<EdhrFlowEventPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  businessObjectType: '',
-  businessObjectId: '',
-  flowInstanceId: '',
-  eventType: ''
-})
+
 
 const interventionForm = reactive<EdhrFlowInterventionBaseReqVO & { authorizationBasis?: string }>({
   businessObjectType: '',
@@ -564,9 +509,6 @@ const runInterventionAction = async (action: () => Promise<void>) => {
     await action()
     interventionDialogVisible.value = false
     await getList()
-    if (eventDrawerVisible.value) {
-      await loadFlowEventList()
-    }
   } catch (error) {
     interventionError.value = resolveErrorMessage(error, 'eDHR流程干预提交失败，请查看后端错误信息。')
     message.error(resolveErrorMessage(error, interventionError.value))
@@ -595,40 +537,9 @@ const handleInterventionConfirm = async () => {
   await submitReturnInterventionAction()
 }
 
-const openEventDrawer = async (row: EdhrFlowInterventionRespVO) => {
-  if (!row.businessObjectType || !row.businessObjectId) {
-    actionError.value = '业务对象缺失，无法查询流程日志。'
-    return
-  }
-  eventQuery.pageNo = 1
-  eventQuery.businessObjectType = row.businessObjectType
-  eventQuery.businessObjectId = row.businessObjectId
-  eventQuery.flowInstanceId = row.flowInstanceId || ''
-  eventDrawerVisible.value = true
-  await loadFlowEventList()
-}
 
-const loadFlowEventList = async () => {
-  if (!eventQuery.businessObjectType || !eventQuery.businessObjectId) {
-    flowEventList.value = []
-    eventTotal.value = 0
-    return
-  }
-  eventLoading.value = true
-  actionError.value = ''
-  try {
-    const data = await getEdhrFlowEventPage(eventQuery)
-    flowEventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    flowEventList.value = []
-    eventTotal.value = 0
-    actionError.value = resolveErrorMessage(error, 'eDHR流程日志加载失败。')
-    message.error(resolveErrorMessage(error, actionError.value))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
+
 
 const resolveActionLabel = (action?: string) => {
   if (action === 'WITHDRAW') return '撤回'

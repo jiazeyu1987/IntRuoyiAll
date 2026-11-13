@@ -27,6 +27,7 @@ public class DccRelationStageSnapshotServiceTest {
     DccRelationStageSnapshotServiceTest() throws Exception {
         var ds=new JdbcDataSource();ds.setURL("jdbc:h2:mem:"+UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1");
         jdbc=new JdbcTemplate(ds);tx=new TransactionTemplate(new DataSourceTransactionManager(ds));
+        jdbc.execute("CREATE TABLE system_users(id BIGINT PRIMARY KEY,tenant_id BIGINT,nickname VARCHAR(128),deleted INT)");
         jdbc.execute("CREATE TABLE dcc_controlled_file_master(id BIGINT PRIMARY KEY,tenant_id BIGINT,deleted INT)");
         jdbc.update("INSERT INTO dcc_controlled_file_master VALUES(10,1,0),(20,1,0),(30,1,0),(40,1,0)");
         jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT PRIMARY KEY,tenant_id BIGINT,deleted INT)");
@@ -320,6 +321,16 @@ public class DccRelationStageSnapshotServiceTest {
         check(evidence.completeSelections().size()==2,"history keeps upload plus originally signed supplement");
         check(evidence.stages().get(0).snapshot().members().get(1).selectedControlledFileId()==300L,"historical exact selected ID");
         rejects(()->prepare("t2","dept-6",List.of(),"c2",null,List.of()),"invalid signature cannot seed new snapshot");
+    }
+    @org.junit.jupiter.api.Test
+    void historicalRemediationDisplaysTenantScopedNameWithoutChangingSignedFacts() {
+        jdbc.update("INSERT INTO system_users VALUES(8,1,'整改负责人',0),(9,2,'其他租户人员',0)");
+        freeze(prepare("t1","dept-5",List.of(300L),"c1",null,List.of(new Arrangement(30L,8L,signedAt.plusDays(2)))),1);
+        var stage=service.readRoundEvidence(7L,100L,"REVISION","round-1").stages().get(0);
+        check("整改负责人".equals(stage.assigneeNames().get("8")),"responsible person is readable");
+        check(stage.snapshot().members().stream().anyMatch(m->Objects.equals(m.assigneeUserId(),8L)),"signed member identity retained");
+        jdbc.update("UPDATE system_users SET tenant_id=2 WHERE id=8");
+        check(service.readRoundEvidence(7L,100L,"REVISION","round-1").stages().get(0).assigneeNames().isEmpty(),"no cross-tenant name exposure");
     }
     @org.junit.jupiter.api.Test
     void pristineHistoricalRoundDoesNotInventAnApprovedSet() {

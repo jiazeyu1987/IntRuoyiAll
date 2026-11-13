@@ -483,16 +483,15 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void importPackage_shouldNotExpandSharedPermissionBeyondPackage() {
+    void importPackage_shouldRejectAmbiguousLegacyPermissionBeforeAnyWrite() {
         MenuDO allowed = insertBoundaryMenu("system:role:query", "");
         insertBoundaryMenu("system:role:query", "");
         allowTenantMenus(Set.of(allowed.getId()));
 
-        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
-                boundaryPayload(List.of("permission:system:role:query"))));
-
-        RoleDO role = roleMapper.selectByCode("package_boundary_role");
-        verify(permissionService).assignRoleMenu(eq(role.getId()), eq(Set.of(allowed.getId())), anyString(), anyString());
+        assertThrows(ServiceException.class, () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
+                boundaryPayload(List.of("permission:system:role:query")))));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -510,7 +509,9 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
         var payload = JsonUtils.parseObject(exported, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
-        assertEquals(List.of("permission:system:role:query"), payload.getRoles().get(0).getMenuKeys());
+        assertEquals(2, payload.getRoles().get(0).getMenuKeys().size());
+        org.junit.jupiter.api.Assertions.assertTrue(payload.getRoles().get(0).getMenuKeys().stream()
+                .allMatch(key -> key.startsWith("route:")));
 
         roleConfigPackageService.importPackage(exported);
 
@@ -562,6 +563,9 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         menu.setSort(1); menu.setParentId(0L); menu.setPath(path); menu.setComponent("");
         menu.setComponentName(""); menu.setStatus(0); menu.setVisible(true);
         menu.setKeepAlive(false); menu.setAlwaysShow(false);
+        if (menuMapper.selectList().stream().anyMatch(existing -> permission.equals(existing.getPermission()))) {
+            menu.setPath("duplicate-" + menuMapper.selectList().size());
+        }
         menuMapper.insert(menu);
         return menu;
     }

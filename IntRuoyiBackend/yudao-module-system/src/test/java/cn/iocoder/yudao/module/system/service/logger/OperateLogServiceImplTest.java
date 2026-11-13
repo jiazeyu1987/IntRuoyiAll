@@ -81,6 +81,36 @@ public class OperateLogServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testWorkflowFailureAndCancellationUseNormalOperationLogQuery() {
+        for (String outcome : java.util.List.of("已取消", "已拦截", "失败")) {
+            OperateLogDO row = RandomUtils.randomPojo(OperateLogDO.class, o -> {
+                o.setUserId(2048L);
+                o.setType("生产业务交互");
+                o.setSubType(outcome);
+                o.setAction("一线生产：" + outcome + "（提交报工）");
+                o.setSuccess(false);
+                o.setCreateTime(buildTime(2026, 11, 12));
+            });
+            operateLogMapper.insert(row);
+        }
+        OperateLogPageReqVO query = new OperateLogPageReqVO();
+        query.setUserId(2048L);
+        query.setType("生产业务交互");
+        query.setAction("提交报工");
+        query.setCreateTime(buildBetweenTime(2026, 11, 11, 2026, 11, 13));
+        assertEquals(3, operateLogServiceImpl.getOperateLogPage(query).getTotal());
+        query.setSubType("已取消");
+        PageResult<OperateLogDO> page = operateLogServiceImpl.getOperateLogPage(query);
+        assertEquals(1, page.getTotal());
+        OperateLogDO stored = operateLogServiceImpl.getOperateLog(page.getList().get(0).getId());
+        assertEquals(false, stored.getSuccess());
+        assertEquals("已取消", stored.getSubType());
+        assertEquals(buildTime(2026, 11, 12), stored.getCreateTime());
+        query.setUserId(1024L);
+        assertEquals(0, operateLogServiceImpl.getOperateLogPage(query).getTotal());
+    }
+
+    @Test
     public void testGetOperateLogPage_dto() {
         // 构造操作日志
         OperateLogDO operateLogDO = RandomUtils.randomPojo(OperateLogDO.class, o -> {

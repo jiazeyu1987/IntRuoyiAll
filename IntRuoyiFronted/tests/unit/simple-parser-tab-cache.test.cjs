@@ -63,6 +63,8 @@ for (const common of [false, true]) {
       '../parser/useParserEditing': loadEditing(vue), './useParserEditing': loadEditing(vue),
       vuedraggable: {},
       vue, 'vue-router': { useRouter: () => ({}), onBeforeRouteLeave: (guard) => { leaveGuard = guard } },
+      '@/views/mes/qc/template/SamplingRuleEditor.vue': {},
+      '@/views/mes/md/workstation/components/MdWorkshopSelect.vue': {},
       'element-plus': {}, vuedraggable: {},
       '@/api/mes/pro/batchrecordreport': {},
       '@/api/mes/pro/route': { getRouteProjectOptions: async () => [] },
@@ -80,6 +82,10 @@ for (const common of [false, true]) {
       '../parser/components/ParserRegulationResult.vue': {},
       '@/api/mes/qc/template/simpleCommonParser': {}, '@/api/mes/qc/template': {}, '@/api/mes/dv/machinery': {},
       '../parser/simplePqc': {},
+      '@/api/mes/pro/batchrecordreport/simpleParserProjects': {
+        getSimpleParserProjects: async () => [],
+        getSimpleParserProject: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' })
+      },
       '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }) },
       './draft': {}, '../parser/simplePqcWord': {}
     }

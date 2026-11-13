@@ -1,6 +1,11 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -179,12 +184,23 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                         .setProductId(workOrder.getProductId())
                         .setBatchCode(workOrder.getBatchCode())
                         .setSourceSnapshotHash(sourceSeedHash)
-                        .setRequireNoReplenishmentConfirmation(true)
-                        .setConfirmNoReplenishmentInfo(command.getConfirmNoReplenishmentInfo())
                         .setProcessSnapshots(snapshots);
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources = lossSourceReader.read(lossCommand);
         if (lossSources != null && lossSources.getBlockers() != null && !lossSources.getBlockers().isEmpty()) {
-            throw sourceMissing(activeOrder, lossSources.getBlockers().get(0).getBlockerType());
+            var blockers = lossSources.getBlockers().stream().map(source ->
+                    new MesReleaseFlowBlocker()
+                            .setBlockerType(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED)
+                            .setObjectType(source.getObjectType()).setObjectId(source.getObjectId())
+                            .setObjectCode(source.getObjectCode()).setRouteProcessId(source.getRouteProcessId())
+                            .setProcessId(source.getProcessId()).setFieldCode(source.getFieldCode())
+                            .setCellKey(source.getCellKey()).setReason(source.getReason())
+                            .setSuggestion(source.getSuggestion())).toList();
+            var first = lossSources.getBlockers().get(0);
+            throw new MesReleaseFlowBlockerException(
+                    first.getBlockerType() + ": " + first.getReason(),
+                    new MesReleaseFlowFailureRespVO()
+                            .setStage(MesReleaseFlowStage.SP_1)
+                            .setCurrentStatus(activeOrder.getActiveStatus()).setBlockers(blockers));
         }
         if (lossSources == null || lossSources.getBlockers() == null || !lossSources.getBlockers().isEmpty()
                 || !coversEveryProcessSnapshot(lossSources.getProcessSources(), snapshots)) {
@@ -230,7 +246,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .setZeroLossConfirmationSnapshot(hasActualLoss ? null
                         : JsonUtils.toJsonString(Map.of("activeOrderId", activeOrder.getId(),
                         "sourceSnapshotHash", sourceSnapshotHash, "status", "NO_FORMAL_LOSS",
-                        "confirmedBy", leaderUserId, "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
+                        "evaluatedBy", leaderUserId, "determinationMode", "SOURCE_QUERY",
+                        "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
                 .setLossConditionFactsJson(lossConditionFactsJson);
     }
 

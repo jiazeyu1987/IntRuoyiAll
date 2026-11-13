@@ -29,6 +29,8 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
                 .apply("CAST(status AS BINARY) = CAST({0} AS BINARY)", done ? "DONE" : "TODO")
                 .and(notification -> notification.isNull(MesActiveOrderHandoffTaskDO::getNotificationOnly)
                         .or().eq(MesActiveOrderHandoffTaskDO::getNotificationOnly, false));
+        // Production and PQC reviews stay in their business workbenches; exclude before count/window.
+        query.apply("COALESCE(CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY)), TRUE)");
         if (!done) {
             query.apply("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)");
         }

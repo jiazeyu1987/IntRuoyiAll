@@ -72,7 +72,7 @@ public class DccRegistrationHandlingTaskService {
         jdbc.update("INSERT INTO dcc_registration_handling_config(tenant_id,responsible_user_id,project_upload_days,renewal_days,configured_by,configured_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE responsible_user_id=VALUES(responsible_user_id),project_upload_days=VALUES(project_upload_days),renewal_days=VALUES(renewal_days),configured_by=VALUES(configured_by),configured_at=VALUES(configured_at)",tenant(),responsible,uploadDays,renewalDays,actor,clock.now());
         return requireConfig();
     }
-    /** 目标市场明确为不适用时不创建任务，返回 null；其余项目仍须配置负责人和期限。 */
+    /** 注册证办理配置不作为创建项目的前提；未配置或目标市场不适用时不创建任务，返回 null。 */
     @Transactional(rollbackFor=Exception.class)
     public Long createProjectTask(Long projectId) {
         var rows=jdbc.queryForList("SELECT id,project_code,project_name,default_attributes_json FROM dcc_project_code WHERE id=? AND tenant_id=? AND deleted=0 AND status='ENABLE' FOR UPDATE",projectId,tenant());
@@ -85,7 +85,9 @@ public class DccRegistrationHandlingTaskService {
             attributes.validated();
             if(attributes.libraryScope()==null&&attributes.targetMarkets().equals(List.of("NA")))return null;
         }
-        var config=requireConfig();
+        var config=getConfig();
+        if(config==null)return null;
+        handler(config.responsibleUserId(),"UPLOAD");handler(config.responsibleUserId(),"RENEWAL");
         return create("PROJECT:"+projectId,"UPLOAD",projectId,null,null,"项目"+project.get("project_code")+" / "+project.get("project_name")+"注册证上传",config,clock.now().plusDays(config.projectUploadDays()));
     }
     @Transactional(rollbackFor=Exception.class)

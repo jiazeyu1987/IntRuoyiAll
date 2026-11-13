@@ -37,6 +37,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     private static final Set<String> ACCESS_LEVELS = Set.of("OWNER", "EDIT", "VIEW");
     private static final String SUPER_ADMIN_ROLE_CODE = "super_admin";
     private static final String TENANT_ADMIN_ROLE_CODE = "tenant_admin";
+    private static final String PROJECT_CODE_ADMIN_ROLE_CODE = "dcc_project_code_admin";
 
     @Resource
     private DccProjectAccessRuleMapper accessRuleMapper;
@@ -140,7 +141,8 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 || !"ENABLE".equals(project.getStatus())
                 || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
                 || (!isProjectAdministrator(userId)
-                    && !project.isLibrary() && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
+                    && !project.isLibrary() && !isProjectCodeAdministrator(userId)
+                    && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }
@@ -150,10 +152,13 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
-        if (isProjectAdministrator(userId)) {
+        boolean administrator = isProjectAdministrator(userId);
+        if (administrator || isProjectCodeAdministrator(userId)) {
             return projectCodeMapper.selectList().stream()
                     .filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
                             && "ENABLE".equals(project.getStatus()))
+                    .filter(project -> administrator || !project.isLibrary()
+                            || hasLibraryPermission(userId, project, Set.of("VIEW", "EDIT")))
                     .map(cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO::getId)
                     .toList();
         }
@@ -237,6 +242,12 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                     && "ENABLE".equals(project.getStatus())
                     && hasLibraryPermission(userId, project, allowedAccessLevels);
         }
+        // Project-code administrators can discover projects without an individual ACL or assignment.
+        // This grants viewing only; editor and owner checks still require formal project rules.
+        if (allowedAccessLevels.contains("VIEW") && isProjectCodeAdministrator(userId)) {
+            return project != null && java.util.Objects.equals(project.getTenantId(), requiredTenant)
+                    && "ENABLE".equals(project.getStatus());
+        }
         LocalDateTime now = LocalDateTime.now();
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
@@ -261,6 +272,10 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     /** Administrators own all projects in their tenant, including newly created projects. */
     private boolean isProjectAdministrator(Long userId) {
         return permissionApi.hasAnyRoles(userId, SUPER_ADMIN_ROLE_CODE, TENANT_ADMIN_ROLE_CODE);
+    }
+
+    private boolean isProjectCodeAdministrator(Long userId) {
+        return permissionApi.hasAnyRoles(userId, PROJECT_CODE_ADMIN_ROLE_CODE);
     }
 
     private boolean matches(DccProjectAccessRuleDO rule, Long userId, AdminUserRespDTO user,
@@ -324,9 +339,6 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
         }
         String changeReason = rule.getChangeReason() == null ? null : rule.getChangeReason().trim();
-        if (changeReason == null || changeReason.isEmpty()) {
-            throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
-        }
         List<Long> subjectIds = List.of(rule.getSubjectId());
         switch (subjectType) {
             case "USER" -> adminUserApi.validateUserList(subjectIds);

@@ -23,10 +23,10 @@
       <section>
         <el-tabs v-model="scope" @tab-change="scopeChanged"><el-tab-pane label="项目目录" name="directory" /><el-tab-pane :label="purpose === 'relations' ? '本项目搜索' : '全局搜索'" name="global" /></el-tabs>
         <div class="search"><el-input v-model="keyword" placeholder="文件名称、编号或项目名称" clearable @keyup.enter="search" /><el-button :loading="state.loading" @click="search">搜索</el-button></div>
-        <p v-if="scope === 'directory' && !folderId">请选择候选项目的逻辑文件夹，或切换全局搜索。</p>
-        <el-table :data="state.rows" v-loading="state.loading" row-key="masterId" height="300">
+        <p v-if="scope === 'directory' && !folderId">请选择候选项目的逻辑文件夹，或切换{{ purpose === 'relations' ? '本项目搜索' : '全局搜索' }}。</p>
+        <el-table :data="state.rows" v-loading="state.loading" :data-user-table-column-explicit="supplemental ? '' : undefined" row-key="masterId" height="300">
           <el-table-column label="选择" width="64"><template #default="{ row }"><el-checkbox :model-value="state.selected.some(item => item.masterId === row.masterId)" :disabled="state.saving || (purpose === 'relations' && (row.masterId === source.masterId || row.projectId !== source.projectId)) || !row.controlled || row.status !== 'ACTIVE' || row.pendingEffect || !row.executable" @change="value => choose(row, Boolean(value))" /></template></el-table-column>
-          <el-table-column prop="fileName" label="名称" min-width="180" /><el-table-column prop="fileNumber" label="编号" width="140" />
+          <el-table-column prop="fileName" label="文件名称" min-width="180" /><el-table-column prop="fileNumber" label="文件编号" width="140" />
           <el-table-column prop="projectName" label="来源项目" min-width="120" /><el-table-column prop="folderName" label="文件夹" min-width="100" />
           <el-table-column prop="versionNo" label="受控版本" width="110" />
           <el-table-column label="状态" width="120"><template #default="{ row }">{{ state.label(row) }}</template></el-table-column>
@@ -36,8 +36,24 @@
       </section>
     </div>
     <slot name="confirmation-fields"></slot>
-    <div class="selected"><strong>已选 {{ state.selected.length }} 项</strong><el-tag v-for="row in state.selected" :key="row.masterId" :closable="!state.saving" @close="state.remove(row.masterId)">{{ row.fileName }} · {{ row.versionNo }} · {{ state.label(row) }}</el-tag></div>
-    <template #footer><el-button :disabled="state.saving" @click="close">取消</el-button><el-button type="primary" :loading="state.saving" @click="confirm">{{ confirmLabel }}</el-button></template>
+    <div class="selected">
+      <strong>已选 {{ state.selected.length }} 项</strong>
+      <template v-if="supplemental">
+      <div v-for="row in state.selected" :key="row.masterId" class="selected-file">
+        <span class="selected-file__name">{{ row.fileName }}</span>
+        <span>文件编号：{{ row.fileNumber }}</span>
+        <span>关联版本：{{ row.versionNo }}</span>
+        <el-button link type="primary" :disabled="state.saving" :aria-label="`移除 ${row.fileName}`" @click="state.remove(row.masterId)">移除</el-button>
+      </div>
+      </template>
+      <template v-else>
+        <el-tag v-for="row in state.selected" :key="row.masterId" :closable="!state.saving" @close="state.remove(row.masterId)">{{ row.fileName }} · {{ row.versionNo }} · {{ state.label(row) }}</el-tag>
+      </template>
+    </div>
+    <template #footer>
+      <span v-if="supplemental" class="confirmation-hint">确认后返回指派页，所选文件随本次指派签名保存。</span>
+      <el-button :disabled="state.saving" @click="close">取消</el-button><el-button type="primary" :loading="state.saving" @click="confirm">{{ confirmLabel }}</el-button>
+    </template>
   </el-dialog>
 </template>
 <script setup lang="ts">
@@ -48,7 +64,7 @@ import type { DccDiscoveredProject } from '@/api/dcc/controlledFile/projectDisco
 import type { FileCandidate, SelectorContext, SelectorPage, SelectorQuery } from './selector-state'
 export interface SelectorSource extends SelectorContext { controlledFileId?: string; fileName: string; fileNumber: string; versionNo: string; projectId: string; folderId?: string; projectName: string; folderName: string; unsubmitted?: boolean }
 export interface DirectoryNode { key: string; name: string; projectId: string; folderId?: string; children?: DirectoryNode[] }
-const props = defineProps<{ modelValue: boolean; source: SelectorSource; purpose: 'relations' | 'reference' | 'operation'; directories: DirectoryNode[]; selected: FileCandidate[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; persist: (rows: FileCandidate[]) => Promise<unknown>; openPreview: (row: FileCandidate) => Promise<unknown> }>()
+const props = defineProps<{ modelValue: boolean; source: SelectorSource; purpose: 'relations' | 'reference' | 'operation'; supplemental?: boolean; directories: DirectoryNode[]; selected: FileCandidate[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; persist: (rows: FileCandidate[]) => Promise<unknown>; openPreview: (row: FileCandidate) => Promise<unknown> }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; confirmed: [rows: FileCandidate[]] }>()
 const selectionContext = (): SelectorContext => ({ ...props.source,
   relationProjectId: props.purpose === 'relations' ? props.source.projectId : undefined,
@@ -57,7 +73,7 @@ const selectionContext = (): SelectorContext => ({ ...props.source,
 const state = reactive(new FileSelectorState(selectionContext()))
 let navigation = reactive(new SelectorProjectDirectoryState(props.source.tenantId))
 const invalidateFilePage = () => { const token = state.begin({ keyword: keyword.value, pageNo: pageNo.value, pageSize }); state.resolve(token, { list: [], total: 0 }) }
-const title = computed(() => ({ relations: '文件选择器 · 关联文件', reference: '文件选择器 · 引用文件', operation: '文件选择器 · 文件操作' })[props.purpose])
+const title = computed(() => props.supplemental ? '补充关联文件' : ({ relations: '文件选择器 · 关联文件', reference: '文件选择器 · 引用文件', operation: '文件选择器 · 文件操作' })[props.purpose])
 const confirmLabel = computed(() => ({ relations: '确认关联', reference: '确认引用', operation: '打开操作面板' })[props.purpose])
 const scope = ref('directory'), keyword = ref(''), pageNo = ref(1), pageSize = 20
 const projectId = ref(props.source.projectId), folderId = ref(props.source.folderId)
@@ -123,4 +139,12 @@ onBeforeUnmount(() => { navigation.close(); state.reset(selectionContext(), []) 
 aside { border-right: 1px solid var(--el-border-color); max-height: 440px; overflow: auto; }
 .search { display: flex; gap: 8px; margin-bottom: 12px; }
 .selected { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.selected .el-tag { height: auto; min-height: 24px; white-space: normal; overflow-wrap: anywhere; }
+.selected-file { box-sizing: border-box; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 12px; border: 1px solid var(--el-border-color); border-radius: 4px; overflow-wrap: anywhere; }
+.selected-file__name { flex: 1; min-width: 180px; }
+.selected-file .el-button { margin-left: auto; }
+.confirmation-hint { float: left; margin: 8px 12px 8px 0; color: var(--el-text-color-secondary); }
+@media (max-width: 768px) {
+  .confirmation-hint { float: none; display: block; text-align: left; }
+}
 </style>

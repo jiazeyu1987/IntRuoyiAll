@@ -124,6 +124,7 @@ class MesReportAllocationOrderChangeServiceTest {
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
 
+        when(targetService.requireLossCoefficient(8101L, 5101L, 6001L)).thenReturn(new BigDecimal("1.1"));
         service.reduceWorkOrderAllocations(9001L, new BigDecimal("60"), 3001L, "工单数量减少");
 
         ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> next = ArgumentCaptor.forClass(Collection.class);
@@ -131,7 +132,7 @@ class MesReportAllocationOrderChangeServiceTest {
                 org.mockito.ArgumentMatchers.eq(2), next.capture());
         MesProcessPoolReportAllocationDO reducedA = next.getValue().stream()
                 .filter(row -> row.getActiveOrderId().equals(8101L)).findFirst().orElseThrow();
-        assertAmount("60", reducedA.getAllocatedQuantity());
+        assertAmount("66", reducedA.getAllocatedQuantity());
     }
 
     private static MesProProcessPoolEventDO event() {

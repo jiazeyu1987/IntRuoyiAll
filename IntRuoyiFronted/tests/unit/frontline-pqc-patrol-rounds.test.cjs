@@ -41,6 +41,7 @@ function harness(){
     context:{actualEmployeeId:1},employeeTemplateCode:ref('PQC'),payloadPreview:ref({}),
     allSwitchablePqcProcessOptions:ref([process]),PQC_INSPECTION_RULE_LABELS:{PATROL:'巡检'},
     isFrontlinePqcProcess:p=>Boolean(p?.qaProcessId),hasPqcTaskOptionSnapshot:t=>t.taskStatus==='PENDING',
+    resolveFrontlinePqcTaskInvalidFields:()=>[],
     pqcTaskOptionIncludesItem:(t,key)=>!key||t.inspectionItems.some(i=>i.itemCode===key),
     resolveSelectedPqcInspectionItemKey:()=> 'A',normalizePqcTaskOptionItemKey:()=> 'A',
     applyPqcItemEquipmentDefaults:()=>{},mapPqcInspectionItem:i=>i,
@@ -49,7 +50,7 @@ function harness(){
     handleSelectProcess:()=>{throw new Error('same process must retain round drafts')},
     switchPqcCurrentLoginEmployeeForActiveTask:async()=>{dependencies.deviceState.selectedEmployee={userId:1}}
   }
-  const functions=extract(['getPqcTaskOptions','getPqcTaskOptionsForInspectionItem','getPqcTaskOptionsByRule',
+  const functions=extract(['getPqcTaskOptions','getBrowsablePqcTaskOptions','getPqcTaskOptionsForInspectionItem','getPqcTaskOptionsByRule',
     'getPqcTaskOptionForRule','getSelectedPqcTaskOption','getPqcTaskDraftKey','createPqcTaskDraftState',
     'getPqcTaskDraft','persistCurrentPqcTaskDraft','applyPqcTaskOptionToDraft','applyPqcTaskOptionToSelectedProcess',
     'selectPqcInspectionRule','selectPqcPatrolRound','getPqcItemSelectionKey'],dependencies)
@@ -77,13 +78,14 @@ test('selecting arbitrary patrol rounds binds the exact task and preserves separ
   assert.notEqual(h.getPqcTaskDraftKey(h.tasks[0]),h.getPqcTaskDraftKey(h.tasks[2]))
   assert.notEqual(h.getPqcItemSelectionKey(h.tasks[0],'A'),h.getPqcItemSelectionKey(h.tasks[2],'A'))
 })
-test('an old task ID cannot select a task in another patrol round and completed rounds stay excluded',()=>{
+test('an old task ID cannot select another patrol round; completed rounds are browsable but not executable',()=>{
   const h=harness()
   h.selectedPqcPatrolRound.value=12
   assert.equal(h.getSelectedPqcTaskOption(h.process).pqcTaskId,112)
   h.tasks[3].taskStatus='SUBMITTED'
-  assert.equal(h.getSelectedPqcTaskOption(h.process),undefined)
-  assert.deepEqual(h.getPqcTaskOptionsByRule(h.process,'PATROL'),[])
+  assert.equal(h.getSelectedPqcTaskOption(h.process).pqcTaskId,112)
+  assert.deepEqual(h.getPqcTaskOptionsByRule(h.process,'PATROL').map(task=>task.pqcTaskId),[112])
+  assert.ok(!h.getPqcTaskOptions(h.process).some(task=>task.pqcTaskId===112))
 })
 test('navigation lock blocks patrol round changes before draft or task mutation',async()=>{
   const h=harness()

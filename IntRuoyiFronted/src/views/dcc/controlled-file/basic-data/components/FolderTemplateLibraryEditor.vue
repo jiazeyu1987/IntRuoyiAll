@@ -11,7 +11,7 @@
     <el-form v-if="selectionValid" label-width="100px" v-loading="loading" :disabled="loading || writing || !ready">
       <el-form-item label="模板名称" required><el-input v-model="form.name" maxlength="128" /></el-form-item>
       <el-form-item label="说明"><el-input v-model="form.description" maxlength="2048" /></el-form-item>
-      <el-form-item label="修改原因" required><el-input v-model="form.changeReason" maxlength="500" /></el-form-item>
+      <el-form-item label="修改原因" required><el-input v-model="form.changeReason" maxlength="500" placeholder="保存或删除模板前，请填写操作原因" /></el-form-item>
       <el-form-item label="启用"><el-switch v-model="form.active" /></el-form-item>
       <el-table :data="form.structure.nodes" max-height="260">
         <el-table-column label="名称"><template #default="{ row }"><el-input v-model="row.name" maxlength="128" /></template></el-table-column>
@@ -72,6 +72,13 @@ const remove = (index: number) => {
   if (form.structure.nodes.some(node => node.parentKey === key)) { error.value = '请先移除或调整子文件夹'; return }
   form.structure.nodes.splice(index, 1)
 }
+const validateChangeReason = () => {
+  if (!form.changeReason.trim() || form.changeReason.length > 500) {
+    error.value = '请填写500字以内的模板修改或删除原因'
+    return false
+  }
+  return true
+}
 const open = async () => {
   if (writing.value) return
   const revision = ++contextRevision
@@ -86,6 +93,7 @@ const open = async () => {
 }
 const save = async () => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
+  if (!validateChangeReason()) return
   const revision = contextRevision
   const payload = JSON.parse(JSON.stringify(form))
   writing.value = true; loading.value = true; error.value = ''
@@ -110,10 +118,11 @@ const save = async () => {
 }
 const removeTemplate = async () => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value || !form.id || selectedUsed.value) return
+  if (!validateChangeReason()) return
   const revision = contextRevision, id = form.id, reason = form.changeReason
   writing.value = true; loading.value = true; error.value = ''
   try {
-    await ElMessageBox.confirm('删除未使用模板？', '二次确认', { type: 'warning' })
+    await ElMessageBox.confirm(`删除未使用模板“${form.name}”？`, '二次确认', { type: 'warning' })
     if (revision !== contextRevision) return
     await deleteFolderTemplate(id, reason)
     emit('saved')

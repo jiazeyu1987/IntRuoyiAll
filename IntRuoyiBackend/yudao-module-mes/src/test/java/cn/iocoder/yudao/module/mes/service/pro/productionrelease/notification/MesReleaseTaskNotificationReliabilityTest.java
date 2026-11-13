@@ -72,10 +72,10 @@ class MesReleaseTaskNotificationReliabilityTest {
             invoke(f.outcomes, "schedulePqc", app, f.task, 346L, false, "资料不完整");
             invoke(f.outcomes, "schedulePqc", app, f.task, 346L, false, "资料不完整");
             assertEquals(1, f.count("mes_pro_edhr_release_task_notify_delivery"));
-            assertEquals(0, f.count("system_notify_message"));
+            assertEquals(0, f.count("system_tenant_notify_message"));
         });
-        assertEquals(1, f.count("system_notify_message"));
-        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_notify_message", Long.class));
+        assertEquals(1, f.count("system_tenant_notify_message"));
+        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_tenant_notify_message", Long.class));
         assertEquals("DONE", f.task.getStatus());
         assertTrue(f.jdbc.queryForObject("SELECT template_params_json FROM mes_pro_edhr_release_task_notify_delivery", String.class)
                 .contains("/user/profile"));
@@ -98,7 +98,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_PQC_APPROVED")).thenReturn(f.template);
         f.retry(341L, id, f.version(id), "修复通知模板后补发");
         assertEquals("SENT", f.status(id));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -113,7 +113,7 @@ class MesReleaseTaskNotificationReliabilityTest {
                 .setActionUrl("/mes/pro/feedback/edhr-batch-execution?batchExecutionId=700&releaseTransactionId=800&workTaskId=900&action=marketRelease");
         when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_MARKET_APPROVED")).thenReturn(f.template);
         f.business.executeWithoutResult(status -> invoke(f.outcomes, "scheduleMarketApproved", app, tx, f.task, 346L, "通过"));
-        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_notify_message", Long.class));
+        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_tenant_notify_message", Long.class));
         app.setReleaseApprovalWorkTaskId(901L);
         assertThrows(RuntimeException.class, () -> f.business.executeWithoutResult(status ->
                 invoke(f.outcomes, "scheduleMarketApproved", app, tx, f.task, 346L, "通过")));
@@ -143,9 +143,9 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.business.executeWithoutResult(tx -> {
             f.schedule(f.task);
             assertEquals(2, f.count("mes_pro_edhr_release_task_notify_delivery"));
-            assertEquals(0, f.count("system_notify_message"), "business transaction must not send early");
+            assertEquals(0, f.count("system_tenant_notify_message"), "business transaction must not send early");
         });
-        assertEquals(2, f.count("system_notify_message"));
+        assertEquals(2, f.count("system_tenant_notify_message"));
         assertEquals(List.of(346L, 347L), f.jdbc.queryForList(
                 "SELECT user_id FROM mes_pro_edhr_release_task_notify_delivery ORDER BY user_id", Long.class));
         assertEquals(2, f.jdbc.queryForObject(
@@ -153,7 +153,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         assertEquals(341L, f.jdbc.queryForObject(
                 "SELECT MIN(initiated_by) FROM mes_pro_edhr_release_task_notify_delivery", Long.class));
         assertEquals(1L, f.jdbc.queryForObject(
-                "SELECT COUNT(*) FROM system_notify_message WHERE user_id=347", Long.class),
+                "SELECT COUNT(*) FROM system_tenant_notify_message WHERE user_id=347", Long.class),
                 "assignee346 is not the only frozen recipient");
     }
 
@@ -168,7 +168,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         }));
         assertEquals(0, f.count("mes_pro_edhr_release_task_notify_delivery"));
         assertEquals(0, f.count("notification_test_audit"));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -178,7 +178,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.task.setCandidateUserSnapshot("346,bad-id,347");
         assertThrows(RuntimeException.class, () -> f.business.executeWithoutResult(tx -> f.schedule(f.task)));
         assertEquals(0, f.count("mes_pro_edhr_release_task_notify_delivery"));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -188,14 +188,14 @@ class MesReleaseTaskNotificationReliabilityTest {
         assertDoesNotThrow(() -> f.business.executeWithoutResult(tx -> {
             f.schedule(f.task);
             assertEquals(2, f.count("mes_pro_edhr_release_task_notify_delivery"));
-            assertEquals(0, f.count("system_notify_message"));
+            assertEquals(0, f.count("system_tenant_notify_message"));
         }), "missing notification template cannot reverse the formal business commit");
         assertEquals(2, f.count("mes_pro_edhr_release_task_notify_delivery"));
         assertEquals(2, f.jdbc.queryForObject(
                 "SELECT COUNT(*) FROM mes_pro_edhr_release_task_notify_delivery WHERE status='FAILED'", Integer.class));
         assertNotNull(f.jdbc.queryForObject(
                 "SELECT last_error_summary FROM mes_pro_edhr_release_task_notify_delivery WHERE user_id=346", String.class));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
         assertFalse(((List<?>) invoke(f.service, "listForTask", 1L, 346L, 900L)).isEmpty());
         Long id = f.jdbc.queryForObject(
                 "SELECT id FROM mes_pro_edhr_release_task_notify_delivery WHERE user_id=346", Long.class);
@@ -205,8 +205,8 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.retry(346L, id, f.version(id), "模板配置恢复后重试原投递");
         assertEquals("SENT", f.status(id));
         assertEquals(frozenKey, f.jdbc.queryForObject(
-                "SELECT business_key FROM system_notify_message", String.class));
-        assertEquals(1, f.count("system_notify_message"));
+                "SELECT business_key FROM system_tenant_notify_message", String.class));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -229,15 +229,15 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.pending(10L, 1L, 346L, KEY);
         f.failSentAudit.set(true);
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, 0, "首次人工投递"));
-        assertEquals(1, f.count("system_notify_message"), "platform transaction must already be committed");
-        Long original = f.jdbc.queryForObject("SELECT id FROM system_notify_message", Long.class);
+        assertEquals(1, f.count("system_tenant_notify_message"), "platform transaction must already be committed");
+        Long original = f.jdbc.queryForObject("SELECT id FROM system_tenant_notify_message", Long.class);
         assertNotEquals("SENT", f.status(10L), "ACK failure must not claim a successful local receipt");
         f.retry(346L, 10L, f.version(10L), "恢复平台已提交而本地回执失败的投递");
         assertEquals("SENT", f.status(10L));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(original, f.jdbc.queryForObject(
                 "SELECT system_message_id FROM mes_pro_edhr_release_task_notify_delivery WHERE id=10", Long.class));
-        assertEquals(KEY, f.jdbc.queryForObject("SELECT business_key FROM system_notify_message", String.class));
+        assertEquals(KEY, f.jdbc.queryForObject("SELECT business_key FROM system_tenant_notify_message", String.class));
     }
 
     @Test
@@ -247,7 +247,7 @@ class MesReleaseTaskNotificationReliabilityTest {
             f.schedule(f.task);
             f.template.setStatus(1);
         });
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
         assertEquals(2, f.jdbc.queryForObject(
                 "SELECT COUNT(*) FROM mes_pro_edhr_release_task_notify_delivery WHERE status='FAILED'", Integer.class));
         assertNotNull(f.jdbc.queryForObject(
@@ -263,7 +263,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         Map<String, Object> replayed = f.jdbc.queryForMap(
                 "SELECT id,business_key,template_code,template_params_json FROM mes_pro_edhr_release_task_notify_delivery WHERE id=?", id);
         assertEquals(frozen, replayed);
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -277,7 +277,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, 0, "缺少正式权限"));
         assertThrows(RuntimeException.class, () -> invoke(f.service, "listForTask", 1L, 346L, 900L));
         assertEquals(0, f.version(10L));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -288,7 +288,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, 0, " "));
         assertEquals(0, f.version(10L));
         assertEquals(0, f.count("notification_test_audit"));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -302,7 +302,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, sentVersion, "已成功不重复发送"));
         assertEquals("SENT", f.status(10L));
         assertEquals(sentVersion, f.version(10L));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -329,9 +329,9 @@ class MesReleaseTaskNotificationReliabilityTest {
         TenantContextHolder.setTenantId(2L);
         Long otherTenantId = (Long) invoke(f.sender, "send", original);
         assertNotEquals(id, otherTenantId);
-        assertEquals(2, f.count("system_notify_message"));
+        assertEquals(2, f.count("system_tenant_notify_message"));
         assertEquals(2, f.jdbc.queryForObject(
-                "SELECT COUNT(DISTINCT tenant_id) FROM system_notify_message", Integer.class));
+                "SELECT COUNT(DISTINCT tenant_id) FROM system_tenant_notify_message", Integer.class));
     }
 
     @Test
@@ -351,7 +351,7 @@ class MesReleaseTaskNotificationReliabilityTest {
             var second = executor.submit(job);
             start.countDown();
             assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
-            assertEquals(1, f.count("system_notify_message"));
+            assertEquals(1, f.count("system_tenant_notify_message"));
         } finally { executor.shutdownNow(); }
     }
 
@@ -362,7 +362,7 @@ class MesReleaseTaskNotificationReliabilityTest {
             invoke(f.sender, "send", f.request(346L, KEY, Map.of("workTaskId", "900")));
             throw new IllegalStateException("caller failed after platform commit");
         }));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -377,7 +377,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_APPROVE_TASK_ASSIGNED"))
                 .thenAnswer(call -> f.template);
         f.business.executeWithoutResult(tx -> invoke(f.service, "scheduleAssigned", f.task, 346L));
-        assertEquals(2, f.count("system_notify_message"));
+        assertEquals(2, f.count("system_tenant_notify_message"));
         assertEquals(346L, f.jdbc.queryForObject(
                 "SELECT MIN(initiated_by) FROM mes_pro_edhr_release_task_notify_delivery", Long.class));
         assertEquals(341L, f.task.getSourceUserId(), "task creator remains original application actor");
@@ -397,14 +397,14 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.template.setStatus(1);
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, 0, "模板停用期间重试"));
         assertEquals("FAILED", f.status(10L));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertNotNull(f.jdbc.queryForObject(
                 "SELECT last_error_summary FROM mes_pro_edhr_release_task_notify_delivery WHERE id=10", String.class));
         f.template.setStatus(0);
         f.retry(346L, 10L, f.version(10L), "恢复已启用模板后继续同键投递");
         assertEquals(original, f.jdbc.queryForObject(
                 "SELECT system_message_id FROM mes_pro_edhr_release_task_notify_delivery WHERE id=10", Long.class));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -428,9 +428,9 @@ class MesReleaseTaskNotificationReliabilityTest {
                 SELECT work_task_id,user_id,business_key,template_code,template_params_json,initiated_by
                   FROM mes_pro_edhr_release_task_notify_delivery WHERE id=10
                 """));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, f.version(10L), "SENT不可重复投递"));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         verify(f.taskMapper, never()).updateById(any(MesProEdhrWorkTaskDO.class));
     }
 
@@ -461,7 +461,7 @@ class MesReleaseTaskNotificationReliabilityTest {
     void afterCommitAutomaticDispatchKeepsSystemOriginForAttemptAndAck() throws Exception {
         Fixture f = new Fixture();
         f.business.executeWithoutResult(tx -> f.schedule(f.task));
-        assertEquals(2, f.count("system_notify_message"));
+        assertEquals(2, f.count("system_tenant_notify_message"));
         List<GxpAuditCommand> attemptsAndAcks = f.auditCommands.stream()
                 .filter(command -> command.getOperationId().endsWith(".attempted")
                         || command.getOperationId().endsWith(".sent")).toList();
@@ -589,7 +589,7 @@ class MesReleaseTaskNotificationReliabilityTest {
                       UNIQUE(tenant_id,work_task_id,event_type,user_id), UNIQUE(tenant_id,business_key))
                     """);
             jdbc.execute("""
-                    CREATE TABLE system_notify_message (
+                    CREATE TABLE system_tenant_notify_message (
                       id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL, user_id BIGINT NOT NULL,
                       user_type INT NOT NULL, business_key VARCHAR(255), template_id BIGINT, template_code VARCHAR(128),
                       template_type INT, template_nickname VARCHAR(255), template_content VARCHAR(12000),

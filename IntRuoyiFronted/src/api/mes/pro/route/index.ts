@@ -385,7 +385,19 @@ export interface RouteFullFlowReadinessVO {
   }>
 }
 
+export interface RouteReleaseOwnerVO {
+  role: { id: number; name: string }
+  users: Array<{ id: number; username: string; nickname: string; status: number }>
+}
+
 export const ProRouteApi = {
+  getReleaseOwner: async (code: string) => {
+    return await request.get<RouteReleaseOwnerVO>({
+      url: '/mes/pro/route/release-owner',
+      params: { code },
+      ignoreErrorMessage: true
+    })
+  },
   // 查询工艺路线分页
   getRoutePage: async (params: any) => {
     return await request.get({ url: `/mes/pro/route/page`, params })
@@ -586,6 +598,18 @@ export const ProRouteApi = {
       params: { id }
     })
   },
+
+  getRouteLossCoefficient: async (id: MesRouteId) => request.get<{
+    routeVersionId: MesRouteId
+    routeSnapshotSha256: string
+    lossCoefficient: number
+  }>({ url: `${PRO_ROUTE_VERSION_BASE_URL}/loss-coefficient`, params: { id } }),
+
+  saveRouteLossCoefficient: async (data: {
+    routeVersionId: MesRouteId
+    expectedRouteSnapshotSha256: string
+    lossCoefficient: number
+  }) => request.post<boolean>({ url: `${PRO_ROUTE_VERSION_BASE_URL}/loss-coefficient/save`, data }),
 
   // 查询工艺路线版本生产工序配置
   getRouteProductionProcessConfig: async (id: MesRouteId) => {

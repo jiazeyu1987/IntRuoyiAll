@@ -9,7 +9,7 @@ import cn.iocoder.yudao.module.erp.enums.ErpKingdeeConnectionTypeEnum;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
-import cn.iocoder.yudao.module.infra.service.config.ConfigService;
+import cn.iocoder.yudao.module.infra.service.config.TenantConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 class ErpKingdeeConfigServiceImplTest {
 
     @Mock
-    private ConfigService configService;
+    private TenantConfigService tenantConfigService;
 
     @InjectMocks
     private ErpKingdeeConfigServiceImpl kingdeeConfigService;
@@ -64,32 +64,18 @@ class ErpKingdeeConfigServiceImplTest {
     }
 
     @Test
-    void getConfig_returnsRuntimeDefaultsWhenNoSavedConfigExists() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
-                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
-                        ErpKingdeeConnectionTypeEnum.TEST.getType()));
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
-
-        ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
-
-        assertEquals("http://172.30.30.8/K3Cloud", config.getBaseUrl());
-        assertEquals("6977227150362f", config.getAcctId());
-        assertEquals("贾泽宇", config.getUsername());
-        assertEquals("default-test-app-id", config.getAppId());
-        assertEquals("default-test-signed-data", config.getSignedData());
-        assertEquals("1700000000", config.getTimestamp());
-        assertEquals(5000, config.getProduct().getQueryLimit());
-        assertEquals(1000, config.getBom().getQueryLimit());
-        assertEquals(1000, config.getProductionOrder().getQueryLimit());
-        assertEquals("881", config.getPurchaseOrder().getPurchaseOrgNumber());
+    void getConfig_failsWhenTenantHasNoSavedTestConfiguration() {
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "TEST"));
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        assertThrows(RuntimeException.class, () -> kingdeeConfigService.getConfig());
     }
-
     @Test
     void getConfig_preservesChineseUsername() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
                         ErpKingdeeConnectionTypeEnum.TEST.getType()));
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
 
         ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
 
@@ -98,17 +84,17 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void saveConfig_createsDedicatedInfraConfigWhenMissing() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
                         ErpKingdeeConnectionTypeEnum.TEST.getType()));
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
         ErpKingdeeConfigSaveReqVO saveReqVO = buildSaveReqVO();
 
         kingdeeConfigService.saveConfig(saveReqVO);
 
         org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
-        verify(configService).createConfig(captor.capture());
-        verify(configService, never()).updateConfig(any());
+        verify(tenantConfigService).createConfig(captor.capture());
+        verify(tenantConfigService, never()).updateConfig(any());
         assertEquals(ErpKingdeeConfigServiceImpl.CONFIG_KEY, captor.getValue().getKey());
         assertEquals(Boolean.FALSE, captor.getValue().getVisible());
         org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getValue().contains("\"bom\":{\"queryLimit\":1000}"));
@@ -122,18 +108,18 @@ class ErpKingdeeConfigServiceImplTest {
         configDO.setId(1L);
         configDO.setConfigKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY);
         configDO.setValue("{\"baseUrl\":\"http://custom/K3Cloud\",\"acctId\":\"acct-new\",\"username\":\"sync-user\",\"password\":\"sync-pass\",\"lcid\":2052,\"product\":{\"queryLimit\":9000},\"bom\":{\"queryLimit\":800},\"productionOrder\":{\"queryLimit\":1500},\"purchaseOrder\":{\"purchaseOrgNumber\":\"990\",\"queryDays\":30,\"queryLimit\":1500},\"saleOrder\":{\"queryDays\":45,\"queryLimit\":1800}}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
                         ErpKingdeeConnectionTypeEnum.TEST.getType()));
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(configDO);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(configDO);
 
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
 
         assertEquals("http://custom/K3Cloud", properties.getBaseUrl());
         assertEquals("acct-new", properties.getAcctId());
         assertEquals("sync-user", properties.getUsername());
-        assertEquals("default-test-app-id", properties.getAppId());
-        assertEquals("default-test-signed-data", properties.getSignedData());
+        org.junit.jupiter.api.Assertions.assertNull(properties.getAppId());
+        org.junit.jupiter.api.Assertions.assertNull(properties.getSignedData());
         assertEquals(9000, properties.getProduct().getQueryLimit());
         assertEquals(800, properties.getBom().getQueryLimit());
         assertEquals(1500, properties.getProductionOrder().getQueryLimit());
@@ -143,7 +129,7 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void getActiveConnection_failsFastWhenSelectionHasNeverBeenSaved() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -154,7 +140,7 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void getEffectiveProperties_failsFastWhenSelectionIsBlank() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "  "));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -169,10 +155,10 @@ class ErpKingdeeConfigServiceImplTest {
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\","
                         + "\"appId\":\"prod-app-id\",\"signedData\":\"prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
         ErpKingdeeActiveConnectionSaveReqVO request = new ErpKingdeeActiveConnectionSaveReqVO();
         request.setConnectionType(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
@@ -180,7 +166,7 @@ class ErpKingdeeConfigServiceImplTest {
         ErpKingdeeActiveConnectionRespVO response = kingdeeConfigService.updateActiveConnection(request);
 
         org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
-        verify(configService).createConfig(captor.capture());
+        verify(tenantConfigService).createConfig(captor.capture());
         assertEquals(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, captor.getValue().getKey());
         assertEquals(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType(), captor.getValue().getValue());
         assertEquals(Boolean.FALSE, captor.getValue().getVisible());
@@ -189,8 +175,8 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void updateActiveConnection_doesNotSaveWhenProductionConfigIsMissing() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
         ErpKingdeeActiveConnectionSaveReqVO request = new ErpKingdeeActiveConnectionSaveReqVO();
         request.setConnectionType(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
@@ -199,8 +185,8 @@ class ErpKingdeeConfigServiceImplTest {
                 () -> kingdeeConfigService.updateActiveConnection(request));
 
         assertTrue(exception.getMessage().contains("正式账套连接配置缺失"));
-        verify(configService, never()).createConfig(any());
-        verify(configService, never()).updateConfig(any());
+        verify(tenantConfigService, never()).createConfig(any());
+        verify(tenantConfigService, never()).updateConfig(any());
     }
 
     @Test
@@ -218,10 +204,10 @@ class ErpKingdeeConfigServiceImplTest {
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\","
                         + "\"appId\":\"prod-app-id\",\"signedData\":\"prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
 
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
@@ -250,10 +236,10 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\",\"lcid\":2052}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
 
         ErpKingdeeConfigRespVO properties = kingdeeConfigService.getConfig();
@@ -273,10 +259,10 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\",\"lcid\":2052}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -289,10 +275,10 @@ class ErpKingdeeConfigServiceImplTest {
     void getEffectiveProperties_failsFastWhenActiveProductionConfigIsMissing() {
         ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
                 ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(savedTestConfig());
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -311,10 +297,10 @@ class ErpKingdeeConfigServiceImplTest {
                 "{\"baseUrl\":\"http://old-prod/K3Cloud\",\"acctId\":\"old-prod-acct\","
                         + "\"username\":\"old-prod-user\",\"password\":\"old-prod-password\","
                         + "\"appId\":\"old-prod-app-id\",\"signedData\":\"old-prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
         ErpKingdeeConfigSaveReqVO request = buildSaveReqVO();
         request.setBaseUrl("http://new-prod/K3Cloud");
@@ -329,7 +315,7 @@ class ErpKingdeeConfigServiceImplTest {
         kingdeeConfigService.saveConfig(request);
 
         org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
-        verify(configService, times(2)).updateConfig(captor.capture());
+        verify(tenantConfigService, times(2)).updateConfig(captor.capture());
         List<ConfigSaveReqVO> savedConfigs = captor.getAllValues();
         ConfigSaveReqVO savedTestConfig = savedConfigs.stream()
                 .filter(item -> ErpKingdeeConfigServiceImpl.CONFIG_KEY.equals(item.getKey()))
@@ -352,7 +338,7 @@ class ErpKingdeeConfigServiceImplTest {
     @Test
     void getActiveConnection_failsFastWhenSavedSelectionIsInvalid() {
         ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "UNKNOWN");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -363,7 +349,7 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void isExternalWriteEnabled_returnsFalseWhenConfigMissing() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
                 .thenReturn(null);
 
         assertFalse(kingdeeConfigService.isExternalWriteEnabled());
@@ -371,13 +357,13 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void updateExternalWriteEnabled_createsDedicatedHiddenConfigWhenMissing() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
                 .thenReturn(null);
 
         kingdeeConfigService.updateExternalWriteEnabled(Boolean.TRUE);
 
         org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
-        verify(configService).createConfig(captor.capture());
+        verify(tenantConfigService).createConfig(captor.capture());
         assertEquals(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY, captor.getValue().getKey());
         assertEquals("true", captor.getValue().getValue());
         assertEquals(Boolean.FALSE, captor.getValue().getVisible());
@@ -385,7 +371,7 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void assertExternalWriteEnabled_failsFastWhenSwitchClosed() {
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
                 .thenReturn(null);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
@@ -399,7 +385,7 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO configDO = new ConfigDO();
         configDO.setConfigKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
         configDO.setValue("true");
-        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
+        when(tenantConfigService.getConfigByKey(ErpKingdeeConfigServiceImpl.EXTERNAL_WRITE_ENABLED_CONFIG_KEY))
                 .thenReturn(configDO);
 
         assertDoesNotThrow(() -> kingdeeConfigService.assertExternalWriteEnabled());
@@ -443,6 +429,12 @@ class ErpKingdeeConfigServiceImplTest {
         saleOrderConfig.setQueryLimit(1000);
         reqVO.setSaleOrder(saleOrderConfig);
         return reqVO;
+    }
+
+    private ConfigDO savedTestConfig() {
+        ErpKingdeeConfigSaveReqVO request = buildSaveReqVO();
+        request.setUsername("贾泽宇");
+        return config(1L, ErpKingdeeConfigServiceImpl.CONFIG_KEY, JsonUtils.toJsonString(request));
     }
 
     private static ConfigDO config(Long id, String key, String value) {
