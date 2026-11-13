@@ -1085,7 +1085,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         new DccUploadTicketResolveCommand(uploadTicket, userId, file.getCategoryId(),
                                 reqVO.getSessionId(), "SOURCE"));
                 if (!sourceOriginalFileName.equals(bound.fileName())) {
-                    throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+                    throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_SOURCE_NAME_MISMATCH,
+                            sourceOriginalFileName, bound.fileName());
                 }
                 sourceOriginalFileName = bound.fileName();
                 drawingPdfFileId = resolveCheckinDrawingPdf(userId, file, reqVO, bound.fileName());

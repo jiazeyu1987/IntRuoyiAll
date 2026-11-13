@@ -7,6 +7,21 @@ function host(manifest=[{uploadTicket:'attachment-a',sessionId:'dcc-checkin:9223
  const h=stateFor();h.state.checkinAttachmentState=ref({ready:true,uploading:false,cleaning:false,error:'',count:manifest.length});h.state.checkinAttachmentsRef=ref({readReadyManifest:()=>manifest,markSaved:()=>{h.marked=true},cleanupAll:async()=>true});
  const write=h.state.checkinControlledFile;h.state.checkinControlledFile=async(...args)=>{const result=await write(...args);return{...result,attachments:manifest.map((item,i)=>({attachmentId:String(600+i),controlledFileId:result.id,fileName:item.fileName,fileSize:item.fileSize,contentType:item.contentType,attachmentPurpose:'ATTACHMENT',sortNo:i}))}};return h
 }
+test('checkin without attachments succeeds with an explicit empty selection',async()=>{
+ const h=host([]);await h.state.exports.submit();assert.equal(h.calls.writes.length,1)
+ assert.equal(h.calls.writes[0][1].attachmentUploadTickets.length,0)
+ assert.equal(h.marked,true);assert.equal(h.calls.successes.length,1)
+})
+
+test('attachments saved against a different minor version cannot be announced as successful',async()=>{
+ const h=host();const write=h.state.checkinControlledFile
+ h.state.checkinControlledFile=async(...args)=>{const result=await write(...args);return{...result,
+  attachments:result.attachments.map(file=>({...file,controlledFileId:args[0]}))}}
+ await h.state.exports.submit();assert.equal(h.calls.writes.length,1)
+ assert.equal(h.calls.successes.length,0);assert.equal(h.marked,undefined)
+ assert.ok(h.calls.errors.some(text=>/附件/.test(text)))
+})
+
 test('actual browser checkin sends all ordinary attachment tickets with independent sessions and marks saved after success',async()=>{
  const h=host();await h.state.exports.submit();assert.equal(h.calls.writes.length,1)
  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.writes[0][1].attachmentUploadTickets)),[

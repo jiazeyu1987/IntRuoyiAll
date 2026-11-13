@@ -948,7 +948,8 @@
           已上传：{{ checkinUpload.fileName }}
         </div>
         <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-          源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。
+          源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。检入不允许更改源文件名（含扩展名）。
+          <span v-if="checkinTarget?.sourceOriginalFileName">原文件名：{{ checkinTarget.sourceOriginalFileName }}</span>
         </div>
       </el-form-item>
       <el-form-item v-if="isDrawingSourceFile(checkinUpload?.fileName)" label="当前图纸配套PDF" required>
@@ -976,7 +977,7 @@
           show-word-limit
         />
       </el-form-item>
-      <el-form-item label="本次普通附件">
+      <el-form-item label="本次附件（可选）">
         <CheckinAttachmentsPanel
           ref="checkinAttachmentsRef"
           :context="checkinAttachmentContext"
@@ -2005,6 +2006,9 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
   checkinUploadLoading.value = true
   clearCheckinDrawingPdf()
   try {
+    if (target.sourceOriginalFileName && options.file.name !== target.sourceOriginalFileName) {
+      throw new Error(`检入不允许更改源文件名（含扩展名），请使用：${target.sourceOriginalFileName}`)
+    }
     const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
       categoryId: row.categoryId,
       uploadContext: 'CHECKIN',
@@ -2116,6 +2120,10 @@ const submitCheckin = async () => {
     return
   }
   const hasCheckinUpload = Boolean(uploaded?.uploadTicket)
+  if (hasCheckinUpload && target.sourceOriginalFileName && uploaded?.fileName !== target.sourceOriginalFileName) {
+    message.warning(`检入不允许更改源文件名（含扩展名），请使用：${target.sourceOriginalFileName}`)
+    return
+  }
   const uploadContext = checkinUploadContext.value
   if (hasCheckinUpload && (checkinSourceState.value !== 'ready' || !uploadContext
     || uploadContext.fileId !== String(target.id) || uploadContext.clientSessionId !== checkinUploadSessionId.value
