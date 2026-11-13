@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:approve",
+      "reason": "会签批准详情固定底栏复用既有 dcc:controlled-file:approve 权限及 approve-task/reject-task 接口，沿用现有受控文件详情入口，无新增页面、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
       "kind": "router",
       "value": "3647e7241333c827e730383ae496b7d5fd992db0cdbe0cb78f54b33a07218fb7",

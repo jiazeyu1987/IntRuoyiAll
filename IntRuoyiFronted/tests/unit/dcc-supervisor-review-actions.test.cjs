@@ -97,7 +97,7 @@ test('page denies approval for missing permission, stale detail, wrong task and 
 test('supervisor has a current task section and keeps its actions in the fixed bar', () => {
   const page = parse(fs.readFileSync(path.join(root, 'index.vue'), 'utf8')).descriptor
   assert.match(page.template.content, /<section ref="reviewTaskRef" class="review-section">[\s\S]*?data-testid="dcc-approval-upload-action-panel"/)
-  assert.match(page.template.content, /<div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage"[^>]*class="mt-14px flex flex-wrap gap-8px"/)
+  assert.match(page.template.content, /<div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage && !isMatrixApprovalPage"[^>]*class="mt-14px flex flex-wrap gap-8px"/)
   assert.match(page.template.content, /<SupervisorReviewActions v-if="isSupervisorReviewPage"/)
   const overview = page.template.content.indexOf('dcc-approval-upload-view')
   const body = page.template.content.indexOf('dcc-approval-upload-file-preview')

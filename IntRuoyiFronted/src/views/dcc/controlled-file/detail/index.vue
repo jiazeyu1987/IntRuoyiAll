@@ -363,9 +363,10 @@
       <ContentWrap
         v-loading="approvalLoading"
         class="dcc-detail-surface mt-16px"
+        :class="{ 'signoff-current-task-panel': isActualSignoffReviewPage || isMatrixApprovalPage }"
         data-testid="dcc-approval-upload-action-panel"
       >
-        <div v-if="!isActualSignoffReviewPage" class="mb-10px text-15px font-600">当前任务</div>
+        <div class="text-15px font-600" :class="isActualSignoffReviewPage || isMatrixApprovalPage ? 'mb-6px' : 'mb-10px'">当前任务</div>
         <div v-if="approvalTodoTask">
           <div v-if="isActualSignoffReviewPage" class="flex items-center justify-between gap-16px" data-testid="dcc-signoff-current-task">
             <div>
@@ -373,6 +374,10 @@
               <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">已完成 {{ actualSignoffStage?.completionText || '尚未读取' }}</div>
             </div>
             <el-tag>待处理</el-tag>
+          </div>
+          <div v-else-if="isMatrixApprovalPage" data-testid="dcc-matrix-approval-current-task">
+            <div class="text-15px font-600">{{ currentApprovalTaskName }}</div>
+            <div class="mt-4px text-13px text-[var(--el-text-color-secondary)]">已完成 {{ matrixApprovalStage?.completionText ?? '尚未读取' }} · {{ matrixApprovalStage ? (matrixApprovalStage.isCompleted ? '已完成' : matrixApprovalStage.isCurrent ? '待处理' : '待进入') : '尚未读取' }}</div>
           </div>
           <template v-else>
           <div v-if="!canShowSignoffAssignment" class="text-14px font-600">{{ currentApprovalTaskName }}</div>
@@ -400,7 +405,7 @@
               </el-button>
             </template>
           </DetailSignoffAssignment>
-          <div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage" class="mt-14px flex flex-wrap gap-8px">
+          <div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage && !isMatrixApprovalPage" class="mt-14px flex flex-wrap gap-8px">
             <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
               去修改正文
             </el-button>
@@ -2473,6 +2478,12 @@
       </template>
     </el-dialog>
 
+    <SupervisorReviewActions v-if="isMatrixApprovalPage"
+      :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
+      :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
+      approve-text="批准通过"
+      :blocked-reason="matrixApprovalBlockedReason" :submitting="actionDialog.submitting || actionDialog.visible"
+      @approve="openActionDialog('approve')" @reject="openActionDialog('reject')" />
     <SupervisorReviewActions v-if="isActualSignoffReviewPage"
       :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
       :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
@@ -3080,6 +3091,7 @@ const signoffReadyForReview = computed(() => signoffAssignmentState.value?.assig
   && signoffAssignmentState.value.fileId === String(fileDetail.value?.id || ''))
 const currentApprovalTaskName = computed(() => {
   const task = approvalTodoTask.value
+  if (task?.taskDefinitionKey === 'MATRIX_APPROVAL') return '会签批准'
   if (isSignoffTask.value && currentApprovalApplicationType.value) {
     const state = signoffAssignmentState.value
     if (state?.fileId !== String(fileDetail.value?.id || '') || state.taskId !== String(task?.id || '')
@@ -3616,6 +3628,23 @@ const isSupervisorReviewPage = computed(() => isApprovalUploadHandlingPage.value
     || fileDetail.value?.status === 'PENDING_SUPERVISOR_REVIEW'))
 const isActualSignoffReviewPage = computed(() => isApprovalUploadHandlingPage.value && isSignoffTask.value && signoffReadyForReview.value)
 const actualSignoffStage = computed(() => displayStageProgressList.value.find(stage => stage.stageCode === 'MATRIX_REVIEW'))
+const isMatrixApprovalPage = computed(() => isApprovalUploadHandlingPage.value
+  && !isExternalReviewProcess.value && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL')
+const matrixApprovalStage = computed(() => displayStageProgressList.value.find(stage => stage.stageCode === 'MATRIX_APPROVAL'))
+const matrixApprovalBlockedReason = computed(() => {
+  if (approvalLoading.value) return '正在读取当前批准任务，请稍候。'
+  if (!checkPermi(['dcc:controlled-file:approve'])) return '当前账号缺少批准权限。'
+  if (!isWorkingBrowserDetailCurrent.value) return '文件或账号上下文已变化，请刷新页面后批准。'
+  if (approvalProgressError.value || applicationRoundSelection.value.blockedReason)
+    return approvalProgressError.value || applicationRoundSelection.value.blockedReason
+  const task = approvalTodoTask.value
+  const assignee = task?.assigneeUser?.id ?? task?.assigneeUserId ?? task?.assignee
+  if (!task?.id || task.taskDefinitionKey !== 'MATRIX_APPROVAL'
+    || task.processInstanceId !== approvalProcessInstanceId.value
+    || String(assignee || '') !== String(currentUserId.value || ''))
+    return '当前没有分配给您的会签批准任务，请刷新核对。'
+  return ''
+})
 const signoffReviewBlockedReason = computed(() => {
   if (approvalLoading.value) return '正在读取当前会签任务，请稍候。'
   if (!checkPermi(['dcc:controlled-file:review'])) return '当前账号缺少会签权限。'
