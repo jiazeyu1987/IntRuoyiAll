@@ -1,0 +1,17 @@
+{
+  "name": "受控正文导航",
+  "guid": "asc.{4B72DF08-FF56-4E8A-8F7C-50EB83F9DA31}",
+  "baseUrl": "",
+  "variations": [{
+    "description": "受控正文导航",
+    "url": "index.html",
+    "isViewer": true,
+    "isDisplayedInViewer": true,
+    "isVisual": false,
+    "isSystem": true,
+    "EditorsSupport": ["word"],
+    "initDataType": "none",
+    "initData": "",
+    "buttons": []
+  }]
+}

@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "fixture": "office-navigation.docx",
+  "cases": [
+    "real Word preview",
+    "keyword search",
+    "enter search",
+    "previous/next match",
+    "cross-page highlight",
+    "previous/next page",
+    "specified page jump",
+    "first/last disabled",
+    "no match",
+    "out-of-range validation"
+  ]
+}
