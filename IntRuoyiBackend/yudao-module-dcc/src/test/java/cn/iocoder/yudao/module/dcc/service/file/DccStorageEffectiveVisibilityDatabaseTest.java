@@ -104,6 +104,13 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
         jdbc.update("UPDATE dcc_controlled_file SET version_no='B/8' WHERE id=300");
         jdbc.update("UPDATE dcc_controlled_file SET version_no='B/7-1',predecessor_controlled_file_id=?,revision_base_active_controlled_file_id=? WHERE id=301",ACTIVE,ACTIVE);
         jdbc.update("UPDATE dcc_controlled_file SET version_no='B/7-2',predecessor_controlled_file_id=301,revision_base_active_controlled_file_id=? WHERE id=302",ACTIVE);
+        var checkoutMapper = (cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper)
+                ReflectionTestUtils.getField(query, "checkoutMapper");
+        for (long id : List.of(301L, 302L)) {
+            var checkout = cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO.builder()
+                    .masterId(10L).checkinIterationId(id).status("CHECKED_IN").build(); checkout.setTenantId(1L);
+            when(checkoutMapper.selectListByBaseIterationId(id == 301L ? ACTIVE : 301L)).thenReturn(List.of(checkout));
+        }
         var response=new DccControlledFileRespVO();response.setVersionHistory(List.of(300L,302L,301L,ACTIVE).stream().map(id->{
             var option=new DccControlledFileVersionHistoryRespVO();option.setId(id);return option;
         }).toList());

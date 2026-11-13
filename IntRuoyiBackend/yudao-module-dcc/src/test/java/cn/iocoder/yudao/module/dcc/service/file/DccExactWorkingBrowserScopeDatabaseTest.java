@@ -123,6 +123,44 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
                 .anyMatch(version->version.getId()==CURRENT && "REJECTED".equals(version.getStatus())));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NEW", "REVISION"})
+    void withdrawnApplicationsNeverBecomeBrowserRowsOrVersionOptions(String changeType) {
+        configureWorkingBrowserPolicyPorts();
+        var withdrawn = new DccControlledFileDO(); BeanUtils.copyProperties(files.selectById(CURRENT), withdrawn);
+        withdrawn.setId(CURRENT + 1); withdrawn.setVersionNo("B/1");
+        withdrawn.setStatus("WITHDRAWN"); withdrawn.setChangeType(changeType);
+        withdrawn.setControlledTime(null); withdrawn.setActivatedTime(null); files.insert(withdrawn);
+        var response = query.getControlledFileWorkingBrowserPage(99L, request(true));
+        assertEquals(CURRENT, response.getList().get(0).getId());
+        assertTrue(response.getList().get(0).getVersionHistory().stream().noneMatch(v -> v.getId() == CURRENT + 1));
+        assertEquals("WITHDRAWN", files.selectById(CURRENT + 1).getStatus());
+    }
+
+    @Test void preparationDraftRequiresCompletedCheckinBeforeAppearingInWorkingBrowser() {
+        configureWorkingBrowserPolicyPorts();
+        var draft = new DccControlledFileDO(); BeanUtils.copyProperties(files.selectById(CURRENT), draft);
+        draft.setId(CURRENT + 1); draft.setStatus("WORKING"); draft.setVersionNo("A/2-1");
+        draft.setControlledTime(null); draft.setActivatedTime(null); draft.setPredecessorControlledFileId(CURRENT);
+        draft.setRevisionBaseActiveControlledFileId(CURRENT); files.insert(draft);
+        var response = query.getControlledFileWorkingBrowserPage(99L, request(true));
+        assertEquals(CURRENT, response.getList().get(0).getId());
+        assertTrue(response.getList().get(0).getVersionHistory().stream().noneMatch(v -> v.getId() == CURRENT + 1));
+        var checkout = cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO.builder()
+                .masterId(10L).baseIterationId(CURRENT).checkinIterationId(CURRENT + 1).status("ACTIVE").build();
+        checkout.setTenantId(1L);
+        var mapper = (cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper)
+                ReflectionTestUtils.getField(query, "checkoutMapper");
+        when(mapper.selectListByBaseIterationId(CURRENT)).thenReturn(java.util.List.of(checkout));
+        assertFalse(ReflectionTestUtils.<Boolean>invokeMethod(query, "isBrowserSummaryVersion", files.selectById(CURRENT + 1)));
+        checkout.setStatus("CANCELLED");
+        assertFalse(ReflectionTestUtils.<Boolean>invokeMethod(query, "isBrowserSummaryVersion", files.selectById(CURRENT + 1)));
+        checkout.setStatus("CHECKED_IN");
+        response = query.getControlledFileWorkingBrowserPage(99L, request(true));
+        assertTrue(response.getList().get(0).getVersionHistory().stream().anyMatch(v -> v.getId() == CURRENT + 1));
+        assertEquals("WORKING", files.selectById(CURRENT + 1).getStatus());
+    }
+
     private void configureWorkingBrowserPolicyPorts() {
         var scope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
         when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(null);

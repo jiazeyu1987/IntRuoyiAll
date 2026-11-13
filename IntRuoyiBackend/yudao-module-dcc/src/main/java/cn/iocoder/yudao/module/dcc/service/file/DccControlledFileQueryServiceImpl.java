@@ -718,7 +718,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 "activeElectronicRecipientFileIds"));
         List<Long> authorized=projectBrowserMapper.selectCandidates(tenant,request).stream()
                 .filter(file -> !DccArchiveAccessService.isArchived(file))
-                .filter(file -> !isWithdrawnFormalRevision(file))
+                .filter(file -> isBrowserSummaryVersion(file))
                 .filter(file -> Objects.equals(tenant,file.getTenantId())
                         && (permissionSupport.isLibrary(file.getDccProjectCodeId()) || assignedFileIds==null || assignedFileIds.contains(file.getId()))
                         && readableProjectIds.contains(file.getDccProjectCodeId())
@@ -836,7 +836,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 : null;
         List<DccControlledFileDO> visibleFiles = candidates.stream()
                 .filter(file -> !browserSummaryQuery || !DccArchiveAccessService.isArchived(file))
-                .filter(file -> !browserSummaryQuery || !isWithdrawnFormalRevision(file))
+                .filter(file -> !browserSummaryQuery || isBrowserSummaryVersion(file))
                 .filter(file -> !browserSummaryQuery || workingView || isStoredControlledVersion(file))
                 .filter(file -> !workingView || !DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
                         || Objects.equals(file.getId(), reqVO.getWorkingFileId()))
@@ -3068,7 +3068,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         var version = versionPolicy.parseStored(file);
         var baseline = chain.get(file.getRevisionBaseActiveControlledFileId());
         var predecessor = chain.get(file.getPredecessorControlledFileId());
-        return version != null && version.isWorkingIteration() && isStoredControlledVersion(baseline)
+        return version != null && version.isWorkingIteration() && hasCompletedCheckin(file)
+                && isStoredControlledVersion(baseline)
                 && predecessor != null && Objects.equals(file.getMasterId(), baseline.getMasterId())
                 && Objects.equals(file.getMasterId(), predecessor.getMasterId());
     }
@@ -4666,7 +4667,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         List<DccControlledFileDO> chainFiles = file.getMasterId() == null
                 ? List.of()
                 : controlledFileMapper.selectListByMasterId(file.getMasterId()).stream()
-                .filter(history -> !isWithdrawnFormalRevision(history))
+                .filter(history -> isBrowserSummaryVersion(history))
                 .filter(history -> !isBlacklistedBrowserExtension(history, blacklistedExtensionPatterns))
                 .toList();
         respVO.setCurrentActiveVersionNo(resolveCurrentActiveVersionNo(file, chainFiles));
@@ -4692,7 +4693,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         response.setCheckedOutReason(null);
         List<DccControlledFileDO> chain = file.getMasterId() == null ? List.of()
                 : controlledFileMapper.selectListByMasterId(file.getMasterId()).stream()
-                .filter(history -> !isWithdrawnFormalRevision(history))
+                .filter(history -> isBrowserSummaryVersion(history))
                 .filter(history -> !isBlacklistedBrowserExtension(history, blacklistedExtensions)).toList();
         response.setVersionHistory(buildVersionHistory(userId, file, chain, directoryManager, viewMatrixCache));
         return response;
@@ -5178,10 +5179,19 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         || DccControlledFileStatusEnum.WORKING.getStatus().equals(history.getStatus())));
     }
 
-    private static boolean isWithdrawnFormalRevision(DccControlledFileDO file) {
-        return "WITHDRAWN".equals(file.getStatus()) && file.getControlledTime() == null
-                && "REVISION".equals(file.getChangeType())
-                && Set.of("PARTIAL", "REPLACEMENT").contains(Objects.toString(file.getRevisionChangeType(), ""));
+    private boolean isBrowserSummaryVersion(DccControlledFileDO file) {
+        if ("WITHDRAWN".equals(file.getStatus()) && file.getControlledTime() == null) return false;
+        // Restart preparation also creates WORKING rows; only a committed checkin is a file version.
+        return !"WORKING".equals(file.getStatus()) || hasCompletedCheckin(file);
+    }
+
+    private boolean hasCompletedCheckin(DccControlledFileDO file) {
+        if (file.getPredecessorControlledFileId() == null) return false;
+        return checkoutMapper.selectListByBaseIterationId(file.getPredecessorControlledFileId()).stream()
+                .anyMatch(checkout -> "CHECKED_IN".equals(checkout.getStatus())
+                        && Objects.equals(checkout.getTenantId(), file.getTenantId())
+                        && Objects.equals(checkout.getMasterId(), file.getMasterId())
+                        && Objects.equals(checkout.getCheckinIterationId(), file.getId()));
     }
 
     private List<DccControlledFileVersionHistoryRespVO> buildVersionHistory(Long userId, DccControlledFileDO file,
