@@ -32,9 +32,10 @@ test('overview is three desktop columns and shared business fields retain the sa
 })
 
 test('preview entry and attachment status live in its toolbar with controlled hints and existing transforms', () => {
-  const page = read('detail/index.vue'), viewer = read('view/index.vue'), attachments = read('detail/ControlledFileAttachments.vue')
-  assert.match(page, /#document-entry>[\s\S]*?主文档[\s\S]*?<ControlledFileAttachments compact toolbar/)
-  assert.match(page, /:preview-source="detailBodyPreviewState.source"/)
+  const page = read('detail/index.vue'), preview = read('detail/ReviewDocumentPreview.vue'), viewer = read('view/index.vue'), attachments = read('detail/ControlledFileAttachments.vue')
+  assert.match(preview, /#document-entry>[\s\S]*?主文档[\s\S]*?<ControlledFileAttachments[^>]*compact toolbar review/)
+  assert.match(page, /:source="detailBodyPreviewState.source"/)
+  assert.match(preview, /:preview-source="source"/)
   assert.match(viewer, /<slot v-if="reviewToolbar" name="document-entry"/)
   assert.match(viewer, /reviewToolbar && resolvedWatermarkText/)
   for (const action of ['缩小', '放大', '旋转', '复原', '放大预览']) assert.ok(viewer.includes(action))
