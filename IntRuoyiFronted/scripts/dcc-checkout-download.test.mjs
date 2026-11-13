@@ -83,3 +83,20 @@ test('maintenance opens the selected iteration instead of the old working route 
     {}, () => false, id => opened.push(id), () => ({ id: 'other' }))
   assert.deepEqual(opened, ['2054545668044084629'])
 })
+
+const checkoutLockExpression = detail.match(/const fileChangesLocked = computed\(\(\) => (.*?)\)\r?\n/)[1]
+const prepareExpression = detail.match(/const canPrepareFileApplication = computed\(\(\) => ([\s\S]*?)\)\r?\nconst applicationRestartLoading/)[1]
+test('checkout locks application preparation for every selected version while retaining Word downloads', () => {
+  for (const status of ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE']) {
+    for (const checkedOut of [true, false]) {
+      const fileDetail = { value: { status, checkedOut, checkedOutBy: null, canEditFile: true } }
+      const fileChangesLocked = { value: new Function('fileDetail', `return (${checkoutLockExpression})`)(fileDetail) }
+      const canPrepare = new Function('fileDetail', 'fileChangesLocked', `return (${prepareExpression})`)(fileDetail, fileChangesLocked)
+      assert.equal(canPrepare, !checkedOut, `${status} checkout=${checkedOut}`)
+    }
+  }
+  assert.equal(allowed(), true)
+  assert.match(detail, /:allow-edit="showDetailManagementActions && !fileChangesLocked && !isExternalReviewProcess"/)
+  assert.match(detail, /const canSubmitObsoleteAction = computed\([\s\S]*?!fileChangesLocked.value && dccObsoleteActionProjection.value.allowed/)
+  assert.match(detail, /const canSubmitPublishAction = computed\([\s\S]*?!fileChangesLocked.value && dccPublishActionProjection.value.allowed/)
+})

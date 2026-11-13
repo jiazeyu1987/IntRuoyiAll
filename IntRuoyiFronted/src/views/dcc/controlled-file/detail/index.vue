@@ -477,7 +477,7 @@
         <el-descriptions-item label="申请详情"><el-button link type="primary" @click="openHistoryDetail(application.id)">查看本次变更及审批进度</el-button></el-descriptions-item>
       </el-descriptions>
     </ContentWrap>
-    <ContentWrap v-if="fileDetail?.canEditFile === true && showDetailManagementActions && isCurrentFileRequester && ['REJECTED', 'WITHDRAWN'].includes(fileDetail.status) && checkPermi(['dcc:controlled-file:submit', 'dcc:controlled-file:edit']) && ['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(fileDetail.processDefinitionKey || '')">
+    <ContentWrap v-if="fileDetail?.canEditFile === true && !fileChangesLocked && showDetailManagementActions && isCurrentFileRequester && ['REJECTED', 'WITHDRAWN'].includes(fileDetail.status) && checkPermi(['dcc:controlled-file:submit', 'dcc:controlled-file:edit']) && ['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(fileDetail.processDefinitionKey || '')">
       <p>原申请及签名保留。重新发起将带出上次填写的信息、正文和附件，可直接核对后提交。</p>
       <template v-if="fileDetail.changeType === 'REVISION'">
         <el-button type="primary" :loading="applicationRestartLoading" @click="restartCurrentApplication('PARTIAL')">发起局部变更</el-button>
@@ -538,7 +538,7 @@
       :read-authority="readDetailAuthority"
       :application-selection="relationApplicationSelection"
       :body-read-context="detailReadSelectionState.selection?.bodyReadContext || (detailBodyPreviewState.context?.intent !== 'DAILY' ? detailBodyPreviewState.context : undefined)"
-      :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
+      :allow-edit="showDetailManagementActions && !fileChangesLocked && !isExternalReviewProcess" />
     <ContentWrap v-else-if="isApprovalUploadHandlingPage" class="dcc-detail-surface">
       <p class="font-600">关联文件</p>
       <p>暂无关联文件</p>
@@ -3681,8 +3681,9 @@ const showSignatureTraceSections = computed(
   () => showFullDetailSections.value && (!isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature')
 )
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
+const fileChangesLocked = computed(() => fileDetail.value?.checkedOut === true)
 const canEditMetadata = computed(
-  () => !viewerMode.value && showDetailManagementActions.value
+  () => !viewerMode.value && showDetailManagementActions.value && !fileChangesLocked.value
     && hasMetadataEditorRole(userStore.getRoles) && fileDetail.value?.canEditFile === true && hasDccControlledFileActionProjection(fileDetail.value)
 )
 const currentApprovalApplicationType = computed(() => {
@@ -3717,7 +3718,7 @@ const approvalHandlingTrainingText = computed(() => {
 const approvalHandlingProcessText = computed(() => currentApprovalApplicationType.value
   ? getNativeApprovalProcessText(approvalProgressScope.value) : '本次申请身份尚未核验')
 const lifecycleProjectionRepairVisible = ref(false)
-const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && Boolean(fileDetail.value)
+const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && !fileChangesLocked.value && Boolean(fileDetail.value)
   && userStore.getRoles.includes(DOC_CONTROL_ROLE_CODE)
   && ['dcc:controlled-file:query', 'dcc:controlled-file:update', 'dcc:controlled-file:category:manage'].every(permission => checkPermi([permission])))
 const readLifecycleProjectionRepairContextKey = () => JSON.stringify([route.fullPath, String(fileDetail.value?.id || ''), String(currentUserId.value), String(getVisitTenantId() || getTenantId() || '')])
@@ -3781,10 +3782,10 @@ const buildDccActionProjectionMessage = (
   return activeError || defaultMessage
 }
 const canSubmitObsoleteAction = computed(
-  () => dccObsoleteActionProjection.value.allowed
+  () => !fileChangesLocked.value && dccObsoleteActionProjection.value.allowed
 )
 const canSubmitPublishAction = computed(
-  () => dccPublishActionProjection.value.allowed
+  () => !fileChangesLocked.value && dccPublishActionProjection.value.allowed
 )
 const dccObsoleteActionProjection = computed(() => {
   const blockerMessage = buildDccActionProjectionMessage(
@@ -5692,10 +5693,11 @@ const openWorkingFileInBrowser = () => {
 
 const openReturnedApplicantReworkInBrowser = () => openWorkingFileInBrowser()
 
-const canPrepareFileApplication = computed(() => fileDetail.value?.canEditFile === true
+const canPrepareFileApplication = computed(() => !fileChangesLocked.value && fileDetail.value?.canEditFile === true
   && ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(fileDetail.value.status))
 const applicationRestartLoading = ref(false)
 const restartCurrentApplication = async (intent?: RevisionIntent) => {
+  if (fileChangesLocked.value) { message.warning('文件已检出，请先检入或撤销检出后再办理变更'); return }
   const file = fileDetail.value
   if (file?.canEditFile !== true) {
     message.warning('当前账号未获本文件编辑授权，不能重新发起申请')
@@ -5717,6 +5719,7 @@ const openRestartObsolete = async () => {
 }
 
 const prepareApplicationBody = async (targetVersion?: string, intent?: RevisionIntent) => {
+  if (fileChangesLocked.value) { message.warning('文件已检出，请先检入或撤销检出后再办理变更'); return }
   if (!targetVersion) return openWorkingFileInBrowser()
   if (!ensureCurrentDetailContext()) return
   const baseline = fileDetail.value
