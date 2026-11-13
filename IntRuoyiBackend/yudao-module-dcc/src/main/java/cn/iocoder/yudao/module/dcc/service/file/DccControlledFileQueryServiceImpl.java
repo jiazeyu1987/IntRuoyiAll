@@ -2985,6 +2985,17 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         DccControlledFileArtifactRole.ATTACHMENT));
             }
         }
+        var checkout = checkoutDownloadScope.get();
+        if (checkout != null) {
+            // A checked-in draft may reuse its baseline's source. Resolve the selected version
+            // only inside the authenticated checkout request; ordinary reads stay unscoped.
+            List<DccControlledFileArtifactReference> selected = new ArrayList<>();
+            for (var reference : references) {
+                if (Objects.equals(reference.controlledFileId(), checkout.fileId())) selected.add(reference);
+            }
+            if (selected.isEmpty()) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            return new DccControlledFileScope(infraFileId, selected);
+        }
         return new DccControlledFileScope(infraFileId, references);
     }
 

@@ -86,6 +86,29 @@ class DccCheckoutDownloadTest {
         assertTrue(fixture.service.canDownloadCheckedOutVersion(99L, fixture.file));
         assertEquals("source.docx", download(null).fileName());
     }
+    @Test void sharedSourceUsesSelectedVersionThroughRealBusinessFileGate() {
+        var controlled = (cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper)fixture.port("controlledFileMapper");
+        var draft = cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.builder()
+                .id(21L).tenantId(1L).masterId(700L).sourceFileId(112L).status("WORKING").versionNo("草稿").build();
+        when(controlled.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(java.util.List.of(fixture.file, draft));
+        when(controlled.selectById(21L)).thenReturn(draft);
+        var external = (cn.iocoder.yudao.module.dcc.dal.mysql.file.DccExternalFileReviewMapper)fixture.port("externalReviewMapper");
+        when(external.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(java.util.List.of());
+        var provider = new cn.iocoder.yudao.module.dcc.service.file.access.DccBusinessFileAccessProvider(
+                fixture.service, controlled, mock(cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileTemporaryFileMapper.class),
+                mock(cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(fixture.service, "businessFileAccessService",
+                new cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService(java.util.List.of(provider)));
+        checkout.setBaseIterationId(21L);
+        fixture.file.setCheckedOutBy(null);
+        assertEquals("source.docx", download(null).fileName());
+        // Outside this request, the same shared source remains ambiguous and cannot bypass the gate.
+        assertEquals(2, fixture.service.identifyControlledFileScope(112L).references().size());
+        assertThrows(IllegalStateException.class, () -> provider.resolve(112L));
+        checkout.setActorId(88L);
+        assertThrows(RuntimeException.class, () -> download(null));
+    }
     @Test void ownerDownloadsExactAttachmentsOfAnotherNonObsoleteVersion() {
         fixture.file.setCheckedOutBy(null);
         checkout.setBaseIterationId(21L);
