@@ -155,6 +155,9 @@ public class DccControlledFileRespVO {
     private Boolean canDownload;
     private Boolean canDownloadReadOnly;
     private Boolean canDownloadEditable;
+
+    // 当前用户可从维护入口下载本人有效检出版本的 Word 和附件。
+    private Boolean canDownloadCheckedOut;
     private Boolean canPrint;
     private Boolean canEditFile = Boolean.FALSE;
     private Boolean canExportApprovalHistory = Boolean.FALSE;

@@ -18,6 +18,9 @@ import java.util.List;
 
 public interface DccControlledFileQueryService {
     boolean canDownloadLibraryOriginal(Long id);
+
+    DccDownloadFileBinary readCheckoutDownloadFile(Long userId, Long id, Long attachmentId,
+            Boolean confirmed, String requestId, DccRequestAuditContext audit);
     boolean isArchivedFile(Long id);
     java.util.List<java.util.Map<String,Object>> getArchiveProjects(Long actor);
     /** Internal read authority for a checked-out, truly cancelled native revision's source upload. */

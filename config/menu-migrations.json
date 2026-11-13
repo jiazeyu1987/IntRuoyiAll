@@ -1302,6 +1302,12 @@
       "kind": "page",
       "value": "dcc/controlled-file/detail/ReviewDocumentPreview",
       "reason": "受控文件已有详情和审批页面内的正文与附件切换组件，无独立菜单或路由；复用现有正文、附件查询及审批上下文授权，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/detail/index",
+      "reason": "既有受控文件维护详情内增加本人有效检出的 Word 及附件下载入口；沿用现有维护入口，后端按租户、启用账号、当前有效检出人及精确版本核验，不新增菜单、权限标识、角色或租户套餐授权，日常浏览不开放该入口。"
     }
   ]
 }

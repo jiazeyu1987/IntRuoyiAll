@@ -7,7 +7,7 @@
     </template>
     <el-dialog v-if="toolbar" v-model="listVisible" title="文件附件" width="720px" append-to-body
       @open="$emit('preview-open')" @closed="$emit('preview-close')">
-      <ControlledFileAttachments :file="file" :body-read-context="bodyReadContext" :context-error="contextError" :review="review" compact />
+      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="file" :body-read-context="bodyReadContext" :context-error="contextError" :review="review" compact />
     </el-dialog>
     <template v-if="!toolbar">
     <div v-if="!compact || validationError || attachments.length" class="mb-12px flex items-center justify-between gap-12px">
@@ -27,7 +27,7 @@
         <template #default="{ row }">
           <el-button v-if="!['OFFICE', 'DOWNLOAD_ONLY'].includes(row.previewKind || '')" link type="primary" @click="preview(row)">在线查看</el-button>
           <span v-else class="text-12px text-[var(--el-text-color-secondary)]">不支持在线预览</span>
-          <el-button v-if="row.canDownload === true" link type="primary" :loading="downloading === String(row.attachmentId)" :disabled="Boolean(downloading)" @click="download(row)">下载</el-button>
+          <el-button v-if="(row.canDownload === true || checkoutDownloadAllowed)" link type="primary" :loading="downloading === String(row.attachmentId)" :disabled="Boolean(downloading)" @click="download(row)">下载</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -47,13 +47,13 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import ProtectedPdfViewer from '../view/index.vue'
 import { buildDccControlledFileAttachmentPreviewSource } from '@/api/common/filePreview'
-import { downloadControlledFileAttachmentWithName, type ControlledFileVO, type ControlledFileAttachmentVO } from '@/api/dcc/controlledFile/workflow'
+import { downloadCheckedOutFileWithName, downloadControlledFileAttachmentWithName, type ControlledFileVO, type ControlledFileAttachmentVO } from '@/api/dcc/controlledFile/workflow'
 import { attachmentPurposeText, attachmentUploaderText, attachmentUploadTimeText, attachmentRoundText, assertAttachmentBelongsToVersion } from './attachment-facts'
 import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean; review?: boolean }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean; review?: boolean; checkoutDownloadAllowed?: boolean }>()
 defineEmits<{ 'preview-open': []; 'preview-close': [] }>()
 const listVisible = ref(false)
 const userStore = useUserStoreWithOut()
@@ -80,7 +80,7 @@ watch(() => props.file, file => {
 }, { immediate: true, flush: 'sync' })
 const downloadFingerprint = (file?: ControlledFileVO): string => JSON.stringify([
   String(file?.id ?? ''), file?.versionNo,
-  readAuthority(), file?.attachments
+  readAuthority(), file?.attachments, props.checkoutDownloadAllowed
 ])
 let generation = 0
 watch(() => [props.file, props.bodyReadContext, downloadFingerprint(props.file)], () => {
@@ -109,14 +109,16 @@ const download = async (row: ControlledFileAttachmentVO) => {
   if (!ensureLoadedAuthority() || downloading.value) return
   const file = props.file, token = generation, fingerprint = downloadFingerprint(file)
   try {
-    if (!file || row.canDownload !== true) throw new Error('当前版本附件不可下载')
+    if (!file || (row.canDownload !== true && !props.checkoutDownloadAllowed)) throw new Error('当前版本附件不可下载')
     assertAttachmentBelongsToVersion(row, file.id)
     downloading.value = String(row.attachmentId)
     await ElMessageBox.confirm('确认下载该附件？下载后的文件为非受控文件，系统将记录本次下载留痕。', '附件下载确认', { type: 'warning' })
-    if (token !== generation || props.file?.id !== file.id || row.canDownload !== true
+    if (token !== generation || props.file?.id !== file.id || (row.canDownload !== true && !props.checkoutDownloadAllowed)
       || fingerprint !== downloadFingerprint(props.file)) throw new Error('文件详情、附件清单、身份或下载权限已变化，请重新确认')
     actionError.value = ''
-    const result = await downloadControlledFileAttachmentWithName(file.id, row.attachmentId, { nonControlledWarningConfirmed: true })
+    const result = props.checkoutDownloadAllowed
+      ? await downloadCheckedOutFileWithName(file.id, row.attachmentId)
+      : await downloadControlledFileAttachmentWithName(file.id, row.attachmentId, { nonControlledWarningConfirmed: true })
     if (token !== generation || fingerprint !== downloadFingerprint(props.file)) throw new Error('下载期间文件、附件、身份或权限已变化，请重新进入对应版本')
     downloadByData(result.blob, result.fileName, result.blob.type)
   } catch (error) {

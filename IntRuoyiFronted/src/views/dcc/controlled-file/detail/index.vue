@@ -105,7 +105,7 @@
                 <el-dropdown-item v-if="canReadDistributionReceipts" @click="openDistributionReceipts">发送与签收</el-dropdown-item>
                 <el-dropdown-item v-if="canSubmitPublishAction" @click="openPublishDialog">生效申请</el-dropdown-item>
                 <el-dropdown-item v-if="detailActionState.canPreview" @click="openPreview">预览受控文件</el-dropdown-item>
-                <el-dropdown-item v-if="controlledDownloadAllowed" :disabled="controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">下载正文</el-dropdown-item>
+                <el-dropdown-item v-if="checkoutDownloadAllowed || controlledDownloadAllowed" :disabled="controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">下载正文</el-dropdown-item>
                 <el-dropdown-item v-if="controlledPrintAllowed" v-hasPermi="['dcc:controlled-file:print', 'dcc:controlled-file:edit']" @click="openControlledPrintDialog">受控打印</el-dropdown-item>
                 <el-dropdown-item v-if="canOpenBpmDetail" @click="handleDetailMoreCommand('bpm-detail')">BPM 详情</el-dropdown-item>
                 <el-dropdown-item v-if="canEditMetadata" @click="handleDetailMoreCommand('edit-metadata')">修改基础信息</el-dropdown-item>
@@ -436,7 +436,7 @@
     </template>
 
     <ContentWrap class="dcc-detail-surface" v-if="!showLifecycleTraceSections && !isApprovalUploadHandlingPage">
-      <ControlledFileAttachments :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface" v-if="fileDetail && !isApprovalUploadHandlingPage" data-testid="dcc-detail-formal-version-facts">
@@ -758,7 +758,7 @@
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface">
-      <ControlledFileAttachments :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface">
@@ -2877,6 +2877,8 @@ import {
   returnExternalFileReviewTask,
   transferExternalFileReviewTask,
   triggerControlledFileDownload,
+  downloadCheckedOutFileWithName,
+  confirmControlledFileDownload,
   uploadControlledFileTrainingRecord,
   uploadControlledFilePreview,
   withdrawControlledFile,
@@ -3733,6 +3735,8 @@ const handleLifecycleProjectionRepaired = async (context: { fileId: string; cont
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
 const controlledDownloadAllowed = computed(() => checkPermi(['dcc:controlled-file:edit'])
   && fileDetail.value?.canDownload === true && isDccControlledFileActionAllowed(fileDetail.value, 'DOWNLOAD'))
+const checkoutDownloadAllowed = computed(() => !viewerMode.value && showDetailManagementActions.value
+  && route.query.management === '1' && isWorkingBrowserDetailCurrent.value && fileDetail.value?.canDownloadCheckedOut === true)
 const controlledDownloadLoading = ref(false)
 const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print', 'dcc:controlled-file:edit']))
 const controlledPrintAllowed = computed(
@@ -7256,8 +7260,27 @@ const handleExportProcessWord = async () => {
   }
 }
 
+const handleDownloadCheckoutWord = async () => {
+  if (controlledDownloadLoading.value || !checkoutDownloadAllowed.value) return
+  controlledDownloadLoading.value = true
+  const id = controlledFileId.value
+  try {
+    if (!await confirmControlledFileDownload()) return
+    if (!checkoutDownloadAllowed.value || id !== controlledFileId.value) throw new Error('文件或检出状态已变化，请刷新详情')
+    const result = await downloadCheckedOutFileWithName(id)
+    if (!checkoutDownloadAllowed.value || id !== controlledFileId.value) throw new Error('下载期间文件或检出状态已变化，请刷新详情')
+    downloadByData(result.blob, result.fileName, result.blob.type)
+  } catch (error) {
+    message.error(resolveReadSideErrorMessage(error, '检出 Word 下载失败'))
+  } finally { controlledDownloadLoading.value = false }
+}
+
 const handleDownloadControlledBody = async () => {
   if (controlledDownloadLoading.value) return
+  if (checkoutDownloadAllowed.value) {
+    await handleDownloadCheckoutWord()
+    return
+  }
   if (!controlledDownloadAllowed.value) {
     message.warning('当前账号未获本文件正文下载授权')
     return
