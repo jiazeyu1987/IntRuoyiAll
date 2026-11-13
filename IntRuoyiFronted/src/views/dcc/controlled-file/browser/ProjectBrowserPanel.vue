@@ -13,12 +13,14 @@
         v-model:page="state.projectPage"
         v-model:limit="state.projectPageSize"
         @pagination="state.loadProjects()"
-        :load-filter-rows="() => state.loadProjectFilterRows()"
+        server-filter
+        :server-filter-query="() => state.loadProjects()"
+        :query-model="state.projectQuery"
         :columns="projectFilterColumns"
         :show-column-settings="false"
-        @filtered-rows="state.projects = $event"
-        :list-rows="state.projects"
-        @column-filter-reset="state.loadProjects()"
+
+
+
       >
         <template #filters>
           <div>
@@ -82,13 +84,15 @@
         v-model:page="state.pageNo"
         v-model:limit="state.pageSize"
         @pagination="state.loadFiles()"
-        :load-filter-rows="() => state.loadFileFilterRows()"
-        @filtered-rows="applyFileFilterRows"
-        :list-rows="fileFilterListRows"
+        server-filter
+        :server-filter-query="() => state.loadFiles()"
+        :query-model="state"
+
+
         :columns="fileFilterColumns"
         :column-filter-definitions="fileFilterDefinitions"
         :show-column-settings="false"
-        @column-filter-reset="state.loadFiles()"
+
       >
         <template #filters>
           <div>
@@ -189,6 +193,7 @@
             :open-reference-trace="traceReference"
             @show-usage="openUsage($event.selectedVersion)"
             :load-references="loadReferences"
+            :page-rows="state.references"
             :create-references="createReferences"
             :cancel-reference="cancelReference"
             @changed="state.referencesChanged()"
@@ -197,7 +202,6 @@
           >
             <template
               #default="{
-                rows,
                 loading,
                 busy,
                 readingReferenceId,
@@ -209,7 +213,7 @@
               <ProjectFolderFileTable
                 :resolve-rows="resolveRows"
                 :files="state.rows"
-                :references="rows"
+                :references="state.references"
                 :usage="state.usage"
                 :keyword="state.appliedKeyword"
                 :version-view="state.versionView"
@@ -243,7 +247,7 @@
             @usage="openUsage"
           />
           <p v-if="!libraryScope && state.scope === 'directory' && state.folder">
-            当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。
+            当前文件夹引用与文件统一筛选、分页；引用固定所选受控版本。
           </p>
         </template>
       </UnifiedListTemplate>
@@ -257,7 +261,7 @@
 </template>
 <script setup lang="ts">
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { computed, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
@@ -280,7 +284,7 @@ import { triggerControlledFileVariantDownload } from '@/api/dcc/controlledFile/w
 const props=defineProps<{libraryScope?: 'QMS' | 'GENERAL'}>()
 const libraryCanEdit=ref(false)
 import { ProjectBrowserState, PROJECT_BROWSER_VERSION_VIEWS } from './project-browser'
-import type { FolderFileRow } from './folder-file-list'
+
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '../shared/lifecycle'
 const projectFilterColumns = [
@@ -303,24 +307,6 @@ const fileFilterDefinitions: ListColumnFilterDefinition[] = [
 ]
 const route = useRoute(), router = useRouter(), user = useUserStore()
 const state = reactive(new ProjectBrowserState(referenceIdentity(getVisitTenantId() || getTenantId()), referenceIdentity(user.getUser.id)))
-const publishedFileRows = shallowRef<FileCandidate[]>()
-const publishedFileFilterRows = shallowRef<FolderFileRow[]>()
-const fileFilterListRows = computed(() =>
-  toRaw(state.rows) === toRaw(publishedFileRows.value) ? publishedFileFilterRows.value : state.rows
-)
-const applyFileFilterRows = (rows: FolderFileRow[]) => {
-  publishedFileFilterRows.value = rows
-  state.rows = rows.filter((row) => !row.reference).map((row) => row.file as FileCandidate)
-  publishedFileRows.value = state.rows
-  state.usage = Object.fromEntries(
-    rows
-      .filter((row) => row.projectCount != null)
-      .map((row) => [
-        row.file.masterId,
-        { referenceProjectCount: row.projectCount!, referenced: row.referenced }
-      ])
-  )
-}
 const versionViewGroups = [
   ...new Set(PROJECT_BROWSER_VERSION_VIEWS.map((option) => option.group))
 ].map((name) => ({

@@ -17,6 +17,7 @@ export interface EdhrDomainTraceDetailReqVO {
 }
 
 export interface EdhrDomainTracePageReqVO extends PageParam {
+  listFilters?: string
   executionId?: EdhrRouteId
   executionCode?: string
   workOrderCode?: string

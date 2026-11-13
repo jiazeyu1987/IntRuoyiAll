@@ -68,7 +68,7 @@ class MesHandoffApprovalCenterPrefixTest {
     @Test
     void prefixProjectsExistingFormalModuleEntryAndTotalWithoutAllLoading() {
         var task = task();
-        when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,"生产",400L))
+        when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,"生产",400L, null))
                 .thenReturn(new PageResult<>(List.of(task),901L));
         var context = ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.TODO,ApprovalModuleCode.EDHR,"生产",2,200,false);
         var page = projection.prefix(context,400L);
@@ -87,7 +87,7 @@ class MesHandoffApprovalCenterPrefixTest {
     @Test
     void donePreservesFormalCompletedActorTimeAndNoGenericApprovalAction() {
         var task = task().setStatus("DONE").setCompletedBy(12L).setCompletionSourceId(71L).setCompletedAt(LocalDateTime.of(2026,10,7,1,0));
-        when(tasks.selectApprovalCenterPrefix(1L,12L,true,true,null,20L))
+        when(tasks.selectApprovalCenterPrefix(1L,12L,true,true,null,20L, null))
                 .thenReturn(new PageResult<>(List.of(task),1L));
         var summary = projection.prefix(ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.DONE,ApprovalModuleCode.EDHR,null,1,20,true),20L)
                 .getList().get(0);
@@ -118,7 +118,7 @@ class MesHandoffApprovalCenterPrefixTest {
             for (String missing : required) {
                 when(permissions.hasAnyPermissions(anyLong(), any(String[].class))).thenAnswer(call ->
                         !missing.equals(((String[]) call.getRawArguments()[1])[0]));
-                when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,null,20L))
+                when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,null,20L, null))
                         .thenReturn(new PageResult<>(List.of(row),1L));
                 var summary = projection.prefix(ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.TODO,
                         ApprovalModuleCode.EDHR,null,1,20,false),20L).getList().get(0);
@@ -138,7 +138,7 @@ class MesHandoffApprovalCenterPrefixTest {
         var row = target("PRODUCTION_REVIEW").setStatus("DONE").setCompletedBy(12L)
                 .setCompletedAt(LocalDateTime.of(2026,10,7,1,0)).setCompletionSourceId(71L);
         when(permissions.hasAnyPermissions(anyLong(), any(String[].class))).thenReturn(false);
-        when(tasks.selectApprovalCenterPrefix(1L,12L,false,true,null,20L)).thenReturn(new PageResult<>(List.of(row),1L));
+        when(tasks.selectApprovalCenterPrefix(1L,12L,false,true,null,20L, null)).thenReturn(new PageResult<>(List.of(row),1L));
         var summary = projection.prefix(ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.DONE,
                 ApprovalModuleCode.EDHR,null,1,20,false),20L).getList().get(0);
         assertEquals("1", summary.getDecisionDetailQuery().get("handoffReadOnly"));
@@ -152,7 +152,7 @@ class MesHandoffApprovalCenterPrefixTest {
         var row = target("QA_DECISION_HANDOFF").setStatus("DONE").setReason("void：正式作废")
                 .setCompletedBy(12L).setCompletedAt(LocalDateTime.of(2026,10,7,1,0)).setCompletionSourceId(71L)
                 .setActionUrl("/user/profile?activeOrderId=7&reviewId=71&handoffTaskId=41&roundId=71&handoffType=QA_DECISION_HANDOFF&tab=notifyMessage");
-        when(tasks.selectApprovalCenterPrefix(1L,12L,false,true,null,20L)).thenReturn(new PageResult<>(List.of(row),1L));
+        when(tasks.selectApprovalCenterPrefix(1L,12L,false,true,null,20L, null)).thenReturn(new PageResult<>(List.of(row),1L));
         when(permissions.hasAnyPermissions(anyLong(), any(String[].class))).thenReturn(false);
         var context = ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.DONE,ApprovalModuleCode.EDHR,null,1,20,false);
         var denied = projection.prefix(context,20L).getList().get(0);
@@ -220,7 +220,7 @@ class MesHandoffApprovalCenterPrefixTest {
     @Test
     void malformedFormalEntryFailsInsteadOfFabricatingNavigation() {
         var task = task().setActionUrl("/mes/pro/feedback/edhr-batch-production-fill?activeOrderId=8&cycleId=7&handoffTaskId=41&roundId=7&handoffType=PRODUCTION_HANDOFF");
-        when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,null,20L))
+        when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,null,20L, null))
                 .thenReturn(new PageResult<>(List.of(task),1L));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> projection.prefix(ApprovalTaskQueryContext.of(12L,ApprovalTaskViewType.TODO,ApprovalModuleCode.EDHR,null,1,20,false),20L));

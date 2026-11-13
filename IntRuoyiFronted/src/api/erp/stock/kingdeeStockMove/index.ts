@@ -34,8 +34,16 @@ export interface ErpKingdeeStockMoveVO {
   items?: ErpKingdeeStockMoveItemVO[]
 }
 
+export interface ErpKingdeeStockMovePageReqVO extends PageParam {
+  sourceBillNo?: string
+  documentStatus?: string
+  transferDirect?: string
+  billDate?: string[]
+  listFilters?: string
+}
+
 export const ErpKingdeeStockMoveApi = {
-  getStockMovePage: async (params: PageParam) => {
+  getStockMovePage: async (params: ErpKingdeeStockMovePageReqVO) => {
     return await request.get({ url: '/erp/kingdee-stock-move/page', params })
   }
 }

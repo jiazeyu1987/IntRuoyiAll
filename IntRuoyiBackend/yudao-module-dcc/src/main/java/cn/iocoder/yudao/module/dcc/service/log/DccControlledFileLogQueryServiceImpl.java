@@ -162,48 +162,49 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLogPageMapper logPageMapper;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public PageResult<DccControlledFileLogRespVO> getLogPage(DccControlledFileLogPageReqVO reqVO) {
         requireValidRequest(reqVO);
         Long controlledFileId = parseControlledFileId(reqVO.getControlledFileId());
+        var page = logPageMapper.selectLogPage(reqVO, controlledFileId);
+        if (page.getList().isEmpty()) {
+            return PageResult.empty(page.getTotal());
+        }
+        Map<String, List<Long>> ids = page.getList().stream().collect(Collectors.groupingBy(
+                cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLogPageMapper.LogKey::getLogType,
+                Collectors.mapping(cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLogPageMapper.LogKey::getSourceRecordId,
+                        Collectors.toList())));
         List<LogCandidate> candidates = new ArrayList<>();
-        if (matchesRequestedType(reqVO, TYPE_CONTROLLED_FILE_AUDIT)) {
-            candidates.addAll(buildControlledFileAuditCandidates(controlledFileId));
-        }
-        if (matchesAnyRequestedType(reqVO, TYPE_FILE_SUBMISSION, TYPE_FILE_APPROVAL, TYPE_FILE_RELEASE,
-                TYPE_FILE_REVISION, TYPE_FILE_CHECKOUT, TYPE_FILE_OBSOLETE)) {
-            candidates.addAll(buildControlledFileLifecycleCandidates(reqVO, controlledFileId));
-        }
-        if (matchesRequestedType(reqVO, TYPE_FILE_DISTRIBUTION)) {
-            candidates.addAll(buildDistributionCandidates(controlledFileId));
-        }
-        if (matchesRequestedType(reqVO, TYPE_PROJECT_CODE_ASSIGNMENT)) {
-            candidates.addAll(buildProjectCodeAssignmentCandidates(controlledFileId));
-        }
-        if (matchesRequestedType(reqVO, TYPE_PROJECT_CODE_CHANGE)) {
-            candidates.addAll(buildProjectCodeChangeCandidates(controlledFileId));
-        }
-        if (matchesRequestedType(reqVO, TYPE_TRAINING_EXECUTION)) {
-            candidates.addAll(buildTrainingExecutionCandidates(controlledFileId));
-        }
-
-        List<DccControlledFileLogRespVO> filteredRows = candidates.stream()
-                .filter(candidate -> matchesFilters(candidate, reqVO, controlledFileId))
-                .sorted(Comparator.comparing(LogCandidate::occurredAt,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(LogCandidate::sourceRecordId,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(LogCandidate::logType,
-                                Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(LogCandidate::row)
-                .toList();
-        return slicePage(reqVO, filteredRows);
+        List<Long> fileIds = Stream.of(TYPE_FILE_SUBMISSION, TYPE_FILE_APPROVAL, TYPE_FILE_RELEASE,
+                        TYPE_FILE_REVISION, TYPE_FILE_OBSOLETE).flatMap(type -> ids.getOrDefault(type, List.of()).stream())
+                .distinct().toList();
+        candidates.addAll(buildControlledFileLifecycleCandidates(reqVO, fileIds));
+        candidates.addAll(buildCheckoutCandidates(ids.getOrDefault(TYPE_FILE_CHECKOUT, List.of())));
+        candidates.addAll(buildControlledFileAuditCandidates(ids.getOrDefault(TYPE_CONTROLLED_FILE_AUDIT, List.of())));
+        candidates.addAll(buildDistributionCandidates(ids.getOrDefault(TYPE_FILE_DISTRIBUTION, List.of())));
+        candidates.addAll(buildProjectCodeAssignmentCandidates(ids.getOrDefault(TYPE_PROJECT_CODE_ASSIGNMENT, List.of()), controlledFileId));
+        candidates.addAll(buildProjectCodeChangeCandidates(ids.getOrDefault(TYPE_PROJECT_CODE_CHANGE, List.of())));
+        candidates.addAll(buildTrainingExecutionCandidates(ids.getOrDefault(TYPE_TRAINING_EXECUTION, List.of())));
+        Map<String, DccControlledFileLogRespVO> rows = candidates.stream().map(LogCandidate::row)
+                .collect(Collectors.toMap(DccControlledFileLogRespVO::getId, Function.identity()));
+        List<DccControlledFileLogRespVO> result = page.getList().stream().map(key -> {
+            DccControlledFileLogRespVO row = rows.get(key.identity());
+            if (row == null) {
+                throw new IllegalStateException("Selected DCC log source is unavailable: " + key.identity());
+            }
+            return row;
+        }).toList();
+        return new PageResult<>(result, page.getTotal());
     }
 
     private List<LogCandidate> buildControlledFileLifecycleCandidates(DccControlledFileLogPageReqVO reqVO,
-                                                                       Long controlledFileId) {
-        List<DccControlledFileDO> files = selectControlledFiles(controlledFileId);
+                                                                       List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileDO> files = controlledFileMapper.selectBatchIds(sourceIds);
         Map<Long, AdminUserRespDTO> userMap = selectUserMap(files.stream()
                 .flatMap(file -> java.util.stream.Stream.of(file.getSubmitterId(), file.getObsoletedBy()))
                 .filter(Objects::nonNull)
@@ -214,16 +215,12 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
             addFileApprovalCandidate(reqVO, candidates, file);
             addFileReleaseCandidate(reqVO, candidates, file);
         }
-        if (matchesRequestedType(reqVO, TYPE_FILE_CHECKOUT)) {
-            candidates.addAll(buildCheckoutCandidates(controlledFileId));
-        }
         return candidates;
     }
 
-    private List<LogCandidate> buildCheckoutCandidates(Long controlledFileId) {
-        List<DccControlledFileCheckoutDO> checkouts = controlledFileId == null
-                ? checkoutMapper.selectList()
-                : checkoutMapper.selectListByBaseIterationId(controlledFileId);
+    private List<LogCandidate> buildCheckoutCandidates(List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileCheckoutDO> checkouts = checkoutMapper.selectBatchIds(sourceIds);
         Map<Long, DccControlledFileDO> fileMap = selectMap(checkouts,
                 DccControlledFileCheckoutDO::getBaseIterationId,
                 controlledFileMapper::selectBatchIds, DccControlledFileDO::getId);
@@ -327,10 +324,9 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 null, operatorUserId, null, keywordText(row)));
     }
 
-    private List<LogCandidate> buildDistributionCandidates(Long controlledFileId) {
-        List<DccControlledFileDistributionDO> distributions = controlledFileId == null
-                ? distributionMapper.selectList()
-                : distributionMapper.selectListByControlledFileId(controlledFileId);
+    private List<LogCandidate> buildDistributionCandidates(List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileDistributionDO> distributions = distributionMapper.selectBatchIds(sourceIds);
         Map<Long, DccControlledFileDO> fileMap = selectFileMap(distributions,
                 DccControlledFileDistributionDO::getControlledFileId);
         Map<Long, AdminUserRespDTO> userMap = selectUserMap(distributions.stream()
@@ -374,22 +370,18 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 null, operatorUserId, null, keywordText(row));
     }
 
-    private List<LogCandidate> buildControlledFileAuditCandidates(Long controlledFileId) {
-        List<DccControlledFileAccessEventDO> events = controlledFileId == null
-                ? accessEventMapper.selectList()
-                : accessEventMapper.selectListByControlledFileId(controlledFileId);
-        Map<Long, DccControlledFileAccessEventDO> eventMap = convertMap(events,
+    private List<LogCandidate> buildControlledFileAuditCandidates(List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileAccessLogDO> accessLogs = accessLogMapper.selectBatchIds(sourceIds);
+        Map<Long, DccControlledFileAccessEventDO> eventMap = selectMap(accessLogs,
+                DccControlledFileAccessLogDO::getAccessEventId, accessEventMapper::selectBatchIds,
                 DccControlledFileAccessEventDO::getId);
-        List<DccControlledFileAccessLogDO> accessLogs = selectAccessLogs(controlledFileId, events);
-        if (controlledFileId != null) {
-            accessLogs = accessLogs.stream()
-                    .filter(accessLog -> controlledFileId.equals(accessLog.getControlledFileId())
-                            || eventMap.containsKey(accessLog.getAccessEventId()))
-                    .toList();
-        }
-        Map<Long, DccControlledFileDO> fileMap = controlledFileId == null
-                ? selectFileMap(accessLogs, DccControlledFileAccessLogDO::getControlledFileId)
-                : selectControlledFileMap(controlledFileId);
+        List<DccControlledFileAccessEventDO> events = new ArrayList<>(eventMap.values());
+        Set<Long> fileIds = Stream.concat(accessLogs.stream().map(DccControlledFileAccessLogDO::getControlledFileId),
+                events.stream().map(DccControlledFileAccessEventDO::getControlledFileId))
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, DccControlledFileDO> fileMap = fileIds.isEmpty() ? Map.of()
+                : convertMap(controlledFileMapper.selectBatchIds(fileIds), DccControlledFileDO::getId);
         Set<Long> userIds = Stream.concat(
                         accessLogs.stream().map(DccControlledFileAccessLogDO::getUserId),
                         events.stream().map(DccControlledFileAccessEventDO::getUserId))
@@ -399,23 +391,6 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         return accessLogs.stream()
                 .map(accessLog -> toControlledFileAuditCandidate(accessLog, eventMap, fileMap, userMap))
                 .toList();
-    }
-
-    private List<DccControlledFileAccessLogDO> selectAccessLogs(Long controlledFileId,
-                                                                 List<DccControlledFileAccessEventDO> events) {
-        if (controlledFileId == null) {
-            return accessLogMapper.selectList();
-        }
-        Map<Long, DccControlledFileAccessLogDO> logsById = new LinkedHashMap<>();
-        accessLogMapper.selectListByControlledFileId(controlledFileId)
-                .forEach(log -> logsById.put(log.getId(), log));
-        List<Long> eventIds = events.stream().map(DccControlledFileAccessEventDO::getId)
-                .filter(Objects::nonNull).toList();
-        if (!eventIds.isEmpty()) {
-            accessLogMapper.selectListByAccessEventIds(eventIds)
-                    .forEach(log -> logsById.put(log.getId(), log));
-        }
-        return new ArrayList<>(logsById.values());
     }
 
     private LogCandidate toControlledFileAuditCandidate(DccControlledFileAccessLogDO accessLog,
@@ -460,15 +435,12 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 keywordText(row));
     }
 
-    private List<LogCandidate> buildProjectCodeAssignmentCandidates(Long controlledFileId) {
-        List<DccProjectCodeAssignmentFileDO> assignmentFiles = controlledFileId == null
-                ? assignmentFileMapper.selectList()
-                : assignmentFileMapper.selectListByControlledFileId(controlledFileId);
-        List<Long> assignmentIds = assignmentFiles.stream()
-                .map(DccProjectCodeAssignmentFileDO::getAssignmentId).filter(Objects::nonNull).distinct().toList();
-        List<DccProjectCodeAssignmentDO> assignments = controlledFileId == null
-                ? assignmentMapper.selectList()
-                : assignmentIds.isEmpty() ? List.of() : assignmentMapper.selectBatchIds(assignmentIds);
+    private List<LogCandidate> buildProjectCodeAssignmentCandidates(List<Long> sourceIds, Long controlledFileId) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccProjectCodeAssignmentDO> assignments = assignmentMapper.selectBatchIds(sourceIds);
+        List<DccProjectCodeAssignmentFileDO> assignmentFiles = assignmentFileMapper.selectListByAssignmentIds(sourceIds)
+                .stream().filter(file -> controlledFileId == null || controlledFileId.equals(file.getControlledFileId()))
+                .sorted(Comparator.comparing(DccProjectCodeAssignmentFileDO::getId)).toList();
         Map<Long, DccProjectCodeDO> projectCodeMap = selectMap(assignments,
                 DccProjectCodeAssignmentDO::getProjectCodeId, projectCodeMapper::selectBatchIds,
                 DccProjectCodeDO::getId);
@@ -523,10 +495,9 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 assignment.getProjectCodeId(), assignment.getId(), operatorUserId, null, keywordText);
     }
 
-    private List<LogCandidate> buildProjectCodeChangeCandidates(Long controlledFileId) {
-        List<DccControlledFileMetadataChangeItemDO> items = controlledFileId == null
-                ? changeItemMapper.selectList()
-                : changeItemMapper.selectListByControlledFileId(controlledFileId);
+    private List<LogCandidate> buildProjectCodeChangeCandidates(List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileMetadataChangeItemDO> items = changeItemMapper.selectBatchIds(sourceIds);
         Map<Long, DccControlledFileMetadataChangeDO> changeMap = selectMap(items,
                 DccControlledFileMetadataChangeItemDO::getChangeId, changeMapper::selectBatchIds,
                 DccControlledFileMetadataChangeDO::getId);
@@ -586,10 +557,9 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 item.getOperatorUserId(), item.getFieldName(), keywordText);
     }
 
-    private List<LogCandidate> buildTrainingExecutionCandidates(Long controlledFileId) {
-        List<DccControlledFileTrainingProgressDO> progressList = controlledFileId == null
-                ? trainingProgressMapper.selectList()
-                : trainingProgressMapper.selectListByControlledFileId(controlledFileId);
+    private List<LogCandidate> buildTrainingExecutionCandidates(List<Long> sourceIds) {
+        if (sourceIds.isEmpty()) return List.of();
+        List<DccControlledFileTrainingProgressDO> progressList = trainingProgressMapper.selectBatchIds(sourceIds);
         Map<Long, DccControlledFileDO> fileMap = selectFileMap(progressList,
                 DccControlledFileTrainingProgressDO::getControlledFileId);
         Map<Long, AdminUserRespDTO> userMap = selectUserMap(progressList.stream()
@@ -642,67 +612,9 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         return row;
     }
 
-    private boolean matchesFilters(LogCandidate candidate, DccControlledFileLogPageReqVO reqVO,
-                                   Long controlledFileId) {
-        return matchesExact(reqVO.getActionType(), candidate.actionType())
-                && matchesExact(reqVO.getResult(), candidate.result())
-                && matchesIdSet(controlledFileId, candidate.controlledFileIds())
-                && matchesLong(reqVO.getMasterId(), candidate.row().getMasterId())
-                && matchesExact(reqVO.getVersionNo(), candidate.row().getVersionNo())
-                && matchesLong(reqVO.getProjectCodeId(), candidate.projectCodeId())
-                && matchesLong(reqVO.getAssignmentId(), candidate.assignmentId())
-                && matchesLong(reqVO.getOperatorUserId(), candidate.operatorUserId())
-                && matchesExact(reqVO.getFieldName(), candidate.fieldName())
-                && matchesOccurredAt(candidate.occurredAt(), reqVO.getOccurredAt())
-                && matchesKeyword(candidate, reqVO.getKeyword());
-    }
-
-    private boolean matchesKeyword(LogCandidate candidate, String keyword) {
-        String trimmedKeyword = StrUtil.trimToNull(keyword);
-        if (trimmedKeyword == null) {
-            return true;
-        }
-        return StrUtil.containsIgnoreCase(candidate.keywordText(), trimmedKeyword);
-    }
-
-    private boolean matchesOccurredAt(LocalDateTime occurredAt, LocalDateTime[] range) {
-        if (range == null) {
-            return true;
-        }
-        if (occurredAt == null) {
-            return false;
-        }
-        if (range[0] != null && occurredAt.isBefore(range[0])) {
-            return false;
-        }
-        return range[1] == null || !occurredAt.isAfter(range[1]);
-    }
-
     private boolean matchesRequestedType(DccControlledFileLogPageReqVO reqVO, String logType) {
         String requestedType = StrUtil.trimToNull(reqVO.getLogType());
         return requestedType == null || StrUtil.equals(requestedType, logType);
-    }
-
-    private boolean matchesAnyRequestedType(DccControlledFileLogPageReqVO reqVO, String... logTypes) {
-        for (String logType : logTypes) {
-            if (matchesRequestedType(reqVO, logType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean matchesExact(String requested, String actual) {
-        String normalized = StrUtil.trimToNull(requested);
-        return normalized == null || StrUtil.equals(normalized, actual);
-    }
-
-    private boolean matchesLong(Long requested, Long actual) {
-        return requested == null || Objects.equals(requested, actual);
-    }
-
-    private boolean matchesIdSet(Long requested, Set<Long> actualIds) {
-        return requested == null || actualIds.contains(requested);
     }
 
     private Long parseControlledFileId(String value) {
@@ -715,18 +627,6 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("controlledFileId must be a valid integer", ex);
         }
-    }
-
-    private PageResult<DccControlledFileLogRespVO> slicePage(DccControlledFileLogPageReqVO reqVO,
-                                                             List<DccControlledFileLogRespVO> rows) {
-        if (rows.isEmpty()) {
-            return PageResult.empty(0L);
-        }
-        int pageNo = Math.max(reqVO.getPageNo() == null ? 1 : reqVO.getPageNo(), 1);
-        int pageSize = Math.max(reqVO.getPageSize() == null ? 10 : reqVO.getPageSize(), 1);
-        int fromIndex = Math.min((pageNo - 1) * pageSize, rows.size());
-        int toIndex = Math.min(fromIndex + pageSize, rows.size());
-        return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
     }
 
     private void requireValidRequest(DccControlledFileLogPageReqVO reqVO) {
@@ -757,19 +657,6 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
 
     private <T> Map<Long, DccControlledFileDO> selectFileMap(List<T> sources, Function<T, Long> idGetter) {
         return selectMap(sources, idGetter, controlledFileMapper::selectBatchIds, DccControlledFileDO::getId);
-    }
-
-    private List<DccControlledFileDO> selectControlledFiles(Long controlledFileId) {
-        return controlledFileId == null
-                ? controlledFileMapper.selectList()
-                : controlledFileMapper.selectBatchIds(List.of(controlledFileId));
-    }
-
-    private Map<Long, DccControlledFileDO> selectControlledFileMap(Long controlledFileId) {
-        if (controlledFileId == null) {
-            return Map.of();
-        }
-        return convertMap(selectControlledFiles(controlledFileId), DccControlledFileDO::getId);
     }
 
     private Map<Long, AdminUserRespDTO> selectUserMap(Collection<Long> userIds) {

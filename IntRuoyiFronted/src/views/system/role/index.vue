@@ -1,7 +1,5 @@
 <template>
 
-
-
   <ContentWrap class="standard-list-page">
     <UnifiedListTemplate
       ref="roleListRef"
@@ -12,10 +10,9 @@
       v-model:page="queryParams.pageNo"
       :total="total"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
       :columns="listFilterColumns0"
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -333,7 +330,7 @@
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -417,13 +414,15 @@ const getList = async () => {
   const requestId = ++listRequestId
   clearRoleSelection()
   list.value = []
-  total.value = 0
   loading.value = true
   try {
     const data = await RoleApi.getRolePage({ ...queryParams })
     if (requestId !== listRequestId) return
     list.value = data.list
     total.value = data.total
+  } catch (error) {
+    if (requestId === listRequestId) total.value = 0
+    throw error
   } finally {
     if (requestId === listRequestId) loading.value = false
   }
@@ -538,28 +537,13 @@ const openDataPermissionForm = (row: RoleApi.RoleVO) => {
 }
 
 const handleRoleExcelExport = async () => {
-  const filteredRows = roleListRef.value!.getColumnFilteredRows() as RoleApi.RoleVO[] | undefined
+  roleListRef.value!.getExportScope()
   roleExcelExportLoading.value = true
   try {
     const data = await RoleApi.exportRole({
       ...queryParams,
       pageNo: 1
     })
-    if (filteredRows !== undefined) {
-      const { read, utils, writeFileXLSX } = await import('xlsx')
-      const workbook = read(await data.arrayBuffer(), { type: 'array' })
-      const sheetName = workbook.SheetNames[0]
-      const rows = utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1 })
-      const idColumn = rows[0]?.indexOf('角色序号')
-      if (idColumn === undefined || idColumn < 0) throw new Error('角色导出文件缺少角色序号列')
-      const ids = new Set(filteredRows.map((row) => String(row.id)))
-      workbook.Sheets[sheetName] = utils.aoa_to_sheet([
-        rows[0],
-        ...rows.slice(1).filter((row) => ids.has(String(row[idColumn])))
-      ])
-      writeFileXLSX(workbook, '权限角色数据.xlsx')
-      return
-    }
     download.excel(data, '权限角色数据.xlsx')
   } finally {
     roleExcelExportLoading.value = false
@@ -630,14 +614,6 @@ watch(
     await getList()
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    RoleApi.getRolePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

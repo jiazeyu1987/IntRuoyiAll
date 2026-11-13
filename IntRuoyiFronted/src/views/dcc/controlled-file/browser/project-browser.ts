@@ -4,14 +4,14 @@ import { loadDccProjectBrowserPage, getControlledFileRelationPermissions,
   type ProjectBrowserOptions } from '@/api/dcc/controlledFile/applicationRead'
 import { getControlledFile } from '@/api/dcc/controlledFile/workflow'
 import { getSimpleUserList } from '@/api/system/user'
-import { loadSelectorBrowserPage, listProjectReferences, createProjectReferences, cancelProjectReference, getProjectReferenceUsage } from '@/api/dcc/controlledFile/relations'
+import { loadSelectorBrowserPage, listSelectedProjectReferences, createProjectReferences, cancelProjectReference, getProjectReferenceUsageBatch } from '@/api/dcc/controlledFile/relations'
 import { buildProjectFolderTree } from '../basic-data/components/project-folder-tree'
 import { isEnabledTargetProjectLeader, mapReferenceDirectoryNodes, mapReferenceRows, referenceIdentity,
   bindReferencePermissions, assertReferenceTraceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
 import type { DirectoryNode } from '../relations/DccFileSelector.vue'
 import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
-import { buildFolderFileRows } from './folder-file-list'
+
+
 
 export const PROJECT_BROWSER_VERSION_VIEWS = [
   { value: 'LATEST_CONTROLLED', label: '当前生效受控版本', group: '浏览范围' },
@@ -43,6 +43,8 @@ export class ProjectBrowserState {
   projectPage = 1
   projectPageSize = 20
   projectKeyword = ''
+  projectListFilters = ''
+  get projectQuery() { return projectQueryModel(this) }
   projectLoading = false
   projectError = ''
   project: DccDiscoveredProject | undefined
@@ -59,6 +61,8 @@ export class ProjectBrowserState {
   pageNo = 1
   pageSize = 20
   rows: FileCandidate[] = []
+  references: ReferenceRow[] = []
+  listFilters = ''
   total = 0
   loading = false
   error = ''
@@ -87,41 +91,14 @@ export class ProjectBrowserState {
     const token = ++this.projectsSequence
     this.projectLoading = true; this.projectError = ''; this.projects = []; this.projectsTotal = 0
     try {
-      const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: this.projectPageSize, keyword: this.projectKeyword })
-      if (token !== this.projectsSequence) return
+      const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: this.projectPageSize, keyword: this.projectKeyword, listFilters: this.projectListFilters })
+      if (token !== this.projectsSequence) return false
       this.projects = page.list; this.projectsTotal = page.total
-    } catch (error) { if (token === this.projectsSequence) this.projectError = errorText(error) }
+    } catch (error) { if (token === this.projectsSequence) { this.projectError = errorText(error); throw error }; return false }
     finally { if (token === this.projectsSequence) this.projectLoading = false }
   }
-  loadProjectFilterRows() {
-    const keyword = this.projectKeyword
-    return loadAllListPages(pagination => getProjectDiscoveryPage({ ...pagination, keyword }))
-  }
-  async loadFileFilterRows() {
-    if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')
-    if (this.scope === 'directory' && (!this.project || !this.folder?.folderId)) throw new Error('请先选择项目逻辑文件夹')
-    const context = this.contextKey
-    const scope = this.scope
-    const keyword = this.keyword
-    const versionView = this.versionView
-    const projectId = this.project?.id
-    const folderId = this.folder?.folderId
-    const files = await loadAllListPages(pagination => loadDccProjectBrowserPage(this.tenantId, {
-      ...pagination, keyword,
-      ...(scope !== 'global' ? { projectId } : {}),
-      ...(scope === 'directory' ? { folderId } : {})
-    }, browserVersionOptions(versionView)))
-    const usageEntries = await Promise.all(files.map(async file => {
-      const usage = await getProjectReferenceUsage(file.controlledFileId)
-      if (referenceIdentity(usage.masterId) !== file.masterId) throw new Error('引用计数文件身份不一致')
-      return [file.masterId, usage] as const
-    }))
-    const references = scope === 'directory' ? await this.loadReferences(projectId!, folderId!) : []
-    if (context !== this.contextKey || scope !== this.scope || versionView !== this.versionView) throw new Error('项目文件列表上下文已变更，请重新查询')
-    return buildFolderFileRows(files, references, Object.fromEntries(usageEntries), keyword, versionView)
-  }
   invalidateFiles() {
-    this.filesSequence++; this.loading = false; this.rows = []; this.total = 0; this.usage = {}; this.error = ''
+    this.filesSequence++; this.loading = false; this.rows = []; this.references = []; this.total = 0; this.usage = {}; this.error = ''
   }
   async selectProject(id: string) {
     const token = ++this.projectSequence
@@ -162,30 +139,37 @@ export class ProjectBrowserState {
   }
   async loadFiles() {
     const token = ++this.filesSequence
-    this.loading = true; this.error = ''; this.rows = []; this.total = 0; this.usage = {}
+    this.loading = true; this.error = ''; this.rows = []; this.references = []; this.total = 0; this.usage = {}
     const queryKeyword = this.keyword
     try {
       if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')
       if (this.scope === 'directory' && (!this.project || !this.folder?.folderId)) throw new Error('请先选择项目逻辑文件夹')
       const page = await loadDccProjectBrowserPage(this.tenantId, { keyword: queryKeyword, pageNo: this.pageNo, pageSize: this.pageSize,
         ...(this.scope === 'project' || this.scope === 'directory' ? { projectId: this.project!.id } : {}),
-        ...(this.scope === 'directory' ? { folderId: this.folder!.folderId } : {}) }, browserVersionOptions(this.versionView))
-      if (token !== this.filesSequence) return
-      this.rows = page.list; this.total = page.total; this.appliedKeyword = queryKeyword
-      // Counts are the formal server distinct-project usage, never the number of visible folders.
-      await this.refreshUsage(token)
-    } catch (error) { if (token === this.filesSequence) this.error = errorText(error) }
+        ...(this.scope === 'directory' ? { folderId: this.folder!.folderId } : {}) }, { ...browserVersionOptions(this.versionView), listFilters: this.listFilters })
+      if (token !== this.filesSequence) return false
+      const references = this.scope === 'directory' ? await this.mapReferences(page.referenceRows, this.project!.id, this.folder!.folderId!) : []
+      if (token !== this.filesSequence) return false
+      const usage = await this.readUsage(page.list)
+      if (token !== this.filesSequence) return false
+      this.rows = page.list; this.references = references; this.total = page.total; this.appliedKeyword = queryKeyword; this.usage = usage
+    } catch (error) { if (token === this.filesSequence) { this.error = errorText(error); throw error }; return false }
     finally { if (token === this.filesSequence) this.loading = false }
   }
   loadPage(query: SelectorQuery) { return loadSelectorBrowserPage(this.tenantId, query) }
   async refreshUsage(token = this.filesSequence) {
-    const results = await Promise.all(this.rows.map(async row => {
-      const value = await getProjectReferenceUsage(row.controlledFileId)
+    const usage = await this.readUsage([...this.rows])
+    if (token === this.filesSequence) this.usage = usage
+  }
+  private async readUsage(rows: FileCandidate[]) {
+    const usages = rows.length ? await getProjectReferenceUsageBatch(rows.map(row => row.controlledFileId)) : []
+    const results = rows.map((row, index) => {
+      const value = usages[index]
       if (referenceIdentity(value.masterId) !== row.masterId || !Number.isSafeInteger(value.referenceProjectCount)
         || value.referenceProjectCount < 0 || value.referenced !== (value.referenceProjectCount > 0)) throw new Error('引用项目计数响应不合法')
-      return [row.masterId, { referenceProjectCount: value.referenceProjectCount, referenced: value.referenced }] as const
-    }))
-    if (token === this.filesSequence) this.usage = Object.fromEntries(results)
+      return [row.controlledFileId, { referenceProjectCount: value.referenceProjectCount, referenced: value.referenced }] as const
+    })
+    return Object.fromEntries(results)
   }
   private assertReferenceContext(projectId: string, folderId: string) {
     if (!this.canReference || this.project?.id !== projectId || this.folder?.folderId !== folderId) throw new Error('仅当前目标项目启用负责人可以引用或取消引用')
@@ -215,7 +199,8 @@ export class ProjectBrowserState {
     return selected
   }
   async loadReferences(projectId: string, folderId: string) {
-    return this.mapReferences(await listProjectReferences(projectId, folderId), projectId, folderId)
+    if (this.project?.id !== projectId || this.folder?.folderId !== folderId) throw new Error('引用分页上下文不一致')
+    return this.references
   }
   async createReferences(projectId: string, folderId: string, ids: string[], reason: string) {
     this.assertReferenceContext(projectId, folderId)
@@ -226,7 +211,7 @@ export class ProjectBrowserState {
       || saved.some(row => !selectedIds.includes(referenceIdentity(row?.reference?.selectedControlledFileId))))
       throw new Error('引用保存响应没有确认完整的所选版本，请核对正式保存结果')
     try {
-      const rows = (await this.loadReferences(projectId, folderId)).filter(row => selectedIds.includes(row.reference.selectedControlledFileId))
+      const rows = await this.mapReferences(await listSelectedProjectReferences(projectId, folderId, saved.map(row => referenceIdentity(row.reference.id))), projectId, folderId)
       if (rows.length !== selectedIds.length) throw new Error('引用列表未确认完整的已保存版本')
       return rows
     }
@@ -239,7 +224,13 @@ export class ProjectBrowserState {
     return count
   }
   async referencesChanged() {
-    try { await this.refreshUsage() } catch (error) { this.error = `引用已保存，项目计数刷新失败：${errorText(error)}` }
+    try { await this.loadFiles() } catch (error) { this.error = `引用已保存，文件分页刷新失败：${errorText(error)}`; throw error }
   }
 }
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error)
+const projectQueryModel = (state: ProjectBrowserState) => ({
+  get pageNo() { return state.projectPage },
+  set pageNo(value: number) { state.projectPage = value },
+  get listFilters() { return state.projectListFilters },
+  set listFilters(value: string) { state.projectListFilters = value }
+})

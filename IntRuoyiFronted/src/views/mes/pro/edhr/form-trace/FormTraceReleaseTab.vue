@@ -21,10 +21,8 @@
       @quick-filter-query="releaseQuickFilter.applyQuickFilter"
       @column-change="saveReleaseColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
@@ -294,7 +292,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -379,6 +377,7 @@ const autoOpenedTraceKey = ref('')
 const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
+  listFilters: '',
   batchExecutionCode:
     typeof route.query.batchExecutionCode === 'string' ? route.query.batchExecutionCode : '',
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
@@ -464,6 +463,7 @@ const resolveBatchExecutionTraceStatusLabel = (status?: number | string | null) 
 const buildQuery = (): EdhrReleasePageReqVO => ({
   pageNo: queryParams.pageNo,
   pageSize: queryParams.pageSize,
+  listFilters: queryParams.listFilters,
   batchExecutionCode: queryParams.batchExecutionCode?.trim() || undefined,
   workOrderCode: queryParams.workOrderCode?.trim() || undefined,
   batchCode: queryParams.batchCode?.trim() || undefined,
@@ -474,11 +474,14 @@ const buildQuery = (): EdhrReleasePageReqVO => ({
   releaseStatus: 'RELEASED'
 })
 
+let listRequestSequence = 0
 async function getList() {
+  const sequence = ++listRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrReleasePage(buildQuery())
+    if (sequence !== listRequestSequence) return false
     list.value = data.list || []
     total.value = data.total || 0
     const requestedBatchExecutionId = String(route.query.autoOpenBatchExecutionId || '').trim()
@@ -491,12 +494,15 @@ async function getList() {
         openBatchTrace(matchedRow)
       }
     }
+    return true
   } catch (error) {
+    if (sequence !== listRequestSequence) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '电子批记录放行追溯列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (sequence === listRequestSequence) loading.value = false
   }
 }
 
@@ -632,14 +638,6 @@ const formatDateTime = (value?: string | number) => {
 
 onMounted(() => getList())
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrReleasePage({ ...params, ...pagination })
-  )
-  return rows
-}
-
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
     key: 'releaseObject',
@@ -693,6 +691,12 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
         resolveReleaseCheckResultLabel(row.reworkStatus),
         resolveReleaseCheckResultLabel(row.scrapStatus)
       ].join(' ')
+  },
+  {
+    key: 'transactionTime',
+    label: '事务时间',
+    type: 'text',
+    getValue: (row) => [formatDateTime(row.submittedAt), formatDateTime(row.approvedAt)].join(' ')
   },
   {
     key: 'traceActions',

@@ -1,6 +1,30 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/approval/service/ApprovalFlowableTaskQueryService.java",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:approve",
+      "reason": "审批列表服务端筛选复用现有批记录审批、追溯及签名查询权限，按原摘要可见性计算筛选字段；不新增权限标识、页面、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/approval/service/ApprovalFlowableTaskQueryService.java",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:track",
+      "reason": "审批列表服务端筛选复用现有批记录审批、追溯及签名查询权限，按原摘要可见性计算筛选字段；不新增权限标识、页面、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/approval/service/ApprovalFlowableTaskQueryService.java",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:signature-query",
+      "reason": "审批列表服务端筛选复用现有批记录审批、追溯及签名查询权限，按原摘要可见性计算筛选字段；不新增权限标识、页面、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImpl.java",
+      "kind": "permission",
+      "value": "mes:qc-template:query",
+      "reason": "项目代码列表将配置状态筛选迁移到 SQL，复用既有检验规程查询权限控制 QA 配置可见性；不新增权限标识、页面、菜单、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/WorkflowInteractionLog.vue",
       "kind": "page",
       "value": "mes/pro/processpool/components/WorkflowInteractionLog",

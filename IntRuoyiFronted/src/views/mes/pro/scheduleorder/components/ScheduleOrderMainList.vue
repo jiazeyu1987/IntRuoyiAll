@@ -16,7 +16,6 @@
     :show-multi-filter-operators="showMultiFilterOperators"
     :columns="columns"
     :column-filter-definitions="columnFilterDefinitions"
-    :list-rows="listRows"
     :column-saving="columnSaving"
     :sort-state="sortState"
     :show-column-settings="false"
@@ -37,9 +36,8 @@
     @update:sort-state="emit('update:sortState', $event)"
     @sort-change="emit('sortChange', $event)"
     @pagination="emit('pagination', $event)"
-    @filtered-rows="emit('filteredRows', $event)"
-    :load-filter-rows="loadColumnFilterRows0"
-    @column-filter-reset="emit('pagination', $event)"
+    server-filter
+    :server-filter-query="serverFilterQuery"
   >
       <template #actions>
       <slot name="actions"></slot>
@@ -127,8 +125,7 @@ defineSlots<{
 
 const props = defineProps({
   columnFilterDefinitions: { type: Array as PropType<ListColumnFilterDefinition[]>, required: true },
-  listRows: { type: Array as PropType<any[]>, required: true },
-  loadFilterRows: { type: Function as PropType<() => Promise<any[]>>, required: true },
+  serverFilterQuery: { type: Function as PropType<() => Promise<unknown>>, required: true },
   queryModel: { type: Object as PropType<Record<string, unknown>>, required: true },
   filterDefinitions: { type: Array as PropType<TableQuickFilterDefinition[]>, required: true },
   quickFilterState: { type: Object as PropType<Record<string, unknown>>, required: true },
@@ -163,14 +160,10 @@ const emit = defineEmits([
   'columnReset',
   'update:sortState',
   'sortChange',
-  'pagination',
-  'filteredRows'
+  'pagination'
 ])
 
 const getPage = (queryModel: Record<string, unknown>) => Number(queryModel.pageNo || 1)
 const getLimit = (queryModel: Record<string, unknown>) => Number(queryModel.pageSize || 10)
 
-const loadColumnFilterRows0 = async () => {
-  return props.loadFilterRows()
-}
 </script>

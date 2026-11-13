@@ -23,10 +23,8 @@
       @column-change="saveCategoryColumnConfig"
       @column-reset="resetCategoryColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -152,7 +150,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import { computed } from 'vue'
@@ -192,10 +191,12 @@ const {
   resetConfig: resetCategoryColumnConfig
 } = useUserTableColumns('bpm.category.main', categoryDefaultColumns)
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<CategoryVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   name: undefined as string | undefined,
@@ -219,14 +220,10 @@ const categoryQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
 
 /** 查询列表 */
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await CategoryApi.getCategoryPage(queryParams)
+  return await listRequest.run(() => CategoryApi.getCategoryPage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const categoryQuickFilter = useTableQuickFilter(
@@ -269,14 +266,6 @@ const handleDelete = async (id: number) => {
 onMounted(() => {
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    CategoryApi.getCategoryPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

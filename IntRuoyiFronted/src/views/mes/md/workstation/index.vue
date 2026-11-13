@@ -23,10 +23,8 @@
       @column-change="saveWorkstationColumnConfig"
       @column-reset="resetWorkstationColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -305,7 +303,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import { dateFormatter } from '@/utils/formatTime'
@@ -378,6 +376,7 @@ const pendingMachineryLedgerId = ref<number | undefined>()
 const routeQuickFilterApplied = ref(false)
 const lastAppliedWorkstationRouteQuerySignature = ref('')
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -456,6 +455,7 @@ const applyWorkstationQuickFilterToQueryParams = () => {
 const buildWorkstationPageParams = () => {
   applyWorkstationQuickFilterToQueryParams()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     code: queryParams.code,
@@ -635,13 +635,6 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildWorkstationPageParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    MdWorkstationApi.getWorkstationPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

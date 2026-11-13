@@ -130,6 +130,7 @@
       :limit="resolvedLimit"
       :storage-key="tableKey"
       :layout="paginationLayout"
+      :disabled="serverFilter && (queryLoading || columnFilter.loading.value)"
       @update:page="updatePage"
       @update:limit="updateLimit"
       @pagination="handlePagination"
@@ -239,6 +240,11 @@ const props = withDefaults(
     rows?: any[]
     filterRows?: any[]
     loadFilterRows?: () => Promise<any[]>
+    /** Server paging: callback must reject failures and commit only the latest response. */
+    serverFilter?: boolean
+    serverFilterQuery?: () => Promise<unknown>
+    /** Clear extra query fields only; the template performs the query. */
+    serverFilterReset?: () => void | Promise<void>
     listRows?: any[]
     columnFilterDefinitions?: ListColumnFilterDefinition[]
     paginationLayout?: string
@@ -291,7 +297,7 @@ const emit = defineEmits<{
 const localPage = ref(1)
 const localLimit = ref(20)
 const columnFilteringEnabled = computed(
-  () => props.filterRows !== undefined || !!props.loadFilterRows || props.rows !== undefined
+  () => props.serverFilter || props.filterRows !== undefined || !!props.loadFilterRows || props.rows !== undefined
 )
 const columnDefinitions = computed(() =>
   buildListColumnFilters(props.columns, [
@@ -303,30 +309,41 @@ const columnDefinitions = computed(() =>
 const columnFilter = useListColumnFilter(
   columnDefinitions,
   () => props.filterRows ?? props.rows,
-  () => props.loadFilterRows
+  () => props.loadFilterRows,
+  {
+    enabled: () => !!props.serverFilter,
+    queryModel: () => props.queryModel,
+    query: async () => {
+      if (!props.serverFilterQuery) throw new Error('服务端筛选未配置查询回调')
+      emit('update:page', 1)
+      return await props.serverFilterQuery()
+    }
+  }
 )
+const localFilterActive = computed(() => !props.serverFilter && columnFilter.active.value)
+const localRowsEnabled = computed(() => !props.serverFilter && props.rows !== undefined)
 const resolvedTotal = computed(() =>
-  columnFilter.active.value
+  localFilterActive.value
     ? columnFilter.rows.value.length
-    : props.rows === undefined
+    : !localRowsEnabled.value
       ? props.total
-      : props.rows.length
+      : props.rows!.length
 )
 const resolvedPage = computed(() =>
-  columnFilter.active.value || props.rows !== undefined ? localPage.value : props.page
+  localFilterActive.value || localRowsEnabled.value ? localPage.value : props.page
 )
 const resolvedLimit = computed(() =>
-  columnFilter.active.value || props.rows !== undefined ? localLimit.value : props.limit
+  localFilterActive.value || localRowsEnabled.value ? localLimit.value : props.limit
 )
 const pageRows = computed(() =>
-  (columnFilter.active.value ? columnFilter.rows.value : props.rows)?.slice(
+  (localFilterActive.value ? columnFilter.rows.value : localRowsEnabled.value ? props.rows : undefined)?.slice(
     (resolvedPage.value - 1) * resolvedLimit.value,
     resolvedPage.value * resolvedLimit.value
   )
 )
 let publishedRows: any[] | undefined
 watch(pageRows, (rows) => {
-  if (columnFilter.active.value && props.loadFilterRows && rows) {
+  if (localFilterActive.value && props.loadFilterRows && rows) {
     if (
       publishedRows?.length === rows.length &&
       rows.every((row, index) => toRaw(row) === toRaw(publishedRows![index]))
@@ -340,9 +357,9 @@ watch(
   () => props.listRows,
   (rows) => {
     if (
-      rows &&
+      !props.serverFilter && rows &&
       toRaw(rows) !== toRaw(publishedRows) &&
-      (columnFilter.active.value || columnFilter.loading.value)
+      (localFilterActive.value || columnFilter.loading.value)
     ) {
       columnFilter.invalidate()
       void columnFilter.apply()
@@ -350,29 +367,29 @@ watch(
   }
 )
 const resolveRows = <T,>(original: T[]): T[] =>
-  columnFilter.active.value ? (pageRows.value as T[]) : original
+  localFilterActive.value ? (pageRows.value as T[]) : original
 const updatePage = (page: number) => {
-  if (props.rows !== undefined || columnFilter.active.value) localPage.value = page
+  if (localRowsEnabled.value || localFilterActive.value) localPage.value = page
   emit('update:page', page)
 }
 const updateLimit = (limit: number) => {
-  if (props.rows !== undefined || columnFilter.active.value) {
+  if (localRowsEnabled.value || localFilterActive.value) {
     localLimit.value = limit
     localPage.value = 1
   }
   emit('update:limit', limit)
 }
 const handlePagination = (payload: UnifiedListPaginationPayload) => {
-  if (!columnFilter.active.value) emit('pagination', payload)
+  if (!localFilterActive.value) emit('pagination', payload)
 }
 watch(resolvedTotal, (total) => {
-  if (props.rows !== undefined || columnFilter.active.value)
+  if (localRowsEnabled.value || localFilterActive.value)
     localPage.value = Math.min(localPage.value, Math.max(1, Math.ceil(total / localLimit.value)))
 })
 watch(
   () => props.rows,
   (rows, previousRows) => {
-    if (rows !== undefined) {
+    if (!props.serverFilter && rows !== undefined) {
       localPage.value = 1
       if (previousRows === undefined) localLimit.value = props.limit
     }
@@ -563,6 +580,7 @@ const handleStandardFilterStateUpdate = (state: ListMultiFilterState) => {
 const handleStandardFilterQuery = async () => {
   if (columnFilteringEnabled.value) {
     await columnFilter.apply()
+    if (props.serverFilter) return
     localPage.value = 1
     localLimit.value = props.limit
     emit('update:page', 1)
@@ -577,6 +595,7 @@ const handleStandardFilterQuery = async () => {
 }
 
 const handleCustomFilterQuery = async () => {
+  if (props.serverFilter) return await handleStandardFilterQuery()
   if (columnFilteringEnabled.value && columnFilter.state.value.conditions.length) {
     updatePage(1)
     emit('query')
@@ -588,7 +607,8 @@ const handleCustomFilterQuery = async () => {
   await nextTick()
   emit('query')
 }
-const handleCustomFilterReset = () => {
+const handleCustomFilterReset = async () => {
+  if (props.serverFilter) return await handleStandardFilterReset()
   columnFilter.reset()
   publishedRows = undefined
   updatePage(1)
@@ -596,6 +616,14 @@ const handleCustomFilterReset = () => {
 }
 
 const handleStandardFilterReset = async () => {
+  if (props.serverFilter) {
+    // Clear the draft first; retain the last successful scope until the reset query commits.
+    columnFilter.state.value.conditions = []
+    columnFilter.state.value.activeConditionId = undefined
+    if (props.serverFilterReset) await props.serverFilterReset()
+    await handleStandardFilterQuery()
+    return
+  }
   if (columnFilteringEnabled.value) {
     columnFilter.reset()
     publishedRows = undefined
@@ -641,15 +669,19 @@ defineExpose({
     if (columnFilter.loading.value) throw new Error('筛选范围仍在加载，请完成后再导出')
     if (columnFilter.error.value) throw new Error(columnFilter.error.value)
     return {
+      mode: props.serverFilter ? 'server' : 'local',
+      listFilters: props.serverFilter ? props.queryModel.listFilters : undefined,
       active: columnFilter.active.value,
-      ids: columnFilter.active.value ? columnFilter.rows.value.map((row: any) => row.id) : [],
+      ids: localFilterActive.value ? columnFilter.rows.value.map((row: any) => row.id) : [],
       state: JSON.stringify(columnFilter.state.value)
     }
   },
   getColumnFilteredRows: () => {
     if (columnFilter.loading.value) throw new Error('筛选尚未完成，请稍后导出')
     if (columnFilter.error.value) throw new Error(columnFilter.error.value)
-    return columnFilter.active.value ? [...columnFilter.rows.value] : undefined
+    if (props.serverFilter && columnFilter.active.value)
+      throw new Error('服务端筛选导出必须携带 listFilters 查询完整结果')
+    return localFilterActive.value ? [...columnFilter.rows.value] : undefined
   },
   resetColumnFilters: () => {
     columnFilter.reset()

@@ -1179,8 +1179,9 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(latestMember);
 
-        when(deptService.getDeptList(argThat((Collection<Long> ids) -> ids != null && ids.size() == 1 && ids.contains(1L))))
-                .thenReturn(singletonList(new DeptDO().setId(1L).setLeaderUserId(deptLeader.getId())));
+        DeptDO persistedDept = new DeptDO().setId(1L).setName("选定部门").setStatus(0).setLeaderUserId(deptLeader.getId());
+        persistedDept.setTenantId(1L);
+        deptMapper.insert(persistedDept);
 
         PageResult<AdminUserDO> pageResult = userService.getUserPage(reqVO);
 
@@ -1220,12 +1221,12 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(childDeptMember);
 
-        when(deptService.getDeptList(argThat((Collection<Long> ids) ->
-                ids != null && ids.size() == 2 && ids.containsAll(Arrays.asList(1L, 2L)))))
-                .thenReturn(Arrays.asList(
-                        new DeptDO().setId(1L).setLeaderUserId(selectedDeptLeader.getId()),
-                        new DeptDO().setId(2L).setLeaderUserId(childDeptLeader.getId())
-                ));
+        DeptDO persistedDept = new DeptDO().setId(1L).setName("选定部门").setStatus(0).setLeaderUserId(selectedDeptLeader.getId());
+        persistedDept.setTenantId(1L);
+        deptMapper.insert(persistedDept);
+        DeptDO childDept = new DeptDO().setId(2L).setName("子部门").setStatus(0).setLeaderUserId(childDeptLeader.getId());
+        childDept.setTenantId(1L);
+        deptMapper.insert(childDept);
 
         PageResult<AdminUserDO> pageResult = userService.getUserPage(reqVO);
 

@@ -37,10 +37,8 @@
           @quick-filter-query="recordFormQuickFilter.applyQuickFilter"
           @column-change="saveRecordFormColumnConfig"
           @pagination="getList"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="getList"
+          server-filter
+          :server-filter-query="getList"
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
@@ -528,7 +526,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
@@ -649,6 +647,7 @@ let preserveWordImportDialogStateOnClose = false
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 20,
+  listFilters: '',
   name: '',
   productName: '',
   versionNo: normalizeRouteQueryText(route.query.versionNo),
@@ -1101,6 +1100,7 @@ const getList = async () => {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
+      listFilters: queryParams.listFilters,
       reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
@@ -1108,7 +1108,7 @@ const getList = async () => {
       formSlotType: queryParams.formSlotType || undefined,
       latestVersionOnly: queryParams.latestVersionOnly || undefined
     })
-    if (isStaleRecordFormListRequest(requestSerial)) return
+    if (isStaleRecordFormListRequest(requestSerial)) return false
     const nextList = (Array.isArray(data.list) ? data.list : []).map(toRecordFormRow)
     list.value = nextList
     total.value = Number(data.total) || 0
@@ -1126,13 +1126,15 @@ const getList = async () => {
     deferRecordFormSecondaryLoad(nextSelected, requestSerial)
     batchRecordFormListLastLoadedRouteStateKey = targetRouteStateKey
     batchRecordFormListHasLoadedRouteState.value = true
+    return true
   } catch (error) {
-    if (isStaleRecordFormListRequest(requestSerial)) return
+    if (isStaleRecordFormListRequest(requestSerial)) return false
     list.value = []
     total.value = 0
     selectedReportId.value = ''
     clearTemplatePreview()
     listErrorMessage.value = resolveErrorMessage(error, '批记录表单列表加载失败，请联系管理员检查报表目录链路。')
+    throw error
   } finally {
     if (!isStaleRecordFormListRequest(requestSerial)) {
       listLoading.value = false
@@ -2213,17 +2215,6 @@ watch(
     await getList()
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const rows = await loadAllListPages<any>((pagination) =>
-    BatchRecordReportApi.getGeneratedReportPage({
-      ...queryParams,
-      reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
-      ...pagination
-    })
-  )
-  return rows.map(toRecordFormRow)
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

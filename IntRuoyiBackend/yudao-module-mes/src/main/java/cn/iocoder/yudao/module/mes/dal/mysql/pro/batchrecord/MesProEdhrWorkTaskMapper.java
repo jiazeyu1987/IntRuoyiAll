@@ -72,13 +72,21 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterPrefix(
             MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status, long limit) {
-        if (limit < 0) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
-        long total = selectCount(approvalCenterQuery(req, actor, tenant, done, status));
+        return selectApprovalCenterWindow(req,actor,tenant,done,status,0,limit);
+    }
+
+    default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterWindow(
+            MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status, long offset, long limit) {
+        if (offset < 0 || limit < 0) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+        var countQuery=approvalCenterQuery(req,actor,tenant,done,status);
+        cn.iocoder.yudao.module.mes.approval.MesEdhrWorkTaskApprovalListFilters.apply(req.getListFilters(),done,countQuery);
+        long total = selectCount(countQuery);
         if (limit == 0 || total == 0) return new PageResult<>(List.of(), total);
         LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query = approvalCenterQuery(req, actor, tenant, done, status);
+        cn.iocoder.yudao.module.mes.approval.MesEdhrWorkTaskApprovalListFilters.apply(req.getListFilters(),done,query);
         String time = done ? "completed_at" : "create_time";
         query.last("ORDER BY " + time + " IS NULL ASC, " + time
-                + " DESC, CAST(id AS BINARY) ASC LIMIT " + limit);
+                + " DESC, CAST(id AS BINARY) ASC LIMIT " + (offset==0?Long.toString(limit):offset+","+limit));
         return new PageResult<>(selectList(query), total);
     }
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,

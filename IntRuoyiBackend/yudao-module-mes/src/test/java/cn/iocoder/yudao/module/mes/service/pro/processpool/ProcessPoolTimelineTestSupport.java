@@ -132,14 +132,14 @@ final class ProcessPoolTimelineTestSupport {
         }
 
         @Override
-        public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+        public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
             countQueryCalls++;
             lastPageQuery = reqVO;
             return (long) filter(reqVO).count();
         }
 
         @Override
-        public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+        public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
             pageQueryCalls++;
             lastPageQuery = reqVO;
             int pageNo = reqVO.getPageNo() == null ? 1 : reqVO.getPageNo();

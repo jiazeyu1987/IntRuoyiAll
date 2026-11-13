@@ -86,16 +86,14 @@ class SrmSupplierPortalApprovalTaskAdapterTest {
         LocalDateTime submittedAt = LocalDateTime.of(2026, 6, 24, 9, 30);
         SrmSupplierPortalApplicationDO application = buildApplication(7000L,
                 SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), submittedAt);
-        when(supplierPortalApplicationMapper.selectUnifiedApprovalList(1L,
-                SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), 100L, null, null))
-                .thenReturn(List.of(application));
+        stubTodoPage(100L, null, application);
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.SRM, null, 1, 10));
 
         assertEquals(1L, page.getTotal());
         verify(supplierPortalApplicationMapper)
-                .selectUnifiedApprovalList(1L, SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(),
+                .unifiedApprovalQuery(1L, List.of(SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus()),
                         100L, null, null);
     }
 
@@ -104,9 +102,7 @@ class SrmSupplierPortalApprovalTaskAdapterTest {
         LocalDateTime submittedAt = LocalDateTime.of(2026, 6, 24, 9, 30);
         SrmSupplierPortalApplicationDO application = buildApplication(7001L,
                 SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), submittedAt);
-        when(supplierPortalApplicationMapper.selectUnifiedApprovalList(1L,
-                SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), 100L, null, "瑛泰"))
-                .thenReturn(List.of(application));
+        stubTodoPage(100L, "瑛泰", application);
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.SRM, "瑛泰", 1, 10));
@@ -137,9 +133,7 @@ class SrmSupplierPortalApprovalTaskAdapterTest {
         LocalDateTime submittedAt = LocalDateTime.of(2026, 6, 24, 9, 30);
         SrmSupplierPortalApplicationDO application = buildApplication(7003L,
                 SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), submittedAt);
-        when(supplierPortalApplicationMapper.selectUnifiedApprovalList(1L,
-                SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(), null, null, null))
-                .thenReturn(List.of(application));
+        stubTodoPage(null, null, application);
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.SRM, null, 1, 10, true));
@@ -192,6 +186,36 @@ class SrmSupplierPortalApprovalTaskAdapterTest {
                 999L, ApprovalModuleCode.SRM, "SRM_SUPPLIER_PORTAL_APPLICATION", "7002", "7002", null, true));
 
         assertEquals(2, timeline.size());
+    }
+
+    private void stubTodoPage(Long user, String keyword, SrmSupplierPortalApplicationDO application) {
+        var query = new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<SrmSupplierPortalApplicationDO>();
+        when(supplierPortalApplicationMapper.unifiedApprovalQuery(1L,
+                List.of(SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus()), user, null, keyword)).thenReturn(query);
+        when(supplierPortalApplicationMapper.selectCount(query)).thenReturn(1L);
+        when(supplierPortalApplicationMapper.selectList(query)).thenReturn(List.of(application));
+    }
+
+    @Test
+    void filtersReachCountBeforeTheRequestedWindowIsAdded() {
+        var query = new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<SrmSupplierPortalApplicationDO>();
+        when(supplierPortalApplicationMapper.unifiedApprovalQuery(1L,
+                List.of(SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus()), 100L, null, null)).thenReturn(query);
+        when(supplierPortalApplicationMapper.selectCount(query)).thenAnswer(invocation -> {
+            String sql = query.getSqlSegment();
+            assertTrue(sql.contains("company_name"));
+            assertFalse(sql.contains("LIMIT"));
+            assertTrue(query.getParamNameValuePairs().containsValue("%企业%"));
+            return 21L;
+        });
+        when(supplierPortalApplicationMapper.selectList(query)).thenAnswer(invocation -> {
+            assertTrue(query.getSqlSegment().contains("LIMIT 10 OFFSET 10"));
+            return List.of();
+        });
+        var context = ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO,
+                ApprovalModuleCode.SRM, null, 2, 10)
+                .setListFilters("[{\"key\":\"businessSummary\",\"operator\":\"contains\",\"value\":\"企业\"}]");
+        assertEquals(21L, adapter.page(context).getTotal());
     }
 
     private static SrmSupplierPortalApplicationDO buildApplication(Long id, String status, LocalDateTime submittedAt) {

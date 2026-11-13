@@ -179,6 +179,22 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         return List.copyOf(allowed);
     }
 
+    @Override
+    public EditorScope editorScope(Long userId) {
+        var user=userId==null?null:adminUserApi.getUser(userId);
+        if(!DccAccessUserIdentity.isEnabledTenantUser(userId,user))return new EditorScope(false,Set.of(),false,false);
+        if(isProjectAdministrator(userId))return new EditorScope(true,Set.of(),true,true);
+        Long tenant=cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        Set<Long> roleIds=permissionApi.getUserRoleIdListByUserId(userId),deptIds=collectDeptIds(user.getDeptId());
+        Set<Long> ids=accessRuleMapper.selectActiveReaderRules(tenant,LocalDateTime.now()).stream()
+                .filter(rule->java.util.Objects.equals(tenant,rule.getTenantId()))
+                .filter(rule->"EDIT".equalsIgnoreCase(rule.getAccessLevel()) || "OWNER".equalsIgnoreCase(rule.getAccessLevel()))
+                .filter(rule->matches(rule,userId,user,roleIds,deptIds))
+                .map(DccProjectAccessRuleDO::getDccProjectCodeId).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        return new EditorScope(false,ids,permissionApi.hasAnyPermissions(userId,"dcc:library:qms:edit"),permissionApi.hasAnyPermissions(userId,"dcc:library:general:edit"));
+    }
+
     private boolean withinAssignedProjectScope(Long userId, Long projectId, Long tenant) {
         List<Long> hardScope = assignedProjectScope(userId, tenant);
         return hardScope == null || hardScope.contains(projectId);

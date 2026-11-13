@@ -60,11 +60,13 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
     @Override
     public PageResult<ProcessPoolTimelineEventRespVO> getTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
         prepareSubmitDateWindow(reqVO);
-        Long total = timelineReadMapper.selectTimelineCount(reqVO);
+        var filters = cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(reqVO,
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesSubmissionListFilters.FIELDS);
+        Long total = timelineReadMapper.selectTimelineCount(reqVO, filters);
         if (total == null || total == 0L) {
             return new PageResult<>(Collections.emptyList(), 0L);
         }
-        List<ProcessPoolTimelineEventRespVO> list = timelineReadMapper.selectTimelinePage(reqVO).stream()
+        List<ProcessPoolTimelineEventRespVO> list = timelineReadMapper.selectTimelinePage(reqVO, filters).stream()
                 .map(this::toEventRespVO)
                 .toList();
         list = enrichPqcSubmissionGroupRows(reqVO, list);

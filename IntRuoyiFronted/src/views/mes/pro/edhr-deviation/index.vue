@@ -17,10 +17,8 @@
       @update:quick-filter-state="quickFilter.updateState"
       @quick-filter-query="quickFilter.applyQuickFilter"
       @sort-change="handleSortChange"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="rows = $event"
-      :list-rows="rows"
-      @column-filter-reset="load"
+      server-filter
+      :server-filter-query="load"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -71,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { createDeviation, getDeviationBatchOptions, getDeviationPage, type DeviationBatchOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
@@ -108,7 +106,7 @@ onBeforeUnmount(resetBatchNcrContext)
 const total = ref(0)
 const detailVisible = ref(false)
 const detailId = ref<number>()
-const query = reactive({ pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
+const query = reactive({ listFilters: undefined as string | undefined, pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
 const formatTime = (value?: string | number | null) => {
   if (value == null || value === '') return '--'
   const formatted = dayjs(value)
@@ -267,18 +265,6 @@ const applyHistoryEntry = () => {
 }
 watch(() => route.query.deviationId, applyHistoryEntry)
 onMounted(() => { applyHistoryEntry(); void load() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    ...query,
-    initiatedAtStart: query.initiatedAt?.[0],
-    initiatedAtEnd: query.initiatedAt?.[1]
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getDeviationPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

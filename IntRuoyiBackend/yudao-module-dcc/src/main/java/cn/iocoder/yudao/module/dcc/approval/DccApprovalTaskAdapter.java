@@ -147,39 +147,22 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     @Override
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        List<ApprovalTaskSummary> nativeTasks = new ArrayList<>(projectApplications.list(context));
-        nativeTasks.addAll(offlineTraining.list(context));
-        if (context.getViewType() == ApprovalTaskViewType.TODO
-                && cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).limit() == 0) {
-            var files = centerQuery.todo(context, "DCC_TASK");
-            return new PageResult<>(List.of(), Math.addExact(files.getTotal(), nativeTasks.size()));
-        }
-        if (nativeTasks.isEmpty()) {
-            return switch (context.getViewType()) {
-                case TODO -> pageTodo(context);
-                case DONE -> pageDone(context);
-                default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: " + context.getViewType());
-            };
-        }
-        ApprovalTaskQueryContext fullContext = ApprovalTaskQueryContext.of(context.getLoginUserId(), context.getViewType(),
-                context.getModuleCode(), context.getKeyword(), 1, Integer.MAX_VALUE, context.isGlobalView());
-        PageResult<ApprovalTaskSummary> files = switch (context.getViewType()) {
-            case TODO -> pageTodo(fullContext);
-            case DONE -> pageDone(fullContext);
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: DCC does not support "
-                    + context.getViewType());
+        var window=cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        long head=Math.addExact(window.offset(),window.limit());
+        var headContext=context.withWindow(new cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow(0,window.limit()==0?0:head));
+        PageResult<ApprovalTaskSummary> projects=projectApplications.page(headContext);
+        PageResult<ApprovalTaskSummary> training=offlineTraining.page(headContext);
+        PageResult<ApprovalTaskSummary> files=switch(context.getViewType()) {
+            case TODO -> pageTodo(headContext);
+            case DONE -> pageDone(headContext);
+            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: "+context.getViewType());
         };
-        List<ApprovalTaskSummary> combined = new ArrayList<>(files.getList());
-        if (files.getTotal() != files.getList().size()) {
-            throw new IllegalStateException("APPROVAL_ADAPTER_SOURCE_PAGE_INCONSISTENT: incomplete DCC merge source");
-        }
-        combined.addAll(nativeTasks);
-        combined = new ArrayList<>(cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl
-                .sortRows(combined, context.getViewType()));
-        VisibleWindow window = visibleWindow(context);
-        int from = (int) Math.min(window.fromIndex(), combined.size());
-        int to = (int) Math.min(window.toIndex(), combined.size());
-        return new PageResult<>(combined.subList(from, to), (long) combined.size());
+        long total=Math.addExact(files.getTotal(),Math.addExact(projects.getTotal(),training.getTotal()));
+        List<ApprovalTaskSummary> combined=new ArrayList<>(files.getList());
+        combined.addAll(projects.getList());combined.addAll(training.getList());
+        var ordered=cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(combined,context.getViewType());
+        int from=(int)Math.min(window.offset(),ordered.size()),to=(int)Math.min(head,ordered.size());
+        return new PageResult<>(ordered.subList(from,to),total);
     }
 
     @Override
@@ -268,7 +251,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        var page=centerQuery.todo(context,"DCC_TASK");
+        var page=centerQuery.todo(context,"DCC_TASK",DccApprovalListFilterSql.flowable(false));
         if (page.getList().isEmpty()) {
             return new PageResult<>(List.of(), page.getTotal());
         }
@@ -278,7 +261,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         return new PageResult<>(rows,page.getTotal());
     }
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
-        var page=centerQuery.done(context,"DCC_TASK");
+        var page=centerQuery.done(context,"DCC_TASK",DccApprovalListFilterSql.flowable(true));
         if (page.getList().isEmpty()) {
             return new PageResult<>(List.of(), page.getTotal());
         }

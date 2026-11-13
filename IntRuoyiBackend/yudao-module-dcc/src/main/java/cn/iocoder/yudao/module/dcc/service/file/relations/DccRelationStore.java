@@ -98,9 +98,41 @@ public class DccRelationStore {
                         rs.getLong("selected_controlled_file_id"), rs.getLong("created_by")),
                 tenantId, projectId, folderId);
     }
+    public List<Reference> referencesByIds(Long tenantId, Long projectId, Long folderId, List<Long> ids) {
+        if (ids.isEmpty() || ids.size() > 200) throw new DccRelationInputFailure("DCC_REFERENCE_SELECTION_REQUIRED");
+        var args = new java.util.ArrayList<Object>(); args.add(tenantId);args.add(projectId);args.add(folderId);args.addAll(ids);
+        return jdbc.query("SELECT * FROM dcc_project_file_reference WHERE tenant_id=? AND project_id=? AND folder_id=? AND id IN ("
+                + String.join(",", java.util.Collections.nCopies(ids.size(), "?")) + ") ORDER BY id",
+                (rs,n) -> new Reference(rs.getLong("id"),rs.getLong("project_id"),rs.getLong("folder_id"),rs.getLong("master_id"),
+                        rs.getLong("selected_controlled_file_id"),rs.getLong("created_by")), args.toArray());
+    }
+    public void assertReferenceContextIdentity(Long tenant, Long projectId, Long folderId) {
+        Long invalid=jdbc.queryForObject("""
+            SELECT COUNT(*) FROM dcc_project_file_reference r
+            LEFT JOIN dcc_controlled_file f ON f.id=r.selected_controlled_file_id AND f.master_id=r.master_id AND f.tenant_id=r.tenant_id AND f.deleted=0
+            LEFT JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id AND m.dcc_project_code_id=f.dcc_project_code_id AND m.deleted=0
+            LEFT JOIN dcc_project_code p ON p.id=f.dcc_project_code_id AND p.tenant_id=f.tenant_id AND p.deleted=0
+            WHERE r.tenant_id=? AND r.project_id=? AND r.folder_id=? AND (f.id IS NULL OR m.id IS NULL OR p.id IS NULL)
+            """,Long.class,tenant,projectId,folderId);
+        if (invalid==null || invalid!=0) throw new DccRelationFailure("DCC_REFERENCE_IDENTITY_MISMATCH");
+    }
     public long referenceProjectCount(Long tenantId, Long masterId, Long selectedFileId) {
         return jdbc.queryForObject("SELECT COUNT(DISTINCT project_id) FROM dcc_project_file_reference "
                 + "WHERE tenant_id=? AND master_id=? AND selected_controlled_file_id=?", Long.class, tenantId, masterId, selectedFileId);
+    }
+    /** Aggregate the bounded page's exact-version counts in one query. Identity is checked by the caller. */
+    public java.util.Map<Long, Long> referenceProjectCounts(Long tenant, List<Long> selectedFileIds) {
+        if (selectedFileIds.isEmpty() || selectedFileIds.size() > 200)
+            throw new DccRelationInputFailure("DCC_REFERENCE_USAGE_QUERY_INVALID");
+        var parameters = new java.util.ArrayList<Object>();
+        parameters.add(tenant); parameters.addAll(selectedFileIds);
+        String placeholders = String.join(",", java.util.Collections.nCopies(selectedFileIds.size(), "?"));
+        var result = new java.util.LinkedHashMap<Long, Long>();
+        jdbc.query("SELECT selected_controlled_file_id,COUNT(DISTINCT project_id) AS project_count FROM dcc_project_file_reference WHERE tenant_id=? AND selected_controlled_file_id IN ("
+                + placeholders + ") GROUP BY selected_controlled_file_id", rs -> {
+                    result.put(rs.getLong("selected_controlled_file_id"), rs.getLong("project_count"));
+                }, parameters.toArray());
+        return result;
     }
     private static final String USAGE_SCOPE=" WHERE r.tenant_id=? AND r.master_id=? AND r.selected_controlled_file_id=? AND r.project_id IN (%s) "
             + "AND EXISTS (SELECT 1 FROM dcc_project_code readable WHERE readable.id=r.project_id AND readable.tenant_id=r.tenant_id AND readable.deleted=0 AND readable.status='ENABLE') ";

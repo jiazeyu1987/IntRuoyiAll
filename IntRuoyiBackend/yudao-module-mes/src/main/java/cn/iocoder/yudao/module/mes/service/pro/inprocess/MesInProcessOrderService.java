@@ -4,6 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterValueUtils;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.inprocess.vo.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -35,43 +37,116 @@ public class MesInProcessOrderService {
     private final MesProcessPoolTeamDeviceMapper devices;
     private final MesPqcProcessInspectionAggregateDetailMapper inspections;
 
+    static final int LIVE_WINDOW_SIZE = 100;
+    private static final Map<String, ListFilterValueUtils.Field<MesInProcessOrderRespVO>> LIVE_FIELDS = Map.of(
+            "productionProgressPercent", ListFilterValueUtils.number(MesInProcessOrderRespVO::getProductionProgressPercent),
+            "inspectionProgressPercent", ListFilterValueUtils.number(MesInProcessOrderRespVO::getInspectionProgressPercent),
+            "routeName", ListFilterValueUtils.text(MesInProcessOrderRespVO::getRouteName),
+            "status", ListFilterValueUtils.text(MesInProcessOrderService::statusLabel),
+            "readBlocked", ListFilterValueUtils.bool(MesInProcessOrderRespVO::getReadBlocked));
+
     @Transactional(readOnly = true)
     public PageResult<MesInProcessOrderRespVO> page(MesInProcessOrderPageReqVO request) {
+        if (request == null || request.getPageNo() == null || request.getPageNo() < 1
+                || request.getPageSize() == null || request.getPageSize() < 1 || request.getPageSize() > 200) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("在制工单仅支持1至200条分页查询");
+        }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        var candidates = mapper.selectCandidates(tenantId, request);
-        for (var order : candidates) {
+        var split = ListFilterValueUtils.split(request.getListFilters(), MesInProcessOrderMapper.STATIC_FIELDS.keySet(), LIVE_FIELDS);
+        var staticRequest = new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        staticRequest.setListFilters(split.staticFilters());
+        var filters = ListFilterQueryUtils.wrapper(staticRequest, MesInProcessOrderMapper.STATIC_FIELDS);
+        long offset = ((long) request.getPageNo() - 1) * request.getPageSize();
+        boolean equipmentFilter = StrUtil.isNotBlank(request.getEquipment());
+        if (!split.hasDynamicFilters() && !equipmentFilter) {
+            long total = mapper.countCandidates(tenantId, request, filters);
+            if (total <= offset) return new PageResult<>(List.of(), total);
+            var candidates = mapper.selectCandidates(tenantId, request, filters, null, null, offset, request.getPageSize());
+            requireTenant(candidates, tenantId);
+            return new PageResult<>(project(candidates), total);
+        }
+        // Live facts remain authoritative. SQL only supplies a fixed keyset window; retain a count and this page.
+        Set<Long> matchingDeviceIds = equipmentFilter ? matchingDeviceIds(request.getEquipment().trim(), tenantId) : Set.of();
+        List<MesInProcessOrderRespVO> page = new ArrayList<>(request.getPageSize());
+        long exactTotal = 0;
+        java.time.LocalDateTime cursorJoinedAt = null;
+        Long cursorId = null;
+        while (true) {
+            var candidates = mapper.selectCandidates(tenantId, request, filters, cursorJoinedAt, cursorId, 0L, LIVE_WINDOW_SIZE);
+            requireTenant(candidates, tenantId);
+            if (candidates.isEmpty()) break;
+            var last = candidates.get(candidates.size() - 1);
+            if (Objects.equals(cursorId, last.getId())) throw new IllegalStateException("在制工单分页游标未前进");
+            cursorJoinedAt = last.getJoinedAt();
+            cursorId = Objects.requireNonNull(last.getId(), "在制工单身份缺失");
+            var matched = equipmentFilter ? matchEquipment(candidates, request.getEquipment().trim(), tenantId, matchingDeviceIds) : null;
+            var eligible = matched == null ? candidates : candidates.stream().filter(row -> matched.contains(row.getId())).toList();
+            if (split.hasDynamicFilters()) {
+                for (var row : project(eligible)) {
+                    if (!split.matches(row)) continue;
+                    if (exactTotal >= offset && page.size() < request.getPageSize()) page.add(row);
+                    exactTotal++;
+                }
+            } else {
+                List<MesProcessPoolActiveOrderDO> selected = new ArrayList<>();
+                for (var order : eligible) {
+                    if (exactTotal >= offset && page.size() + selected.size() < request.getPageSize()) selected.add(order);
+                    exactTotal++;
+                }
+                page.addAll(project(selected));
+            }
+            if (candidates.size() < LIVE_WINDOW_SIZE) break;
+        }
+        return new PageResult<>(page, exactTotal);
+    }
+
+    private static void requireTenant(List<MesProcessPoolActiveOrderDO> orders, Long tenantId) {
+        for (var order : orders) {
             if (!Objects.equals(tenantId, order.getTenantId())) throw new IllegalStateException("在制工单租户归属不一致");
         }
-        if (StrUtil.isNotBlank(request.getEquipment()) && !candidates.isEmpty()) {
-            Set<Long> matched = matchEquipment(candidates, request.getEquipment().trim(), tenantId);
-            candidates = candidates.stream().filter(order -> matched.contains(order.getId())).toList();
-        }
-        long total = candidates.size();
-        int start = (int) Math.min(((long) request.getPageNo() - 1) * request.getPageSize(), total);
-        int end = (int) Math.min((long) start + request.getPageSize(), total);
-        if (start == end) return new PageResult<>(List.of(), total);
-        var page = candidates.subList(start, end);
+    }
+
+    private List<MesInProcessOrderRespVO> project(List<MesProcessPoolActiveOrderDO> page) {
+        if (page.isEmpty()) return List.of();
         var leaders = users.getUserMap(page.stream().map(MesProcessPoolActiveOrderDO::getLeaderUserId).distinct().toList());
-        var rows = activeOrders.projectActiveOrders(page).stream().map(row -> {
+        var projected = activeOrders.projectActiveOrders(page);
+        if (projected.size() != page.size()) throw new IllegalStateException("在制工单实时投影数量不一致");
+        return projected.stream().map(row -> {
             var result = BeanUtils.toBean(row, MesInProcessOrderRespVO.class);
             var leader = leaders.get(row.getLeaderUserId());
             if (leader == null) throw new IllegalStateException("在制工单生产组长不存在：" + row.getLeaderUserId());
             result.setLeaderName(leader.getNickname());
             return result;
         }).toList();
-        return new PageResult<>(rows, total);
     }
 
-    private Set<Long> matchEquipment(List<MesProcessPoolActiveOrderDO> orders, String keyword, Long tenantId) {
+    static String statusLabel(MesInProcessOrderRespVO row) {
+        if (Boolean.TRUE.equals(row.getReadBlocked())) return "数据异常";
+        String release = row.getReleaseApplicationStatus();
+        if ("NONCONFORMANCE_VOID".equals(release)) return "QA已作废";
+        if ("NONCONFORMANCE_REWORK".equals(release)) return "已结束并转入返工";
+        if ("VERSION_UPGRADE_PENDING".equals(row.getBusinessStatus())) return "升版审批中";
+        if (Boolean.TRUE.equals(row.getAbnormal())) return "异常处理中";
+        if (StrUtil.isNotEmpty(release)) return switch (release) {
+            case "PQC_RELEASE_PENDING" -> "待PQC放行";
+            case "PQC_RELEASE_REJECTED" -> "PQC放行已驳回";
+            case "REPORT_UPLOAD_PENDING" -> "待补放行资料";
+            case "MANAGER_RELEASE_PENDING" -> "待上市放行";
+            case "MARKET_RELEASE_REJECTED" -> "上市放行已驳回";
+            case "MARKET_RELEASE_WITHDRAWN" -> "上市放行已撤回";
+            case "RELEASED" -> "已上市放行";
+            default -> "未知放行状态：" + release;
+        };
+        return "COMPLETED".equals(row.getBusinessStatus()) ? "已完工待放行" : "在制";
+    }
+
+    private Set<Long> matchEquipment(List<MesProcessPoolActiveOrderDO> orders, String keyword, Long tenantId, Set<Long> matchingDeviceIds) {
+        if (orders.isEmpty()) return Set.of();
         var byId = orders.stream().collect(Collectors.toMap(MesProcessPoolActiveOrderDO::getId, order -> order));
         var allocationRows = allocations.selectListByActiveOrderIds(byId.keySet());
         var eventIds = allocationRows.stream().map(MesProcessPoolReportAllocationDO::getEventId).distinct().toList();
         Map<Long, MesProProcessPoolEventDO> eventMap = eventIds.isEmpty() ? Map.of() : events.selectBatchIds(eventIds)
                 .stream().collect(Collectors.toMap(MesProProcessPoolEventDO::getId, event -> event));
-        Set<Long> matchingDeviceIds = devices.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamDeviceDO>()
-                .eq(MesProcessPoolTeamDeviceDO::getTenantId, tenantId)).stream()
-                .filter(device -> contains(device.getDeviceCode(), keyword) || contains(device.getDeviceName(), keyword))
-                .map(MesProcessPoolTeamDeviceDO::getId).collect(Collectors.toSet());
         Set<Long> matched = new HashSet<>();
         for (var allocation : allocationRows) {
             var order = byId.get(allocation.getActiveOrderId());
@@ -95,6 +170,15 @@ public class MesInProcessOrderService {
                 matched.add(order.getId());
         }
         return matched;
+    }
+
+    private Set<Long> matchingDeviceIds(String keyword, Long tenantId) {
+        return devices.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamDeviceDO>()
+                .eq(MesProcessPoolTeamDeviceDO::getTenantId, tenantId)
+                .and(query -> query.apply("LOCATE(LOWER({0}),LOWER(device_code))>0", keyword)
+                        .or().apply("LOCATE(LOWER({0}),LOWER(device_name))>0", keyword))).stream()
+                .filter(device -> contains(device.getDeviceCode(), keyword) || contains(device.getDeviceName(), keyword))
+                .map(MesProcessPoolTeamDeviceDO::getId).collect(Collectors.toSet());
     }
 
     static boolean productionMatches(String payload, String keyword, Set<Long> matchingDeviceIds) {

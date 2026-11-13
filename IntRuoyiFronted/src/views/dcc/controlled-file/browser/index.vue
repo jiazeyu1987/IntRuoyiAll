@@ -114,10 +114,8 @@
           @column-change="saveDccBrowserColumnConfig"
           @column-reset="resetDccBrowserColumnConfig"
           @pagination="handlePagination"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="handlePagination"
+          server-filter
+          :server-filter-query="getList"
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
@@ -1037,7 +1035,7 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import CheckinAttachmentsPanel from './CheckinAttachmentsPanel.vue'
@@ -1409,6 +1407,7 @@ const queryParams = reactive({
   keyword: undefined as string | undefined,
   recognitionStatus: undefined as string | undefined,
   batchRecognitionTaskId: undefined as number | undefined,
+  listFilters: '',
   quickFilter: undefined as any
 })
 const batchRecognitionForm = reactive({
@@ -3021,7 +3020,7 @@ const getList = async () => {
   try {
     const data = await (browserMode.value === 'working'
       ? getControlledFileWorkingBrowserPage(requestParams) : getControlledFileBrowserPage(requestParams))
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const loadedRows = data.list.map((item) => ({
       ...item,
       selectedVersionId: resolveInitialSelectedVersionId(item, requestWorkingQuery)
@@ -3030,7 +3029,7 @@ const getList = async () => {
       String(row.selectedVersionId) === requestWorkingQuery.workingFileId)) {
       throw new Error('当前授权目录列表未找到所选文件版本，请核对目录、文件权限和列表筛选后重新进入。')
     }
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     list.value = loadedRows
     total.value = data.total
     markBrowserListLoadedForState(requestRouteStateKey)
@@ -3074,12 +3073,12 @@ const loadDirectories = async () => {
         persistBrowserMetadataCache()
       }
     }
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const rootDirectories = (await getDirectoryTree()).map(toDirectoryNode)
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     applyDirectoryTree(rootDirectories)
     await openRememberedDirectoryInTree()
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     persistBrowserMetadataCache()
     browserDirectoriesLoaded = true
   } catch (error) {
@@ -3265,6 +3264,7 @@ const buildBrowserRequestParams = (includeWorkingScope = false): ControlledFileP
     recognitionStatus: queryParams.recognitionStatus,
     batchRecognitionTaskId: queryParams.batchRecognitionTaskId,
     quickFilter: queryParams.quickFilter,
+    listFilters: queryParams.listFilters,
     latestVersionOnly: true
   }
   if (isCurrentDirectorySearch.value) {
@@ -3881,18 +3881,6 @@ onBeforeUnmount(() => {
   checkinDrawingPdfRequestSequence++
   stopBatchRecognitionPolling()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = buildBrowserRequestParams(true)
-  const workingQuery = workingBrowserIdentityQuery(route.query)
-  const rows = await loadAllListPages<any>((pagination) =>
-    getControlledFileBrowserPage({ ...params, ...pagination })
-  )
-  return rows.map((item) => ({
-    ...item,
-    selectedVersionId: resolveInitialSelectedVersionId(item, workingQuery)
-  }))
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

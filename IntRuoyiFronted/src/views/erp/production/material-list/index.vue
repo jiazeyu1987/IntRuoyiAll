@@ -19,10 +19,9 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -263,10 +262,11 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
 
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
@@ -394,7 +394,8 @@ defineOptions({ name: 'ErpProductionMaterialList' })
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const detailLoading = ref(false)
 const list = ref<ErpProductionMaterialListGroupVO[]>([])
 const detailList = ref<ErpProductionMaterialListDetailVO[]>([])
@@ -405,6 +406,7 @@ const detailDialogTitle = computed(() =>
   currentSourceBillNo.value ? `单据明细 - ${currentSourceBillNo.value}` : '单据明细'
 )
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -421,16 +423,13 @@ const applyRouteQuery = () => {
 }
 
 /** 查询列表 */
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await ErpProductionMaterialListApi.getGroupPage(queryParams)
+const getList = () => listRequest.run(
+  () => ErpProductionMaterialListApi.getGroupPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 const handleOpenWorkOrder = async (row: ErpProductionMaterialListDetailVO) => {
   if (!row.workOrderId) {
@@ -472,7 +471,6 @@ const openDetailDialog = async (row: ErpProductionMaterialListGroupVO) => {
 /** 搜索按钮操作 */
 
 /** 重置按钮操作 */
-
 
 watch(detailDialogVisible, (visible) => {
   if (visible) {
@@ -577,14 +575,6 @@ onMounted(() => {
   applyRouteQuery()
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpProductionMaterialListApi.getGroupPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

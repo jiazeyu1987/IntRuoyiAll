@@ -61,7 +61,7 @@ import DccFileSelector from './DccFileSelector.vue'
 import type { SelectorSource, DirectoryNode } from './DccFileSelector.vue'
 import type { FileCandidate, SelectorPage, SelectorQuery } from './selector-state'
 import type { ReferenceRow } from './project-reference-contract'
-const props = defineProps<{ embeddedToolbar?: boolean; contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
+const props = defineProps<{ pageRows?: ReferenceRow[]; embeddedToolbar?: boolean; contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
   openReferencePreview?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   openReferenceTrace?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   createReferences: (projectId: string, folderId: string, selectedFileIds: string[], reason: string) => Promise<ReferenceRow[]>; loadReferences: (projectId: string, folderId: string) => Promise<ReferenceRow[]>; cancelReference: (projectId: string, folderId: string, masterId: string, referenceId: string, reason: string) => Promise<number> }>()
@@ -104,7 +104,7 @@ const createSelected=async (selected: FileCandidate[]) => {
     if(context!==props.contextKey || token!==generation)throw new Error('引用结果所属上下文已变化，请在原目录核对保存结果')
     const result=new Map(rows.value.map(row=>[row.reference.id,row]))
     created.forEach(row=>result.set(row.reference.id,row));rows.value=Array.from(result.values())
-    created.forEach(row=>emit('changed',row.referenceProjectCount,row.reference.masterId))
+    if (created.length) emit('changed',created[created.length-1].referenceProjectCount,created[created.length-1].reference.masterId)
   } catch (cause) {
     if (token === generation && (cause as { referenceSaved?: unknown })?.referenceSaved === true) {
       selectorVisible.value = false; savedReadFailure.value = true
@@ -121,7 +121,7 @@ const load = async () => {
   loading.value = true; error.value = ''; rows.value = []
   selectedReference.value = undefined
   pending.value = undefined; confirmVisible.value = false; reason.value = ''; readSequence++; readingReferenceId.value = ''
-  try { const result = await props.loadReferences(project, folder); if (token === generation) { rows.value = result; savedReadFailure.value = false } }
+  try { const result = props.pageRows !== undefined ? props.pageRows : await props.loadReferences(project, folder); if (token === generation) { rows.value = result; savedReadFailure.value = false } }
   catch (e) { if (token === generation) error.value = savedReadFailure.value ? `引用已保存，但引用列表读取失败：${String(e)}` : String(e) }
   finally { if (token === generation) loading.value = false }
 }
@@ -147,6 +147,7 @@ const cancelConfirmed = async () => {
   finally { if (token === generation) busy.value = false }
 }
 watch(() => props.contextKey, () => { generation++; readSequence++; savedReadFailure.value = false; readingReferenceId.value = ''; busy.value = false; confirmVisible.value = false; selectorVisible.value=false; pending.value = undefined; selectedReference.value = undefined; referenceReason.value=''; void load() }, { immediate: true })
+watch(() => props.pageRows, value => { if (value !== undefined) { generation++; readSequence++; rows.value=value; selectedReference.value=undefined; readingReferenceId.value=''; savedReadFailure.value=false; busy.value=false; pending.value=undefined; confirmVisible.value=false } })
 watch(() => props.isProjectLeader, () => { selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; selectorVisible.value = false })
 watch(() => props.selectionContextKey, () => {
   readSequence++; readingReferenceId.value = ''; selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; reason.value = ''

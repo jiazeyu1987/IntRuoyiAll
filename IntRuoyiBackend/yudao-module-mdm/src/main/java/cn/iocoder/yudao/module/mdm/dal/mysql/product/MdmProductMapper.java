@@ -7,6 +7,9 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mdm.controller.admin.product.vo.MdmProductPageReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.product.MdmProductDO;
 import org.apache.ibatis.annotations.Mapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 
 import java.util.Collection;
 import java.util.List;
@@ -29,7 +32,15 @@ public interface MdmProductMapper extends BaseMapperX<MdmProductDO> {
                     .or().like(MdmProductDO::getNameEn, keyword)
                     .or().like(MdmProductDO::getModelSpecification, keyword));
         }
-        return selectPage(reqVO, wrapper);
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, wrapper, Map.ofEntries(
+                Map.entry("productCode", text("product_code")),
+                Map.entry("nameCn", text("name_cn")),
+                Map.entry("nameEn", text("name_en")),
+                Map.entry("modelSpecification", text("model_specification")),
+                Map.entry("category", text("category")),
+                Map.entry("status", text("CASE WHEN status = 'ENABLE' THEN '启用' ELSE '停用' END")),
+                Map.entry("updateTime", dateTime("update_time"))
+        )));
     }
 
     default MdmProductDO selectByProductCode(String productCode) {

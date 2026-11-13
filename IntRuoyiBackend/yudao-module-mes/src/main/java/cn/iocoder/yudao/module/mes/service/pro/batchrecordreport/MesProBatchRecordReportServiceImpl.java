@@ -1831,57 +1831,45 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .toList();
     }
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProGeneratedReportQueryMapper generatedReportQueryMapper;
+
     @Override
     public List<String> getProductNameOptions(String keyword, Boolean latestVersionOnly) {
-        BatchRecordReportPageReqVO optionsReqVO = new BatchRecordReportPageReqVO();
-        optionsReqVO.setProductName(keyword);
-        optionsReqVO.setLatestVersionOnly(Boolean.TRUE.equals(latestVersionOnly));
-        return getGeneratedReportList(optionsReqVO).stream()
-                .map(MesProBatchRecordReportView::productName)
-                .filter(StrUtil::isNotBlank)
-                .map(StrUtil::trim)
-                .distinct()
-                .sorted()
-                .toList();
+        BatchRecordReportPageReqVO req = new BatchRecordReportPageReqVO();
+        req.setProductName(keyword);
+        req.setLatestVersionOnly(Boolean.TRUE.equals(latestVersionOnly));
+        var base = generatedReportQueryMapper.baseFilters(req);
+        validateGeneratedReportVersions(req, base);
+        return generatedReportQueryMapper.selectProductNames(TenantContextHolder.getRequiredTenantId(),
+                Boolean.TRUE.equals(latestVersionOnly), base, generatedReportQueryMapper.productFilters(req),
+                generatedReportQueryMapper.columnFilters(req));
     }
 
     @Override
-    public PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO pageReqVO) {
-        List<MesProBatchRecordReportView> allReports = getGeneratedReportList(pageReqVO);
-        int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
-        int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
-        List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
-                ? List.of()
-                : allReports.subList(fromIndex, toIndex);
-        return new PageResult<>(pageList, (long) allReports.size());
+    public PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO req) {
+        var base = generatedReportQueryMapper.baseFilters(req);
+        validateGeneratedReportVersions(req, base);
+        var product = generatedReportQueryMapper.productFilters(req);
+        var columns = generatedReportQueryMapper.columnFilters(req);
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        boolean latest = Boolean.TRUE.equals(req.getLatestVersionOnly());
+        long total = generatedReportQueryMapper.countRows(tenantId, latest, base, product, columns);
+        if (total == 0) return new PageResult<>(List.of(), 0L);
+        var rows = generatedReportQueryMapper.selectPageRows(tenantId, latest, base, product, columns,
+                (long) (req.getPageNo() - 1) * req.getPageSize(), req.getPageSize());
+        return new PageResult<>(rows.stream().map(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProGeneratedReportQueryMapper.Row::toView).toList(), total);
     }
 
-    private List<MesProBatchRecordReportView> getGeneratedReportList(BatchRecordReportPageReqVO pageReqVO) {
-        List<MesProBatchRecordReportView> baseReports = reportMapper.selectList()
-                .stream()
-                .map(this::toVisibleReportView)
-                .filter(Objects::nonNull)
-                .filter(report -> filterByReportId(report, pageReqVO.getReportId()))
-                .filter(report -> filterByRouteKey(report, pageReqVO.getRouteKey()))
-                .filter(report -> filterByBatchRecordName(report, pageReqVO.getBatchRecordName()))
-                .filter(report -> filterByFormSlotType(report, pageReqVO.getFormSlotType()))
-                .filter(report -> filterByName(report, pageReqVO.getName()))
-                .sorted(Comparator.comparing(MesProBatchRecordReportView::lastImportTime,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(MesProBatchRecordReportView::sourceTableIndex))
-                .toList();
-        List<MesProBatchRecordReportView> latestScopedReports = Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())
-                ? filterLatestBatchRecordVersions(baseReports)
-                : baseReports;
-        List<MesProBatchRecordReportView> allReports = expandReportsByVersionProducts(latestScopedReports)
-                .stream()
-                .filter(report -> filterByProductName(report, pageReqVO.getProductName()))
-                .filter(report -> filterByVersionNo(report, pageReqVO.getVersionNo()))
-                .toList();
-        if (Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())) {
-            allReports = filterLatestVisibleBatchRecordVersions(allReports);
+    private void validateGeneratedReportVersions(BatchRecordReportPageReqVO req,
+                                                 com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> base) {
+        if (!Boolean.TRUE.equals(req.getLatestVersionOnly())) return;
+        var invalid = generatedReportQueryMapper.selectInvalidVersion(TenantContextHolder.getRequiredTenantId(), base);
+        if (invalid != null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_VERSION_NO_INVALID,
+                    invalid.getVersionNo());
         }
-        return allReports;
     }
 
     @Override
@@ -3098,30 +3086,6 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return recreated;
     }
 
-    private MesProBatchRecordReportView toVisibleReportView(MesProBatchRecordReportDO metadata) {
-        MesProBatchRecordReportInfo reportInfo = jimuReportGateway.getReportInfo(metadata.getReportId());
-        if (reportInfo == null) {
-            return null;
-        }
-        return MesProBatchRecordReportView.builder()
-                .batchRecordName(StrUtil.blankToDefault(metadata.getBatchRecordName(), DEFAULT_BATCH_RECORD_NAME))
-                .batchRecordDefinitionId(metadata.getBatchRecordDefinitionId())
-                .batchRecordVersionId(metadata.getBatchRecordVersionId())
-                .productName(metadata.getProductName())
-                .projectCode(metadata.getProjectCode())
-                .formSlotType(normalizeFormSlotType(metadata.getFormSlotType()))
-                .routeKey(metadata.getRouteKey())
-                .sourceTableIndex(metadata.getSourceTableIndex())
-                .tableTitle(metadata.getTableTitle())
-                .reportId(reportInfo.reportId())
-                .reportCode(reportInfo.reportCode())
-                .reportName(reportInfo.reportName())
-                .sourceFileName(metadata.getSourceFileName())
-                .lastImportTime(metadata.getLastImportTime())
-                .updateTime(reportInfo.updateTime())
-                .build();
-    }
-
     private boolean hasVisibleMainReport(Long definitionId, Long versionId) {
         if (definitionId == null || versionId == null) {
             return false;
@@ -3132,239 +3096,6 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .filter(report -> Objects.equals(MesProBatchRecordFormSlotType.MAIN.getType(),
                         normalizeFormSlotType(report.getFormSlotType())))
                 .anyMatch(report -> jimuReportGateway.getReportInfo(report.getReportId()) != null);
-    }
-
-    private List<MesProBatchRecordReportView> expandReportsByVersionProducts(List<MesProBatchRecordReportView> reports) {
-        if (reports.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> versionIds = reports.stream()
-                .map(MesProBatchRecordReportView::batchRecordVersionId)
-                .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        Map<Long, MesProBatchRecordVersionDO> versionMap = versionIds.isEmpty() ? Map.of()
-                : versionMapper.selectBatchIds(versionIds)
-                .stream()
-                .collect(LinkedHashMap::new, (map, version) -> map.put(version.getId(), version), Map::putAll);
-        Set<Long> routeIds = versionMap.values().stream()
-                .map(MesProBatchRecordVersionDO::getRouteId)
-                .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        Map<Long, Long> dccProjectCodeIdByRouteId = resolveDccProjectCodeIdsByRouteId(routeIds);
-        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
-        Set<Long> itemIds = routeProducts.stream()
-                .map(MesProRouteProductDO::getItemId)
-                .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        Map<Long, String> itemNameMap = itemIds.isEmpty() ? Map.of()
-                : itemMapper.selectListByIds(itemIds)
-                .stream()
-                .collect(LinkedHashMap::new, (map, item) -> map.put(item.getId(), item.getName()), Map::putAll);
-        Map<Long, List<String>> productNamesByRouteId = new LinkedHashMap<>();
-        for (MesProRouteProductDO routeProduct : routeProducts) {
-            String productName = itemNameMap.get(routeProduct.getItemId());
-            if (StrUtil.isBlank(productName)) {
-                continue;
-            }
-            productNamesByRouteId
-                    .computeIfAbsent(routeProduct.getRouteId(), key -> new ArrayList<>())
-                    .add(productName);
-        }
-        List<MesProBatchRecordReportView> expandedReports = new ArrayList<>();
-        for (MesProBatchRecordReportView report : reports) {
-            MesProBatchRecordVersionDO version = report.batchRecordVersionId() == null
-                    ? null : versionMap.get(report.batchRecordVersionId());
-            List<String> productNames = version == null ? List.of() : productNamesByRouteId.get(version.getRouteId());
-            if (productNames == null || productNames.isEmpty()) {
-                productNames = StrUtil.isBlank(report.productName()) ? List.of() : List.of(report.productName());
-            }
-            if (productNames.isEmpty()) {
-                expandedReports.add(copyReportWithVersionProduct(report, version, null,
-                        resolveReportDccProjectCodeId(report, version, dccProjectCodeIdByRouteId)));
-                continue;
-            }
-            productNames.stream()
-                    .distinct()
-                    .forEach(productName -> expandedReports.add(copyReportWithVersionProduct(report, version, productName,
-                            resolveReportDccProjectCodeId(report, version, dccProjectCodeIdByRouteId))));
-        }
-        return expandedReports;
-    }
-
-    private Map<Long, Long> resolveDccProjectCodeIdsByRouteId(Set<Long> routeIds) {
-        if (routeIds == null || routeIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<Long, Long> dccProjectCodeIdByRouteId = new LinkedHashMap<>();
-        for (Long routeId : routeIds) {
-            MesRouteDccProjectBindingDO binding = routeDccProjectBindingMapper.selectCurrentByRouteId(routeId);
-            if (binding != null && binding.getDccProjectCodeId() != null) {
-                dccProjectCodeIdByRouteId.put(routeId, binding.getDccProjectCodeId());
-            }
-        }
-        return dccProjectCodeIdByRouteId;
-    }
-
-    private Long resolveReportDccProjectCodeId(MesProBatchRecordReportView report,
-                                               MesProBatchRecordVersionDO version,
-                                               Map<Long, Long> dccProjectCodeIdByRouteId) {
-        Long boundDccProjectCodeId = version == null || version.getRouteId() == null
-                ? null : dccProjectCodeIdByRouteId.get(version.getRouteId());
-        return boundDccProjectCodeId == null ? report.dccProjectCodeId() : boundDccProjectCodeId;
-    }
-
-    private List<MesProBatchRecordReportView> filterLatestBatchRecordVersions(List<MesProBatchRecordReportView> reports) {
-        if (reports.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> definitionIds = reports.stream()
-                .map(MesProBatchRecordReportView::batchRecordDefinitionId)
-                .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        if (definitionIds.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, Long> latestVersionIdByDefinitionId = new LinkedHashMap<>();
-        for (Long definitionId : definitionIds) {
-            MesProBatchRecordVersionDO latestVersion =
-                    latestBatchRecordVersion(versionMapper.selectListByDefinitionId(definitionId));
-            if (latestVersion != null && latestVersion.getId() != null) {
-                latestVersionIdByDefinitionId.put(definitionId, latestVersion.getId());
-            }
-        }
-        return reports.stream()
-                .filter(report -> {
-                    Long latestVersionId = latestVersionIdByDefinitionId.get(report.batchRecordDefinitionId());
-                    return latestVersionId != null && Objects.equals(report.batchRecordVersionId(), latestVersionId);
-                })
-                .toList();
-    }
-
-    private List<MesProBatchRecordReportView> filterLatestVisibleBatchRecordVersions(
-            List<MesProBatchRecordReportView> reports) {
-        if (reports.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> versionIds = reports.stream()
-                .map(MesProBatchRecordReportView::batchRecordVersionId)
-                .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        if (versionIds.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, MesProBatchRecordVersionDO> versionById = versionMapper.selectBatchIds(versionIds)
-                .stream()
-                .collect(LinkedHashMap::new, (map, version) -> map.put(version.getId(), version), Map::putAll);
-        Map<String, MesProBatchRecordVersionDO> latestVersionByVisibleGroup = new LinkedHashMap<>();
-        for (MesProBatchRecordReportView report : reports) {
-            MesProBatchRecordVersionDO version = versionById.get(report.batchRecordVersionId());
-            if (version == null) {
-                continue;
-            }
-            String visibleGroupKey = latestVisibleBatchRecordGroupKey(report);
-            MesProBatchRecordVersionDO currentLatest = latestVersionByVisibleGroup.get(visibleGroupKey);
-            if (currentLatest == null || compareBatchRecordVersion(currentLatest, version) < 0) {
-                latestVersionByVisibleGroup.put(visibleGroupKey, version);
-            }
-        }
-        return reports.stream()
-                .filter(report -> {
-                    MesProBatchRecordVersionDO latestVersion =
-                            latestVersionByVisibleGroup.get(latestVisibleBatchRecordGroupKey(report));
-                    return latestVersion != null && Objects.equals(report.batchRecordVersionId(), latestVersion.getId());
-                })
-                .toList();
-    }
-
-    private String latestVisibleBatchRecordGroupKey(MesProBatchRecordReportView report) {
-        return normalizeLatestVisibleGroupPart(StrUtil.blankToDefault(report.productName(), report.batchRecordName()))
-                + "|"
-                + normalizeLatestVisibleGroupPart(report.batchRecordName())
-                + "|"
-                + normalizeLatestVisibleGroupPart(report.formSlotType());
-    }
-
-    private String normalizeLatestVisibleGroupPart(String value) {
-        return StrUtil.trimToEmpty(value).toLowerCase(Locale.ROOT);
-    }
-
-    private MesProBatchRecordReportView copyReportWithVersionProduct(MesProBatchRecordReportView report,
-                                                                     MesProBatchRecordVersionDO version,
-                                                                     String productName,
-                                                                     Long dccProjectCodeId) {
-        return MesProBatchRecordReportView.builder()
-                .batchRecordName(report.batchRecordName())
-                .batchRecordDefinitionId(report.batchRecordDefinitionId())
-                .batchRecordVersionId(report.batchRecordVersionId())
-                .productName(productName)
-                .projectCode(report.projectCode())
-                .dccProjectCodeId(dccProjectCodeId)
-                .versionNo(version == null ? null : version.getVersionNo())
-                .versionStatus(version == null ? null : version.getStatus())
-                .formSlotType(report.formSlotType())
-                .routeKey(report.routeKey())
-                .sourceTableIndex(report.sourceTableIndex())
-                .tableTitle(report.tableTitle())
-                .reportId(report.reportId())
-                .reportCode(report.reportCode())
-                .reportName(report.reportName())
-                .sourceFileName(report.sourceFileName())
-                .lastImportTime(report.lastImportTime())
-                .updateTime(report.updateTime())
-                .build();
-    }
-
-    private boolean filterByName(MesProBatchRecordReportView report, String name) {
-        if (StrUtil.isBlank(name)) {
-            return true;
-        }
-        String normalized = name.trim().toLowerCase(Locale.ROOT);
-        return report.batchRecordName().toLowerCase(Locale.ROOT).contains(normalized)
-                || report.reportName().toLowerCase(Locale.ROOT).contains(normalized)
-                || report.reportCode().toLowerCase(Locale.ROOT).contains(normalized);
-    }
-
-    private boolean filterByReportId(MesProBatchRecordReportView report, String reportId) {
-        if (StrUtil.isBlank(reportId)) {
-            return true;
-        }
-        return Objects.equals(report.reportId(), reportId.trim());
-    }
-
-    private boolean filterByBatchRecordName(MesProBatchRecordReportView report, String batchRecordName) {
-        if (StrUtil.isBlank(batchRecordName)) {
-            return true;
-        }
-        return Objects.equals(report.batchRecordName(), StrUtil.trim(batchRecordName));
-    }
-
-    private boolean filterByFormSlotType(MesProBatchRecordReportView report, String formSlotType) {
-        if (StrUtil.isBlank(formSlotType)) {
-            return true;
-        }
-        String normalized = MesProBatchRecordFormSlotType.normalize(formSlotType);
-        return normalized != null && Objects.equals(report.formSlotType(), normalized);
-    }
-
-    private boolean filterByRouteKey(MesProBatchRecordReportView report, String routeKey) {
-        if (StrUtil.isBlank(routeKey)) {
-            return true;
-        }
-        return Objects.equals(report.routeKey(), MesProBatchRecordRecognitionRouteKeys.normalize(routeKey));
-    }
-
-    private boolean filterByProductName(MesProBatchRecordReportView report, String productName) {
-        if (StrUtil.isBlank(productName)) {
-            return true;
-        }
-        return StrUtil.containsIgnoreCase(report.productName(), StrUtil.trim(productName));
-    }
-
-    private boolean filterByVersionNo(MesProBatchRecordReportView report, String versionNo) {
-        if (StrUtil.isBlank(versionNo)) {
-            return true;
-        }
-        return Objects.equals(report.versionNo(), StrUtil.trim(versionNo));
     }
 
     private String normalizeFormSlotType(String formSlotType) {

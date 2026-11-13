@@ -79,6 +79,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProTaskScheduleExtMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListQuery;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderOperationLogMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
@@ -207,6 +209,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     @Resource
     private MesProScheduleOrderMapper scheduleOrderMapper;
+    @Resource
+    private MesProAdmissionListMapper admissionListMapper;
     @Resource
     private MesProScheduleOrderOperationLogMapper scheduleOrderOperationLogMapper;
     @Resource
@@ -722,9 +726,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (CollUtil.isEmpty(currentProcessFilterIds) && hasCurrentProcessFilter(pageReqVO)) {
             return new PageResult<>(Collections.emptyList(), 0L);
         }
-        if (CollUtil.isNotEmpty(currentProcessFilterIds)) {
-            pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        }
+        pageReqVO.setResolvedCurrentProcessFilterIds(currentProcessFilterIds);
         List<Long> quickFilterProductIds = resolveScheduleQuickFilterProductIds(pageReqVO.getQuickFilter());
         List<Long> productIds = resolveSchedulePageProductIds(pageReqVO, quickFilterProductIds);
         QuickFilter originalQuickFilter = pageReqVO.getQuickFilter();
@@ -737,11 +739,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         } finally {
             pageReqVO.setQuickFilter(originalQuickFilter);
         }
-        if (CollUtil.isEmpty(currentProcessFilterIds) || CollUtil.isEmpty(pageResult.getList())) {
-            return pageResult;
-        }
-        List<MesProScheduleOrderDO> filteredList = filterByCurrentProcess(pageResult.getList(), currentProcessFilterIds);
-        return new PageResult<>(filteredList, (long) filteredList.size());
+        return pageResult;
     }
 
     private void normalizeCurrentProcessFilter(MesProScheduleOrderPageReqVO pageReqVO) {
@@ -876,169 +874,62 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     @Override
+    @Transactional(readOnly = true)
     public MesProScheduleOrderAdmissionDiffPageRespVO getAdmissionDiff(
             MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
-        MesProWorkOrderPageReqVO workOrderPageReqVO = buildWorkOrderPageReqVO(pageReqVO);
-        List<Long> admissionProductIds = resolveAdmissionDiffProductIds(pageReqVO,
-                applyAdmissionDiffQuickFilter(pageReqVO, workOrderPageReqVO));
-        boolean computedFilter = hasComputedAdmissionFilter(pageReqVO);
-        if (computedFilter) {
-            return getAdmissionDiffWithComputedFilter(pageReqVO, workOrderPageReqVO, admissionProductIds);
+        var base = MesProAdmissionListQuery.baseFilter(pageReqVO);
+        // Validate the entire column-filter contract before expensive real-time configuration checks.
+        var filter = MesProAdmissionListQuery.filter(pageReqVO);
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Map<Long, AdmissionRouteCheck> routeCheckCache = new HashMap<>();
+        List<MesProAdmissionListQuery.Outcome> routeOutcomes = new ArrayList<>();
+        // Route/resource eligibility depends on product, not work-order quantity or identity.
+        // Fetch only that distinct dimension; work-order entities are fetched only after SQL count/page.
+        for (Long productId : admissionListMapper.selectRouteCheckProductIds(tenantId, base)) {
+            AdmissionRouteCheck check = checkWorkOrderRoute(MesProWorkOrderDO.builder().productId(productId).build());
+            routeCheckCache.put(productId, check);
+            routeOutcomes.add(admissionRouteOutcome(productId, check));
         }
-
-        PageResult<MesProWorkOrderDO> workOrderPage =
-                selectAdmissionWorkOrderPage(workOrderPageReqVO, admissionProductIds);
-        List<MesProWorkOrderDO> workOrders = workOrderPage.getList();
-        if (CollUtil.isEmpty(workOrders)) {
-            return emptyAdmissionDiffResult();
-        }
-        List<Long> workOrderIds = workOrders.stream().map(MesProWorkOrderDO::getId).toList();
-        Map<Long, MesProScheduleOrderDO> scheduleOrderMap = scheduleOrderMapper
-                .selectListByWorkOrderIds(workOrderIds)
-                .stream()
-                .filter(this::blocksScheduleOrderAdmission)
-                .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
-                        (left, right) -> left, LinkedHashMap::new));
-
-        List<MesProScheduleOrderAdmissionDiffRespVO> rows = workOrders.stream()
-                .map(workOrder -> buildAdmissionDiffRow(workOrder, scheduleOrderMap.get(workOrder.getId())))
-                .filter(row -> matchesAdmissionDiffFilter(row, pageReqVO))
-                .toList();
-        List<MesProScheduleOrderAdmissionDiffRespVO> pageRows = computedFilter
-                ? paginateAdmissionDiffRows(rows, pageReqVO)
-                : rows;
-        MesProScheduleOrderAdmissionDiffPageRespVO result = new MesProScheduleOrderAdmissionDiffPageRespVO();
-        result.setList(pageRows);
-        result.setTotal(computedFilter ? (long) rows.size() : workOrderPage.getTotal());
-        result.setSummary(buildAdmissionDiffSummary(computedFilter ? rows : pageRows));
-        return result;
-    }
-
-    private MesProScheduleOrderAdmissionDiffPageRespVO getAdmissionDiffWithComputedFilter(
-            MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO, MesProWorkOrderPageReqVO workOrderPageReqVO,
-            List<Long> quickFilterProductIds) {
+        Map<String, Object> aggregate = admissionListMapper.selectSummary(
+                tenantId, base, filter, MesProAdmissionListQuery.BASE_OUTCOMES, routeOutcomes);
+        long total = ((Number) aggregate.get("total")).longValue();
         int pageNo = Math.max(Objects.requireNonNullElse(pageReqVO.getPageNo(), 1), 1);
         int pageSize = Objects.requireNonNullElse(pageReqVO.getPageSize(), 10);
-        int targetOffset = PageParam.PAGE_SIZE_NONE.equals(pageReqVO.getPageSize()) ? 0 : (pageNo - 1) * pageSize;
-        int targetLimit = PageParam.PAGE_SIZE_NONE.equals(pageReqVO.getPageSize()) ? Integer.MAX_VALUE : pageSize;
-        int scanPageNo = 1;
-        int scanPageSize = Math.max(pageSize, 50);
-        long matchedTotal = 0L;
-        List<MesProScheduleOrderAdmissionDiffRespVO> pageRows = new ArrayList<>();
-        MesProScheduleOrderAdmissionDiffSummaryRespVO summary = new MesProScheduleOrderAdmissionDiffSummaryRespVO();
-        Map<Long, AdmissionRouteCheck> routeCheckCache = new HashMap<>();
-
-        while (true) {
-            workOrderPageReqVO.setPageNo(scanPageNo);
-            workOrderPageReqVO.setPageSize(scanPageSize);
-            PageResult<MesProWorkOrderDO> workOrderPage =
-                    selectAdmissionWorkOrderPage(workOrderPageReqVO, quickFilterProductIds);
-            List<MesProWorkOrderDO> workOrders = workOrderPage.getList();
-            if (CollUtil.isEmpty(workOrders)) {
-                break;
-            }
-            List<Long> workOrderIds = workOrders.stream().map(MesProWorkOrderDO::getId).toList();
-            Map<Long, MesProScheduleOrderDO> scheduleOrderMap = scheduleOrderMapper
-                    .selectListByWorkOrderIds(workOrderIds)
-                    .stream()
-                    .filter(this::blocksScheduleOrderAdmission)
-                    .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
-                            (left, right) -> left, LinkedHashMap::new));
-            for (MesProWorkOrderDO workOrder : workOrders) {
-                MesProScheduleOrderAdmissionDiffRespVO row = buildAdmissionDiffRow(workOrder,
-                        scheduleOrderMap.get(workOrder.getId()), routeCheckCache);
-                if (!matchesAdmissionDiffFilter(row, pageReqVO)) {
-                    continue;
-                }
-                appendAdmissionSummary(summary, row);
-                if (matchedTotal >= targetOffset && pageRows.size() < targetLimit) {
-                    pageRows.add(row);
-                }
-                matchedTotal += 1;
-            }
-            if (workOrderPage.getTotal() <= (long) scanPageNo * scanPageSize) {
-                break;
-            }
-            scanPageNo += 1;
-        }
-
+        long offset = PageParam.PAGE_SIZE_NONE.equals(pageSize) ? 0L : (long) (pageNo - 1) * pageSize;
+        List<Long> pageIds = total == 0 ? List.of() : admissionListMapper.selectPageIds(
+                tenantId, base, filter, MesProAdmissionListQuery.BASE_OUTCOMES, routeOutcomes, pageReqVO, offset);
+        Map<Long, MesProWorkOrderDO> workOrderById = pageIds.isEmpty() ? Map.of() : workOrderMapper.selectListByIds(pageIds)
+                .stream().collect(Collectors.toMap(MesProWorkOrderDO::getId, item -> item));
+        Map<Long, MesProScheduleOrderDO> scheduleOrderByWorkOrderId = pageIds.isEmpty() ? Map.of() : scheduleOrderMapper
+                .selectListByWorkOrderIds(pageIds).stream().filter(this::blocksScheduleOrderAdmission)
+                .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        List<MesProScheduleOrderAdmissionDiffRespVO> rows = pageIds.stream()
+                .map(id -> buildAdmissionDiffRow(Objects.requireNonNull(workOrderById.get(id), "入池分页工单不存在"),
+                        scheduleOrderByWorkOrderId.get(id), routeCheckCache)).toList();
         MesProScheduleOrderAdmissionDiffPageRespVO result = new MesProScheduleOrderAdmissionDiffPageRespVO();
-        result.setList(pageRows);
-        result.setTotal(matchedTotal);
-        result.setSummary(summary);
+        result.setList(rows);
+        result.setTotal(total);
+        boolean computedFilter = hasComputedAdmissionFilter(pageReqVO) || StrUtil.isNotBlank(pageReqVO.getListFilters())
+                || (pageReqVO.getQuickFilter() != null && "admissionStatus".equals(pageReqVO.getQuickFilter().getFieldKey()));
+        if (computedFilter) {
+            MesProScheduleOrderAdmissionDiffSummaryRespVO summary = new MesProScheduleOrderAdmissionDiffSummaryRespVO();
+            summary.setWarnCount(((Number) aggregate.get("warnCount")).intValue());
+            summary.setReadyCount(((Number) aggregate.get("readyCount")).intValue());
+            summary.setAlreadyAdmittedCount(((Number) aggregate.get("alreadyAdmittedCount")).intValue());
+            summary.setBlockedCount(((Number) aggregate.get("blockedCount")).intValue());
+            result.setSummary(summary);
+        } else {
+            result.setSummary(buildAdmissionDiffSummary(rows));
+        }
         return result;
     }
 
-    private List<Long> applyAdmissionDiffQuickFilter(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO,
-                                                     MesProWorkOrderPageReqVO workOrderPageReqVO) {
-        QuickFilter quickFilter = pageReqVO.getQuickFilter();
-        if (quickFilter == null || StrUtil.isBlank(quickFilter.getFieldKey())) {
-            return Collections.emptyList();
-        }
-        String fieldKey = StrUtil.trim(quickFilter.getFieldKey());
-        String value = StrUtil.trim(quickFilter.getValue());
-        return switch (fieldKey) {
-            case "workOrderCode" -> {
-                if (StrUtil.isNotBlank(value)) {
-                    workOrderPageReqVO.setCode(value);
-                }
-                yield Collections.emptyList();
-            }
-            case "productCode" -> StrUtil.isBlank(value)
-                    ? Collections.emptyList()
-                    : toProductIds(itemMapper.selectListByCodeLike(value));
-            case "productName" -> StrUtil.isBlank(value)
-                    ? Collections.emptyList()
-                    : toProductIds(itemMapper.selectListByNameLike(value));
-            case "productSpecification" -> StrUtil.isBlank(value)
-                    ? Collections.emptyList()
-                    : toProductIds(itemMapper.selectListBySpecificationLike(value));
-            case "admissionStatus" -> {
-                if (StrUtil.isNotBlank(value)) {
-                    pageReqVO.setAdmissionStatus(value);
-                }
-                yield Collections.emptyList();
-            }
-            case "requestDate" -> {
-                workOrderPageReqVO.setQuickFilter(quickFilter);
-                yield Collections.emptyList();
-            }
-            default -> throw new IllegalArgumentException("非法待同步差异快速过滤字段：" + fieldKey);
-        };
-    }
-
-    private List<Long> resolveAdmissionDiffProductIds(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO,
-                                                      List<Long> quickFilterProductIds) {
-        List<List<Long>> productIdFilters = new ArrayList<>();
-        if (CollUtil.isNotEmpty(quickFilterProductIds)) {
-            productIdFilters.add(quickFilterProductIds);
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getProductCode())) {
-            productIdFilters.add(toProductIds(itemMapper.selectListByCodeLike(pageReqVO.getProductCode())));
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getProductName())) {
-            productIdFilters.add(toProductIds(itemMapper.selectListByNameLike(pageReqVO.getProductName())));
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getProductSpecification())) {
-            productIdFilters.add(toProductIds(itemMapper.selectListBySpecificationLike(pageReqVO.getProductSpecification())));
-        }
-        if (CollUtil.isEmpty(productIdFilters)) {
-            return Collections.emptyList();
-        }
-
-        Set<Long> resolvedProductIds = new LinkedHashSet<>(productIdFilters.get(0));
-        for (int i = 1; i < productIdFilters.size(); i++) {
-            resolvedProductIds.retainAll(productIdFilters.get(i));
-        }
-        return resolvedProductIds.isEmpty() ? List.of(-1L) : new ArrayList<>(resolvedProductIds);
-    }
-
-    private PageResult<MesProWorkOrderDO> selectAdmissionWorkOrderPage(MesProWorkOrderPageReqVO workOrderPageReqVO,
-                                                                       List<Long> quickFilterProductIds) {
-        if (CollUtil.isEmpty(quickFilterProductIds)) {
-            return workOrderMapper.selectPage(workOrderPageReqVO);
-        }
-        return workOrderMapper.selectPageByProductIds(workOrderPageReqVO, quickFilterProductIds);
+    private MesProAdmissionListQuery.Outcome admissionRouteOutcome(Long productId, AdmissionRouteCheck check) {
+        if (check.routeReady()) return new MesProAdmissionListQuery.Outcome(productId, ADMISSION_READY,
+                PREFLIGHT_PASS, "READY_TO_ADMIT", "生产工单可加入排产工单池", "排产员", true);
+        return new MesProAdmissionListQuery.Outcome(productId, check.warnOnly() ? ADMISSION_READY : ADMISSION_BLOCKED,
+                check.warnOnly() ? PREFLIGHT_WARN : PREFLIGHT_BLOCKED, check.reasonCode(), check.message(), check.ownerRole(), check.warnOnly());
     }
 
     @Override
@@ -1145,26 +1036,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return issue.getProductId() == null ? "产品" : "产品ID " + issue.getProductId();
     }
 
-    private MesProWorkOrderPageReqVO buildWorkOrderPageReqVO(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
-        MesProWorkOrderPageReqVO workOrderPageReqVO = new MesProWorkOrderPageReqVO();
-        workOrderPageReqVO.setPageNo(pageReqVO.getPageNo());
-        workOrderPageReqVO.setPageSize(pageReqVO.getPageSize());
-        workOrderPageReqVO.setCode(pageReqVO.getWorkOrderCode());
-        workOrderPageReqVO.setStatus(pageReqVO.getStatus() == null
-                ? MesProWorkOrderStatusEnum.CONFIRMED.getStatus() : pageReqVO.getStatus());
-        workOrderPageReqVO.setQuantity(pageReqVO.getQuantity());
-        workOrderPageReqVO.setRequestDate(pageReqVO.getRequestDate());
-        return workOrderPageReqVO;
-    }
-
-    private MesProScheduleOrderAdmissionDiffPageRespVO emptyAdmissionDiffResult() {
-        MesProScheduleOrderAdmissionDiffPageRespVO result = new MesProScheduleOrderAdmissionDiffPageRespVO();
-        result.setList(Collections.emptyList());
-        result.setTotal(0L);
-        result.setSummary(new MesProScheduleOrderAdmissionDiffSummaryRespVO());
-        return result;
-    }
-
     private MesProScheduleOrderAdmissionDiffRespVO buildAdmissionDiffRow(MesProWorkOrderDO workOrder,
                                                                           MesProScheduleOrderDO scheduleOrder) {
         return buildAdmissionDiffRow(workOrder, scheduleOrder, null);
@@ -1183,25 +1054,20 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         row.setTemporaryFrozen(workOrder.getTemporaryFrozen());
         row.setActions(Collections.emptyList());
         if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
-            applyAdmissionIssue(row, ADMISSION_BLOCKED, PREFLIGHT_BLOCKED, "BLOCKED_WORK_ORDER_FROZEN",
-                    "生产工单已临时冻结，不能加入排产工单池", "生产计划", null);
+            applyAdmissionBaseOutcome(row, "BLOCKED_WORK_ORDER_FROZEN");
             return row;
         }
         if (!ObjUtil.equal(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
-            applyAdmissionIssue(row, ADMISSION_BLOCKED, PREFLIGHT_BLOCKED, "BLOCKED_WORK_ORDER_STATUS",
-                    "生产工单不是已确认状态，不能加入排产工单池", "生产计划", null);
+            applyAdmissionBaseOutcome(row, "BLOCKED_WORK_ORDER_STATUS");
             return row;
         }
         if (scheduleOrder != null) {
             row.setScheduleOrderId(scheduleOrder.getId());
-            applyAdmissionIssue(row, ADMISSION_ALREADY, PREFLIGHT_PASS, "ALREADY_ADMITTED",
-                    "生产工单已在排产工单池中", "排产员", null);
+            applyAdmissionBaseOutcome(row, "ALREADY_ADMITTED");
             return row;
         }
         if (!hasFormalErpSyncIdentity(syncRecordMapper.selectByWorkOrderId(workOrder.getId()), workOrder.getId())) {
-            applyAdmissionIssue(row, ADMISSION_BLOCKED, PREFLIGHT_BLOCKED, "BLOCKED_ERP_SYNC_RECORD_MISSING",
-                    "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能加入排产工单池", "生产计划",
-                    null);
+            applyAdmissionBaseOutcome(row, "BLOCKED_ERP_SYNC_RECORD_MISSING");
             return row;
         }
         AdmissionRouteCheck routeCheck = resolveAdmissionRouteCheck(workOrder, routeCheckCache);
@@ -1227,22 +1093,27 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private AdmissionRouteCheck resolveAdmissionRouteCheck(MesProWorkOrderDO workOrder,
                                                            Map<Long, AdmissionRouteCheck> routeCheckCache) {
-        if (routeCheckCache == null || workOrder.getProductId() == null) {
+        if (routeCheckCache == null) {
             return checkWorkOrderRoute(workOrder);
         }
         return routeCheckCache.computeIfAbsent(workOrder.getProductId(),
                 ignored -> checkWorkOrderRoute(workOrder));
     }
 
+    private AdmissionRouteCheck blockedAdmissionRouteOutcome(String reasonCode,
+            MesProScheduleOrderIssueActionRespVO action) {
+        var outcome = MesProAdmissionListQuery.baseOutcome(reasonCode);
+        return AdmissionRouteCheck.blocked(outcome.reasonCode(), outcome.message(), outcome.ownerRole(), action);
+    }
+
     private AdmissionRouteCheck checkWorkOrderRoute(MesProWorkOrderDO workOrder) {
         List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByItemId(workOrder.getProductId());
         if (CollUtil.isEmpty(routeProducts)) {
-            return AdmissionRouteCheck.blocked("BLOCKED_MISSING_ROUTE", "产品未绑定启用工艺流程排产配置",
-                    "工艺维护", routeAction(workOrder.getProductId(), null, "维护路线"));
+            return blockedAdmissionRouteOutcome("BLOCKED_MISSING_ROUTE",
+                    routeAction(workOrder.getProductId(), null, "维护路线"));
         }
         if (routeProducts.size() > 1) {
-            return AdmissionRouteCheck.blocked("BLOCKED_ROUTE_PRODUCT_AMBIGUOUS",
-                    "产品绑定了多条工艺流程排产配置，请保留唯一启用路线后再入池", "工艺维护",
+            return blockedAdmissionRouteOutcome("BLOCKED_ROUTE_PRODUCT_AMBIGUOUS",
                     routeAction(workOrder.getProductId(), null, "维护路线"));
         }
         MesProRouteProductDO routeProduct = routeProducts.get(0);
@@ -1332,6 +1203,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return "资源计算工序缺少工作站资源产能，不能加入排产工单池";
     }
 
+    private void applyAdmissionBaseOutcome(MesProScheduleOrderAdmissionDiffRespVO row, String reasonCode) {
+        var outcome = MesProAdmissionListQuery.baseOutcome(reasonCode);
+        applyAdmissionIssue(row, outcome.admissionStatus(), outcome.severity(), outcome.reasonCode(),
+                outcome.message(), outcome.ownerRole(), null);
+    }
+
     private void applyAdmissionIssue(MesProScheduleOrderAdmissionDiffRespVO row, String admissionStatus,
                                      String severity, String reasonCode, String message, String ownerRole,
                                      MesProScheduleOrderIssueActionRespVO action) {
@@ -1357,57 +1234,11 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         row.setActions(action == null ? Collections.emptyList() : List.of(action));
     }
 
-    private boolean matchesAdmissionDiffFilter(MesProScheduleOrderAdmissionDiffRespVO row,
-                                               MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
-        if (StrUtil.isNotBlank(pageReqVO.getAdmissionStatus())
-                && !pageReqVO.getAdmissionStatus().equals(row.getAdmissionStatus())) {
-            return false;
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getReasonCode())
-                && !pageReqVO.getReasonCode().equals(row.getReasonCode())) {
-            return false;
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getMessage())
-                && !StrUtil.contains(StrUtil.nullToEmpty(row.getMessage()), pageReqVO.getMessage())) {
-            return false;
-        }
-        if (StrUtil.isNotBlank(pageReqVO.getOwnerRole())
-                && !pageReqVO.getOwnerRole().equals(row.getOwnerRole())) {
-            return false;
-        }
-        return matchesAdmissionQuantity(row.getQuantity(), pageReqVO.getQuantity());
-    }
-
     private boolean hasComputedAdmissionFilter(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
         return StrUtil.isNotBlank(pageReqVO.getAdmissionStatus())
                 || StrUtil.isNotBlank(pageReqVO.getReasonCode())
                 || StrUtil.isNotBlank(pageReqVO.getMessage())
                 || StrUtil.isNotBlank(pageReqVO.getOwnerRole());
-    }
-
-    private boolean matchesAdmissionQuantity(BigDecimal quantity, BigDecimal[] range) {
-        if (range == null || range.length == 0) {
-            return true;
-        }
-        if (quantity == null) {
-            return false;
-        }
-        BigDecimal min = range.length > 0 ? range[0] : null;
-        BigDecimal max = range.length > 1 ? range[1] : null;
-        return (min == null || quantity.compareTo(min) >= 0)
-                && (max == null || quantity.compareTo(max) <= 0);
-    }
-
-    private List<MesProScheduleOrderAdmissionDiffRespVO> paginateAdmissionDiffRows(
-            List<MesProScheduleOrderAdmissionDiffRespVO> rows, MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
-        if (PageParam.PAGE_SIZE_NONE.equals(pageReqVO.getPageSize())) {
-            return rows;
-        }
-        int pageNo = Math.max(Objects.requireNonNullElse(pageReqVO.getPageNo(), 1), 1);
-        int pageSize = Objects.requireNonNullElse(pageReqVO.getPageSize(), 10);
-        int fromIndex = Math.min((pageNo - 1) * pageSize, rows.size());
-        int toIndex = Math.min(fromIndex + pageSize, rows.size());
-        return rows.subList(fromIndex, toIndex);
     }
 
     private MesProScheduleOrderAdmissionDiffSummaryRespVO buildAdmissionDiffSummary(

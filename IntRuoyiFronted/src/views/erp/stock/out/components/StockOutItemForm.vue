@@ -37,20 +37,14 @@
       <el-table-column label="产品名称" min-width="180">
         <template #default="{ row, $index }">
           <el-form-item :prop="`${$index}.productId`" :rules="formRules.productId" class="mb-0px!">
-            <el-select
+            <RemoteProductSelect
               v-model="row.productId"
               clearable
               filterable
               @change="onChangeProduct($event, row)"
               placeholder="请选择产品"
-            >
-              <el-option
-                v-for="item in productList"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id"
-              />
-            </el-select>
+
+              @selected="cacheSelectedProduct" />
           </el-form-item>
         </template>
       </el-table-column>
@@ -127,7 +121,8 @@
   </el-row>
 </template>
 <script setup lang="ts">
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
+import type { ProductVO } from '@/api/erp/product/product'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
 import { StockApi } from '@/api/erp/stock/stock'
 import {
@@ -150,6 +145,9 @@ const formRules = reactive({
   count: [{ required: true, message: '产品数量不能为空', trigger: 'blur' }]
 })
 const formRef = ref<any>() // 表单 Ref
+const cacheSelectedProduct = (product: ProductVO) => {
+  if (product) productList.value = [product, ...productList.value.filter(item => item.id !== product.id)]
+}
 const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
 const defaultWarehouse = ref<WarehouseVO | undefined>() // 默认仓库
@@ -256,7 +254,6 @@ defineExpose({ validate })
 
 /** 初始化 */
 onMounted(async () => {
-  productList.value = await ProductApi.getProductSimpleList()
   warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
   defaultWarehouse.value = warehouseList.value.find((item) => item.defaultStatus)
   // 默认添加一个

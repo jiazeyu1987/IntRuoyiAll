@@ -16,6 +16,18 @@ import java.util.List;
 @Mapper
 public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
 
+    @org.apache.ibatis.annotations.SelectProvider(type = DccProjectCodeListQuery.class, method = "count")
+    long countDisplayPage(@Param("tenantId") Long tenantId,
+                          @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filter);
+
+    @org.apache.ibatis.annotations.SelectProvider(type = DccProjectCodeListQuery.class, method = "page")
+    @org.apache.ibatis.annotations.Results(id = "projectCodeDisplayRow", value = {
+            @org.apache.ibatis.annotations.Result(column = "associated_file_count", property = "associatedFileCount")})
+    List<DccProjectCodeDO> selectDisplayPage(@Param("tenantId") Long tenantId,
+                                           @Param("req") DccProjectCodePageReqVO request,
+                                           @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filter,
+                                           @Param("offset") long offset);
+
     @Select("SELECT * FROM dcc_project_code WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     DccProjectCodeDO selectByIdForUpdate(@Param("id") Long id);
 

@@ -13,6 +13,7 @@ export type EdhrReleaseCheckItemStatus = 'OPEN' | 'SUPERSEDED' | 'RESOLVED'
 export type EdhrReleaseEventType = 'PRECHECK' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'WITHDRAW'
 
 export interface EdhrReleasePageReqVO extends PageParam {
+  listFilters?: string
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string
@@ -144,6 +145,7 @@ export interface EdhrReleaseWithdrawReqVO {
 }
 
 export interface EdhrReleaseEventPageReqVO extends PageParam {
+  listFilters?: string
   releaseTransactionId: string
   eventType?: EdhrReleaseEventType | ''
 }

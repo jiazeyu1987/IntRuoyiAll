@@ -4,15 +4,13 @@
       @query="handleSearch"
       @reset="handleReset"
       table-key="showroom.keyword.main"
-      :query-model="filters"
       :page="pagination.pageNo"
       :limit="pagination.pageSize"
       :total="pagination.total"
       @pagination="handlePageChange"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="rows = $event"
-      :list-rows="rows"
-      @column-filter-reset="handlePageChange({ page: pagination.pageNo, limit: pagination.pageSize })"
+      server-filter
+      :query-model="pagination"
+      :server-filter-query="loadRows"
       :columns="listFilterColumns0"
       :column-filter-definitions="allColumnDisplayFilters0"
       :show-column-settings="false"
@@ -75,9 +73,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { onMounted, reactive, ref } from 'vue'
@@ -90,12 +88,14 @@ import {
 } from '@/api/showroom-admin'
 
 const message = useMessage()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const saving = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('关键词中英对照')
 const rows = ref<ShowroomKeywordPageRowRespVO[]>([])
 const pagination = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   total: 0
@@ -110,21 +110,20 @@ const form = reactive<ShowroomKeywordSaveReqVO>({
 })
 
 const loadRows = async () => {
-  loading.value = true
   try {
-    const page = await ShowroomAdminApi.getKeywordPage({
+    return await listRequest.run(() => ShowroomAdminApi.getKeywordPage({
       pageNo: pagination.pageNo,
       pageSize: pagination.pageSize,
+      listFilters: pagination.listFilters,
       keyword: filters.keyword?.trim() || undefined
+    }), (page) => {
+      rows.value = page.list
+      pagination.total = page.total
     })
-    rows.value = page.list
-    pagination.total = page.total
   } catch (error) {
     const resolved = error instanceof Error ? error : new Error('关键词列表加载失败')
     message.error(resolved.message)
     throw resolved
-  } finally {
-    loading.value = false
   }
 }
 
@@ -226,18 +225,6 @@ const handleDelete = async (id: number) => {
 onMounted(async () => {
   await loadRows()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: pagination.pageNo,
-    pageSize: pagination.pageSize,
-    keyword: filters.keyword?.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ShowroomAdminApi.getKeywordPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listFilterColumns0 = [
   {

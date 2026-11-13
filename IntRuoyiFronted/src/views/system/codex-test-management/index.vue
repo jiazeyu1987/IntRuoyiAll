@@ -37,10 +37,11 @@
           @quick-filter-query="caseQuickFilter.applyQuickFilter"
           @column-change="saveCaseColumnConfig"
           @pagination="handleCasePagination"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="caseList = $event"
-          :list-rows="caseList"
-          @column-filter-reset="handleCasePagination"
+          server-filter
+          :server-filter-query="getCaseList"
+
+
+
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
@@ -526,7 +527,8 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -986,17 +988,16 @@ async function getTenantOptions() {
   }
 }
 
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { caseLoading.value = value }, { flush: 'sync' })
 async function getCaseList() {
-  caseLoading.value = true
   try {
-    const data = await CodexTestApi.getCodexTestCasePage(queryParams)
+    return await listPageRequest.run(() => CodexTestApi.getCodexTestCasePage({ ...queryParams }), data => {
     caseList.value = data.list
     caseTotal.value = data.total
-  } catch (error) {
-    showRequestError(error, '测试项加载失败')
-  } finally {
-    caseLoading.value = false
+  })
   }
+  catch (error) { showRequestError(error, '测试项加载失败'); throw error }
 }
 
 async function getNodeChainOptions() {
@@ -1232,15 +1233,9 @@ onMounted(async () => {
 })
 
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    CodexTestApi.getCodexTestCasePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'targetItems', label: '测试目标项', type: 'text', getValue: row => formatTargetItems(row.checkpoints).join(' ') },
   {
     key: 'project',
     label: '项目',

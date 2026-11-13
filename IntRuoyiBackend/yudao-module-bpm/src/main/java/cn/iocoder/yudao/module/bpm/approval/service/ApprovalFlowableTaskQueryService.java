@@ -24,6 +24,8 @@ public class ApprovalFlowableTaskQueryService {
     private final PermissionApi permissions;
     private final ManagementService management;
     private final ApprovalProcessOwnershipService ownership;
+    @jakarta.annotation.Resource
+    private List<ApprovalTaskSummaryEnricher> summaryEnrichers = List.of();
     public ApprovalFlowableTaskQueryService(ApprovalFlowableTaskQueryMapper mapper, TaskService tasks,
             HistoryService history, ProcessEngineConfiguration configuration, PermissionApi permissions,
             ManagementService management,ApprovalProcessOwnershipService ownership) {
@@ -35,7 +37,20 @@ public class ApprovalFlowableTaskQueryService {
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public PageResult<Task> todo(ApprovalTaskQueryContext context,String projection) {
+        var nativeProjection=nativeTaskFields(context,false);
+        return todo(context,projection,nativeProjection.fields(),nativeProjection.joins());
+    }
+
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public PageResult<Task> todo(ApprovalTaskQueryContext context, String projection,
+            Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> fields) {
+        return todo(context,projection,fields,"");
+    }
+    private PageResult<Task> todo(ApprovalTaskQueryContext context,String projection,
+            Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> fields,String joins) {
         Map<String,Object> p=parameters(context,projection,false); verify(p);
+        if (context.getListFilters()!=null && !context.getListFilters().isBlank()) p.put("nativeExtraSql",joins);
+        p.put("ew", listFilters(context, fields));
         long count=mapper.count(p);
         if (ApprovalQueryWindow.from(context).limit() == 0 || count == 0) {
             return new PageResult<>(List.of(), count);
@@ -49,12 +64,41 @@ public class ApprovalFlowableTaskQueryService {
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public PageResult<HistoricTaskInstance> done(ApprovalTaskQueryContext context,String projection) {
+        var nativeProjection=nativeTaskFields(context,true);
+        return done(context,projection,nativeProjection.fields(),nativeProjection.joins());
+    }
+
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public PageResult<HistoricTaskInstance> done(ApprovalTaskQueryContext context, String projection,
+            Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> fields) {
+        return done(context,projection,fields,"");
+    }
+    private PageResult<HistoricTaskInstance> done(ApprovalTaskQueryContext context,String projection,
+            Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> fields,String joins) {
         Map<String,Object> p=parameters(context,projection,true); verify(p);
+        if (context.getListFilters()!=null && !context.getListFilters().isBlank()) p.put("nativeExtraSql",joins);
+        p.put("ew", listFilters(context, fields));
         long count=mapper.count(p); List<String> ids=mapper.window(p);
         if(ids.isEmpty()) return new PageResult<>(List.of(),count);
         var rows=history.createHistoricTaskInstanceQuery().taskIds(new HashSet<>(ids))
                 .taskTenantId((String)p.get("tenantText")).finished().includeTaskLocalVariables().list();
         return new PageResult<>(exactOrder(ids,rows,HistoricTaskInstance::getId),count);
+    }
+
+    private NativeApprovalListFilterSql.Projection nativeTaskFields(
+            ApprovalTaskQueryContext context, boolean done) {
+        boolean domainPermissions = done || List.of("mes:pro-batch-record-execution:approve",
+                "mes:pro-batch-record-execution:track", "mes:pro-batch-record-execution:signature-query")
+                .stream().allMatch(permission -> permissions.hasAnyPermissions(context.getLoginUserId(), permission));
+        return NativeApprovalListFilterSql.taskFields(context, done, summaryEnrichers, domainPermissions);
+    }
+
+    private static com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> listFilters(
+            ApprovalTaskQueryContext context,
+            Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> fields) {
+        var request = new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        request.setListFilters(context.getListFilters());
+        return cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(request, fields);
     }
 
     private void verify(Map<String,Object> p) {
@@ -74,6 +118,11 @@ public class ApprovalFlowableTaskQueryService {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public PageResult<org.flowable.engine.history.HistoricProcessInstance> initiated(ApprovalTaskQueryContext context) {
         var p=parameters(context,"BPM",true);
+        if (context.getListFilters()!=null && !context.getListFilters().isBlank())
+            p.put("nativeVariablesSql",NativeApprovalListFilterSql.variablesJoin("p.PROC_INST_ID_",false));
+        var nativeProjection=NativeApprovalListFilterSql.initiatedFields(context,summaryEnrichers);
+        if (context.getListFilters()!=null && !context.getListFilters().isBlank()) p.put("nativeExtraSql",nativeProjection.joins());
+        p.put("ew",listFilters(context,nativeProjection.fields()));
         long count=mapper.countInitiated(p); var ids=mapper.windowInitiated(p);
         var rows=ids.stream().map(id->Objects.requireNonNull(history.createHistoricProcessInstanceQuery()
                 .processInstanceId(id).processInstanceTenantId((String)p.get("tenantText")).includeProcessVariables().singleResult(),
@@ -84,6 +133,10 @@ public class ApprovalFlowableTaskQueryService {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public PageResult<cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO> copied(ApprovalTaskQueryContext context) {
         var p=parameters(context,"BPM",true);
+        p.remove("nativeVariablesSql");
+        var nativeProjection=NativeApprovalListFilterSql.copiedFields(context,summaryEnrichers);
+        if (context.getListFilters()!=null && !context.getListFilters().isBlank()) p.put("nativeExtraSql",nativeProjection.joins());
+        p.put("ew",listFilters(context,nativeProjection.fields()));
         return new PageResult<>(mapper.windowCopied(p),mapper.countCopied(p));
     }
 
@@ -98,6 +151,8 @@ public class ApprovalFlowableTaskQueryService {
         var p=new HashMap<String,Object>(); p.put("tenant",tenant); p.put("tenantText",tenant.toString());
         p.put("userId",user); p.put("userText",user.toString()); p.put("global",context.isGlobalView());
         p.put("done",done); p.put("projection",projection); p.put("startNode",START_USER_NODE_ID);
+        if ("BPM".equals(projection) && context.getListFilters()!=null && !context.getListFilters().isBlank())
+            p.put("nativeVariablesSql",NativeApprovalListFilterSql.variablesJoin("t.PROC_INST_ID_",!done));
         p.put("offset",w.offset());p.put("limit",w.limit());p.put("keyword",literalKeyword(context.getKeyword()));
         Collection<String> groups=null;
         if(!done && !context.isGlobalView()) {

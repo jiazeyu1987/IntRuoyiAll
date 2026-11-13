@@ -20,10 +20,8 @@
       @column-change="saveEffectColumnConfig"
       @column-reset="resetEffectColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
@@ -111,7 +109,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -126,10 +125,12 @@ import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/we
 defineOptions({ name: 'FormCenterEffectPending' })
 
 const message = useMessage()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<FormEffectExecutionVO[]>([])
 const queryParams = reactive<FormEffectPendingPageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   instanceId: undefined
@@ -166,14 +167,10 @@ const quickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
 ])
 
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await getPendingEffects(queryParams)
+  return await listRequest.run(() => getPendingEffects({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const quickFilter = useTableQuickFilter('form.center.effect', quickFilterDefinitions, queryParams, getList)
@@ -190,14 +187,6 @@ const handleRetry = async (row: FormEffectExecutionVO) => {
 }
 
 onMounted(getList)
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getPendingEffects({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

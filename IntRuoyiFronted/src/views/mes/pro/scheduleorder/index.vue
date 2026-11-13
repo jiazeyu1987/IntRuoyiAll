@@ -12,9 +12,7 @@
       >
         <el-tab-pane label="排产工单" name="scheduleOrders">
           <ScheduleOrderMainList
-            :load-filter-rows="loadMainColumnFilterRows"
-            @filtered-rows="scheduleOrderList = $event"
-            :list-rows="scheduleOrderList"
+            :server-filter-query="getScheduleOrderList"
             :query-model="scheduleOrderQueryParams"
             :filter-definitions="scheduleOrderQuickFilterDefinitions"
             :quick-filter-state="scheduleOrderQuickFilter.state"
@@ -531,10 +529,8 @@
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
-              :load-filter-rows="loadColumnFilterRows0"
-              @filtered-rows="workOrderAdmissionList = $event"
-              :list-rows="workOrderAdmissionList"
-              @column-filter-reset="getWorkOrderAdmissionList"
+              server-filter
+              :server-filter-query="getWorkOrderAdmissionList"
               :column-filter-definitions="listColumnFilterDefinitions0"
             >
               <template #actions>
@@ -2226,7 +2222,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import dayjs from 'dayjs'
 import { ElMessageBox, ElNotification } from 'element-plus'
@@ -2528,6 +2524,7 @@ const defaultScheduleOrderExportColumns = scheduleOrderExportColumnOptions.map(
 )
 const scheduleOrderExportColumns = ref<string[]>([...defaultScheduleOrderExportColumns])
 const scheduleOrderQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -2754,6 +2751,7 @@ const routeBindingRouteOptions = ref<ProRouteVO[]>([])
 const routeBindingRouteId = ref<number>()
 let workOrderAdmissionRequestSerial = 0
 const workOrderAdmissionQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
@@ -3406,15 +3404,14 @@ const buildPreflightRequestIfReady = (): MesProScheduleOrderPreflightReqVO | und
   }
 }
 
-const loadMainColumnFilterRows = async () => {
-  const rows = await loadAllListPages<any>(pagination => MesProScheduleOrderApi.getScheduleOrderPage({ ...scheduleOrderQueryParams, ...pagination }))
-  return scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder ? rows : sortScheduleOrderListForDisplay(rows)
-}
 
+let getScheduleOrderListRequestSequence = 0
 const getScheduleOrderList = async () => {
+  const requestId = ++getScheduleOrderListRequestSequence
   scheduleOrderLoading.value = true
   try {
     const data = await MesProScheduleOrderApi.getScheduleOrderPage(scheduleOrderQueryParams)
+    if (requestId !== getScheduleOrderListRequestSequence) return false
     const rows = data.list || []
     scheduleOrderList.value =
       scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder
@@ -3422,8 +3419,9 @@ const getScheduleOrderList = async () => {
         : sortScheduleOrderListForDisplay(rows)
     scheduleOrderTotal.value = data.total
     void syncScheduleOrderPriorityAriaSort()
+    return true
   } finally {
-    scheduleOrderLoading.value = false
+    if (requestId === getScheduleOrderListRequestSequence)     scheduleOrderLoading.value = false
   }
 }
 
@@ -4067,10 +4065,11 @@ const getWorkOrderAdmissionList = async () => {
   try {
     const data = await MesProScheduleOrderApi.getAdmissionDiff(workOrderAdmissionQueryParams)
     if (requestSerial !== workOrderAdmissionRequestSerial) {
-      return
+      return false
     }
     workOrderAdmissionList.value = data.list || []
     workOrderAdmissionTotal.value = data.total || 0
+    return true
   } catch (error) {
     if (requestSerial === workOrderAdmissionRequestSerial) {
       console.error('[MES] 加载同步工单列表失败', error)
@@ -4078,6 +4077,7 @@ const getWorkOrderAdmissionList = async () => {
         `加载同步工单列表失败：${error instanceof Error ? error.message : String(error)}`
       )
     }
+    throw error
   } finally {
     if (requestSerial === workOrderAdmissionRequestSerial) {
       workOrderAdmissionLoading.value = false
@@ -5085,13 +5085,6 @@ onMounted(async () => {
   }
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...workOrderAdmissionQueryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    MesProScheduleOrderApi.getAdmissionDiff({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

@@ -124,6 +124,17 @@
         COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
 
+    <sql id="ListFilterPayloadJoins">
+        <if test="reqVO.listFilters != null and reqVO.listFilters != ''">
+            <bind name="listFilterPayloadExpression" value="@cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesSubmissionListFilters@payloadExpression()"/>
+            LEFT JOIN LATERAL (SELECT ${listFilterPayloadExpression} AS payload) list_filter_base ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT CASE WHEN JSON_TYPE(JSON_EXTRACT(list_filter_base.payload,'$.rawPayload'))='OBJECT'
+                    THEN JSON_EXTRACT(list_filter_base.payload,'$.rawPayload') ELSE list_filter_base.payload END AS root_payload
+            ) list_filter_payload ON TRUE
+        </if>
+    </sql>
+
     <sql id="TimelineFilters">
         pool_event.deleted = 0
         <if test="reqVO.eventIds != null">
@@ -264,6 +275,9 @@
                     LIMIT 1
                 )
             )
+        </if>
+        <if test="ew != null and !ew.emptyOfNormal">
+            AND (${ew.sqlSegment})
         </if>
     </sql>
 
@@ -556,9 +570,10 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView == 'HISTORY' or reqVO.allocationView == 'WORKBENCH'">
+        <if test="reqVO.listFilters != null or reqVO.submissionReviewStatus != null or reqVO.pqcFormView == 'HISTORY' or reqVO.allocationView == 'WORKBENCH'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
+        <include refid="ListFilterPayloadJoins"/>
         WHERE <include refid="TimelineFilters"/>
     </select>
 
@@ -582,10 +597,11 @@
                      AND pqc_task.tenant_id = pool_event.tenant_id AND pqc_task.deleted = 0
                      AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
                 </if>
-                <if test="reqVO.submissionReviewStatus != null or reqVO.allocationView == 'WORKBENCH'">
+                <if test="reqVO.listFilters != null or reqVO.submissionReviewStatus != null or reqVO.allocationView == 'WORKBENCH'">
                     <include refid="LatestSubmissionReviewJoin"/>
                 </if>
-                WHERE <include refid="TimelineFilters"/>
+                <include refid="ListFilterPayloadJoins"/>
+        WHERE <include refid="TimelineFilters"/>
                 ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
                 LIMIT #{offset}, #{reqVO.pageSize}
             )
@@ -674,7 +690,8 @@
           ON revision_summary.event_id = pool_event.id
          AND revision_summary.tenant_id = pool_event.tenant_id
         <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">
-            WHERE <include refid="TimelineFilters"/>
+            <include refid="ListFilterPayloadJoins"/>
+        WHERE <include refid="TimelineFilters"/>
         </if>
         ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
         <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">

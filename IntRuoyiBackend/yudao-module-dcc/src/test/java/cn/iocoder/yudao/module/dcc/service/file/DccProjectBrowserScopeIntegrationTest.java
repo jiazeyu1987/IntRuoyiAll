@@ -42,6 +42,7 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
     cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projects;
     @BeforeEach void fixture() throws Exception {
         jdbc=new JdbcTemplate(dataSource);try(var connection=dataSource.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
+        jdbc.execute("CREATE TABLE IF NOT EXISTS ACT_RU_TASK(PROC_INST_ID_ VARCHAR(64),TASK_DEF_KEY_ VARCHAR(255),ASSIGNEE_ VARCHAR(255),TENANT_ID_ VARCHAR(255))");
         TenantContextHolder.setTenantId(1L);var login=new LoginUser();login.setId(99L);login.setTenantId(1L);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login,null,List.of()));
         jdbc.update("DELETE FROM dcc_project_file_placement");
@@ -69,6 +70,19 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         projects=mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);
         when(projects.listReadableProjectIds(99L)).thenReturn(List.of(5L,6L));
         ReflectionTestUtils.setField(query,"projectAccessService",projects);
+        var sqlAuthorization=new DccBrowserSqlAuthorization();
+        ReflectionTestUtils.setField(sqlAuthorization,"categories",ReflectionTestUtils.getField(query,"permissionSupport"));
+        var archive=mock(DccArchiveAccessService.class);when(archive.canQuery(99L)).thenReturn(true);when(archive.canRead(eq(99L),any())).thenAnswer(invocation->DccArchiveAccessService.isArchived(invocation.getArgument(1)));
+        ReflectionTestUtils.setField(query,"archiveAccess",archive);ReflectionTestUtils.setField(sqlAuthorization,"archiveAccess",archive);
+        ReflectionTestUtils.setField(sqlAuthorization,"matrix",ReflectionTestUtils.getField(query,"viewMatrixAccessService"));
+        ReflectionTestUtils.setField(sqlAuthorization,"projects",projects);
+        ReflectionTestUtils.setField(sqlAuthorization,"projectMapper",mock(cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper.class));
+        ReflectionTestUtils.setField(sqlAuthorization,"directories",permissions);
+        ReflectionTestUtils.setField(sqlAuthorization,"guard",ReflectionTestUtils.getField(query,"detailAuthorizationGuard"));
+        // Workflow tasks remain an external port; the full browser count/page SQL is real.
+        ReflectionTestUtils.setField(sqlAuthorization,"mapper",mock(DccProjectBrowserMapper.class));
+        ReflectionTestUtils.setField(query,"browserSqlAuthorization",sqlAuthorization);
+
         var storage=mock(FileMapper.class);when(storage.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("controlled.pdf").type("application/pdf").build());
         ReflectionTestUtils.setField(query,"fileMapper",storage);
         var settings=mock(DccControlledFileBrowserSettingsService.class);when(settings.getBlacklistedExtensionPatterns()).thenReturn(List.of());
@@ -78,7 +92,7 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         configuration.ldtEpochMillisCustomizer().customize(builder);builder.modulesToInstall(configuration.timestampSupportModuleBean());json=builder.build();
         mvc=MockMvcBuilders.standaloneSetup(controller).setMessageConverters(new MappingJackson2HttpMessageConverter(json)).build();
     }
-    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
+    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_reference");jdbc.update("DELETE FROM dcc_project_file_placement");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
     @Test void projectBrowserReadsAssignmentAndProjectScopeOncePerRequestAndRechecksRevocation() throws Exception {
         var assigned=Set.of(20L,21L,24L,22L,9007199254740993L);
         when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(assigned);
@@ -218,6 +232,23 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         var detail=(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO)
                 ReflectionTestUtils.invokeMethod(query,"toNameOnlyResponseWithHistory",99L,files.selectById(20L),false,List.of(),new HashMap<Long,Boolean>());
         assertTrue(detail.getVersionHistory().stream().anyMatch(row->row.getId().equals(26L)));
+    }
+    @Test void fixedReferenceUnionFiltersBeforeCountAndKeepsExactSourceIdentity() {
+        jdbc.update("INSERT INTO dcc_project_file_reference(id,tenant_id,project_id,folder_id,master_id,selected_controlled_file_id,created_by) VALUES(101,1,5,500,13,25,99),(102,1,5,501,12,25,99),(103,2,5,500,13,25,99)");
+        jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(3,1,5,500,20,5)");
+        var request=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO();
+        request.setBrowserScope("PROJECT_FOLDER");request.setDccProjectCodeId(5L);request.setProjectFolderId(500L);request.setLatestVersionOnly(false);
+        request.setListFilters("[{\"key\":\"projectCount\",\"operator\":\"contains\",\"value\":\"引\"}]");
+        var permission=new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object>();permission.setParamAlias("permission");permission.eq("f.directory_id",5L);
+        assertEquals(2,browser.countFolderUnion(1L,request,permission,null),"owned and fixed reference union");
+        var filters=cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(request,DccBrowserListFilterSql.folderUnionFields());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(DISTINCT project_id) FROM dcc_project_file_reference WHERE tenant_id=1 AND master_id=13 AND selected_controlled_file_id=25",Integer.class));
+        assertEquals(1,browser.countFolderUnion(1L,request,permission,filters));
+        var rows=browser.selectFolderUnionPage(1L,request,permission,filters,1,0);
+        assertEquals(1,rows.size());assertEquals(25L,rows.get(0).getId());assertEquals(101L,rows.get(0).getReferenceId());
+        assertTrue(browser.selectFolderUnionPage(1L,request,permission,filters,1,1).isEmpty());
+        jdbc.update("UPDATE dcc_project_file_reference SET master_id=12 WHERE id=101");
+        assertEquals(0,browser.countFolderUnion(1L,request,permission,filters));
     }
     private com.fasterxml.jackson.databind.JsonNode filteredPage(String scope,String project,String folder,boolean latest,String status,int number,int size) throws Exception {
         var request=get("/dcc/controlled-files/browser-page").param("browserScope",scope).param("latestVersionOnly",String.valueOf(latest)).param("pageNo",number+"").param("pageSize",size+"");

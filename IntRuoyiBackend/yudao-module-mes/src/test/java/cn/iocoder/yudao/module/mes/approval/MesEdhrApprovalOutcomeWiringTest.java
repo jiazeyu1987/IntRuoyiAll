@@ -73,8 +73,18 @@ class MesEdhrApprovalOutcomeWiringTest {
         actors = beans.getBean(MesManagerReleaseCompletedActorResolver.class);
         signatures = beans.getBean(ElectronicSignatureQueryService.class);
         when(beans.getBean(AdminUserApi.class).getUserMap(anyCollection())).thenReturn(Map.of());
-        when(handoffs.selectApprovalCenterPrefix(eq(1L),eq(12L),anyBoolean(),anyBoolean(),nullable(String.class),anyLong()))
+        when(handoffs.selectApprovalCenterPrefix(eq(1L),eq(12L),anyBoolean(),anyBoolean(),nullable(String.class),anyLong(), nullable(String.class)))
                 .thenReturn(new PageResult<>(List.of(),0L));
+        when(tasks.selectApprovalCenterWindow(any(),nullable(Long.class),eq(1L),anyBoolean(),eq("TODO"),anyLong(),eq(200L)))
+                .thenAnswer(call->{
+                    var page=tasks.selectApprovalCenterPrefix(call.getArgument(0),call.getArgument(1),1L,call.getArgument(3),"TODO",10L);
+                    return new PageResult<>(call.getArgument(5,Long.class)==0?page.getList():List.of(),page.getTotal());
+                });
+        when(handoffs.selectApprovalCenterWindow(eq(1L),eq(12L),anyBoolean(),anyBoolean(),nullable(String.class),anyLong(),eq(200L),nullable(String.class)))
+                .thenAnswer(call->{
+                    var page=handoffs.selectApprovalCenterPrefix(1L,12L,call.getArgument(2),call.getArgument(3),call.getArgument(4),10L,call.getArgument(7));
+                    return new PageResult<>(call.getArgument(5,Long.class)==0?page.getList():List.of(),page.getTotal());
+                });
     }
 
     private <T> void registerPort(Class<T> type) {
@@ -148,7 +158,7 @@ class MesEdhrApprovalOutcomeWiringTest {
             assertTrue(listJson.has(field),field);
             assertEquals(listJson.get(field),timelineJson.get(field),field);
         }
-        verify(tasks).selectApprovalCenterPrefix(any(),eq(12L),eq(1L),eq(true),eq("TODO"),eq(10L));
+        verify(tasks,atLeastOnce()).selectApprovalCenterPrefix(any(),eq(12L),eq(1L),eq(true),eq("TODO"),eq(10L));
         assertEquals(999L,task.getAssigneeUserId(),"formal completion actor does not mutate frozen owner");
         verifyNoInteractions(beans.getBean(MesProEdhrReleaseService.class));
     }
@@ -245,8 +255,8 @@ class MesEdhrApprovalOutcomeWiringTest {
         expose(task);
         assertEquals(7L,page(false).getTotal());
         assertEquals(7L,page(true).getTotal());
-        verify(tasks).selectApprovalCenterPrefix(any(),eq(12L),eq(1L),eq(true),eq("TODO"),eq(10L));
-        verify(tasks).selectApprovalCenterPrefix(any(),isNull(),eq(1L),eq(true),eq("TODO"),eq(10L));
+        verify(tasks,atLeastOnce()).selectApprovalCenterPrefix(any(),eq(12L),eq(1L),eq(true),eq("TODO"),eq(10L));
+        verify(tasks,atLeastOnce()).selectApprovalCenterPrefix(any(),isNull(),eq(1L),eq(true),eq("TODO"),eq(10L));
         var projection = beans.getBean(MesProEdhrWorkTaskService.class).getApprovalCenterAuthorizedPrefix(
                 new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO(),false,true,400);
         assertSame(task,projection.getList().get(0).task(),"must retain actual complete DO, not reconstruct VO");
@@ -296,7 +306,7 @@ class MesEdhrApprovalOutcomeWiringTest {
                 .setReason("创建时冻结来源");
         when(tasks.selectApprovalCenterPrefix(any(),nullable(Long.class),eq(1L),eq(true),eq("TODO"),anyLong()))
                 .thenReturn(new PageResult<>(List.of(),0L));
-        when(handoffs.selectApprovalCenterPrefix(1L,12L,false,true,null,10L)).thenReturn(new PageResult<>(List.of(task),1L));
+        when(handoffs.selectApprovalCenterPrefix(1L,12L,false,true,null,10L, null)).thenReturn(new PageResult<>(List.of(task),1L));
         when(handoffs.selectById(41L)).thenReturn(task);
         var row = page(false).getList().get(0);
         var entries = adapter.listTimeline(timeline("ACTIVE_ORDER_HANDOFF","41",false));

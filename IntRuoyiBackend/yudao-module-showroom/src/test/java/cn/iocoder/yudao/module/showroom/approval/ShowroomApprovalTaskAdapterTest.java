@@ -34,8 +34,15 @@ class ShowroomApprovalTaskAdapterTest {
 
     @Mock
     private ShowroomWorkflowFacade workflowFacade;
+    @Mock
+    private cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomApprovalQueryMapper approvalQueries;
     @InjectMocks
     private ShowroomApprovalTaskAdapter adapter;
+
+    @org.junit.jupiter.api.BeforeEach
+    void injectCandidateQuery() {
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter, "approvalQueries", approvalQueries);
+    }
 
     @Test
     void pageTodoMapsPendingReviewerChangeRequestsToUnifiedSummary() {
@@ -44,7 +51,7 @@ class ShowroomApprovalTaskAdapterTest {
                 501L, 60L, 100L, 200L, null,
                 List.of(new ShowroomChangeRequestItem("name_cn", "{\"value\":\"旧名称\"}",
                         "{\"value\":\"新名称\"}")));
-        when(workflowFacade.listPendingApprovalsForReviewer(100L)).thenReturn(List.of(request));
+        stubPaged(request);
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.SHOWROOM, null, 1, 10));
@@ -65,7 +72,8 @@ class ShowroomApprovalTaskAdapterTest {
         assertTrue(summary.getCapabilities().contains(ApprovalTaskCapability.SIGNATURE_AUTHORIZATION));
         assertTrue(summary.getCapabilities().contains(ApprovalTaskCapability.EVIDENCE_LEDGER));
 
-        verify(workflowFacade).listPendingApprovalsForReviewer(100L);
+        verify(workflowFacade, org.mockito.Mockito.never()).listPendingApprovalsForReviewer(100L);
+        verify(approvalQueries).window(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -73,7 +81,7 @@ class ShowroomApprovalTaskAdapterTest {
         ShowroomChangeRequest request = new ShowroomChangeRequest(9002L, "PRODUCT", 7002L,
                 8002L, "showroom", "MANUAL", "PENDING_GAOXIN_APPROVAL",
                 501L, 60L, 100L, 200L, null, List.of());
-        when(workflowFacade.listApprovals()).thenReturn(List.of(request));
+        stubPaged(request);
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.SHOWROOM, null, 1, 10, true));
@@ -158,5 +166,13 @@ class ShowroomApprovalTaskAdapterTest {
         assertEquals("SUPERVISOR", timeline.get(1).getNodeCode());
         assertEquals("PUBLICITY", timeline.get(2).getNodeCode());
         assertEquals("APPROVED", timeline.get(2).getStatus());
+    }
+    private void stubPaged(ShowroomChangeRequest request) {
+        when(approvalQueries.query(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX<>());
+        when(approvalQueries.count(org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        when(approvalQueries.window(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(request.changeRequestId()));
+        when(workflowFacade.getApproval(request.changeRequestId())).thenReturn(new ShowroomApprovalDetail(
+                request,request.items(),null,List.of(),List.of()));
     }
 }

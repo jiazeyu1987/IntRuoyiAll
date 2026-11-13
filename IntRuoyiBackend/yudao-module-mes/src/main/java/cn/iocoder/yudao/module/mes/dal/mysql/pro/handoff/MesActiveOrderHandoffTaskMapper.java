@@ -55,8 +55,13 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
     }
 
     default cn.iocoder.yudao.framework.common.pojo.PageResult<MesActiveOrderHandoffTaskDO> selectApprovalCenterPrefix(
-            Long tenant, Long actor, boolean global, boolean done, String keyword, long limit) {
-        if (limit < 0) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+            Long tenant, Long actor, boolean global, boolean done, String keyword, long limit, String listFilters) {
+        return selectApprovalCenterWindow(tenant,actor,global,done,keyword,0,limit,listFilters);
+    }
+
+    default cn.iocoder.yudao.framework.common.pojo.PageResult<MesActiveOrderHandoffTaskDO> selectApprovalCenterWindow(
+            Long tenant, Long actor, boolean global, boolean done, String keyword, long offset, long limit, String listFilters) {
+        if (offset < 0 || limit < 0) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
         // A SQL CASE must not silently hide the corruption that label() previously rejected.
         var invalidType = approvalCenterQuery(tenant, actor, global, done, null);
         // Formal CI/PAD SPACE columns must retain the exact Java enum contract, including trailing spaces.
@@ -69,12 +74,15 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
                 .apply("CAST(task_type AS BINARY) NOT IN (" + binaryTypes + ")", types.toArray()));
         cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.require(
                 selectCount(invalidType) == 0, "未知交接类型");
-        long total = selectCount(approvalCenterQuery(tenant, actor, global, done, keyword));
+        var countQuery=approvalCenterQuery(tenant, actor, global, done, keyword);
+        cn.iocoder.yudao.module.mes.approval.MesHandoffApprovalListFilters.apply(listFilters,done,countQuery);
+        long total = selectCount(countQuery);
         if (limit == 0 || total == 0) return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), total);
         var query = approvalCenterQuery(tenant, actor, global, done, keyword);
+        cn.iocoder.yudao.module.mes.approval.MesHandoffApprovalListFilters.apply(listFilters,done,query);
         String time = done ? "completed_at" : "create_time";
         query.last("ORDER BY " + time + " IS NULL ASC, " + time
-                + " DESC, CAST(id AS BINARY) ASC LIMIT " + limit);
+                + " DESC, CAST(id AS BINARY) ASC LIMIT " + (offset==0?Long.toString(limit):offset+","+limit));
         return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(selectList(query), total);
     }
 

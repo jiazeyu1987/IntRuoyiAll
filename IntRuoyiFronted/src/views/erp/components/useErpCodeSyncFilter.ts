@@ -3,7 +3,7 @@ import type { TableQuickFilterState } from '@/hooks/web/useTableQuickFilter'
 export const useErpCodeSyncFilter = (
   query: Record<string, any>,
   quickFilterState: TableQuickFilterState,
-  reload: () => Promise<void>,
+  reload: () => Promise<unknown>,
   resetColumnFilters: () => void
 ) => {
   const clearFilters = () => {

@@ -657,10 +657,8 @@
       @column-change="saveSubmissionColumnConfig"
       @column-reset="resetSubmissionColumnConfig"
       @pagination="getSubmissionList"
-      :load-filter-rows="loadColumnFilterRows3"
-      @filtered-rows="submissionList = $event"
-      :list-rows="submissionList"
-      @column-filter-reset="getSubmissionList"
+      server-filter
+      :server-filter-query="getSubmissionList"
       :column-filter-definitions="listColumnFilterDefinitions3"
     >
       <template #table="{ resolveRows }">
@@ -4204,7 +4202,7 @@ import {useWorkflowInteractionLog} from './workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
 const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
-import { type ListColumnFilterDefinition, loadAllListPages } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -5200,6 +5198,7 @@ const reviewDialogSubmitText = computed(() => {
 })
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   leaderType: activeLeaderTab.value,
@@ -8792,6 +8791,7 @@ const resolveSubmissionReviewTagType = (status?: string) => {
 
 const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     leaderType: resolveCurrentLeaderType(),
@@ -8834,18 +8834,20 @@ async function getSubmissionList() {
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const list = data.list || []
     await enrichSubmissionMaterialNames(list)
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     submissionList.value = list
     submissionTotal.value = data.total || 0
+    return true
   } catch (error) {
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     submissionList.value = []
     submissionTotal.value = 0
     loadError.value = resolveErrorMessage(error, '班组长提交看板加载失败')
     ElMessage.error(loadError.value)
+    throw error
   } finally {
     if (isCurrent()) loading.value = false
   }
@@ -11053,14 +11055,6 @@ const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows3 = async () => {
-  const params = buildSubmissionParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getTeamLeaderSubmissionPage({ ...params, ...pagination })
-  )
-  await enrichSubmissionMaterialNames(rows)
-  return rows
-}
 
 const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
   {

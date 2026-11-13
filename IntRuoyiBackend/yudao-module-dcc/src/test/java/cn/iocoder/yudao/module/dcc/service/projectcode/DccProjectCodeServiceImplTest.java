@@ -11,7 +11,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeControlledFilePageReqVO;
-import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -38,10 +37,17 @@ import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminServ
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
-import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeListQuery;
+import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
+import org.apache.ibatis.session.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.stream.Collectors;
 import jakarta.annotation.Resource;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -58,7 +64,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -71,11 +76,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -100,8 +107,15 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @Resource
     private DccProjectCodeService projectCodeService;
-    @Resource
+    @MockitoSpyBean
     private DccProjectCodeMapper projectCodeMapper;
+    @Resource
+    private DataSource dataSource;
+    private JdbcTemplate jdbcTemplate;
+
+    private Map<Long, DccProjectCodeConfigurationStatus> configurationProjection = Map.of();
+    private Set<Long> validDccProducts = Set.of();
+    private QueryWrapper<Object> lastDisplayFilter;
     @Resource
     private DccProjectCodeImportBatchMapper importBatchMapper;
     @Resource
@@ -131,10 +145,78 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUpRegistrationCertificateAssociationDefaults() {
+        jdbcTemplate = new JdbcTemplate(dataSource);
+        configurationProjection = Map.of();
+        validDccProducts = Set.of();
+        lastDisplayFilter = null;
+        // MES/MDM schemas live outside this H2 module fixture. Supply their projected columns
+        // at the mapper boundary, while executing the real filter, count, order and pagination SQL.
+        doAnswer(invocation -> {
+            lastDisplayFilter = invocation.getArgument(1);
+            var sql = displayFixtureSql(DccProjectCodeListQuery.count(), invocation.getArgument(0),
+                    null, lastDisplayFilter, 0L);
+            return jdbcTemplate.queryForObject(sql.sql(), Long.class, sql.values());
+        }).when(projectCodeMapper).countDisplayPage(any(), any());
+        doAnswer(invocation -> {
+            var sql = displayFixtureSql(DccProjectCodeListQuery.page(), invocation.getArgument(0),
+                    invocation.getArgument(1), invocation.getArgument(2), invocation.getArgument(3));
+            return jdbcTemplate.query(sql.sql(), (rs, row) -> {
+                DccProjectCodeDO project = projectCodeMapper.selectById(rs.getLong("id"));
+                project.setAssociatedFileCount(rs.getLong("associated_file_count"));
+                return project;
+            }, sql.values());
+        }).when(projectCodeMapper).selectDisplayPage(any(), any(), any(), anyLong());
         when(registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(any()))
                 .thenReturn(Map.of());
         when(registrationCertificateFileAssociationService.listAssociatedRows(any(), any(), any()))
                 .thenReturn(List.of());
+    }
+
+
+    private record FixtureSql(String sql, Object[] values) {}
+
+    private FixtureSql displayFixtureSql(String script, Long tenantId, DccProjectCodePageReqVO request,
+                                         QueryWrapper<Object> filter, long offset) {
+        String projection = "SELECT p.* EXCEPT (associated_file_count),(SELECT COUNT(*) FROM dcc_controlled_file cf"
+                + " WHERE cf.dcc_project_code_id=p.id AND cf.deleted=0 AND cf.tenant_id=p.tenant_id)"
+                + " AS associated_file_count," + configuredColumn("route_configured", 0) + ","
+                + configuredColumn("main_batch_configured", 1) + "," + configuredColumn("qa_configured", 2)
+                + ",CASE WHEN p.product_master_id IN (" + fixtureIds(validDccProducts)
+                + ") THEN 1 ELSE 0 END AS valid_dcc_product"
+                + " FROM dcc_project_code p WHERE p.deleted=0 AND p.tenant_id=#{tenantId} AND p.library_scope='PROJECT'";
+        int from = script.indexOf(" FROM (") + " FROM (".length();
+        int end = script.lastIndexOf(") q WHERE");
+        // H2 binary casts truncate character sort keys; VARCHAR preserves the same fixture ordering.
+        String fixtureScript = (script.substring(0, from) + projection + script.substring(end))
+                .replace(" AS BINARY)", " AS VARCHAR)");
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("ew", filter);
+        parameters.put("req", request);
+        parameters.put("offset", offset);
+        Configuration configuration = new Configuration();
+        var bound = new XMLLanguageDriver().createSqlSource(configuration, fixtureScript, Map.class)
+                .getBoundSql(parameters);
+        var meta = configuration.newMetaObject(parameters);
+        Object[] values = bound.getParameterMappings().stream().map(mapping ->
+                bound.hasAdditionalParameter(mapping.getProperty())
+                        ? bound.getAdditionalParameter(mapping.getProperty())
+                        : meta.getValue(mapping.getProperty())).toArray();
+        // MySQL CAST AS CHAR is unbounded; H2 defaults CHAR to a single character.
+        return new FixtureSql(bound.getSql().replace(" AS CHAR)", " AS VARCHAR)"), values);
+    }
+
+    private String configuredColumn(String column, int field) {
+        Set<Long> enabled = configurationProjection.values().stream().filter(status -> switch (field) {
+            case 0 -> status.routeConfigured();
+            case 1 -> status.mainBatchRecordConfigured();
+            default -> status.qaRegulationConfigured();
+        }).map(DccProjectCodeConfigurationStatus::projectCodeId).collect(Collectors.toSet());
+        return "(p.id IN (" + fixtureIds(enabled) + ")) AS " + column;
+    }
+
+    private String fixtureIds(Set<Long> ids) {
+        return ids.isEmpty() ? "-1" : ids.stream().map(String::valueOf).collect(Collectors.joining(","));
     }
 
     @Test
@@ -156,7 +238,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         DccProjectCodeDO historical = DccProjectCodeDO.builder().docControlNo("12").projectName("项目A").projectCode("")
                 .category("类别A").commissionedProduction("√").projectLeader("负责人A").projectEngineer("工程师A")
                 .storageLocation("新N").priority("高").status(DccProjectCodeStatusConstants.ENABLE).build();
-        projectCodeMapper.insert(historical);
+        insertProjectCodeFixture(historical);
         Long id = historical.getId();
 
         DccProjectCodeUpdateReqVO updateReqVO = new DccProjectCodeUpdateReqVO();
@@ -192,9 +274,10 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         assertNull(projectCodeMapper.selectById(id));
     }
 
+
     @Test
     void directCreateIsForbiddenAndUpdateRejectsDuplicateProjectNameAndProjectCode() {
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("1")
                 .projectName("项目A")
                 .projectCode("CODE-A")
@@ -214,7 +297,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .projectCode("CODE-B")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(another);
+        insertProjectCodeFixture(another);
 
         DccProjectCodeUpdateReqVO updateReqVO = new DccProjectCodeUpdateReqVO();
         updateReqVO.setId(another.getId());
@@ -226,7 +309,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void directCreateRejectsBeforeDuplicateChecksAcrossProjectNames() {
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("1")
                 .projectName("项目A")
                 .projectCode("CODE-SHARED")
@@ -250,7 +333,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .projectCode("CODE-A")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(projectCode);
+        insertProjectCodeFixture(projectCode);
         controlledFileMapper.insert(DccControlledFileDO.builder()
                 .masterId(1L)
                 .categoryId(1L)
@@ -275,7 +358,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void pageShouldSupportKeywordCategoryPriorityAndStatusFilters() {
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("1")
                 .projectName("项目A")
                 .projectCode("CODE-A")
@@ -284,7 +367,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .priority("高")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("2")
                 .projectName("项目B")
                 .projectCode("CODE-B")
@@ -314,7 +397,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         DccProjectCodeDO batchRecordProject = insertProjectCode("2", "项目批记录", "CODE-BATCH");
         DccProjectCodeDO qaProject = insertProjectCode("3", "项目QA", "CODE-QA");
         DccProjectCodeDO allConfiguredProject = insertProjectCode("4", "项目全配置", "CODE-ALL");
-        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+        configurationProjection = Map.of(
                 routeProject.getId(), new DccProjectCodeConfigurationStatus(
                         routeProject.getId(), true, false, false),
                 batchRecordProject.getId(), new DccProjectCodeConfigurationStatus(
@@ -322,7 +405,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 qaProject.getId(), new DccProjectCodeConfigurationStatus(
                         qaProject.getId(), false, false, true),
                 allConfiguredProject.getId(), new DccProjectCodeConfigurationStatus(
-                        allConfiguredProject.getId(), true, true, true)));
+                        allConfiguredProject.getId(), true, true, true));
 
         DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
         routeReqVO.setRouteConfigured(true);
@@ -351,43 +434,37 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void routeConfigurationFilterShouldRequestOnlyRouteStatus() {
+    void routeConfigurationFilterShouldAddOnlyRoutePredicate() {
         DccProjectCodeDO routeProject = insertProjectCode("1", "项目路线", "CODE-ROUTE");
-        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+        configurationProjection = Map.of(
                 routeProject.getId(), new DccProjectCodeConfigurationStatus(
-                        routeProject.getId(), true, false, false)));
+                        routeProject.getId(), true, false, false));
 
         DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
         routeReqVO.setRouteConfigured(true);
         projectCodeService.getProjectCodePage(routeReqVO);
 
-        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
-                ArgumentCaptor.forClass(Collection.class);
-        verify(configurationStatusApi).getStatus(queryCaptor.capture());
-        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
-        assertTrue(query.routeStatusRequired());
-        assertFalse(query.mainBatchRecordStatusRequired());
-        assertFalse(query.qaRegulationStatusRequired());
+        assertTrue(lastDisplayFilter.getSqlSegment().contains("q.route_configured"));
+        assertFalse(lastDisplayFilter.getSqlSegment().contains("q.main_batch_configured"));
+        assertFalse(lastDisplayFilter.getSqlSegment().contains("q.qa_configured"));
+        verifyNoInteractions(configurationStatusApi);
     }
 
     @Test
-    void qaConfigurationFilterShouldRequestOnlyQaStatus() {
+    void qaConfigurationFilterShouldAddOnlyQaPredicate() {
         DccProjectCodeDO qaProject = insertProjectCode("1", "项目QA", "CODE-QA");
-        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+        configurationProjection = Map.of(
                 qaProject.getId(), new DccProjectCodeConfigurationStatus(
-                        qaProject.getId(), false, false, true)));
+                        qaProject.getId(), false, false, true));
 
         DccProjectCodePageReqVO qaReqVO = configurationFilterReqVO();
         qaReqVO.setQaRegulationConfigured(true);
         projectCodeService.getProjectCodePage(qaReqVO);
 
-        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
-                ArgumentCaptor.forClass(Collection.class);
-        verify(configurationStatusApi).getStatus(queryCaptor.capture());
-        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
-        assertFalse(query.routeStatusRequired());
-        assertFalse(query.mainBatchRecordStatusRequired());
-        assertTrue(query.qaRegulationStatusRequired());
+        assertFalse(lastDisplayFilter.getSqlSegment().contains("q.route_configured"));
+        assertFalse(lastDisplayFilter.getSqlSegment().contains("q.main_batch_configured"));
+        assertTrue(lastDisplayFilter.getSqlSegment().contains("q.qa_configured"));
+        verifyNoInteractions(configurationStatusApi);
     }
 
     private DccProjectCodePageReqVO configurationFilterReqVO() {
@@ -429,6 +506,45 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 descPageResult.getList().stream().map(DccProjectCodeDO::getId).toList());
         assertEquals(List.of(2L, 1L, 0L),
                 descPageResult.getList().stream().map(DccProjectCodeDO::getAssociatedFileCount).toList());
+    }
+
+    @Test
+    void columnFilterShouldRunBeforeCountAndPagination() {
+        insertProjectCode("1", "其他项目", "CODE-OTHER");
+        DccProjectCodeDO expected = insertProjectCode("2", "目标项目", "CODE-TARGET");
+        insertControlledFile(expected.getId(), "TARGET-1");
+        insertControlledFile(expected.getId(), "TARGET-2");
+        var request = configurationFilterReqVO();
+        request.setPageSize(1);
+        request.setListFilters("[{\"key\":\"associatedFileCount\",\"operator\":\"eq\",\"value\":\"2\"}]");
+
+        var result = projectCodeService.getProjectCodePage(request);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of(expected.getId()), result.getList().stream().map(DccProjectCodeDO::getId).toList());
+        request.setPageNo(2);
+        var nextPage = projectCodeService.getProjectCodePage(request);
+        assertEquals(1L, nextPage.getTotal());
+        assertTrue(nextPage.getList().isEmpty());
+    }
+
+    @Test
+    void readablePageShouldApplyFormalAccessAndEnabledStatusBeforeColumnFilters() {
+        DccProjectCodeDO readable = insertProjectCode("1", "目标可读项目", "CODE-READABLE");
+        DccProjectCodeDO disabled = insertProjectCode("2", "目标停用项目", "CODE-DISABLED");
+        DccProjectCodeDO outsideScope = insertProjectCode("3", "目标越权项目", "CODE-PRIVATE");
+        disabled.setStatus(DccProjectCodeStatusConstants.DISABLE);
+        projectCodeMapper.updateById(disabled);
+        when(projectAccess.listReadableProjectIds(99L)).thenReturn(List.of(readable.getId(), disabled.getId()));
+        var request = configurationFilterReqVO();
+        request.setListFilters("[{\"key\":\"projectName\",\"operator\":\"contains\",\"value\":\"目标\"}]");
+
+        var result = projectCodeService.getReadableProjectCodePage(99L, request);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of(readable.getId()), result.getList().stream().map(DccProjectCodeDO::getId).toList());
+        assertFalse(result.getList().stream().anyMatch(row -> row.getId().equals(outsideScope.getId())));
+        verify(projectAccess).listReadableProjectIds(99L);
     }
 
     @Test
@@ -503,14 +619,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         DccProjectCodeDO validProjectCode = insertProjectCodeWithProduct("1", "项目A", "CODE-A", 20L);
         DccProjectCodeDO invalidProductProjectCode = insertProjectCodeWithProduct("2", "项目B", "CODE-B", 21L);
         DccProjectCodeDO missingProductProjectCode = insertProjectCodeWithProduct("3", "项目C", "CODE-C", null);
-        when(productApi.listSimpleProducts(MdmProductStatusConstants.ENABLE, true, null))
-                .thenReturn(List.of(MdmProductRespDTO.builder()
-                        .id(20L)
-                        .productCode("P-20")
-                        .dccProductCode("A1234567890123")
-                        .nameCn("产品A")
-                        .status(MdmProductStatusConstants.ENABLE)
-                        .build()));
+        validDccProducts = Set.of(20L);
 
         DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
         reqVO.setPageNo(1);
@@ -1094,7 +1203,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .priority("旧")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(legacy);
+        insertProjectCodeFixture(legacy);
 
         MockMultipartFile file = workbook(
                 row("√", "项目A", "DUP", "类别1", "/", "负责人A", "工程师A", 9, "新1"),
@@ -1151,7 +1260,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .priority("低")
                 .status(DccProjectCodeStatusConstants.DISABLE)
                 .build();
-        projectCodeMapper.insert(existing);
+        insertProjectCodeFixture(existing);
 
         MockMultipartFile file = workbook(
                 row("新文控", "项目A", "CODE-A", "新类别", "√", "新负责人", "新工程师", "新N", "高")
@@ -1231,28 +1340,28 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void pageAndExportShouldOrderByNumericDocControlNoAscendingBeforeNonNumeric() {
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("30")
                 .projectName("Project-30")
                 .projectCode("CODE-30")
                 .category("Category")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("A-1")
                 .projectName("Project-A")
                 .projectCode("CODE-A")
                 .category("Category")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("2")
                 .projectName("Project-2")
                 .projectCode("CODE-2")
                 .category("Category")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("10")
                 .projectName("Project-10")
                 .projectCode("CODE-10")
@@ -1287,7 +1396,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void exportShouldUseRequiredHeaderOrderAndOriginalValues() throws Exception {
-        projectCodeMapper.insert(DccProjectCodeDO.builder()
+        insertProjectCodeFixture(DccProjectCodeDO.builder()
                 .docControlNo("/")
                 .projectName("项目A")
                 .projectCode("")
@@ -1321,6 +1430,12 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, importRowMapper.selectListByBatchId(preview.getBatchId()).size());
     }
 
+    private void insertProjectCodeFixture(DccProjectCodeDO project) {
+        // BaseDbUnitTest omits the tenant interceptor; fixture rows need an explicit tenant.
+        project.setTenantId(1L);
+        projectCodeMapper.insert(project);
+    }
+
     private DccProjectCodeDO insertProjectCode(String docControlNo, String projectName, String projectCode) {
         return insertProjectCodeWithProduct(docControlNo, projectName, projectCode, null);
     }
@@ -1334,7 +1449,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .productMasterId(productMasterId)
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(projectCodeDO);
+        insertProjectCodeFixture(projectCodeDO);
         return projectCodeDO;
     }
 
@@ -1385,6 +1500,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .submitterId(1L)
                 .requesterId(1L)
                 .build();
+        controlledFile.setTenantId(1L);
         controlledFileMapper.insert(controlledFile);
         return controlledFile;
     }

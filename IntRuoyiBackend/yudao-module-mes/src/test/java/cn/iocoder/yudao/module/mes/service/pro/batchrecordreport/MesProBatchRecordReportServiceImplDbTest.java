@@ -136,7 +136,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@Import({cn.iocoder.yudao.module.mes.support.TenantMapperTestConfiguration.class,cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class, MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
+@Import({cn.iocoder.yudao.module.mes.support.MesExecutionMysqlTextTestConfiguration.class,cn.iocoder.yudao.module.mes.support.TenantMapperTestConfiguration.class,cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class, MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
         cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService.class,
         MesProBatchRecordVersionBusinessApprovalEffectExecutor.class,
         MesProRouteOwnerPermissionServiceImpl.class,
@@ -232,6 +232,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         totalRecognition = org.mockito.Mockito.mockConstruction(MesProBatchRecordTotalRecognitionExtractor.class,
                 (extractor, context) -> when(extractor.extract(anyString(), any())).thenReturn(recognitionFixture));
         TenantContextHolder.setTenantId(1L);
+        jdbcTemplate().execute("CREATE TABLE IF NOT EXISTS jimu_report (id VARCHAR(128) PRIMARY KEY, code VARCHAR(255), name VARCHAR(500), update_time TIMESTAMP)");
+        jdbcTemplate().execute("DELETE FROM jimu_report");
         when(routeService.buildCurrentRouteSnapshotJson(anyLong(), anyLong())).thenAnswer(invocation ->
                 buildCandidateSourceSnapshot(routeMapper.selectById((Long) invocation.getArgument(0))));
         AtomicInteger gxCodeCounter = new AtomicInteger();
@@ -505,6 +507,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         pageReqVO.setProductName("球囊扩张压力泵");
         pageReqVO.setFormSlotType(MesProBatchRecordFormSlotType.LOSS_REPORT.getType());
 
+        persistMetadataCatalogReports();
         PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
 
         assertEquals(1L, pageResult.getTotal());
@@ -548,6 +551,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         pageReqVO.setProductName("过程检验记录");
         pageReqVO.setFormSlotType(MesProBatchRecordFormSlotType.FORM.getType());
 
+        persistMetadataCatalogReports();
         PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
 
         assertEquals(1L, pageResult.getTotal());
@@ -645,6 +649,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         pageReqVO.setPageSize(20);
         pageReqVO.setProductName("球囊扩张压力泵");
         pageReqVO.setFormSlotType(MesProBatchRecordFormSlotType.LOSS_REPORT.getType());
+        persistMetadataCatalogReports();
         PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
 
         assertEquals(2L, pageResult.getTotal());
@@ -4988,9 +4993,9 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.insert(first);
         reportMapper.insert(second);
         when(jimuReportGateway.getReportInfo("target-report-1")).thenReturn(
-                TestBatchRecordFixtures.reportInfo("target-report-1", "EBR_TARGET_T01", "目标表1", LocalDateTime.now()));
+                persistCatalogReport(TestBatchRecordFixtures.reportInfo("target-report-1", "EBR_TARGET_T01", "目标表1", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("target-report-2")).thenReturn(
-                TestBatchRecordFixtures.reportInfo("target-report-2", "EBR_TARGET_T02", "目标表2", LocalDateTime.now()));
+                persistCatalogReport(TestBatchRecordFixtures.reportInfo("target-report-2", "EBR_TARGET_T02", "目标表2", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO reqVO = new BatchRecordReportPageReqVO();
         reqVO.setPageNo(1);
@@ -5787,11 +5792,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.insert(routeAReport);
         reportMapper.insert(routeBReport);
         when(jimuReportGateway.getReportInfo("route-a-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "route-a-report-1", "EBR_A_T01", "A-表1", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "route-a-report-1", "EBR_A_T01", "A-表1", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("route-b-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "route-b-report-1", "EBR_B_T01", "B-表1", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "route-b-report-1", "EBR_B_T01", "B-表1", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
         pageReqVO.setPageNo(1);
@@ -5816,11 +5821,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.insert(first);
         reportMapper.insert(second);
         when(jimuReportGateway.getReportInfo("batch-a-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "batch-a-report-1", "EBR_BA_T01", "批记录A表1", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "batch-a-report-1", "EBR_BA_T01", "批记录A表1", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("batch-b-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "batch-b-report-1", "EBR_BB_T01", "批记录B表1", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "batch-b-report-1", "EBR_BB_T01", "批记录B表1", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
         pageReqVO.setPageNo(1);
@@ -5860,11 +5865,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.insert(oldReport);
         reportMapper.insert(latestReport);
         when(jimuReportGateway.getReportInfo("latest-filter-v1-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("latest-filter-v2-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
         pageReqVO.setPageNo(1);
@@ -5915,11 +5920,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.insert(obsoleteReport);
         reportMapper.insert(latestReport);
         when(jimuReportGateway.getReportInfo("latest-duplicate-v13-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("latest-duplicate-v14-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
         pageReqVO.setPageNo(1);
@@ -5949,7 +5954,13 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 """,
                 routeId, "ROUTE-FORM-LIST", "拆行路线", CommonStatusEnum.ENABLE.getStatus(),
                 "批记录表单拆行测试", "tester", "tester", false, 1L);
-        Long dccProjectCodeId = seedDccProjectCode("拆行路线项目", "SPLIT-DCC");
+        // This list query only needs the route's persisted DCC identity, without loading the unrelated library model.
+        Long dccProjectCodeId = 930201L;
+        jdbcTemplate().update("""
+                INSERT INTO dcc_project_code
+                (id, project_name, project_code, status, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, dccProjectCodeId, "拆行路线项目", "SPLIT-DCC", "ENABLE", "tester", "tester", false, 1L);
         bindRouteToDccProject(routeId, dccProjectCodeId);
         jdbcTemplate().update("""
                 INSERT INTO mes_pro_route_product
@@ -5977,11 +5988,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         unboundReport.setBatchRecordName("无绑定批记录");
         reportMapper.insert(unboundReport);
         when(jimuReportGateway.getReportInfo("split-product-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "split-product-report-1", "EBR_SPLIT_T01", "拆行表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "split-product-report-1", "EBR_SPLIT_T01", "拆行表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("split-unbound-report-1"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "split-unbound-report-1", "EBR_SPLIT_T02", "无产品表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "split-unbound-report-1", "EBR_SPLIT_T02", "无产品表单", LocalDateTime.now())));
 
         BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
         pageReqVO.setPageNo(1);
@@ -6082,14 +6093,14 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         clearedReport.setProductName("Hidden Product");
         reportMapper.insert(clearedReport);
         when(jimuReportGateway.getReportInfo("product-options-route-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("product-options-direct-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("product-options-duplicate-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("product-options-cleared-report")).thenReturn(null);
 
         assertEquals(List.of("Alpha Product", "Beta Product", "Gamma Product"),
@@ -6141,15 +6152,45 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
         reportMapper.insert(latestReport);
         when(jimuReportGateway.getReportInfo("prod-opt-old-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now())));
         when(jimuReportGateway.getReportInfo("prod-opt-latest-report"))
-                .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now()));
+                .thenReturn(persistCatalogReport(TestBatchRecordFixtures.reportInfo(
+                        "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now())));
 
         assertEquals(List.of("Latest Product", "Old Product"),
                 reportService.getProductNameOptions(null, false));
         assertEquals(List.of("Latest Product"), reportService.getProductNameOptions(null, true));
+    }
+
+    @Test
+    void generatedReportColumnFiltersUseVisibleStatusAndWholeCatalogBeforePagination() {
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("列筛选批记录");
+        MesProBatchRecordVersionDO draft = insertVersion(definition.getId(), "V1.0", "DRAFT",
+                null, PILOT_FILE_NAME, "column-draft", null, null);
+        MesProBatchRecordVersionDO approved = insertVersion(definition.getId(), "V2.0", "APPROVED",
+                draft.getId(), PILOT_FILE_NAME, "column-approved", null, null);
+        for (int index = 0; index < 16; index++) {
+            String id = "column-report-" + index;
+            MesProBatchRecordReportDO metadata = TestBatchRecordFixtures.metadataReport(
+                    100L + index, "column-filter-" + index, index + 1, id, "COLUMN_" + index,
+                    "筛选表单" + index, PILOT_FILE_NAME);
+            metadata.setBatchRecordName("列筛选批记录");
+            metadata.setBatchRecordDefinitionId(definition.getId());
+            metadata.setBatchRecordVersionId(index == 15 ? approved.getId() : draft.getId());
+            metadata.setFormSlotType("MAIN");
+            reportMapper.insert(metadata);
+            persistCatalogReport(TestBatchRecordFixtures.reportInfo(id, "COLUMN_" + index,
+                    "筛选表单" + index, LocalDateTime.now()));
+        }
+        BatchRecordReportPageReqVO req = new BatchRecordReportPageReqVO();
+        req.setPageSize(1);
+        req.setListFilters("[{\"key\":\"versionStatus\",\"operator\":\"eq\",\"value\":\"已发布\"},{\"key\":\"formSlotType\",\"operator\":\"contains\",\"value\":\"批记录\"}]");
+        PageResult<MesProBatchRecordReportView> result = reportService.getGeneratedReportPage(req);
+        assertEquals(1L, result.getTotal());
+        assertEquals("column-report-15", result.getList().get(0).reportId());
+        assertEquals("APPROVED", result.getList().get(0).versionStatus());
+        verifyNoInteractions(jimuReportGateway);
     }
 
     @Test
@@ -7397,5 +7438,18 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 .anyMatch(text -> text.contains(expectedText));
         assertTrue(found, "missing text: " + expectedText);
     }
+    private void persistMetadataCatalogReports() {
+        for (var metadata : reportMapper.selectList()) {
+            persistCatalogReport(TestBatchRecordFixtures.reportInfo(metadata.getReportId(), metadata.getReportCode(),
+                    metadata.getReportName(), LocalDateTime.now()));
+        }
+    }
+
+    private MesProBatchRecordReportInfo persistCatalogReport(MesProBatchRecordReportInfo info) {
+        jdbcTemplate().update("INSERT INTO jimu_report (id, code, name, update_time) VALUES (?, ?, ?, ?)",
+                info.reportId(), info.reportCode(), info.reportName(), info.updateTime());
+        return info;
+    }
+
 
 }

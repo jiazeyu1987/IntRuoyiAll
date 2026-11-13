@@ -20,10 +20,8 @@
         @column-change="saveApprovalColumnConfig"
         @column-reset="resetApprovalColumnConfig"
         @pagination="handlePagination"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="list = $event"
-        :list-rows="list"
-        @column-filter-reset="handlePagination"
+        server-filter
+        :server-filter-query="getList"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -469,7 +467,7 @@
 <script lang="ts" setup>
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
@@ -760,7 +758,7 @@ const approvalQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
 
 
 const isUnfilteredTodoQuery = () =>
-  queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim()
+  queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim() && !queryParams.listFilters
 
 const loadModules = async () => {
   const sessionKey = approvalInvalidation.syncSession().key
@@ -836,11 +834,9 @@ const getList = async (refreshBadge = false) => {
   } catch (error) {
     if (!isCurrent()) return false
     const message = resolveErrorMessage(error)
-    list.value = []
-    total.value = 0
     loadError.value = message
     ElMessage.error(message)
-    return false
+    throw error
   } finally {
     if (isCurrent()) loading.value = false
   }
@@ -1783,11 +1779,8 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  return loadAllListPages((pagination) => getApprovalTaskPage({ ...queryParams, ...pagination }))
-}
-
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'capabilities', label: '能力', type: 'text', getValue: (row) => [...(row.capabilities || [])].sort() },
   {
     key: 'source',
     label: '审批来源',

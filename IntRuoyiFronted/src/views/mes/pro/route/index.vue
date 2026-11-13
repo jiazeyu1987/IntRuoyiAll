@@ -26,10 +26,8 @@
       @quick-filter-query="routeQuickFilter.applyQuickFilter"
       @column-change="saveRouteColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -423,7 +421,7 @@
 
 <script setup lang="ts">
 import RouteProjectSelect from './RouteProjectSelect.vue'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { until } from '@vueuse/core'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
@@ -537,7 +535,7 @@ const resetRouteQueryState = (pageSize = 10) => ({
   name: undefined as string | undefined,
   status: undefined as number | undefined
 })
-const queryParams = reactive(resetRouteQueryState())
+const queryParams = reactive({ ...resetRouteQueryState(), listFilters: undefined as string | undefined })
 const copyForm = reactive({
   dccProjectCodeId: undefined as number | undefined,
   targetCode: '',
@@ -591,14 +589,18 @@ const loadListFromRoute = async () => {
 }
 
 /** 查询列表 */
+let routeListRequestSequence = 0
 async function getList() {
+  const requestId = ++routeListRequestSequence
   loading.value = true
   try {
-    const data = await ProRouteApi.getRoutePage(queryParams)
+    const data = await ProRouteApi.getRoutePage({ ...queryParams })
+    if (requestId !== routeListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === routeListRequestSequence) loading.value = false
   }
 }
 
@@ -1169,13 +1171,6 @@ onMounted(async () => {
   await loadListFromRoute()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProRouteApi.getRoutePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

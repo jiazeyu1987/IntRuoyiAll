@@ -151,7 +151,7 @@ class MesEdhrApprovalCenterMySqlReadOnlyIT {
                 AtomicReference<LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>> handoffPrefix = new AtomicReference<>();
                 doReturn(0L).when(handoff).selectCount(any(Wrapper.class));
                 doAnswer(call -> { handoffPrefix.set(call.getArgument(0)); return List.of(); }).when(handoff).selectList(any(Wrapper.class));
-                handoff.selectApprovalCenterPrefix(1L,12L,false,false,"PQC_%",400);
+                handoff.selectApprovalCenterPrefix(1L,12L,false,false,"PQC_%",400, null);
                 assertEquals(List.of(10L,2L),selectIds(db,handoffFixture,"mes_active_order_handoff_task",handoffPrefix.get(),false));
                 assertEquals(List.of(),selectIds(db,handoffFixture,"mes_active_order_handoff_task",handoff.approvalCenterQuery(1L,12L,false,false,"pqc_%"),true));
                 explain(db,handoffFixture,"mes_active_order_handoff_task",handoffPrefix.get());
@@ -335,7 +335,7 @@ class MesEdhrApprovalCenterMySqlReadOnlyIT {
         }).when(mapper).selectList(any(Wrapper.class));
         if (invalid > 0) {
             var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                    () -> mapper.selectApprovalCenterPrefix(1L, 12L, global, done, keyword, 400));
+                    () -> mapper.selectApprovalCenterPrefix(1L, 12L, global, done, keyword, 400, null));
             assertEquals(1_076_041_001, failure.getCode());
             assertEquals("未知交接类型", failure.getMessage());
             assertEquals(List.of("INVALID_COUNT"), operations);
@@ -348,7 +348,7 @@ class MesEdhrApprovalCenterMySqlReadOnlyIT {
                     .contains(keyword.trim()))
                     .map(row -> new Identity("HANDOFF", row.id(), done ? row.completed() : row.created()))
                     .sorted(TUPLE).map(Identity::id).toList();
-            var page = mapper.selectApprovalCenterPrefix(1L, 12L, global, done, keyword, 400);
+            var page = mapper.selectApprovalCenterPrefix(1L, 12L, global, done, keyword, 400, null);
             assertEquals(List.of("INVALID_COUNT", "TOTAL_COUNT", "PREFIX"), operations);
             assertEquals(List.of(0L, (long) expected.size()), counts);
             assertEquals((long) expected.size(), page.getTotal().longValue());
@@ -434,7 +434,7 @@ class MesEdhrApprovalCenterMySqlReadOnlyIT {
         for (int page=1;page<=pages;page++) {
             long k = Math.max(400L,Math.multiplyExact((long)page,200L));
             var actualWork = work.selectApprovalCenterPrefix(filter,global?null:actor,tenant,done,status,k);
-            var actualHandoff = handoff.selectApprovalCenterPrefix(tenant,actor,global,done,keyword,k);
+            var actualHandoff = handoff.selectApprovalCenterPrefix(tenant,actor,global,done,keyword,k,null);
             assertEquals((long)expectedWork.size(),actualWork.getTotal(),caseName+" work count");
             assertEquals((long)expectedHandoff.size(),actualHandoff.getTotal(),caseName+" handoff count");
             assertEquals(expectedWork.subList(0,(int)Math.min(k,expectedWork.size())).stream().map(Identity::id).toList(),

@@ -21,10 +21,8 @@
       @quick-filter-query="changeQuickFilter.applyQuickFilter"
       @column-change="saveChangeColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
@@ -399,7 +397,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -463,6 +461,7 @@ const normalizeText = (value: unknown) => {
 }
 
 const queryParams = reactive<EdhrRecordChangePageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   changeType: EDHR_FORM_TRACE_CHANGE_TYPE,
@@ -626,14 +625,18 @@ const normalizeQueryParams = () => {
   queryParams.batchExecutionId = parsePositiveRouteQueryId(queryParams.batchExecutionId) || undefined
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   syncExternalContext()
   normalizeQueryParams()
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrRecordChangePage({
-      pageNo: queryParams.pageNo,
+      listFilters: queryParams.listFilters,
+    pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       changeType: EDHR_FORM_TRACE_CHANGE_TYPE,
       targetScope: queryParams.targetScope || undefined,
@@ -641,14 +644,18 @@ async function getList() {
       executionId: queryParams.executionId,
       changeStatus: queryParams.changeStatus || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '电子批记录变更记录加载失败。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -735,22 +742,6 @@ watch(
 )
 
 defineExpose({ reload: getList })
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize,
-    changeType: EDHR_FORM_TRACE_CHANGE_TYPE,
-    targetScope: queryParams.targetScope || undefined,
-    batchExecutionId: queryParams.batchExecutionId,
-    executionId: queryParams.executionId,
-    changeStatus: queryParams.changeStatus || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrRecordChangePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

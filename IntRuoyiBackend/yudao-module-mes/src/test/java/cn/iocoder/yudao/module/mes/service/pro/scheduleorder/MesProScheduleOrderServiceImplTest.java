@@ -125,6 +125,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
@@ -143,6 +144,8 @@ class MesProScheduleOrderServiceImplTest {
 
     @Mock
     private MesProScheduleOrderMapper scheduleOrderMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProAdmissionListMapper admissionListMapper;
     @Mock
     private MesProScheduleOrderOperationLogMapper scheduleOrderOperationLogMapper;
     @Mock
@@ -505,8 +508,6 @@ class MesProScheduleOrderServiceImplTest {
                 .build();
         when(scheduleOrderMapper.selectPageByProductIds(pageReqVO, List.of()))
                 .thenReturn(new PageResult<>(List.of(scheduleOrder), 1L));
-        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900372L)))
-                .thenReturn(List.of(firstUnfinishedProcess, workbenchWipProcess));
         org.mockito.Mockito.lenient().when(routeProcessService.resolveFrozenRouteProcess(922339L, 922046L, 922744L))
                 .thenReturn(MesProRouteProcessDO.builder()
                         .id(922339L).routeId(922046L).processId(922789L).build());
@@ -518,6 +519,10 @@ class MesProScheduleOrderServiceImplTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(scheduleOrder), result.getList());
+        assertEquals(List.of(922788L), pageReqVO.getResolvedCurrentProcessFilterIds());
+        assertEquals(20, pageReqVO.getPageSize());
+        verify(scheduleOrderMapper).selectPageByProductIds(pageReqVO, List.of());
+        verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderIds(any());
     }
 
     @Test
@@ -2592,24 +2597,19 @@ class MesProScheduleOrderServiceImplTest {
 
     @Test
     void getAdmissionDiff_shouldFilterComputedAdmissionStatusBeforePagination() {
-        MesProWorkOrderDO alreadyAdmitted = workOrder(100L, "MO-100", 20L);
-        MesProWorkOrderDO missingRoute = workOrder(101L, "MO-101", 21L);
         MesProWorkOrderDO readyToAdmit = workOrder(102L, "MO-102", 22L);
         MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(2);
         reqVO.setAdmissionStatus("READY_TO_ADMIT");
 
-        when(workOrderMapper.selectPage(any(MesProWorkOrderPageReqVO.class))).thenAnswer(invocation -> {
-            MesProWorkOrderPageReqVO workOrderPageReqVO = invocation.getArgument(0);
-            if (workOrderPageReqVO.getPageSize() > reqVO.getPageSize()) {
-                return new PageResult<>(List.of(alreadyAdmitted, missingRoute, readyToAdmit), 3L);
-            }
-            return new PageResult<>(List.of(alreadyAdmitted, missingRoute), 3L);
-        });
-        when(scheduleOrderMapper.selectListByWorkOrderIds(any()))
-                .thenReturn(List.of(MesProScheduleOrderDO.builder().id(900L).workOrderId(100L).build()));
-        when(routeProductMapper.selectListByItemId(21L)).thenReturn(List.of());
+        when(admissionListMapper.selectRouteCheckProductIds(eq(1L), any())).thenReturn(List.of(22L));
+        when(admissionListMapper.selectSummary(eq(1L), any(), any(), any(), any())).thenReturn(
+                Map.of("total", 1L, "warnCount", 0, "readyCount", 1, "alreadyAdmittedCount", 0, "blockedCount", 0));
+        when(admissionListMapper.selectPageIds(eq(1L), any(), any(), any(), any(), eq(reqVO), eq(0L)))
+                .thenReturn(List.of(102L));
+        when(workOrderMapper.selectListByIds(List.of(102L))).thenReturn(List.of(readyToAdmit));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(102L))).thenReturn(List.of());
         when(routeProductMapper.selectListByItemId(22L))
                 .thenReturn(List.of(MesProRouteProductDO.builder().routeId(30L).itemId(22L).build()));
         when(routeMapper.selectById(30L))
@@ -2637,7 +2637,10 @@ class MesProScheduleOrderServiceImplTest {
                         .build()));
         org.mockito.Mockito.lenient().when(workstationMapper.selectListByProcessIds(List.of(40L))).thenReturn(List.of());
 
-        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+        MesProScheduleOrderAdmissionDiffPageRespVO result;
+        TenantContextHolder.setTenantId(1L);
+        try { result = scheduleOrderService.getAdmissionDiff(reqVO); }
+        finally { TenantContextHolder.clear(); }
 
         assertEquals(1L, result.getTotal());
         assertEquals(1, result.getList().size());
@@ -2650,8 +2653,6 @@ class MesProScheduleOrderServiceImplTest {
 
     @Test
     void getAdmissionDiff_shouldFilterBlockedAdmissionStatusBeforePagination() {
-        MesProWorkOrderDO alreadyAdmittedOne = workOrder(110L, "MO-110", 30L);
-        MesProWorkOrderDO alreadyAdmittedTwo = workOrder(111L, "MO-111", 31L);
         MesProWorkOrderDO frozenBlocked = workOrder(112L, "MO-112", 32L);
         frozenBlocked.setTemporaryFrozen(Boolean.TRUE);
         MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
@@ -2659,20 +2660,17 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setPageSize(2);
         reqVO.setAdmissionStatus("BLOCKED");
 
-        when(workOrderMapper.selectPage(any(MesProWorkOrderPageReqVO.class))).thenAnswer(invocation -> {
-            MesProWorkOrderPageReqVO workOrderPageReqVO = invocation.getArgument(0);
-            if (workOrderPageReqVO.getPageSize() > reqVO.getPageSize()) {
-                return new PageResult<>(List.of(alreadyAdmittedOne, alreadyAdmittedTwo, frozenBlocked), 3L);
-            }
-            return new PageResult<>(List.of(alreadyAdmittedOne, alreadyAdmittedTwo), 3L);
-        });
-        when(scheduleOrderMapper.selectListByWorkOrderIds(any()))
-                .thenReturn(List.of(
-                        MesProScheduleOrderDO.builder().id(910L).workOrderId(110L).build(),
-                        MesProScheduleOrderDO.builder().id(911L).workOrderId(111L).build()
-                ));
-
-        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+        when(admissionListMapper.selectRouteCheckProductIds(eq(1L), any())).thenReturn(List.of());
+        when(admissionListMapper.selectSummary(eq(1L), any(), any(), any(), any())).thenReturn(
+                Map.of("total", 1L, "warnCount", 0, "readyCount", 0, "alreadyAdmittedCount", 0, "blockedCount", 1));
+        when(admissionListMapper.selectPageIds(eq(1L), any(), any(), any(), any(), eq(reqVO), eq(0L)))
+                .thenReturn(List.of(112L));
+        when(workOrderMapper.selectListByIds(List.of(112L))).thenReturn(List.of(frozenBlocked));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(112L))).thenReturn(List.of());
+        MesProScheduleOrderAdmissionDiffPageRespVO result;
+        TenantContextHolder.setTenantId(1L);
+        try { result = scheduleOrderService.getAdmissionDiff(reqVO); }
+        finally { TenantContextHolder.clear(); }
 
         assertEquals(1L, result.getTotal());
         assertEquals(1, result.getList().size());

@@ -1,4 +1,4 @@
-import { computed, reactive, toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, reactive, toValue, type MaybeRefOrGetter, type Component } from 'vue'
 import { ElMessage } from 'element-plus'
 
 export type ListMultiFilterScalar = string | number | boolean
@@ -25,6 +25,8 @@ export interface ListMultiFilterDefinition {
   queryParamKeys?: [string, string]
   operators?: ListMultiFilterOperator[]
   options?: readonly ListMultiFilterOption[]
+  /** Custom scalar selector, e.g. an ID-preserving remote paged selector. */
+  valueComponent?: Component
   virtualized?: boolean
   placeholder?: string
   defaultVisible?: boolean
@@ -204,7 +206,7 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
   tableKey: string,
   filterDefinitions: MaybeRefOrGetter<ListMultiFilterDefinition[]>,
   queryParams: T,
-  reload: () => void | Promise<void>
+  reload: () => unknown | Promise<unknown>
 ) => {
   const definitions = computed(() => toValue(filterDefinitions))
   const state = reactive<ListMultiFilterState>({

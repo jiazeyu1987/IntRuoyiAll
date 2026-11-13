@@ -103,7 +103,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrReleaseServiceImpl.class, MesMarketReleaseAccess.class, MesProEdhrCandidateResolver.class,
+@Import({cn.iocoder.yudao.module.mes.support.MesExecutionMysqlTextTestConfiguration.class,MesProEdhrReleaseServiceImpl.class, MesMarketReleaseAccess.class, MesProEdhrCandidateResolver.class,
         cn.iocoder.yudao.module.mes.approval.content.EdhrSignedDossierReader.class,
         cn.iocoder.yudao.module.mes.approval.content.EdhrReleaseContentSemanticValidator.class,
         cn.iocoder.yudao.module.mes.approval.content.EdhrReleaseContentPolicy.class,
@@ -2560,6 +2560,12 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertTrue(batchIds.contains(releasedClosedBatch.getId()));
         assertTrue(batchIds.contains(archivedBatch.getId()));
         assertTrue(batchIds.contains(rejectedBatch.getId()));
+
+        reqVO.setPageSize(1);
+        reqVO.setListFilters("[{\"key\":\"releaseStatus\",\"operator\":\"contains\",\"value\":\"已放行\"}]");
+        PageResult<MesProEdhrReleaseRespVO> filtered = releaseService.getPage(reqVO);
+        assertEquals(2L, filtered.getTotal(), "display status must filter the whole database scope before pagination");
+        assertEquals(1, filtered.getList().size());
     }
 
     private MesProEdhrBatchExecutionDO insertClosedBatch(String batchCode) {

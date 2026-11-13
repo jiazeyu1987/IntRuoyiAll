@@ -26,10 +26,8 @@
           @column-change="saveTemplateColumnConfig"
           @column-reset="resetTemplateColumnConfig"
           @pagination="getList"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="getList"
+          server-filter
+          :server-filter-query="getList"
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
@@ -526,7 +524,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -578,7 +577,8 @@ const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 const importDialogRef = ref()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<FormTemplateListItemVO[]>([])
 const selectedTemplateKey = ref('')
@@ -600,6 +600,7 @@ const consumedTemplateActionKey = ref('')
 const isDesignerMode = computed(() => route.query.mode === 'designer')
 const isTemplateSimulationMode = computed(() => props.simulationOnly)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   templateName: undefined as string | undefined,
@@ -702,30 +703,30 @@ const syncSelectedTemplate = () => {
 }
 
 const getList = async () => {
-  loading.value = true
   templateRouteLoadError.value = ''
   try {
     if (isDesignerMode.value || isTemplateSimulationMode.value) {
-      list.value = []
-      total.value = 0
-      await syncTemplateRouteContext()
-      return
+      return await listRequest.run(async () => {
+        await syncTemplateRouteContext()
+        return { list: [], total: 0 }
+      }, (data) => { list.value = data.list; total.value = data.total })
     }
-    const data = await TemplateApi.getTemplatePool(queryParams)
-    list.value = data.list
-    total.value = data.total
-    syncSelectedTemplate()
+    const applied = await listRequest.run(() => TemplateApi.getTemplatePool({ ...queryParams }), (data) => {
+      list.value = data.list
+      total.value = data.total
+      syncSelectedTemplate()
+    })
+    if (!applied) return false
     await syncTemplateRouteContext()
     await refreshSelectedTemplateObsoletePending()
     await handleTemplateActionQuery()
+    return true
   } catch (error) {
     if (isDesignerMode.value || isTemplateSimulationMode.value) {
       templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
-      return
+      return false
     }
     throw error
-  } finally {
-    loading.value = false
   }
 }
 
@@ -1648,14 +1649,6 @@ watch(
     }
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    TemplateApi.getTemplatePool({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

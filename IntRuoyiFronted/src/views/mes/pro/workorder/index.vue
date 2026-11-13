@@ -24,10 +24,8 @@
       @quick-filter-query="workOrderQuickFilter.applyQuickFilter"
       @column-change="saveWorkOrderColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -465,7 +463,7 @@
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
 
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
@@ -652,6 +650,7 @@ const loading = ref(true) // 列表的加载中
 const list = ref<WorkOrderTreeRow[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -674,14 +673,18 @@ const aiE2eDialog = reactive({
 const openedRouteDetailId = ref('')
 const formRef = ref<any>()
 const { isExpandAll, refreshTable } = useTreeTableExpand(true)
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await ProWorkOrderApi.getWorkOrderPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = handleTree(data.list, 'id', 'parentId') as WorkOrderTreeRow[]
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 type ProductSuggestion = MdItemVO & {
@@ -840,13 +843,6 @@ watch(
 )
 onMounted(loadListFromRoute)
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProWorkOrderApi.getWorkOrderPage({ ...params, ...pagination })
-  )
-  return handleTree(rows, 'id', 'parentId') as WorkOrderTreeRow[]
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

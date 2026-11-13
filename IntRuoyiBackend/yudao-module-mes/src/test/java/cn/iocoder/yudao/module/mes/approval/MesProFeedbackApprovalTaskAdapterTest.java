@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,8 +42,15 @@ class MesProFeedbackApprovalTaskAdapterTest {
     private MesProFeedbackService feedbackService;
     @Mock
     private MesFeedbackFormalReviewProjection formalReviewProjection;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper approvalQueries;
     @InjectMocks
     private MesProFeedbackApprovalTaskAdapter adapter;
+
+    @org.junit.jupiter.api.BeforeEach
+    void injectCandidateQuery() {
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter, "approvalQueries", approvalQueries);
+    }
 
     @Test
     void metadataDeclaresMesFeedbackRolloutContract() {
@@ -63,9 +71,7 @@ class MesProFeedbackApprovalTaskAdapterTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 6, 24, 8, 30);
         MesProFeedbackDO feedback = buildFeedback(9001L, "FB-9001",
                 MesProFeedbackStatusEnum.APPROVING.getStatus(), createdAt);
-        when(feedbackMapper.selectUnifiedApprovalList(100L, null,
-                List.of(MesProFeedbackStatusEnum.APPROVING.getStatus()), "FB"))
-                .thenReturn(List.of(feedback));
+        stubCandidates(List.of(feedback));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.MES_FEEDBACK, "FB", 1, 10));
@@ -142,9 +148,7 @@ class MesProFeedbackApprovalTaskAdapterTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 6, 24, 8, 30);
         MesProFeedbackDO feedback = buildFeedback(9002L, "FB-9002",
                 MesProFeedbackStatusEnum.APPROVING.getStatus(), createdAt);
-        when(feedbackMapper.selectUnifiedApprovalList(null, null,
-                List.of(MesProFeedbackStatusEnum.APPROVING.getStatus()), null))
-                .thenReturn(List.of(feedback));
+        stubCandidates(List.of(feedback));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.MES_FEEDBACK, null, 1, 10, true));
@@ -197,11 +201,7 @@ class MesProFeedbackApprovalTaskAdapterTest {
                 MesProFeedbackStatusEnum.PREPARE.getStatus(), createdAt);
         feedback.setUpdateTime(rejectedAt);
         feedback.setRemark("数量不一致");
-        when(feedbackMapper.selectUnifiedApprovalList(100L, null,
-                List.of(MesProFeedbackStatusEnum.APPROVING.getStatus(), MesProFeedbackStatusEnum.UNCHECK.getStatus(),
-                        MesProFeedbackStatusEnum.FINISHED.getStatus(),
-                        MesProFeedbackStatusEnum.PREPARE.getStatus()), "FB"))
-                .thenReturn(List.of(feedback));
+        stubCandidates(List.of(feedback));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.MES_FEEDBACK, "FB", 1, 10));
@@ -238,4 +238,11 @@ class MesProFeedbackApprovalTaskAdapterTest {
         feedback.setUpdateTime(createdAt.plusMinutes(5));
         return feedback;
     }
+    private void stubCandidates(List<MesProFeedbackDO> rows) {
+        when(approvalQueries.query(any())).thenAnswer(call->new cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX<Long>());
+        when(approvalQueries.count(any())).thenReturn((long)rows.size());
+        when(approvalQueries.window(any())).thenReturn(rows.stream().map(MesProFeedbackDO::getId).toList());
+        for(var row:rows) when(feedbackMapper.selectById(row.getId())).thenReturn(row);
+    }
+
 }

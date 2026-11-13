@@ -20,10 +20,8 @@
       @quick-filter-query="auditQuickFilter.applyQuickFilter"
       @column-change="saveAuditColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
@@ -226,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { EDHR_EXECUTION_STATUS } from '@/api/mes/pro/edhr/approval'
@@ -272,6 +270,7 @@ const ARCHIVE_STATUS_LABELS: Record<NonNullable<EdhrTrackingRowVO['archiveStatus
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   executionCode: typeof route.query.executionCode === 'string' ? route.query.executionCode : '',
@@ -406,11 +405,15 @@ const resolveExecutionDisplay = (row: EdhrTrackingRowVO) =>
 const canOpenDetail = (row: EdhrTrackingRowVO) =>
   Number.isFinite(Number(row.executionId)) && Number(row.executionId) > 0
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrTrackingPage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       executionCode: queryParams.executionCode.trim() || undefined,
@@ -424,14 +427,18 @@ async function getList() {
       processInstanceId: queryParams.processInstanceId.trim() || undefined,
       actorName: queryParams.actorName.trim() || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 追踪列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -499,29 +506,6 @@ const openBatch = (row: EdhrTrackingRowVO) => {
 }
 
 onMounted(() => getList())
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize,
-    executionCode: queryParams.executionCode.trim() || undefined,
-    workOrderCode: queryParams.workOrderCode.trim() || undefined,
-    batchCode: queryParams.batchCode.trim() || undefined,
-    processId: normalizePositiveProcessId(queryParams.processId),
-    workstationId: Number.isFinite(queryParams.workstationId)
-      ? queryParams.workstationId
-      : undefined,
-    status: queryParams.status as any,
-    submittedBy: Number.isFinite(queryParams.submittedBy) ? queryParams.submittedBy : undefined,
-    approvedBy: Number.isFinite(queryParams.approvedBy) ? queryParams.approvedBy : undefined,
-    processInstanceId: queryParams.processInstanceId.trim() || undefined,
-    actorName: queryParams.actorName.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrTrackingPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

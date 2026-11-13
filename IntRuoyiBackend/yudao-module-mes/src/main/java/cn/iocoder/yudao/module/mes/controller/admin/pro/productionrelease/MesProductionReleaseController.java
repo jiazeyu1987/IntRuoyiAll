@@ -101,6 +101,7 @@ public class MesProductionReleaseController {
                 SecurityFrameworkUtils.getLoginUserId(), new MesPqcProductionReleasePageQuery()
                         .setPageNo(reqVO.getPageNo())
                         .setPageSize(reqVO.getPageSize())
+                        .setListFilters(reqVO.getListFilters())
                         .setViewStatus(reqVO.getViewStatus())
                         .setWorkOrderCode(reqVO.getWorkOrderCode())
                         .setBatchCode(reqVO.getBatchCode())

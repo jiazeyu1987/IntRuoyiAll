@@ -20,10 +20,9 @@
       @quick-filter-query="applyReplenishmentListQuickFilter"
       @column-change="saveReplenishmentListColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
     >
       <template #actions>
         <SyncByCodeButton sync-type="PRODUCTION_REPLENISHMENT_LIST" code-label="生产补料单号" :on-synced="handleCodeSynced" />
@@ -240,10 +239,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
-
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
@@ -426,10 +424,12 @@ const replenishmentListQuickFilterDefinitions: TableQuickFilterDefinition[] = [
 ]
 
 const route = useRoute()
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ErpProductionReplenishmentListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -452,16 +452,13 @@ const {
   saveConfig: saveReplenishmentListColumnConfig
 } = useUserTableColumns(REPLENISHMENT_LIST_TABLE_KEY, replenishmentListDefaultColumns)
 
-async function getList() {
-  loading.value = true
-  try {
-    const data = await ErpProductionReplenishmentListApi.getPage(queryParams)
+const getList = () => listRequest.run(
+  () => ErpProductionReplenishmentListApi.getPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 const {
   state: replenishmentListQuickFilterState,
@@ -482,19 +479,10 @@ const applyRouteQuery = () => {
   }
 }
 
-
 onMounted(() => {
   applyRouteQuery()
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpProductionReplenishmentListApi.getPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
 const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(

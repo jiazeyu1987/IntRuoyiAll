@@ -34,10 +34,11 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
+
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #filters>
@@ -238,7 +239,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { buildListColumnFilters, filterListColumns, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -353,6 +354,7 @@ const limit = computed(() => (props.multiple ? (props.max ?? Infinity) : 1))
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 20,
+  listFilters: undefined as string | undefined,
   username: '',
   mobile: '',
   nickname: '',
@@ -406,8 +408,22 @@ const filteredBusinessCandidates = () => {
 }
 const remoteQuery = () => {
   const { departmentMemberType, ...params } = queryParams
-  return { ...params, deptIds: [...params.deptIds], deptLeaderMode: params.deptIds.length ? departmentMemberType : 'ALL',
+  const listFilters = params.listFilters ? JSON.stringify(JSON.parse(params.listFilters).map((condition: { key: string; [key: string]: unknown }) => ({ ...condition, key: condition.key === 'status' ? 'statusLabel' : condition.key }))) : undefined
+  return { ...params, listFilters, deptIds: [...params.deptIds], deptLeaderMode: params.deptIds.length ? departmentMemberType : 'ALL',
     scopeDeptId: props.deptId, scopeRoleId: props.scopeRoleId, scopePostId: props.scopePostId }
+}
+const refreshAssignedMarkers = async (rows: UserOption[], token: number) => {
+  if (props.assignedRoleId == null || businessMode.value) return
+  const ids = [...new Map(rows.map(row => [String(row.id), row.id])).values()]
+  const assigned = new Set(assignedUserIds.value)
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const batch = ids.slice(offset, offset + 200)
+    const members = await UserApi.getSelectionList(batch, { scopeRoleId: props.assignedRoleId })
+    if (token !== requestId) return
+    batch.forEach(id => assigned.delete(String(id)))
+    members.forEach(row => assigned.add(String(row.id)))
+  }
+  assignedUserIds.value = assigned
 }
 const getList = async () => {
   const token = ++requestId
@@ -416,7 +432,8 @@ const getList = async () => {
   try {
     if (props.candidateError) throw new Error(props.candidateError)
     if (businessMode.value) {
-      const filtered = filteredBusinessCandidates()
+      const filtered = filterListColumns(filteredBusinessCandidates(), JSON.parse(queryParams.listFilters || '[]'),
+        buildListColumnFilters(userSelectColumns.value, listColumnFilterDefinitions0.value))
       total.value = filtered.length
       list.value = filtered.slice(
         (queryParams.pageNo - 1) * queryParams.pageSize,
@@ -426,7 +443,10 @@ const getList = async () => {
       const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
       const data = await loadPage(remoteQuery())
       if (token !== requestId) return
-      list.value = normalizeOptions(data.list)
+      const rows = normalizeOptions(data.list)
+      await refreshAssignedMarkers([...rows, ...selected.value], token)
+      if (token !== requestId) return
+      list.value = rows
       total.value = data.total
     }
   } catch (cause) {
@@ -434,6 +454,7 @@ const getList = async () => {
     list.value = []
     total.value = 0
     error.value = cause instanceof Error ? cause.message : '候选人员加载失败，请重新加载'
+    throw cause
   } finally {
     if (token === requestId) loading.value = false
   }
@@ -448,7 +469,8 @@ const selectAllFiltered = async () => {
       for (const row of rows) if (!blocked(row)) union.set(String(row.id), row)
       if (union.size + chosenRelationships.value.length > limit.value) throw new Error(`最多选择 ${limit.value} 项人员或关系，请缩小筛选范围`)
     }
-    if (businessMode.value) collect(filteredBusinessCandidates())
+    if (businessMode.value) collect(filterListColumns(filteredBusinessCandidates(), JSON.parse(queryParams.listFilters || '[]'),
+      buildListColumnFilters(userSelectColumns.value, listColumnFilterDefinitions0.value)))
     else {
       const query = { ...remoteQuery(), pageNo: 1, pageSize: 200 }
       const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
@@ -463,6 +485,7 @@ const selectAllFiltered = async () => {
         query.pageNo++
       }
     }
+    await refreshAssignedMarkers([...union.values()], token)
     if (token === requestId) selected.value = [...union.values()]
   } catch (cause) {
     if (token === requestId) message.warning(cause instanceof Error ? cause.message : '批量选择人员失败')
@@ -527,17 +550,12 @@ const open = async (
       const metadata = await Promise.all([
         DeptApi.getSimpleDeptList(),
         RoleApi.getSimpleRoleList(),
-        PostApi.getSimplePostList(),
-        // 独立读取当前角色的正式成员，不随候选列表的筛选和翻页丢失标记。
-        props.assignedRoleId == null ? Promise.resolve([]) : loadAllListPages<UserOption>(
-          pagination => UserApi.getSelectionPage({ ...pagination, roleId: props.assignedRoleId })
-        )
+        PostApi.getSimplePostList()
       ])
       if (token !== requestId) return
       departments.value = metadata[0]
       roles.value = metadata[1]
       posts.value = metadata[2] as UserFilterOption[]
-      assignedUserIds.value = new Set(metadata[3].map(row => String(row.id)))
     }
     if (token !== requestId) return
     let known = [...candidates.value, ...seed, ...(props.selectedUsers || [])]
@@ -625,13 +643,6 @@ watch(visible, (value) => {
 })
 defineExpose({ open, markRoleAssignment })
 
-const loadColumnFilterRows0 = async () => {
-  if (businessMode.value) return filteredBusinessCandidates()
-  const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
-  return normalizeOptions(
-    await loadAllListPages<any>((pagination) => loadPage({ ...remoteQuery(), ...pagination }))
-  )
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

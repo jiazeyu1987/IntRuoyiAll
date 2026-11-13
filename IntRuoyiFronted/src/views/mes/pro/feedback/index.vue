@@ -33,10 +33,8 @@
       @column-change="saveFeedbackColumnConfig"
       @column-reset="resetFeedbackColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -240,10 +238,8 @@
       v-model:page="importQueryParams.pageNo"
       v-model:limit="importQueryParams.pageSize"
       @pagination="getImportRecordList"
-      :load-filter-rows="loadColumnFilterRows1"
-      @filtered-rows="importRecordList = $event"
-      :list-rows="importRecordList"
-      @column-filter-reset="getImportRecordList"
+      server-filter
+      :server-filter-query="getImportRecordList"
       :columns="listFilterColumns1"
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
@@ -477,7 +473,7 @@
 
 <script setup lang="ts">
 import { showImportResult } from '@/utils/importResult'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -629,6 +625,7 @@ const total = ref(0)
 const exportLoading = ref(false)
 const simulateImportLoading = ref(false)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   id: undefined as number | undefined,
@@ -657,6 +654,7 @@ const currentImportBatchSummary = reactive<ProFeedbackImportBatchSummaryVO>({
   skippedOtherOrderCount: 0
 })
 const importQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   id: undefined as number | undefined,
@@ -749,6 +747,7 @@ const applyFeedbackQuickFilterToQueryParams = () => {
 const buildFeedbackPageParams = () => {
   applyFeedbackQuickFilterToQueryParams()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     id: queryParams.id,
@@ -759,14 +758,18 @@ const buildFeedbackPageParams = () => {
   }
 }
 
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await ProFeedbackApi.getFeedbackPage(buildFeedbackPageParams())
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 const feedbackQuickFilter = useTableQuickFilter(
@@ -786,11 +789,14 @@ const applyFeedbackQuickFilterPreset = async (
   feedbackQuickFilter.updateState({ operator, value })
 }
 
+let getImportRecordListRequestSequence = 0
 const getImportRecordList = async () => {
+  const requestId = ++getImportRecordListRequestSequence
   importLoading.value = true
   try {
     persistCurrentPageImportRecordDrafts()
     const data = await ProFeedbackApi.getImportRecordPage(buildImportRecordPageParams())
+    if (requestId !== getImportRecordListRequestSequence) return false
     importRecordList.value = applyImportRecordDrafts(data.list)
     importTotal.value = data.total
     if (currentImportRecordIds.value.length) {
@@ -798,8 +804,9 @@ const getImportRecordList = async () => {
     } else {
       syncCurrentImportBatchSummary(undefined)
     }
+    return true
   } finally {
-    importLoading.value = false
+    if (requestId === getImportRecordListRequestSequence)     importLoading.value = false
   }
 }
 
@@ -1246,13 +1253,6 @@ onMounted(async () => {
   await handleTabChange()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildFeedbackPageParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProFeedbackApi.getFeedbackPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -1287,13 +1287,6 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows1 = async () => {
-  const params = buildImportRecordPageParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProFeedbackApi.getImportRecordPage({ ...params, ...pagination })
-  )
-  return applyImportRecordDrafts(rows)
-}
 
 const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
   {

@@ -20,10 +20,9 @@
       @quick-filter-query="trainingMineQuickFilter.applyQuickFilter"
       @column-change="saveTrainingMineColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+      :query-loading="loading"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -126,7 +125,8 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
 import {
   getFileCategoryList,
@@ -154,7 +154,8 @@ const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const categories = ref<ControlledFileCategoryVO[]>([])
 const departments = ref<DeptVO[]>([])
@@ -187,6 +188,7 @@ const {
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   categoryId: undefined as number | undefined,
   status: undefined as string | undefined
 })
@@ -219,18 +221,14 @@ const loadBaseData = async () => {
 }
 
 const getList = async () => {
-  loading.value = true
   try {
-    const data = await getMyTrainingTaskPage(queryParams)
-    list.value = data.list.map((item) => ({
-      ...item,
-      trainingSummary: getTrainingTaskSummary(item)
-    }))
-    total.value = data.total
+    return await listRequest.run(() => getMyTrainingTaskPage({ ...queryParams }), data => {
+      list.value = data.list.map(item => ({ ...item, trainingSummary: getTrainingTaskSummary(item) }))
+      total.value = data.total
+    })
   } catch (error) {
     message.error(resolveTrainingPageErrorMessage(error, '培训任务加载失败，请查看错误提示后重试。'))
-  } finally {
-    loading.value = false
+    throw error
   }
 }
 
@@ -257,16 +255,6 @@ onMounted(async () => {
   await getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getMyTrainingTaskPage({ ...params, ...pagination })
-  )
-  return rows.map((item) => ({
-    ...item,
-    trainingSummary: getTrainingTaskSummary(item)
-  }))
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

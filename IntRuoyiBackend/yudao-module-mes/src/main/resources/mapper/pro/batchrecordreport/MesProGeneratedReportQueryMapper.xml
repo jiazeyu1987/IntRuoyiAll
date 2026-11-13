@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProGeneratedReportQueryMapper">
+  <!-- Jimu get(reportId) reads the globally unique ID without del_flag/tenant filtering.
+       Tenant authorization comes from the owning MES metadata; preserve that gateway identity contract. -->
+  <sql id="BaseCatalog">
+    WITH version_scope AS (
+      SELECT v.*, CASE WHEN UPPER(TRIM(v.version_no)) REGEXP '^V[0-9]+([.]0)?$'
+        THEN CAST(REPLACE(SUBSTRING(UPPER(TRIM(v.version_no)),2),'.0','') AS DECIMAL(65,0))
+        ELSE NULL END AS version_major
+      FROM mes_pro_batch_record_version v WHERE v.tenant_id = #{tenantId} AND v.deleted = 0
+    ), report_base AS (
+      SELECT m.id AS metadata_id,
+        CASE WHEN m.batch_record_name IS NULL OR TRIM(m.batch_record_name) = '' THEN '棘突球囊' ELSE m.batch_record_name END AS batch_record_name,
+        m.batch_record_definition_id, m.batch_record_version_id, m.product_name AS metadata_product_name,
+        m.project_code,
+        (SELECT binding.dcc_project_code_id FROM mes_pro_route_dcc_project_binding binding
+          WHERE binding.route_id = v.route_id AND binding.tenant_id = #{tenantId} AND binding.deleted = 0) AS dcc_project_code_id,
+        v.route_id, v.version_no, v.status AS version_status, v.version_major,
+        CASE UPPER(TRIM(m.form_slot_type)) WHEN 'FORM' THEN 'FORM' WHEN 'LOSS_REPORT' THEN 'LOSS_REPORT'
+          WHEN 'PROCESS_INSPECTION' THEN 'PROCESS_INSPECTION' WHEN 'PARAMETER_RECORD' THEN 'PARAMETER_RECORD' ELSE 'MAIN' END AS form_slot_type,
+        m.route_key, m.source_table_index, m.table_title, j.id AS report_id, j.code AS report_code,
+        j.name AS report_name, m.source_file_name, m.last_import_time, j.update_time
+      FROM mes_pro_batch_record_report m JOIN jimu_report j ON j.id = m.report_id
+      LEFT JOIN version_scope v ON v.id = m.batch_record_version_id
+      WHERE m.tenant_id = #{tenantId} AND m.deleted = 0
+    ), scoped AS (
+      SELECT r.* FROM report_base r WHERE 1 = 1
+      <if test="base != null and !base.emptyOfNormal">AND (${base.sqlSegment})</if>
+    )
+  </sql>
+  <sql id="ExpandedCatalog">
+    <include refid="BaseCatalog"/>, latest_scoped AS (
+      SELECT r.* FROM scoped r WHERE 1 = 1
+      <if test="latest">AND r.batch_record_version_id = (SELECT v.id FROM version_scope v
+        WHERE v.definition_id = r.batch_record_definition_id ORDER BY v.version_major DESC, v.id DESC LIMIT 1)</if>
+    ), route_products AS (
+      SELECT p.route_id, i.name AS product_name, MIN(p.id) AS product_order
+      FROM mes_pro_route_product p JOIN mes_md_item i ON i.id = p.item_id AND i.tenant_id = p.tenant_id AND i.deleted = 0
+      WHERE p.tenant_id = #{tenantId} AND p.deleted = 0 AND i.name IS NOT NULL AND TRIM(i.name) != ''
+        AND EXISTS (SELECT 1 FROM latest_scoped s WHERE s.route_id = p.route_id)
+      GROUP BY p.route_id, i.name
+    ), expanded AS (
+      SELECT r.*, CASE WHEN p.product_order IS NOT NULL THEN p.product_name
+        WHEN TRIM(COALESCE(r.metadata_product_name,'')) != '' THEN r.metadata_product_name ELSE NULL END AS product_name,
+        COALESCE(p.product_order,0) AS product_order
+      FROM latest_scoped r LEFT JOIN route_products p ON p.route_id = r.route_id
+    ), product_filtered AS (
+      SELECT r.* FROM expanded r WHERE 1 = 1
+      <if test="product != null and !product.emptyOfNormal">AND (${product.sqlSegment})</if>
+    ), visible_ranked AS (
+      SELECT r.*, DENSE_RANK() OVER (PARTITION BY
+        LOWER(TRIM(CASE WHEN TRIM(COALESCE(r.product_name,'')) = '' THEN r.batch_record_name ELSE r.product_name END)),
+        LOWER(TRIM(r.batch_record_name)), LOWER(TRIM(r.form_slot_type))
+        ORDER BY r.version_major DESC, r.batch_record_version_id DESC) AS visible_rank
+      FROM product_filtered r
+    )
+  </sql>
+  <sql id="FinalPredicate">
+    FROM visible_ranked r WHERE 1 = 1
+    <if test="latest">AND r.visible_rank = 1 AND r.batch_record_version_id IS NOT NULL</if>
+    <if test="ew != null and !ew.emptyOfNormal">AND (${ew.sqlSegment})</if>
+  </sql>
+  <select id="countRows" resultType="long">
+    <include refid="ExpandedCatalog"/> SELECT COUNT(*) <include refid="FinalPredicate"/>
+  </select>
+  <select id="selectPageRows" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProGeneratedReportQueryMapper$Row">
+    <include refid="ExpandedCatalog"/> SELECT r.* <include refid="FinalPredicate"/>
+    ORDER BY r.last_import_time DESC, r.source_table_index ASC, r.metadata_id ASC, r.product_order ASC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <select id="selectProductNames" resultType="string">
+    <include refid="ExpandedCatalog"/> SELECT DISTINCT TRIM(r.product_name) AS product_name <include refid="FinalPredicate"/>
+    AND r.product_name IS NOT NULL AND TRIM(r.product_name) != '' ORDER BY product_name ASC
+  </select>
+  <select id="selectInvalidVersion" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProGeneratedReportQueryMapper$Row">
+    <include refid="BaseCatalog"/>
+    SELECT v.version_no FROM version_scope v
+    WHERE EXISTS (SELECT 1 FROM scoped r WHERE r.batch_record_definition_id = v.definition_id)
+      AND (v.version_major IS NULL OR v.version_major &gt; 2147483647)
+    LIMIT 1
+  </select>
+</mapper>

@@ -41,6 +41,7 @@ declare global {
   }
 
   interface PageParam {
+    listFilters?: string
     pageSize?: number
     pageNo?: number
   }

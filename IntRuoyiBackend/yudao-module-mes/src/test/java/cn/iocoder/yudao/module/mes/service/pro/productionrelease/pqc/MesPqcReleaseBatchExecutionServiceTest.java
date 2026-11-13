@@ -66,6 +66,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -560,6 +561,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals(2L, page.getTotal());
         assertEquals(true, page.getList().get(0).getApprovalReady());
         assertEquals(null, page.getList().get(0).getApprovalBlockerReason());
+        assertTrue(page.getList().stream().allMatch(row -> Boolean.TRUE.equals(row.getApprovalReady())));
+        verify(candidateResolver, times(1)).resolveRequiredCandidates(TENANT_ID, "MES_MANAGEMENT_REPRESENTATIVE");
         verify(dossierPort, never()).readiness(any(), any());
     }
 
@@ -879,7 +882,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                            List<MesProcessPoolActiveOrderReleaseApplicationDO> applications) {
         when(applicationMapper.selectPqcReleasePage(
                 any(PageParam.class), eq(TENANT_ID), eq(PQC_USER_ID), eq(viewStatus),
-                isNull(String.class), isNull(String.class), isNull(Long.class), isNull(Long.class)))
+                isNull(String.class), isNull(String.class), isNull(Long.class), isNull(Long.class), org.mockito.ArgumentMatchers.nullable(String.class)))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(
                         applications, (long) applications.size()));
     }

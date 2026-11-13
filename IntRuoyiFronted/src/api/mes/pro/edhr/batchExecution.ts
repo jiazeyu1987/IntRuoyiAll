@@ -63,6 +63,7 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  listFilters?: string
   /** Omit task details, current fillers and close/archive capabilities from list rows. */
   summaryOnly?: boolean
   batchExecutionIds?: number[]

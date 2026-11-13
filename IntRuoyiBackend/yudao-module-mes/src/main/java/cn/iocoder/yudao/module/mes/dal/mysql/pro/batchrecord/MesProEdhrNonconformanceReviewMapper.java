@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
@@ -297,7 +299,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
 
     private LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO> buildPageQuery(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {
-        return new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+        return ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getReviewCode, reqVO.getReviewCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceType, reqVO.getSourceType())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceId, reqVO.getSourceId())
@@ -308,6 +310,13 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getBatchCode, reqVO.getBatchCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getReviewStatus, reqVO.getReviewStatus())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getDisposition, reqVO.getDisposition())
-                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId);
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("reviewCode", text("CONCAT(COALESCE(review_code, '--'), ' ', CASE source_type WHEN 'ACTIVE_ORDER' THEN '活跃订单' WHEN 'PQC_RELEASE' THEN 'PQC生产放行' WHEN 'PQC_SUBMISSION' THEN 'PQC提交记录' WHEN 'DEVIATION' THEN '偏差' ELSE '未知来源' END)")),
+                java.util.Map.entry("workOrderCode", text("CONCAT(COALESCE(work_order_code, '--'), ' ', COALESCE(batch_code, '--'))")),
+                java.util.Map.entry("nonconformanceReason", text("nonconformance_reason")),
+                java.util.Map.entry("reviewStatus", text("CASE WHEN review_status = 'pending_review' THEN '进行中' ELSE '已关闭' END")),
+                java.util.Map.entry("disposition", text("CASE disposition WHEN 'concession_release' THEN '让步放行' WHEN 'rework' THEN '返工' WHEN 'void' THEN '作废' ELSE '未处置' END")),
+                java.util.Map.entry("frozenAt", dateTime("frozen_at"))
+        ));
     }
 }

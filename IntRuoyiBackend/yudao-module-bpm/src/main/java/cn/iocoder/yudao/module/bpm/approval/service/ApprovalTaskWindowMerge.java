@@ -33,7 +33,7 @@ public final class ApprovalTaskWindowMerge {
         Cursor(ApprovalTaskProvider provider,ApprovalTaskQueryContext input) {
             this.provider=provider;
             this.context=ApprovalTaskQueryContext.of(input.getLoginUserId(),input.getViewType(),provider.getModuleCode(),
-                    input.getKeyword(),1,200,input.isGlobalView()); load();
+                    input.getKeyword(),1,200,input.isGlobalView()).setListFilters(input.getListFilters()); load();
         }
         void load() {
             var page=Objects.requireNonNull(provider.window(context,new ApprovalQueryWindow(offset,200)),"APPROVAL_QUERY_PAGE_REQUIRED");

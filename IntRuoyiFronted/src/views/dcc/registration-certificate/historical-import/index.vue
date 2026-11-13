@@ -29,10 +29,8 @@
       @quick-filter-query="historicalImportQuickFilter.applyQuickFilter"
       @column-change="saveHistoricalImportColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+            :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -156,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { onMounted, reactive, ref } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
@@ -180,6 +178,7 @@ const list = ref<DccRegistrationCertificateHistoricalImportRespVO[]>([])
 const loadError = ref('')
 
 type HistoricalImportPageQuery = DccRegistrationCertificateHistoricalImportPageReqVO & {
+  listFilters?: string
   pageNo: number
   pageSize: number
 }
@@ -187,6 +186,7 @@ type HistoricalImportPageQuery = DccRegistrationCertificateHistoricalImportPageR
 const queryParams = reactive<HistoricalImportPageQuery>({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   sourceHash: undefined
 })
 
@@ -244,21 +244,26 @@ const resolvePageErrorMessage = (error: unknown) => {
   )
 }
 
+let listRequestGeneration = 0
 const getList = async () => {
+  const generation = ++listRequestGeneration
   loading.value = true
   loadError.value = ''
   try {
-    const data = await DccHistoricalImportApi.getHistoricalImportPage(queryParams)
+    const data = await DccHistoricalImportApi.getHistoricalImportPage({ ...queryParams })
+    if (generation !== listRequestGeneration) return
     list.value = data.list
     total.value = data.total
   } catch (error) {
+    if (generation !== listRequestGeneration) throw error
     const errorMessage = resolvePageErrorMessage(error)
     loadError.value = errorMessage
     list.value = []
     total.value = 0
     message.error(errorMessage)
+    throw error
   } finally {
-    loading.value = false
+    if (generation === listRequestGeneration) loading.value = false
   }
 }
 
@@ -275,13 +280,6 @@ onMounted(() => {
   void getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    DccHistoricalImportApi.getHistoricalImportPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

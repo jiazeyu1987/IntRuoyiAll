@@ -28,7 +28,7 @@ public interface DccControlledFileSignatureMapper extends BaseMapperX<DccControl
                 .eq(DccControlledFileSignatureDO::getActionType, actionType));
     }
 
-    default PageResult<DccControlledFileSignatureDO> selectPage(DccElectronicSignaturePageReqVO reqVO) {
+    default LambdaQueryWrapperX<DccControlledFileSignatureDO> createPageQuery(DccElectronicSignaturePageReqVO reqVO) {
         LambdaQueryWrapperX<DccControlledFileSignatureDO> queryWrapper = new LambdaQueryWrapperX<>();
         queryWrapper.eqIfPresent(DccControlledFileSignatureDO::getControlledFileId, reqVO.getControlledFileId());
         queryWrapper.inIfPresent(DccControlledFileSignatureDO::getControlledFileId, reqVO.getControlledFileIds());
@@ -50,8 +50,34 @@ public interface DccControlledFileSignatureMapper extends BaseMapperX<DccControl
                 "action", QuickFilterUtils.QuickFilterField.select(DccControlledFileSignatureDO::getActionType),
                 "signedAt", QuickFilterUtils.QuickFilterField.localDateTimeRange(DccControlledFileSignatureDO::getSignedAt)
         ));
-        return selectPage(reqVO, queryWrapper
+        cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.apply(reqVO, queryWrapper,
+                DccSignatureListFilterFields.fields());
+        return queryWrapper;
+    }
+
+    default PageResult<DccControlledFileSignatureDO> selectPage(DccElectronicSignaturePageReqVO reqVO) {
+        return selectPage(reqVO, createPageQuery(reqVO)
                 .orderByDesc(DccControlledFileSignatureDO::getSignedAt)
                 .orderByDesc(DccControlledFileSignatureDO::getId));
+    }
+
+    /** Stable descending keyset for real-time evidence predicates; never materializes all candidates. */
+    default List<DccControlledFileSignatureDO> selectFilterCandidates(DccElectronicSignaturePageReqVO request,
+            java.time.LocalDateTime afterSignedAt, Long afterId, int limit) {
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("Signature filter batch must be between 1 and 100");
+        var query = createPageQuery(request);
+        if (afterId != null) {
+            if (afterSignedAt == null) {
+                query.isNull(DccControlledFileSignatureDO::getSignedAt).lt(DccControlledFileSignatureDO::getId, afterId);
+            } else {
+                query.and(w -> w.lt(DccControlledFileSignatureDO::getSignedAt, afterSignedAt)
+                        .or().isNull(DccControlledFileSignatureDO::getSignedAt)
+                        .or(n -> n.eq(DccControlledFileSignatureDO::getSignedAt, afterSignedAt)
+                                .lt(DccControlledFileSignatureDO::getId, afterId)));
+            }
+        }
+        query.orderByDesc(DccControlledFileSignatureDO::getSignedAt).orderByDesc(DccControlledFileSignatureDO::getId)
+                .last("LIMIT " + limit);
+        return selectList(query);
     }
 }

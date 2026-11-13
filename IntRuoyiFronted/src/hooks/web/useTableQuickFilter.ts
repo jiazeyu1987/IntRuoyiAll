@@ -1,4 +1,4 @@
-import { computed, reactive, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { computed, reactive, toValue, watch, type MaybeRefOrGetter, type Component } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   cloneMultiFilterConditions,
@@ -29,6 +29,7 @@ export interface TableQuickFilterDefinition {
   queryParamKey?: string
   operators?: TableQuickFilterOperator[]
   options?: readonly TableQuickFilterOption[]
+  valueComponent?: Component
   virtualized?: boolean
   placeholder?: string
   triggerOnFocus?: boolean
@@ -120,7 +121,7 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
   tableKey: string,
   filterDefinitions: MaybeRefOrGetter<TableQuickFilterDefinition[]>,
   queryParams: T,
-  reload: () => void | Promise<void>
+  reload: () => unknown | Promise<unknown>
 ) => {
   const definitions = computed(() => toValue(filterDefinitions))
   const state = reactive<TableQuickFilterState>({

@@ -134,6 +134,7 @@ export const getMyImpactTaskPage = (params: {
 })
 
 export const getPublicationFollowupManagementPage = (params: {
+  listFilters?: string
   pageNo: number
   pageSize: number
   fileNumber?: string

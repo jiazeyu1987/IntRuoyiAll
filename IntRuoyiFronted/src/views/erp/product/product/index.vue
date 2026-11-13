@@ -21,10 +21,9 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -186,10 +185,11 @@
   <ProductForm ref="formRef" @success="getList" />
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
 
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
@@ -217,10 +217,12 @@ defineOptions({ name: 'ErpProduct' })
 const message = useMessage()
 const { t } = useI18n()
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ProductVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -247,16 +249,13 @@ const handleImport = async () => {
 const exportLoading = ref(false)
 const categoryList = ref<ProductCategoryVO[]>([])
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await ProductApi.getProductPage(queryParams)
+const getList = () => listRequest.run(
+  () => ProductApi.getProductPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 const formRef = ref()
 const openForm = (type: string, id?: number) => {
@@ -282,7 +281,6 @@ const handleExport = async () => {
     exportLoading.value = false
   }
 }
-
 
 const loadCategoryList = async () => {
   const categoryData = await ProductCategoryApi.getProductCategorySimpleList()
@@ -395,14 +393,6 @@ onMounted(async () => {
   await getList()
   await loadCategoryList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ProductApi.getProductPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

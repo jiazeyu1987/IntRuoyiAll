@@ -240,24 +240,34 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
-        if (hasReleaseTransactionFilter(reqVO)) {
-            return getTransactionFilteredPage(reqVO);
-        }
-        EdhrBatchExecutionPageReqVO batchReqVO = toBatchPageReq(reqVO);
-        PageResult<MesProEdhrBatchExecutionDO> page = batchExecutionMapper.selectPage(batchReqVO);
-        List<Long> batchExecutionIds = page.getList().stream()
-                .map(MesProEdhrBatchExecutionDO::getId)
-                .toList();
-        Map<Long, MesProEdhrReleaseTransactionDO> transactionByBatchId =
-                releaseTransactionMapper.selectListByBatchExecutionIds(batchExecutionIds).stream()
-                        .collect(Collectors.toMap(MesProEdhrReleaseTransactionDO::getBatchExecutionId,
-                                Function.identity(), (left, right) -> left));
-        List<MesProEdhrReleaseRespVO> list = page.getList().stream()
-                .map(batch -> toResp(batch, transactionByBatchId.get(batch.getId())))
-                .filter(item -> statusMatches(reqVO, item))
-                .filter(item -> batchExecutionStatusMatches(reqVO, item))
-                .toList();
-        return new PageResult<>(list, page.getTotal());
+        boolean history = hasReleaseTransactionFilter(reqVO);
+        var query = releaseTransactionMapper.buildReleaseListQuery(reqVO, history);
+        var access = new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>();
+        access.setParamAlias("access");
+        cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesMarketReleaseHandoverMapper.readable(access, "b.id");
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        long total = releaseTransactionMapper.countReleaseList(tenantId, history, query, access);
+        if (total == 0) return new PageResult<>(List.of(), 0L);
+        long offset = (long) (reqVO.getPageNo() - 1) * reqVO.getPageSize();
+        var rows = releaseTransactionMapper.selectReleaseList(tenantId, history, query, access,
+                offset, reqVO.getPageSize());
+        if (rows.isEmpty()) return new PageResult<>(List.of(), total);
+        var batchById = batchExecutionMapper.selectBatchIds(rows.stream()
+                .map(MesProEdhrReleaseTransactionMapper.ReleaseListRow::getBatchExecutionId).distinct().toList()).stream()
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionDO::getId, Function.identity()));
+        var transactionIds = rows.stream().map(MesProEdhrReleaseTransactionMapper.ReleaseListRow::getReleaseTransactionId)
+                .filter(Objects::nonNull).distinct().toList();
+        var transactionById = releaseTransactionMapper.selectListByIds(transactionIds).stream()
+                .collect(Collectors.toMap(MesProEdhrReleaseTransactionDO::getId, Function.identity()));
+        List<MesProEdhrReleaseRespVO> list = rows.stream().map(row -> {
+            var batch = batchById.get(row.getBatchExecutionId());
+            var transaction = transactionById.get(row.getReleaseTransactionId());
+            if (batch == null || (row.getReleaseTransactionId() != null && transaction == null)) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+            }
+            return toResp(batch, transaction);
+        }).toList();
+        return new PageResult<>(list, total);
     }
 
     private boolean hasReleaseTransactionFilter(MesProEdhrReleasePageReqVO reqVO) {
@@ -265,51 +275,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 || StrUtil.isNotBlank(reqVO.getInspectionStatus())
                 || (StrUtil.isNotBlank(reqVO.getReleaseStatus())
                 && !STATUS_PRECHECK_REQUIRED.equals(reqVO.getReleaseStatus()));
-    }
-
-    private PageResult<MesProEdhrReleaseRespVO> getTransactionFilteredPage(MesProEdhrReleasePageReqVO reqVO) {
-        List<MesProEdhrReleaseTransactionDO> transactions = releaseTransactionMapper.selectList(
-                new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
-                        .likeIfPresent(MesProEdhrReleaseTransactionDO::getBatchExecutionCode, reqVO.getBatchExecutionCode())
-                        .likeIfPresent(MesProEdhrReleaseTransactionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
-                        .likeIfPresent(MesProEdhrReleaseTransactionDO::getBatchCode, reqVO.getBatchCode())
-                        .likeIfPresent(MesProEdhrReleaseTransactionDO::getProductCode, reqVO.getProductCode())
-                        .eqIfPresent(MesProEdhrReleaseTransactionDO::getReleaseStatus, reqVO.getReleaseStatus())
-                        .eqIfPresent(MesProEdhrReleaseTransactionDO::getDhrStatus, reqVO.getDhrStatus())
-                        .eqIfPresent(MesProEdhrReleaseTransactionDO::getInspectionStatus, reqVO.getInspectionStatus())
-                        .betweenIfPresent(MesProEdhrReleaseTransactionDO::getCreateTime, reqVO.getCreateTime())
-                        .orderByDesc(MesProEdhrReleaseTransactionDO::getId));
-        int pageNo = reqVO.getPageNo() == null ? 1 : Math.max(reqVO.getPageNo(), 1);
-        int pageSize = reqVO.getPageSize() == null ? 10 : Math.max(reqVO.getPageSize(), 1);
-        List<Long> batchExecutionIds = transactions.stream()
-                .map(MesProEdhrReleaseTransactionDO::getBatchExecutionId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<Long, MesProEdhrBatchExecutionDO> batchById = batchExecutionIds.isEmpty() ? Map.of()
-                : batchExecutionMapper.selectBatchIds(batchExecutionIds).stream()
-                .collect(Collectors.toMap(MesProEdhrBatchExecutionDO::getId,
-                        Function.identity(), (left, right) -> left, LinkedHashMap::new));
-        List<MesProEdhrReleaseRespVO> filteredList = transactions.stream()
-                .filter(transaction -> marketReleaseAccess.get(transaction.getBatchExecutionId(),SecurityFrameworkUtils.getLoginUserId()).visible())
-                .map(transaction -> toResp(requireBatchExecutionForTransaction(transaction, batchById), transaction))
-                .filter(item -> batchExecutionStatusMatches(reqVO, item))
-                .toList();
-        List<MesProEdhrReleaseRespVO> pageList = filteredList.stream()
-                .skip((long) (pageNo - 1) * pageSize)
-                .limit(pageSize)
-                .toList();
-        return new PageResult<>(pageList, (long) filteredList.size());
-    }
-
-    private MesProEdhrBatchExecutionDO requireBatchExecutionForTransaction(
-            MesProEdhrReleaseTransactionDO transaction,
-            Map<Long, MesProEdhrBatchExecutionDO> batchById) {
-        MesProEdhrBatchExecutionDO batch = batchById.get(transaction.getBatchExecutionId());
-        if (batch == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
-        }
-        return batch;
     }
 
     @Override
@@ -1260,53 +1225,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     public PageResult<MesProEdhrReleaseEventRespVO> getEventPage(MesProEdhrReleaseEventPageReqVO reqVO) {
         requireTransaction(reqVO.getReleaseTransactionId());
         return BeanUtils.toBean(releaseTransactionEventMapper.selectPage(reqVO), MesProEdhrReleaseEventRespVO.class);
-    }
-
-    private EdhrBatchExecutionPageReqVO toBatchPageReq(MesProEdhrReleasePageReqVO reqVO) {
-        EdhrBatchExecutionPageReqVO batchReqVO = new EdhrBatchExecutionPageReqVO();
-        batchReqVO.setPageNo(reqVO.getPageNo());
-        batchReqVO.setPageSize(reqVO.getPageSize());
-        batchReqVO.setBatchExecutionCode(reqVO.getBatchExecutionCode());
-        batchReqVO.setWorkOrderCode(reqVO.getWorkOrderCode());
-        batchReqVO.setBatchCode(reqVO.getBatchCode());
-        batchReqVO.setProductCode(reqVO.getProductCode());
-        batchReqVO.setStatuses(reqVO.getBatchExecutionStatuses());
-        batchReqVO.setExcludeStatuses(reqVO.getExcludeBatchExecutionStatuses());
-        batchReqVO.setCompletedTraceOnly(reqVO.getCompletedTraceOnly());
-        batchReqVO.setCreateTime(reqVO.getCreateTime());
-        return batchReqVO;
-    }
-
-    private boolean statusMatches(MesProEdhrReleasePageReqVO reqVO, MesProEdhrReleaseRespVO item) {
-        return matches(reqVO.getReleaseStatus(), item.getReleaseStatus())
-                && matches(reqVO.getDhrStatus(), item.getDhrStatus())
-                && matches(reqVO.getInspectionStatus(), item.getInspectionStatus());
-    }
-
-    private boolean batchExecutionStatusMatches(MesProEdhrReleasePageReqVO reqVO, MesProEdhrReleaseRespVO item) {
-        List<Integer> excludedStatuses = reqVO.getExcludeBatchExecutionStatuses();
-        if (excludedStatuses != null && excludedStatuses.contains(item.getBatchExecutionStatus())) {
-            return false;
-        }
-        List<Integer> expectedStatuses = reqVO.getBatchExecutionStatuses();
-        if (expectedStatuses != null && !expectedStatuses.isEmpty()
-                && !expectedStatuses.contains(item.getBatchExecutionStatus())) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
-            return STATUS_RELEASED.equals(item.getReleaseStatus())
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED);
-        }
-        return true;
-    }
-
-    private boolean matches(String expected, String actual) {
-        return StrUtil.isBlank(expected) || Objects.equals(expected, actual);
     }
 
     private MesProEdhrBatchExecutionDO requireBatchExecution(Long batchExecutionId) {

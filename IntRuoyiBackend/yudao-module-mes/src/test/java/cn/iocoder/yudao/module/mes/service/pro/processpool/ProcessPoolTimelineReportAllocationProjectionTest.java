@@ -29,12 +29,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                 .setReportUnallocatedQuantity(new BigDecimal("-140"));
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 
@@ -141,12 +141,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                         """);
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 
@@ -202,12 +202,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                 .setReportUnallocatedQuantity(new BigDecimal("-140"));
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 

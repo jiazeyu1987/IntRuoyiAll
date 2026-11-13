@@ -23,6 +23,10 @@ public interface DccProjectAccessService {
 
     void assertProjectEditorOrOwner(Long userId, Long projectCodeId);
 
+    record EditorScope(boolean administrator, java.util.Set<Long> projectIds, boolean qms, boolean general) { }
+    /** Current permission configuration only; task rows remain selected/countable in SQL. */
+    EditorScope editorScope(Long userId);
+
     /** 校验项目查看权限；同租户超级管理员、租户管理员拥有全部项目 OWNER，其余账号读取正式规则。 */
     void assertProjectViewerOrAbove(Long userId, Long projectCodeId);
 

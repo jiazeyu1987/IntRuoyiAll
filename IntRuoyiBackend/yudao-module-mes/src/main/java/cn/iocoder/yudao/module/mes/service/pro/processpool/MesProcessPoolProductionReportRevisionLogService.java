@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
+
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -95,7 +98,8 @@ public class MesProcessPoolProductionReportRevisionLogService {
             return new PageResult<>(Collections.emptyList(), 0L);
         }
 
-        long total = revisionMapper.selectProductionReportRevisionLogCount(reqVO, employeeUserIds);
+        var filters = buildColumnFilters(reqVO);
+        long total = revisionMapper.selectProductionReportRevisionLogCount(reqVO, employeeUserIds, filters);
         if (total <= 0) {
             return new PageResult<>(Collections.emptyList(), 0L);
         }
@@ -103,8 +107,23 @@ public class MesProcessPoolProductionReportRevisionLogService {
         int pageSize = reqVO.getPageSize() == null ? 10 : reqVO.getPageSize();
         int offset = (pageNo - 1) * pageSize;
         List<MesProProcessPoolEventRevisionDO> revisions = revisionMapper
-                .selectProductionReportRevisionLogPage(reqVO, employeeUserIds, offset, pageSize);
+                .selectProductionReportRevisionLogPage(reqVO, employeeUserIds, offset, pageSize, filters);
         return new PageResult<>(buildContextLogs(revisions, actorUserId), total);
+    }
+
+    private com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> buildColumnFilters(
+            MesProProductionReportRevisionLogPageReqVO reqVO) {
+        return cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(reqVO,
+                java.util.Map.ofEntries(
+                java.util.Map.entry("workOrderCode", ListFilterQueryUtils.text("COALESCE(NULLIF(work_order.code,''),NULLIF(work_order.name,''),'--')")),
+                java.util.Map.entry("processName", ListFilterQueryUtils.text("COALESCE(NULLIF(process.name,''),NULLIF(process.code,''),'--')")),
+                java.util.Map.entry("actualEmployeeName", ListFilterQueryUtils.text("COALESCE(CASE CASE WHEN pool_event.event_type = 'PRODUCTION_SUBMIT' AND pool_event.template_type = 'SIMULATED_PRODUCTION_SUBMIT' AND JSON_VALID(pool_event.raw_payload) AND JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload,'$.simulated')) = 'true' THEN 'SYSTEM_USER' WHEN pool_event.event_type = 'PQC_INSPECTION' THEN 'SYSTEM_USER' WHEN pool_event.event_type = 'PRODUCTION_SUBMIT' AND JSON_VALID(pool_event.raw_payload) THEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload,'$.signatureIdentityDomain')) END WHEN 'SYSTEM_USER' THEN COALESCE(NULLIF(actual_employee.nickname,''),NULLIF(actual_employee.username,'')) WHEN 'MES_EMPLOYEE_PROFILE' THEN COALESCE(NULLIF(actual_employee_profile.display_name,''),NULLIF(actual_employee_profile.employee_name,'')) END,'--')")),
+                java.util.Map.entry("submittedAt", ListFilterQueryUtils.text("COALESCE(DATE_FORMAT(pool_event.server_submit_time,'%Y-%m-%d %H:%i:%s'),'--')")),
+                java.util.Map.entry("modifiedByName", ListFilterQueryUtils.text("TRIM(JSON_UNQUOTE(JSON_EXTRACT(report_revision.revision_signature_snapshot,'$.actorName')))")),
+                java.util.Map.entry("modifiedAt", ListFilterQueryUtils.text("COALESCE(DATE_FORMAT(report_revision.server_revision_time,'%Y-%m-%d %H:%i:%s'),'--')")),
+                java.util.Map.entry("changeReason", ListFilterQueryUtils.text("TRIM(report_revision.change_reason)")),
+                java.util.Map.entry("fieldCount", number("(SELECT COUNT(*) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0)")),
+                java.util.Map.entry("changeSummary", ListFilterQueryUtils.text("CONCAT(CONCAT_WS('、',(SELECT TRIM(d.field_name) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0 ORDER BY d.id LIMIT 0,1),(SELECT TRIM(d.field_name) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0 ORDER BY d.id LIMIT 1,1),(SELECT TRIM(d.field_name) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0 ORDER BY d.id LIMIT 2,1)),CASE WHEN (SELECT COUNT(*) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0) > 3 THEN CONCAT(' 等',(SELECT COUNT(*) FROM mes_pro_process_pool_event_revision_diff d WHERE d.revision_id = report_revision.id AND d.tenant_id = report_revision.tenant_id AND d.deleted = 0),'项') ELSE '' END)"))));
     }
 
     @Transactional(readOnly = true)

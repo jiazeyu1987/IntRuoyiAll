@@ -98,21 +98,51 @@ public class SrmSupplierPortalApprovalTaskAdapter implements ApprovalTaskProvide
     @Override
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        List<SrmSupplierPortalApplicationDO> rows = switch (context.getViewType()) {
-            case TODO -> supplierPortalApplicationMapper.selectUnifiedApprovalList(tenantId,
-                    SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus(),
-                    context.isGlobalView() ? null : context.getLoginUserId(), null, context.getKeyword());
-            case DONE -> supplierPortalApplicationMapper.selectUnifiedApprovalList(tenantId, DONE_STATUSES,
-                    null,
-                    context.isGlobalView() ? null : context.getLoginUserId(), context.getKeyword());
-            case MY_INITIATED -> supplierPortalApplicationMapper.selectUnifiedApprovalList(tenantId, ACTIVE_STATUSES,
-                    context.isGlobalView() ? null : context.getLoginUserId(), null, context.getKeyword());
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: SRM does not support "
-                    + context.getViewType());
+        boolean done = context.getViewType() == ApprovalTaskViewType.DONE;
+        List<String> statuses = switch (context.getViewType()) {
+            case TODO -> List.of(SrmSupplierPortalApplicationStatusEnum.SUBMITTED.getStatus());
+            case DONE -> DONE_STATUSES;
+            case MY_INITIATED -> ACTIVE_STATUSES;
+            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: SRM " + context.getViewType());
         };
-        List<ApprovalTaskSummary> summaries = rows.stream().map(this::toSummary).toList();
-        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
-                cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
+        Long user = !done && !context.isGlobalView() ? context.getLoginUserId() : null;
+        Long auditor = done && !context.isGlobalView() ? context.getLoginUserId() : null;
+        var query = supplierPortalApplicationMapper.unifiedApprovalQuery(tenantId, statuses, user, auditor,
+                context.getKeyword());
+        var filters = new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        filters.setListFilters(context.getListFilters());
+        cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.apply(filters, query, listFilterFields());
+        long count = supplierPortalApplicationMapper.selectCount(query);
+        var window = cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        if (count == 0 || window.limit() == 0) return new PageResult<>(List.of(), count);
+        String table = "srm_supplier_portal_application";
+        query.last("ORDER BY " + table + (done ? ".audit_time" : ".submitted_time")
+                + " DESC, CAST(CAST(" + table + ".id AS CHAR) AS BINARY) ASC LIMIT "
+                + window.limit() + " OFFSET " + window.offset());
+        return new PageResult<>(supplierPortalApplicationMapper.selectList(query).stream().map(this::toSummary).toList(), count);
+    }
+
+    private static java.util.Map<String, cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.Field> listFilterFields() {
+        String table = "srm_supplier_portal_application";
+        String status = "CASE " + table + ".application_status WHEN 'SUBMITTED' THEN '已提交' WHEN 'APPROVED' THEN '审核通过' WHEN 'REJECTED' THEN '审核驳回' END";
+        String remark = "CASE WHEN " + table + ".application_status='REJECTED' THEN NULLIF(TRIM(" + table + ".audit_remark),'') END";
+        var facts = new java.util.HashMap<String,String>();
+        facts.put("moduleLabel", "'供应商协同审批'");
+        facts.put("sourceLabel", "'未配置中文任务来源'");
+        facts.put("title", "CONCAT('供应商门户申请 - '," + table + ".company_name)");
+        facts.put("identifier", "CASE WHEN NULLIF(TRIM(" + table + ".unified_social_credit_code),'') IS NULL THEN CAST(" + table + ".id AS CHAR) ELSE CONCAT('业务编号：',TRIM(" + table + ".unified_social_credit_code)) END");
+        facts.put("nodeName", "CASE WHEN " + table + ".application_status='SUBMITTED' THEN '待审核' ELSE " + status + " END");
+        facts.put("nodeStatus", status);
+        facts.put("businessStatus", status);
+        facts.put("applicant", cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterSql.userLabel(table + ".user_id", table + ".tenant_id"));
+        facts.put("reviewer", "'--'");
+        facts.put("capabilities", "'AUDIT TIMELINE'");
+        facts.put("result", "CASE " + table + ".application_status WHEN 'APPROVED' THEN 'APPROVE' WHEN 'REJECTED' THEN 'REJECT' END");
+        facts.put("remark", remark);
+        facts.put("created", table + ".submitted_time");
+        facts.put("initiated", table + ".submitted_time");
+        facts.put("completed", "CASE WHEN " + table + ".application_status IN ('APPROVED','REJECTED') THEN " + table + ".audit_time END");
+        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterSql.fields(facts, false);
     }
 
     @Override

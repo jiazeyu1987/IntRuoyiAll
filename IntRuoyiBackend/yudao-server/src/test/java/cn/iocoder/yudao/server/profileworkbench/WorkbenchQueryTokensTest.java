@@ -59,4 +59,17 @@ class WorkbenchQueryTokensTest {
   fails(INVALID_QUERY.code(),()->new WorkbenchQuerySpec("all",null,null,null).normalized());
   fails(INVALID_QUERY.code(),()->new WorkbenchQuerySpec("visible",null,null,new WorkbenchQuerySpec.Sort("id;drop","asc")).normalized());
  }
+ @Test void columnConditionsSurviveTokenAndRemainBoundToQueryContext(){
+  String filters="[{\"key\":\"source\",\"operator\":\"contains\",\"value\":\"采购' OR 1=1 --\"},{\"key\":\"statusTime\",\"operator\":\"eq\",\"value\":\"待审批\"}]";
+  Store store=new Store(); var token=tokens(store,now).issue(2,3,1,"revision",List.of("SIX"),
+    new WorkbenchQuerySpec("visible",null,null,null,filters),"epoch:1");
+  var restored=tokens(store,now.plusSeconds(1)).verify(token.queryVersion(),"epoch:1",2,3).querySpec();
+  assertEquals(filters,restored.listFilters());
+  var context=restored.context(2,3,1);
+  String sql=context.getListFilterWrapper().getSqlSegment();
+  assertTrue(sql.contains("r.source"));assertTrue(sql.contains("r.status_label"));
+  assertFalse(sql.contains("OR 1=1"));
+  assertTrue(context.getListFilterWrapper().getParamNameValuePairs().values().contains("%采购' or 1=1 --%"));
+  assertTrue(context.querySpec().contains("statusTime"));
+ }
 }

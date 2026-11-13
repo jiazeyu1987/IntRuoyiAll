@@ -93,6 +93,7 @@ export interface MesPqcProductionReleaseDecisionRespVO {
 }
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {
+  listFilters?: string
   viewStatus: MesPqcProductionReleaseViewStatus | typeof PQC_RELEASE_VIEW_COMPLETED
   applicationId?: string
   pqcReleaseWorkTaskId?: string

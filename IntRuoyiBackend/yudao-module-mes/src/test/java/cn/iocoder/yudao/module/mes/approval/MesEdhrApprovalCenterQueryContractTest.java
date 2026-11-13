@@ -244,7 +244,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
             counted.set(query); return 500L;
         }).when(handoffs).selectCount(any(Wrapper.class));
         doAnswer(call -> { listed.set(call.getArgument(0)); return List.of(); }).when(handoffs).selectList(any(Wrapper.class));
-        assertEquals(500L, handoffs.selectApprovalCenterPrefix(1L, 12L, false, true, "null", 400L).getTotal());
+        assertEquals(500L, handoffs.selectApprovalCenterPrefix(1L, 12L, false, true, "null", 400L, null).getTotal());
         assertTrue(listed.get().getSqlSegment().startsWith(counted.get().getSqlSegment()));
         assertEquals(counted.get().getParamNameValuePairs(), listed.get().getParamNameValuePairs());
         assertTrue(listed.get().getSqlSegment().endsWith("CAST(id AS BINARY) ASC LIMIT 400"));
@@ -281,7 +281,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
         // Propagation only; the read-only MySQL CTE gate separately executes the actual invalid-type count.
         doReturn(1L).when(handoffs).selectCount(any(Wrapper.class));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                () -> handoffs.selectApprovalCenterPrefix(1L, 12L, false, false, "missing", 400L));
+                () -> handoffs.selectApprovalCenterPrefix(1L, 12L, false, false, "missing", 400L, null));
         verify(handoffs, never()).selectList(any(Wrapper.class));
     }
 
@@ -362,7 +362,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
                 }
                 for (String keyword : Arrays.asList(null, "PQC_%\\Literal")) {
                     handoffCounts.clear(); handoffLists.clear();
-                    handoffs.selectApprovalCenterPrefix(7L, 12L, global, done, keyword, 400L);
+                    handoffs.selectApprovalCenterPrefix(7L, 12L, global, done, keyword, 400L, null);
                     assertEquals(2, handoffCounts.size()); assertEquals(1, handoffLists.size());
                     String invalidSql = assertParsedBoundSql(configuration, tenant, pagination, MesActiveOrderHandoffTaskMapper.class,
                             "selectCount", handoffCounts.get(0), false, done);

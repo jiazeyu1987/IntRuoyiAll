@@ -22,7 +22,15 @@ public class DccOfflineTrainingTaskDelegate {
 
     public List<ApprovalTaskSummary> list(ApprovalTaskQueryContext context) {
         if (context.getViewType() != ApprovalTaskViewType.TODO) return List.of();
-        return training.listForActor(context.getLoginUserId()).stream().map(file -> {
+        return training.listForActor(context.getLoginUserId()).stream().map(file -> summary(context,file))
+                .filter(row->matches(row,context.getKeyword())).toList();
+    }
+    public cn.iocoder.yudao.framework.common.pojo.PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
+        if(context.getViewType()!=ApprovalTaskViewType.TODO)return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L);
+        var page=training.pageForActor(context);
+        return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(page.getList().stream().map(file->summary(context,file)).toList(),page.getTotal());
+    }
+    private ApprovalTaskSummary summary(ApprovalTaskQueryContext context,cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file) {
             String source = DccOfflineTrainingRecordService.SOURCE_TYPE + ":" + file.getTenantId()
                     + ":" + file.getId() + ":" + file.getProcessInstanceId();
             return ApprovalTaskSummary.builder().id("DCC:" + source).moduleCode(ApprovalModuleCode.DCC)
@@ -36,7 +44,6 @@ public class DccOfflineTrainingTaskDelegate {
                     .requiresSignature(false).availableActions(Set.of("PROCESS_IN_MODULE"))
                     .detailRoute("/dcc/controlled-file/detail/" + file.getId())
                     .detailQuery(DccOfflineTrainingRecordService.detailQuery(file.getProcessInstanceId())).build();
-        }).filter(row -> matches(row, context.getKeyword())).toList();
     }
 
     private String trainingDutyName(Long actor, cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file) {

@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTracePageReqVO;
@@ -67,7 +69,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
     }
 
     default PageResult<MesProBatchRecordExecutionDO> selectDomainTracePage(MesProBatchRecordDomainTracePageReqVO reqVO) {
-        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .eqIfPresent(MesProBatchRecordExecutionDO::getId, reqVO.getExecutionId())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -75,7 +77,12 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                 .eqIfPresent(MesProBatchRecordExecutionDO::getDomainTraceStatus, reqVO.getStatus())
                 .ne(MesProBatchRecordExecutionDO::getStatus, 4)
                 .orderByDesc(MesProBatchRecordExecutionDO::getDomainTraceVerifiedAt)
-                .orderByDesc(MesProBatchRecordExecutionDO::getId));
+                .orderByDesc(MesProBatchRecordExecutionDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("traceSummary", text("CONCAT(COALESCE(NULLIF(execution_code,''),CAST(id AS CHAR),'--'),' ',COALESCE(NULLIF(work_order_code,''),'未关联工单'),' ',COALESCE(NULLIF(batch_code,''),'未关联批次'))")),
+                java.util.Map.entry("status", text("CASE COALESCE(NULLIF(domain_trace_status,''),'BLOCKED') WHEN 'VERIFIED' THEN '已校验' WHEN 'BLOCKED' THEN '已阻塞' WHEN 'UNVERIFIED' THEN '未校验' ELSE domain_trace_status END")),
+                java.util.Map.entry("blockerSummary", text("CONCAT(CASE WHEN COALESCE(NULLIF(domain_trace_status,''),'BLOCKED') = 'BLOCKED' THEN '主数据追溯已阻塞，后端未返回阻塞明细。' ELSE '无阻塞项' END,' ',COALESCE((SELECT s.blocker_count FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.id = (SELECT s.id FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.verified_at DESC,s.id DESC LIMIT 1)),0))")),
+                java.util.Map.entry("itemCount", text("CAST((SELECT COUNT(*) FROM mes_pro_batch_record_domain_trace_item i WHERE i.snapshot_id = (SELECT s.id FROM mes_pro_batch_record_domain_trace_snapshot s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.verified_at DESC,s.id DESC LIMIT 1) AND i.tenant_id = mes_pro_batch_record_execution.tenant_id AND i.deleted = 0) AS CHAR)")),
+                java.util.Map.entry("verifiedAt", dateTime("domain_trace_verified_at")))));
     }
 
     default List<Long> selectIdsByExecutionCode(String executionCode) {
@@ -89,7 +96,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
     default PageResult<MesProBatchRecordExecutionDO> selectTrackingPage(MesProBatchRecordExecutionTrackingPageReqVO reqVO,
                                                                         Collection<Long> routeProcessIds,
                                                                         Collection<Long> actorMatchedExecutionIds) {
-        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getBatchCode, reqVO.getBatchCode())
@@ -103,8 +110,15 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                 .betweenIfPresent(MesProBatchRecordExecutionDO::getUpdateTime,
                         reqVO.getOccurredAtStart() == null ? reqVO.getBeginTime() : reqVO.getOccurredAtStart(),
                         reqVO.getOccurredAtEnd() == null ? reqVO.getEndTime() : reqVO.getOccurredAtEnd())
+                .apply(reqVO.getProcessId() != null, "EXISTS (SELECT 1 FROM mes_pro_route_process rp WHERE rp.id = mes_pro_batch_record_execution.route_process_id AND rp.tenant_id = mes_pro_batch_record_execution.tenant_id AND rp.deleted = 0 AND rp.process_id = {0})", reqVO.getProcessId())
+                .apply(cn.hutool.core.util.StrUtil.isNotBlank(reqVO.getActorName()), "EXISTS (SELECT 1 FROM mes_pro_batch_record_execution_signature actor_signature WHERE actor_signature.execution_id = mes_pro_batch_record_execution.id AND actor_signature.tenant_id = mes_pro_batch_record_execution.tenant_id AND actor_signature.deleted = 0 AND actor_signature.actor_name LIKE {0})", "%" + reqVO.getActorName() + "%")
                 .orderByDesc(MesProBatchRecordExecutionDO::getUpdateTime)
-                .orderByDesc(MesProBatchRecordExecutionDO::getId));
+                .orderByDesc(MesProBatchRecordExecutionDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("execution", text("CONCAT(COALESCE(NULLIF(execution_code,''),CONCAT('#',id),'--'),' ',COALESCE(NULLIF(execution_code,''),CONCAT('#',id),'--'))")),
+                java.util.Map.entry("productionContext", text("CONCAT(COALESCE(NULLIF(work_order_code,''),'--'),' ',COALESCE(NULLIF(work_order_code,''),'--'),' ',COALESCE(NULLIF(batch_code,''),'--'),' ',COALESCE(NULLIF(batch_code,''),'--'),' ',COALESCE(NULLIF((SELECT p.name FROM mes_pro_route_process rp JOIN mes_pro_process p ON p.id = rp.process_id AND p.tenant_id = rp.tenant_id AND p.deleted = 0 WHERE rp.id = mes_pro_batch_record_execution.route_process_id AND rp.tenant_id = mes_pro_batch_record_execution.tenant_id AND rp.deleted = 0),''),'--'),' ',COALESCE(NULLIF((SELECT w.name FROM mes_md_workstation w WHERE w.id = mes_pro_batch_record_execution.workstation_id AND w.tenant_id = mes_pro_batch_record_execution.tenant_id AND w.deleted = 0),''),'--'))")),
+                java.util.Map.entry("stage", text("CONCAT(CASE status WHEN 1 THEN '待审批' WHEN 2 THEN '已驳回' WHEN 3 THEN '已关闭' WHEN 4 THEN '填写完成' ELSE '草稿' END,' ',CASE WHEN (SELECT s.id FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1) IS NULL THEN '--' ELSE COALESCE(NULLIF(TRIM((SELECT p.name FROM mes_pro_route_process rp JOIN mes_pro_process p ON p.id = rp.process_id AND p.tenant_id = rp.tenant_id AND p.deleted = 0 WHERE rp.id = mes_pro_batch_record_execution.route_process_id AND rp.tenant_id = mes_pro_batch_record_execution.tenant_id AND rp.deleted = 0)),''),NULLIF(TRIM((SELECT s.bpm_task_name FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1)),''),COALESCE(NULLIF(TRIM((SELECT s.reason FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1)),''),NULLIF(TRIM((SELECT s.comment FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1)),'')),CASE (SELECT s.action_type FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1) WHEN 'FIELD_CHANGE' THEN '字段变更' WHEN 'FORM_REVIEW' THEN '表单复核' WHEN 'SUBMIT' THEN '提交审批' WHEN 'REVIEW_APPROVE' THEN '审核签名' WHEN 'APPROVE' THEN '最终批准' WHEN 'REJECT' THEN '审批驳回' WHEN 'ARCHIVE_SEAL' THEN '归档封存' ELSE '--' END) END,' ',COALESCE((SELECT s.actor_name FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1),'--'))")),
+                java.util.Map.entry("lastEvent", text("CONCAT(CASE (SELECT s.action_type FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1) WHEN 'CREATE' THEN '创建' WHEN 'SAVE_DRAFT' THEN '保存草稿' WHEN 'FIELD_CHANGE' THEN '字段变更' WHEN 'FORM_REVIEW' THEN '表单复核' WHEN 'SUBMIT' THEN '填写提交签名' WHEN 'REVIEW_APPROVE' THEN '审核签名' WHEN 'APPROVE' THEN '审批通过' WHEN 'REJECT' THEN '审批驳回' WHEN 'ARCHIVE_SEAL' THEN '归档封存' ELSE '--' END,' ',COALESCE(DATE_FORMAT(CASE WHEN (SELECT s.id FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1) IS NULL THEN update_time ELSE (SELECT s.signed_at FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1) END,'%Y-%m-%d %H:%i:%s'),'--'),' ',COALESCE(COALESCE(NULLIF(TRIM((SELECT s.reason FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1)),''),NULLIF(TRIM((SELECT s.comment FROM mes_pro_batch_record_execution_signature s WHERE s.execution_id = mes_pro_batch_record_execution.id AND s.tenant_id = mes_pro_batch_record_execution.tenant_id AND s.deleted = 0 ORDER BY s.signed_at DESC LIMIT 1)),'')),'--'))")),
+                java.util.Map.entry("archiveStatus", text("CASE (SELECT a.archive_status FROM mes_pro_batch_record_execution_archive a WHERE a.execution_id = mes_pro_batch_record_execution.id AND a.tenant_id = mes_pro_batch_record_execution.tenant_id AND a.deleted = 0 ORDER BY a.generated_at DESC,a.id DESC LIMIT 1) WHEN 'GENERATING' THEN '生成中' WHEN 'SEALED' THEN '已封存' WHEN 'FAILED' THEN '生成失败' ELSE '未归档' END")))));
     }
 
     default MesProBatchRecordExecutionDO selectActiveByContext(Long workOrderId, Long routeProcessId,

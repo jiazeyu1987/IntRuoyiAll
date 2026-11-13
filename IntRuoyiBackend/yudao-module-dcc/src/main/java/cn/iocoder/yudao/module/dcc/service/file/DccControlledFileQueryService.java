@@ -50,6 +50,7 @@ public interface DccControlledFileQueryService {
     PageResult<DccControlledFileRespVO> getControlledFileWorkingBrowserPage(Long userId, DccControlledFilePageReqVO reqVO);
 
     List<DccControlledFileDO> listControlledFileBrowserCandidates(Long userId, DccControlledFilePageReqVO reqVO);
+    List<DccControlledFileDO> listControlledFileBrowserExportFiles(Long userId, DccControlledFilePageReqVO reqVO);
 
     DccControlledFileRespVO getControlledFile(Long userId, Long id);
 

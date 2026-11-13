@@ -107,6 +107,7 @@ export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, 
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {
+  listFilters?: string
   reviewCode?: string
   sourceType?: EdhrNonconformanceReviewSourceType
   sourceId?: EdhrRouteId

@@ -39,6 +39,14 @@ export const ProductApi = {
     return await request.get({ url: `/erp/product/page`, params })
   },
 
+  getProductSimplePage: async (params: { pageNo: number; pageSize: number; keyword?: string }) => {
+    return await request.get({ url: '/erp/product/simple-page', params })
+  },
+
+  getProductSimpleByIds: async (ids: number[]): Promise<ProductVO[]> => {
+    return await request.get({ url: '/erp/product/simple-by-ids', params: { ids: ids.join(',') } })
+  },
+
   getProductSimpleList: async () => {
     return await request.get({ url: `/erp/product/simple-list` })
   },

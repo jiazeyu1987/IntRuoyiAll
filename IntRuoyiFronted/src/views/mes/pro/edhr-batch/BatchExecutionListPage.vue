@@ -24,10 +24,8 @@
         @column-change="saveEdhrBatchExecutionColumnConfig"
         @column-reset="resetEdhrBatchExecutionColumnConfig"
         @pagination="getList"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="list = $event"
-        :list-rows="list"
-        @column-filter-reset="getList"
+        server-filter
+        :server-filter-query="getList"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
@@ -850,7 +848,7 @@ import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/Workf
 import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('MARKET_RELEASE')
 const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
@@ -985,6 +983,7 @@ const releaseTransactionMissing = ref(false)
 const batchFlowTraceTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const readinessResult = ref<EdhrRehearsalReadinessResult>()
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   batchExecutionCode: '',
@@ -1364,6 +1363,7 @@ const normalizeBatchExecutionQuery = () => {
 const buildQuery = () => {
   normalizeBatchExecutionQuery()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     batchExecutionCode: queryParams.batchExecutionCode.trim() || undefined,
@@ -1457,15 +1457,14 @@ const loadBatchList = async (isActionCurrent: () => boolean, quiet = false) => {
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 批次执行列表加载失败。')
+    throw error
   } finally {
     batchListRequestsInFlight--
     if (isCurrent()) loading.value = false
   }
   return isCurrent()
 }
-const getList = async () => {
-  await loadBatchList(() => true)
-}
+const getList = async () => loadBatchList(() => true)
 let handoverRefreshTimer: ReturnType<typeof setInterval> | undefined
 let handoverRefreshActive = false
 let handoverRefreshGeneration = 0
@@ -2138,14 +2137,6 @@ watch(releaseDialogVisible, (visible) => {
 }, { flush: 'sync' })
 onBeforeUnmount(() => { resetMarketReleaseDialog() })
 onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDialog() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...buildQuery(), summaryOnly: true }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getEdhrBatchExecutionPage({ ...params, ...pagination })
-  )
-  return rows.filter(isVisibleBatchExecutionRow)
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

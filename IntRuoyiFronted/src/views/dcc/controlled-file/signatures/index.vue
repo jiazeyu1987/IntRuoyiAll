@@ -21,10 +21,10 @@
           @quick-filter-query="recordQuickFilter.applyQuickFilter"
           @column-change="saveRecordColumnConfig"
           @pagination="loadRecordPage"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="recordList = $event"
+          server-filter
+          :server-filter-query="loadRecordPage"
+          :query-loading="recordLoading"
           :list-rows="recordList"
-          @column-filter-reset="loadRecordPage"
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -203,10 +203,8 @@
           @quick-filter-query="authorizationQuickFilter.applyQuickFilter"
           @column-change="saveAuthorizationColumnConfig"
           @pagination="loadAuthorizationPage"
-          :load-filter-rows="loadColumnFilterRows1"
-          @filtered-rows="authorizationList = $event"
-          :list-rows="authorizationList"
-          @column-filter-reset="loadAuthorizationPage"
+      server-filter
+      :server-filter-query="loadAuthorizationPage"
           :column-filter-definitions="listColumnFilterDefinitions1"
         >
           <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -385,6 +383,7 @@
     />
     <UnifiedListTemplate
       class="dcc-signature-list-template dcc-signature-audit-template"
+      :key="authorizationAuditOpenGeneration"
       table-key="dcc.electronicSignature.authorizationAudit"
       :query-model="authorizationAuditDrawer"
       :filter-definitions="emptyQuickFilterDefinitions"
@@ -403,10 +402,8 @@
       @column-change="saveAuthorizationAuditColumnConfig"
       @column-reset="resetAuthorizationAuditColumnConfig"
       @pagination="loadAuthorizationAuditPage"
-      :load-filter-rows="loadColumnFilterRows2"
-      @filtered-rows="authorizationAuditDrawer.list = $event"
-      :list-rows="authorizationAuditDrawer.list"
-      @column-filter-reset="loadAuthorizationAuditPage"
+      server-filter
+      :server-filter-query="loadAuthorizationAuditPage"
       :column-filter-definitions="listColumnFilterDefinitions2"
     >
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -477,7 +474,8 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ContentWrap } from '@/components/ContentWrap'
 import { useUserStore } from '@/store/modules/user'
@@ -639,11 +637,13 @@ const {
   authorizationAuditDefaultColumns
 )
 
-const recordLoading = ref(false)
+const recordRequest = useLatestListRequest()
+const recordLoading = recordRequest.loading
 const recordTotal = ref(0)
 const recordList = ref<DccElectronicSignatureVO[]>([])
 const previewingControlledFileIds = ref<number[]>([])
 const recordQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   controlledFileId: undefined as number | undefined,
@@ -659,11 +659,13 @@ const recordQueryParams = reactive({
   quickFilter: undefined as TableQuickFilterValue | undefined
 })
 
-const authorizationLoading = ref(false)
+const authorizationRequest = useLatestListRequest()
+const authorizationLoading = authorizationRequest.loading
 const authorizationTotal = ref(0)
 const authorizationList = ref<DccElectronicSignatureAuthorizationVO[]>([])
 const authorizationUpdatingUserIds = ref<number[]>([])
 const authorizationQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   username: '',
@@ -781,6 +783,7 @@ const authorizationActionDialog = reactive({
 })
 
 const authorizationAuditDrawer = reactive({
+  listFilters: undefined as string | undefined,
   visible: false,
   loading: false,
   inlineError: '',
@@ -870,32 +873,30 @@ const buildRecordQueryParams = () => ({
 })
 
 const loadRecordPage = async () => {
-  recordLoading.value = true
   try {
-    const data = await getDccElectronicSignaturePage(buildRecordQueryParams())
-    recordList.value = data.list
-    recordTotal.value = data.total
+    return await recordRequest.run(() => getDccElectronicSignaturePage(buildRecordQueryParams()), data => {
+      recordList.value = data.list
+      recordTotal.value = data.total
+    })
   } catch (error) {
     message.error(resolveSignaturePageErrorMessage(error, '签名记录加载失败，请查看错误提示后重试。'))
-  } finally {
-    recordLoading.value = false
+    throw error
   }
 }
 
 const loadAuthorizationPage = async () => {
-  authorizationLoading.value = true
   try {
-    const data = await getDccElectronicSignatureAuthorizationPage({
+    return await authorizationRequest.run(() => getDccElectronicSignatureAuthorizationPage({
       ...authorizationQueryParams,
       username: authorizationQueryParams.username?.trim() || undefined,
       mobile: authorizationQueryParams.mobile?.trim() || undefined
+    }), data => {
+      authorizationList.value = data.list
+      authorizationTotal.value = data.total
     })
-    authorizationList.value = data.list
-    authorizationTotal.value = data.total
   } catch (error) {
     message.error(resolveSignaturePageErrorMessage(error, '签名授权加载失败，请查看错误提示后重试。'))
-  } finally {
-    authorizationLoading.value = false
+    throw error
   }
 }
 
@@ -1065,27 +1066,33 @@ const submitAuthorizationActionDialog = async () => {
   }
 }
 
+const authorizationAuditOpenGeneration = ref(0)
+let auditRequestGeneration = 0
 const loadAuthorizationAuditPage = async () => {
+  const generation = ++auditRequestGeneration
   const target = authorizationAuditDrawer.target
-  if (!target) {
-    return
-  }
+  if (!target) throw new Error('请选择授权审计用户')
   authorizationAuditDrawer.loading = true
   authorizationAuditDrawer.inlineError = ''
   try {
     const data = await getDccElectronicSignatureAuthorizationAuditPage(target.userId, {
       pageNo: authorizationAuditDrawer.pageNo,
-      pageSize: authorizationAuditDrawer.pageSize
+      pageSize: authorizationAuditDrawer.pageSize,
+      listFilters: authorizationAuditDrawer.listFilters
     })
+    if (generation !== auditRequestGeneration || authorizationAuditDrawer.target?.userId !== target.userId) return false
     authorizationAuditDrawer.list = data.list
     authorizationAuditDrawer.total = data.total
+    return true
   } catch (error) {
+    if (generation !== auditRequestGeneration || authorizationAuditDrawer.target?.userId !== target.userId) throw error
     authorizationAuditDrawer.inlineError = resolveSignaturePageErrorMessage(
       error,
       '授权审计加载失败，请查看错误提示后重试。'
     )
+    throw error
   } finally {
-    authorizationAuditDrawer.loading = false
+    if (generation === auditRequestGeneration) authorizationAuditDrawer.loading = false
   }
 }
 
@@ -1097,6 +1104,8 @@ const authorizationAuditQuickFilter = useTableQuickFilter(
 )
 
 const openAuthorizationAudit = async (row: DccElectronicSignatureAuthorizationVO) => {
+  authorizationAuditOpenGeneration.value++
+  authorizationAuditDrawer.listFilters = undefined
   authorizationAuditDrawer.visible = true
   authorizationAuditDrawer.target = row
   authorizationAuditDrawer.pageNo = 1
@@ -1144,13 +1153,6 @@ onBeforeUnmount(() => {
   revokeSignaturePdfPreviewUrl()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildRecordQueryParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getDccElectronicSignaturePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -1203,17 +1205,6 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows1 = async () => {
-  const params = {
-    ...authorizationQueryParams,
-    username: authorizationQueryParams.username?.trim() || undefined,
-    mobile: authorizationQueryParams.mobile?.trim() || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getDccElectronicSignatureAuthorizationPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -1248,13 +1239,6 @@ const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows2 = async () => {
-  const target = authorizationAuditDrawer.target
-  if (!target) throw new Error('请选择授权审计人员')
-  return loadAllListPages((pagination) =>
-    getDccElectronicSignatureAuthorizationAuditPage(target.userId, pagination)
-  )
-}
 
 const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
   {

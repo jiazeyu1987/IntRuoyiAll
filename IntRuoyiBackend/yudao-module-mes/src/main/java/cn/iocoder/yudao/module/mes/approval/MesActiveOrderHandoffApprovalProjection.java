@@ -23,11 +23,19 @@ public class MesActiveOrderHandoffApprovalProjection {
     private static final Set<ApprovalTaskCapability> CAPABILITIES=Set.of(ApprovalTaskCapability.TIMELINE,ApprovalTaskCapability.AUDIT,ApprovalTaskCapability.EVIDENCE_LEDGER);
     public cn.iocoder.yudao.framework.common.pojo.PageResult<ApprovalTaskSummary> prefix(
             ApprovalTaskQueryContext context, long limit) {
+        require(context.getLoginUserId()!=null,"审批交接查询缺少本人身份");
+        require(context.getViewType()==ApprovalTaskViewType.TODO||context.getViewType()==ApprovalTaskViewType.DONE,"审批交接查询视图无效");
+        var page=tasks.selectApprovalCenterPrefix(tenant(),context.getLoginUserId(),context.isGlobalView(),
+                context.getViewType()==ApprovalTaskViewType.DONE,context.getKeyword(),limit,context.getListFilters());
+        return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(page.getList().stream().map(task->summary(task,context.getLoginUserId())).toList(),page.getTotal());
+    }
+    public cn.iocoder.yudao.framework.common.pojo.PageResult<ApprovalTaskSummary> window(
+            ApprovalTaskQueryContext context, ApprovalQueryWindow window) {
         require(context.getLoginUserId() != null, "审批交接查询缺少本人身份");
         require(context.getViewType() == ApprovalTaskViewType.TODO || context.getViewType() == ApprovalTaskViewType.DONE,
                 "审批交接查询视图无效");
-        var page = tasks.selectApprovalCenterPrefix(tenant(), context.getLoginUserId(), context.isGlobalView(),
-                context.getViewType() == ApprovalTaskViewType.DONE, context.getKeyword(), limit);
+        var page = tasks.selectApprovalCenterWindow(tenant(), context.getLoginUserId(), context.isGlobalView(),
+                context.getViewType() == ApprovalTaskViewType.DONE, context.getKeyword(), window.offset(),window.limit(), context.getListFilters());
         return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(page.getList().stream().map(task -> summary(task, context.getLoginUserId())).toList(),
                 page.getTotal());
     }

@@ -44,4 +44,9 @@ public class DccObsoleteApprovalSummaryEnricher implements ApprovalTaskSummaryEn
         summary.setDecisionDetailQuery(Map.copyOf(summary.getDetailQuery()));
         summary.setAvailableActions(Set.of("OPEN_DETAIL"));
     }
+    @Override
+    public void enrichFilterFacts(java.util.Map<String, String> facts, FilterContext context) {
+        DccNativeApprovalFilterSql.enrich(facts, context, true);
+    }
+
 }

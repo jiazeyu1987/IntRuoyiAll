@@ -29,10 +29,8 @@
       @quick-filter-query="companyScopeQuickFilter.applyQuickFilter"
       @column-change="saveCompanyScopeColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -140,7 +138,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -159,7 +158,8 @@ import type { MdmEnterpriseRespVO } from '@/api/mdm/enterprise'
 defineOptions({ name: 'MdmCompanyScope' })
 
 const message = useMessage()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<MdmEnterpriseRespVO[]>([])
 const loadError = ref('')
@@ -173,6 +173,7 @@ const formRules: FormRules = {
   name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }]
 }
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   keyword: undefined as string | undefined,
@@ -216,19 +217,16 @@ const resolvePageErrorMessage = (error: unknown) => {
     record?.message || '公司列表加载失败，请查看网络或后端错误后重试。'
 }
 const getList = async () => {
-  loading.value = true
   loadError.value = ''
   try {
-    const data = await getOwnedCompanyPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    return await listRequest.run(() => getOwnedCompanyPage({ ...queryParams }), (data) => {
+      list.value = data.list
+      total.value = data.total
+    })
   } catch (error) {
     loadError.value = resolvePageErrorMessage(error)
-    list.value = []
-    total.value = 0
     message.error(loadError.value)
-  } finally {
-    loading.value = false
+    throw error
   }
 }
 const companyScopeEmptyText = '当前暂无所属公司'
@@ -281,14 +279,6 @@ const companyScopeQuickFilter = useTableQuickFilter(
   'mdm.companyScope.main', companyScopeQuickFilterDefinitions, queryParams, getList
 )
 onMounted(() => { void getList() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getOwnedCompanyPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

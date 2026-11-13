@@ -22,7 +22,7 @@ class MesPqcDisplayedReviewContextTest {
         var mapper=mock(MesProProcessPoolTimelineReadMapper.class);
         var first=row(101);var second=row(102);var request=new ProcessPoolTimelinePageReqVO().setEventType("PQC_INSPECTION");
         request.setPageNo(1);request.setPageSize(20);
-        when(mapper.selectTimelineCount(request)).thenReturn(1L);when(mapper.selectTimelinePage(request)).thenReturn(List.of(first));
+        when(mapper.selectTimelineCount(org.mockito.ArgumentMatchers.eq(request), org.mockito.ArgumentMatchers.any())).thenReturn(1L);when(mapper.selectTimelinePage(org.mockito.ArgumentMatchers.eq(request), org.mockito.ArgumentMatchers.any())).thenReturn(List.of(first));
         when(mapper.selectPqcSubmissionGroupPayloadsByGroupIds(List.of("g"))).thenReturn(List.of(first,second));
         var result=ProcessPoolTimelineTestSupport.service(mapper).getTimelinePage(request).getList().get(0);
         assertEquals(first.getDisplayedRevisionId(), result.getDisplayedRevisionId());

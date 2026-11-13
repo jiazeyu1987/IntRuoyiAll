@@ -43,6 +43,9 @@ public class MesProScheduleOrderPageReqVO extends PageParam {
     @Schema(description = "当前工序编号", example = "300")
     private Long currentProcessId;
 
+    @Schema(hidden = true)
+    private List<Long> resolvedCurrentProcessFilterIds;
+
     @Schema(description = "当前工序关键词", example = "粗洗")
     private String currentProcessKeyword;
 

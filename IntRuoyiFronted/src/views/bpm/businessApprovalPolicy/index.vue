@@ -23,10 +23,8 @@
       @column-change="saveBusinessApprovalPolicyColumnConfig"
       @column-reset="resetBusinessApprovalPolicyColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -282,7 +280,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { computed } from 'vue'
 import PolicyTransferActions from './PolicyTransferActions.vue'
@@ -417,10 +416,12 @@ const formatPolicyObjectState = (objectState: string | undefined) =>
 const formatPolicyEffectExecutorCode = (effectExecutorCode: string | undefined) =>
   formatPolicyCodeLabel(effectExecutorCode, policyEffectExecutorCodeLabels)
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<BusinessApprovalPolicyVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   dataDomain: undefined as string | undefined,
@@ -451,16 +452,15 @@ const resolveBusinessApprovalPolicyErrorMessage = (error: unknown) => {
 }
 
 const getList = async () => {
-  loading.value = true
   try {
-    const data = await BusinessApprovalPolicyApi.getPolicyPage(queryParams)
+    return await listRequest.run(() => BusinessApprovalPolicyApi.getPolicyPage({ ...queryParams }), (data) => {
     list.value = data.list || []
     total.value = data.total || 0
-  } catch (error) {
+  })
+  }
+  catch (error) {
     message.error(resolveBusinessApprovalPolicyErrorMessage(error))
     throw error
-  } finally {
-    loading.value = false
   }
 }
 
@@ -665,14 +665,6 @@ const handlePolicyModeSwitch = async (row: BusinessApprovalPolicyVO, enabled: bo
 onMounted(() => {
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    BusinessApprovalPolicyApi.getPolicyPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

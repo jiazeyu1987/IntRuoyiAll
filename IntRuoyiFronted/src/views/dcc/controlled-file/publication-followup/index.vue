@@ -10,10 +10,8 @@
         v-model:limit="pageSize"
         :total="total"
         @pagination="loadPage"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="rows = $event"
-        :list-rows="rows"
-        @column-filter-reset="loadPage"
+        server-filter
+        :server-filter-query="loadPage"
         :columns="listFilterColumns0"
         :show-column-settings="false"
         :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
@@ -241,7 +239,7 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ElMessageBox } from 'element-plus'
@@ -275,7 +273,7 @@ const rows = ref<DccPublicationFollowupVO[]>([])
 const total = ref(0)
 const pageNo = ref(1)
 const pageSize = ref(10)
-const filters = reactive({ fileNumber: '', versionNo: '', batchStatus: '', taskStatus: '', notificationStatus: '', assigneeUserId: '' })
+const filters = reactive({ get pageNo() { return pageNo.value }, set pageNo(value: number) { pageNo.value = value }, listFilters: '', fileNumber: '', versionNo: '', batchStatus: '', taskStatus: '', notificationStatus: '', assigneeUserId: '' })
 const batchStatuses = ['PROCESSING', 'READY', 'PARTIAL_FAILED', 'COMPLETED']
 const taskStatuses = ['PENDING', 'UNASSIGNED', 'IN_REVIEW', 'COMPLETED']
 const notificationStatuses = ['PENDING', 'SENT', 'FAILED']
@@ -290,27 +288,32 @@ const isPositiveLongId = (value: string) => {
   return value.length < 19 || value <= '9223372036854775807'
 }
 
+let pageSequence=0
 const loadPage = async () => {
+  const sequence=++pageSequence
   loading.value = true
   loadError.value = ''
   try {
     if (filters.assigneeUserId && !isPositiveLongId(filters.assigneeUserId)) {
-      loadError.value = '负责人 ID 必须是有效的正十进制整数'
-      return
+      throw new Error('负责人 ID 必须是有效的正十进制整数')
     }
     const result = await getPublicationFollowupManagementPage({
-      pageNo: pageNo.value, pageSize: pageSize.value,
+      pageNo: pageNo.value, pageSize: pageSize.value, listFilters: filters.listFilters,
       fileNumber: filters.fileNumber || undefined, versionNo: filters.versionNo || undefined,
       batchStatus: filters.batchStatus || undefined, taskStatus: filters.taskStatus || undefined,
       notificationStatus: filters.notificationStatus || undefined,
       assigneeUserId: filters.assigneeUserId || undefined
     })
-    rows.value = result.list || []
-    total.value = result.total || 0
+    if (sequence!==pageSequence) return false
+    if (!result || !Array.isArray(result.list) || !Number.isSafeInteger(result.total) || result.total<0) throw new Error('发布后续分页响应无效')
+    rows.value = result.list
+    total.value = result.total
   } catch (error) {
+    if (sequence!==pageSequence) return false
     loadError.value = errorText(error)
+    throw error
   } finally {
-    loading.value = false
+    if (sequence===pageSequence) loading.value = false
   }
 }
 
@@ -359,23 +362,6 @@ const reopenImpact = async (task: DccPublicationImpactTaskVO) => {
 }
 
 onMounted(loadPage)
-
-const loadColumnFilterRows0 = async () => {
-  const params = {
-    pageNo: pageNo.value,
-    pageSize: pageSize.value,
-    fileNumber: filters.fileNumber || undefined,
-    versionNo: filters.versionNo || undefined,
-    batchStatus: filters.batchStatus || undefined,
-    taskStatus: filters.taskStatus || undefined,
-    notificationStatus: filters.notificationStatus || undefined,
-    assigneeUserId: filters.assigneeUserId || undefined
-  }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getPublicationFollowupManagementPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

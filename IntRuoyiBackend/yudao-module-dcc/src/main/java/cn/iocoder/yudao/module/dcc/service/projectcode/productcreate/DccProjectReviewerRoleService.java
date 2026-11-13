@@ -48,6 +48,13 @@ public class DccProjectReviewerRoleService {
         if(!validRole(role) || !Objects.equals(role.id(),request.getReviewerRoleId()) || !ROLE_CODE.equals(request.getReviewerRoleCode()))return false;
         return members(role,false).stream().anyMatch(m->m.userId().equals(actorId));
     }
+    /** Resolve the current user's frozen-role eligibility once for SQL task selection. */
+    public Long reviewableRoleId(Long actorId) {
+        var rows=roles(false);
+        if(rows.size()!=1 || !validRole(rows.get(0)))return null;
+        var role=rows.get(0);
+        return members(role,false).stream().anyMatch(member->member.userId().equals(actorId)) ? role.id() : null;
+    }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
     public void assertReviewer(Long actorId,DccProjectProductCreateRequestDO request) {
         requireAuthenticated(actorId,tenant());

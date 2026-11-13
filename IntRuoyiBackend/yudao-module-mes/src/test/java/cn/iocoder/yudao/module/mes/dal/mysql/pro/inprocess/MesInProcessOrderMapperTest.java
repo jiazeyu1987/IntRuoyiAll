@@ -18,9 +18,10 @@ class MesInProcessOrderMapperTest {
             var statement = connection.createStatement();
             statement.execute("CREATE TABLE mes_pro_process_pool_active_order(id BIGINT,tenant_id BIGINT,work_order_id BIGINT,leader_user_id BIGINT,active_status VARCHAR,business_status VARCHAR,deleted INT,joined_at TIMESTAMP)");
             statement.execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,product_id BIGINT,code VARCHAR,name VARCHAR,batch_code VARCHAR,deleted INT)");
-            statement.execute("CREATE TABLE mes_md_item(id BIGINT,tenant_id BIGINT,name VARCHAR,deleted INT)");
+            statement.execute("CREATE TABLE mes_md_item(id BIGINT,tenant_id BIGINT,name VARCHAR,code VARCHAR,deleted INT)");
+            statement.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,nickname VARCHAR,deleted INT)");
             statement.execute("CREATE TABLE mes_pro_edhr_nonconformance_review(tenant_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,review_status VARCHAR,disposition VARCHAR,deleted INT)");
-            statement.execute("INSERT INTO mes_md_item VALUES(1,1,'导管',0),(2,2,'导管',0)");
+            statement.execute("INSERT INTO mes_md_item VALUES(1,1,'导管','P1',0),(2,2,'导管','P2',0)");
             statement.execute("INSERT INTO mes_pro_work_order VALUES(1,1,1,'WO-1','一号工单','LOT-A',0),(2,1,1,'WO-2','二号工单','LOT-B',0),(3,2,2,'WO-3','其他租户','LOT-A',0)");
             statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(1,1,1,10,'ACTIVE','ACTIVE',0,'2026-10-27 10:00:00'),(2,1,2,20,'ACTIVE','ACTIVE',0,'2026-10-27 11:00:00'),(3,1,1,10,'ACTIVE','COMPLETED',0,'2026-10-27 12:00:00'),(4,1,1,10,'REMOVED','VERSION_UPGRADED',0,'2026-10-27 12:00:00'),(5,2,3,30,'ACTIVE','ACTIVE',0,'2026-10-27 12:00:00'),(6,1,1,10,'ACTIVE','ACTIVE',1,'2026-10-27 12:00:00')");
             statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(7,1,1,10,'ACTIVE','VERSION_UPGRADE_PENDING',0,'2026-10-27 09:00:00')");
@@ -40,16 +41,37 @@ class MesInProcessOrderMapperTest {
             assertEquals(List.of(3L,2L,1L,7L), query(connection, query));
             statement.execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES(1,1,1,'closed','void',0)");
             assertEquals(List.of(3L,2L,7L), query(connection, query));
+            query.setListFilters("[{\"key\":\"productCode\",\"operator\":\"eq\",\"value\":\"P1\"},{\"key\":\"joinedAt\",\"operator\":\"gte\",\"value\":\"2026-10-27\"}]");
+            assertEquals(List.of(3L,2L,7L), query(connection, query));
+            assertEquals(List.of(2L), query(connection, query, null,null,1L,1));
+            assertEquals(List.of(2L,7L), query(connection, query, java.time.LocalDateTime.of(2026,10,27,12,0),3L,0L,100));
+            query.setListFilters(null);
+            statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(9,1,2,20,'ACTIVE','ACTIVE',0,NULL),(10,1,2,20,'ACTIVE','ACTIVE',0,NULL)");
+            assertEquals(List.of(2L,7L,10L,9L), query(connection, query, java.time.LocalDateTime.of(2026,10,27,12,0),3L,0L,100));
+            assertEquals(List.of(9L), query(connection, query, null,10L,0L,100));
+
         }
     }
     private List<Long> query(Connection connection, MesInProcessOrderPageReqVO request) throws Exception {
+        return query(connection,request,null,null,0L,100);
+    }
+    private List<Long> query(Connection connection, MesInProcessOrderPageReqVO request, java.time.LocalDateTime cursorJoinedAt, Long cursorId, long offset, int limit) throws Exception {
         var config = new Configuration();
-        String script = MesInProcessOrderMapper.class.getMethod("selectCandidates", Long.class, MesInProcessOrderPageReqVO.class).getAnnotation(Select.class).value()[0];
+        String script = String.join("", MesInProcessOrderMapper.class.getMethod("selectCandidates", Long.class, MesInProcessOrderPageReqVO.class, com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.class, java.time.LocalDateTime.class, Long.class, long.class, int.class).getAnnotation(Select.class).value());
         var source = new XMLLanguageDriver().createSqlSource(config, script, Map.class);
-        var params = Map.of("tenantId",1L,"q",request);
+        var params = new HashMap<String,Object>();
+        params.put("tenantId",1L); params.put("q",request); params.put("ew",cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(request,MesInProcessOrderMapper.STATIC_FIELDS));
+        params.put("cursorJoinedAt",cursorJoinedAt); params.put("cursorId",cursorId); params.put("offset",offset); params.put("limit",limit);
         var bound = source.getBoundSql(params);
         var mapped = new MappedStatement.Builder(config,"inprocess",source,SqlCommandType.SELECT).build();
-        try (var statement = connection.prepareStatement(bound.getSql())) {
+        var tenant = new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+                new com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler() {
+                    public net.sf.jsqlparser.expression.Expression getTenantId() { return new net.sf.jsqlparser.expression.LongValue(1L); }
+                });
+        String rewritten = tenant.parserSingle(bound.getSql(), null).replace(" AS CHAR)", " AS VARCHAR)");
+        assertTrue(rewritten.contains("leader.tenant_id = 1"));
+        assertTrue(rewritten.contains("n.tenant_id = 1"));
+        try (var statement = connection.prepareStatement(rewritten)) {
             new DefaultParameterHandler(mapped,params,bound).setParameters(statement);
             var rows = statement.executeQuery();
             List<Long> ids = new ArrayList<>();

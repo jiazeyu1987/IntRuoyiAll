@@ -222,8 +222,8 @@ class MesEdhrHistoricalReadContractTest {
                 .setBusinessScopeType(task.getBusinessScopeType()).setBusinessScopeId(task.getBusinessScopeId())
                 .setWorkOrderId(task.getWorkOrderId()).setBatchExecutionId(task.getBatchExecutionId()).setReason(task.getReason())
                 .setActionUrl("/mes/production-release/pqc?applicationId=95");
-        when(service.getApprovalCenterAuthorizedPrefix(any(),org.mockito.ArgumentMatchers.eq(false),
-                org.mockito.ArgumentMatchers.eq(true),org.mockito.ArgumentMatchers.anyLong())).thenReturn(
+        when(service.getApprovalCenterAuthorizedWindow(any(),org.mockito.ArgumentMatchers.eq(false),
+                org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L))).thenReturn(
                 new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(task,display)),1L));
         when(handoff.prefix(any(),org.mockito.ArgumentMatchers.anyLong())).thenReturn(
                 new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L));

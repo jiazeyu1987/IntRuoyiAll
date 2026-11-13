@@ -15,8 +15,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
-import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
-import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
@@ -58,7 +56,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
-import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -215,8 +212,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         if (scopedProjectCodeIds != null && scopedProjectCodeIds.isEmpty()) {
             return new PageResult<>(List.of(), 0L);
         }
-        List<DccProjectCodeDO> sortedList = listProjectCodesInDisplayOrder(reqVO, scopedProjectCodeIds);
-        return buildPageResult(sortedList, reqVO);
+        return selectProjectCodeDisplayPage(reqVO, scopedProjectCodeIds, false, userId);
     }
 
     /** Public discovery uses formal project rules before all filters/sorting/pagination; legacy business scope is separate. */
@@ -225,7 +221,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     public PageResult<DccProjectCodeDO> getReadableProjectCodePage(Long userId, DccProjectCodePageReqVO reqVO) {
         List<Long> readable = projectAccess.listReadableProjectIds(userId);
         if (readable.isEmpty()) return new PageResult<>(List.of(), 0L);
-        return buildPageResult(listProjectCodesInDisplayOrder(reqVO, readable, true), reqVO);
+        return selectProjectCodeDisplayPage(reqVO, readable, true, userId);
     }
 
     @Override
@@ -237,8 +233,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     @Override
     public PageResult<DccProjectCodeDO> getProjectCodePage(DccProjectCodePageReqVO reqVO) {
-        List<DccProjectCodeDO> sortedList = listProjectCodesInDisplayOrder(reqVO, null);
-        return buildPageResult(sortedList, reqVO);
+        return selectProjectCodeDisplayPage(reqVO, null, false,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
     }
 
     @Override
@@ -367,88 +363,16 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .toList();
     }
 
-    private List<DccProjectCodeDO> listProjectCodesInDisplayOrder(DccProjectCodePageReqVO reqVO,
-                                                                   List<Long> scopedProjectCodeIds) {
-        return listProjectCodesInDisplayOrder(reqVO, scopedProjectCodeIds, false);
-    }
-
-    private List<DccProjectCodeDO> listProjectCodesInDisplayOrder(DccProjectCodePageReqVO reqVO,
-                                                                   List<Long> scopedProjectCodeIds, boolean publicReader) {
-        DccProjectCodePageReqVO queryReqVO = new DccProjectCodePageReqVO();
-        queryReqVO.setPageNo(1);
-        queryReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        queryReqVO.setProductMasterId(reqVO.getProductMasterId());
-        queryReqVO.setKeyword(reqVO.getKeyword());
-        queryReqVO.setProjectName(reqVO.getProjectName());
-        queryReqVO.setProjectCode(reqVO.getProjectCode());
-        queryReqVO.setCategory(reqVO.getCategory());
-        queryReqVO.setPriority(reqVO.getPriority());
-        queryReqVO.setStatus(reqVO.getStatus());
-        List<DccProjectCodeDO> records = new ArrayList<>(projectCodeMapper.selectPage(queryReqVO).getList());
-        if (publicReader) records.removeIf(record -> !java.util.Objects.equals(record.getTenantId(),
-                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
-                || !DccProjectCodeStatusConstants.ENABLE.equals(record.getStatus()));
-        if (scopedProjectCodeIds != null) {
-            Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
-            records.removeIf(record -> !scope.contains(record.getId()));
-        }
-        records = applyDccProductCodeFilter(records, reqVO);
-        records = applyConfigurationFilters(records, reqVO);
-        populateAssociatedFileCounts(records);
-        records.sort(projectCodeDisplayOrder(reqVO));
-        return records;
-    }
-
-    private List<DccProjectCodeDO> applyDccProductCodeFilter(List<DccProjectCodeDO> records,
-                                                              DccProjectCodePageReqVO reqVO) {
-        if (records.isEmpty() || !Boolean.TRUE.equals(reqVO.getRequireDccProductCode())) {
-            return records;
-        }
-        Set<Long> validProductIds = productApi.listSimpleProducts(
-                        MdmProductStatusConstants.ENABLE, true, null).stream()
-                .map(MdmProductRespDTO::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (validProductIds.isEmpty()) {
-            return List.of();
-        }
-        return records.stream()
-                .filter(record -> validProductIds.contains(record.getProductMasterId()))
-                .collect(Collectors.toCollection(ArrayList::new));
-    }
-
-    private List<DccProjectCodeDO> applyConfigurationFilters(List<DccProjectCodeDO> records,
-                                                              DccProjectCodePageReqVO reqVO) {
-        if (records.isEmpty()
-                || (reqVO.getRouteConfigured() == null
-                && reqVO.getMainBatchRecordConfigured() == null
-                && reqVO.getQaRegulationConfigured() == null)) {
-            return records;
-        }
-        Map<Long, DccProjectCodeConfigurationStatus> statusByProjectCodeId = configurationStatusApi.getStatus(
-                records.stream()
-                        .map(record -> new DccProjectCodeConfigurationQuery(record.getId(), record.getProjectName(),
-                                reqVO.getRouteConfigured() != null,
-                                reqVO.getMainBatchRecordConfigured() != null,
-                                reqVO.getQaRegulationConfigured() != null))
-                        .toList());
-        return records.stream()
-                .filter(record -> matchesConfigurationFilter(reqVO.getRouteConfigured(),
-                        statusByProjectCodeId.get(record.getId()),
-                        DccProjectCodeConfigurationStatus::routeConfigured))
-                .filter(record -> matchesConfigurationFilter(reqVO.getMainBatchRecordConfigured(),
-                        statusByProjectCodeId.get(record.getId()),
-                        DccProjectCodeConfigurationStatus::mainBatchRecordConfigured))
-                .filter(record -> matchesConfigurationFilter(reqVO.getQaRegulationConfigured(),
-                        statusByProjectCodeId.get(record.getId()),
-                        DccProjectCodeConfigurationStatus::qaRegulationConfigured))
-                .collect(Collectors.toCollection(ArrayList::new));
-    }
-
-    private boolean matchesConfigurationFilter(Boolean expected,
-                                               DccProjectCodeConfigurationStatus status,
-                                               Function<DccProjectCodeConfigurationStatus, Boolean> valueReader) {
-        return expected == null || (status != null && Objects.equals(expected, valueReader.apply(status)));
+    private PageResult<DccProjectCodeDO> selectProjectCodeDisplayPage(DccProjectCodePageReqVO request,
+            List<Long> scope, boolean publicReader, Long userId) {
+        var filter = cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeListQuery.filter(
+                request, scope, publicReader, userId != null && permissionApi.hasAnyPermissions(userId, "mes:qc-template:query"));
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        long total = projectCodeMapper.countDisplayPage(tenantId, filter);
+        if (total == 0) return new PageResult<>(List.of(), 0L);
+        long offset = PageParam.PAGE_SIZE_NONE.equals(request.getPageSize()) ? 0L
+                : ((long) request.getPageNo() - 1L) * request.getPageSize();
+        return new PageResult<>(projectCodeMapper.selectDisplayPage(tenantId, request, filter, offset), total);
     }
 
     private List<Long> resolveAssignedProjectCodeScope(Long userId) {
@@ -464,33 +388,6 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private boolean hasAssignmentExecuteScope(Long userId) {
         return permissionApi.hasAnyPermissions(userId, ASSIGNMENT_EXECUTE_PERMISSION);
-    }
-
-    private PageResult<DccProjectCodeDO> buildPageResult(List<DccProjectCodeDO> sortedList, DccProjectCodePageReqVO reqVO) {
-        long total = sortedList.size();
-        if (PageParam.PAGE_SIZE_NONE.equals(reqVO.getPageSize())) {
-            return new PageResult<>(sortedList, total);
-        }
-        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), sortedList.size());
-        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), sortedList.size());
-        return new PageResult<>(new ArrayList<>(sortedList.subList(fromIndex, toIndex)), total);
-    }
-
-    private void populateAssociatedFileCounts(List<DccProjectCodeDO> records) {
-        Set<Long> projectCodeIds = records.stream()
-                .map(DccProjectCodeDO::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, Long> fileCountByProjectCodeId = new LinkedHashMap<>();
-        if (!projectCodeIds.isEmpty()) {
-            controlledFileMapper.selectAssociatedFileCountsByProjectCodeIds(projectCodeIds).forEach(fileCount ->
-                    fileCountByProjectCodeId.put(fileCount.getProjectCodeId(), fileCount.getFileCount()));
-            registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(projectCodeIds)
-                    .forEach((projectCodeId, fileCount) -> fileCountByProjectCodeId.merge(
-                            projectCodeId, fileCount, Long::sum));
-        }
-        records.forEach(record -> record.setAssociatedFileCount(
-                fileCountByProjectCodeId.getOrDefault(record.getId(), 0L)));
     }
 
     private List<Long> listVisibleAssociatedControlledFileIds(Long userId, Long projectCodeId) {
@@ -838,37 +735,6 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         } else {
             wrapper.eq(column, value);
         }
-    }
-
-    private Comparator<DccProjectCodeDO> projectCodeDisplayOrder(DccProjectCodePageReqVO reqVO) {
-        Comparator<DccProjectCodeDO> defaultOrder = Comparator
-                .comparing((DccProjectCodeDO item) -> isNonNumericDocControlNo(item.getDocControlNo()))
-                .thenComparing(this::numericDocControlNoValue, Comparator.nullsLast(BigInteger::compareTo))
-                .thenComparing(item -> StrUtil.nullToEmpty(StrUtil.trim(item.getDocControlNo())))
-                .thenComparing(DccProjectCodeDO::getId, Comparator.nullsLast(Long::compareTo));
-        String fileCountSort = StrUtil.trimToEmpty(reqVO.getFileCountSort());
-        if ("asc".equalsIgnoreCase(fileCountSort)) {
-            return Comparator
-                    .comparing(DccProjectCodeDO::getAssociatedFileCount, Comparator.nullsFirst(Long::compareTo))
-                    .thenComparing(defaultOrder);
-        }
-        if ("desc".equalsIgnoreCase(fileCountSort)) {
-            return Comparator
-                    .comparing(DccProjectCodeDO::getAssociatedFileCount, Comparator.nullsFirst(Long::compareTo))
-                    .reversed()
-                    .thenComparing(defaultOrder);
-        }
-        return defaultOrder;
-    }
-
-    private boolean isNonNumericDocControlNo(String docControlNo) {
-        String trimmed = StrUtil.trimToEmpty(docControlNo);
-        return !trimmed.matches("\\d+");
-    }
-
-    private BigInteger numericDocControlNoValue(DccProjectCodeDO item) {
-        String trimmed = StrUtil.trimToEmpty(item.getDocControlNo());
-        return trimmed.matches("\\d+") ? new BigInteger(trimmed) : null;
     }
 
     @Override

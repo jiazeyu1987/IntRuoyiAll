@@ -31,10 +31,8 @@
         @quick-filter-query="reviewQuickFilter.applyQuickFilter"
         @column-change="saveColumnConfig"
         @pagination="loadReviews"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="reviews = $event"
-        :list-rows="reviews"
-        @column-filter-reset="loadReviews"
+        server-filter
+        :server-filter-query="loadReviews"
         :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
@@ -282,7 +280,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
@@ -343,6 +341,7 @@ const activeOrderCandidatesLoading = ref(false)
 const selectedActiveOrderId = ref<number>()
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10
 })
@@ -592,18 +591,20 @@ const loadReviews = async () => {
   errorText.value = ''
   try {
     const data = await getNonconformanceReviewPage(buildReviewQuery(), { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     reviews.value = data.list || []
     total.value = data.total || 0
     if (selectedReview.value?.id && route.query.reviewId === undefined) {
       const refreshed = reviews.value.find((review) => review.id === selectedReview.value?.id)
       if (refreshed) selectedReview.value = refreshed
     }
+    return true
   } catch (error) {
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     reviews.value = []
     total.value = 0
     errorText.value = resolveErrorMessage(error, '不合格评审列表加载失败。')
+    throw error
   } finally {
     if (isCurrent()) listLoading.value = false
   }
@@ -988,14 +989,6 @@ watch(
 )
 
 onMounted(() => { void loadReviewEntry() })
-
-const loadColumnFilterRows0 = async () => {
-  const params = buildReviewQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getNonconformanceReviewPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

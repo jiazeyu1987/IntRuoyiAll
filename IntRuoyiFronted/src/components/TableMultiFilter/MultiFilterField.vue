@@ -16,8 +16,17 @@
       />
     </el-select>
 
+    <component
+      :is="definition.valueComponent"
+      v-if="definition.valueComponent"
+      :model-value="condition?.value"
+      class="table-multi-filter-field__value"
+      :placeholder="definition.placeholder"
+      @update:model-value="updateValue"
+      @keyup.enter="$emit('query')"
+    />
     <el-date-picker
-      v-if="definition.type === 'date'"
+      v-else-if="definition.type === 'date'"
       :model-value="condition?.value"
       class="table-multi-filter-field__value table-multi-filter-field__value--single-date"
       type="date"

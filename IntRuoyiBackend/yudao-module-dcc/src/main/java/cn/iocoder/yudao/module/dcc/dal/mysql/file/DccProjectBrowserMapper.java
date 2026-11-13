@@ -4,10 +4,14 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorRecord;
 import org.apache.ibatis.annotations.*;
 import java.util.List;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
 
 /** Complete version rows, with the same formal placement, tenant and filter identity for count/page. */
 @Mapper
 public interface DccProjectBrowserMapper {
+    @Select("SELECT f.* FROM dcc_controlled_file f WHERE f.tenant_id=#{tenant} AND f.deleted=0 AND f.status='PENDING_SUPERVISOR_REVIEW' AND EXISTS (SELECT 1 FROM ACT_RU_TASK task WHERE task.PROC_INST_ID_=f.process_instance_id AND task.TENANT_ID_=CAST(f.tenant_id AS CHAR) AND task.TASK_DEF_KEY_='SUPERVISOR_REVIEW' AND task.ASSIGNEE_=CAST(#{actor} AS CHAR))")
+    List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO> selectSupervisorCandidates(@Param("tenant") Long tenant, @Param("actor") Long actor);
     String FROM = """
         FROM dcc_controlled_file f
         JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id AND m.deleted=0
@@ -52,4 +56,41 @@ public interface DccProjectBrowserMapper {
     @Select("<script>"+COLUMNS+FROM+AUTH+" ORDER BY m.id,f.id LIMIT #{size} OFFSET #{offset}</script>")
     List<DccControlledFileSelectorRecord> selectAuthorizedPage(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query,
             @Param("authorizedIds") List<Long> authorizedIds,@Param("size") int size,@Param("offset") long offset);
+
+    String SQL_PERMISSION=" AND (${permission.sqlSegment}) ";
+    String SQL_FILTER=" <if test='ew != null and !ew.emptyOfNormal'>AND (${ew.sqlSegment})</if> ";
+    @Select("<script>SELECT COUNT(*) "+FROM+SQL_PERMISSION+SQL_FILTER+"</script>")
+    long countScoped(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query,
+                     @Param("permission") QueryWrapper<Object> permission,@Param(Constants.WRAPPER) QueryWrapper<Object> filters);
+    @Select("<script>"+COLUMNS+FROM+SQL_PERMISSION+SQL_FILTER+" ORDER BY m.id,f.id LIMIT #{size} OFFSET #{offset}</script>")
+    List<DccControlledFileSelectorRecord> selectScopedPage(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query,
+            @Param("permission") QueryWrapper<Object> permission,@Param(Constants.WRAPPER) QueryWrapper<Object> filters,
+            @Param("size") int size,@Param("offset") long offset);
+
+    String FOLDER_UNION="WITH browser_rows AS (SELECT f.*,NULL AS reference_id,0 AS row_kind,m.latest_controlled_file_id,m.current_active_controlled_file_id,p.project_name,folder.id AS project_folder_id,folder.name AS project_folder_name "+FROM+SQL_PERMISSION+" UNION ALL "+"""
+        SELECT f.*,reference.id AS reference_id,1 AS row_kind,m.latest_controlled_file_id,m.current_active_controlled_file_id,
+               p.project_name,folder.id AS project_folder_id,folder.name AS project_folder_name
+        FROM dcc_project_file_reference reference
+        JOIN dcc_controlled_file f ON f.id=reference.selected_controlled_file_id AND f.master_id=reference.master_id AND f.tenant_id=reference.tenant_id AND f.deleted=0
+        JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id AND m.deleted=0 AND m.dcc_project_code_id=f.dcc_project_code_id
+        JOIN dcc_project_code p ON p.id=f.dcc_project_code_id AND p.tenant_id=f.tenant_id AND p.deleted=0
+        LEFT JOIN dcc_project_file_placement placement ON placement.controlled_file_id=f.id AND placement.project_code_id=f.dcc_project_code_id AND placement.tenant_id=f.tenant_id AND placement.storage_directory_id=f.directory_id AND placement.deleted=0
+        LEFT JOIN dcc_project_folder folder ON folder.id=placement.project_folder_id AND folder.project_code_id=f.dcc_project_code_id AND folder.tenant_id=f.tenant_id AND folder.deleted=0 AND folder.active=1
+        WHERE reference.tenant_id=#{tenant} AND reference.project_id=#{query.dccProjectCodeId} AND reference.folder_id=#{query.projectFolderId}
+        <if test="query.status != null and query.status != ''">AND f.status=#{query.status}</if>
+        <if test="query.latestVersionOnly == true or (query.latestVersionOnly == null and (query.status == null or query.status == ''))">
+          AND (f.status IN ('OBSOLETE','SUPERSEDED') OR (f.status='ACTIVE' AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL))
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+          AND (f.file_name LIKE CONCAT('%',#{query.keyword},'%') OR f.file_number LIKE CONCAT('%',#{query.keyword},'%') OR p.project_name LIKE CONCAT('%',#{query.keyword},'%'))
+        </if>
+        )
+        """;
+    @Select("<script>"+FOLDER_UNION+" SELECT COUNT(*) FROM browser_rows f WHERE 1=1 "+SQL_FILTER+"</script>")
+    long countFolderUnion(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query,
+            @Param("permission") QueryWrapper<Object> permission,@Param(Constants.WRAPPER) QueryWrapper<Object> filters);
+    @Select("<script>"+FOLDER_UNION+" SELECT f.* FROM browser_rows f WHERE 1=1 "+SQL_FILTER+" ORDER BY f.row_kind,f.master_id,f.id,f.reference_id LIMIT #{size} OFFSET #{offset}</script>")
+    List<DccControlledFileSelectorRecord> selectFolderUnionPage(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query,
+            @Param("permission") QueryWrapper<Object> permission,@Param(Constants.WRAPPER) QueryWrapper<Object> filters,
+            @Param("size") int size,@Param("offset") long offset);
 }

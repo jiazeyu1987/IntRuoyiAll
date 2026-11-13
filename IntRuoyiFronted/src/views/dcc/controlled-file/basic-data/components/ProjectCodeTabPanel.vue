@@ -21,10 +21,8 @@
       @column-change="saveProjectCodeColumnConfig"
       @sort-change="handleSortChange"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -1413,7 +1411,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { onActivated } from 'vue'
@@ -1948,6 +1946,7 @@ const assignmentRecordQuery = reactive({
 const assignmentCandidateQuery = reactive({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   keyword: ''
 })
 const aiCategoryProgressPercent = computed(() =>
@@ -2576,7 +2575,9 @@ const resolveDccProjectGovernanceTagType = (status?: string) => {
   return 'info'
 }
 
+let governanceStatusLoadSerial = 0
 const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
+  const serial = ++governanceStatusLoadSerial
   const projectNames = rows.map((row) => row.projectName).filter(Boolean)
   if (projectNames.length === 0) {
     dccProjectGovernanceByProjectName.value = {}
@@ -2587,6 +2588,7 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
     mainBatchRecordStatusRequired: true,
     formSlotStatusRequired: false
   })
+  if (serial !== governanceStatusLoadSerial) return
   dccProjectGovernanceByProjectName.value = Object.fromEntries(
     statuses.map((item) => [item.projectName, item])
   )
@@ -2679,10 +2681,13 @@ const loadFileTypeTaxonomies = async () => {
   fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
 }
 
+let projectListRequestGeneration = 0
 const getList = async () => {
+  const generation = ++projectListRequestGeneration
   loading.value = true
   try {
-    const data = await getProjectCodePage(queryParams)
+    const data = await getProjectCodePage({ ...queryParams })
+    if (generation !== projectListRequestGeneration) return
     list.value = data.list
     total.value = data.total
     await Promise.all([
@@ -2690,7 +2695,7 @@ const getList = async () => {
       loadQaRegulationStatuses(data.list)
     ])
   } finally {
-    loading.value = false
+    if (generation === projectListRequestGeneration) loading.value = false
   }
 }
 
@@ -3687,15 +3692,8 @@ watch(
   }
 )
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getProjectCodePage({ ...params, ...pagination })
-  )
-  return rows
-}
-
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'primaryCode', label: '主编码', type: 'text', getValue: () => '无' },
   {
     key: 'associatedFileCount',
     label: '关联文件数',

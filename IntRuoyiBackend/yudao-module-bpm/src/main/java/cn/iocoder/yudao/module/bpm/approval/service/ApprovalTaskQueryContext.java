@@ -19,6 +19,8 @@ public class ApprovalTaskQueryContext {
 
     private String keyword;
 
+    private String listFilters;
+
     private Integer pageNo;
 
     private Integer pageSize;
@@ -34,7 +36,7 @@ public class ApprovalTaskQueryContext {
     }
 
     public ApprovalTaskQueryContext withWindow(ApprovalQueryWindow value) {
-        return new ApprovalTaskQueryContext(loginUserId,viewType,moduleCode,keyword,pageNo,pageSize,globalView).setWindow(value);
+        return new ApprovalTaskQueryContext(loginUserId,viewType,moduleCode,keyword,pageNo,pageSize,globalView).setWindow(value).setListFilters(listFilters);
     }
 
     public static ApprovalTaskQueryContext of(Long loginUserId, ApprovalTaskViewType viewType,

@@ -42,22 +42,27 @@
         FROM (
             SELECT
                 base.source_bill_no,
+                base.tenant_id,
                 COUNT(*) AS line_count,
                 MAX(base.source_modify_time) AS source_modify_time,
                 MAX(base.last_sync_time) AS last_sync_time,
                 COUNT(DISTINCT NULLIF(base.production_order_no, '')) AS production_order_count,
-                GROUP_CONCAT(DISTINCT NULLIF(base.production_order_no, '') ORDER BY base.production_order_no SEPARATOR '、') AS production_order_summary
+                (SELECT JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST(mja.parts AS CHAR), 3, CHAR_LENGTH(CAST(mja.parts AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), '、'), CHAR(34))) FROM (SELECT (SELECT JSON_ARRAYAGG(i.production_order_no) OVER (ORDER BY i.production_order_no ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=base.source_bill_no AND i.tenant_id=base.tenant_id AND i.deleted=0 AND i.production_order_no IS NOT NULL AND i.production_order_no != '' AND NOT EXISTS (SELECT 1 FROM mes_kingdee_production_material_list earlier WHERE earlier.source_bill_no=i.source_bill_no AND earlier.tenant_id=i.tenant_id AND earlier.deleted=0 AND earlier.id &lt; i.id AND earlier.production_order_no=i.production_order_no) LIMIT 1) parts) mja) AS production_order_summary
             FROM mes_kingdee_production_material_list base
             WHERE base.deleted = 0
-            GROUP BY base.source_bill_no
+            GROUP BY base.source_bill_no, base.tenant_id
         ) summary
         WHERE EXISTS (
             SELECT 1
             FROM mes_kingdee_production_material_list matched
             WHERE matched.deleted = 0
               AND matched.source_bill_no = summary.source_bill_no
+              AND matched.tenant_id = summary.tenant_id
             <include refid="MatchedBillFilters"/>
         )
+        <if test="ew != null and !ew.emptyOfNormal">
+            AND (${ew.sqlSegment})
+        </if>
     </sql>
 
     <select id="selectGroupPage" resultType="cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListGroupRespVO">

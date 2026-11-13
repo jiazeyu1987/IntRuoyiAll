@@ -64,6 +64,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
         return DccRegistrationCertificatePageQuery.builder()
                 .pageNo(getPageNo())
                 .pageSize(getPageSize())
+                .listFilters(getListFilters())
                 .certificateType(certificateType).fieldFilters(fieldFilters).ceCertificateNo(ceCertificateNo).ceRevision(ceRevision).ceIssueStart(ceIssueStart).ceIssueEnd(ceIssueEnd).listingStart(listingStart).listingEnd(listingEnd)
                 .ownerCompanyId(ownerCompanyId)
                 .productMasterId(productMasterId)

@@ -15,6 +15,9 @@ import cn.iocoder.yudao.module.showroom.cover.ShowroomProductCoverBatchTaskServi
 import cn.iocoder.yudao.module.showroom.cover.ShowroomProductCoverImageService;
 import cn.iocoder.yudao.module.showroom.dal.mysql.asset.ShowroomPreviewAssetVersionMapper;
 import cn.iocoder.yudao.module.showroom.dal.mysql.content.ShowroomProductRevisionRelationMapper;
+import cn.iocoder.yudao.module.showroom.dal.mysql.content.ShowroomListQueryMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.test.util.ReflectionTestUtils;
 import cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomChangeRequestMapper;
 import cn.iocoder.yudao.module.showroom.narration.ShowroomCompanyNarrationCodexService;
 import cn.iocoder.yudao.module.showroom.narration.ShowroomCompanyNarrationTranslationService;
@@ -51,7 +54,7 @@ class ShowroomApiRuntimeProductPageTest {
         List<ShowroomProductSnapshot> snapshots = createSnapshots(21);
         Map<Long, ShowroomProductRevision> revisions = createRevisions(20);
 
-        when(contentService.listProducts()).thenReturn(snapshots);
+        when(contentService.getProduct(any())).thenAnswer(inv -> snapshots.get(((Long) inv.getArgument(0)).intValue()-1));
         when(contentService.getLatestProductRevision(any())).thenAnswer(invocation -> {
             Long productId = invocation.getArgument(0);
             if (productId == 21L) {
@@ -67,7 +70,7 @@ class ShowroomApiRuntimeProductPageTest {
                     .orElseThrow();
         });
 
-        when(contentService.pageProducts(1, 20)).thenReturn(new PageResult<>(snapshots.subList(0, 20), 21L));
+        when(fixture.queryMapper().productPage(any(), any())).thenReturn(new Page<Long>(1,20,21).setRecords(snapshots.subList(0,20).stream().map(ShowroomProductSnapshot::productId).toList()));
         when(contentService.latestProductRevisions(any())).thenReturn(revisions);
         when(contentService.productRevisions(any())).thenReturn(revisionsByRevisionId(revisions));
 
@@ -78,7 +81,8 @@ class ShowroomApiRuntimeProductPageTest {
         assertEquals(20, page.getList().size());
         assertEquals(1L, page.getList().get(0).productId());
         assertEquals(20L, page.getList().get(19).productId());
-        verify(contentService).pageProducts(1, 20);
+        verify(contentService, never()).listProducts();
+        verify(fixture.queryMapper()).productPage(any(), any());
         verify(contentService, never()).getLatestProductRevision(21L);
     }
 
@@ -87,9 +91,10 @@ class ShowroomApiRuntimeProductPageTest {
         ShowroomPersistentContentService contentService = mock(ShowroomPersistentContentService.class);
         RuntimeFixture fixture = createRuntime(contentService);
         List<ShowroomProductSnapshot> snapshots = createSnapshots(25);
+        when(fixture.queryMapper().productPage(any(), any())).thenReturn(new Page<Long>(1,20,25).setRecords(snapshots.subList(0,20).stream().map(ShowroomProductSnapshot::productId).toList()));
         Map<Long, ShowroomProductRevision> revisions = createRevisions(25);
 
-        when(contentService.listProducts()).thenReturn(snapshots);
+        when(contentService.getProduct(any())).thenAnswer(inv -> snapshots.get(((Long) inv.getArgument(0)).intValue()-1));
         when(contentService.latestProductRevisions(any())).thenReturn(revisions);
         when(contentService.productRevisions(any())).thenReturn(revisionsByRevisionId(revisions));
 
@@ -109,9 +114,10 @@ class ShowroomApiRuntimeProductPageTest {
         ShowroomPersistentContentService contentService = mock(ShowroomPersistentContentService.class);
         RuntimeFixture fixture = createRuntime(contentService);
         List<ShowroomProductSnapshot> snapshots = createSnapshots(5);
+        when(fixture.queryMapper().productPage(any(), eq(Set.of(2L,3L,4L)))).thenReturn(new Page<Long>(1,20,3).setRecords(List.of(2L,3L,4L)));
         Map<Long, ShowroomProductRevision> revisions = createRevisions(5);
 
-        when(contentService.listProducts()).thenReturn(snapshots);
+        when(contentService.getProduct(any())).thenAnswer(inv -> snapshots.get(((Long) inv.getArgument(0)).intValue()-1));
         when(contentService.latestProductRevisions(any())).thenReturn(revisions);
         when(contentService.productRevisions(any())).thenReturn(revisionsByRevisionId(revisions));
 
@@ -170,7 +176,9 @@ class ShowroomApiRuntimeProductPageTest {
                 companyNarrationTranslationService, productNarrationCodexService, previewAssetService,
                 previewAssetVersionMapper, fileMapper, configService, aliyunNlsCredentialService, yudaoAiProperties,
                 relationMapper, changeRequestMapper, assignmentService, versionBundleService);
-        return new RuntimeFixture(runtime, commentService);
+        var queryMapper = mock(ShowroomListQueryMapper.class);
+        ReflectionTestUtils.setField(runtime, "listQueryMapper", queryMapper);
+        return new RuntimeFixture(runtime, commentService, queryMapper);
     }
 
     private static List<ShowroomProductSnapshot> createSnapshots(int count) {
@@ -208,6 +216,6 @@ class ShowroomApiRuntimeProductPageTest {
     }
 
     private record RuntimeFixture(ShowroomApiRuntime runtime,
-                                  ShowroomProductCommentService commentService) {
+                                  ShowroomProductCommentService commentService, ShowroomListQueryMapper queryMapper) {
     }
 }

@@ -19,10 +19,10 @@
       @quick-filter-query="logQuickFilter.applyQuickFilter"
       @column-change="saveLogColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
+      server-filter
+      :server-filter-query="getList"
+      :query-loading="loading"
       :list-rows="list"
-      @column-filter-reset="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template
@@ -239,7 +239,8 @@
 
 <script lang="ts" setup>
 import ReadableData from '@/components/BusinessData/ReadableData.vue'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import {
   getControlledFileLogPage,
@@ -325,7 +326,8 @@ const queryParams = reactive<DccControlledFileLogPageReqVO & { pageNo: number; p
   controlledFileId: getFirstQueryValue(route.query.controlledFileId)
 })
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<DccControlledFileLogRespVO[]>([])
 const loadError = ref('')
@@ -439,20 +441,20 @@ const resolveLogPageErrorMessage = (error: unknown) => {
 }
 
 const getList = async () => {
-  loading.value = true
   loadError.value = ''
   try {
-    const data = await getControlledFileLogPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    return await listRequest.run(
+      () => getControlledFileLogPage({ ...queryParams }),
+      (data) => {
+        list.value = data.list
+        total.value = data.total
+      }
+    )
   } catch (error) {
     const errorMessage = resolveLogPageErrorMessage(error)
     loadError.value = errorMessage
-    list.value = []
-    total.value = 0
     message.error(errorMessage)
-  } finally {
-    loading.value = false
+    throw error
   }
 }
 
@@ -465,13 +467,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getControlledFileLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

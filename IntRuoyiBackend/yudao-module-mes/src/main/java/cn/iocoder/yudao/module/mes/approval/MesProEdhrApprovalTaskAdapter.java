@@ -62,6 +62,8 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
     private MesEdhrApprovalOutcomeReader outcomeReader;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissions;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.system.api.user.AdminUserApi filterUsers;
 
     public MesProEdhrApprovalTaskAdapter(MesProEdhrWorkTaskService workTaskService,
                                          MesProEdhrReleaseService releaseService,
@@ -105,22 +107,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
     @org.springframework.transaction.annotation.Transactional(readOnly = true,
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        if (!SUPPORTED_VIEWS.contains(context.getViewType())) {
-            throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR does not support " + context.getViewType());
-        }
-        long limit = prefixLimit(context);
-        PageResult<MesEdhrAuthorizedTaskProjection> page = workTaskService.getApprovalCenterAuthorizedPrefix(toReqVO(context),
-                context.isGlobalView(), context.getViewType() == ApprovalTaskViewType.DONE, limit);
-        Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR");
-        Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR");
-        PageResult<ApprovalTaskSummary> handoffs = Objects.requireNonNull(handoffProjection.prefix(context, limit),
-                "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR handoff");
-        var summaries = new ArrayList<ApprovalTaskSummary>(page.getList().stream()
-                .map(task -> toSummary(task, context.getLoginUserId())).toList());
-        summaries.addAll(Objects.requireNonNull(handoffs.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR handoff"));
-        sortSummaries(summaries, context.getViewType());
-        return new PageResult<>(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(summaries).getList(),
-                Math.addExact(Objects.requireNonNull(page.getTotal()), Objects.requireNonNull(handoffs.getTotal())));
+        return window(context,cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context));
     }
 
     @Override
@@ -197,6 +184,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
     private static MesProEdhrWorkTaskPageReqVO toReqVO(ApprovalTaskQueryContext context) {
         MesProEdhrWorkTaskPageReqVO reqVO = new MesProEdhrWorkTaskPageReqVO();
         reqVO.setBatchCode(context.getKeyword());
+        reqVO.setListFilters(context.getListFilters());
         return reqVO;
     }
 
@@ -210,7 +198,25 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
             cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
-        return page(context.withWindow(window));
+        if (!SUPPORTED_VIEWS.contains(context.getViewType())) throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR");
+        var split=cn.iocoder.yudao.framework.mybatis.core.util.ListFilterValueUtils.split(context.getListFilters(),
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.STATIC_KEYS,
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.dynamicFields(context));
+        var staticContext=context.withWindow(window);staticContext.setListFilters(split.staticFilters());
+        cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskFilteredWindow.Source work=(offset,limit)->{
+            var page=workTaskService.getApprovalCenterAuthorizedWindow(toReqVO(staticContext),context.isGlobalView(),
+                    context.getViewType()==ApprovalTaskViewType.DONE,offset,limit);
+            var rows=page.getList().stream().map(task->toSummary(task,context.getLoginUserId())).toList();
+            if(split.hasDynamicFilters())cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.enrichUsers(rows,filterUsers);
+            return new PageResult<>(rows,page.getTotal());
+        };
+        cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskFilteredWindow.Source handoffs=(offset,limit)->{
+            var page=handoffProjection.window(staticContext,new cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow(offset,limit));
+            if(split.hasDynamicFilters())cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.enrichUsers(page.getList(),filterUsers);
+            return page;
+        };
+        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskFilteredWindow.read(List.of(work,handoffs),context,window,
+                split.hasDynamicFilters(),split::matches);
     }
 
     @Override

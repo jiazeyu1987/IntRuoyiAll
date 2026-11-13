@@ -1,6 +1,5 @@
 <template>
 
-
   <ContentWrap>
     <UnifiedListTemplate
       @query="handleQuery"
@@ -11,10 +10,9 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
       :columns="listFilterColumns0"
       :show-column-settings="false"
     >
@@ -135,8 +133,7 @@
   <OperateLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
-
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
@@ -169,16 +166,12 @@ const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
 
 /** 查询列表 */
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await OperateLogApi.getOperateLogPage(queryParams)
-    list.value = data.list
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
-}
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { loading.value = value }, { flush: 'sync' })
+const getList = async () => listPageRequest.run(() => OperateLogApi.getOperateLogPage({ ...queryParams }), data => {
+  list.value = data.list
+  total.value = data.total
+})
 
 /** 搜索按钮操作 */
 const handleQuery = (skipEmptyReset = false) => {
@@ -223,14 +216,6 @@ onMounted(async () => {
   // 获得用户列表
   userList.value = await UserApi.getSimpleUserList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    OperateLogApi.getOperateLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listFilterColumns0 = [
   {

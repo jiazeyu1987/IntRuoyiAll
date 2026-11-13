@@ -61,6 +61,21 @@ public class DccControlledFileViewMatrixAccessService {
         return resolveCurrentViewMatrixUserIds(file).contains(userId);
     }
 
+    /** Read configuration, never enumerate controlled files to determine a browse scope. */
+    public Set<Long> accessibleCategoryIds(Long userId) {
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, adminUserApi.getUser(userId))) return Set.of();
+        var context = newResolutionContext();
+        var result = new LinkedHashSet<Long>();
+        ruleMapper.selectList().stream().map(DccCategoryViewMatrixRuleDO::getCategoryId)
+                .filter(Objects::nonNull).distinct().forEach(category -> {
+                    var resolution = resolveCurrentViewMatrixAccessDetails(category, context);
+                    if (resolution.risks().stream().noneMatch(risk -> Boolean.TRUE.equals(risk.blocking()))
+                            && resolution.subjects().stream().anyMatch(subject -> userId.equals(subject.userId())))
+                        result.add(category);
+                });
+        return result;
+    }
+
     public Set<Long> resolveCurrentViewMatrixUserIds(DccControlledFileDO file) {
         if (file == null || file.getCategoryId() == null) {
             return Set.of();

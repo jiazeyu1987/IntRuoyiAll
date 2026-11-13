@@ -21,10 +21,9 @@
       @quick-filter-query="applyStockMoveQuickFilter"
       @column-change="saveStockMoveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -146,7 +145,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { ErpKingdeeStockMoveApi, type ErpKingdeeStockMoveVO } from '@/api/erp/stock/kingdeeStockMove'
@@ -201,10 +201,12 @@ const stockMoveQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ErpKingdeeStockMoveVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   sourceBillNo: undefined as string | undefined,
@@ -244,31 +246,14 @@ const getBillDateRequestRange = () => {
   return [`${queryParams.billDate[0]} 00:00:00`, `${queryParams.billDate[1]} 23:59:59`]
 }
 
-async function getList() {
-  loading.value = true
-  try {
-    const requestParams = {
-      ...queryParams,
-      billDate: getBillDateRequestRange()
-    }
-    const data = await ErpKingdeeStockMoveApi.getStockMovePage(requestParams)
-    list.value = data.list
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
+function getList() {
+  return listRequest.run(
+  () => ErpKingdeeStockMoveApi.getStockMovePage({ ...queryParams, billDate: getBillDateRequestRange() }),
+  (data) => { list.value = data.list; total.value = data.total }
+  )
 }
-
 
 onMounted(getList)
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams, billDate: getBillDateRequestRange() }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpKingdeeStockMoveApi.getStockMovePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

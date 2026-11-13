@@ -19,10 +19,9 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
     >
       <template #actions>
         <SyncByCodeButton sync-type="BOM" code-label="父项物料编码" :on-synced="handleCodeSynced" />
@@ -165,10 +164,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
-
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
@@ -188,10 +186,12 @@ import { ErpBomListApi, ErpBomListVO } from '@/api/erp/production/bom-list'
 
 defineOptions({ name: 'ErpBomList' })
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ErpBomListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -202,17 +202,13 @@ const queryParams = reactive({
   childMaterialName: undefined
 })
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await ErpBomListApi.getPage(queryParams)
+const getList = () => listRequest.run(
+  () => ErpBomListApi.getPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
-
+)
 
 onActivated(() => {
   getList()
@@ -360,14 +356,6 @@ const quickFilter = useTableQuickFilter(
 onMounted(() => {
   getList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    ErpBomListApi.getPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
 const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(

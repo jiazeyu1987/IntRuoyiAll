@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormEffectPend
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormEffectExecutionDO;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormEffectStatus;
 import org.apache.ibatis.annotations.Mapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 
 @Mapper
 public interface FormEffectExecutionMapper extends BaseMapperX<FormEffectExecutionDO> {
@@ -21,11 +24,17 @@ public interface FormEffectExecutionMapper extends BaseMapperX<FormEffectExecuti
     }
 
     default PageResult<FormEffectExecutionDO> selectPendingPage(FormEffectPendingPageReqVO reqVO) {
-        return selectPage(reqVO, new QueryWrapperX<FormEffectExecutionDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new QueryWrapperX<FormEffectExecutionDO>()
                 .eq("tenant_id", reqVO.getTenantId())
                 .eq("status", FormEffectStatus.FAILED_PENDING.name())
                 .eqIfPresent("instance_id", reqVO.getInstanceId())
-                .orderByDesc("id"));
+                .orderByDesc("id"), Map.ofEntries(
+                Map.entry("instanceId", number("instance_id")),
+                Map.entry("executionCode", text("execution_code")),
+                Map.entry("status", text("CASE WHEN status = 'FAILED_PENDING' THEN '生效失败待处理' ELSE '已生效' END")),
+                Map.entry("failureReason", text("failure_reason")),
+                Map.entry("idempotencyKey", text("idempotency_key"))
+        )));
     }
 
 }

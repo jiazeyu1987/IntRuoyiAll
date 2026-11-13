@@ -46,8 +46,8 @@ class MesEdhrApprovalCenterSnapshotProxyTest {
         doAnswer(call -> { record(reads,"handoff-count"); return 0L; }).when(handoff).selectCount(any(Wrapper.class));
         doAnswer(call -> { record(reads,"handoff-prefix"); return List.of(); }).when(handoff).selectList(any(Wrapper.class));
         var workService = mock(MesProEdhrWorkTaskService.class);
-        when(workService.getApprovalCenterAuthorizedPrefix(any(),eq(false),eq(false),eq(200L))).thenAnswer(call -> {
-            var page = work.selectApprovalCenterPrefix(call.getArgument(0),12L,1L,false,"TODO",call.getArgument(3, Long.class));
+        when(workService.getApprovalCenterAuthorizedWindow(any(),eq(false),eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L))).thenAnswer(call -> {
+            var page = work.selectApprovalCenterWindow(call.getArgument(0),12L,1L,false,"TODO",call.getArgument(3, Long.class),call.getArgument(4, Long.class));
             return new PageResult<>(List.of(),page.getTotal());
         });
         var projection = new MesActiveOrderHandoffApprovalProjection();

@@ -20,10 +20,11 @@
       @quick-filter-query="recordQuickFilter.applyQuickFilter"
       @column-change="saveRecordColumnConfig"
       @pagination="getRecordList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="recordList = $event"
-      :list-rows="recordList"
-      @column-filter-reset="getRecordList"
+      server-filter
+      :server-filter-query="getRecordList"
+
+
+
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -233,7 +234,8 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { useTestMode } from '@/store/modules/testMode'
 
@@ -401,22 +403,17 @@ async function getTenantOptions() {
   }
 }
 
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { recordLoading.value = value }, { flush: 'sync' })
 async function getRecordList() {
-  recordLoading.value = true
   recordLoadError.value = ''
   try {
-    const data = await CodexTestApi.getCodexTestExecutionPage(recordQueryParams)
+    return await listPageRequest.run(() => CodexTestApi.getCodexTestExecutionPage({ ...recordQueryParams }), data => {
     recordList.value = data.list
     recordTotal.value = data.total
-  } catch (error) {
-    const errorMessage = resolveRequestError(error, '测试记录加载失败')
-    recordLoadError.value = errorMessage
-    recordList.value = []
-    recordTotal.value = 0
-    message.error(errorMessage)
-  } finally {
-    recordLoading.value = false
+  })
   }
+  catch (error) { recordLoadError.value = resolveRequestError(error, '测试记录加载失败'); throw error }
 }
 
 async function cancelRecord(id: number) {
@@ -455,13 +452,6 @@ onMounted(async () => {
   await getRecordList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...recordQueryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    CodexTestApi.getCodexTestExecutionPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

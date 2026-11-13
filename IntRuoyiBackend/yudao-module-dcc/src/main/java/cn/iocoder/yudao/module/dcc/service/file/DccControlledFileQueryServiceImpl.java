@@ -634,13 +634,46 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         boolean hasDirectoryManagementPermission = directoryAccessPermissionService.hasDirectoryManagementPermission(userId);
         Map<Long, Boolean> currentViewMatrixAccessByCategory = new LinkedHashMap<>();
         Set<Long> activeAssignedControlledFileIds = resolveActiveAssignedControlledFileIds(userId);
-        List<DccControlledFileDO> visibleFiles = listControlledFileBrowserCandidates(userId, reqVO,
-                blacklistedExtensionPatterns, hasDirectoryManagementPermission, true,
-                currentViewMatrixAccessByCategory, activeAssignedControlledFileIds, workingView);
-        long total = visibleFiles.size();
+        if (reqVO.getPageNo()<1 || reqVO.getPageSize()<1 || reqVO.getPageSize()>200)
+            throw new IllegalArgumentException("storage browser page must contain 1 to 200 rows");
+        boolean latest=!workingView && StrUtil.isBlank(reqVO.getStatus()) && !Boolean.FALSE.equals(reqVO.getLatestVersionOnly());
+        Set<Long> requestedDirectories=resolveRequestedDirectoryIds(reqVO);
+        if (requestedDirectories!=null && requestedDirectories.isEmpty()) return PageResult.empty(0L);
+        var candidateRequest=buildCandidateReqForWorkflowSearch(reqVO);
+        candidateRequest=copyPageReq(candidateRequest);
+        if (latest || hasWorkingBrowserScope(reqVO)) { candidateRequest.setKeyword(null);candidateRequest.setLatestVersionOnly(false); }
+        if (requestedDirectories!=null) candidateRequest=buildPageReqWithoutDirectory(candidateRequest);
+        var candidate=controlledFileMapper.buildBrowserSummaryQuery(candidateRequest);
+        candidate.setParamAlias("candidate");
+        if (requestedDirectories!=null) candidate.in(DccControlledFileDO::getDirectoryId,requestedDirectories);
+        if (hasWorkingBrowserScope(reqVO)) {
+            var exact=resolveWorkingBrowserCandidateIds(reqVO);
+            if (activeAssignedControlledFileIds!=null && !activeAssignedControlledFileIds.isEmpty()) exact.retainAll(activeAssignedControlledFileIds);
+            if (exact.isEmpty()) return PageResult.empty(0L);
+            candidate.in(DccControlledFileDO::getId,exact);
+        }
+        var permission=browserSqlAuthorization.scope(userId,hasDirectoryManagementPermission,activeAssignedControlledFileIds,false,latest,blacklistedExtensionPatterns);
+        var historyPermission=browserSqlAuthorization.historyScope(userId,hasDirectoryManagementPermission,
+                activeAssignedControlledFileIds,blacklistedExtensionPatterns);
+        var filters=cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(reqVO,
+                cn.iocoder.yudao.module.dcc.dal.mysql.file.DccBrowserListFilterSql.storageFields());
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        if (latest && storageBrowserMapper.countInvalidLatestMasters(tenant,reqVO,candidate,permission,historyPermission,workingView)>0)
+            throw new IllegalStateException("daily browser row lacks its authoritative tenant master");
+        long total=storageBrowserMapper.count(tenant,reqVO,candidate,permission,historyPermission,filters,latest,workingView);
+        if (total==0) return PageResult.empty(0L);
         Map<Long, DccFileDirectoryDO> directoryMap = buildEnabledDirectoryMap();
-        List<DccControlledFileRespVO> visibleRows = sliceRows(reqVO, visibleFiles).stream()
-                .map(file -> {
+        Map<DccAccessTypeEnum,Set<Long>> directoryAccess=new EnumMap<>(DccAccessTypeEnum.class);
+        Set<Long> recipientFileIds=new HashSet<>(Objects.requireNonNull(
+                distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(tenant,userId),
+                "activeElectronicRecipientFileIds"));
+        boolean assignedAllowed=activeAssignedControlledFileIds==null || !activeAssignedControlledFileIds.isEmpty();
+        List<DccControlledFileRespVO> visibleRows = storageBrowserMapper.page(tenant,reqVO,candidate,permission,historyPermission,filters,latest,workingView,
+                reqVO.getPageSize(),Math.multiplyExact((long)reqVO.getPageNo()-1,reqVO.getPageSize())).stream()                .map(file -> {
+                    if (!Objects.equals(file.getTenantId(),tenant) || Boolean.TRUE.equals(file.getDeleted())
+                            || !canAccessQuery(userId,file,reqVO,hasDirectoryManagementPermission && assignedAllowed,
+                                currentViewMatrixAccessByCategory,directoryAccess,recipientFileIds,assignedAllowed))
+                        throw new IllegalStateException("SQL storage authorization differs from formal row authorization");
                     var response = toBrowserRespVO(userId, file, hasDirectoryManagementPermission,
                             blacklistedExtensionPatterns, currentViewMatrixAccessByCategory, directoryMap);
                     if (workingView && response.getVersionHistory() != null) {
@@ -656,6 +689,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return new PageResult<>(visibleRows, total);
     }
 
+    @Resource private DccBrowserSqlAuthorization browserSqlAuthorization;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccStorageBrowserMapper storageBrowserMapper;
+    @org.springframework.context.annotation.Lazy @Resource private cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService projectReferences;
     private PageResult<DccControlledFileRespVO> getProjectBrowserPage(Long userId,DccControlledFilePageReqVO request) {
         if (userId==null) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         if (!Set.of("GLOBAL","PROJECT_FOLDER").contains(request.getBrowserScope()) || request.getSelectorScope()!=null
@@ -673,28 +709,40 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         var matrix=new LinkedHashMap<Long,Boolean>();
         var blacklist=browserSettingsService.getBlacklistedExtensionPatterns();
         Set<Long> assignedFileIds=resolveActiveAssignedControlledFileIds(userId);
-        Set<Long> readableProjectIds=new HashSet<>(projectAccessService.listReadableProjectIds(userId));
         Map<DccAccessTypeEnum,Set<Long>> directoryAccess=new EnumMap<>(DccAccessTypeEnum.class);
         Set<Long> recipientFileIds=new HashSet<>(Objects.requireNonNull(
                 distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(tenant,userId),
                 "activeElectronicRecipientFileIds"));
-        List<Long> authorized=projectBrowserMapper.selectCandidates(tenant,request).stream()
-                .filter(file -> !DccArchiveAccessService.isArchived(file))
-                .filter(file -> !isWithdrawnFormalRevision(file))
-                .filter(file -> Objects.equals(tenant,file.getTenantId())
-                        && (permissionSupport.isLibrary(file.getDccProjectCodeId()) || assignedFileIds==null || assignedFileIds.contains(file.getId()))
-                        && readableProjectIds.contains(file.getDccProjectCodeId())
-                        && canAccessQuery(userId,file,request,manager,matrix,directoryAccess,recipientFileIds,Boolean.TRUE)
-                        && !isBlacklistedBrowserExtension(file,blacklist))
-                .map(DccControlledFileDO::getId).toList();
-        if (authorized.isEmpty()) return PageResult.empty(0L);
-        long total=projectBrowserMapper.countAuthorized(tenant,request,authorized);
+        var permission=browserSqlAuthorization.scope(userId,manager,assignedFileIds,true,true,blacklist);
+        boolean folderUnion="PROJECT_FOLDER".equals(request.getBrowserScope());
+        if (folderUnion) projectReferences.assertListContext(userId,request.getDccProjectCodeId(),request.getProjectFolderId());
+        var filters=cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(request,
+                folderUnion ? cn.iocoder.yudao.module.dcc.dal.mysql.file.DccBrowserListFilterSql.folderUnionFields()
+                        : cn.iocoder.yudao.module.dcc.dal.mysql.file.DccBrowserListFilterSql.projectFields());
+        long total=folderUnion ? projectBrowserMapper.countFolderUnion(tenant,request,permission,filters)
+                : projectBrowserMapper.countScoped(tenant,request,permission,filters);
+        if (total==0) return PageResult.empty(0L);
+        long offset=Math.multiplyExact((long)request.getPageNo()-1,request.getPageSize());
+        var selected=folderUnion ? projectBrowserMapper.selectFolderUnionPage(tenant,request,permission,filters,request.getPageSize(),offset)
+                : projectBrowserMapper.selectScopedPage(tenant,request,permission,filters,request.getPageSize(),offset);
+        var referenceIds=selected.stream().map(DccControlledFileSelectorRecord::getReferenceId).filter(Objects::nonNull).toList();
+        var referenceRows=referenceIds.isEmpty() ? Map.<Long,cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceListView>of()
+                : projectReferences.listSelected(userId,request.getDccProjectCodeId(),request.getProjectFolderId(),referenceIds).stream()
+                    .collect(Collectors.toMap(row -> row.reference().id(),Function.identity()));
         var directoryMap=buildEnabledDirectoryMap();
-        var rows=projectBrowserMapper.selectAuthorizedPage(tenant,request,authorized,request.getPageSize(),
-                Math.multiplyExact((long)request.getPageNo()-1,request.getPageSize())).stream().map(file -> {
-            if (!authorized.contains(file.getId()) || !Objects.equals(tenant,file.getTenantId()))
-                throw new IllegalStateException("full browser returned an unauthorized identity");
-            var row=toBrowserRespVO(userId,file,manager,blacklist,matrix,directoryMap);
+        var rows=selected.stream().map(file -> {
+            if (!Objects.equals(tenant,file.getTenantId()))
+                throw new IllegalStateException("full browser returned an invalid tenant identity");
+            if (file.getReferenceId()!=null) {
+                var reference=Objects.requireNonNull(referenceRows.get(file.getReferenceId()),"fixed reference page projection");
+                if (!Objects.equals(file.getId(),reference.selectedVersion().controlledFileId())
+                        || !Objects.equals(file.getMasterId(),reference.reference().masterId()))
+                    throw new IllegalStateException("fixed reference page identity mismatch");
+                var response=new DccControlledFileRespVO();response.setId(file.getId());response.setTenantId(tenant);
+                response.setReferenceProjection(reference);return response;
+            }
+            if (!canAccessQuery(userId,file,request,manager,matrix,directoryAccess,recipientFileIds,Boolean.TRUE))
+                throw new IllegalStateException("SQL browse authorization differs from formal row authorization");            var row=toBrowserRespVO(userId,file,manager,blacklist,matrix,directoryMap);
             if (row.getVersionHistory() != null) {
                 row.setVersionHistory(row.getVersionHistory().stream()
                         .filter(history -> !DccControlledFileStatusEnum.REJECTED.getStatus().equals(history.getStatus()))
@@ -718,6 +766,29 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return row;
         }).toList();
         return new PageResult<>(rows,total);
+    }
+
+    @Override
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<DccControlledFileDO> listControlledFileBrowserExportFiles(Long userId, DccControlledFilePageReqVO reqVO) {
+        if (reqVO.getBrowserScope()!=null || hasWorkingBrowserScope(reqVO) || reqVO.getSelectorScope()!=null)
+            throw new IllegalArgumentException("metadata export requires the storage browser scope");
+        var request=copyPageReq(reqVO);request.setPageSize(200);request.setPageNo(1);
+        var result=new ArrayList<DccControlledFileDO>();
+        long expected=-1;
+        do {
+            var page=getControlledFileBrowserPage(userId,request,false);
+            if (expected<0) expected=page.getTotal();
+            if (expected!=page.getTotal()) throw new IllegalStateException("storage export count changed within snapshot");
+            if (page.getList().isEmpty() && result.size()<expected) throw new IllegalStateException("storage export page is incomplete");
+            var ids=page.getList().stream().map(DccControlledFileRespVO::getId).toList();
+            if (!ids.isEmpty()) {
+                var exact=controlledFileMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(DccControlledFileDO::getId,Function.identity()));
+                for (Long id:ids) result.add(Objects.requireNonNull(exact.get(id),"storage export exact version"));
+            }
+            request.setPageNo(Math.addExact(request.getPageNo(),1));
+        } while (result.size()<expected);
+        return List.copyOf(result);
     }
 
     @Override
@@ -4035,6 +4106,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         copiedReqVO.setRecognitionStatus(reqVO.getRecognitionStatus());
         copiedReqVO.setBatchRecognitionTaskId(reqVO.getBatchRecognitionTaskId());
         copiedReqVO.setQuickFilter(reqVO.getQuickFilter());
+        copiedReqVO.setListFilters(reqVO.getListFilters());
+        copiedReqVO.setFileTypeTaxonomyPaths(reqVO.getFileTypeTaxonomyPaths());
+        copiedReqVO.setWorkingFileId(reqVO.getWorkingFileId());
+        copiedReqVO.setWorkingMasterId(reqVO.getWorkingMasterId());
         return copiedReqVO;
     }
 

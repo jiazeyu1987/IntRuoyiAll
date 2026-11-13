@@ -20,20 +20,13 @@
         />
       </el-form-item>
       <el-form-item label="产品" prop="productId">
-        <el-select
+        <RemoteProductSelect
           v-model="queryParams.productId"
           clearable
           filterable
           placeholder="请选择产品"
           class="!w-240px"
-        >
-          <el-option
-            v-for="item in productList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
+         />
       </el-form-item>
       <el-form-item label="订单时间" prop="orderTime">
         <el-date-picker
@@ -285,7 +278,7 @@ import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { SaleOrderApi, SaleOrderVO } from '@/api/erp/sale/order'
 import SaleOrderForm from './SaleOrderForm.vue'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import { UserVO } from '@/api/system/user'
 import * as UserApi from '@/api/system/user'
 import { erpCountTableColumnFormatter, erpPriceTableColumnFormatter } from '@/utils'
@@ -315,7 +308,6 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-const productList = ref<ProductVO[]>([]) // 产品列表
 const customerList = ref<CustomerVO[]>([]) // 客户列表
 const userList = ref<UserVO[]>([]) // 用户列表
 
@@ -407,7 +399,6 @@ const handleSelectionChange = (rows: SaleOrderVO[]) => {
 onMounted(async () => {
   await getList()
   // 加载产品、仓库列表、客户
-  productList.value = await ProductApi.getProductSimpleList()
   customerList.value = await CustomerApi.getCustomerSimpleList()
   userList.value = await UserApi.getSimpleUserList()
 })

@@ -23,10 +23,8 @@
       @column-change="saveMesProcessColumnConfig"
       @column-reset="resetMesProcessColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #table="{ resolveRows }">
@@ -158,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { MesProcessApi, type MesProcessVO } from '@/api/mes/pro/mes-process'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -196,6 +194,7 @@ const loading = ref(true)
 const list = ref<MesProcessVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 50,
   keyword: undefined as string | undefined
@@ -211,14 +210,18 @@ const mesProcessQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(
   }
 ])
 
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await MesProcessApi.getMesProcessPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 
@@ -233,13 +236,6 @@ onMounted(() => {
   getList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    MesProcessApi.getMesProcessPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

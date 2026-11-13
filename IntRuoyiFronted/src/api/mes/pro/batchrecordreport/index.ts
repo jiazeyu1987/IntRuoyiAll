@@ -22,6 +22,7 @@ export interface BatchRecordReportVO {
 }
 
 export interface BatchRecordReportPageReqVO extends PageParam {
+  listFilters?: string
   reportId?: string
   batchRecordName?: string
   productName?: string

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import org.apache.ibatis.annotations.Mapper;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -10,9 +11,9 @@ import java.util.List;
 @Mapper
 public interface MesProProcessPoolTimelineReadMapper {
 
-    Long selectTimelineCount(@Param("reqVO") ProcessPoolTimelinePageReqVO reqVO);
+    Long selectTimelineCount(@Param("reqVO") ProcessPoolTimelinePageReqVO reqVO, @Param("ew") Wrapper<?> filters);
 
-    List<ProcessPoolTimelineEventReadDO> selectTimelinePage(@Param("reqVO") ProcessPoolTimelinePageReqVO reqVO);
+    List<ProcessPoolTimelineEventReadDO> selectTimelinePage(@Param("reqVO") ProcessPoolTimelinePageReqVO reqVO, @Param("ew") Wrapper<?> filters);
 
     ProcessPoolTimelineEventReadDO selectTimelineDetailById(@Param("id") Long id);
 

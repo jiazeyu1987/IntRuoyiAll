@@ -18,10 +18,8 @@
       @quick-filter-query="handleQuery"
       @column-change="saveEnterpriseColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -190,7 +188,8 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -267,7 +266,8 @@ const {
 
 const message = useMessage()
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<MdmEnterpriseRespVO[]>([])
 type MdmEnterprisePageQuery = MdmEnterpriseApi.MdmEnterprisePageReqVO & {
@@ -276,6 +276,7 @@ type MdmEnterprisePageQuery = MdmEnterpriseApi.MdmEnterprisePageReqVO & {
 }
 
 const queryParams = reactive<MdmEnterprisePageQuery>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   keyword: undefined,
@@ -312,14 +313,10 @@ const formatEnterpriseType = (type: string) =>
   })[type] || type
 
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await MdmEnterpriseApi.getEnterprisePage(queryParams)
+  return await listRequest.run(() => MdmEnterpriseApi.getEnterprisePage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const enterpriseQuickFilter = useTableQuickFilter(
@@ -442,14 +439,6 @@ watch(
     await getList()
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    MdmEnterpriseApi.getEnterprisePage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

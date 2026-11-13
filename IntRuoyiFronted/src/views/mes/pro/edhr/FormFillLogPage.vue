@@ -28,10 +28,8 @@
       @quick-filter-query="formFillLogQuickFilter.applyQuickFilter"
       @column-change="saveFormFillLogColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
@@ -202,10 +200,8 @@
           v-model:limit="productionReportRevisionQuery.pageSize"
           :total="productionReportRevisionTotal"
           @pagination="getProductionReportRevisionList"
-          :load-filter-rows="loadColumnFilterRows1"
-          @filtered-rows="productionReportRevisionList = $event"
-          :list-rows="productionReportRevisionList"
-          @column-filter-reset="getProductionReportRevisionList"
+      server-filter
+      :server-filter-query="getProductionReportRevisionList"
           :columns="listFilterColumns1"
           :column-filter-definitions="allColumnDisplayFilters1"
           :show-column-settings="false"
@@ -409,7 +405,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -459,6 +455,7 @@ const {
 } = useUserTableColumns(FORM_FILL_LOG_TABLE_KEY, defaultColumns)
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   formKeyword: '',
@@ -477,6 +474,7 @@ const detailLoading = ref(false)
 const detailError = ref('')
 const detail = ref<FormFillLogDetailRespVO>()
 const productionReportRevisionQuery = reactive<ProductionReportRevisionLogPageReqVO>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   workOrderCode: '',
@@ -594,6 +592,7 @@ const formatCellLocationTooltip = (row: FormFillLogItemRespVO) => {
 const buildQuery = (): FormFillLogPageReqVO => {
   const changedAtRange = Array.isArray(queryParams.changedAtRange) ? queryParams.changedAtRange : []
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     formKeyword: normalizeTextParam(queryParams.formKeyword),
@@ -607,6 +606,7 @@ const buildQuery = (): FormFillLogPageReqVO => {
 }
 
 const buildProductionReportRevisionQuery = (): ProductionReportRevisionLogPageReqVO => ({
+  listFilters: productionReportRevisionQuery.listFilters,
   pageNo: productionReportRevisionQuery.pageNo,
   pageSize: productionReportRevisionQuery.pageSize,
   workOrderCode: normalizeTextParam(productionReportRevisionQuery.workOrderCode),
@@ -617,35 +617,49 @@ const buildProductionReportRevisionQuery = (): ProductionReportRevisionLogPageRe
   modifiedAtEnd: productionReportRevisionQuery.modifiedAtEnd
 })
 
+let getListSequence = 0
 const getList = async () => {
+  const sequence = ++getListSequence
+  const isCurrent = () => sequence === getListSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getFormFillLogPage(buildQuery())
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '表单填写日志加载失败。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
+let getProductionReportRevisionListSequence = 0
 const getProductionReportRevisionList = async () => {
+  const sequence = ++getProductionReportRevisionListSequence
+  const isCurrent = () => sequence === getProductionReportRevisionListSequence
   productionReportRevisionLoading.value = true
   productionReportRevisionLoadError.value = ''
   try {
     const data = await getProductionReportRevisionLogPage(buildProductionReportRevisionQuery())
+    if (!isCurrent()) return false
     productionReportRevisionList.value = data.list || []
     productionReportRevisionTotal.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     productionReportRevisionList.value = []
     productionReportRevisionTotal.value = 0
     productionReportRevisionLoadError.value = resolveErrorMessage(error, '报工修改日志加载失败。')
+    throw error
   } finally {
-    productionReportRevisionLoading.value = false
+    if (isCurrent()) productionReportRevisionLoading.value = false
   }
 }
 
@@ -742,13 +756,6 @@ onMounted(() => {
   void getProductionReportRevisionList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getFormFillLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
@@ -775,13 +782,6 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 
-const loadColumnFilterRows1 = async () => {
-  const params = buildProductionReportRevisionQuery()
-  const rows = await loadAllListPages<any>((pagination) =>
-    getProductionReportRevisionLogPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const listFilterColumns1 = [
   {

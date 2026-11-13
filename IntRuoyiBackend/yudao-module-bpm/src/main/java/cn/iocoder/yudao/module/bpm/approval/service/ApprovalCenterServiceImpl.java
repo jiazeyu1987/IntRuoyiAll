@@ -73,7 +73,7 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
                 "APPROVAL_VIEW_TYPE_REQUIRED");
         queryWindowSize(safeQuery);
         var context=ApprovalTaskQueryContext.of(loginUserId,viewType,safeQuery.getModuleCode(),safeQuery.getKeyword(),
-                safeQuery.getPageNo(),safeQuery.getPageSize(),globalView);
+                safeQuery.getPageNo(),safeQuery.getPageSize(),globalView).setListFilters(safeQuery.getListFilters());
         return enrichTaskUserNames(ApprovalTaskWindowMerge.read(
                 visibleProviders(loginUserId, viewType, safeQuery.getModuleCode()), context, ApprovalQueryWindow.from(context)));
     }
@@ -180,7 +180,7 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
     private static ApprovalTaskQueryContext toContext(Long loginUserId, ApprovalTaskProvider provider,
                                                       ApprovalTaskQuery query, boolean globalView) {
         return ApprovalTaskQueryContext.of(loginUserId, query.getViewType(), provider.getModuleCode(),
-                query.getKeyword(), query.getPageNo(), query.getPageSize(), globalView);
+                query.getKeyword(), query.getPageNo(), query.getPageSize(), globalView).setListFilters(query.getListFilters());
     }
 
     private boolean hasApprovalAdminRole(Long loginUserId) {

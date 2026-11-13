@@ -57,6 +57,9 @@ public interface MesProEdhrWorkTaskService {
     PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedPrefix(
             MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long limit);
 
+    PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedWindow(
+            MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long offset, long limit);
+
     MesProEdhrWorkTaskStatsRespVO getStats();
 
     MesProEdhrWorkTaskAssignmentRuleRespVO getArchiveRuleByRoute(Long routeId);

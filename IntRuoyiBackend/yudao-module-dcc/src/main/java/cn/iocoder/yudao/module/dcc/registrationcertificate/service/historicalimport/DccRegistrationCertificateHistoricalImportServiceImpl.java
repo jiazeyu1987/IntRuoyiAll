@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -47,16 +49,35 @@ public class DccRegistrationCertificateHistoricalImportServiceImpl
         DccRegistrationCertificateHistoricalImportPageReqVO pageReqVO = normalize(reqVO);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         String sourceHash = normalizeSourceHash(pageReqVO.getSourceHash());
-        long total = auditMapper.countHistoricalImportPage(tenantId, sourceHash);
+        var filter = historicalListFilter(pageReqVO);
+        long total = auditMapper.countHistoricalImportPage(tenantId, sourceHash, filter);
         List<DccRegistrationCertificateHistoricalImportRow> rows = total == 0
                 ? List.of()
-                : auditMapper.selectHistoricalImportPage(tenantId, sourceHash, pageReqVO.getPageSize(),
+                : auditMapper.selectHistoricalImportPage(tenantId, sourceHash, filter, pageReqVO.getPageSize(),
                 offset(pageReqVO));
         Map<Long, MdmEnterpriseRespDTO> companyMap = companyMap(tenantId, rows);
         List<DccRegistrationCertificateHistoricalImportRespVO> result = rows.stream()
                 .map(row -> toResp(row, companyMap.get(row.getOwnerCompanyId()), sourceHash))
                 .toList();
         return new PageResult<>(result, total);
+    }
+
+    static QueryWrapper<Object> historicalListFilter(
+            DccRegistrationCertificateHistoricalImportPageReqVO request) {
+        var fields = new java.util.LinkedHashMap<String, ListFilterQueryUtils.Field>();
+        fields.put("sourceHash", ListFilterQueryUtils.text("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(a.detail_json, '$.sourceHash'))))"));
+        fields.put("sourceRow", ListFilterQueryUtils.text("JSON_UNQUOTE(JSON_EXTRACT(a.detail_json, '$.sourceRow'))"));
+        for (String key : java.util.List.of("ownerCompanyName", "ownerCompanyCode")) {
+            String column = "ownerCompanyName".equals(key) ? "name" : "enterprise_code";
+            fields.put(key, ListFilterQueryUtils.text("(SELECT e." + column + " FROM mdm_enterprise e WHERE e.tenant_id=a.tenant_id AND e.id=a.owner_company_id AND e.deleted=0 AND e.type='OWNED_COMPANY' AND e.status='ENABLE')"));
+        }
+        fields.put("certificateNo", ListFilterQueryUtils.text("v.certificate_no"));
+        fields.put("productName", ListFilterQueryUtils.text("s.product_name"));
+        fields.put("versionNo", ListFilterQueryUtils.text("COALESCE(CAST(v.version_no AS CHAR), '-')"));
+        fields.put("result", ListFilterQueryUtils.text("CASE a.result WHEN 'SUCCESS' THEN '导入成功' WHEN 'FAILURE' THEN '导入失败' ELSE COALESCE(a.result, '-') END"));
+        fields.put("restrictedReasons", ListFilterQueryUtils.text("COALESCE((SELECT GROUP_CONCAT(j.reason ORDER BY j.ord SEPARATOR '、') FROM JSON_TABLE(a.detail_json, '$.restrictedReasons[*]' COLUMNS(ord FOR ORDINALITY, reason TEXT PATH '$')) j), '无')"));
+        fields.put("occurredAt", ListFilterQueryUtils.dateTime("a.occurred_at"));
+        return ListFilterQueryUtils.wrapper(request, fields);
     }
 
     private Map<Long, MdmEnterpriseRespDTO> companyMap(Long tenantId,

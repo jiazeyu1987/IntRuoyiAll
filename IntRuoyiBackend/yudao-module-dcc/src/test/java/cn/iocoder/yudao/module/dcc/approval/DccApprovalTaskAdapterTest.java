@@ -88,11 +88,13 @@ class DccApprovalTaskAdapterTest {
     @BeforeEach
     void injectCenterQuery() {
         org.springframework.test.util.ReflectionTestUtils.setField(adapter, "centerQuery", centerQuery);
+        org.mockito.Mockito.lenient().when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(),0L));
+        org.mockito.Mockito.lenient().when(offlineTraining.page(any())).thenReturn(new PageResult<>(List.of(),0L));
     }
 
     @Test
     void pageTodoReturnsEmptyPageWithoutLoadingProcessInstancesWhenTaskPageIsEmpty() {
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(), 23L));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
@@ -111,7 +113,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("pi-1");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(),eq("DCC_TASK")))
+        when(centerQuery.todo(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -167,7 +169,7 @@ class DccApprovalTaskAdapterTest {
         ), summary.getDetailQuery());
 
         ArgumentCaptor<ApprovalTaskQueryContext> captor=ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
-        verify(centerQuery).todo(captor.capture(),eq("DCC_TASK"));
+        verify(centerQuery).todo(captor.capture(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap());
         assertEquals(100L,captor.getValue().getLoginUserId());
         verify(workflowService, never()).getControlledFile(anyLong());
     }
@@ -175,7 +177,7 @@ class DccApprovalTaskAdapterTest {
     @Test
     void pageTodoDoesNotProjectNativeFinalReviewTaskAfterFileBecameActive() {
         // Terminal native reviews are excluded by the center SQL before counting/paging.
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(), 0L));
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
@@ -187,7 +189,7 @@ class DccApprovalTaskAdapterTest {
     @Test
     void pageTodoDoesNotProjectNativeFinalReviewTaskAfterFileWasSuperseded() {
         // Terminal native reviews are excluded by the center SQL before counting/paging.
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(), 0L));
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
@@ -204,7 +206,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("external-pi-1");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -242,7 +244,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("OBSOLETE_APPROVAL");
         when(task.getProcessInstanceId()).thenReturn("obsolete-pi-1");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -285,7 +287,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_APPROVAL");
         when(task.getProcessInstanceId()).thenReturn("pi-final");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(),eq("DCC_TASK")))
+        when(centerQuery.todo(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -322,7 +324,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("pi-native-final");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -359,7 +361,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("pi-matrix-review");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(),eq("DCC_TASK")))
+        when(centerQuery.todo(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -400,7 +402,7 @@ class DccApprovalTaskAdapterTest {
         when(matchingTask.getProcessInstanceId()).thenReturn("pi-keyword-match");
         when(matchingTask.getCreateTime()).thenReturn(new Date(1782180000000L));
 
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(matchingTask), 1L));
 
         ProcessInstance matchingProcess = mock(ProcessInstance.class);
@@ -429,7 +431,7 @@ class DccApprovalTaskAdapterTest {
         assertEquals(1L, page.getTotal());
         assertEquals("OBSOLETE-KEYWORD-6010", page.getList().get(0).getBusinessCode());
         ArgumentCaptor<ApprovalTaskQueryContext> query = ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
-        verify(centerQuery).todo(query.capture(), eq("DCC_TASK"));
+        verify(centerQuery).todo(query.capture(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap());
         assertEquals("OBSOLETE-KEYWORD-6010", query.getValue().getKeyword());
     }
 
@@ -504,7 +506,7 @@ class DccApprovalTaskAdapterTest {
     void pageTodoFailsWhenBpmTaskHasNoBusinessKey() {
         Task task = mock(Task.class);
         when(task.getProcessInstanceId()).thenReturn("pi-missing");
-        when(centerQuery.todo(any(),eq("DCC_TASK")))
+        when(centerQuery.todo(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         ProcessInstance processInstance = mock(ProcessInstance.class);
         when(processInstance.getBusinessKey()).thenReturn(null);
@@ -528,7 +530,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-        when(centerQuery.done(any(), eq("DCC_TASK"))).thenReturn(new PageResult<>(List.of(task), 1L));
+        when(centerQuery.done(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap())).thenReturn(new PageResult<>(List.of(task), 1L));
         HistoricProcessInstance process = mock(HistoricProcessInstance.class);
         when(process.getBusinessKey()).thenReturn("4230");
         when(process.getStartUserId()).thenReturn("501");
@@ -640,7 +642,7 @@ class DccApprovalTaskAdapterTest {
             when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
             when(task.getEndTime()).thenReturn(new Date(1782180300000L));
             when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-            when(centerQuery.done(any(), eq("DCC_TASK"))).thenReturn(new PageResult<>(List.of(task), 1L));
+            when(centerQuery.done(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap())).thenReturn(new PageResult<>(List.of(task), 1L));
             var process = mock(HistoricProcessInstance.class);
             when(process.getBusinessKey()).thenReturn("4230");
             when(process.getStartUserId()).thenReturn("501");
@@ -688,7 +690,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-        when(centerQuery.done(any(),eq("DCC_TASK")))
+        when(centerQuery.done(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         HistoricProcessInstance processInstance = mock(HistoricProcessInstance.class);
@@ -740,7 +742,7 @@ class DccApprovalTaskAdapterTest {
         assertEquals(Map.of("viewer", "1", "from", "approval-center"), summary.getDetailQuery());
 
         ArgumentCaptor<ApprovalTaskQueryContext> captor=ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
-        verify(centerQuery).done(captor.capture(),eq("DCC_TASK"));
+        verify(centerQuery).done(captor.capture(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap());
         assertEquals(100L,captor.getValue().getLoginUserId());
         verify(controlledFileMapper).selectByIdIncludingDeleted(6002L);
         verify(workflowService, never()).getControlledFile(anyLong());
@@ -756,7 +758,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-        when(centerQuery.done(any(),eq("DCC_TASK")))
+        when(centerQuery.done(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         HistoricProcessInstance processInstance = mock(HistoricProcessInstance.class);
@@ -794,7 +796,7 @@ class DccApprovalTaskAdapterTest {
 
     @Test
     void pageDoneReturnsEmptyPageWithoutLoadingProcessInstancesWhenHistoricPageIsEmpty() {
-        when(centerQuery.done(any(),eq("DCC_TASK")))
+        when(centerQuery.done(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(), 0L));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
@@ -815,7 +817,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-        when(centerQuery.done(any(),eq("DCC_TASK")))
+        when(centerQuery.done(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         HistoricProcessInstance processInstance = mock(HistoricProcessInstance.class);
@@ -848,7 +850,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("pi-global");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(),eq("DCC_TASK")))
+        when(centerQuery.todo(any(),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
 
         ProcessInstance processInstance = mock(ProcessInstance.class);
@@ -875,7 +877,7 @@ class DccApprovalTaskAdapterTest {
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10, true));
 
         assertEquals(1L, page.getTotal());
-        verify(centerQuery).todo(org.mockito.ArgumentMatchers.argThat(ApprovalTaskQueryContext::isGlobalView),eq("DCC_TASK"));
+        verify(centerQuery).todo(org.mockito.ArgumentMatchers.argThat(ApprovalTaskQueryContext::isGlobalView),eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap());
     }
     @Test
     void nativeOwnerApprovalActionsRequireTheModuleDialogForBothUploadAndRevision() {
@@ -894,7 +896,7 @@ class DccApprovalTaskAdapterTest {
         when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("pi-mixed");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(centerQuery.todo(any(), eq("DCC_TASK")))
+        when(centerQuery.todo(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         ProcessInstance process = mock(ProcessInstance.class);
         when(process.getBusinessKey()).thenReturn("6011");when(process.getStartUserId()).thenReturn("501");
@@ -904,8 +906,9 @@ class DccApprovalTaskAdapterTest {
         when(controlledFileMapper.selectByIdIncludingDeleted(6011L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder().id(7001L).name("实际类别").build());
         var nativeRow = ApprovalTaskSummary.builder().id("DCC:PROJECT_NATIVE:9007199254740993:REVIEW")
+                .moduleCode(ApprovalModuleCode.DCC).sourceTaskType("DCC_PROJECT_PRODUCT_REVIEW").sourceTaskId("9007199254740993")
                 .businessKey("9007199254740993").taskCreatedAt(java.time.LocalDateTime.of(2026,10,5,1,0)).build();
-        when(projectApplications.list(any())).thenReturn(List.of(nativeRow));
+        when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(nativeRow),1L));
         var first = adapter.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 1));
         var second = adapter.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 2, 1));
         assertEquals(2,first.getTotal());assertEquals(2,second.getTotal());
@@ -923,8 +926,8 @@ class DccApprovalTaskAdapterTest {
                 .moduleCode(ApprovalModuleCode.DCC).sourceTaskType("DCC_PROJECT_PRODUCT_REVIEW")
                 .sourceTaskId("native-earlier-completion").taskCreatedAt(java.time.LocalDateTime.of(2026, 10, 21, 9, 0))
                 .taskCompletedAt(java.time.LocalDateTime.of(2026, 10, 21, 9, 0)).build();
-        when(projectApplications.list(any())).thenReturn(List.of(completedEarlier, completedLater));
-        when(centerQuery.done(any(), eq("DCC_TASK"))).thenReturn(new PageResult<>(List.of(), 0L));
+        when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(completedEarlier, completedLater),2L));
+        when(centerQuery.done(any(), eq("DCC_TASK"), org.mockito.ArgumentMatchers.anyMap())).thenReturn(new PageResult<>(List.of(), 0L));
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
@@ -932,4 +935,24 @@ class DccApprovalTaskAdapterTest {
         assertEquals(List.of("native-later-completion", "native-earlier-completion"), page.getList().stream()
                 .map(ApprovalTaskSummary::getId).toList());
     }
+    @Test
+    void boundedSourceWindowsPreserveFiltersAndCountOnlyDoesNotFetchTasks() {
+        when(centerQuery.todo(any(),eq("DCC_TASK"),org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn(new PageResult<>(List.of(),700L));
+        when(projectApplications.page(any())).thenReturn(new PageResult<>(List.of(),300L));
+        when(offlineTraining.page(any())).thenReturn(new PageResult<>(List.of(),90L));
+        var context=ApprovalTaskQueryContext.of(100L,ApprovalTaskViewType.TODO,ApprovalModuleCode.DCC,null,7,20)
+                .setListFilters("[{\"key\":\"source\",\"operator\":\"contains\",\"value\":\"文控\"}]");
+        var page=adapter.page(context);
+        assertEquals(1090L,page.getTotal());
+        var query=ArgumentCaptor.forClass(ApprovalTaskQueryContext.class);
+        verify(projectApplications).page(query.capture());
+        assertEquals(new cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow(0,140),query.getValue().getWindow());
+        assertEquals(context.getListFilters(),query.getValue().getListFilters());
+        adapter.window(context,new cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow(0,0));
+        verify(offlineTraining).page(org.mockito.ArgumentMatchers.argThat(c->c.getWindow().limit()==0));
+        verify(projectApplications,never()).list(any());
+        verify(offlineTraining,never()).list(any());
+    }
+
 }

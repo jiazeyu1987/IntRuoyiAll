@@ -141,31 +141,34 @@
     WHERE p.TENANT_ID_=#{tenantText} AND o.id IS NULL AND p.PROC_INST_ID_ IN
     <foreach collection="processIds" item="processId" open="(" close=")" separator=",">#{processId}</foreach>
   </select>
+  <sql id="listFilters">
+    <if test="ew != null and !ew.emptyOfNormal">AND (${ew.sqlSegment})</if>
+  </sql>
   <select id="count" resultType="long">
-    SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/> <include refid="partition"/>
+    SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> <if test="nativeVariablesSql != null">${nativeVariablesSql}</if> <if test="nativeExtraSql != null">${nativeExtraSql}</if> WHERE <include refid="authorized"/> <include refid="partition"/> <include refid="listFilters"/>
   </select>
   <select id="window" resultType="string">
     SELECT DISTINCT t.ID_, <choose><when test="done">t.END_TIME_</when><otherwise>t.CREATE_TIME_</otherwise></choose> AS sort_time
-    FROM <include refid="source"/> WHERE <include refid="authorized"/> <include refid="partition"/>
+    FROM <include refid="source"/> <if test="nativeVariablesSql != null">${nativeVariablesSql}</if> <if test="nativeExtraSql != null">${nativeExtraSql}</if> WHERE <include refid="authorized"/> <include refid="partition"/> <include refid="listFilters"/>
     ORDER BY sort_time DESC, CAST(t.ID_ AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
   </select>
   <sql id="initiated">
-    FROM ACT_HI_PROCINST p WHERE p.TENANT_ID_=#{tenantText}
+    FROM ACT_HI_PROCINST p <if test="nativeVariablesSql != null">${nativeVariablesSql}</if> <if test="nativeExtraSql != null">${nativeExtraSql}</if> WHERE p.TENANT_ID_=#{tenantText}
     <if test="!global">AND p.START_USER_ID_=#{userText}</if>
     <if test="keyword != null">AND LOWER(p.NAME_) LIKE #{keyword} ESCAPE '!'</if>
   </sql>
-  <select id="countInitiated" resultType="long">SELECT COUNT(*) <include refid="initiated"/></select>
+  <select id="countInitiated" resultType="long">SELECT COUNT(*) <include refid="initiated"/> <include refid="listFilters"/></select>
   <select id="windowInitiated" resultType="string">
-    SELECT p.PROC_INST_ID_ <include refid="initiated"/>
+    SELECT p.PROC_INST_ID_ <include refid="initiated"/> <include refid="listFilters"/>
     ORDER BY p.START_TIME_ DESC,CAST(p.PROC_INST_ID_ AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
   </select>
   <sql id="copied">
-    FROM bpm_process_instance_copy c WHERE c.tenant_id=#{tenant} AND c.deleted=0
+    FROM bpm_process_instance_copy c <if test="nativeExtraSql != null">${nativeExtraSql}</if> WHERE c.tenant_id=#{tenant} AND c.deleted=0
     <if test="!global">AND c.user_id=#{userId}</if>
     <if test="keyword != null">AND LOWER(c.process_instance_name) LIKE #{keyword} ESCAPE '!'</if>
   </sql>
-  <select id="countCopied" resultType="long">SELECT COUNT(*) <include refid="copied"/></select>
+  <select id="countCopied" resultType="long">SELECT COUNT(*) <include refid="copied"/> <include refid="listFilters"/></select>
   <select id="windowCopied" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO">
-    SELECT c.* <include refid="copied"/> ORDER BY c.create_time DESC,CAST(CAST(c.id AS CHAR) AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
+    SELECT c.* <include refid="copied"/> <include refid="listFilters"/> ORDER BY c.create_time DESC,CAST(CAST(c.id AS CHAR) AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
   </select>
 </mapper>

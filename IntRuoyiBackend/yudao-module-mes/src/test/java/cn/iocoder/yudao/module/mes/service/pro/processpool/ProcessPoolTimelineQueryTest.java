@@ -40,8 +40,8 @@ class ProcessPoolTimelineQueryTest {
         var second = event(102L, "2026-07-30T08:31:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
                 .setPqcSubmissionGroupId("g").setEventType("PQC_INSPECTION");
         var req = pageReq().setEventType("PQC_INSPECTION").setEventIds(java.util.Set.of(101L));
-        org.mockito.Mockito.when(read.selectTimelineCount(req)).thenReturn(1L);
-        org.mockito.Mockito.when(read.selectTimelinePage(req)).thenReturn(java.util.List.of(first));
+        org.mockito.Mockito.when(read.selectTimelineCount(org.mockito.ArgumentMatchers.eq(req), org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        org.mockito.Mockito.when(read.selectTimelinePage(org.mockito.ArgumentMatchers.eq(req), org.mockito.ArgumentMatchers.any())).thenReturn(java.util.List.of(first));
         org.mockito.Mockito.when(read.selectPqcSubmissionGroupPayloadsByGroupIds(java.util.List.of("g")))
                 .thenReturn(java.util.List.of(first, second));
         var actual = service(read);

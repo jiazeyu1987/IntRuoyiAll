@@ -45,6 +45,8 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
     );
 
     private final ShowroomWorkflowFacade workflowFacade;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomApprovalQueryMapper approvalQueries;
 
     public ShowroomApprovalTaskAdapter(ShowroomWorkflowFacade workflowFacade) {
         this.workflowFacade = workflowFacade;
@@ -81,40 +83,24 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        List<ShowroomChangeRequest> rows = switch (context.getViewType()) {
-            case TODO -> context.isGlobalView()
-                    ? listGlobalPendingApprovals()
-                    : workflowFacade.listPendingApprovalsForReviewer(context.getLoginUserId());
-            case MY_INITIATED -> context.isGlobalView()
-                    ? workflowFacade.listApprovals()
-                    : workflowFacade.listApprovals().stream()
-                            .filter(request -> Objects.equals(request.submittedBy(), context.getLoginUserId()))
-                            .toList();
-            case DONE -> context.isGlobalView()
-                    ? workflowFacade.listApprovals().stream().filter(ShowroomApprovalTaskAdapter::isHandled).toList()
-                    : workflowFacade.listApprovals().stream()
-                            .filter(request -> isHandledBy(request, context.getLoginUserId()))
-                            .toList();
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: SHOWROOM does not support "
-                    + context.getViewType());
-        };
-        if (cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).limit() == 0) {
-            return new PageResult<>(List.of(), rows.stream()
-                    .filter(request -> matchesKeyword(request, context.getKeyword())).count());
-        }
-        List<ApprovalTaskSummary> summaries = rows.stream()
-                .filter(request -> matchesKeyword(request, context.getKeyword()))
-                .map(this::toSummary)
-                .toList();
-        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
-                cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
+        return window(context, cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context));
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
             cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
-        return page(context.withWindow(window));
+        var query = approvalQueries.query(context);
+        long total = approvalQueries.count(query);
+        if (window.limit() == 0 || window.offset() >= total) return new PageResult<>(List.of(), total);
+        String sortTime = context.getViewType() == ApprovalTaskViewType.DONE ? "NULL" : "c.submitted_at";
+        query.last("ORDER BY (" + sortTime + ") IS NULL ASC," + sortTime
+                + " DESC,CAST(c.id AS BINARY) ASC LIMIT " + window.offset() + "," + window.limit());
+        List<ApprovalTaskSummary> summaries = approvalQueries.window(query).stream()
+                .map(id -> toSummary(workflowFacade.getApproval(id).changeRequest())).toList();
+        return new PageResult<>(summaries, total);
     }
 
     @Override
@@ -164,32 +150,6 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
                 .availableActions(Set.of("PROCESS_IN_MODULE"))
                 .capabilities(CAPABILITIES)
                 .build();
-    }
-
-    private static boolean isHandledBy(ShowroomChangeRequest request, Long loginUserId) {
-        return Objects.equals(request.supervisorUserId(), loginUserId) && request.supervisorActionAt() != null
-                || Objects.equals(request.gaoxinUserId(), loginUserId) && request.gaoxinActionAt() != null;
-    }
-
-    private static boolean isHandled(ShowroomChangeRequest request) {
-        return request.supervisorActionAt() != null || request.gaoxinActionAt() != null;
-    }
-
-    private List<ShowroomChangeRequest> listGlobalPendingApprovals() {
-        return workflowFacade.listApprovals().stream()
-                .filter(request -> "PENDING_SUPERVISOR_REVIEW".equals(request.status())
-                        || "PENDING_GAOXIN_APPROVAL".equals(request.status()))
-                .toList();
-    }
-
-    private static boolean matchesKeyword(ShowroomChangeRequest request, String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            return true;
-        }
-        String value = keyword.trim();
-        return String.valueOf(request.changeRequestId()).contains(value)
-                || String.valueOf(request.status()).contains(value)
-                || String.valueOf(request.targetType()).contains(value);
     }
 
     private static boolean isAccessible(ShowroomChangeRequest request, Long loginUserId) {
@@ -401,12 +361,4 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
         return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     }
 
-    private static PageResult<ApprovalTaskSummary> pageRows(List<ApprovalTaskSummary> rows,
-                                                            Integer pageNo, Integer pageSize) {
-        int safePageNo = pageNo == null || pageNo < 1 ? 1 : pageNo;
-        int safePageSize = pageSize == null || pageSize < 1 ? 10 : pageSize;
-        int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
-        int toIndex = Math.min(fromIndex + safePageSize, rows.size());
-        return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
-    }
 }

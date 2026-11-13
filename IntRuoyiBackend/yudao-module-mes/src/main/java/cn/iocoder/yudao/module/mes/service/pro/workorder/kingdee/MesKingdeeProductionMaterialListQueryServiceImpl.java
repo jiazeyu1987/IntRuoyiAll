@@ -37,12 +37,12 @@ public class MesKingdeeProductionMaterialListQueryServiceImpl
             MesKingdeeProductionMaterialListPageReqVO pageReqVO) {
         if (PageParam.PAGE_SIZE_NONE.equals(pageReqVO.getPageSize())) {
             List<MesKingdeeProductionMaterialListGroupRespVO> list =
-                    productionMaterialListMapper.selectGroupList(pageReqVO);
+                    productionMaterialListMapper.selectGroupList(pageReqVO, MesKingdeeProductionMaterialListMapper.groupFilters(pageReqVO));
             return new PageResult<>(list, (long) list.size());
         }
         IPage<MesKingdeeProductionMaterialListGroupRespVO> page = MyBatisUtils.buildPage(pageReqVO);
         IPage<MesKingdeeProductionMaterialListGroupRespVO> result =
-                productionMaterialListMapper.selectGroupPage(page, pageReqVO);
+                productionMaterialListMapper.selectGroupPage(page, pageReqVO, MesKingdeeProductionMaterialListMapper.groupFilters(pageReqVO));
         return new PageResult<>(result.getRecords(), result.getTotal());
     }
 

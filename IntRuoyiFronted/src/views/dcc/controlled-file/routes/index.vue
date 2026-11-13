@@ -19,10 +19,8 @@
       @column-change="saveRouteColumnConfig"
       @column-reset="resetRouteColumnConfig"
       @pagination="handleRoutePagination"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="paginatedRoutes = $event"
-      :list-rows="paginatedRoutes"
-      @column-filter-reset="handleRoutePagination"
+      server-filter
+      :server-filter-query="() => handleQuery(false)"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -228,7 +226,7 @@
 </template>
 
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import {
   deleteApprovalRoute,
@@ -278,6 +276,7 @@ const routeFormRef = ref<InstanceType<typeof RouteForm>>()
 const queryParams = reactive<{
   pageNo: number
   pageSize: number
+  listFilters?: string
   categoryId?: number
   actionType?: ControlledFileApprovalRouteActionType
 }>({
@@ -390,16 +389,20 @@ const loadRouteSubjectLookups = async () => {
   routeSubjectLookupsLoaded.value = true
 }
 
+let routeQuerySequence=0
 const handleQuery = async (resetPage = true) => {
+  const sequence=++routeQuerySequence
   if (resetPage) {
     queryParams.pageNo = 1
   }
   loading.value = true
   try {
     await loadRouteSubjectLookups()
-    const pageResult = await getApprovalRoutePage(queryParams)
-    routes.value = pageResult.list ?? []
-    routeTotal.value = pageResult.total ?? 0
+    const pageResult = await getApprovalRoutePage({...queryParams})
+    if (sequence!==routeQuerySequence) return false
+    if (!pageResult || !Array.isArray(pageResult.list) || !Number.isSafeInteger(pageResult.total) || pageResult.total<0) throw new Error('审批路径分页响应无效')
+    routes.value = pageResult.list
+    routeTotal.value = pageResult.total
     if (!queryParams.categoryId) {
       previewRows.value = []
       routePreviewError.value = ''
@@ -407,7 +410,7 @@ const handleQuery = async (resetPage = true) => {
     }
     await handlePreview()
   } finally {
-    loading.value = false
+    if (sequence===routeQuerySequence) loading.value = false
   }
 }
 
@@ -647,10 +650,6 @@ onMounted(async () => {
   await loadInitialCategoryOptions()
   await handleQuery()
 })
-
-const loadColumnFilterRows0 = async () => {
-  return loadAllListPages((pagination) => getApprovalRoutePage({ ...queryParams, ...pagination }))
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {

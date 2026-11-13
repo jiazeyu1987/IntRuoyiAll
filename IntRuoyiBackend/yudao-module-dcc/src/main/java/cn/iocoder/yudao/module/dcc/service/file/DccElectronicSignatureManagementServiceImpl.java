@@ -3,9 +3,12 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterValueUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureExportSummaryRespVO;
@@ -30,6 +33,12 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureReissueLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccSignatureAuthorizationUserMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccSignatureListFilterFields;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
@@ -81,6 +90,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
@@ -161,36 +171,114 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     @Resource
     private ApprovalAuthorityApi authority;
 
+    @Resource
+    private DccSignatureAuthorizationUserMapper authorizationUserMapper;
+
     @Override
     public PageResult<DccElectronicSignatureRespVO> getSignaturePage(DccElectronicSignaturePageReqVO reqVO) {
+        // Evidence exports have their own controlled-file endpoint and authority checks.
+        if (PageParam.PAGE_SIZE_NONE.equals(reqVO.getPageSize())) {
+            throw invalidParamException(
+                    "签名记录分页不支持无分页查询，请使用签名证据导出入口");
+        }
         normalizeSignaturePageFilters(reqVO);
         applyFileNumberFilter(reqVO);
-        PageResult<DccControlledFileSignatureDO> pageResult = signatureMapper.selectPage(reqVO);
-        if (CollUtil.isEmpty(pageResult.getList())) {
-            return PageResult.empty(pageResult.getTotal());
+        var dynamicFields = Map.of(
+                "evidenceSummary", ListFilterValueUtils.<DccElectronicSignatureRespVO>text(this::signatureEvidenceSummary),
+                "controlledCopyHash", ListFilterValueUtils.<DccElectronicSignatureRespVO>text(DccElectronicSignatureRespVO::getControlledCopyHash),
+                "controlledCopyHashStatus", ListFilterValueUtils.<DccElectronicSignatureRespVO>text(DccElectronicSignatureRespVO::getControlledCopyHashStatus),
+                "evidenceStatus", ListFilterValueUtils.<DccElectronicSignatureRespVO>text(DccElectronicSignatureRespVO::getEvidenceStatus));
+        String allFilters = signatureFiltersWithLiveLegacyPredicates(reqVO);
+        var filters = ListFilterValueUtils.split(allFilters, DccSignatureListFilterFields.fields().keySet(), dynamicFields);
+        reqVO.setListFilters(filters.staticFilters());
+        reqVO.setControlledCopyHashStatus(null);
+        reqVO.setEvidenceStatus(null);
+        if (!filters.hasDynamicFilters()) {
+            PageResult<DccControlledFileSignatureDO> page = signatureMapper.selectPage(reqVO);
+            return new PageResult<>(hydrateSignaturePage(page.getList()), page.getTotal());
         }
-        Set<Long> controlledFileIds = CollectionUtils.convertSet(pageResult.getList(),
-                DccControlledFileSignatureDO::getControlledFileId);
-        Set<Long> actorIds = CollectionUtils.convertSet(pageResult.getList(), DccControlledFileSignatureDO::getActorId);
-        Map<Long, DccControlledFileDO> controlledFileMap = CollectionUtils.convertMap(
-                controlledFileMapper.selectBatchIds(controlledFileIds), DccControlledFileDO::getId);
-        Map<Long, AdminUserDO> actorMap = CollectionUtils.convertMap(
-                adminUserService.getUserList(actorIds), AdminUserDO::getId);
-        return new PageResult<>(CollectionUtils.convertList(pageResult.getList(), signature ->
-                toSignatureRespVO(signature, controlledFileMap.get(signature.getControlledFileId()),
-                        actorMap.get(signature.getActorId()))), pageResult.getTotal());
+        final int batchSize = 100;
+        long started = System.nanoTime();
+        long matched = 0, candidates = 0;
+        int batches = 0;
+        long offset = Math.multiplyExact((long) reqVO.getPageNo() - 1L, reqVO.getPageSize());
+        List<DccElectronicSignatureRespVO> selected = new ArrayList<>();
+        LocalDateTime afterSignedAt = null;
+        Long afterId = null;
+        while (true) {
+            List<DccControlledFileSignatureDO> batch = signatureMapper.selectFilterCandidates(reqVO, afterSignedAt, afterId, batchSize);
+            batches++;
+            if (batch.isEmpty()) break;
+            candidates += batch.size();
+            // Compute authoritative current-copy evidence once per candidate and reuse it across every condition.
+            for (DccElectronicSignatureRespVO row : hydrateSignaturePage(batch)) {
+                if (!filters.matches(row)) continue;
+                if (matched >= offset && selected.size() < reqVO.getPageSize()) selected.add(row);
+                matched++;
+            }
+            DccControlledFileSignatureDO tail = batch.get(batch.size() - 1);
+            if (Objects.equals(afterId, tail.getId())) throw new IllegalStateException("Signature filter cursor did not advance");
+            afterId = tail.getId(); afterSignedAt = tail.getSignedAt();
+            if (batch.size() < batchSize) break;
+        }
+        log.info("DCC signature live-filter candidates={} batches={} exactTotal={} returned={} durationMs={}",
+                candidates, batches, matched, selected.size(), (System.nanoTime() - started) / 1_000_000);
+        return new PageResult<>(selected, matched);
+    }
+
+    private List<DccElectronicSignatureRespVO> hydrateSignaturePage(List<DccControlledFileSignatureDO> signatures) {
+        if (signatures.isEmpty()) return List.of();
+        Set<Long> controlledFileIds = CollectionUtils.convertSet(signatures, DccControlledFileSignatureDO::getControlledFileId);
+        Set<Long> actorIds = CollectionUtils.convertSet(signatures, DccControlledFileSignatureDO::getActorId);
+        Map<Long, DccControlledFileDO> files = CollectionUtils.convertMap(controlledFileMapper.selectBatchIds(controlledFileIds), DccControlledFileDO::getId);
+        Map<Long, AdminUserDO> actors = CollectionUtils.convertMap(adminUserService.getUserList(actorIds), AdminUserDO::getId);
+        return CollectionUtils.convertList(signatures, signature -> toSignatureRespVO(signature,
+                files.get(signature.getControlledFileId()), actors.get(signature.getActorId())));
+    }
+
+    private String signatureFiltersWithLiveLegacyPredicates(DccElectronicSignaturePageReqVO request) {
+        // The same real-time fields remain real-time when an older explicit query parameter is used.
+        ArrayNode filters;
+        if (StrUtil.isBlank(request.getListFilters())) {
+            filters = JsonNodeFactory.instance.arrayNode();
+        } else {
+            JsonNode parsed;
+            try {
+                parsed = JsonUtils.parseTree(request.getListFilters());
+            } catch (RuntimeException invalidJson) {
+                if (!(invalidJson.getCause() instanceof JsonProcessingException)) throw invalidJson;
+                throw invalidParamException("列表筛选条件必须是有效 JSON 数组");
+            }
+            if (!(parsed instanceof ArrayNode array))
+                throw invalidParamException("列表筛选条件必须是 JSON 数组");
+            filters = array.deepCopy();
+        }
+        if (StrUtil.isNotBlank(request.getControlledCopyHashStatus()))
+            filters.addObject().put("key", "controlledCopyHashStatus").put("operator", "eq").put("value", request.getControlledCopyHashStatus());
+        if (StrUtil.isNotBlank(request.getEvidenceStatus()))
+            filters.addObject().put("key", "evidenceStatus").put("operator", "eq").put("value", request.getEvidenceStatus());
+        return filters.isEmpty() ? null : filters.toString();
+    }
+
+    private String signatureEvidenceSummary(DccElectronicSignatureRespVO row) {
+        String copy = Map.of("BOUND", "已绑定", "NOT_APPLICABLE", "不适用", "HISTORICAL_UNBOUND", "历史未绑定")
+                .getOrDefault(Objects.toString(row.getControlledCopyHashStatus(), ""), Objects.toString(row.getControlledCopyHashStatus(), "-"));
+        String evidence = Map.of("VALID", "已校验", "PENDING_VERIFY", "待校验", "INVALID", "校验失败", "HISTORICAL_UNBOUND", "历史未绑定")
+                .getOrDefault(Objects.toString(row.getEvidenceStatus(), ""), Objects.toString(row.getEvidenceStatus(), "-"));
+        String hash = StrUtil.isNotBlank(row.getSignatureImageSha256Short()) ? row.getSignatureImageSha256Short() : row.getSignatureImageSha256();
+        return String.join(" ", copy.isEmpty() ? "-" : copy, evidence.isEmpty() ? "-" : evidence,
+                signatureSnapshotText(row.getSnapshotStatus()), signatureSnapshotText(row.getSignatureImageVerifiedStatus()),
+                StrUtil.isBlank(hash) ? "-" : hash.trim());
+    }
+
+    private String signatureSnapshotText(String value) {
+        return StrUtil.isBlank(value) ? "旧版证据未记录" : value.trim();
     }
 
     @Override
     public PageResult<DccElectronicSignatureAuthorizationRespVO> getAuthorizationPage(
             DccElectronicSignatureAuthorizationPageReqVO reqVO) {
-        UserPageReqVO userPageReqVO = new UserPageReqVO();
-        userPageReqVO.setPageNo(reqVO.getPageNo());
-        userPageReqVO.setPageSize(reqVO.getPageSize());
-        userPageReqVO.setUsername(reqVO.getUsername());
-        userPageReqVO.setMobile(reqVO.getMobile());
-        userPageReqVO.setStatus(reqVO.getStatus());
-        PageResult<AdminUserDO> userPage = adminUserService.getUserPage(userPageReqVO);
+        PageResult<AdminUserDO> userPage = authorizationUserMapper.selectAuthorizationPage(reqVO);
         if (CollUtil.isEmpty(userPage.getList())) {
             return PageResult.empty(userPage.getTotal());
         }
@@ -272,11 +360,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     @Override
     public PageResult<DccElectronicSignatureAuthorizationAuditRespVO> getAuthorizationAuditPage(
             Long userId, DccElectronicSignatureAuthorizationAuditPageReqVO reqVO) {
-        PageResult<DccElectronicSignatureAuthorizationAuditDO> pageResult = authorizationAuditMapper.selectPage(
-                reqVO, new LambdaQueryWrapperX<DccElectronicSignatureAuthorizationAuditDO>()
-                        .eq(DccElectronicSignatureAuthorizationAuditDO::getTargetUserId, userId)
-                        .orderByDesc(DccElectronicSignatureAuthorizationAuditDO::getOperatedAt)
-                        .orderByDesc(DccElectronicSignatureAuthorizationAuditDO::getId));
+        PageResult<DccElectronicSignatureAuthorizationAuditDO> pageResult = authorizationAuditMapper.selectAuditPage(userId, reqVO);
         if (CollUtil.isEmpty(pageResult.getList())) {
             return PageResult.empty(pageResult.getTotal());
         }

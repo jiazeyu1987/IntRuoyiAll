@@ -211,13 +211,24 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     public PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedPrefix(
             MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long limit) {
+        return readAuthorizedApprovalWindow(filters,globalView,done,0,limit,true);
+    }
+
+    @Override
+    public PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedWindow(
+            MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long offset, long limit) {
+        return readAuthorizedApprovalWindow(filters,globalView,done,offset,limit,false);
+    }
+
+    private PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> readAuthorizedApprovalWindow(
+            MesProEdhrWorkTaskPageReqVO filters,boolean globalView,boolean done,long offset,long limit,boolean prefix) {
         Long userId = requireLoginUserId();
         String status = StrUtil.blankToDefault(filters.getStatus(), MesProEdhrWorkTaskStatus.TODO);
         if (!done && !MesProEdhrWorkTaskStatus.TODO.equals(status) && !MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
-        var page = workTaskMapper.selectApprovalCenterPrefix(filters,
-                globalView ? null : userId, TenantContextHolder.getRequiredTenantId(), done, status, limit);
+        var page = prefix?workTaskMapper.selectApprovalCenterPrefix(filters,globalView?null:userId,TenantContextHolder.getRequiredTenantId(),done,status,limit)
+                :workTaskMapper.selectApprovalCenterWindow(filters,globalView?null:userId,TenantContextHolder.getRequiredTenantId(),done,status,offset,limit);
         Objects.requireNonNull(page.getList(), "EDHR_AUTHORIZED_PREFIX_LIST_REQUIRED");
         var display = buildWorkTaskRespPage(page, userId);
         if (page.getList().size() != display.getList().size()) {

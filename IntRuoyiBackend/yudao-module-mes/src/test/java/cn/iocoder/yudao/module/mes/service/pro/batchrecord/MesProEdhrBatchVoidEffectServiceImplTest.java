@@ -251,12 +251,12 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
             cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
             jdbc.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
             var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();
-            var history=applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId());
+            var history=applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null);
             org.junit.jupiter.api.Assertions.assertEquals(1L,history.getTotal());org.junit.jupiter.api.Assertions.assertEquals(saved.getDossierSummaryJson(),history.getList().get(0).getDossierSummaryJson());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"PENDING",null,null,app.getId(),task.getId()).getTotal());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,1L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"PENDING",null,null,app.getId(),task.getId(),null).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,1L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null).getTotal());
             jdbc.update("UPDATE mes_pro_edhr_record_change_event SET change_status = 'SUBMITTED' WHERE id = ?",result.getId());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null).getTotal());
         }
     }
     @org.junit.jupiter.params.ParameterizedTest

@@ -161,10 +161,36 @@ export const loadAllListPages = async <T>(
   }
 }
 
+export interface ServerListFilterOptions {
+  enabled: () => boolean
+  queryModel: () => Record<string, any>
+  query: () => Promise<unknown>
+}
+
+/** Wire values deliberately exclude UI ids and display getters. The server validates its whitelist. */
+export const serializeListFilters = (
+  conditions: ListMultiFilterCondition[], definitions: ListColumnFilterDefinition[] = []
+): string | undefined => {
+  const fields = new Map(definitions.map(field => [field.key, field]))
+  const filters = conditions.map(({ key, operator, value, valueEnd }) => {
+    if (!['contains', 'eq', 'in', 'between', 'gte', 'lte'].includes(operator))
+      throw new Error(`不支持的筛选运算符：${operator}`)
+    if (operator === 'between' && (valueEnd == null || valueEnd === ''))
+      throw new Error('请填写完整的筛选范围')
+    const field = fields.get(key)
+    // Label-matched selects retain their ID-valued query parameter when the column shows a name.
+    const queryKey = field && (field.type === 'select' || field.type === 'multiSelect')
+      ? field.queryParamKey || key : key
+    return { key: queryKey, operator, value: Array.isArray(value) ? [...value] : value, valueEnd }
+  })
+  return filters.length ? JSON.stringify(filters) : undefined
+}
+
 export const useListColumnFilter = (
   definitions: MaybeRefOrGetter<ListColumnFilterDefinition[]>,
   source: () => any[] | undefined,
-  loadSource: () => (() => Promise<any[]>) | undefined
+  loadSource: () => (() => Promise<any[]>) | undefined,
+  server?: ServerListFilterOptions
 ) => {
   const state = ref<ListMultiFilterState>({
     conditions: [] as ListMultiFilterCondition[],
@@ -192,7 +218,7 @@ export const useListColumnFilter = (
           condition.value !== '' &&
           (!Array.isArray(condition.value) || condition.value.length > 0)
       )
-      .map((condition) => ({ ...condition }))
+      .map((condition) => ({ ...condition, value: Array.isArray(condition.value) ? [...condition.value] : condition.value }))
     const currentGeneration = ++generation
     loading.value = true
     error.value = ''
@@ -204,6 +230,26 @@ export const useListColumnFilter = (
         ) {
           throw new Error('请填写完整的筛选范围')
         }
+      }
+      if (server?.enabled()) {
+        const model = server.queryModel()
+        const previousFilters = serializeListFilters(state.value.appliedConditions, toValue(definitions))
+        const previousPage = model.pageNo
+        model.listFilters = serializeListFilters(conditions, toValue(definitions))
+        model.pageNo = 1
+        try {
+          const result = await server.query()
+          if (currentGeneration !== generation) return
+          if (result === false) throw new Error('筛选查询已被更新请求取代，请重新查询')
+          state.value.appliedConditions = conditions
+        } catch (cause) {
+          if (currentGeneration === generation) {
+            model.listFilters = previousFilters
+            model.pageNo = previousPage
+          }
+          throw cause
+        }
+        return
       }
       const loader = loadSource()
       const result = conditions.length && loader ? await loader() : (source() ?? [])
@@ -224,6 +270,7 @@ export const useListColumnFilter = (
     generation++
     state.value = { conditions: [], appliedConditions: [], activeConditionId: undefined }
     loadedRows.value = []
+    if (server?.enabled()) delete server.queryModel().listFilters
     loading.value = false
     error.value = ''
   }

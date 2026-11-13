@@ -335,22 +335,14 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getMyTrainingTaskPage_missingControlledFile_skipsStaleProgress() {
-        when(trainingProgressMapper.selectListByUserId(99L)).thenReturn(List.of(
-                DccControlledFileTrainingProgressDO.builder()
-                        .id(1005L)
-                        .controlledFileId(904L)
-                        .userId(99L)
-                        .requiredViewSeconds(600)
-                        .accumulatedViewSeconds(300)
-                        .build()));
-        when(controlledFileMapper.selectById(904L)).thenReturn(null);
+    void getMyTrainingTaskPage_joinsFileBeforePaging_andDoesNotLoadAllProgress() {
         DccTrainingTaskPageReqVO reqVO = new DccTrainingTaskPageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
 
+        when(trainingProgressMapper.selectTaskPage(99L, reqVO)).thenReturn(PageResult.empty(0L));
         PageResult<DccTrainingTaskRespVO> result = trainingTaskService.getMyTrainingTaskPage(99L, reqVO);
-
+        verify(trainingProgressMapper, never()).selectListByUserId(99L);
         assertEquals(0L, result.getTotal());
         assertTrue(result.getList().isEmpty());
     }

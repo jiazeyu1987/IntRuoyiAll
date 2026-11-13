@@ -459,15 +459,27 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public PageResult<MesPqcProductionReleasePageItem> getPqcReleasePage(
             Long actorUserId, MesPqcProductionReleasePageQuery query) {
         requirePqcPageQuery(actorUserId, query);
+        // Resolve the tenant's management role once for this page request. Every pending
+        // row uses the same tenant and role, including the same configuration blocker.
+        String managementBlocker = null;
+        if (VIEW_STATUS_PENDING.equals(query.getViewStatus())) {
+            try {
+                candidateResolver.resolveRequiredCandidates(TenantContextHolder.getRequiredTenantId(),
+                        MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
+            } catch (MesProductionReleaseRoleResolutionException exception) {
+                managementBlocker = managementRoleBlockerReason(exception);
+            }
+        }
         cn.iocoder.yudao.framework.common.pojo.PageParam pageParam =
                 new cn.iocoder.yudao.framework.common.pojo.PageParam();
         pageParam.setPageNo(query.getPageNo());
         pageParam.setPageSize(query.getPageSize());
+        pageParam.setListFilters(query.getListFilters());
         PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> applicationPage =
                 applicationMapper.selectPqcReleasePage(
                         pageParam, TenantContextHolder.getTenantId(), actorUserId, query.getViewStatus(),
                         StrUtil.trim(query.getWorkOrderCode()), StrUtil.trim(query.getBatchCode()),
-                        query.getApplicationId(), query.getPqcReleaseWorkTaskId());
+                        query.getApplicationId(), query.getPqcReleaseWorkTaskId(), managementBlocker);
         if (applicationPage == null) {
             throw new IllegalStateException("PQC release page query returned no page result");
         }
@@ -495,12 +507,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     ? resolveCompletedViewStatus(application, review) : query.getViewStatus();
             MesPqcProductionReleasePageItem item = toPageItem(application, review, viewStatus);
             if (VIEW_STATUS_PENDING.equals(viewStatus)) {
-                try {
-                    candidateResolver.resolveRequiredCandidates(TenantContextHolder.getRequiredTenantId(),
-                            MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
-                    item.setApprovalReady(true);
-                } catch (MesProductionReleaseRoleResolutionException exception) {
-                    item.setApprovalReady(false).setApprovalBlockerReason(managementRoleBlockerReason(exception))
+                item.setApprovalReady(managementBlocker == null);
+                if (managementBlocker != null) {
+                    item.setApprovalBlockerReason(managementBlocker)
                             .setApprovalBlockerSuggestion("请为当前租户的管理者代表角色分配启用账号后刷新列表");
                 }
             }

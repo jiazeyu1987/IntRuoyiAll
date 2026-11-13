@@ -9,6 +9,9 @@ const moduleObject = { exports: {} }
 const source = fs.readFileSync(path.join(root, 'src/views/system/notify/my/notifyInbox.ts'), 'utf8')
 const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
 Function('exports', code)(moduleObject.exports)
+const filtersModule = {exports:{}}
+Function('exports', 'require', ts.transpileModule(fs.readFileSync(path.join(root,'src/hooks/web/useListColumnFilter.ts'),'utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText)(filtersModule.exports, require)
+const {filterListColumns,buildListColumnFilters}=filtersModule.exports
 const { loadInboxPage, toInboxRecoveries, toInboxMessages } = moduleObject.exports
 const own = { id: '453', workTaskId: '2883', workOrderCode: '原订单', batchCode: '原批号', eventType: 'MARKET_APPROVED' }
 const messages = Array.from({ length: 27 }, (_, i) => ({ id: i + 1, readStatus: i % 2 === 0 }))
@@ -81,6 +84,9 @@ function listHarness(loadPending = async () => [own]) {
   const context = { props: { active: true }, canReadReleaseOutcomes: ref(true),
     loading: ref(false), loadError: ref(''), list: ref([]), total: ref(0),
     queryParams: { pageNo: 1, pageSize: 10 }, toInboxRecoveries, loadInboxPage,
+    filterListColumns, buildListColumnFilters,
+    notifyDefaultColumns: [{key:'templateNickname',label:'Sender'},{key:'templateContent',label:'Content'},{key:'createTime',label:'Time'},{key:'readStatus',label:'Status'}],
+    listColumnFilterDefinitions0: ref([{key:'readStatus',label:'Status',type:'select',getValue:row=>row.kind==='recovery'?'pending':row.readStatus}]),
     listOwnPendingReleaseOutcomes: () => { pendingCalls++; return loadPending() },
     NotifyMessageApi: { getMyNotifyMessagePage: loader(messages) },
     mergeReadTimeOverrides: rows => rows, refreshTableLayout: async () => {} }
@@ -103,7 +109,7 @@ test('真实列表在无权限、已读筛选或未展示时不查询补发接�
 test('真实列表补发查询失败时展示错误，清除旧数据，不伪造成功', async () => {
   const h = listHarness(async () => { throw new Error('本人结果通知读取失败') })
   h.list.value = [{ id: 'old' }]
-  await h.getList()
+  await assert.rejects(h.getList(), /本人结果通知读取失败/)
   assert.equal(h.loadError.value, '本人结果通知读取失败')
   assert.deepEqual(h.list.value, [])
   assert.equal(h.loading.value, false)
@@ -118,4 +124,17 @@ test('离开站内信后，旧补发请求的迟到响应不会恢复记录', as
   finish([own])
   await request
   assert.deepEqual(h.list.value, [])
+})
+
+
+test('complete pending source is filtered before union paging and total uses both filtered sources', async () => {
+  const h=listHarness(async()=>[own,{...own,id:'454',batchCode:'Other batch'}])
+  h.queryParams.listFilters=JSON.stringify([{key:'templateContent',operator:'contains',value:'Other batch'}])
+  const messageCalls=[]
+  h.NotifyMessageApi.getMyNotifyMessagePage=async params=>{messageCalls.push(params);return {list:[],total:0}}
+  await h.getList()
+  assert.equal(h.total.value,1)
+  assert.equal(h.list.value[0].batchCode,'Other batch')
+  assert.equal(messageCalls.length,1)
+  assert.equal(messageCalls[0].listFilters,h.queryParams.listFilters)
 })

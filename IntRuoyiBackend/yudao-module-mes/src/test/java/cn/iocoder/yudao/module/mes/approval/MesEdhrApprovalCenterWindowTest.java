@@ -52,7 +52,7 @@ class MesEdhrApprovalCenterWindowTest {
                 new com.baomidou.mybatisplus.core.MybatisConfiguration(), "work"),
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO.class);
         ReflectionTestUtils.setField(adapter, "outcomeReader", reader);
-        when(handoffs.prefix(any(), anyLong())).thenReturn(new PageResult<>(List.of(), 0L));
+        when(handoffs.window(any(), any(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.class))).thenReturn(new PageResult<>(List.of(), 0L));
     }
 
     @org.junit.jupiter.api.AfterEach
@@ -61,11 +61,12 @@ class MesEdhrApprovalCenterWindowTest {
     @Test
     void prefix400SupportsPageTwoWithInverseIdAndCreationOrderWithoutHttpPageSize400() {
         var rows = LongStream.rangeClosed(1, 500).mapToObj(id -> row(id, NOW.minusSeconds(id), null)).toList();
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), eq(400L))).thenAnswer(call -> {
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.eq(200L))).thenAnswer(call -> {
             var filters = (cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO) call.getArgument(0);
             assertTrue(filters.getPageSize() <= 200, "internal K must not be carried by the HTTP PageParam");
             assertEquals("batch", filters.getBatchCode());
-            return new PageResult<>(rows.subList(0, 400), 500L);
+            long offset=call.getArgument(3,Long.class);
+            return new PageResult<>(rows.subList((int)offset,(int)Math.min(offset+200,500)),500L);
         });
         var page = adapter.page(context(ApprovalTaskViewType.TODO, 2, 200).setKeyword("batch"));
         assertEquals(500L, page.getTotal());
@@ -81,20 +82,20 @@ class MesEdhrApprovalCenterWindowTest {
         var createdFirst = row(2, NOW, NOW.minusDays(2));
         var missing = row(3, NOW.plusDays(1), null);
         for (var row : List.of(completedFirst, createdFirst, missing)) { row.task().setStatus("DONE"); row.display().setStatus("DONE"); }
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(true), eq(3L)))
-                .thenReturn(new PageResult<>(List.of(createdFirst, missing, completedFirst), 3L));
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(true), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
+                .thenReturn(new PageResult<>(List.of(completedFirst, createdFirst, missing), 3L));
         assertEquals(List.of("1", "2", "3"), ids(adapter.page(context(ApprovalTaskViewType.DONE, 1, 3))));
     }
 
     @Test
     void equalTimeStableBinaryIdsCrossPageAndHandoffSourceTypePrecedesWorkTask() {
         var workRows = List.of(row(10, NOW, null), row(2, NOW, null), row(3, NOW, null));
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), anyLong()))
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(workRows, 3L));
         var handoff = ApprovalTaskSummary.builder().moduleCode(ApprovalModuleCode.EDHR)
                 .sourceTaskType("ACTIVE_ORDER_HANDOFF").sourceTaskId("99").id("EDHR:ACTIVE_ORDER_HANDOFF:99")
                 .taskCreatedAt(NOW).build();
-        when(handoffs.prefix(any(), anyLong())).thenReturn(new PageResult<>(List.of(handoff), 1L));
+        when(handoffs.window(any(), any(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.class))).thenReturn(new PageResult<>(List.of(handoff), 1L));
         var first = adapter.page(context(ApprovalTaskViewType.TODO, 1, 2));
         var second = adapter.page(context(ApprovalTaskViewType.TODO, 2, 2));
         assertEquals(List.of("99", "10"), ids(first));
@@ -105,12 +106,12 @@ class MesEdhrApprovalCenterWindowTest {
 
     @Test
     void handoffPrefixCountAddsFullEligibleTotalInsteadOfLoadedPrefixSize() {
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), eq(1L)))
-                .thenReturn(new PageResult<>(List.of(row(1, NOW.minusSeconds(1), null)), 800L));
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.eq(200L)))
+                .thenAnswer(call->new PageResult<>(call.getArgument(3,Long.class)==0?List.of(row(1,NOW.minusSeconds(1),null)):List.of(),800L));
         var handoff = ApprovalTaskSummary.builder().moduleCode(ApprovalModuleCode.EDHR)
                 .sourceTaskType("ACTIVE_ORDER_HANDOFF").sourceTaskId("1").id("EDHR:ACTIVE_ORDER_HANDOFF:1")
                 .taskCreatedAt(NOW).build();
-        when(handoffs.prefix(any(), eq(1L))).thenReturn(new PageResult<>(List.of(handoff), 900L));
+        when(handoffs.window(any(), any(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.class))).thenReturn(new PageResult<>(List.of(handoff), 900L));
         var page = adapter.page(context(ApprovalTaskViewType.TODO, 1, 1));
         assertEquals(1700L, page.getTotal());
         assertEquals("ACTIVE_ORDER_HANDOFF", page.getList().get(0).getSourceTaskType());
@@ -123,11 +124,11 @@ class MesEdhrApprovalCenterWindowTest {
         assertThrows(IllegalArgumentException.class, () -> adapter.page(context(ApprovalTaskViewType.TODO, 0, 200)));
         verifyNoInteractions(tasks, handoffs);
         long prefix = 429496729400L;
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), eq(prefix)))
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(), 0L));
-        when(handoffs.prefix(any(), eq(prefix))).thenReturn(new PageResult<>(List.of(), 0L));
+        when(handoffs.window(any(), any(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.class))).thenReturn(new PageResult<>(List.of(), 0L));
         assertEquals(0L, adapter.page(context(ApprovalTaskViewType.TODO, Integer.MAX_VALUE, 200)).getTotal());
-        verify(tasks).getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), eq(prefix));
+        verify(tasks).getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L));
     }
 
     private MesEdhrAuthorizedTaskProjection row(long id, LocalDateTime created, LocalDateTime completed) {

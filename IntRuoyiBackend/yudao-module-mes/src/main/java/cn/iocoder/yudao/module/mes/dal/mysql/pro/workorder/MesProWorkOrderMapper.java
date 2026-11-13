@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
@@ -23,6 +24,54 @@ import java.util.Map;
  */
 @Mapper
 public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
+
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("name", ListFilterQueryUtils.text("name")),
+            java.util.Map.entry("type", ListFilterQueryUtils.number("type")),
+            java.util.Map.entry("orderSourceType", ListFilterQueryUtils.number("order_source_type")),
+            java.util.Map.entry("orderSourceCode", ListFilterQueryUtils.text("order_source_code")),
+            java.util.Map.entry("demandBillNo", ListFilterQueryUtils.text("demand_bill_no")),
+            java.util.Map.entry("productId", ListFilterQueryUtils.number("product_id")),
+            java.util.Map.entry("materialSpecification", ListFilterQueryUtils.text("material_specification")),
+            java.util.Map.entry("quantity", ListFilterQueryUtils.text("COALESCE(CAST(ROUND(quantity,0) AS CHAR),'')")),
+            java.util.Map.entry("quantityProduced", ListFilterQueryUtils.number("quantity_produced")),
+            java.util.Map.entry("quantityChanged", ListFilterQueryUtils.number("quantity_changed")),
+            java.util.Map.entry("quantityScheduled", ListFilterQueryUtils.number("quantity_scheduled")),
+            java.util.Map.entry("clientId", ListFilterQueryUtils.number("client_id")),
+            java.util.Map.entry("vendorId", ListFilterQueryUtils.number("vendor_id")),
+            java.util.Map.entry("batchCode", ListFilterQueryUtils.text("batch_code")),
+            java.util.Map.entry("workshopName", ListFilterQueryUtils.text("workshop_name")),
+            java.util.Map.entry("bomVersion", ListFilterQueryUtils.text("bom_version")),
+            java.util.Map.entry("pickMode", ListFilterQueryUtils.text("pick_mode")),
+            java.util.Map.entry("auxiliaryCode", ListFilterQueryUtils.text("auxiliary_code")),
+            java.util.Map.entry("businessStatus", ListFilterQueryUtils.text("business_status")),
+            java.util.Map.entry("drawingNumber", ListFilterQueryUtils.text("drawing_number")),
+            java.util.Map.entry("refNo", ListFilterQueryUtils.text("ref_no")),
+            java.util.Map.entry("scheduleStatus", ListFilterQueryUtils.text("schedule_status")),
+            java.util.Map.entry("plannedStartTime", ListFilterQueryUtils.dateTime("planned_start_time")),
+            java.util.Map.entry("plannedEndTime", ListFilterQueryUtils.dateTime("planned_end_time")),
+            java.util.Map.entry("requestDate", ListFilterQueryUtils.dateTime("request_date")),
+            java.util.Map.entry("parentId", ListFilterQueryUtils.number("parent_id")),
+            java.util.Map.entry("finishDate", ListFilterQueryUtils.dateTime("finish_date")),
+            java.util.Map.entry("releaseDecisionId", ListFilterQueryUtils.number("release_decision_id")),
+            java.util.Map.entry("releasedBy", ListFilterQueryUtils.number("released_by")),
+            java.util.Map.entry("releasedAt", ListFilterQueryUtils.dateTime("released_at")),
+            java.util.Map.entry("cancelDate", ListFilterQueryUtils.dateTime("cancel_date")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("temporaryFrozen", ListFilterQueryUtils.bool("temporary_frozen")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator")),
+            java.util.Map.entry("productCode", ListFilterQueryUtils.text("(SELECT x.code FROM mes_md_item x WHERE x.id=mes_pro_work_order.product_id AND x.tenant_id=mes_pro_work_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productName", ListFilterQueryUtils.text("(SELECT x.name FROM mes_md_item x WHERE x.id=mes_pro_work_order.product_id AND x.tenant_id=mes_pro_work_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productSpecification", ListFilterQueryUtils.text("material_specification")),
+            java.util.Map.entry("clientName", ListFilterQueryUtils.text("(SELECT x.name FROM mes_md_client x WHERE x.id=mes_pro_work_order.client_id AND x.tenant_id=mes_pro_work_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productionMaterialList", ListFilterQueryUtils.text("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34),REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(x.source_bill_no) OVER(ORDER BY x.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list x WHERE x.work_order_id=mes_pro_work_order.id AND x.tenant_id=mes_pro_work_order.tenant_id AND x.deleted=0 AND x.source_bill_no IS NOT NULL AND x.source_bill_no<>'' AND NOT EXISTS(SELECT 1 FROM mes_kingdee_production_material_list y WHERE y.work_order_id=x.work_order_id AND y.tenant_id=x.tenant_id AND y.deleted=0 AND y.source_bill_no=x.source_bill_no AND y.id<x.id) LIMIT 1) AS CHAR),3,CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(x.source_bill_no) OVER(ORDER BY x.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list x WHERE x.work_order_id=mes_pro_work_order.id AND x.tenant_id=mes_pro_work_order.tenant_id AND x.deleted=0 AND x.source_bill_no IS NOT NULL AND x.source_bill_no<>'' AND NOT EXISTS(SELECT 1 FROM mes_kingdee_production_material_list y WHERE y.work_order_id=x.work_order_id AND y.tenant_id=x.tenant_id AND y.deleted=0 AND y.source_bill_no=x.source_bill_no AND y.id<x.id) LIMIT 1) AS CHAR))-4),CONCAT(CHAR(34),', ',CHAR(34)), '、'),CHAR(34))),'')"))
+    );
+
+
 
     default MesProWorkOrderDO selectByIdForUpdate(Long id) {
         if (id == null) {
@@ -76,9 +125,9 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 "requestDate", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProWorkOrderDO::getRequestDate),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProWorkOrderDO::getStatus)
         ));
-        return selectPage(reqVO, queryWrapper
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, queryWrapper
                 .orderByAsc(MesProWorkOrderDO::getTemporaryFrozen)
-                .orderByDesc(MesProWorkOrderDO::getId));
+                .orderByDesc(MesProWorkOrderDO::getId), LIST_FILTER_FIELDS));
     }
 
     private static Long resolveSingleProductId(MesProWorkOrderPageReqVO reqVO) {

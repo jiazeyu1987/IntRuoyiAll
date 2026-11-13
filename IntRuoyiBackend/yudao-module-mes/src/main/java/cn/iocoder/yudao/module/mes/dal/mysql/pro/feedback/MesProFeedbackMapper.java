@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackPageReqVO;
@@ -22,8 +23,55 @@ import java.time.LocalDate;
 @Mapper
 public interface MesProFeedbackMapper extends BaseMapperX<MesProFeedbackDO> {
 
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("type", ListFilterQueryUtils.number("type")),
+            java.util.Map.entry("channel", ListFilterQueryUtils.text("channel")),
+            java.util.Map.entry("feedbackTime", ListFilterQueryUtils.dateTime("feedback_time")),
+            java.util.Map.entry("workstationId", ListFilterQueryUtils.number("workstation_id")),
+            java.util.Map.entry("routeId", ListFilterQueryUtils.number("route_id")),
+            java.util.Map.entry("processId", ListFilterQueryUtils.number("process_id")),
+            java.util.Map.entry("workOrderId", ListFilterQueryUtils.number("work_order_id")),
+            java.util.Map.entry("taskId", ListFilterQueryUtils.number("task_id")),
+            java.util.Map.entry("scheduleOrderId", ListFilterQueryUtils.number("schedule_order_id")),
+            java.util.Map.entry("scheduleOrderProcessId", ListFilterQueryUtils.number("schedule_order_process_id")),
+            java.util.Map.entry("sourceImportRecordId", ListFilterQueryUtils.number("source_import_record_id")),
+            java.util.Map.entry("itemId", ListFilterQueryUtils.number("item_id")),
+            java.util.Map.entry("expireDate", ListFilterQueryUtils.dateTime("expire_date")),
+            java.util.Map.entry("lotNumber", ListFilterQueryUtils.text("lot_number")),
+            java.util.Map.entry("scheduledQuantity", ListFilterQueryUtils.number("scheduled_quantity")),
+            java.util.Map.entry("feedbackQuantity", ListFilterQueryUtils.number("feedback_quantity")),
+            java.util.Map.entry("qualifiedQuantity", ListFilterQueryUtils.number("qualified_quantity")),
+            java.util.Map.entry("unqualifiedQuantity", ListFilterQueryUtils.number("unqualified_quantity")),
+            java.util.Map.entry("uncheckQuantity", ListFilterQueryUtils.number("uncheck_quantity")),
+            java.util.Map.entry("laborScrapQuantity", ListFilterQueryUtils.number("labor_scrap_quantity")),
+            java.util.Map.entry("materialScrapQuantity", ListFilterQueryUtils.number("material_scrap_quantity")),
+            java.util.Map.entry("otherScrapQuantity", ListFilterQueryUtils.number("other_scrap_quantity")),
+            java.util.Map.entry("lossReasonId", ListFilterQueryUtils.number("loss_reason_id")),
+            java.util.Map.entry("lossReasonCodeSnapshot", ListFilterQueryUtils.text("loss_reason_code_snapshot")),
+            java.util.Map.entry("lossReasonNameSnapshot", ListFilterQueryUtils.text("loss_reason_name_snapshot")),
+            java.util.Map.entry("feedbackUserId", ListFilterQueryUtils.number("feedback_user_id")),
+            java.util.Map.entry("approveUserId", ListFilterQueryUtils.number("approve_user_id")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator")),
+            java.util.Map.entry("excelProductCode", ListFilterQueryUtils.text("COALESCE(NULLIF(TRIM((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.itemCode')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)),''),NULLIF(TRIM((SELECT x.code FROM mes_md_item x WHERE x.id=mes_pro_feedback.item_id AND x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0)),''),'--')")),
+            java.util.Map.entry("excelProductName", ListFilterQueryUtils.text("COALESCE(NULLIF(TRIM((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.itemName')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)),''),NULLIF(TRIM((SELECT x.name FROM mes_md_item x WHERE x.id=mes_pro_feedback.item_id AND x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0)),''),'--')")),
+            java.util.Map.entry("excelProcessCode", ListFilterQueryUtils.text("COALESCE(NULLIF(TRIM((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.processCode')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)),''),NULLIF(TRIM((SELECT x.code FROM mes_pro_process x WHERE x.id=mes_pro_feedback.process_id AND x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0)),''),'--')")),
+            java.util.Map.entry("excelProcessName", ListFilterQueryUtils.text("COALESCE(NULLIF(TRIM((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.processName')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)),''),NULLIF(TRIM((SELECT x.name FROM mes_pro_process x WHERE x.id=mes_pro_feedback.process_id AND x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0)),''),'--')")),
+            java.util.Map.entry("excelEmployeeName", ListFilterQueryUtils.text("COALESCE(NULLIF(TRIM((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.feedbackUserName')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)),''),NULLIF(TRIM((SELECT x.nickname FROM system_users x WHERE x.id=mes_pro_feedback.feedback_user_id AND x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0)),''),'--')")),
+            java.util.Map.entry("excelDepartment", ListFilterQueryUtils.text("(SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.department')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)")),
+            java.util.Map.entry("excelEmployeeNo", ListFilterQueryUtils.text("(SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.feedbackUserCode')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)")),
+            java.util.Map.entry("excelSectionLeader", ListFilterQueryUtils.text("(SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.approverName')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1)")),
+            java.util.Map.entry("excelFeedbackTime", ListFilterQueryUtils.dateTime("COALESCE((SELECT NULLIF(JSON_UNQUOTE(JSON_EXTRACT(x.source_payload_json,'$.feedbackTime')),'null') FROM mes_pro_feedback_import_record x WHERE x.tenant_id=mes_pro_feedback.tenant_id AND x.deleted=0 AND (x.id=mes_pro_feedback.source_import_record_id OR (x.feedback_id=mes_pro_feedback.id AND x.attribution_status='ATTRIBUTED')) ORDER BY (x.id=mes_pro_feedback.source_import_record_id) DESC,x.id DESC LIMIT 1),feedback_time)"))
+    );
+
+
+
     default PageResult<MesProFeedbackDO> selectPage(MesProFeedbackPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesProFeedbackDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<MesProFeedbackDO>()
                 .eqIfPresent(MesProFeedbackDO::getId, reqVO.getId())
                 .likeIfPresent(MesProFeedbackDO::getCode, reqVO.getCode())
                 .eqIfPresent(MesProFeedbackDO::getType, reqVO.getType())
@@ -33,7 +81,7 @@ public interface MesProFeedbackMapper extends BaseMapperX<MesProFeedbackDO> {
                 .eqIfPresent(MesProFeedbackDO::getItemId, reqVO.getItemId())
                 .eqIfPresent(MesProFeedbackDO::getFeedbackUserId, reqVO.getFeedbackUserId())
                 .eqIfPresent(MesProFeedbackDO::getCreator, reqVO.getCreator())
-                .orderByDesc(MesProFeedbackDO::getId));
+                .orderByDesc(MesProFeedbackDO::getId), LIST_FILTER_FIELDS));
     }
 
     default List<MesProFeedbackDO> selectListByTaskIds(Collection<Long> taskIds) {

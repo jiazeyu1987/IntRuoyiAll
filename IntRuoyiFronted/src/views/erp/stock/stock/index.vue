@@ -21,10 +21,9 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
+
     >
       <template #actions>
         <SyncByCodeButton sync-type="STOCK" code-label="物料编码" :on-synced="handleCodeSynced" />
@@ -114,10 +113,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
 import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
-
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
@@ -134,7 +132,8 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import download from '@/utils/download'
 import { StockApi, StockVO } from '@/api/erp/stock/stock'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import { markRaw } from 'vue'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
 
 /** ERP 产品库存列表 */
@@ -143,10 +142,12 @@ defineOptions({ name: 'ErpStock' })
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 
-const loading = ref(true) // 列表的加载中
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading // 列表的加载中
 const list = ref<StockVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
@@ -155,21 +156,17 @@ const queryParams = reactive({
 })
 
 const exportLoading = ref(false) // 导出的加载中
-const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
 
 /** 查询列表 */
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const data = await StockApi.getStockPage(queryParams)
+const getList = () => listRequest.run(
+  () => StockApi.getStockPage({ ...queryParams }),
+  (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
   }
-}
+)
 
 /** 搜索按钮操作 */
 
@@ -219,7 +216,7 @@ const filterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
     type: 'select',
     virtualized: true,
     queryParamKey: 'productId',
-    options: productList.value.map((item) => ({ label: item.name, value: item.id }))
+    valueComponent: markRaw(RemoteProductSelect)
   },
   {
     key: 'warehouseId',
@@ -281,17 +278,8 @@ const quickFilter = useTableQuickFilter(
 onMounted(async () => {
   await getList()
   // 加载产品、仓库列表
-  productList.value = await ProductApi.getProductSimpleList()
   warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
 })
-
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    StockApi.getStockPage({ ...params, ...pagination })
-  )
-  return rows
-}
 
 const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
 const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(

@@ -19,10 +19,8 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="list = $event"
-      :list-rows="list"
-      @column-filter-reset="getList"
+      server-filter
+      :server-filter-query="getList"
     >
       <template #table="{ resolveRows }">
         <el-table
@@ -80,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { computed, onActivated, onMounted, reactive, ref } from 'vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -98,7 +96,7 @@ import { resolveInProcessOrderStatus } from './inProcessOrderStatus'
 import { formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesInProcessOrder' })
-const queryParams = reactive({ pageNo: 1, pageSize: 20 })
+const queryParams = reactive({ pageNo: 1, pageSize: 20, listFilters: undefined as string | undefined })
 const list = ref<InProcessOrder[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -110,14 +108,16 @@ const getList = async () => {
   loadError.value = ''
   try {
     const result = await getInProcessOrderPage({ ...queryParams })
-    if (sequence !== requestSequence) return
+    if (sequence !== requestSequence) return false
     list.value = result.list
     total.value = result.total
+    return true
   } catch (error) {
-    if (sequence !== requestSequence) return
+    if (sequence !== requestSequence) return false
     list.value = []
     total.value = 0
     loadError.value = error instanceof Error ? error.message : '在制工单查询失败，请重试'
+    throw error
   } finally {
     if (sequence === requestSequence) loading.value = false
   }
@@ -198,13 +198,6 @@ onActivated(() => {
   activated = true
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = { ...queryParams }
-  const rows = await loadAllListPages<any>((pagination) =>
-    getInProcessOrderPage({ ...params, ...pagination })
-  )
-  return rows
-}
 const statusColumnFilter: ListColumnFilterDefinition[] = [
   {
     key: 'status',

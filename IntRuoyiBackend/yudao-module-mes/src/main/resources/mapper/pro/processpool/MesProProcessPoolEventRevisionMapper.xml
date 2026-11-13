@@ -72,6 +72,7 @@
         <if test="reqVO.modifiedAtEnd != null">
           AND report_revision.server_revision_time <![CDATA[<=]]> #{reqVO.modifiedAtEnd}
         </if>
+        <if test="ew != null and !ew.emptyOfNormal"> AND (${ew.sqlSegment}) </if>
     </sql>
 
     <select id="selectProductionReportRevisionLogCount" resultType="java.lang.Long">

@@ -17,8 +17,8 @@
       <el-tabs v-model="productManageTab" @tab-change="handleProductManageTabChange">
         <el-tab-pane label="产品" name="product">
           <ProductListTable
-            :load-filter-rows="loadProductColumnFilterRows"
-            @filtered-rows="productRows = $event"
+            :query-model="productQueryModel"
+            :server-filter-query="loadProductRows"
             :batch-audio-auto-check-enabled="batchProductAudioAutoCheckState?.enabled"
             :batch-audio-auto-check-label="batchProductAudioAutoCheckLabel"
             :batch-generating-sales-countries="batchGeneratingProductSalesCountries"
@@ -66,8 +66,8 @@
         </el-tab-pane>
         <el-tab-pane label="奖项" name="award">
           <AwardListTable
-            :load-filter-rows="loadAwardColumnFilterRows"
-            @filtered-rows="awardRows = $event"
+            :query-model="awardQueryModel"
+            :server-filter-query="loadAwardRows"
             :awards="awardRows"
             :generating-cover-award-id="generatingCoverAwardId"
             :keyword="awardKeyword"
@@ -788,6 +788,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
 import {
   ShowroomAdminApi,
   type ShowroomProductCoverGenerationMode,
@@ -829,7 +830,6 @@ import {
   normalizeNarrationVersion,
   type ShowroomNarrationVersionRecord
 } from '@/views/showroom-admin/narration/contracts'
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 import ProductListTable from '@/views/showroom-admin/components/ProductListTable.vue'
 import AwardListTable from '@/views/showroom-admin/components/AwardListTable.vue'
 import ProductAudioDialog from '@/views/showroom-admin/product/ProductAudioDialog.vue'
@@ -1816,10 +1816,22 @@ const normalizeProductTranslatePublishTaskStatus = (
   }
 }
 
+const productQueryModel = reactive({
+  get pageNo() { return productPageNo.value },
+  set pageNo(value: number) { productPageNo.value = value },
+  listFilters: undefined as string | undefined
+})
+const awardQueryModel = reactive({
+  get pageNo() { return awardPageNo.value },
+  set pageNo(value: number) { awardPageNo.value = value },
+  listFilters: undefined as string | undefined
+})
+
 const buildProductPageParams = (pageNo: number, pageSize: number) => {
   return {
     pageNo,
     pageSize,
+    listFilters: productQueryModel.listFilters,
     productId: productFilters.value.productId || undefined,
     keyword: productFilters.value.keyword,
     lifecycleStage: productFilters.value.lifecycleStage,
@@ -2203,43 +2215,48 @@ const loadProductNarrationDraft = async (productId: number, sourceRevisionId: nu
   }
 }
 
-const loadProductColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getProductPage(buildProductPageParams(pagination.pageNo, pagination.pageSize)))
-const loadAwardColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getAwardPage({ ...pagination, keyword: awardKeyword.value.trim() || undefined }))
 
-const loadProductRows = async () => {
-  const productPage = normalizeObject(
-    await ShowroomAdminApi.getProductPage(buildProductPageParams(productPageNo.value, productPageSize.value)),
-    'productPage'
-  )
-  const nextTotal = normalizeTotal(productPage.total, 'productPage.total')
-  const totalPages = nextTotal > 0 ? Math.ceil(nextTotal / productPageSize.value) : 0
-  if (totalPages > 0 && productPageNo.value > totalPages) {
-    productPageNo.value = totalPages
-    await loadProductRows()
-    return
-  }
-  productPageTotal.value = nextTotal
-  productRows.value = normalizeArray(productPage.list, 'productPage.list')
+const productListRequest = useLatestListRequest()
+const awardListRequest = useLatestListRequest()
+const loadProductRows = () => {
+  const params = buildProductPageParams(productPageNo.value, productPageSize.value)
+  return productListRequest.run(async () => {
+    let page = normalizeObject(await ShowroomAdminApi.getProductPage(params), 'productPage')
+    const nextTotal = normalizeTotal(page.total, 'productPage.total')
+    const totalPages = nextTotal > 0 ? Math.ceil(nextTotal / params.pageSize) : 0
+    if (totalPages > 0 && params.pageNo > totalPages) {
+      params.pageNo = totalPages
+      page = normalizeObject(await ShowroomAdminApi.getProductPage(params), 'productPage')
+    }
+    return { page, pageNo: params.pageNo }
+  }, ({ page, pageNo }) => {
+    productPageNo.value = pageNo
+    productPageTotal.value = normalizeTotal(page.total, 'productPage.total')
+    productRows.value = normalizeArray(page.list, 'productPage.list')
+  })
 }
 
-const loadAwardRows = async () => {
-  const awardPage = normalizeObject(
-    await ShowroomAdminApi.getAwardPage({
-      pageNo: awardPageNo.value,
-      pageSize: awardPageSize.value,
-      keyword: awardKeyword.value.trim() || undefined
-    }),
-    'awardPage'
-  )
-  const nextTotal = normalizeTotal(awardPage.total, 'awardPage.total')
-  const totalPages = nextTotal > 0 ? Math.ceil(nextTotal / awardPageSize.value) : 0
-  if (totalPages > 0 && awardPageNo.value > totalPages) {
-    awardPageNo.value = totalPages
-    await loadAwardRows()
-    return
+const loadAwardRows = () => {
+  const params = {
+    listFilters: awardQueryModel.listFilters,
+    pageNo: awardPageNo.value,
+    pageSize: awardPageSize.value,
+    keyword: awardKeyword.value.trim() || undefined
   }
-  awardPageTotal.value = nextTotal
-  awardRows.value = normalizeAwardRows(normalizeArray(awardPage.list, 'awardPage.list'))
+  return awardListRequest.run(async () => {
+    let page = normalizeObject(await ShowroomAdminApi.getAwardPage(params), 'awardPage')
+    const nextTotal = normalizeTotal(page.total, 'awardPage.total')
+    const totalPages = nextTotal > 0 ? Math.ceil(nextTotal / params.pageSize) : 0
+    if (totalPages > 0 && params.pageNo > totalPages) {
+      params.pageNo = totalPages
+      page = normalizeObject(await ShowroomAdminApi.getAwardPage(params), 'awardPage')
+    }
+    return { page, pageNo: params.pageNo }
+  }, ({ page, pageNo }) => {
+    awardPageNo.value = pageNo
+    awardPageTotal.value = normalizeTotal(page.total, 'awardPage.total')
+    awardRows.value = normalizeAwardRows(normalizeArray(page.list, 'awardPage.list'))
+  })
 }
 
 const loadBatchProductAudioAutoCheckState = async () => {

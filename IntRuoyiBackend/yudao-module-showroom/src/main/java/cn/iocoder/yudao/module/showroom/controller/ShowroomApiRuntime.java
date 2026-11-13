@@ -1198,6 +1198,9 @@ public class ShowroomApiRuntime {
                 .toList();
     }
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.showroom.dal.mysql.content.ShowroomListQueryMapper listQueryMapper;
+
     public PageResult<ShowroomAdminController.ProductPageRespVO> listProducts(ShowroomAdminController.PageQueryReqVO req) {
         return listProductPage(req, null, null);
     }
@@ -1212,46 +1215,9 @@ public class ShowroomApiRuntime {
             ShowroomAdminController.PageQueryReqVO req,
             Set<Long> visibleProductIds,
             Set<Long> editableProductIds) {
-        if (!hasProductPageFilters(req)) {
-            return listUnfilteredProductPage(req, visibleProductIds, editableProductIds);
-        }
-        List<ProductPageCandidate> matchedCandidates = productPageCandidates(visibleProductIds, editableProductIds)
-                .stream()
-                .filter(candidate -> matchesProductCandidate(candidate, req))
-                .toList();
-        List<ShowroomAdminController.ProductPageRespVO> rows = productPageRows(
-                page(matchedCandidates, req.pageNo(), req.pageSize()));
-        return new PageResult<>(rows, (long) matchedCandidates.size());
-    }
-
-    private PageResult<ShowroomAdminController.ProductPageRespVO> listUnfilteredProductPage(
-            ShowroomAdminController.PageQueryReqVO req,
-            Set<Long> visibleProductIds,
-            Set<Long> editableProductIds) {
-        PageResult<ShowroomProductSnapshot> snapshotPage;
-        if (visibleProductIds == null) {
-            snapshotPage = contentService.pageProducts(req.pageNo(), req.pageSize());
-        } else {
-            List<ShowroomProductSnapshot> visibleProducts = contentService.listProducts().stream()
-                    .filter(snapshot -> visibleProductIds.contains(snapshot.productId()))
-                    .toList();
-            snapshotPage = new PageResult<>(page(visibleProducts, req.pageNo(), req.pageSize()),
-                    (long) visibleProducts.size());
-        }
-        List<ShowroomAdminController.ProductPageRespVO> rows = productPageRows(
-                productPageCandidates(snapshotPage.getList(), editableProductIds));
-        return new PageResult<>(rows, snapshotPage.getTotal());
-    }
-
-    private List<ProductPageCandidate> productPageCandidates(Set<Long> visibleProductIds,
-                                                             Set<Long> editableProductIds) {
-        List<ShowroomProductSnapshot> snapshots = contentService.listProducts().stream()
-                .filter(snapshot -> visibleProductIds == null || visibleProductIds.contains(snapshot.productId()))
-                .toList();
-        if (snapshots.isEmpty()) {
-            return List.of();
-        }
-        return productPageCandidates(snapshots, editableProductIds);
+        var idPage = listQueryMapper.productPage(req, visibleProductIds);
+        var snapshots = idPage.getRecords().stream().map(contentService::getProduct).toList();
+        return new PageResult<>(productPageRows(productPageCandidates(snapshots, editableProductIds)), idPage.getTotal());
     }
 
     private List<ProductPageCandidate> productPageCandidates(List<ShowroomProductSnapshot> snapshots,
@@ -1291,24 +1257,32 @@ public class ShowroomApiRuntime {
     }
 
     public List<ShowroomProductExcelVO> listProductExcelRows(ShowroomAdminController.PageQueryReqVO req) {
-        Map<Long, String> hallNamesByProductId = resolveExportHallNamesByProductId();
-        return contentService.listProducts().stream()
-                .map(snapshot -> toProductPageRow(snapshot, true))
-                .filter(row -> matchesProduct(row, req))
-                .map(row -> toProductExcelRow(row, hallNamesByProductId.get(row.productId())))
-                .toList();
+        return listProductExcelRows(req, null, null);
     }
 
     public List<ShowroomProductExcelVO> listProductExcelRows(ShowroomAdminController.PageQueryReqVO req,
                                                              Set<Long> visibleProductIds,
                                                              Set<Long> editableProductIds) {
         Map<Long, String> hallNamesByProductId = resolveExportHallNamesByProductId();
-        return contentService.listProducts().stream()
-                .filter(snapshot -> visibleProductIds.contains(snapshot.productId()))
-                .map(snapshot -> toProductPageRow(snapshot, editableProductIds.contains(snapshot.productId())))
-                .filter(row -> matchesProduct(row, req))
-                .map(row -> toProductExcelRow(row, hallNamesByProductId.get(row.productId())))
-                .toList();
+        List<ShowroomProductExcelVO> rows = new ArrayList<>();
+        int pageNo = 1;
+        long loaded = 0;
+        while (true) {
+            var pageReq = new ShowroomAdminController.PageQueryReqVO(req.keyword(), pageNo, 100,
+                    req.ownerCompanyId(), req.ownerType(), req.lifecycleStage(), req.incompleteStatus(),
+                    req.approvalStatus(), req.productId(), req.listFilters());
+            var ids = listQueryMapper.productPage(pageReq, visibleProductIds);
+            for (Long id : ids.getRecords()) {
+                var snapshot = contentService.getProduct(id);
+                var row = toProductPageRow(snapshot, isProductEditable(snapshot, editableProductIds));
+                rows.add(toProductExcelRow(row, hallNamesByProductId.get(id)));
+            }
+            loaded += ids.getRecords().size();
+            if (loaded >= ids.getTotal()) break;
+            if (ids.getRecords().isEmpty()) throw new IllegalStateException("SHOWROOM_EXPORT_PAGE_INCONSISTENT");
+            pageNo++;
+        }
+        return rows;
     }
 
     private Map<Long, String> resolveExportHallNamesByProductId() {
@@ -1410,11 +1384,9 @@ public class ShowroomApiRuntime {
 
     public PageResult<AwardPageRespVO> listAwards(
             ShowroomAdminController.PageQueryReqVO req) {
-        List<AwardPageRespVO> rows = contentService.listAwards().stream()
-                .filter(snapshot -> matchesAward(snapshot, req.keyword()))
-                .map(this::toAwardPageRow)
-                .toList();
-        return pageResult(rows, req.pageNo(), req.pageSize());
+        var idPage = listQueryMapper.awardPage(req);
+        var rows = idPage.getRecords().stream().map(contentService::getAward).map(this::toAwardPageRow).toList();
+        return new PageResult<>(rows, idPage.getTotal());
     }
 
     public AwardDetailRespVO getAwardDetail(Long awardId, Long revisionId, boolean editable) {
@@ -5164,42 +5136,6 @@ public class ShowroomApiRuntime {
                 || req.approvalStatus().trim().equalsIgnoreCase(row.revision().status());
     }
 
-    private boolean matchesProductCandidate(ProductPageCandidate candidate,
-                                            ShowroomAdminController.PageQueryReqVO req) {
-        ShowroomProductSnapshot snapshot = candidate.snapshot();
-        ShowroomProductRevision displayRevision = candidate.displayRevision();
-        if (req.productId() != null && !req.productId().equals(snapshot.productId())) {
-            return false;
-        }
-        String keyword = normalizeKeyword(req.keyword());
-        if (hasText(keyword) && !containsIgnoreCase(snapshot.productCode(), keyword)
-                && !containsIgnoreCase(snapshot.legacyProductCode(), keyword)
-                && !containsIgnoreCase(displayRevision.nameCn(), keyword)
-                && !containsIgnoreCase(displayRevision.nameEn(), keyword)) {
-            return false;
-        }
-        Map<String, String> fields = displayRevision.fields();
-        if (hasText(req.ownerCompanyId()) && !req.ownerCompanyId().trim().equals(fields.get("owner_company_id"))) {
-            return false;
-        }
-        if (hasText(req.ownerType()) && !req.ownerType().trim().equalsIgnoreCase(fields.get("product_owner_type"))) {
-            return false;
-        }
-        if (hasText(req.lifecycleStage())
-                && !req.lifecycleStage().trim().equalsIgnoreCase(fields.get("lifecycle_stage"))) {
-            return false;
-        }
-        if ("COMPLETE".equalsIgnoreCase(req.incompleteStatus()) && displayRevision.incomplete()) {
-            return false;
-        }
-        if ("INCOMPLETE".equalsIgnoreCase(req.incompleteStatus()) && !displayRevision.incomplete()) {
-            return false;
-        }
-        return !hasText(req.approvalStatus())
-                || req.approvalStatus().trim().equalsIgnoreCase(resolveProductStatus(snapshot.productId(),
-                candidate.latestRevision()));
-    }
-
     private ShowroomProductRevision resolveTargetProductRevision(Long productId, Long revisionId,
                                                                  ShowroomProductRevision latestRevision) {
         if (revisionId == null) {
@@ -5484,15 +5420,7 @@ public class ShowroomApiRuntime {
         return new PageResult<>(page(values, pageNo, pageSize), (long) values.size());
     }
 
-    private static boolean hasProductPageFilters(ShowroomAdminController.PageQueryReqVO req) {
-        return req.productId() != null
-                || hasText(req.keyword())
-                || hasText(req.ownerCompanyId())
-                || hasText(req.ownerType())
-                || hasText(req.lifecycleStage())
-                || hasText(req.incompleteStatus())
-                || hasText(req.approvalStatus());
-    }
+
 
     private static boolean isProductEditable(ShowroomProductSnapshot snapshot, Set<Long> editableProductIds) {
         return editableProductIds == null || editableProductIds.contains(snapshot.productId());

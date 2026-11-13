@@ -23,10 +23,12 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
 
     IPage<MesKingdeeProductionMaterialListGroupRespVO> selectGroupPage(
             IPage<MesKingdeeProductionMaterialListGroupRespVO> page,
-            @Param("reqVO") MesKingdeeProductionMaterialListPageReqVO reqVO);
+            @Param("reqVO") MesKingdeeProductionMaterialListPageReqVO reqVO,
+            @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filters);
 
     List<MesKingdeeProductionMaterialListGroupRespVO> selectGroupList(
-            @Param("reqVO") MesKingdeeProductionMaterialListPageReqVO reqVO);
+            @Param("reqVO") MesKingdeeProductionMaterialListPageReqVO reqVO,
+            @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filters);
 
     default PageResult<MesKingdeeProductionMaterialListDO> selectPage(
             MesKingdeeProductionMaterialListPageReqVO reqVO) {
@@ -114,4 +116,19 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
                 .orderByAsc(MesKingdeeProductionMaterialListDO::getId));
     }
 
+
+    static com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> groupFilters(
+            MesKingdeeProductionMaterialListPageReqVO reqVO) {
+        return cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.wrapper(reqVO, java.util.Map.ofEntries(
+                java.util.Map.entry("productCode", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.textCollection("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.product_code, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR), 3, CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.product_code, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), ' '), CHAR(34))), '')", "SELECT 1 FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0", "i.product_code")),
+                java.util.Map.entry("productionOrderNo", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.textCollection("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.production_order_no, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR), 3, CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.production_order_no, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), ' '), CHAR(34))), '')", "SELECT 1 FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0", "i.production_order_no")),
+                java.util.Map.entry("childMaterialCode", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.textCollection("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.child_material_code, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR), 3, CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.child_material_code, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), ' '), CHAR(34))), '')", "SELECT 1 FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0", "i.child_material_code")),
+                java.util.Map.entry("childMaterialName", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.textCollection("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34), REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.child_material_name, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR), 3, CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(COALESCE(i.child_material_name, '')) OVER (ORDER BY i.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0 LIMIT 1) AS CHAR))-4), CONCAT(CHAR(34), ', ', CHAR(34)), ' '), CHAR(34))), '')", "SELECT 1 FROM mes_kingdee_production_material_list i WHERE i.source_bill_no=summary.source_bill_no AND i.tenant_id=summary.tenant_id AND i.deleted=0", "i.child_material_name")),
+                java.util.Map.entry("sourceBillNo", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("summary.source_bill_no")),
+                java.util.Map.entry("lineCount", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.number("summary.line_count")),
+                java.util.Map.entry("sourceModifyTime", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.dateTime("summary.source_modify_time")),
+                java.util.Map.entry("lastSyncTime", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.dateTime("summary.last_sync_time")),
+                java.util.Map.entry("productionOrderSummary", cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text("CONCAT(COALESCE(summary.production_order_summary, ''), ' ', COALESCE(summary.production_order_summary, '无'), ' ', summary.production_order_count)"))
+        ));
+    }
 }

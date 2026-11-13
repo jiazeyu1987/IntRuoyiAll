@@ -27,6 +27,7 @@ export const getInProcessOrderPage = (params: {
   workOrderCode?: string
   productName?: string
   batchCode?: string
+  listFilters?: string
   equipment?: string
 }) =>
   request.get<{ list: InProcessOrder[]; total: number }>({

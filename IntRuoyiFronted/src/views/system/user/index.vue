@@ -27,17 +27,16 @@
           :total="total"
           v-model:page="queryParams.pageNo"
           v-model:limit="queryParams.pageSize"
-          :rows="sortedUserRows"
+          :rows="list"
           :sort-state="userSortState"
           @update:quick-filter-state="userQuickFilter.updateState"
           @quick-filter-query="handleQuery"
           @column-change="saveUserColumnConfig"
           @pagination="handleUserPagination"
           @sort-change="handleUserSortChange"
-          :load-filter-rows="userSortState.order ? undefined : loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="getList"
+          server-filter
+          :server-filter-query="getList"
+
           :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
@@ -336,7 +335,7 @@
   <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
@@ -371,8 +370,6 @@ import {
   buildDeptLeaderLookup,
   formatDisplayNames,
   isDeptLeader,
-  sortUsersByDeptLeader,
-  sortUserTableRows,
   type UserTableSortOrder
 } from './utils'
 
@@ -446,13 +443,7 @@ const {
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
-const allUserRows = ref<UserTableRow[]>()
 const userSortState = ref<{ key?: keyof UserTableRow; order: UserTableSortOrder }>({ order: null })
-const sortedUserRows = computed(() =>
-  userSortState.value.order && userSortState.value.key && allUserRows.value
-    ? sortUserTableRows(allUserRows.value, userSortState.value.key, userSortState.value.order)
-    : undefined
-)
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
 const departments = ref<DeptApi.DeptVO[]>([])
@@ -511,26 +502,13 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
 let listRequestId = 0
 const getList = async () => {
   const requestId = ++listRequestId
-  const params = { ...queryParams }
+  const params = { ...queryParams, sortKey: userSortState.value.order ? userSortState.value.key : undefined, sortOrder: userSortState.value.order }
   loading.value = true
   try {
-    if (userSortState.value.order) {
-      const users = await loadAllListPages<UserApi.UserListVO>((pagination) =>
-        UserApi.getUserPage({ ...params, ...pagination })
-      )
-      if (requestId !== listRequestId) return
-      allUserRows.value = buildUserTableRows(users)
-      total.value = users.length
-      return
-    }
     const data = await UserApi.getUserPage(params)
     if (requestId !== listRequestId) return
-    allUserRows.value = undefined
     const pageList = data.list as UserApi.UserListVO[]
-    const orderedList = params.deptId !== undefined
-      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
-      : pageList
-    list.value = buildUserTableRows(orderedList)
+    list.value = buildUserTableRows(pageList)
     total.value = data.total
   } finally {
     if (requestId === listRequestId) loading.value = false
@@ -540,11 +518,11 @@ const getList = async () => {
 const handleUserSortChange = async ({ key, order }: { key?: keyof UserTableRow; order: UserTableSortOrder }) => {
   userSortState.value = { key, order }
   queryParams.pageNo = 1
-  if (!order || allUserRows.value === undefined) await getList()
+  await getList()
 }
 
 const handleUserPagination = () => {
-  if (!userSortState.value.order) return getList()
+  return getList()
 }
 
 const userQuickFilter = useTableQuickFilter(
@@ -716,15 +694,17 @@ const handleUserExport = async (generic: boolean) => {
     const scope = generic ? undefined : userListTemplateRef.value.getExportScope()
     const scopeKey = scope ? JSON.stringify(scope) : ''
     const params = JSON.parse(query)
+    params.sortKey = userSortState.value.order ? userSortState.value.key : undefined
+    params.sortOrder = userSortState.value.order
     delete params.pageNo
     delete params.pageSize
-    if (scope?.active) {
+    if (scope?.mode === 'local' && scope.active) {
       if (!scope.ids.length) throw new Error('当前筛选结果为空，无用户可导出')
       params.ids = scope.ids
     }
     const range = generic
       ? '当前租户全部通用账户不合规记录，不应用页面部门、查询或列筛选。'
-      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${scope.ids.length} 位用户。` : ''}筛选参数：${JSON.stringify(params)}`
+      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${total.value} 位用户。` : ''}筛选参数：${JSON.stringify(params)}`
     try {
       await message.confirm(`导出类型：${generic ? '通用账户不合规清单' : '用户数据'}\n租户 ID：${visit || tenant}\n范围：${range}`, '确认导出类型及范围')
     } catch (error) {
@@ -904,13 +884,6 @@ watch(
     await getList()
   }
 )
-
-const loadColumnFilterRows0 = async () => {
-  const rows = await loadAllListPages<any>((pagination) =>
-    UserApi.getUserPage({ ...queryParams, ...pagination })
-  )
-  return buildUserTableRows(rows)
-}
 
 const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
   {
