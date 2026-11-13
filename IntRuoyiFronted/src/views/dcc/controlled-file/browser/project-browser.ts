@@ -82,12 +82,12 @@ export class ProjectBrowserState {
   }
   async loadProjects() {
     const token = ++this.projectsSequence
-    this.projectLoading = true; this.projectError = ''; this.projects = []; this.projectsTotal = 0
+    this.projectLoading = true; this.projectError = ''; this.projects = []
     try {
       const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: 20, keyword: this.projectKeyword })
       if (token !== this.projectsSequence) return
       this.projects = page.list; this.projectsTotal = page.total
-    } catch (error) { if (token === this.projectsSequence) this.projectError = errorText(error) }
+    } catch (error) { if (token === this.projectsSequence) { this.projectsTotal = 0; this.projectError = errorText(error) } }
     finally { if (token === this.projectsSequence) this.projectLoading = false }
   }
   invalidateFiles() {
@@ -132,7 +132,8 @@ export class ProjectBrowserState {
   }
   async loadFiles() {
     const token = ++this.filesSequence
-    this.loading = true; this.error = ''; this.rows = []; this.total = 0; this.usage = {}
+    // Keep the total while loading so pagination does not clamp the requested page to 1.
+    this.loading = true; this.error = ''; this.rows = []; this.usage = {}
     const queryKeyword = this.keyword
     try {
       if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')
@@ -144,7 +145,7 @@ export class ProjectBrowserState {
       this.rows = page.list; this.total = page.total; this.appliedKeyword = queryKeyword
       // Counts are the formal server distinct-project usage, never the number of visible folders.
       await this.refreshUsage(token)
-    } catch (error) { if (token === this.filesSequence) this.error = errorText(error) }
+    } catch (error) { if (token === this.filesSequence) { this.total = 0; this.error = errorText(error) } }
     finally { if (token === this.filesSequence) this.loading = false }
   }
   loadPage(query: SelectorQuery) { return loadSelectorBrowserPage(this.tenantId, query) }

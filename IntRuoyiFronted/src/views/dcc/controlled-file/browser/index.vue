@@ -2997,8 +2997,8 @@ const getList = async () => {
     JSON.stringify([route.fullPath, browserMode.value, getBrowserCacheContext(), buildBrowserRequestParams(true), [route.query.workingFileId, route.query.workingMasterId]])
   browserListErrorMessage.value = ''
   list.value = []
-  total.value = 0
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
+    total.value = 0
     loading.value = false
     markBrowserListLoadedForState(requestRouteStateKey)
     return
