@@ -31,7 +31,8 @@
       </el-table-column>
     </el-table>
     <p v-else-if="!validationError && file" class="text-13px text-[var(--el-text-color-secondary)]">{{ compact ? '无附件' : '暂无文件附件' }}</p>
-    <el-dialog v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close>
+    <ProtectedPdfViewer v-if="inline && previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName" compact review-toolbar />
+    <el-dialog v-if="!inline" v-model="previewVisible" :title="selected?.fileName || '附件预览'" width="90%" destroy-on-close>
       <ProtectedPdfViewer v-if="previewSource && previewVisible" :key="String(selected?.attachmentId)" :preview-source="previewSource" :title="selected?.fileName || '附件预览'" />
     </el-dialog>
     </template>
@@ -49,7 +50,7 @@ import { downloadByData } from '@/utils/filt'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
-const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean }>()
+const props = defineProps<{ file?: ControlledFileVO; bodyReadContext?: DccBodyReadContext; contextError?: string; compact?: boolean; toolbar?: boolean; inline?: boolean }>()
 const listVisible = ref(false)
 const userStore = useUserStoreWithOut()
 const actionError = ref(''), downloading = ref(''), selected = ref<ControlledFileAttachmentVO>(), previewVisible = ref(false)

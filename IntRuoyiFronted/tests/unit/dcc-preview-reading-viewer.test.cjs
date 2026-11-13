@@ -362,3 +362,36 @@ test('PDF fits narrow, expanded and rotated containers while zoom and reset rema
   }
   await r.unmount()
 })
+
+
+test('review text search keeps 80-line pages, active hits, manual navigation and source reset in sync', async () => {
+  const h=load({local:true}); await h.load()
+  const a=h.api
+  a.textPreviewContent.value=Array.from({length:185},(_,i)=>`line ${i+1} ${[2,90,170].includes(i)?'needle':'body'}`).join('\n')
+  assert.equal(a.textPageEntries.value.length,3)
+  a.textSearchQuery.value='needle';a.handleTextSearch()
+  assert.equal(a.textSearchMatches.value.length,3)
+  assert.equal(a.textCurrentPage.value,1)
+  assert.equal(a.textPageSegments.value.find(s=>s.active).text,'needle')
+  a.moveTextSearchMatch(1);assert.equal(a.textCurrentPage.value,2);assert.equal(a.textPageInput.value,'2')
+  a.moveTextSearchMatch(1);assert.equal(a.textCurrentPage.value,3)
+  a.moveTextSearchMatch(-1);assert.equal(a.textCurrentPage.value,2)
+  a.goToTextPage(1);assert.equal(a.textPageInput.value,'1')
+  a.textPageInput.value='3';a.handleTextPageJump();assert.equal(a.textCurrentPage.value,3)
+  a.textPageInput.value='4';a.handleTextPageJump();assert.ok(a.textNavigationError.value)
+  a.textSearchQuery.value='absent';a.handleTextSearch();assert.equal(a.textSearchMessage.value,'未找到匹配内容')
+  await a.resetPreviewState();assert.equal(a.textCurrentPage.value,1);assert.equal(a.textSearchMatches.value.length,0)
+  await h.hooks.unmount()
+})
+
+test('PDF active highlights follow the selected occurrence and clear with the document', async () => {
+  const h=load({local:true});await h.load();const a=h.api
+  a.pdfTextGeometry.value={1:[{start:0,end:20,left:0,top:10,width:200,height:12}],2:[{start:0,end:6,left:5,top:10,width:60,height:12}]}
+  a.pdfSubmittedSearchQuery.value='needle'
+  a.pdfSearchMatches.value=[{pageNumber:1,offset:0},{pageNumber:1,offset:10},{pageNumber:2,offset:0}]
+  a.pdfSearchMatchIndex.value=0;assert.equal(a.pdfMatchBoxes(1)[0].left,'0px');assert.equal(a.pdfMatchBoxes(1)[0].width,'60px')
+  a.pdfSearchMatchIndex.value=1;assert.equal(a.pdfMatchBoxes(1)[0].left,'100px')
+  a.pdfSearchMatchIndex.value=2;assert.equal(a.pdfMatchBoxes(1).length,0);assert.equal(a.pdfMatchBoxes(2).length,1)
+  a.resetPdfTools();assert.equal(a.pdfMatchBoxes(2).length,0)
+  await h.hooks.unmount()
+})

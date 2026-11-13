@@ -1290,6 +1290,12 @@
       "kind": "page",
       "value": "dcc/controlled-file/basic-data/file-type-taxonomy/index",
       "reason": "既有五级文件分类页面新增原子保存审批矩阵，沿用现有菜单及dcc:controlled-file:category:manage文控维护权限，无新增菜单、权限或路由。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ReviewDocumentPreview.vue",
+      "kind": "page",
+      "value": "dcc/controlled-file/detail/ReviewDocumentPreview",
+      "reason": "受控文件已有详情和审批页面内的正文与附件切换组件，无独立菜单或路由；复用现有正文、附件查询及审批上下文授权，不新增权限标识、角色或租户套餐授权。"
     }
   ]
 }

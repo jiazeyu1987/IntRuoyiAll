@@ -80,19 +80,19 @@
     <template v-if="resolvedPreviewKind === 'PDF'">
       <div v-if="pageEntries.length" class="protected-viewer-pdf-tools" data-testid="protected-viewer-pdf-tools">
         <div class="protected-viewer-pdf-tools__row">
+          <el-input v-model="pdfSearchQuery" class="protected-viewer-pdf-tools__query" size="small" aria-label="PDF 正文关键字" :disabled="!pdfCanSearch" placeholder="搜索 PDF 正文" @keyup.enter="handlePdfSearch" />
+          <el-button size="small" aria-label="搜索 PDF 正文" :disabled="!pdfCanSearch || !pdfSearchQuery.trim()" @click="handlePdfSearch">搜索</el-button>
+          <el-button size="small" aria-label="上一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchPrevious">上一处</el-button>
+          <el-button size="small" aria-label="下一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchNext">下一处</el-button>
+          <span role="status" aria-live="polite">{{ pdfSearchMessage }}</span>
+        </div>
+        <div class="protected-viewer-pdf-tools__row preview-navigation">
           <el-button size="small" aria-label="上一页" :disabled="pdfCurrentPage <= 1" @click="goToPdfPage(pdfCurrentPage - 1)">上一页</el-button>
           <span aria-live="polite">第 {{ pdfCurrentPage }} / {{ pageEntries.length }} 页</span>
           <el-button size="small" aria-label="下一页" :disabled="pdfCurrentPage >= pageEntries.length" @click="goToPdfPage(pdfCurrentPage + 1)">下一页</el-button>
           <el-input v-model="pdfPageInput" class="protected-viewer-pdf-tools__page" size="small" aria-label="PDF 页码" inputmode="numeric" @keyup.enter="handlePdfPageJump" />
           <el-button size="small" aria-label="跳转页码" @click="handlePdfPageJump">跳转</el-button>
           <span v-if="pdfNavigationError" role="alert" class="protected-viewer-pdf-tools__error">{{ pdfNavigationError }}</span>
-        </div>
-        <div class="protected-viewer-pdf-tools__row">
-          <el-input v-model="pdfSearchQuery" class="protected-viewer-pdf-tools__query" size="small" aria-label="PDF 正文关键字" :disabled="!pdfCanSearch" placeholder="搜索 PDF 正文" @keyup.enter="handlePdfSearch" />
-          <el-button size="small" aria-label="搜索 PDF 正文" :disabled="!pdfCanSearch || !pdfSearchQuery.trim()" @click="handlePdfSearch">搜索</el-button>
-          <el-button size="small" aria-label="上一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchPrevious">上一处</el-button>
-          <el-button size="small" aria-label="下一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchNext">下一处</el-button>
-          <span role="status" aria-live="polite">{{ pdfSearchMessage }}</span>
         </div>
         <div v-if="pdfSearchMatches[pdfSearchMatchIndex]" class="protected-viewer-pdf-tools__excerpt">
           第 {{ pdfSearchMatches[pdfSearchMatchIndex].pageNumber }} 页：{{ pdfSearchMatches[pdfSearchMatchIndex].excerpt }}
@@ -157,6 +157,7 @@
           <div class="protected-viewer-page__canvas-wrap">
             <div class="protected-viewer-page__canvas-viewport" :style="getPdfPageViewportStyle(page)">
               <div class="protected-viewer-transform-stage" :style="getPdfPreviewTransformStyle(page)">
+                <div v-for="(box, index) in pdfMatchBoxes(page.pageNumber)" :key="index" class="protected-viewer-pdf-match" :style="box" data-testid="pdf-active-match"></div>
                 <canvas
                   :ref="(element) => bindCanvasRef(page.pageNumber, element)"
                   class="protected-viewer-canvas"
@@ -340,16 +341,8 @@
     </template>
 
     <template v-else-if="resolvedPreviewKind === 'TEXT'">
-      <div v-if="textPreviewContent" class="protected-viewer-frame protected-viewer-frame--text protected-viewer-frame--transformable">
+      <template v-if="textPreviewContent">
         <div class="protected-viewer-text-tools" data-testid="protected-viewer-text-tools">
-          <div class="protected-viewer-text-tools__row">
-            <el-button size="small" aria-label="上一页" :disabled="textCurrentPage <= 1" @click="goToTextPage(textCurrentPage - 1)">上一页</el-button>
-            <span aria-live="polite">第 {{ textCurrentPage }} / {{ textPageEntries.length }} 页（每 {{ TEXT_LINES_PER_PAGE }} 行）</span>
-            <el-button size="small" aria-label="下一页" :disabled="textCurrentPage >= textPageEntries.length" @click="goToTextPage(textCurrentPage + 1)">下一页</el-button>
-            <el-input v-model="textPageInput" class="protected-viewer-text-tools__page" size="small" aria-label="文本页码" inputmode="numeric" @keyup.enter="handleTextPageJump" />
-            <el-button size="small" aria-label="跳转页码" @click="handleTextPageJump">跳转</el-button>
-            <span v-if="textNavigationError" role="alert">{{ textNavigationError }}</span>
-          </div>
           <div class="protected-viewer-text-tools__row">
             <el-input v-model="textSearchQuery" class="protected-viewer-text-tools__query" size="small" aria-label="文本正文关键字" placeholder="搜索文本正文" @keyup.enter="handleTextSearch" />
             <el-button size="small" aria-label="搜索文本正文" :disabled="!textSearchQuery.trim()" @click="handleTextSearch">搜索</el-button>
@@ -357,7 +350,16 @@
             <el-button size="small" aria-label="下一处匹配" :disabled="!textSearchMatches.length" @click="moveTextSearchMatch(1)">下一处</el-button>
             <span role="status" aria-live="polite">{{ textSearchMessage }}</span>
           </div>
+          <div class="protected-viewer-text-tools__row preview-navigation">
+            <el-button size="small" aria-label="上一页" :disabled="textCurrentPage <= 1" @click="goToTextPage(textCurrentPage - 1)">上一页</el-button>
+            <span aria-live="polite">第 {{ textCurrentPage }} / {{ textPageEntries.length }} 页（每 {{ TEXT_LINES_PER_PAGE }} 行）</span>
+            <el-button size="small" aria-label="下一页" :disabled="textCurrentPage >= textPageEntries.length" @click="goToTextPage(textCurrentPage + 1)">下一页</el-button>
+            <el-input v-model="textPageInput" class="protected-viewer-text-tools__page" size="small" aria-label="文本页码" inputmode="numeric" @keyup.enter="handleTextPageJump" />
+            <el-button size="small" aria-label="跳转页码" @click="handleTextPageJump">跳转</el-button>
+            <span v-if="textNavigationError" role="alert">{{ textNavigationError }}</span>
+          </div>
         </div>
+      <div class="protected-viewer-frame protected-viewer-frame--text protected-viewer-frame--transformable">
         <div v-if="canTransformPreview && !compact" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
           <span class="protected-viewer-transform-controls__status">{{ viewerZoomPercent }}% / {{ viewerRotationDegrees }}°</span>
           <div class="protected-viewer-transform-controls__grid">
@@ -394,6 +396,7 @@
           </div>
         </div>
       </div>
+      </template>
       <el-empty v-else-if="!loading && !errorMessage" description="暂无可预览的文本内容" />
     </template>
 
@@ -499,7 +502,7 @@ const emit = defineEmits<{
 }>()
 
 interface ViewerCanvasPageProxy extends PdfTextPage {
-  getViewport: (params: { scale: number }) => { width: number; height: number }
+  getViewport: (params: { scale: number }) => { width: number; height: number; convertToViewportRectangle?: (rect: number[]) => number[] }
   render: (params: {
     canvasContext: CanvasRenderingContext2D
     viewport: { width: number; height: number }
@@ -527,6 +530,16 @@ const pdfPageRefMap = new Map<number, HTMLElement>()
 const pdfCurrentPage = ref(1)
 const pdfPageInput = ref('1')
 const pdfNavigationError = ref('')
+const pdfTextGeometry = shallowRef<Record<number, Array<{ start: number; end: number; left: number; top: number; width: number; height: number }>>>({})
+const pdfMatchBoxes = (pageNumber: number) => {
+  const match = pdfSearchMatches.value[pdfSearchMatchIndex.value]
+  if (!match || match.pageNumber !== pageNumber) return []
+  const end = match.offset + pdfSubmittedSearchQuery.value.normalize('NFKC').replace(/\s+/gu, ' ').length
+  return (pdfTextGeometry.value[pageNumber] || []).filter(box => box.end > match.offset && box.start < end).map(box => ({
+    left: `${box.left + box.width * Math.max(0, match.offset - box.start) / (box.end - box.start)}px`, top: `${box.top}px`,
+    width: `${box.width * (Math.min(box.end, end) - Math.max(box.start, match.offset)) / (box.end - box.start)}px`, height: `${box.height}px`
+  }))
+}
 const pdfTextPages = ref<string[]>([])
 const pdfTextStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const pdfSearchError = ref('')
@@ -541,7 +554,7 @@ const pdfSearchMessage = computed(() => {
   if (pdfTextStatus.value !== 'ready') return ''
   if (!pdfCanSearch.value) return '当前 PDF 无可搜索文本，扫描件或纯图页面不支持文字搜索。'
   if (!pdfSubmittedSearchQuery.value) return '可搜索 PDF 正文文本'
-  if (!pdfSearchMatches.value.length) return '未找到匹配的正文文本'
+  if (!pdfSearchMatches.value.length) return '未找到匹配内容'
   return `第 ${pdfSearchMatchIndex.value + 1} / ${pdfSearchMatches.value.length} 处匹配`
 })
 const renderVersion = ref(0)
@@ -725,7 +738,7 @@ const textPageSegments = computed(() => {
 })
 const textSearchMessage = computed(() => {
   if (!textSubmittedSearchQuery.value) return '可搜索文本正文'
-  if (!textSearchMatches.value.length) return '未找到匹配的正文文本'
+  if (!textSearchMatches.value.length) return '未找到匹配内容'
   return `第 ${textSearchMatchIndex.value + 1} / ${textSearchMatches.value.length} 处匹配`
 })
 const resolvedOnlinePreviewSource = computed<OnlineFilePreviewSource | null>(() => {
@@ -946,6 +959,7 @@ const resetPdfTools = () => {
   pdfCurrentPage.value = 1
   pdfPageInput.value = '1'
   pdfNavigationError.value = ''
+  pdfTextGeometry.value = {}
   pdfTextPages.value = []
   pdfTextStatus.value = 'idle'
   pdfSearchError.value = ''
@@ -1320,6 +1334,24 @@ const renderPdfPages = async (
     }
     const viewport = page.getViewport({ scale })
     const renderViewport = page.getViewport({ scale: scale * outputScale })
+    const content = await page.getTextContent()
+    if (!isCurrentRenderVersion(currentRenderVersion)) return
+    let rawText = ''
+    const boxes: typeof pdfTextGeometry.value[number] = []
+    for (const item of content.items) {
+      if (typeof item.str !== 'string') continue
+      const start = rawText.normalize('NFKC').replace(/\s+/gu, ' ').trimStart().length
+      rawText += item.str
+      const end = rawText.normalize('NFKC').replace(/\s+/gu, ' ').trimStart().length
+      if (item.transform && item.width !== undefined && item.height !== undefined && viewport.convertToViewportRectangle) {
+        const [x, y] = item.transform.slice(4)
+        const rect = viewport.convertToViewportRectangle([x, y, x + item.width, y + item.height])
+        boxes.push({ start, end, left: Math.min(rect[0], rect[2]), top: Math.min(rect[1], rect[3]), width: Math.abs(rect[2] - rect[0]), height: Math.abs(rect[3] - rect[1]) })
+      }
+      if (item.hasEOL) rawText += '\n'
+    }
+    pdfTextGeometry.value = { ...pdfTextGeometry.value, [pageEntry.pageNumber]: boxes }
+
     canvas.width = Math.ceil(renderViewport.width)
     canvas.height = Math.ceil(renderViewport.height)
     canvas.style.width = `${Math.ceil(viewport.width)}px`
@@ -2055,4 +2087,16 @@ watch(
 .protected-viewer-shell--review > :deep(.onlyoffice-viewer-shell) { flex: none; height: 75vh; min-height: 360px; }
 .protected-viewer-trace-details { flex-shrink: 0; margin-top: 8px; padding: 8px 0; color: var(--el-text-color-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .protected-viewer-trace-details summary { cursor: pointer; }
+</style>
+
+<style scoped>
+.protected-viewer-pdf-tools,
+.protected-viewer-text-tools { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+.protected-viewer-pdf-tools__row,
+.protected-viewer-text-tools__row { flex: 1; }
+.protected-viewer-pdf-tools__row > [role="status"],
+.protected-viewer-text-tools__row > [role="status"] { white-space: nowrap; }
+.preview-navigation { flex: 0 0 auto; margin-left: auto; }
+.protected-viewer-pdf-match { position: absolute; background: rgb(255 176 0 / 45%); outline: 2px solid #e08a00; pointer-events: none; z-index: 1; }
+.protected-viewer-pdf-tools__excerpt { flex-basis: 100%; }
 </style>

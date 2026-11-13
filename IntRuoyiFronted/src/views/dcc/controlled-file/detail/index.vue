@@ -27,11 +27,10 @@
           <el-tag :type="getDetailStatusTagType(fileDetail.status)">{{ getDetailStatusLabel(fileDetail.status) }}</el-tag>
         </div>
         <section class="detail-viewer-page__body" data-testid="dcc-controlled-preview-file-pane">
-          <ProtectedPdfViewer
+          <ReviewDocumentPreview
             v-if="detailBodyPreviewState.source"
-            :controlled-file-id="controlledFileId"
-            :preview-source="detailBodyPreviewState.source"
-            :title="fileDetail.fileName"
+            :controlled-file-id="controlledFileId" :source="detailBodyPreviewState.source"
+            :file="fileDetail" :context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error"
           />
         </section>
       </template>
@@ -351,21 +350,11 @@
           <div class="mb-10px text-15px font-600">正文与附件</div>
           <el-alert v-if="detailBodyPreviewState.error" :title="detailBodyPreviewState.error" type="error" :closable="false" show-icon />
           <div ref="reviewBodyContentRef"></div>
-          <ProtectedPdfViewer
-            v-if="detailBodyPreviewState.source"
-            ref="approvalBodyViewerRef"
-            :controlled-file-id="controlledFileId"
-            :preview-source="detailBodyPreviewState.source"
-            title="正文"
-            compact
-            hide-reading-details
-            review-toolbar
-          >
-            <template #document-entry>
-              <el-button size="small" type="primary" plain @click="reviewBodyContentRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })">主文档</el-button>
-              <ControlledFileAttachments compact toolbar :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
-            </template>
-          </ProtectedPdfViewer>
+          <ReviewDocumentPreview
+            ref="approvalBodyViewerRef" hide-reading-details :controlled-file-id="controlledFileId"
+            :source="detailBodyPreviewState.source" :file="fileDetail"
+            :context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error"
+          />
         </section>
       </ContentWrap>
       </section>
@@ -2814,6 +2803,7 @@ import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
+import ReviewDocumentPreview from './ReviewDocumentPreview.vue'
 import { attachmentPurposeText, attachmentUploaderText, attachmentUploadTimeText, attachmentRoundText, assertAttachmentBelongsToVersion } from './attachment-facts'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
@@ -3428,7 +3418,7 @@ const applicantTrainingRecordDialog = reactive({
   file: undefined as ControlledFileUploadRespVO | undefined
 })
 
-const approvalBodyViewerRef = ref<InstanceType<typeof ProtectedPdfViewer>>()
+const approvalBodyViewerRef = ref<InstanceType<typeof ReviewDocumentPreview>>()
 const actionDialog = reactive({
   visible: false,
   passwordFocused: false,
