@@ -8,7 +8,7 @@ const { parse } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
 const tick = async () => { await vue.nextTick(); for (let i = 0; i < 20; i++) await Promise.resolve() }
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
-const row = (overrides = {}) => ({ id: 48, sourceType: 'DEVIATION', sourceId: 1225, batchExecutionId: 1225, deviationIdsJson: '[91,92]', reviewStatus: 'pending_review', ...overrides })
+const row = (overrides = {}) => ({ id: 48, qaReviewerUserId: 12, sourceType: 'DEVIATION', sourceId: 1225, batchExecutionId: 1225, deviationIdsJson: '[91,92]', reviewStatus: 'pending_review', ...overrides })
 const entry = (overrides = {}) => ({ reviewId: '48', from: 'deviation', deviationId: '91', batchExecutionId: '1225', ...overrides })
 const handoffEntry = (overrides = {}) => ({ activeOrderId: '7', reviewId: '48', handoffTaskId: '101', roundId: '48', handoffType: 'QA_REVIEW', ...overrides })
 const handoffContext = (query = handoffEntry(), overrides = {}) => ({
@@ -28,6 +28,15 @@ function pageHarness(query = entry(), overrides = {}) {
   const route = vue.reactive({ name: 'MesProFeedbackEdhrNonconformanceReview', query })
   const mounted = [], unmounted = [], exactReads = [], listReads = [], writes = [], messages = [], stops = []
   const context = {
+    useApprovalCenterInvalidationStore: () => ({
+      syncSession: () => ({ key: 'test-session' }),
+      isCurrent: key => key === 'test-session',
+      captureHandoffSourceSuccess: () => ({ session: { key: 'test-session' } }),
+      publishEdhrSuccess() {}
+    }),
+    useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
+    useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
+    useUserStore: () => ({ getUser: { id: 12 } }),
     ...vue, defineOptions() {}, useRoute: () => route,
     watch: (...args) => { const stop = vue.watch(...args); stops.push(stop); return stop },
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
@@ -51,7 +60,7 @@ function pageHarness(query = entry(), overrides = {}) {
     uploadNonconformanceReviewMaterial: async () => { throw Error('entry must not upload') },
     ...overrides
   }
-  const page = Function(...Object.keys(context), `${compile(body)}; return { errorText, selectedReview, selectedReviewReadOnly, reviewTabOpen, createDialogVisible, selectedActiveOrderId, disposeForm, reviews, openReviewTab, openCreateDialog, resolveSourceTypeLabel, handleDispose, handleMaterialUpload };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${compile(body)}; return { errorText, selectedReview, canDisposeSelectedReview, selectedReviewReadOnly, reviewTabOpen, createDialogVisible, selectedActiveOrderId, disposeForm, reviews, openReviewTab, openCreateDialog, resolveSourceTypeLabel, handleDispose, handleMaterialUpload };`)(...Object.values(context))
   const unmount = () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) }
   return { page, route, exactReads, listReads, writes, messages, unmount, mount: async () => { mounted.forEach(fn => fn()); await tick() } }
 }
@@ -90,10 +99,14 @@ test('malformed, missing or duplicate source queries fail before reads or writes
     assert.deepEqual(h.writes, []); h.unmount()
   }
 })
-test('existing query permission is required, with no silent list fallback', async () => {
+test('logged-in readers can open the exact review without write permissions', async () => {
   const h = pageHarness(entry(), { hasPermission: () => false }); await h.mount()
-  assert.equal(h.exactReads.length, 0); assert.equal(h.listReads.length, 0)
-  assert.ok(h.page.errorText.value); assert.equal(h.page.reviewTabOpen.value, false); h.unmount()
+  assert.deepEqual(h.exactReads, ['48']); assert.equal(h.listReads.length, 1)
+  assert.equal(h.page.errorText.value, ''); assert.equal(h.page.reviewTabOpen.value, true)
+  assert.equal(h.page.canDisposeSelectedReview.value, false)
+  await h.page.handleDispose('rework')
+  await h.page.handleMaterialUpload([{ name: 'forbidden.txt', size: 10 }])
+  assert.deepEqual(h.writes, []); h.unmount()
 })
 test('wrong review, source, batch, sourceId or deviation membership is refused', async () => {
   for (const bad of [row({ id: 49 }), row({ sourceType: 'ACTIVE_ORDER' }), row({ batchExecutionId: 1226 }), row({ sourceId: 1226 }), row({ deviationIdsJson: '[93]' }), row({ deviationIdsJson: undefined }), row({ deviationIdsJson: '{' }), row({ deviationIdsJson: '{}' }), row({ deviationIdsJson: '[91.1]' }), row({ id: Number.MAX_SAFE_INTEGER + 1 }), undefined]) {

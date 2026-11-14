@@ -31,6 +31,7 @@ function harness(userId = 12, permission = true, row = review()) {
     computed: vue.computed, useUserStore: () => ({ getUser: { id: userId } }),
     hasPermission: () => permission, REVIEW_STATUS_PENDING_REVIEW: 'pending_review',
     selectedReview: vue.ref(), selectedReviewReadOnly: vue.ref(false),
+    disposeLoading: vue.ref(false), assigningReviewer: vue.ref(false), activeTab: vue.ref('all'),
     reviewTabOpen: vue.ref(false), errorText: vue.ref(''), unassignedReviewerId: vue.ref(),
     route: { name: 'MesProFeedbackEdhrNonconformanceReview', query: { reviewId: '48' } },
     reviews: vue.ref([]), total: vue.ref(0), listLoading: vue.ref(false), reviewContextGeneration: 0,
@@ -52,14 +53,16 @@ async function renderAction(h, row) {
   return renderToString(app)
 }
 
-test('other QA and administrator with all permissions see no row action or dialog', async () => {
+test('other QA and administrator can view details but cannot process another QA review', async () => {
   for (const userId of [1, 13, undefined]) {
     const h = harness(userId === undefined ? null : userId)
     assert.equal(h.isAssignedQaReviewer(review()), false)
-    assert.doesNotMatch(await renderAction(h, review()), /<button/)
+    const rendered = await renderAction(h, review())
+    assert.match(rendered, /详情/); assert.doesNotMatch(rendered, /处理/)
     h.openReviewTab(review())
-    assert.equal(h.context.reviewTabOpen.value, false)
-    assert.deepEqual(h.calls, [])
+    assert.equal(h.context.reviewTabOpen.value, true)
+    assert.equal(h.canDisposeSelectedReview.value, false)
+    assert.deepEqual(h.calls, ['invalidate', 'fill'])
   }
 })
 
@@ -73,19 +76,22 @@ test('only assigned QA opens processing; numeric and string user identities agre
   assert.deepEqual(h.calls, ['invalidate', 'fill'])
 })
 
-test('unassigned review has no action; missing login identity cannot match it', async () => {
+test('unassigned review retains details but missing login identity cannot process it', async () => {
   const h = harness(null)
   assert.equal(h.isAssignedQaReviewer(undefined), false)
-  assert.doesNotMatch(await renderAction(h, review(null)), /<button/)
+  const rendered = await renderAction(h, review(null))
+  assert.match(rendered, /详情/); assert.doesNotMatch(rendered, /处理/)
   h.openReviewTab(review(null))
-  assert.equal(h.context.reviewTabOpen.value, false)
+  assert.equal(h.context.reviewTabOpen.value, true)
+  assert.equal(h.canDisposeSelectedReview.value, false)
 })
 
 test('assigned QA without disposition permission or with completed review gets view only', async () => {
   for (const [permission, status] of [[false, 'pending_review'], [true, 'closed']]) {
     const h = harness(12, permission)
     const row = review(12, status)
-    assert.match(await renderAction(h, row), /查看/)
+    assert.match(await renderAction(h, row), /详情/)
+    assert.doesNotMatch(await renderAction(h, row), /处理/)
     h.openReviewTab(row)
     assert.equal(h.context.reviewTabOpen.value, true)
     assert.equal(h.canDisposeSelectedReview.value, false)
@@ -93,14 +99,15 @@ test('assigned QA without disposition permission or with completed review gets v
   }
 })
 
-test('non-assignee exact links return to list without opening or preparing a dialog', async () => {
+test('non-assignee exact links open readable review without disposition access', async () => {
   for (const reviewer of [12, null]) {
     const h = harness(1, true, review(reviewer))
     await h.loadReviewEntry()
-    assert.equal(h.context.reviewTabOpen.value, false)
-    assert.equal(h.context.selectedReview.value, undefined)
+    assert.equal(h.context.reviewTabOpen.value, true)
+    assert.equal(h.context.selectedReview.value.id, 48)
+    assert.equal(h.canDisposeSelectedReview.value, false)
     assert.equal(h.context.errorText.value, '')
-    assert.deepEqual(h.calls, ['invalidate', 'list'])
+    assert.deepEqual(h.calls, ['invalidate', 'fill', 'list'])
     assert.equal(h.context.listLoading.value, false)
   }
 })

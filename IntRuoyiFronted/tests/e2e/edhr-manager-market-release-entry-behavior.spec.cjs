@@ -73,6 +73,7 @@ function renderOperations(row, permissions) {
     render: vue.compile(operationTemplate),
     setup: () => ({
       row,
+      uploadOnly: false,
       ...state,
       getList: () => {},
       openActiveOrderDetail: value => clicked.push(['detail', value]),
@@ -101,10 +102,10 @@ function renderOperations(row, permissions) {
 const ownedBatch = () => ({ id: '900000001225', activeOrderId: '1009200409', batchExecutionCode: 'EDHR-OWNED-1225', status: 15, releaseActionLocked: true })
 const approvePermission = 'mes:pro-edhr-release:approve'
 
-test('handover action renders without applying a runtime directive to its fragment component', () => {
+test('batch operations exclude the removed handover action and runtime directive warnings', () => {
   const view = renderOperations(ownedBatch(), [approvePermission, 'mes:pro-edhr-release:query'])
   try {
-    assert.equal(view.buttons.filter(button => button.props['data-test-handover']).length, 1)
+    assert.equal(view.buttons.filter(button => button.props['data-test-handover']).length, 0)
     assert.equal(view.warnings.some(warning => warning.includes('Runtime directive used on component')), false)
   } finally { view.app.unmount() }
 })

@@ -127,7 +127,11 @@ test('refused creation does not dismiss or replace the existing disposition obje
 test('取消路线负责人配置后，页面保留评审材料上传入口', () => {
   assert.doesNotMatch(descriptor.template.content, /QaHandoffAssignmentConfig|PqcHandoffAssignmentConfig/)
   assert.doesNotMatch(descriptor.scriptSetup.content, /canConfigureQaAssignment|canConfigurePqcAssignment/)
-  assert.match(descriptor.template.content, /aria-label="上传评审材料"/)
+  assert.match(descriptor.template.content, /<NonconformanceReviewWorkspace[\s\S]*?@upload="handleMaterialUpload"/)
+  const workspace = parse(fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/edhr-nonconformance/NonconformanceReviewWorkspace.vue'), 'utf8')).descriptor
+  assert.match(workspace.template.content, /data-edhr-ncr-select-material/)
+  assert.match(workspace.template.content, /@change="handleFilesChange"/)
+  assert.deepEqual(compileTemplate({ source: workspace.template.content, filename: 'workspace.vue', id: 'workspace' }).errors, [])
   const built = compileTemplate({ source: descriptor.template.content, filename: 'nonconformance.vue', id: 'nonconformance' })
   assert.deepEqual(built.errors, [])
 })

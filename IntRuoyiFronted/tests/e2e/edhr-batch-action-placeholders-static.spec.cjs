@@ -52,17 +52,17 @@ assert.doesNotMatch(
   '上市放行不得继续调用占位处理器'
 )
 const uploadButtons = [...operationColumn.matchAll(/<el-button\b[^>]*data-edhr-batch-action="upload"[^>]*>/g)]
-assert.equal(uploadButtons.length, 2, '放行锁定及普通分支都必须保留资料上传入口')
+assert.equal(uploadButtons.length, 3, '上传专用、放行锁定及普通分支都必须保留资料上传入口')
 const authorizedDossierPermissions = [
   'mes:pro-process-pool-team-leader:maintain',
   'mes:pro-production-release:pqc-approve',
   'mes:pro-edhr-batch-execution:upload'
 ]
-for (const [button] of uploadButtons) {
+for (const [index, [button]] of uploadButtons.entries()) {
   const permissionBinding = button.match(/v-hasPermi="\[([\s\S]*?)\]"/)
   assert.ok(permissionBinding, '资料上传入口必须保留权限控制')
   assert.deepEqual([...permissionBinding[1].matchAll(/'([^']+)'/g)].map(match => match[1]),
-    authorizedDossierPermissions, '上传入口必须与正式资料页面已有办理权限一致')
+    index === 0 ? ['mes:pro-edhr-batch-execution:upload'] : authorizedDossierPermissions, '上传专用入口仅用上传权限，普通入口与正式资料页面已有办理权限一致')
 }
 const dossierUpload = activeOrderPanel.match(/<el-upload\b[\s\S]*?data-active-order-dossier-file-upload[\s\S]*?>/)
 assert.ok(dossierUpload, '正式资料页面必须保留上传入口')
@@ -74,7 +74,7 @@ assert.match(
 )
 assert.match(
   operationColumn,
-  /v-hasPermi="\['mes:pro-production-release:pqc-reject'\]"/,
+  /v-hasPermi="\['mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve'\]"/,
   '驳回按钮必须只对上市放行负责人权限可见'
 )
 assert.match(
@@ -143,7 +143,7 @@ assert.match(
 )
 assert.match(
   source,
-  /releaseForm\.password[\s\S]{0,160}type="password"|type="password"[\s\S]{0,160}releaseForm\.password/,
+  /<SignatureCredentialInput\b[^>]*v-model="releaseForm\.password"[^>]*>/,
   '上市放行弹窗必须使用电子密码输入框'
 )
 assert.match(
@@ -153,7 +153,7 @@ assert.match(
 )
 assert.match(
   source,
-  /approveEdhrRelease\([\s\S]{0,420}password:\s*releaseForm\.password/,
+  /reviewApprovalTask\([\s\S]{0,420}signaturePassword:\s*releaseForm\.password/,
   '上市放行必须调用正式最终放行 API 并传入电子密码'
 )
 assert.match(
@@ -180,7 +180,7 @@ assert.match(
   /edhr-batch-execution\/active-order-detail/,
   '上传入口必须进入批次作用域活跃订单详情页'
 )
-assert.match(uploadHandler, /tab:\s*'otherUpload'/, '上传入口必须携带其他上传 Tab 参数')
+assert.match(uploadHandler, /tab:\s*uploadOnly\.value\s*\?\s*'releaseUpload'\s*:\s*'otherUpload'/, '上传入口必须携带其他上传 Tab 参数')
 assert.match(uploadHandler, /from:\s*'execution'/, '上传入口必须保留返回批次执行列表的来源')
 
 assert.match(
