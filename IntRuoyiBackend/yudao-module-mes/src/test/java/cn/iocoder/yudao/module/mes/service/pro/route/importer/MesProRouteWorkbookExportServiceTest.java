@@ -105,6 +105,9 @@ class MesProRouteWorkbookExportServiceTest {
     @Mock
     private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
+    @Mock
+    private MesProRouteResourceTransferService resourceTransfer;
+
     @InjectMocks
     private MesProRouteWorkbookExportServiceImpl exportService;
 

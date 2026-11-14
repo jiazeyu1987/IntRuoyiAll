@@ -85,6 +85,8 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
     private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
 
+    @Resource private MesProRouteResourceTransferService resourceTransfer;
+
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
 
@@ -138,6 +140,7 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
             writeFlowConfigs(workbook, data);
             writeFlowProcessConfigs(workbook, data);
             writeBatchRecords(workbook, data);
+            resourceTransfer.writeResources(workbook, routes.stream().map(MesProRouteDO::getId).toList());
             workbook.write(outputStream);
             return outputStream.toByteArray();
         } catch (Exception ex) {

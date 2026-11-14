@@ -4,11 +4,11 @@
       class="mb-16px rounded-6px border border-[#dbe3ef] bg-[#fafcff] px-12px py-10px text-13px leading-22px text-[#4b5563]"
     >
       <div>仅支持由“导出”生成的多 Sheet .xlsx 文件。</div>
-      <div>重复路线编码、表头不一致或主数据缺失会导入失败。</div>
-      <div>不会自动创建产品、物料、工序、工作站或设备主数据。</div>
+      <div>导入流程及关联工序、工艺、工作台、设备、项目和产品资源。</div>
+      <div>同编码资源内容不一致时整包导入失败，不覆盖目标租户已有数据。</div>
     </div>
 
-    <el-alert class="mb-16px" type="info" :closable="false" title="工艺路线 Sheet 必须填写项目代码；同一项目只能导入一条流程，已有流程的项目禁止新建。请使用最新导出文件格式。" />
+    <el-alert class="mb-16px" type="info" :closable="false" title="请使用最新全量导出文件；同一项目只能导入一条流程，目标租户已有同编码流程时禁止重复导入。" />
     <el-upload
       ref="uploadRef"
       v-model:file-list="fileList"
