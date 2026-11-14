@@ -14,8 +14,6 @@ import static cn.iocoder.yudao.module.mes.approval.content.EdhrReleaseContentPro
 @Component
 @RequiredArgsConstructor
 public class EdhrActiveOrderDossierManifest {
-    private static final List<String> REQUIRED_CATEGORIES = List.of(
-            "INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE");
     private final MesProcessPoolActiveOrderMapper orders;
     private final MesProcessPoolActiveOrderDossierFileMapper dossiers;
     private final FileService files;
@@ -35,20 +33,7 @@ public class EdhrActiveOrderDossierManifest {
         var items = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
         var attachments = new ArrayList<PreviewAttachment>();
         var rows = dossiers.selectList(query);
-        var presentCategories = new HashSet<String>();
-        rows.forEach(row -> presentCategories.add(row.getCategoryKey()));
-        var missingCategories = REQUIRED_CATEGORIES.stream().filter(key -> !presentCategories.contains(key))
-                .map(key -> switch (key) {
-                    case "INCOMING_INSPECTION_FILE" -> "来料检文件";
-                    case "STERILIZATION_FILE" -> "灭菌文件";
-                    case "FINISHED_PRODUCT_FILE" -> "成品检文件";
-                    case "OTHER_FILE" -> "其他文件（成品检记录）";
-                    default -> throw new IllegalStateException("不支持的放行资料类别");
-                }).toList();
-        if (!missingCategories.isEmpty()) {
-            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
-                    "上市放行资料未齐全，缺少：" + String.join("、", missingCategories));
-        }
+        // 上市放行资料选传；签署清单只冻结实际上传的文件，仍逐份验证来源及完整性。
         var verifiedApplications = new HashSet<Long>();
         verifiedApplications.add(applicationId);
         for (var row : rows) {

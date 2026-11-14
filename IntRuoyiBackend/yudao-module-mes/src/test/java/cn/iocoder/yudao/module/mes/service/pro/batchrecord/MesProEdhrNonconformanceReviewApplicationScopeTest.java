@@ -589,6 +589,40 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     @Test
+    void disposeAllowsAnEmptyMaterialList() {
+        assertDisposeWithoutMaterials(false);
+    }
+
+    @Test
+    void disposeAllowsOmittedMaterials() {
+        assertDisposeWithoutMaterials(true);
+    }
+
+    private void assertDisposeWithoutMaterials(boolean omitted) {
+        stubPendingReview("concession_release");
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        var request = disposeRequest("concession_release")
+                .setReviewMaterialUrl(null)
+                .setReviewMaterials(omitted ? null : List.of())
+                .setReviewMaterialEvents(List.of());
+
+        service.dispose(request);
+
+        var updateCaptor = ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        var update = updateCaptor.getValue();
+        assertEquals("closed", update.getReviewStatus());
+        assertEquals("concession_release", update.getDisposition());
+        assertEquals("", update.getReviewMaterialUrl());
+        assertNull(update.getReviewMaterialFileId());
+        var payload = com.alibaba.fastjson.JSON.parseObject(update.getReviewMaterialsJson());
+        assertTrue(payload.getJSONArray("activeMaterials").isEmpty());
+        assertTrue(payload.getJSONArray("reviewMaterialEvents").isEmpty());
+        assertTrue(update.getTraceSnapshotJson().contains("\"reviewMaterialsJson\""));
+        verifyNoInteractions(fileMapper);
+    }
+
+    @Test
     void disposeKeepsExplicitMaterialAndDeletedEventIdentities() {
         stubPendingReview("concession_release");
         String firstUrl = "https://files.example/first/review.pdf";
@@ -644,7 +678,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals(9401L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%.pdf\""));
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":10"));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9401/100%.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9401/100%.pdf\""));
         assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
     }
 
@@ -673,7 +707,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper).updateById(updateCaptor.capture());
         assertEquals(9402L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%25.pdf\""));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9402/100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9402/100%25.pdf\""));
         assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
     }
 
@@ -702,7 +736,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper).updateById(updateCaptor.capture());
         assertEquals(9403L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":21"));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9403/ncr/100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9403/ncr/100%25.pdf\""));
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"url\":\"" + url + "\""));
     }
 
@@ -2263,7 +2297,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     private void stubFormalFile(String requestedUrl, FileDO file) {
-        file.setPath("mes/edhr-ncr/reviews/1001/upload-" + file.getId() + "/" + file.getPath());
+        file.setPath("tenants/122/mes/edhr-ncr/reviews/1001/upload-" + file.getId() + "/" + file.getPath());
         materialIds.put(requestedUrl, file.getId());
         lenient().when(fileMapper.selectById(file.getId())).thenReturn(file);
     }
@@ -2292,7 +2326,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         Long fileId = 100000L + reviewId;
         lenient().when(fileMapper.selectById(fileId)).thenReturn(FileDO.builder().id(fileId)
                 .configId(10L).name("review.pdf").url(REVIEW_MATERIAL_URL)
-                .path("mes/edhr-ncr/reviews/" + reviewId + "/upload-1/review.pdf").build());
+                .path("tenants/122/mes/edhr-ncr/reviews/" + reviewId + "/upload-1/review.pdf").build());
         request.getReviewMaterials().get(0).setFileId(fileId);
         return request;
     }

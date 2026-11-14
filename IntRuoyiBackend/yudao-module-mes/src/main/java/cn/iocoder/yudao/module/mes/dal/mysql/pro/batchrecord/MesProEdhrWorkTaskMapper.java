@@ -19,8 +19,9 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     MesProEdhrWorkTaskDO selectByIdAndTenantForUpdate(@org.apache.ibatis.annotations.Param("id") Long id,
             @org.apache.ibatis.annotations.Param("tenantId") Long tenantId);
 
-    List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE",
-            "PQC_PRODUCTION_RELEASE", "DEVIATION_APPROVE", "RECORD_CHANGE_APPROVE");
+    // Production and market release are handled in their business workbenches.
+    List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE",
+            "DEVIATION_APPROVE", "RECORD_CHANGE_APPROVE");
     List<String> PRODUCTION_RELEASE_REPORT_NODE_TYPES = List.of(
             "INCOMING_INSPECTION_REPORT",
             "STERILIZATION_REPORT",
@@ -478,6 +479,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
             String taskType) {
         wrapper.apply(MesOpenWorkTaskVisibility.batchSql(taskType));
+        wrapper.apply(MesOpenWorkTaskVisibility.OPEN_PQC_RELEASE_SQL);
         return wrapper;
     }
 

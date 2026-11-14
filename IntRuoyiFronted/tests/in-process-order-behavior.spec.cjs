@@ -61,14 +61,14 @@ test('combined filters and pagination reach the service unchanged', async () => 
   const s = setup(async () => ({ list: [{ id: '9223372036854775800' }], total: 41 }))
   Object.assign(s.queryParams, { productName: '导管', equipment: '设备甲', batchCode: 'LOT-A', pageNo: 2 })
   await s.getList()
-  assert.deepEqual(s.calls[0], { pageNo: 2, pageSize: 20, productName: '导管', equipment: '设备甲', batchCode: 'LOT-A' })
+  assert.deepEqual(s.calls[0], { pageNo: 2, pageSize: 20, listFilters: undefined, productName: '导管', equipment: '设备甲', batchCode: 'LOT-A' })
   assert.equal(s.total.value, 41)
   assert.equal(s.list.value[0].id, '9223372036854775800')
 })
 test('failed query removes old results and supports retry', async () => {
   let fail = false
   const s = setup(async () => { if (fail) throw new Error('无查询权限'); return { list: [{ id: 1 }], total: 1 } })
-  await s.getList(); fail = true; await s.getList()
+  await s.getList(); fail = true; await assert.rejects(s.getList(), /无查询权限/)
   assert.equal(s.loadError.value, '无查询权限')
   assert.deepEqual(s.list.value, [])
   assert.equal(s.total.value, 0)
@@ -96,4 +96,13 @@ test('removing a filter refreshes the list including removal of the final condit
   assert.equal(s.filter.applied, 1)
   await s.updateQuickFilterState({ conditions: [] })
   assert.equal(s.filter.applied, 2)
+})
+
+test('pending NCR displays a red approval badge before release, upgrade and abnormal stages', () => {
+  const row = { businessStatus: 'VERSION_UPGRADE_PENDING', releaseApplicationStatus: 'PQC_RELEASE_PENDING', abnormal: true,
+    pendingNonconformanceReviews: [{ reviewId: '99', qaReviewerName: '当前QA' }] }
+  assert.deepEqual(resolveInProcessOrderStatus(row), { label: '不合格审批', type: 'danger' })
+  assert.equal(setup(async () => ({})).statusColumnFilter[0].getValue(row), '不合格审批')
+  assert.equal(resolveInProcessOrderStatus({ ...row, readBlocked: true }).label, '数据异常')
+  assert.equal(resolveInProcessOrderStatus({ ...row, pendingNonconformanceReviews: [] }).label, '升版审批中')
 })

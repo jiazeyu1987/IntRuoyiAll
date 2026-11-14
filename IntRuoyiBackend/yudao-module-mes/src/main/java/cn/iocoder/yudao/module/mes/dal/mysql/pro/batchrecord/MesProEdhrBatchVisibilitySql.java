@@ -144,7 +144,23 @@ public final class MesProEdhrBatchVisibilitySql {
                 + " AND t.id=" + currentTaskId() + " AND t.route_process_id IS NOT NULL"
                 + " AND " + notBlank("t.batch_record_report_id") + " AND " + effectiveRule() + ")";
     }
-    public static String earlierGrant(Long userId) { return "(" + handoverGrant(userId) + " OR " + managerGrant(userId) + " OR " + formalGrant(userId) + ")"; }
+    public static String attachmentUploadGrant(Long userId) {
+        return "EXISTS (SELECT 1 FROM " + WORK + " w JOIN mes_pro_process_pool_active_order_release_application upload_app"
+                + " ON upload_app.id=w.review_source_id AND upload_app.active_order_id=w.business_scope_id"
+                + " WHERE " + batch("w") + " AND " + batch("upload_app")
+                + " AND w.work_order_id=" + BATCH + ".work_order_id AND upload_app.work_order_id=w.work_order_id"
+                + " AND " + exact("w.task_type", "DOSSIER_COMPLETE")
+                + " AND " + exact("w.business_scope_type", "ACTIVE_ORDER_DOSSIER")
+                + " AND " + exact("w.responsibility_source_type", "RELEASE_ATTACHMENT_ROLE")
+                + " AND " + oneOf("w.status", "TODO", "DOING", "OVERDUE", "DONE")
+                + " AND " + exact("upload_app.pqc_decision", "APPROVE")
+                + " AND " + oneOf("upload_app.application_status", "REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING", "RELEASED")
+                + " AND upload_app.id=(SELECT MAX(latest.id) FROM mes_pro_process_pool_active_order_release_application latest"
+                + " WHERE " + live("latest") + " AND latest.active_order_id=upload_app.active_order_id)"
+                + " AND " + candidate("w.candidate_user_snapshot", userId) + ")";
+    }
+    public static String earlierGrant(Long userId) { return "(" + handoverGrant(userId) + " OR " + managerGrant(userId)
+            + " OR " + formalGrant(userId) + " OR " + attachmentUploadGrant(userId) + ")"; }
     public static String visible(Long userId, boolean overview, Collection<Long> ruleIds) {
         String grants = overview ? "1=1" : earlierGrant(userId);
         if (!overview && !ruleIds.isEmpty()) grants += " OR EXISTS (SELECT 1 FROM " + RULE + " r WHERE r.id IN ("

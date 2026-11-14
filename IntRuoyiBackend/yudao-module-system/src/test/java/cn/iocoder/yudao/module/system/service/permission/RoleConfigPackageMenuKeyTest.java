@@ -17,6 +17,37 @@ import static org.mockito.Mockito.*;
 class RoleConfigPackageMenuKeyTest {
 
     @Test
+    void retiredLogShellsKeepDistinctIdentitiesAndResolveAcrossEnvironmentIds() {
+        MenuDO system = route(1L, 0L, 1, "/system", "", "", "系统管理");
+        MenuDO audit = route(108L, 1L, 1, "log", "", "", "审计日志");
+        MenuDO log = route(500L, 108L, 2, "operate-log", "system/operatelog/index", "SystemOperateLog", "操作日志");
+        MenuDO login = route(501L, 500L, 3, "", "", "", "登录日志");
+        MenuDO access = route(1078L, 500L, 3, "", "", "", "访问日志");
+        MenuDO api = route(1083L, 500L, 3, "", "", "", "API 日志");
+        RoleConfigPackageServiceImpl source = serviceWithMenus(system, audit, log, login, access, api);
+        Map<Long, String> exported = ReflectionTestUtils.invokeMethod(source, "buildMenuKeyById");
+        // Same package format, different database IDs and renamed ancestor labels.
+        system.setName("系统设置");
+        access.setId(2078L);
+        RoleConfigPackageServiceImpl target = serviceWithMenus(system, audit, log, login, access, api);
+        Map<String, Set<Long>> mapping = ReflectionTestUtils.invokeMethod(target, "buildMenuIdByKey");
+        RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setMenuKeys(List.of(exported.get(1078L)));
+        assertEquals(Set.of(2078L), ReflectionTestUtils.invokeMethod(target, "resolveMenuIds", item,
+                mapping, Set.of(501L, 2078L, 1083L)));
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(target, "resolveMenuIds",
+                item, mapping, Set.of(501L, 1083L)));
+    }
+
+    @Test
+    void identicalPermissionFreeButtonsStillFailInsteadOfChoosingOne() {
+        RoleConfigPackageServiceImpl service = serviceWithMenus(
+                route(501L, 0L, 3, "", "", "", "登录日志"),
+                route(1501L, 0L, 3, "", "", "", "登录日志"));
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(service, "buildMenuIdByKey"));
+    }
+
+    @Test
     void sharedPermissionRoundTripRetainsOnlyTheSelectedPqcPage() {
         MenuDO production = route(101L, 0L, 2, "/production", "Production", "", "生产");
         MenuDO pqc = route(202L, 0L, 2, "/pqc", "Pqc", "", "PQC");

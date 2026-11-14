@@ -54,6 +54,7 @@ class MesActiveOrderDossierCompletionServiceTest {
         when(users.getUser(anyLong())).thenAnswer(call -> new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
                 .setId(call.getArgument(0)).setNickname("测试操作人"));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "deadlineService", deadlines);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
         login(7L, 1L);
         order = new MesProcessPoolActiveOrderDO().setId(10L).setLeaderUserId(7L).setWorkOrderId(20L).setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
         order.setTenantId(1L);
@@ -72,6 +73,22 @@ class MesActiveOrderDossierCompletionServiceTest {
                 .when(auxiliary).notifications(any(), any());
     }
     @AfterEach void cleanup() { SecurityContextHolder.clearContext(); TenantContextHolder.clear(); }
+
+    @Test void roleTaskCompletesOnlyAfterMatchingFileIsPersisted() {
+        var uploads = (MesReleaseAttachmentUploadService) org.springframework.test.util.ReflectionTestUtils
+                .getField(service, "attachmentUploads");
+        when(uploads.validateUpload(7L, 31L, 10L, "FINISHED_PRODUCT_FILE")).thenReturn(true);
+        when(tasks.selectById(31L)).thenReturn(new MesProEdhrWorkTaskDO().setId(31L)
+                .setBusinessScopeId(10L).setReviewSourceType("FINISHED_PRODUCT_FILE").setAssigneeUserId(7L));
+        assertThrows(IllegalStateException.class, () -> service.completeUploadedCategory(7L, 10L,
+                "FINISHED_PRODUCT_FILE", 91L, 31L));
+        verify(uploads, never()).complete(any(), any(), any(), any());
+        when(files.selectById(91L)).thenReturn(new MesProcessPoolActiveOrderDossierFileDO().setId(91L)
+                .setActiveOrderId(10L).setCategoryKey("FINISHED_PRODUCT_FILE").setOperatorId(7L));
+        assertTrue(service.completeUploadedCategory(7L, 10L, "FINISHED_PRODUCT_FILE", 91L, 31L));
+        verify(uploads).complete(7L, 31L, 10L, "FINISHED_PRODUCT_FILE");
+        verify(audit).recordInCallerTransaction(any());
+    }
 
     @Test void explicitOwnerCreatesCategorySpecificTodoAndAtomicNotice() {
         var task = service.assign(7L, 10L, "OTHER_FILE", 8L, "补齐设备说明");

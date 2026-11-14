@@ -31,7 +31,7 @@ public class MesProEdhrDeviationHandlingController {
 
     @GetMapping("/get")
     @Operation(summary = "获取偏差处理记录")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrDeviationHandlingRespVO> get(@RequestParam("deviationId") Long deviationId) {
         return success(handlingService.get(deviationId));
     }

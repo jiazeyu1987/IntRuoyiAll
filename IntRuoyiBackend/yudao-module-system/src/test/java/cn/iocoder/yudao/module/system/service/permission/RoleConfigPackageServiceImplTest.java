@@ -104,6 +104,38 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void importPackage_shouldRejectVersionThreeBeforeAuthorityLocksOrWrites() {
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+        payload.setPackageVersion("3");
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_FORMAT_UNSUPPORTED.getCode(), error.getCode());
+        assertEquals("权限角色配置包版本3未区分旧权限标识与精确路由格式，不能安全导入；"
+                + "请从可信来源重新导出版本4配置包，不得仅修改版本号", error.getMessage());
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
+    }
+
+    @Test
+    void importPackage_shouldNotResolveAmbiguousPermissionByChangingVersionToFour() {
+        insertBoundaryMenu("system:role:query", "first");
+        insertBoundaryMenu("system:role:query", "second");
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), error.getCode());
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
     void importPackage_shouldReturnBusinessErrorWhenRoleCodeMissing() {
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
         item.setName("排产员");
@@ -112,7 +144,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -172,7 +204,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of("permission:system:role:query", "permission:system:role:update"));
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -213,7 +245,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         Long categoryId = insertCategory("menu", "菜单");
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -274,7 +306,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(List.of("permission:system:role:query"), item.getMenuKeys());
         assertEquals("scheduling", item.getCategoryCode());
-        assertEquals("3", payload.getPackageVersion());
+        assertEquals("4", payload.getPackageVersion());
         assertEquals("scheduling", payload.getCategories().get(0).getCode());
     }
 
@@ -293,7 +325,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of("permission:system:role:query"));
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -334,7 +366,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         Long categoryId = insertCategory("menu", "菜单");
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -360,7 +392,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -384,7 +416,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         var category = categoryItem("scheduling", "排产");
         category.setSort(30);
         category.setStatus(CommonStatusEnum.DISABLE.getStatus());
@@ -417,7 +449,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setCategoryCode("scheduling");
         item.setMenuKeys(List.of("permission:system:role:query"));
         var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("scheduling", "排产")));
         payload.setRoles(List.of(item));
 
@@ -575,7 +607,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setCode("package_boundary_role"); item.setName("套餐边界角色"); item.setSort(1);
         item.setStatus(0); item.setCategoryCode("package_boundary"); item.setMenuKeys(menuKeys);
         var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3"); payload.setCategories(List.of(categoryItem("package_boundary", "套餐边界")));
+        payload.setPackageVersion("4"); payload.setCategories(List.of(categoryItem("package_boundary", "套餐边界")));
         payload.setRoles(List.of(item));
         return payload;
     }

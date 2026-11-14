@@ -115,8 +115,15 @@ const moveCraftToProcessManagement = (routes: AppCustomRouteRecordRaw[]) => {
   source.splice(source.indexOf(craft), 1)
   target.children = [...(target.children || []), craft]
 }
+const MANAGEMENT_REPRESENTATIVE_HIDDEN_MENU_PATHS = new Set([
+  '/mes/pro/batch-record-form-list',
+  '/mes/pro/feedback/edhr-batch-production-fill',
+  '/mes/pro/feedback/edhr-batch-pqc-fill',
+  '/mes/pro/production-release/pqc'
+])
 const filterHiddenModuleMenus = (
   routes: AppRouteRecordRaw[],
+  roles: string[],
   parentPath = ''
 ): AppRouteRecordRaw[] =>
   routes.flatMap((route) => {
@@ -124,6 +131,8 @@ const filterHiddenModuleMenus = (
     const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
     if (
       HIDDEN_MODULE_MENU_PATHS.has(normalizedPath) ||
+      (roles.includes('MES_MANAGEMENT_REPRESENTATIVE') &&
+        MANAGEMENT_REPRESENTATIVE_HIDDEN_MENU_PATHS.has(normalizedPath)) ||
       route.meta?.title === '配置中心'
     ) {
       return []
@@ -131,7 +140,7 @@ const filterHiddenModuleMenus = (
     return [{
       ...route,
       ...(route.children
-        ? { children: filterHiddenModuleMenus(route.children, normalizedPath) }
+        ? { children: filterHiddenModuleMenus(route.children, roles, normalizedPath) }
         : {})
     }]
   })
@@ -870,7 +879,7 @@ export const usePermissionStore = defineStore('permission', {
     getRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
       const routes = orderMenus(filterSignatureMenus(
-        filterOperationLogMenus(filterHiddenModuleMenus(this.routers), user.getRoles), user.getRoles, user.getPermissions
+        filterOperationLogMenus(filterHiddenModuleMenus(this.routers, user.getRoles), user.getRoles), user.getRoles, user.getPermissions
       ))
       return hideEmptyMenuParents(
         useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),
@@ -883,7 +892,7 @@ export const usePermissionStore = defineStore('permission', {
     getMenuTabRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
       const routes = orderMenus(filterSignatureMenus(
-        filterOperationLogMenus(filterHiddenModuleMenus(this.menuTabRouters), user.getRoles), user.getRoles, user.getPermissions
+        filterOperationLogMenus(filterHiddenModuleMenus(this.menuTabRouters, user.getRoles), user.getRoles), user.getRoles, user.getPermissions
       ))
       return hideEmptyMenuParents(
         useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),

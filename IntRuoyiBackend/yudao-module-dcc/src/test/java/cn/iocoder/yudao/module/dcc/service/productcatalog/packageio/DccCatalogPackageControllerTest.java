@@ -15,10 +15,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.junit.jupiter.api.Assertions.*;
 
 class DccCatalogPackageControllerTest {
-    @Test void projectCodeAdministratorCanImportWithoutReceivingExportAccess() throws Exception {
+    @Test void projectCodeAdministratorCanImportAndExportWithoutIndividualPermissions() throws Exception {
         var security = mock(SecurityFrameworkService.class);
         when(security.hasAnyRoles("super_admin", "tenant_admin", "dcc_project_code_admin")).thenReturn(true);
         assertTrue(authorized("importWorkbook", security, org.springframework.web.multipart.MultipartFile.class));
+        assertTrue(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
+    }
+    @Test void ordinaryUserCannotExportWithoutAllRequiredPermissions() throws Exception {
+        var security = mock(SecurityFrameworkService.class);
+        assertFalse(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
+        when(security.hasPermission(anyString())).thenReturn(true);
+        assertTrue(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
+        when(security.hasPermission("dcc:registration-certificate:query-current")).thenReturn(false);
         assertFalse(authorized("exportWorkbook", security, jakarta.servlet.http.HttpServletResponse.class));
     }
     @Test void ordinaryUserCannotImportWithoutAllRequiredPermissions() throws Exception {

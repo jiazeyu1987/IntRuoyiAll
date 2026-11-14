@@ -65,7 +65,7 @@ const fileList = ref<UploadUserFile[]>([])
 const file = computed(() => fileList.value[0]?.raw)
 const canExport = computed(
   () =>
-    checkRole(['super_admin', 'tenant_admin']) ||
+    checkRole(['super_admin', 'tenant_admin', 'dcc_project_code_admin']) ||
     [
       'mdm:product:query',
       'dcc:project-code:query',

@@ -81,8 +81,7 @@ public class MesActiveOrderHandoffApprovalProjection {
                     List.of("mes:pro-feedback:query");
             case "/mes/pro/process-pool/production-leader", "/mes/pro/process-pool/pqc-leader" ->
                     List.of("mes:pro-process-pool-team-leader:query");
-            case "/mes/pro/feedback/edhr-nonconformance-review" -> List.of("mes:pro-edhr-nonconformance-review:query",
-                    "mes:pro-edhr-nonconformance-review:dispose");
+            case "/mes/pro/feedback/edhr-nonconformance-review" -> List.of("mes:pro-edhr-nonconformance-review:dispose");
             case "/user/profile" -> List.of(); // Own notification reads require the authenticated user, not a menu permission.
             default -> throw failure("交接目标页权限合同未定义");
         };

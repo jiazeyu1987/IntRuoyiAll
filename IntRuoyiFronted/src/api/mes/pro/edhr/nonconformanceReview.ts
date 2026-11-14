@@ -4,6 +4,9 @@ import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpoo
 
 const EDHR_NONCONFORMANCE_REVIEW_BASE_URL = '/mes/pro/edhr-nonconformance-review'
 
+export const getQaReviewerCandidates = (): Promise<import('@/views/system/user/components/userPicker').UserOption[]> =>
+  request.get({ url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/reviewer-candidates` })
+
 export const SOURCE_TYPE_PQC_SUBMISSION = 'PQC_SUBMISSION'
 export const SOURCE_TYPE_PQC_RELEASE = 'PQC_RELEASE'
 export const SOURCE_TYPE_ACTIVE_ORDER = 'ACTIVE_ORDER'

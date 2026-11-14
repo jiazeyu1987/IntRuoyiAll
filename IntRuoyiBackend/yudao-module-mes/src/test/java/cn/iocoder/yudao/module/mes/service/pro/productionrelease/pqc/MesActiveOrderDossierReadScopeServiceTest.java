@@ -94,6 +94,24 @@ class MesActiveOrderDossierReadScopeServiceTest {
         assertEquals(APPLICATION, ((MesActiveOrderDossierReadScopeService) f.target)
                 .requireMutation(PQC_ACTOR, ACTIVE, APPLICATION, false).application().getId());
     }
+
+    @Test void uploadDutyPermitsOnlyAssignedCategoryAndCannotDelete() {
+        var service = (MesActiveOrderDossierReadScopeService) f.target;
+        var completion = mock(MesActiveOrderDossierCompletionService.class);
+        var uploads = mock(MesReleaseAttachmentUploadService.class);
+        ReflectionTestUtils.setField(service, "dossierCompletionService", completion);
+        ReflectionTestUtils.setField(service, "attachmentUploads", uploads);
+        when(f.permissions.hasAnyPermissions(eq(ACTOR), any(String[].class))).thenAnswer(call ->
+                Arrays.asList((String[]) call.getRawArguments()[1]).contains("mes:pro-edhr-batch-execution:upload"));
+        when(completion.isAssigned(ACTOR, ACTIVE, "INCOMING_INSPECTION_FILE")).thenReturn(true);
+        when(uploads.hasDuty(ACTOR, ACTIVE)).thenReturn(true);
+        assertEquals(APPLICATION, service.requireMutation(ACTOR, ACTIVE, APPLICATION, false,
+                "INCOMING_INSPECTION_FILE").application().getId());
+        assertThrows(ServiceException.class, () -> service.requireMutation(ACTOR, ACTIVE, APPLICATION,
+                false, "STERILIZATION_FILE"));
+        assertThrows(ServiceException.class, () -> service.requireMutation(ACTOR, ACTIVE, APPLICATION,
+                true, "INCOMING_INSPECTION_FILE"));
+    }
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void approvedDonePqcCandidateCanUploadWithOrWithoutBatchUploadPermission(boolean batchUpload) {
@@ -498,6 +516,7 @@ class MesActiveOrderDossierReadScopeServiceTest {
                             f.marketReleaseAccess);
             ReflectionTestUtils.setField(service, "packagingAccess", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));
             ReflectionTestUtils.setField(service, "dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
+            ReflectionTestUtils.setField(service, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
             return service;
         } catch (ReflectiveOperationException missingContract) {
             throw new AssertionError("HISTORY-DOSSIER01 requires the real read-scope service with pure visibility authorization and exact mapper method", missingContract);
@@ -571,6 +590,7 @@ class MesActiveOrderDossierReadScopeServiceTest {
 
         Fixture() {
             order.setTenantId(TENANT); app.setTenantId(TENANT); row.setTenantId(TENANT);
+            ReflectionTestUtils.setField(visibility, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
             ReflectionTestUtils.setField(visibility, "permissionApi", permissions);
             ReflectionTestUtils.setField(visibility, "batchTaskMapper", batchTasks);
             ReflectionTestUtils.setField(visibility, "workTaskMapper", tasks);

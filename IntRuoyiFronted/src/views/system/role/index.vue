@@ -304,6 +304,9 @@
 
   <!-- 表单弹窗：添加/修改 -->
   <el-dialog v-model="exportDialogVisible" title="选择导出文件夹" width="480px">
+    <el-alert v-if="exportError" title="权限角色配置包导出失败" type="error" :closable="false" show-icon class="mb-4">
+      <div role="alert" style="white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; user-select: text">{{ exportError }}</div>
+    </el-alert>
     <el-select v-model="exportCategoryIds" multiple placeholder="请选择角色分类文件夹" class="w-full">
       <el-option v-for="category in categoryList" :key="category.id" :label="category.name" :value="category.id" />
     </el-select>
@@ -544,8 +547,10 @@ const handleRoleExcelExport = async () => {
 }
 
 const exportDialogVisible = ref(false)
+const exportError = ref('')
 const exportCategoryIds = ref<number[]>([])
 const openExport = () => {
+  exportError.value = ''
   exportCategoryIds.value = queryParams.categoryId ? [queryParams.categoryId] : []
   exportDialogVisible.value = true
 }
@@ -554,10 +559,13 @@ const openExport = () => {
 const handleExport = async () => {
   if (exportCategoryIds.value.length === 0) return
   exportLoading.value = true
+  exportError.value = ''
   try {
     const data = await RoleApi.exportRoleConfigPackage(exportCategoryIds.value)
     download.json(data, '权限角色配置包.json')
     exportDialogVisible.value = false
+  } catch (error) {
+    exportError.value = error instanceof Error ? error.message : String(error)
   } finally {
     exportLoading.value = false
   }

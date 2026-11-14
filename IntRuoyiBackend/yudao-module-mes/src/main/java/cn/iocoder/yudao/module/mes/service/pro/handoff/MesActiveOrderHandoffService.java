@@ -305,7 +305,6 @@ public class MesActiveOrderHandoffService {
                 "仅待评审的不合格单可派发QA责任");
         require(reviewer != null && reviewer > 0,"请选择QA评审责任人");
         owners.user(reviewer,"mes:pro-edhr-nonconformance-review:dispose");
-        owners.user(reviewer,"mes:pro-edhr-nonconformance-review:query");
         var active = order(review.getActiveOrderId(),true);
         require(Objects.equals(active.getWorkOrderId(), review.getWorkOrderId()),"QA评审与活跃订单工单不一致");
         createDefaultRound(active,"QA_REVIEW","NONCONFORMANCE_REVIEW",review.getId(),review.getId(),

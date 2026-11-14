@@ -181,6 +181,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper correctionReviewMapper;
 
 
+    @jakarta.annotation.Resource private MesActiveOrderNcrResponsibilityReader ncrResponsibilityReader;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(MesTeamLeaderActiveOrderServiceImpl.class);
 
     @Resource
@@ -3060,7 +3062,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 loadLatestReleaseApplications(activeOrders);
         Map<Long, Stage1GeneratedDetailTarget> latestStage1GeneratedBySourceActiveOrderId =
                 resolveLatestStage1GeneratedDetailTargets(activeOrders, workOrdersById);
-        return originalActiveOrders.stream()
+        List<MesTeamLeaderActiveOrderRow> rows = originalActiveOrders.stream()
                 .map(activeOrder -> readErrors.containsKey(activeOrder.getId())
                         ? toBlockedActiveOrderRow(activeOrder, workOrdersById, productsById,
                                 readErrors.get(activeOrder.getId()))
@@ -3069,6 +3071,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         workOrdersById, productsById, progressByActiveOrderId, openAbnormalByWorkOrderId,
                         latestReleaseApplicationByActiveOrderId, latestStage1GeneratedBySourceActiveOrderId))
                 .toList();
+        ncrResponsibilityReader.populate(rows);
+        return rows;
     }
 
     @Override

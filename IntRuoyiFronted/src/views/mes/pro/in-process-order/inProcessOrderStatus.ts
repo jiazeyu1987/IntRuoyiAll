@@ -16,11 +16,13 @@ const releaseStatuses: Record<string, Status> = {
 
 export const resolveInProcessOrderStatus = (row: InProcessOrder): Status => {
   if (row.readBlocked) return { label: '数据异常', type: 'danger', reason: row.readBlockReason }
+  if (row.pendingNonconformanceReviews?.length) return { label: '不合格审批', type: 'danger' }
   const release = row.releaseApplicationStatus
   if (release === 'NONCONFORMANCE_VOID' || release === 'NONCONFORMANCE_REWORK') {
     return releaseStatuses[release]
   }
-  if (row.businessStatus === 'VERSION_UPGRADE_PENDING') return { label: '升版审批中', type: 'warning' }
+  if (row.businessStatus === 'VERSION_UPGRADE_PENDING')
+    return { label: '升版审批中', type: 'warning' }
   if (row.abnormal) return { label: '异常处理中', type: 'warning', reason: row.abnormalReason }
   if (release) {
     return releaseStatuses[release] || { label: `未知放行状态：${release}`, type: 'danger' }

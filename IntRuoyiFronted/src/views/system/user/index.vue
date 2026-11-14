@@ -528,7 +528,11 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
 let listRequestId = 0
 const getList = async () => {
   const requestId = ++listRequestId
-  const params = { ...queryParams, sortKey: userSortState.value.order ? userSortState.value.key : undefined, sortOrder: userSortState.value.order }
+  const params = {
+    ...queryParams,
+    sortKey: userSortState.value.order ? userSortState.value.key : undefined,
+    sortOrder: userSortState.value.order ?? undefined
+  }
   loading.value = true
   try {
     const data = await UserApi.getUserPage(params)

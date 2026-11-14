@@ -11,6 +11,50 @@ import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.
 
 @Mapper
 public interface MesInProcessOrderMapper {
+    /** Only open tasks bound to this exact execution/application, never role membership guesses. */
+    @Select("""
+        <script>
+        <choose>
+          <when test="businessStatus == 'VERSION_UPGRADE_PENDING'">
+            SELECT DISTINCT COALESCE(NULLIF(t.ASSIGNEE_,''), il.USER_ID_, membership.USER_ID_)
+            FROM mes_pro_process_pool_active_order_version_upgrade_request r
+            JOIN ACT_RU_TASK t ON t.PROC_INST_ID_=r.approval_process_instance_id
+              AND t.TENANT_ID_=CAST(#{tenantId} AS CHAR) AND t.SUSPENSION_STATE_=1
+            LEFT JOIN ACT_RU_IDENTITYLINK il ON il.TASK_ID_=t.ID_ AND il.TYPE_='candidate'
+            LEFT JOIN ACT_ID_MEMBERSHIP membership ON membership.GROUP_ID_=il.GROUP_ID_
+            WHERE r.tenant_id=#{tenantId} AND r.deleted=0 AND r.source_active_order_id=#{activeOrderId}
+          </when>
+          <when test="releaseStatus != null and releaseStatus != ''">
+            SELECT CASE WHEN t.status='DOING' AND t.assignee_user_id IS NOT NULL
+                        THEN CAST(t.assignee_user_id AS CHAR) ELSE t.candidate_user_snapshot END
+            FROM mes_pro_edhr_work_task t
+            JOIN mes_pro_process_pool_active_order_release_application r
+              ON r.id=#{applicationId} AND r.tenant_id=t.tenant_id AND r.deleted=0
+                AND r.active_order_id=#{activeOrderId} AND r.work_order_id=t.work_order_id
+            WHERE t.tenant_id=#{tenantId} AND t.deleted=0 AND t.status IN ('TODO','DOING','OVERDUE')
+              AND (
+                (#{releaseStatus}='PQC_RELEASE_PENDING' AND t.id=r.pqc_release_work_task_id)
+                OR (#{releaseStatus}='MANAGER_RELEASE_PENDING' AND t.id=r.release_approval_work_task_id)
+                OR (#{releaseStatus}='REPORT_UPLOAD_PENDING' AND t.business_scope_type='ACTIVE_ORDER_DOSSIER'
+                  AND t.business_scope_id=r.active_order_id AND t.review_source_id=r.id)
+                OR (#{releaseStatus} IN ('PQC_RELEASE_REJECTED','MARKET_RELEASE_REJECTED','MARKET_RELEASE_WITHDRAWN')
+                  AND t.business_scope_type='RELEASE_APPLICATION' AND t.business_scope_id=r.id)
+              )
+          </when>
+          <otherwise>
+            SELECT h.candidate_user_snapshot FROM mes_active_order_handoff_task h
+            WHERE h.tenant_id=#{tenantId} AND h.deleted=0 AND h.active_order_id=#{activeOrderId}
+              AND h.status='TODO' AND h.notification_only=0
+              AND h.task_type IN ('PRODUCTION_HANDOFF','PRODUCTION_REVIEW','PRODUCTION_RETURN',
+                                  'PQC_HANDOFF','PQC_REVIEW','PQC_RETURN','QA_DECISION_HANDOFF')
+          </otherwise>
+        </choose>
+        </script>
+        """)
+    List<String> selectResponsibilityCandidates(@Param("tenantId") Long tenantId,
+            @Param("activeOrderId") Long activeOrderId, @Param("applicationId") Long applicationId,
+            @Param("releaseStatus") String releaseStatus, @Param("businessStatus") String businessStatus);
+
     Map<String, Field> STATIC_FIELDS = Map.of(
             "workOrderCode", text("w.code"), "productName", text("p.name"),
             "productCode", text("p.code"), "batchCode", text("w.batch_code"),

@@ -39,6 +39,9 @@ class DccCatalogPackageServiceTest {
             ddl.append(",tenant_id BIGINT,deleted INT DEFAULT 0,creator VARCHAR(64),updater VARCHAR(64),update_time TIMESTAMP)");
             jdbc.execute(ddl.toString());
         }
+        // Local responsibility remains in the database, independently of the workbook schema.
+        jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader VARCHAR(128)");
+        jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader_user_id BIGINT");
         jdbc.execute("CREATE UNIQUE INDEX catalog_source_row ON dcc_product_catalog(tenant_id,data_source,original_row_no)");
         jdbc.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
         jdbc.execute("CREATE TABLE dcc_product_catalog_source_sequence(data_source VARCHAR(64) PRIMARY KEY,last_row_no INT)");
@@ -87,6 +90,53 @@ class DccCatalogPackageServiceTest {
     Map<String,String> row(List<DccCatalogWorkbook.SheetData> sheets, String name) {
         return sheets.stream().filter(s -> s.name().equals(name)).findFirst().orElseThrow().rows().get(0);
     }
+    @Test void exportExcludesProjectLeaderNameAndAccount() throws Exception {
+        jdbc.update("UPDATE dcc_project_code SET project_leader='仅本地负责人',project_leader_user_id=77 WHERE id=1");
+        byte[] workbook = service.exportWorkbook();
+        var project = read(workbook).stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow();
+        assertFalse(project.columns().contains("project_leader"));
+        assertFalse(project.columns().contains("project_leader_user_id"));
+        assertFalse(project.rows().get(0).containsValue("仅本地负责人"));
+        try (var xlsx = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(workbook))) {
+            var sheet = xlsx.getSheet("DCC项目代码");
+            for (var record : sheet) for (var cell : record) {
+                assertFalse(Set.of("project_leader", "project_leader_user_id", "仅本地负责人", "77").contains(cell.getStringCellValue()));
+            }
+        }
+    }
+    @Test void importsPreserveExistingLeaderAndLeaveNewProjectsWithoutLeader() throws Exception {
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
+        jdbc.update("UPDATE dcc_project_code SET project_leader='源负责人',project_leader_user_id=77 WHERE id=1");
+        var data = read(service.exportWorkbook());
+        var projects = data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows();
+        projects.get(0).put("storage_location", "导入的新位置");
+        var added = new LinkedHashMap<>(projects.get(0));
+        added.put("id", "999"); added.put("project_code", "PR2"); projects.add(added);
+        byte[] workbook = DccCatalogWorkbook.write(data);
+        jdbc.update("UPDATE dcc_project_code SET project_leader='目标负责人',project_leader_user_id=88 WHERE id=1");
+        jdbc.update("INSERT INTO dcc_project_code(project_name,project_code,project_leader,project_leader_user_id,tenant_id) VALUES('项目一','PR1','跨租户目标负责人',99,11)");
+        for (long tenant : List.of(10L, 11L)) {
+            TenantContextHolder.setTenantId(tenant);
+            service.importWorkbook(workbook);
+            service.importWorkbook(workbook);
+            assertEquals(tenant == 10 ? "目标负责人" : "跨租户目标负责人", jdbc.queryForObject(
+                "SELECT project_leader FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", String.class, tenant));
+            assertEquals(tenant == 10 ? 88L : 99L, jdbc.queryForObject(
+                "SELECT project_leader_user_id FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", Long.class, tenant));
+            assertEquals("导入的新位置", jdbc.queryForObject(
+                "SELECT storage_location FROM dcc_project_code WHERE project_code='PR1' AND tenant_id=?", String.class, tenant));
+            assertNull(jdbc.queryForObject("SELECT project_leader FROM dcc_project_code WHERE project_code='PR2' AND tenant_id=?", String.class, tenant));
+            assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE project_code='PR2' AND tenant_id=?", Long.class, tenant));
+        }
+    }
+    @Test void rejectsOldWorkbookBeforeWriting() throws Exception {
+        var data = read(service.exportWorkbook());
+        row(data, "导入说明").put("format", "dcc-catalog-workbook.v5");
+        row(data, "关联公司").put("name", "不得写入");
+        var error = assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
+        assertTrue(error.getMessage().contains("重新导出"));
+        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
+    }
     @Test void exportsTenantWithNoCertificatesWithoutCallingNonEmptyCompanyValidator() throws Exception {
         TenantContextHolder.setTenantId(11L);
         doThrow(new IllegalArgumentException("companyIds不能为空")).when(scope).validateUserCompanyAccessBatch(any(), any());
@@ -97,6 +147,31 @@ class DccCatalogPackageServiceTest {
     @Test void exportStillEnforcesCompanyScopeWhenCertificatesExist() {
         doThrow(new IllegalArgumentException("公司无权访问")).when(scope).validateUserCompanyAccessBatch(any(), eq(List.of(2L)));
         assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
+        verify(scope).validateUserCompanyAccessBatch(any(), eq(List.of(2L)));
+    }
+    @Test void projectCodeAdministratorExportsAllCompaniesOnlyWithinCurrentTenantWithoutCompanyGrants() throws Exception {
+        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
+        doThrow(new IllegalArgumentException("当前账号未配置可用授权公司")).when(scope).validateUserCompanyAccessBatch(any(), any());
+        jdbc.update("INSERT INTO mdm_enterprise(id,enterprise_code,name,type,status,tenant_id) VALUES(4,'C4','第二家公司','OWNED_COMPANY','ENABLE',10)");
+        jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,tenant_id) VALUES(2,'项目二','PR2',10),(3,'其他租户项目','OTHER',11)");
+        jdbc.update("INSERT INTO dcc_registration_certificate(id,owner_company_id,project_code_id,current_version_id,status,tenant_id) VALUES(2,'4','2','2','ACTIVE',10),(3,'3','3','3','ACTIVE',11)");
+        jdbc.update("INSERT INTO dcc_registration_certificate_version(id,certificate_id,version_no,certificate_no,status,tenant_id) VALUES(2,'2','1','REG002','CURRENT',10),(3,'3','1','OTHER','CURRENT',11)");
+
+        var data = read(service.exportWorkbook());
+        assertEquals(Set.of("2", "4"), data.stream().filter(s -> s.name().equals("授权公司")).findFirst().orElseThrow().rows().stream()
+            .map(row -> row.get("id")).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("PR1", "PR2"), data.stream().filter(s -> s.name().equals("DCC项目代码")).findFirst().orElseThrow().rows().stream()
+            .map(row -> row.get("project_code")).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("2", "4"), data.stream().filter(s -> s.name().equals("注册证")).findFirst().orElseThrow().rows().stream()
+            .map(row -> row.get("owner_company_id")).collect(java.util.stream.Collectors.toSet()));
+        verifyNoInteractions(scope);
+    }
+    @Test void projectCodeAdministratorCannotExportWithTenantIsolationDisabled() {
+        when(security.hasAnyRoles("dcc_project_code_admin")).thenReturn(true);
+        TenantContextHolder.setIgnore(true);
+        var error = assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
+        assertEquals("导入导出必须指定业务租户", error.getMessage());
+        verifyNoInteractions(scope);
     }
     @Test void administratorCanExportAndImportWithoutCompanyGrantsWithinCurrentTenant() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
@@ -157,7 +232,7 @@ class DccCatalogPackageServiceTest {
         var first = service.importWorkbook(source);
         assertEquals(10, first.get("created"));
         assertEquals(0, first.get("updated"));
-        assertEquals(3, first.get("localReferences"));
+        assertEquals(2, first.get("localReferences"));
         assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=11", Integer.class));
         assertEquals("2", jdbc.queryForObject("SELECT original_row_no FROM dcc_product_catalog WHERE tenant_id=10", String.class));
@@ -186,8 +261,8 @@ class DccCatalogPackageServiceTest {
         assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
         assertEquals("77", jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=10", String.class));
         assertEquals("其他租户", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=3", String.class));
+        assertTrue(service.exportWorkbook().length > 0);
         verifyNoInteractions(scope);
-        assertThrows(IllegalArgumentException.class, () -> service.exportWorkbook());
     }
     @Test void preservesBitFlagsOnCrossTenantInsertAndRepeatedUpdate() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);

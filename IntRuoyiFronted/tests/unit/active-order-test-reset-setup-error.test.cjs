@@ -17,7 +17,7 @@ const reason = '指定测试订单配置未就绪：生效路线版本未包含�
 const receipt = { workOrderCode: 'FIXED-TEST', activeOrderId: '42' }
 const ref = value => ({ value })
 
-function harness({ code, refreshFails = false }) {
+function harness({ code, refreshFails = false, errorReason = reason }) {
   const errors = [], successes = []
   let writes = 0, refreshes = 0
   const context = {
@@ -29,12 +29,12 @@ function harness({ code, refreshFails = false }) {
     resolveErrorMessage: (error, fallback) => error?.message || fallback,
     resetFixedSimulationActiveOrder: async () => {
       writes++
-      if (!refreshFails) throw Object.assign(new Error(reason), { code })
+      if (!refreshFails) throw Object.assign(new Error(errorReason), { code })
       return receipt
     },
     loadActiveOrders: async () => {
       refreshes++
-      throw Object.assign(new Error(reason), { code })
+      throw Object.assign(new Error(errorReason), { code })
     }
   }
   vm.createContext(context)
@@ -77,4 +77,27 @@ test('a setup error during refresh cannot claim a completed reset was rejected',
   assert.equal(h.writes, 1)
   assert.equal(h.refreshes, 1)
   assert.equal(h.successes.length, 0)
+})
+
+for (const code of [1076041001, '1076041001']) {
+  test(`missing production team ${typeof code} is rejected with actionable guidance`, async () => {
+    const h = harness({ code, errorReason: '生产接手缺少正式人员责任配置' })
+    await h.run()
+    assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'rejected')
+    assert.match(h.errors[0], /重置已拒绝，本次未完成重置/)
+    assert.match(h.errors[0], /生产组长账号重置/)
+    assert.match(h.errors[0], /正式员工及系统账号绑定/)
+    assert.doesNotMatch(h.errors[0], /结果未确认|不要再次重置/)
+    assert.equal(h.writes, 1)
+    assert.equal(h.refreshes, 0)
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  })
+}
+
+test('handoff error while refreshing a successful reset remains uncertain', async () => {
+  const h = harness({ code: 1076041001, refreshFails: true })
+  await h.run()
+  assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'unknown')
+  assert.match(h.errors[0], /已重置，但列表刷新失败/)
+  assert.equal(h.writes, 1)
 })

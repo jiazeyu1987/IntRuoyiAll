@@ -284,6 +284,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "ncrResponsibilityReader",
+                org.mockito.Mockito.mock(MesActiveOrderNcrResponsibilityReader.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "pqcCoverageService", pqcCoverageService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "dataCleanupMapper", dataCleanupMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", localTestRunSourceGuard);

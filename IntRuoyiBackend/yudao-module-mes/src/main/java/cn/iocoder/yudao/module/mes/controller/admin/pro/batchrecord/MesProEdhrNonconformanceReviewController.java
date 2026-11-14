@@ -42,6 +42,16 @@ public class MesProEdhrNonconformanceReviewController {
     @Resource
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesQaReviewerCandidateService reviewerCandidates;
+
+    @GetMapping("/reviewer-candidates")
+    @Operation(summary = "查询本租户启用且具备QA处置权限的评审责任人")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-nonconformance-review:create', 'mes:pro-edhr-nonconformance-review:deviation-create', 'mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve', 'mes:pro-edhr-release:reject')")
+    public CommonResult<List<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesQaReviewerCandidateRespVO>> getReviewerCandidates() {
+        return success(reviewerCandidates.list());
+    }
+
     @PostMapping("/assign-reviewer")
     @Operation(summary = "为尚未分派的待评审单明确指派QA责任人")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')")
@@ -76,7 +86,7 @@ public class MesProEdhrNonconformanceReviewController {
 
     @PostMapping("/reject-batch")
     @Operation(summary = "上市放行负责人驳回批次并发起不合格评审")
-    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:pqc-reject')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve')")
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> rejectBatch(
             @Valid @RequestBody MesProEdhrBatchExecutionRejectReqVO reqVO) {
         return success(nonconformanceReviewService.rejectBatch(reqVO));
@@ -105,7 +115,7 @@ public class MesProEdhrNonconformanceReviewController {
 
     @GetMapping("/page")
     @Operation(summary = "分页查询 eDHR 不合格评审列表")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<PageResult<MesProEdhrNonconformanceReviewRespVO>> getPage(
             @Valid MesProEdhrNonconformanceReviewPageReqVO reqVO) {
         return success(nonconformanceReviewService.getPage(reqVO));
@@ -113,7 +123,7 @@ public class MesProEdhrNonconformanceReviewController {
 
     @GetMapping("/pending-page")
     @Operation(summary = "分页查询 QA 冻结批次不合格评审列表")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<PageResult<MesProEdhrNonconformanceReviewRespVO>> getPendingPage(
             @Valid MesProEdhrNonconformanceReviewPageReqVO reqVO) {
         return success(nonconformanceReviewService.getPendingPage(reqVO));
@@ -121,14 +131,14 @@ public class MesProEdhrNonconformanceReviewController {
 
     @GetMapping("/get")
     @Operation(summary = "获得 eDHR 不合格评审单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> get(@RequestParam("id") Long id) {
         return success(nonconformanceReviewService.get(id));
     }
 
     @GetMapping("/active-order-detail")
     @Operation(summary = "获得不合格评审关联的活跃订单详情")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
             @RequestParam("reviewId") Long reviewId) {
         return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
@@ -137,7 +147,7 @@ public class MesProEdhrNonconformanceReviewController {
 
     @GetMapping("/batch-list")
     @Operation(summary = "查询批次关联 eDHR 不合格评审单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<List<MesProEdhrNonconformanceReviewRespVO>> getBatchList(
             @RequestParam("batchExecutionId") Long batchExecutionId) {
         return success(nonconformanceReviewService.listByBatchExecutionId(batchExecutionId));

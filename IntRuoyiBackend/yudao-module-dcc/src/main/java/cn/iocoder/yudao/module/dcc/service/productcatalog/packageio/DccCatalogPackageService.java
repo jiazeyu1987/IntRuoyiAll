@@ -28,7 +28,7 @@ public class DccCatalogPackageService {
     @Resource private ControlledContentRegistrationProjectionService projection;
     @Resource private ObjectMapper json;
     @Resource private DccProductCatalogRegistrationSyncService catalogSync;
-    private static final String FORMAT = "dcc-catalog-workbook.v5";
+    private static final String FORMAT = "dcc-catalog-workbook.v6";
     record Spec(String name, String table, String fields, String identity, String filter) {
         List<String> columns() { return List.of(fields.split(",")); }
         List<String> keys() { return List.of(identity.split(",")); }
@@ -37,7 +37,7 @@ public class DccCatalogPackageService {
         new Spec("关联公司", "mdm_enterprise", "id,enterprise_code,name,type,status,revision,deleted", "enterprise_code", "type='ENTRUSTED_PARTY'"),
         new Spec("授权公司", "mdm_enterprise", "id,enterprise_code,name,type,status,revision,deleted", "enterprise_code", "type='OWNED_COMPANY'"),
         new Spec("产品主数据", "mdm_product", "id,product_code,dcc_product_code,name_cn,name_en,model_specification,category,status,deleted", "product_code", "1=1"),
-        new Spec("DCC项目代码", "dcc_project_code", "id,product_master_id,doc_control_no,project_name,project_code,category,commissioned_production,project_leader,project_leader_user_id,default_attributes_json,project_engineer,storage_location,priority,status,last_import_batch_id,batch_record_total_recognition_json", "project_name,project_code", "1=1"),
+        new Spec("DCC项目代码", "dcc_project_code", "id,product_master_id,doc_control_no,project_name,project_code,category,commissioned_production,default_attributes_json,project_engineer,storage_location,priority,status,last_import_batch_id,batch_record_total_recognition_json", "project_name,project_code", "1=1"),
         new Spec("DCC产品目录", "dcc_product_catalog", "id,data_source,original_row_no,category_level1,category_level2,product_sequence,product,product_code,project_name,project_code,registration_certificate_name,registration_certificate_number,certificate_holder,registration_place,effective_date,expiry_date,classification,registration_info_link,product_status,remark", "data_source,original_row_no", "1=1"),
         new Spec("注册证", "dcc_registration_certificate", "id,owner_company_id,product_master_id,project_code_id,first_obtained_date,current_version_id,pending_version_id,current_snapshot_id,status,row_version,certificate_key", "owner_company_id,certificate_key", "1=1"),
         new Spec("注册证版本", "dcc_registration_certificate_version", "id,certificate_id,version_no,version_type,certificate_no,approval_date,effective_date,expiry_date,classification,category_changed,base_snapshot_id,remark,status,formalized_at,formalized_by,voided_at,voided_by,void_reason", "certificate_id,version_no", "1=1"),
@@ -58,8 +58,8 @@ public class DccCatalogPackageService {
         Map.entry("snapshot_id", "dcc_registration_certificate_snapshot"));
     private static final Set<String> DEFERRED = Set.of("current_version_id", "pending_version_id", "current_snapshot_id", "base_snapshot_id");
     private static final Set<String> VIRTUAL_FIELDS = Set.of("certificate_key");
-    private static final Set<String> LOCAL_REFERENCES = Set.of("project_leader_user_id", "confirmed_by", "formalized_by", "voided_by", "source_change_id", "last_import_batch_id");
-    private static final Set<String> USER_FIELDS = Set.of("project_leader_user_id", "confirmed_by", "formalized_by", "voided_by");
+    private static final Set<String> LOCAL_REFERENCES = Set.of("confirmed_by", "formalized_by", "voided_by", "source_change_id", "last_import_batch_id");
+    private static final Set<String> USER_FIELDS = Set.of("confirmed_by", "formalized_by", "voided_by");
     private static final Set<String> BIT_FIELDS = Set.of("deleted", "category_changed", "entrusted_production", "self_production");
 
     @Transactional(readOnly = true)
@@ -209,7 +209,7 @@ public class DccCatalogPackageService {
         List<DccCatalogWorkbook.SheetData> sheets = new ArrayList<>();
         sheets.add(new DccCatalogWorkbook.SheetData("导入说明", List.of("format", "tenant", "说明"),
             List.of(Map.of("format", FORMAT, "tenant", String.valueOf(tenant), "说明",
-                "按业务标识合并，保留文件外数据。项目按名称及代码定位；产品目录按当前租户、数据来源及原行号合并，跨租户导入创建独立目录并重映射绑定。保留文本格式及关联标识。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
+                "按业务标识合并，保留文件外数据。项目按名称及代码定位；产品目录按当前租户、数据来源及原行号合并，跨租户导入创建独立目录并重映射绑定。保留文本格式及关联标识。不导出导入项目负责人姓名及账号；已有项目保留负责人，新增项目不设置负责人。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
         for (var spec : SPECS) sheets.add(new DccCatalogWorkbook.SheetData(spec.name(), spec.columns(), List.of()));
         return sheets;
     }
@@ -237,7 +237,8 @@ public class DccCatalogPackageService {
         List<Long> companyIds = data.get("注册证").stream()
             .map(row -> Long.valueOf(row.get("owner_company_id"))).distinct().toList();
         // No certificate records means there are no company-scoped records to authorize.
-        if (!companyIds.isEmpty() && !isAdministrator()) {
+        // Project code administrators export the catalog for every company in the current tenant.
+        if (!companyIds.isEmpty() && !isAdministrator() && !security.hasAnyRoles("dcc_project_code_admin")) {
             companyScope.validateUserCompanyAccessBatch(getLoginUserId(), companyIds);
         }
     }

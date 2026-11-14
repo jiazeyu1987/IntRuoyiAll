@@ -25,6 +25,48 @@
       "reason": "项目代码列表将配置状态筛选迁移到 SQL，复用既有检验规程查询权限控制 QA 配置可见性；不新增权限标识、页面、菜单、角色或租户套餐授权。"
     },
     {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesReleaseAttachmentUploadService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261113_mes_release_attachment_upload_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesReleaseAttachmentUploadService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:upload",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261113_mes_release_attachment_upload_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesReleaseAttachmentUploadService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261113_mes_release_attachment_upload_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-production-release:pqc-reject",
+      "reason": "内部资料组件复用现有操作权限判断是否为仅上传人员，不新增该权限，不向四类上传角色授予该权限；角色查询、上传与待办查询授权见20261113_mes_release_attachment_upload_roles.sql。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:void",
+      "reason": "内部资料组件复用现有操作权限判断是否为仅上传人员，不新增该权限，不向四类上传角色授予该权限；角色查询、上传与待办查询授权见20261113_mes_release_attachment_upload_roles.sql。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:approve",
+      "reason": "内部资料组件沿用已有权限区分正常操作人与仅上传人员，不新增放行权限。四类上传角色的上市放行查询、上传和待办查询授权由20261113_mes_release_attachment_upload_roles.sql提供。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/WorkflowInteractionLog.vue",
       "kind": "page",
       "value": "mes/pro/processpool/components/WorkflowInteractionLog",
@@ -3933,6 +3975,60 @@
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261113_mes_production_leader_deviation_read.sql"
       ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrNonconformanceReviewController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:approve",
+      "reason": "QA评审候选人查询复用现有上市放行操作权限与不合格评审处置权限，按本租户启用账号的实际权限筛选；不新增权限标识、菜单或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrNonconformanceReviewController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:reject",
+      "reason": "QA评审候选人查询复用现有上市放行操作权限与不合格评审处置权限，按本租户启用账号的实际权限筛选；不新增权限标识、菜单或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesQaReviewerCandidateService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:dispose",
+      "reason": "QA评审候选人查询复用现有上市放行操作权限与不合格评审处置权限，按本租户启用账号的实际权限筛选；不新增权限标识、菜单或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:deviation-create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrDeviationController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:deviation-create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:deviation-create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "5f01ecd7cb32b2af5fbc7cbb3199e902d85703f1ca8c42191adb4c9d1415f371",
+      "reason": "按明确业务要求，不合格评审沿用现有隐藏路由供本租户所有已登录用户查询，移除查询权限门禁；不新增菜单或权限，不改角色和套餐授权，创建、指派、QA处置权限保持原有控制。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/auth/AuthController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:dispose",
+      "reason": "QA评审责任人复用已获授权的处置权限，展示其上级既有不合格评审菜单及目录；仅调整权限响应中的导航可见性，不新增菜单、权限、角色或租户套餐授权，不扩大创建及处置的数据范围。"
     }
   ]
 }

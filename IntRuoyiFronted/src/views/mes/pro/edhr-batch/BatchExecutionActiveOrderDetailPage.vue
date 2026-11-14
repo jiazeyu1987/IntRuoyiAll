@@ -14,17 +14,8 @@
             <Icon icon="ep:back" :size="18" />
           </el-button>
         </el-tooltip>
-        <div v-if="canOpenReverseTrace" class="edhr-batch-active-order-detail__actions">
-          <el-button
-            type="primary"
-            plain
-            data-edhr-detail-reverse-trace
-            @click="reverseTraceVisible = true"
-          >反查关联批次</el-button>
-        </div>
         <div class="market-release-readonly">
         <ActiveOrderSubmissionDetailPanel
-          hide-correction-history
           :detail="detail"
           :production-material-lists="productionMaterialLists"
           :production-material-list-loading="productionMaterialListLoading"
@@ -93,6 +84,8 @@ const reverseTraceRestoreKey = computed(() => typeof route.query.reverseTraceRes
 
 const initialActiveTab = computed(() => {
   const requestedTab = typeof route.query.tab === 'string' ? route.query.tab.trim() : ''
+  if (['INCOMING_INSPECTION_FILE', 'STERILIZATION_FILE', 'FINISHED_PRODUCT_FILE', 'OTHER_FILE'].includes(requestedTab))
+    return `dossierFile:${requestedTab}`
   return requestedTab === 'otherUpload' ? 'dossierFile:OTHER_FILE' : undefined
 })
 

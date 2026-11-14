@@ -45,6 +45,7 @@ public class MesActiveOrderDossierReadScopeService {
     private final cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
     @jakarta.annotation.Resource
     private MesActiveOrderDossierCompletionService dossierCompletionService;
+    @jakarta.annotation.Resource private MesReleaseAttachmentUploadService attachmentUploads;
 
     public Context requireBatch(Long actor, Long batchExecutionId, Long activeOrderId) {
         Long tenant = requireActor(actor);
@@ -114,6 +115,7 @@ public class MesActiveOrderDossierReadScopeService {
         }
         require(!deleting && permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload"),
                 "当前用户无该资料的写入权限。");
+        require(!attachmentUploads.hasDuty(actor, activeId), "当前角色没有该类别的待上传任务，不能写入资料。");
         requireFormalBatch(actor, tenant, app, active);
         return new Context(active, app);
     }

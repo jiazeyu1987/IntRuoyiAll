@@ -13,6 +13,39 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class MesNcrReviewerAssignmentTest {
+    @Test void candidatesFollowCurrentDisposePermissionAndEnabledTenantIdentity() {
+        var candidates = new MesQaReviewerCandidateService();
+        var users = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var permissions = mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        ReflectionTestUtils.setField(candidates, "users", users);
+        ReflectionTestUtils.setField(candidates, "permissions", permissions);
+        var qa = cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder()
+                .id(40L).nickname("QA").status(0).build();
+        qa.setTenantId(1L);
+        var ordinary = cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder()
+                .id(41L).status(0).build();
+        ordinary.setTenantId(1L);
+        var otherTenant = cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder()
+                .id(42L).status(0).build();
+        otherTenant.setTenantId(2L);
+        var disabled = cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder()
+                .id(43L).status(1).build();
+        disabled.setTenantId(1L);
+        when(users.selectListByStatus(0)).thenReturn(java.util.List.of(qa, ordinary, otherTenant, disabled));
+        String permission = "mes:pro-edhr-nonconformance-review:dispose";
+        when(permissions.hasAnyPermissions(40L, permission)).thenReturn(true);
+        assertEquals(java.util.List.of(40L), candidates.list().stream().map(row -> row.getId()).toList());
+        verify(permissions, never()).hasAnyPermissions(eq(42L), anyString());
+        verify(permissions, never()).hasAnyPermissions(eq(43L), anyString());
+        // Grant/revoke becomes visible on the next picker load; no frozen role-name list.
+        when(permissions.hasAnyPermissions(41L, permission)).thenReturn(true);
+        assertEquals(2, candidates.list().size());
+        when(permissions.hasAnyPermissions(40L, permission)).thenReturn(false);
+        assertEquals(java.util.List.of(41L), candidates.list().stream().map(row -> row.getId()).toList());
+        when(users.selectListByStatus(0)).thenThrow(new IllegalStateException("user query failed"));
+        assertThrows(IllegalStateException.class, candidates::list);
+    }
+
     MesProEdhrNonconformanceReviewServiceImpl service;
     MesProEdhrNonconformanceReviewMapper reviews;
     MesActiveOrderHandoffService handoff;

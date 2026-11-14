@@ -71,7 +71,7 @@
                     :release-transaction-id="row.releaseTransactionId"
                   />
                 </template>
-                <el-tag v-else-if="column.key === 'statusLabel'" data-edhr-history-batch-status>{{
+                <el-tag v-else-if="column.key === 'statusLabel'" :type="row.statusLabel === '已作废' ? 'danger' : 'primary'" data-edhr-history-batch-status>{{
                   row.statusLabel
                 }}</el-tag>
                 <span

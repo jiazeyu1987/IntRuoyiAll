@@ -1,7 +1,5 @@
 <template>
   <section class="correction-history" aria-label="正式补正历史">
-    <el-button :disabled="!context" data-active-order-correction-history-entry @click="history.open">补正历史</el-button>
-    <el-dialog v-model="history.state.visible" title="正式补正历史" width="900px" :teleported="false" @closed="history.close">
       <el-alert v-if="history.state.error" :title="history.state.error" type="error" :closable="false" show-icon role="alert" />
       <el-skeleton v-else-if="history.state.loading" :rows="6" animated />
       <template v-else-if="history.state.timeline">
@@ -46,7 +44,6 @@
           </el-button>
         </article>
       </template>
-    </el-dialog>
   </section>
 </template>
 
@@ -60,8 +57,11 @@ import { createActiveOrderCorrectionHistory } from './activeOrderCorrectionHisto
 const props = defineProps<{ context?: SignatureBusinessContext }>()
 defineEmits<{ signature: [id: number | string] }>()
 const history = createActiveOrderCorrectionHistory(() => props.context,
-  source => getActiveOrderCorrections(source.scope, source.identity))
-watch(() => props.context, () => history.close(), { deep: true })
+  source => getActiveOrderCorrections('TEAM', source.activeOrderId))
+watch(() => props.context, () => {
+  history.close()
+  void history.open()
+}, { deep: true, immediate: true })
 onBeforeUnmount(() => history.close())
 </script>
 
@@ -75,5 +75,4 @@ onBeforeUnmount(() => history.close())
 .correction-history__summary dd { margin: 0; overflow-wrap: anywhere; }
 .correction-history__references { margin-top: 16px; }
 .correction-history__references summary { cursor: pointer; color: var(--el-color-primary); }
-:deep(.el-dialog) { max-width: calc(100vw - 32px); }
 </style>

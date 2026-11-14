@@ -1809,9 +1809,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private ResolvedReviewMaterials resolveReviewMaterials(Long reviewId,
             List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO> reviewMaterials,
             List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents) {
-        if (reviewMaterials == null || reviewMaterials.isEmpty()) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
+        // Attachments are optional; retain and validate upload/delete evidence even when none remain.
+        if (reviewMaterials == null) reviewMaterials = List.of();
         List<MaterialDraft> drafts = new ArrayList<>();
         for (int index = 0; index < reviewMaterials.size(); index++) {
             MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material = reviewMaterials.get(index);
@@ -1851,7 +1850,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         payload.put("activeMaterials", activeMaterials);
         payload.put("reviewMaterialEvents", events);
         return new ResolvedReviewMaterials(String.join(",", summaryUrls),
-                (Long) activeMaterials.get(0).get("fileId"), JSON.toJSONString(payload));
+                activeMaterials.isEmpty() ? null : (Long) activeMaterials.get(0).get("fileId"), JSON.toJSONString(payload));
     }
 
     private FileDO resolveReviewMaterialFile(Long reviewId, Long fileId, String submittedUrl) {
@@ -1906,7 +1905,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     }
 
     private String reviewMaterialDirectory(Long reviewId) {
-        return REVIEW_MATERIAL_DIRECTORY_PREFIX + reviewId;
+        return "tenants/" + TenantContextHolder.getRequiredTenantId() + "/"
+                + REVIEW_MATERIAL_DIRECTORY_PREFIX + reviewId;
     }
 
     private void validateUploadedReviewMaterial(String directory, String originalName, long contentLength,

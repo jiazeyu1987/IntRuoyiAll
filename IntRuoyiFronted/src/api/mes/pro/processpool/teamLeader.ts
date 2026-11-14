@@ -777,6 +777,7 @@ export interface ActiveOrderDossierFilesRespVO {
   activeOrderId: number
   applicationId?: number
   categories: ActiveOrderDossierFileCategoryVO[]
+  uploadTasks?: { workTaskId: string; categoryKey: string; label: string }[]
 }
 
 export interface ActiveOrderDossierFilesReqVO {
@@ -817,6 +818,12 @@ export interface TeamLeaderActiveOrderRespVO {
   inspectionProgressPercent: number | string
   activeStatus: string
   businessStatus?: string
+  pendingNonconformanceReviews?: {
+    reviewId: string
+    reviewCode: string
+    qaReviewerUserId: string | null
+    qaReviewerName: string | null
+  }[]
   joinedAt?: number
   removedAt?: number
   version?: number

@@ -13,6 +13,8 @@ public class MesInProcessOrderRespVO {
     private String batchCode;
     private Long leaderUserId;
     private String leaderName;
+    private String responsibleName;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow.PendingNonconformanceReview> pendingNonconformanceReviews = java.util.List.of();
     private String routeName;
     private BigDecimal quantity;
     private BigDecimal productionProgressPercent;

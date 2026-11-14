@@ -142,7 +142,7 @@ class MesProEdhrNcrManagerDispositionTest {
         MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material =
                 new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
                         .setFileId(70002L)
-                        .setUrl("s3://bucket/mes/edhr-ncr/reviews/1001/20260929/ncr.pdf")
+                        .setUrl("s3://bucket/tenants/122/mes/edhr-ncr/reviews/1001/20260929/ncr.pdf")
                         .setFileName("ncr.pdf")
                         .setSortNo(1);
         var request = new MesProEdhrNonconformanceReviewDisposeReqVO()
@@ -292,7 +292,7 @@ class MesProEdhrNcrManagerDispositionTest {
         FileDO file = new FileDO();
         file.setId(70001L);
         file.setConfigId(1L);
-        file.setPath("mes/edhr-ncr/reviews/1001/upload-1/20260929/ncr.pdf");
+        file.setPath("tenants/122/mes/edhr-ncr/reviews/1001/upload-1/20260929/ncr.pdf");
         file.setName("ncr.pdf");
         file.setUrl("/admin-api/infra/file/1/get/ncr.pdf");
         when(fileMapper.selectById(70001L)).thenReturn(file);

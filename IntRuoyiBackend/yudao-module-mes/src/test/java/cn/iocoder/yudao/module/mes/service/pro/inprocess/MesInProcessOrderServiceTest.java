@@ -53,7 +53,7 @@ class MesInProcessOrderServiceTest {
         when(events.selectBatchIds(any())).thenReturn(List.of(tenant(MesProProcessPoolEventDO.builder().id(9L).eventType("PRODUCTION_SUBMIT").rawPayload("{\"selectedDevices\":[{\"deviceId\":31,\"deviceCode\":\"EQ-1\"}]}").build())));
         when(devices.selectList(any(Wrapper.class))).thenReturn(List.of());
         when(inspections.selectList(any(Wrapper.class))).thenReturn(List.of(tenant(MesPqcProcessInspectionAggregateDetailDO.builder().activeOrderId(3L).workOrderId(3L).selectedEquipmentId(7L).selectedEquipmentName("EQ检验").build())));
-        var leader = new AdminUserRespDTO(); leader.setId(30L); leader.setNickname("组长丙");
+        var leader = new AdminUserRespDTO(); leader.setTenantId(1L); leader.setId(30L); leader.setNickname("组长丙");
         when(users.getUserMap(List.of(30L))).thenReturn(Map.of(30L,leader));
         when(activeOrders.projectActiveOrders(List.of(third))).thenReturn(List.of(new MesTeamLeaderActiveOrderRow().setId(3L).setLeaderUserId(30L)));
         var result = service.page(request);
@@ -78,7 +78,7 @@ class MesInProcessOrderServiceTest {
         var order = order(1,10);
         when(mapper.countCandidates(eq(1L),eq(request),any())).thenReturn(1L);
         when(mapper.selectCandidates(eq(1L),eq(request),any(),isNull(),isNull(),anyLong(),anyInt())).thenReturn(List.of(order));
-        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("原生产组长");
+        var leader = new AdminUserRespDTO(); leader.setTenantId(1L); leader.setId(10L); leader.setNickname("原生产组长");
         when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
         for (String status : List.of("PQC_RELEASE_PENDING", "REPORT_UPLOAD_PENDING",
                 "MANAGER_RELEASE_PENDING", "NONCONFORMANCE_VOID", "NONCONFORMANCE_REWORK")) {
@@ -102,7 +102,7 @@ class MesInProcessOrderServiceTest {
                 .thenReturn(candidates.subList(100,200));
         when(mapper.selectCandidates(eq(1L),eq(request),any(),isNull(),eq(6L),eq(0L),eq(100)))
                 .thenReturn(candidates.subList(200,205));
-        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("组长");
+        var leader = new AdminUserRespDTO(); leader.setTenantId(1L); leader.setId(10L); leader.setNickname("组长");
         when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
         when(activeOrders.projectActiveOrders(any())).thenAnswer(invocation -> {
             List<MesProcessPoolActiveOrderDO> window = invocation.getArgument(0);
@@ -129,7 +129,7 @@ class MesInProcessOrderServiceTest {
         when(mapper.countCandidates(eq(1L),eq(request),any())).thenReturn(2000L);
         when(mapper.selectCandidates(eq(1L),eq(request),any(),isNull(),isNull(),eq(2L),eq(1)))
                 .thenReturn(List.of(value));
-        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("组长");
+        var leader = new AdminUserRespDTO(); leader.setTenantId(1L); leader.setId(10L); leader.setNickname("组长");
         when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
         when(activeOrders.projectActiveOrders(List.of(value))).thenReturn(List.of(new MesTeamLeaderActiveOrderRow().setId(21L).setLeaderUserId(10L)));
         var result = service.page(request);
@@ -146,6 +146,46 @@ class MesInProcessOrderServiceTest {
         value.setReadBlocked(true); assertEquals("数据异常",MesInProcessOrderService.statusLabel(value));
         value.setReadBlocked(false); value.setReleaseApplicationStatus("FUTURE"); value.setAbnormal(false); value.setBusinessStatus("ACTIVE");
         assertEquals("未知放行状态：FUTURE",MesInProcessOrderService.statusLabel(value));
+    }
+
+    @Test void pendingNcrOverridesReleaseAndShowsOnlyAssignedQaReviewers() {
+        var request = new MesInProcessOrderPageReqVO();
+        var order = order(1,10);
+        when(mapper.countCandidates(eq(1L),eq(request),any())).thenReturn(1L);
+        when(mapper.selectCandidates(eq(1L),eq(request),any(),isNull(),isNull(),anyLong(),anyInt())).thenReturn(List.of(order));
+        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("生产组长");
+        when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
+        var review = new MesTeamLeaderActiveOrderRow.PendingNonconformanceReview()
+                .setReviewId("99").setQaReviewerUserId("20").setQaReviewerName("当前QA");
+        var row = new MesTeamLeaderActiveOrderRow().setId(1L).setLeaderUserId(10L)
+                .setReleaseApplicationStatus("PQC_RELEASE_PENDING").setAbnormal(true)
+                .setPendingNonconformanceReviews(List.of(review));
+        when(activeOrders.projectActiveOrders(List.of(order))).thenReturn(List.of(row));
+        var result = service.page(request).getList().get(0);
+        assertEquals("不合格审批", MesInProcessOrderService.statusLabel(result));
+        assertEquals("当前QA", result.getResponsibleName());
+        verify(mapper,never()).selectResponsibilityCandidates(any(),any(),any(),any(),any());
+        review.setQaReviewerUserId(null).setQaReviewerName(null);
+        assertEquals("未指派QA责任人", service.page(request).getList().get(0).getResponsibleName());
+    }
+
+    @Test void releaseResponsibilityUsesCurrentApplicationAndAllFrozenCandidates() {
+        var request = new MesInProcessOrderPageReqVO();
+        var order = order(1,10);
+        when(mapper.countCandidates(eq(1L),eq(request),any())).thenReturn(1L);
+        when(mapper.selectCandidates(eq(1L),eq(request),any(),isNull(),isNull(),anyLong(),anyInt())).thenReturn(List.of(order));
+        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("生产组长");
+        var qa = new AdminUserRespDTO(); qa.setId(20L); qa.setTenantId(1L); qa.setNickname("放行甲");
+        var qb = new AdminUserRespDTO(); qb.setId(30L); qb.setTenantId(1L); qb.setNickname("放行乙");
+        when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
+        when(users.getUserMap(List.of(20L,30L))).thenReturn(Map.of(20L,qa,30L,qb));
+        when(activeOrders.projectActiveOrders(List.of(order))).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderRow().setId(1L).setLeaderUserId(10L).setBusinessStatus("COMPLETED")
+                        .setReleaseApplicationId(90L).setReleaseApplicationStatus("PQC_RELEASE_PENDING")));
+        when(mapper.selectResponsibilityCandidates(1L,1L,90L,"PQC_RELEASE_PENDING","COMPLETED")).thenReturn(List.of("20,30"));
+        assertEquals("放行甲、放行乙", service.page(request).getList().get(0).getResponsibleName());
+        qa.setTenantId(2L);
+        assertThrows(IllegalStateException.class, () -> service.page(request));
     }
 
     @Test void unpagedAndInvalidPageRequestsFailExplicitly() {

@@ -96,7 +96,11 @@ import { resolveInProcessOrderStatus } from './inProcessOrderStatus'
 import { formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesInProcessOrder' })
-const queryParams = reactive({ pageNo: 1, pageSize: 20, listFilters: undefined as string | undefined })
+const queryParams = reactive({
+  pageNo: 1,
+  pageSize: 20,
+  listFilters: undefined as string | undefined
+})
 const list = ref<InProcessOrder[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -165,6 +169,7 @@ const defaultColumns: UserTableColumnDefinition[] = [
   { key: 'productionProgressPercent', label: '生产进度', width: 120 },
   { key: 'inspectionProgressPercent', label: '检验进度', width: 120 },
   { key: 'status', label: '状态', width: 120 },
+  { key: 'responsibleName', label: '责任人', width: 180 },
   { key: 'joinedAt', label: '加入时间', width: 180 }
 ]
 const {

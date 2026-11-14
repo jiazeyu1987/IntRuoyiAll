@@ -47,7 +47,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     @Resource
     private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
-    private static final String PACKAGE_VERSION = "3";
+    private static final String PACKAGE_VERSION = "4";
     private static final String MENU_KEY_PERMISSION_PREFIX = "permission:";
     private static final String MENU_KEY_ROUTE_PREFIX = "route:";
     private static final String MENU_KEY_SEPARATOR = "|";
@@ -206,6 +206,11 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     private void validatePayload(RoleConfigPackage payload) {
         if (payload == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "权限角色配置包 JSON 非法");
+        }
+        if ("3".equals(payload.getPackageVersion())) {
+            throw exception0(CONFIG_PACKAGE_FORMAT_UNSUPPORTED.getCode(),
+                    "权限角色配置包版本3未区分旧权限标识与精确路由格式，不能安全导入；"
+                            + "请从可信来源重新导出版本4配置包，不得仅修改版本号");
         }
         if (!PACKAGE_VERSION.equals(payload.getPackageVersion())) {
             throw exception(CONFIG_PACKAGE_FORMAT_UNSUPPORTED, payload.getPackageVersion());
@@ -408,8 +413,13 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "菜单路由标识格式非法：" + menuKey);
         }
         String parentKey = menuKey.substring(MENU_KEY_ROUTE_PREFIX.length(), parentSeparator);
+        // Permission-free buttons (including retired log navigation shells) have
+        // no route or permission to distinguish them. Their label is part of
+        // their identity; discarding it collapses unrelated nodes under a page.
+        boolean permissionFreeButton = menuKey.substring(parentSeparator + 1, labelSeparator)
+                .startsWith("3|");
         return MENU_KEY_ROUTE_PREFIX + menuIdentityKey(parentKey)
-                + menuKey.substring(parentSeparator, labelSeparator + 1);
+                + menuKey.substring(parentSeparator, permissionFreeButton ? menuKey.length() : labelSeparator + 1);
     }
 
     private String buildMenuKey(MenuDO menu, Map<Long, MenuDO> menuById, Map<Long, String> keyById) {

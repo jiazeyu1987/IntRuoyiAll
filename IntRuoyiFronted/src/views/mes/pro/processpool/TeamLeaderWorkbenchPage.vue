@@ -1797,6 +1797,17 @@
                 data-pqc-correction-receive @click="receivePqcCorrection(row.releaseApplicationId)">接收补正任务</el-button>
             </template>
           </el-table-column>
+          <el-table-column label="不合格评审责任人" prop="pendingNonconformanceReviews" min-width="240">
+            <template #default="{ row }">
+              <span v-if="row.readBlocked">未知</span>
+              <template v-else-if="row.pendingNonconformanceReviews?.length">
+                <div v-for="review in row.pendingNonconformanceReviews" :key="review.reviewId" data-active-order-ncr-responsibility>
+                  {{ review.reviewCode }} · {{ review.qaReviewerUserId == null ? '未指派' : review.qaReviewerName }}
+                </div>
+              </template>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
@@ -1855,6 +1866,15 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="activeLeaderTab === 'PRODUCTION'"
+                      v-hasPermi="['mes:pro-process-pool-team-leader:deviation-create']"
+                      :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || activeOrderRebuildSubmittingId !== undefined"
+                      data-team-leader-active-order-deviation
+                      @click="activeOrderDeviationTarget = row"
+                    >
+                      偏差
+                    </el-dropdown-item>
                     <el-dropdown-item
                       :disabled="
                         maintenanceSubmitting ||
@@ -4138,11 +4158,18 @@
       </el-button>
     </template>
   </el-dialog>
+  <ActiveOrderDeviationDialog
+    v-if="activeOrderDeviationTarget"
+    :active-order-id="activeOrderDeviationTarget.id"
+    :order-code="activeOrderDeviationTarget.workOrderCode"
+    @close="activeOrderDeviationTarget = undefined"
+  />
 </template>
 
 <script setup lang="ts">
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
+import ActiveOrderDeviationDialog from './components/ActiveOrderDeviationDialog.vue'
 import {useWorkflowInteractionLog} from './workflowInteractionLog'
 const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
 import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
@@ -4568,6 +4595,7 @@ const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
 const correctionVisible = ref(false)
+const activeOrderDeviationTarget = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderAddDialogVisible = ref(false)
 const activeOrderConflictDrawerVisible = ref(false)
 const abnormalDialogVisible = ref(false)
@@ -4724,6 +4752,7 @@ const activeOrderColumns: any[] = [
   { key: 'productionProgressPercent', label: '生产进度', visible: true },
   { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
   { key: 'releaseApplicationStatus', label: '放行申请', visible: true },
+  { key: 'pendingNonconformanceReviews', label: '不合格评审责任人', visible: true },
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
@@ -10599,8 +10628,11 @@ const handleResetFixedSimulationActiveOrder = async () => {
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
     // Known prerequisite failures roll back; transport failures remain uncertain.
     const errorCode = Number((error as { code?: number | string })?.code)
-    if (!writeCompleted && [1040760394, 1040502000, 1040506111, 1040760324, 1040760414].includes(errorCode)) {
-      const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${reason}`
+    if (!writeCompleted && [1040760394, 1040502000, 1040506111, 1040760324, 1040760414, 1076041001].includes(errorCode)) {
+      const guidance = errorCode === 1076041001 && reason.includes('生产接手缺少正式人员责任配置')
+        ? `${reason}。当前登录账号尚未配置正式生产人员，请使用已配置班组的生产组长账号重置，或先在人员管理中完成正式员工及系统账号绑定`
+        : reason
+      const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${guidance}`
       activeOrderTestResetReceipt.value = { state: 'rejected', message: rejectedMessage }
       ElMessage.error(rejectedMessage)
       return

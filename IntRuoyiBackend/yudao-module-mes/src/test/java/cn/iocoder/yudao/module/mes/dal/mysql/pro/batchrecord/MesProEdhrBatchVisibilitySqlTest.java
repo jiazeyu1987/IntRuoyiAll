@@ -126,6 +126,27 @@ public class MesProEdhrBatchVisibilitySqlTest {
             assertNumber(20, returned, "database page bounds returned batch rows");
         }
     }
+    @Test public void attachmentRoleSeesOnlyItsCurrentApprovedApplication() throws Exception {
+        try (Connection db = DriverManager.getConnection("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL", "sa", "")) {
+            schema(db);
+            execute(db, "INSERT INTO mes_pro_edhr_batch_execution(id,work_order_id,route_id,route_version_id) VALUES(1,30,40,50)");
+            execute(db, "INSERT INTO mes_pro_process_pool_active_order_release_application(id,batch_execution_id,active_order_id,work_order_id,pqc_decision,application_status) VALUES(31,1,20,30,'APPROVE','MANAGER_RELEASE_PENDING')");
+            execute(db, "INSERT INTO mes_pro_edhr_work_task(id,batch_execution_id,work_order_id,task_type,business_scope_type,business_scope_id,review_source_id,responsibility_source_type,candidate_user_snapshot,status) VALUES(61,1,30,'DOSSIER_COMPLETE','ACTIVE_ORDER_DOSSIER',20,31,'RELEASE_ATTACHMENT_ROLE','71,72','TODO')");
+            check(db, true, List.of(), "upload candidate sees approved batch without approval role");
+            assertProbe(db, MesProEdhrBatchVisibilitySql.visible(73L, false, List.of()), false, "noncandidate cannot see batch");
+            execute(db, "UPDATE mes_pro_edhr_work_task SET status='DONE'");
+            check(db, true, List.of(), "completed uploader retains read access");
+            execute(db, "UPDATE mes_pro_edhr_work_task SET tenant_id=2");
+            check(db, false, List.of(), "foreign tenant upload task denied");
+            execute(db, "UPDATE mes_pro_edhr_work_task SET tenant_id=1");
+            execute(db, "UPDATE mes_pro_process_pool_active_order_release_application SET pqc_decision='REJECT'");
+            check(db, false, List.of(), "PQC approval is required");
+            execute(db, "UPDATE mes_pro_process_pool_active_order_release_application SET pqc_decision='APPROVE'");
+            execute(db, "INSERT INTO mes_pro_process_pool_active_order_release_application(id,batch_execution_id,active_order_id,work_order_id,pqc_decision,application_status) VALUES(32,1,20,30,NULL,'PQC_RELEASE_PENDING')");
+            check(db, false, List.of(), "old round upload task grants no new round access");
+        }
+    }
+
     private void check(Connection db, boolean expected, List<Long> rules, String label) throws Exception {
         assertNumber(expected ? 1 : 0, scalar(db, "SELECT COUNT(*) FROM mes_pro_edhr_batch_execution WHERE tenant_id=1 AND deleted=0 AND "
                 + MesProEdhrBatchVisibilitySql.visible(71L,false,rules)), label);
@@ -149,7 +170,7 @@ public class MesProEdhrBatchVisibilitySqlTest {
         execute(db,"CREATE TABLE mes_pro_edhr_batch_execution("+common+"work_order_id BIGINT,route_id BIGINT,route_version_id BIGINT)");
         execute(db,"CREATE TABLE mes_pro_edhr_market_release_handover("+common+"batch_execution_id BIGINT,original_user_id BIGINT,recipient_user_id BIGINT,recalled_at TIMESTAMP)");
         execute(db,"CREATE TABLE mes_pro_edhr_release_transaction("+common+"batch_execution_id BIGINT)");
-        execute(db,"CREATE TABLE mes_pro_edhr_work_task("+common+"batch_execution_id BIGINT,work_order_id BIGINT,route_id BIGINT,task_type VARCHAR,business_scope_type VARCHAR,business_scope_id BIGINT,ownership_locked INT,status VARCHAR,reason VARCHAR,candidate_user_snapshot VARCHAR,create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        execute(db,"CREATE TABLE mes_pro_edhr_work_task("+common+"batch_execution_id BIGINT,work_order_id BIGINT,route_id BIGINT,task_type VARCHAR,business_scope_type VARCHAR,business_scope_id BIGINT,ownership_locked INT,status VARCHAR,reason VARCHAR,candidate_user_snapshot VARCHAR,review_source_id BIGINT,responsibility_source_type VARCHAR,create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
         execute(db,"CREATE TABLE mes_pro_process_pool_active_order("+common+"work_order_id BIGINT,route_id BIGINT,route_version_id BIGINT,leader_user_id BIGINT)");
         execute(db,"CREATE TABLE mes_pro_edhr_batch_execution_origin("+common+"batch_execution_id BIGINT,work_order_id BIGINT,active_order_id BIGINT)");
         execute(db,"CREATE TABLE mes_pro_process_pool_active_order_release_application("+common+"batch_execution_id BIGINT,work_order_id BIGINT,active_order_id BIGINT,route_id BIGINT,route_version_id BIGINT,pqc_release_work_task_id BIGINT,application_status VARCHAR,pqc_decision VARCHAR)");

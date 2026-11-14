@@ -67,8 +67,101 @@ class MesProEdhrDeviationServiceImplTest {
     @Mock
     private MesProEdhrWorkTaskService workTaskService;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
     private MesProEdhrDeviationServiceImpl service;
     private final AtomicReference<String> reservedPayloadHash = new AtomicReference<>();
+
+
+    private cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO order(Long owner) {
+        var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO()
+                .setId(991L).setLeaderUserId(owner).setWorkOrderId(batch(71L).getWorkOrderId())
+                .setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
+        order.setTenantId(71L);
+        return order;
+    }
+
+    @Test
+    void orderEntryRejectsOtherLeaderAndForeignTenantBeforeCreatingAnything() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(202L));
+        assertThrows(ServiceException.class, () -> service.create(201L, request().setActiveOrderId(991L)));
+        var foreign = order(201L);
+        foreign.setTenantId(72L);
+        when(activeOrderMapper.selectById(991L)).thenReturn(foreign);
+        assertThrows(ServiceException.class, () -> service.getCreationBatchOptionsByActiveOrder(201L, 991L));
+        verify(gxpAuditService, never()).acquireLedgerLock();
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+    }
+
+    @Test
+    void orderEntryRejectsBatchFromAnotherCycle() {
+        when(activeOrderMapper.selectById(992L)).thenReturn(order(201L).setId(992L));
+        when(activeOrderMapper.selectByIdForUpdate(992L)).thenReturn(order(201L).setId(992L));
+        when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(71L, 41L)).thenReturn(batch(71L));
+        assertThrows(ServiceException.class, () -> service.create(201L, request().setActiveOrderId(992L).setReceiverId(301L)));
+        verify(numberGenerator, never()).nextCode(any());
+    }
+
+    @Test
+    void orderEntryRechecksLockedOwnerBeforeSignatureOrInsert() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(201L));
+        when(activeOrderMapper.selectByIdForUpdate(991L)).thenReturn(order(202L));
+        when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(71L, 41L)).thenReturn(batch(71L));
+        assertThrows(ServiceException.class, () -> service.create(201L, request().setActiveOrderId(991L).setReceiverId(301L)));
+        verify(numberGenerator, never()).nextCode(any());
+    }
+
+    @Test
+    void orderCreationRequiresAssignedInvestigator() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(201L));
+        assertThrows(ServiceException.class, () -> service.create(201L, request().setActiveOrderId(991L)));
+        verify(gxpAuditService, never()).acquireLedgerLock();
+    }
+
+    @Test
+    void orderEndpointsRequireDedicatedCreationPermission() throws Exception {
+        var controller = cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrDeviationController.class;
+        for (var name : List.of("createByActiveOrder", "getCreationBatchOptionsByActiveOrder")) {
+            var method = java.util.Arrays.stream(controller.getMethods()).filter(item -> item.getName().equals(name)).findFirst().orElseThrow();
+            assertEquals("@ss.hasPermission('mes:pro-process-pool-team-leader:deviation-create')",
+                    method.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value());
+        }
+    }
+
+    @Test
+    void orderWithoutFormalBatchReturnsNoInventedSource() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(201L));
+        when(batchExecutionOriginMapper.selectListByTraceFilter(991L, null, null, null)).thenReturn(List.of());
+        assertEquals(List.of(), service.getCreationBatchOptionsByActiveOrder(201L, 991L));
+        verify(batchExecutionMapper, never()).selectByTenantIdAndId(any(), any());
+    }
+
+    @Test
+    void orderScopedCreationUsesExistingSignedCreationAndTaskDispatch() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(201L));
+        when(activeOrderMapper.selectByIdForUpdate(991L)).thenReturn(order(201L));
+        when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(71L, 41L)).thenReturn(batch(71L));
+        when(releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(71L, 41L)).thenReturn(List.of());
+        when(numberGenerator.nextCode(71L)).thenReturn("PC-ORDER-1");
+        doAnswer(call -> { ((MesProEdhrDeviationDO) call.getArgument(0)).setId(901L); return 1; })
+                .when(deviationMapper).insert(any(MesProEdhrDeviationDO.class));
+        when(createRequestMapper.linkDeviation(eq(71L), eq("req-1"), any(), eq(901L))).thenReturn(1);
+        var result = service.create(201L, request().setActiveOrderId(991L).setReceiverId(301L));
+        assertEquals(41L, result.getBatchExecutionId());
+        assertEquals("PC-ORDER-1", result.getDeviationCode());
+        verify(signatureService).recordDeviationInitiationSignature(eq(201L), eq(41L), eq(901L), any(), any(), any(), any());
+        verify(workTaskService).assignDeviationTask(any(MesProEdhrDeviationDO.class),
+                eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE), eq(301L), any());
+    }
+
+    @Test
+    void orderIdentityIsPartOfIdempotencyHash() {
+        org.junit.jupiter.api.Assertions.assertNotEquals(service.buildCreatePayloadHash(request()),
+                service.buildCreatePayloadHash(request().setActiveOrderId(991L)));
+        org.junit.jupiter.api.Assertions.assertNotEquals(service.buildCreatePayloadHash(request().setActiveOrderId(991L)),
+                service.buildCreatePayloadHash(request().setActiveOrderId(992L)));
+    }
 
     @Test
     void ledgerLockPrecedesBusinessLocks() {
@@ -112,6 +205,7 @@ class MesProEdhrDeviationServiceImplTest {
                 signatureService, gxpAuditService);
         ReflectionTestUtils.setField(service, "batchExecutionOriginMapper", batchExecutionOriginMapper);
         ReflectionTestUtils.setField(service, "workTaskService", workTaskService);
+        ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
     }
 
     @AfterEach

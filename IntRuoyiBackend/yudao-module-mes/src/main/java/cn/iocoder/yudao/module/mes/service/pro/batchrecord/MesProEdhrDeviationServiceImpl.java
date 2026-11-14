@@ -81,6 +81,31 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
+    @Override
+    public List<MesProEdhrDeviationBatchOptionRespVO> getCreationBatchOptionsByActiveOrder(Long actorUserId, Long activeOrderId) {
+        requireOrderLeader(actorUserId, activeOrderId);
+        return getBatchOptionsByActiveOrder(activeOrderId);
+    }
+
+    private void requireOrderLeader(Long actorUserId, Long activeOrderId) {
+        var order = activeOrderId == null ? null : activeOrderMapper.selectById(activeOrderId);
+        validateOrderLeader(actorUserId, order);
+    }
+
+    private void validateOrderLeader(Long actorUserId,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO order) {
+        if (actorUserId == null || order == null
+                || !Objects.equals(order.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(order.getLeaderUserId(), actorUserId)
+                || !"ACTIVE".equals(order.getActiveStatus()) || !"ACTIVE".equals(order.getBusinessStatus())) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED,
+                    "仅当前有效订单的生产组长可发起偏差");
+        }
+    }
+
     @Override
     public List<MesProEdhrDeviationBatchOptionRespVO> getBatchOptionsByActiveOrder(Long activeOrderId) {
         if (activeOrderId == null || activeOrderId <= 0) {
@@ -152,6 +177,12 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             throw exception(PRO_EDHR_DEVIATION_IDEMPOTENCY_KEY_REQUIRED);
         }
         validateCreateRequest(reqVO);
+        if (reqVO.getActiveOrderId() != null) {
+            requireOrderLeader(actorUserId, reqVO.getActiveOrderId());
+            if (reqVO.getReceiverId() == null || reqVO.getReceiverId() <= 0) {
+                throw exception(PRO_EDHR_DEVIATION_REQUIRED_CONTENT_MISSING);
+            }
+        }
         String payloadHash = buildCreatePayloadHash(reqVO);
 
         gxpAuditService.acquireLedgerLock();
@@ -186,6 +217,16 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                         && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()));
         if (!formallyLinked) {
             throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
+        }
+        if (reqVO.getActiveOrderId() != null) {
+            var order = activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
+            validateOrderLeader(actorUserId, order);
+            boolean matchesOrder = batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId()).stream()
+                    .anyMatch(origin -> Objects.equals(origin.getActiveOrderId(), reqVO.getActiveOrderId())
+                            && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()));
+            if (order == null || !Objects.equals(order.getWorkOrderId(), batch.getWorkOrderId()) || !matchesOrder) {
+                throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID);
+            }
         }
         List<MesProEdhrReleaseTransactionDO> transactions =
                 releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(
@@ -393,6 +434,9 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
 
     String buildCreatePayloadHash(MesProEdhrDeviationCreateReqVO reqVO) {
         Map<String, Object> payload = new TreeMap<>();
+        if (reqVO.getActiveOrderId() != null) {
+            payload.put("activeOrderId", reqVO.getActiveOrderId());
+        }
         payload.put("batchExecutionId", reqVO.getBatchExecutionId());
         payload.put("level", reqVO.getLevel());
         payload.put("discoveryDepartmentId", reqVO.getDiscoveryDepartmentId());

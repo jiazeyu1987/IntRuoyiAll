@@ -6,7 +6,6 @@
         返回
       </el-button>
       <ActiveOrderSubmissionDetailPanel
-        hide-correction-history
         hide-order-summary
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"
@@ -110,10 +109,6 @@
             <el-table-column label="操作" width="320" fixed="right">
               <template #default="{ row }">
                 <div class="pqc-release-page__actions">
-                  <ReleaseTaskNotificationEntry
-                    v-hasPermi="['mes:pro-edhr-work-task:query']"
-                    :work-task-id="row.pqcReleaseWorkTaskId"
-                  >交接</ReleaseTaskNotificationEntry>
                   <el-button
                     link
                     type="primary"
@@ -260,7 +255,6 @@ const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
 import CryptoJS from 'crypto-js'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'

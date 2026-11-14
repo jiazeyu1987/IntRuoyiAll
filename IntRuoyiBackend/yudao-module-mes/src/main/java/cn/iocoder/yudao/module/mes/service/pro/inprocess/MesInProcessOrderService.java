@@ -42,6 +42,7 @@ public class MesInProcessOrderService {
             "productionProgressPercent", ListFilterValueUtils.number(MesInProcessOrderRespVO::getProductionProgressPercent),
             "inspectionProgressPercent", ListFilterValueUtils.number(MesInProcessOrderRespVO::getInspectionProgressPercent),
             "routeName", ListFilterValueUtils.text(MesInProcessOrderRespVO::getRouteName),
+            "responsibleName", ListFilterValueUtils.text(MesInProcessOrderRespVO::getResponsibleName),
             "status", ListFilterValueUtils.text(MesInProcessOrderService::statusLabel),
             "readBlocked", ListFilterValueUtils.bool(MesInProcessOrderRespVO::getReadBlocked));
 
@@ -111,17 +112,51 @@ public class MesInProcessOrderService {
         var leaders = users.getUserMap(page.stream().map(MesProcessPoolActiveOrderDO::getLeaderUserId).distinct().toList());
         var projected = activeOrders.projectActiveOrders(page);
         if (projected.size() != page.size()) throw new IllegalStateException("在制工单实时投影数量不一致");
+        Map<Long, Set<Long>> responsibleIds = new LinkedHashMap<>();
+        for (var row : projected) {
+            Set<Long> ids = new LinkedHashSet<>();
+            if (!Boolean.TRUE.equals(row.getReadBlocked()) && row.getPendingNonconformanceReviews().isEmpty()) {
+                for (String snapshot : mapper.selectResponsibilityCandidates(TenantContextHolder.getRequiredTenantId(),
+                        row.getId(), row.getReleaseApplicationId(), row.getReleaseApplicationStatus(), row.getBusinessStatus())) {
+                    ids.addAll(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.candidates(snapshot));
+                }
+                // Completing production hands the application action to the formally bound production leader.
+                if ("COMPLETED".equals(row.getBusinessStatus()) && StrUtil.isBlank(row.getReleaseApplicationStatus()))
+                    ids.add(row.getLeaderUserId());
+            }
+            responsibleIds.put(row.getId(), ids);
+        }
+        var allIds = responsibleIds.values().stream().flatMap(Collection::stream).distinct().toList();
+        var responsibleUsers = allIds.isEmpty() ? Map.<Long, cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO>of()
+                : users.getUserMap(allIds);
         return projected.stream().map(row -> {
             var result = BeanUtils.toBean(row, MesInProcessOrderRespVO.class);
             var leader = leaders.get(row.getLeaderUserId());
             if (leader == null) throw new IllegalStateException("在制工单生产组长不存在：" + row.getLeaderUserId());
             result.setLeaderName(leader.getNickname());
+            if (Boolean.TRUE.equals(row.getReadBlocked())) {
+                result.setResponsibleName("无法读取");
+            } else if (!row.getPendingNonconformanceReviews().isEmpty()) {
+                result.setResponsibleName(row.getPendingNonconformanceReviews().stream()
+                        .map(review -> review.getQaReviewerUserId() == null ? "未指派QA责任人" : review.getQaReviewerName())
+                        .distinct().collect(Collectors.joining("、")));
+            } else {
+                result.setResponsibleName(responsibleIds.get(row.getId()).stream().map(id -> {
+                    var user = responsibleUsers.get(id);
+                    if (user == null || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                            || StrUtil.isBlank(user.getNickname()))
+                        throw new IllegalStateException("在制工单当前责任人信息缺失：" + id);
+                    return user.getNickname();
+                }).collect(Collectors.joining("、")));
+                if (responsibleIds.get(row.getId()).isEmpty()) result.setResponsibleName("暂无待办责任人");
+            }
             return result;
         }).toList();
     }
 
     static String statusLabel(MesInProcessOrderRespVO row) {
         if (Boolean.TRUE.equals(row.getReadBlocked())) return "数据异常";
+        if (!row.getPendingNonconformanceReviews().isEmpty()) return "不合格审批";
         String release = row.getReleaseApplicationStatus();
         if ("NONCONFORMANCE_VOID".equals(release)) return "QA已作废";
         if ("NONCONFORMANCE_REWORK".equals(release)) return "已结束并转入返工";

@@ -30,6 +30,7 @@ class MesProEdhrBatchVisibilitySqlParityTest {
     }
     private boolean legacy(Connection db, List<Long> matchingRules) throws Exception {
         var service = new MesProEdhrBatchExecutionVisibilityService();
+        ReflectionTestUtils.setField(service, "attachmentUploads", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
         var permission = mock(PermissionApi.class);
         var origins = mock(MesProEdhrBatchExecutionOriginMapper.class);
         var orders = mock(MesProcessPoolActiveOrderMapper.class);

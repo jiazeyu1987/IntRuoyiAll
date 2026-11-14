@@ -715,6 +715,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public EdhrBatchExecutionRespVO getReadableBatchSource(Long id) {
+        MesProEdhrBatchExecutionDO batch = validateBatchExists(id);
+        batchExecutionVisibilityService.requireVisibleBatch(batch, currentUserId());
+        return new EdhrBatchExecutionRespVO().setId(batch.getId()).setWorkOrderId(batch.getWorkOrderId())
+                .setActiveOrderId(resolveBatchActiveOrderId(batch.getId()));
+    }
+
+    @Override
     public List<EdhrBatchExecutionRouteOptionRespVO> listRouteOptionsByWorkOrder(Long workOrderId) {
         MesProWorkOrderDO workOrder = validateSelectableWorkOrder(workOrderId);
         return resolveEnabledProductRoutes(workOrder).stream()

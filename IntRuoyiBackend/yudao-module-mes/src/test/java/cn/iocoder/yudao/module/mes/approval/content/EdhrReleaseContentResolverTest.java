@@ -87,6 +87,11 @@ class EdhrReleaseContentResolverTest {
         assertTrue(content.at("/finalization/materialManifest/files").isArray());
         assertEquals(uploadApplicationId,content.at("/finalization/materialManifest/files/0/applicationId").asText());
         assertEquals("95",content.at("/finalization/applicationId").asText());
+        var withoutOptionalFiles=content.deepCopy();
+        var emptyManifest=(ObjectNode)withoutOptionalFiles.at("/finalization/materialManifest");
+        emptyManifest.set("files",a());emptyManifest.remove("manifestHash");
+        emptyManifest.put("manifestHash",ApprovalContentJson.hash(emptyManifest));
+        assertDoesNotThrow(()->f.semantic.validate(withoutOptionalFiles));
         var foreign=content.deepCopy();
         ((ObjectNode)foreign.at("/finalization/materialManifest/files/0")).put("activeOrderId","61");
         var foreignManifest=(ObjectNode)foreign.at("/finalization/materialManifest");

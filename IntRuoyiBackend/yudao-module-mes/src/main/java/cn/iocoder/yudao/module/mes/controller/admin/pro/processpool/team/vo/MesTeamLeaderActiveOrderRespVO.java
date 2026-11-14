@@ -68,6 +68,9 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "跨角色业务状态", example = "ACTIVE")
     private String businessStatus;
 
+    @Schema(description = "当前活跃订单待处置不合格评审及已指派的QA责任人")
+    private List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow.PendingNonconformanceReview> pendingNonconformanceReviews = List.of();
+
     @Schema(description = "加入活跃池时间")
     private LocalDateTime joinedAt;
 

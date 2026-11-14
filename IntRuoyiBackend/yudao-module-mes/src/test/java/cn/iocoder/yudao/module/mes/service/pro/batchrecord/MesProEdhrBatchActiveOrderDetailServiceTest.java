@@ -24,6 +24,8 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
     @Mock
     private MesProEdhrBatchExecutionService batchExecutionService;
     @Mock
+    private MesMarketReleaseAccess marketReleaseAccess;
+    @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesTeamLeaderActiveOrderDetailService detailService;
@@ -32,23 +34,23 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
 
     @Test
     void signatureDetailRetainsBatchAuthorizationAndExactWorkOrderSource() {
-        when(batchExecutionService.get(100L)).thenReturn(new EdhrBatchExecutionRespVO()
+        when(batchExecutionService.getReadableBatchSource(100L)).thenReturn(new EdhrBatchExecutionRespVO()
                 .setId(100L).setWorkOrderId(200L).setActiveOrderId(300L));
         when(activeOrderMapper.selectByIdIgnoreDeleted(300L)).thenReturn(new MesProcessPoolActiveOrderDO()
                 .setId(300L).setLeaderUserId(400L).setWorkOrderId(200L));
         var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(300L);
         when(detailService.getArchivedSignatureDetail(300L, 700L)).thenReturn(detail);
         assertSame(detail, service.getSignatureDetail(100L, 700L));
-        verify(batchExecutionService).get(100L);
+        verify(batchExecutionService).getReadableBatchSource(100L);
         verify(detailService, org.mockito.Mockito.never()).getArchivedFormalDetail(org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
     void signatureDetailRejectsDeniedBatchAndForeignWorkOrderBeforeReadingSignature() {
-        when(batchExecutionService.get(100L)).thenThrow(new IllegalStateException("batch access denied"));
+        when(batchExecutionService.getReadableBatchSource(100L)).thenThrow(new IllegalStateException("batch access denied"));
         assertThrows(IllegalStateException.class, () -> service.getSignatureDetail(100L, 700L));
         org.mockito.Mockito.doReturn(new EdhrBatchExecutionRespVO()
-                .setId(100L).setWorkOrderId(200L).setActiveOrderId(300L)).when(batchExecutionService).get(100L);
+                .setId(100L).setWorkOrderId(200L).setActiveOrderId(300L)).when(batchExecutionService).getReadableBatchSource(100L);
         when(activeOrderMapper.selectByIdIgnoreDeleted(300L)).thenReturn(new MesProcessPoolActiveOrderDO()
                 .setId(300L).setLeaderUserId(400L).setWorkOrderId(999L));
         assertThrows(ServiceException.class, () -> service.getSignatureDetail(100L, 700L));

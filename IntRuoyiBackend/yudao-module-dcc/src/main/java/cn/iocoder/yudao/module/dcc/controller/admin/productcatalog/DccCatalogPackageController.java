@@ -21,7 +21,7 @@ public class DccCatalogPackageController {
         return CommonResult.error(BAD_REQUEST.getCode(), exception.getMessage());
     }
     @GetMapping("/export")
-    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin') or (@ss.hasPermission('mdm:product:query') and @ss.hasPermission('dcc:project-code:query') and @ss.hasPermission('mdm:enterprise:query') and @ss.hasPermission('mdm:company-scope:query') and @ss.hasPermission('dcc:registration-certificate:query-current'))")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'dcc_project_code_admin') or (@ss.hasPermission('mdm:product:query') and @ss.hasPermission('dcc:project-code:query') and @ss.hasPermission('mdm:enterprise:query') and @ss.hasPermission('mdm:company-scope:query') and @ss.hasPermission('dcc:registration-certificate:query-current'))")
     public void exportWorkbook(HttpServletResponse response) throws IOException {
         byte[] bytes = service.exportWorkbook();
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

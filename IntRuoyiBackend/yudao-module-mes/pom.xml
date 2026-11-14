@@ -923,6 +923,7 @@
                 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
                     <configuration><skip>false</skip><testIncludes>
                                 <testInclude>**/MesOpenPqcCorrectionTaskVisibilityTest.java</testInclude>
+                                <testInclude>**/MesOpenPqcReleaseTaskVisibilityTest.java</testInclude>
 
                                 <testInclude>**/MesProEdhrWorkTaskServiceImplTest.java</testInclude>
                                 <testInclude>**/MesProEdhrDeviationHandlingServiceTest.java</testInclude>
@@ -964,6 +965,7 @@
                 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
                     <configuration><skip>false</skip><skipTests>false</skipTests><includes>
                                 <include>**/MesOpenPqcCorrectionTaskVisibilityTest.java</include>
+                                <include>**/MesOpenPqcReleaseTaskVisibilityTest.java</include>
                                 <include>**/MesProEdhrDeviationHandlingServiceTest.java</include>
                                 <include>**/MesProEdhrDeviationReviewTaskServiceTest.java</include>
                                 <include>**/MesEdhrDeviationApprovalOutcomeReaderTest.java</include>

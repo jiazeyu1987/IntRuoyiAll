@@ -57,16 +57,49 @@ public class MesEdhrApprovalCenterQueryContractTest {
     }
 
     @Test
-    void assignedApproveAndReleaseApproveIntersectCandidatesOnceAndExactTokensExclude112() throws Exception {
+    void assignedApprovalsIntersectCandidatesOnceAndExactTokensExclude112() throws Exception {
         try (Connection db = fixture()) {
             insert(db, 1, "APPROVE", 12, "12", null, 1, 0);
-            insert(db, 2, "RELEASE_APPROVE", 12, "12,112", null, 1, 0);
+            insert(db, 2, "REVIEW", 12, "12,112", null, 1, 0);
             insert(db, 3, "FILL", 112, "112", null, 1, 0);
             insert(db, 4, "FILL", 112, "12,112", null, 1, 0);
             insert(db, 5, "FILL", 12, "112", null, 1, 0);
             db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET signature_cell_key='cell-1' WHERE task_type='FILL'");
             assertEquals(List.of(1L, 2L, 4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
             assertEquals(List.of(1L, 2L, 3L, 4L, 5L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, false, "TODO")));
+        }
+    }
+
+    @Test
+    void marketReleaseStaysInPersonalWorkbenchAndOutOfAllApprovalCenterViews() throws Exception {
+        try (Connection db = fixture()) {
+            insert(db, 1, "RELEASE_APPROVE", 12, "12,112", null, 1, 0);
+            insert(db, 2, "RELEASE_APPROVE", 112, "12", null, 1, 0);
+            insert(db, 3, "REVIEW", 12, "12", null, 1, 0);
+            // Even a populated signature cell must not turn market release into a center task.
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET signature_cell_key='release-signature' WHERE id=2");
+            for (String status : List.of("TODO", "OVERDUE")) {
+                db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET status='" + status + "'");
+                for (Long actor : Arrays.asList(12L, null)) {
+                    assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                            new MesProEdhrWorkTaskPageReqVO(), actor, 1L, "DONE".equals(status), status)));
+                }
+                var ownRelease = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                        .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, status);
+                assertEquals(List.of(1L, 2L), ids(db, ownRelease));
+            }
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET status='DONE'");
+            assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                    new MesProEdhrWorkTaskPageReqVO(), null, 1L, true, "TODO")));
+            createDoneVisibilityTables(db);
+            assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                    new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, true, "TODO")));
+            AtomicReference<LambdaQueryWrapperX<MesProEdhrWorkTaskDO>> ownDone = new AtomicReference<>();
+            doAnswer(call -> { ownDone.set(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+            work.countMy(12L, "RELEASE_APPROVE", "DONE");
+            assertEquals(List.of(1L), ids(db, ownDone.get()));
         }
     }
 
@@ -114,6 +147,10 @@ public class MesEdhrApprovalCenterQueryContractTest {
             insertTyped(db, 17, "DEVIATION_CLOSE", "cell-not-an-approval", null);
             insertTyped(db, 18, "DOSSIER_COMPLETE", "cell-not-an-approval", null);
             insertTyped(db, 19, "PQC_RELEASE_CORRECTION", "cell-not-an-approval", null);
+            insertTyped(db, 20, "PQC_PRODUCTION_RELEASE", null, null);
+            insertTyped(db, 21, "PQC_PRODUCTION_RELEASE", null, null);
+            insertTyped(db, 22, "PQC_PRODUCTION_RELEASE", "cell-not-an-approval", null);
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET assignee_user_id=112 WHERE id=21");
             db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET assignee_user_id=112 WHERE id IN (13,14,15)");
 
             assertEquals(List.of(2L, 7L, 8L, 9L, 13L, 14L), ids(db,
@@ -205,16 +242,9 @@ public class MesEdhrApprovalCenterQueryContractTest {
         assertTrue(global.getSqlSegment().contains("tenant_id ="));
     }
 
-    @Test void generatedDonePredicateRequiresEnabledFormalPqcAndQaActorsButRejectsTenantAndDeleted() throws Exception {
+    @Test void personalDoneKeepsFormalPqcAndQaActorsWhileApprovalCenterExcludesPqcRelease() throws Exception {
         try (Connection db = fixture()) {
-            for (String column : List.of("business_scope_type VARCHAR","business_scope_id BIGINT","work_order_id BIGINT",
-                    "reason VARCHAR","completed_at TIMESTAMP","review_source_type VARCHAR","review_source_id BIGINT")) {
-                db.createStatement().execute("ALTER TABLE mes_pro_edhr_work_task ADD " + column);
-            }
-            db.createStatement().execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_edhr_release_transaction(id BIGINT,tenant_id BIGINT,deleted INT,batch_execution_id BIGINT,work_order_id BIGINT,release_status VARCHAR,approved_by BIGINT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order_release_application(id BIGINT,tenant_id BIGINT,deleted INT,pqc_release_work_task_id BIGINT,work_order_id BIGINT,active_order_id BIGINT,batch_execution_id BIGINT,pqc_decided_by BIGINT,pqc_decided_at TIMESTAMP,pqc_decision VARCHAR,application_status VARCHAR,pqc_reject_reason VARCHAR,qa_closure_review_id BIGINT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_edhr_nonconformance_review(id BIGINT,tenant_id BIGINT,deleted INT,review_status VARCHAR,active_order_id BIGINT,work_order_id BIGINT,batch_execution_id BIGINT,closed_at TIMESTAMP,qa_user_id BIGINT,disposition VARCHAR)");
+            createDoneVisibilityTables(db);
             db.createStatement().execute("INSERT INTO system_users VALUES(12,1,0,1)");
             db.createStatement().execute("INSERT INTO mes_pro_edhr_work_task(id,tenant_id,deleted,task_type,assignee_user_id,status,business_scope_type,business_scope_id,work_order_id,reason,completed_at,review_source_type,review_source_id) VALUES"
                     + "(1,1,FALSE,'PQC_PRODUCTION_RELEASE',999,'DONE','RELEASE_APPLICATION',91,93,'APPROVE','2026-10-07 10:00:00',NULL,NULL),"
@@ -227,14 +257,34 @@ public class MesEdhrApprovalCenterQueryContractTest {
             db.createStatement().execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES"
                     + "(96,1,0,'closed',180,93,92,'2026-10-07 11:00:00',18,'void'),"
                     + "(97,1,0,'closed',180,93,92,'2026-10-07 10:00:00',12,'void')");
-            assertEquals(List.of(3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(3L),ids(db,personalPqcDoneQuery()));
             db.createStatement().execute("UPDATE system_users SET status=0");
-            assertEquals(List.of(1L,2L,3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(1L,2L,3L),ids(db,personalPqcDoneQuery()));
+            assertEquals(List.of(), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, true, "TODO")));
+            assertEquals(List.of(), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, true, "TODO")));
             db.createStatement().execute("UPDATE system_users SET tenant_id=2");
-            assertEquals(List.of(),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(),ids(db,personalPqcDoneQuery()));
             db.createStatement().execute("UPDATE system_users SET tenant_id=1,deleted=1");
-            assertEquals(List.of(),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(),ids(db,personalPqcDoneQuery()));
         }
+    }
+
+    private void createDoneVisibilityTables(Connection db) throws SQLException {
+        for (String column : List.of("business_scope_type VARCHAR", "business_scope_id BIGINT", "work_order_id BIGINT",
+                "reason VARCHAR", "completed_at TIMESTAMP", "review_source_type VARCHAR", "review_source_id BIGINT")) {
+            db.createStatement().execute("ALTER TABLE mes_pro_edhr_work_task ADD " + column);
+        }
+        db.createStatement().execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_release_transaction(id BIGINT,tenant_id BIGINT,deleted INT,batch_execution_id BIGINT,work_order_id BIGINT,release_status VARCHAR,approved_by BIGINT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order_release_application(id BIGINT,tenant_id BIGINT,deleted INT,pqc_release_work_task_id BIGINT,work_order_id BIGINT,active_order_id BIGINT,batch_execution_id BIGINT,pqc_decided_by BIGINT,pqc_decided_at TIMESTAMP,pqc_decision VARCHAR,application_status VARCHAR,pqc_reject_reason VARCHAR,qa_closure_review_id BIGINT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_nonconformance_review(id BIGINT,tenant_id BIGINT,deleted INT,review_status VARCHAR,active_order_id BIGINT,work_order_id BIGINT,batch_execution_id BIGINT,closed_at TIMESTAMP,qa_user_id BIGINT,disposition VARCHAR)");
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> personalPqcDoneQuery() {
+        AtomicReference<LambdaQueryWrapperX<MesProEdhrWorkTaskDO>> query = new AtomicReference<>();
+        doAnswer(call -> { query.set(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+        work.countMy(12L, "PQC_PRODUCTION_RELEASE", "DONE");
+        return query.get();
     }
 
     @Test

@@ -8,6 +8,12 @@ export interface InProcessOrder {
   batchCode: string
   leaderUserId: number | string
   leaderName: string
+  responsibleName: string
+  pendingNonconformanceReviews: {
+    reviewId: string
+    qaReviewerUserId?: string
+    qaReviewerName?: string
+  }[]
   routeName: string
   quantity: number
   productionProgressPercent: number | null

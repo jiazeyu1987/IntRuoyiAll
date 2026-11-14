@@ -448,6 +448,7 @@ class MesActiveOrderDossierFileServiceTest {
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        ReflectionTestUtils.setField(service, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
         var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
         when(transactions.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
         ReflectionTestUtils.setField(service, "correctionService", mock(MesPqcReleaseCorrectionService.class));

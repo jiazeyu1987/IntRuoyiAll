@@ -24,9 +24,9 @@ class MesActiveOrderCorrectionEvidenceServiceTest {
         var service=new MesActiveOrderCorrectionEvidenceService(team,pqc,batch,events,revisions,mock(MesPqcInspectionTaskMapper.class),binding,f.reader);
         var detail=new MesTeamLeaderActiveOrderDetail().setActiveOrderId(100L).setProcesses(List.of(new MesTeamLeaderActiveOrderDetail.ProcessDetail()
                 .setProcessName("生产工序").setSubmissions(List.of(new MesTeamLeaderActiveOrderDetail.SubmissionDetail().setEventId(1L)))));
-        when(team.getDetail(7L,100L)).thenReturn(detail);when(batch.getDetail(900L)).thenReturn(detail);when(batch.getSignatureDetail(900L,11L)).thenReturn(detail);
+        when(team.getDetail(7L,100L)).thenReturn(detail);when(team.getArchivedFormalDetail(100L)).thenReturn(detail);when(batch.getDetail(900L)).thenReturn(detail);when(batch.getSignatureDetail(900L,11L)).thenReturn(detail);
         when(events.selectById(1L)).thenReturn(f.event);when(revisions.selectListByEventId(1L)).thenReturn(List.of(f.revision));
-        for(var timeline:List.of(service.getTeam(7L,100L),service.getBatch(900L,null))) {
+        for(var timeline:List.of(service.getTeam(7L,100L),service.getTeam(9L,100L),service.getBatch(900L,null))) {
             assertEquals(100L,timeline.activeOrderId());assertEquals(1,timeline.corrections().size());
             assertEquals(7L,timeline.corrections().get(0).signerUserId());
             assertEquals(123L,timeline.corrections().get(0).supersededReviewId());
@@ -39,11 +39,11 @@ class MesActiveOrderCorrectionEvidenceServiceTest {
         verify(binding,atLeastOnce()).require(f.event,100L);
         verify(revisions,never()).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO.class));
     }
-    @Test void authorizationFailurePrecedesAnyCorrectionReadAndAmbiguousBatchFailsBeforeDetail() {
+    @Test void missingFormalSourcePrecedesAnyCorrectionReadAndAmbiguousBatchFailsBeforeDetail() {
         var team=mock(MesTeamLeaderActiveOrderDetailService.class);var events=mock(MesProProcessPoolEventMapper.class);
         var revisions=mock(MesProProcessPoolEventRevisionMapper.class);var batch=mock(MesProEdhrBatchActiveOrderDetailService.class);
         var service=new MesActiveOrderCorrectionEvidenceService(team,null,batch,events,revisions,null,null,null);
-        when(team.getDetail(9L,100L)).thenThrow(new IllegalStateException("denied"));
+        when(team.getArchivedFormalDetail(100L)).thenThrow(new IllegalStateException("formal source missing"));
         assertThrows(IllegalStateException.class,()->service.getTeam(9L,100L));
         assertThrows(IllegalStateException.class,()->service.getBatch(900L,100L));
         assertThrows(IllegalStateException.class,()->service.getBatch(null,null));

@@ -44,6 +44,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 public class MesProEdhrBatchExecutionVisibilityService {
 
     @Resource private MesMarketReleaseAccess marketReleaseAccess;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService attachmentUploads;
 
     private static final String FORM_SLOT_MAIN = "MAIN";
 
@@ -104,6 +105,7 @@ public class MesProEdhrBatchExecutionVisibilityService {
         if (checks.overview().get()) {
             return true;
         }
+        if (attachmentUploads.canRead(currentUserId, batch.getId())) return true;
         if (checks.manager().test(batch)) {
             return true;
         }
@@ -179,6 +181,14 @@ public class MesProEdhrBatchExecutionVisibilityService {
                     return false;
                 }
                 return true;
+            }).toList();
+            if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
+            var uploadBatchIds = attachmentUploads.readableBatchIds(userId,
+                    remaining.stream().map(MesProEdhrBatchExecutionDO::getId).toList());
+            remaining = remaining.stream().filter(batch -> {
+                if (!uploadBatchIds.contains(batch.getId())) return true;
+                visibleIds.add(batch.getId());
+                return false;
             }).toList();
             if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
             ids = remaining.stream().map(MesProEdhrBatchExecutionDO::getId).toList();

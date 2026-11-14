@@ -79,7 +79,7 @@ function harness() {
     vm.runInNewContext(
       ts.transpileModule(
         script +
-          '\nglobalThis.api={openCreateDialog,closeCreateDialog,createDialogVisible,createLoading,activeOrderCandidatesLoading,submitCreateReview,entryForm,selectedActiveOrderId,openReviewDialog,reviewDialogVisible,selectedReview,disposeForm,disposeLoading,errorText,handleDispose,loadReviews,reviews,listLoading,handleMaterialUpload,materialUploadsPending};',
+          '\nglobalThis.api={openCreateDialog,closeCreateDialog,createDialogVisible,createLoading,activeOrderCandidatesLoading,submitCreateReview,entryForm,selectedActiveOrderId,openReviewTab,reviewTabOpen,selectedReview,disposeForm,disposeLoading,errorText,handleDispose,loadReviews,reviews,listLoading,handleMaterialUpload,materialUploadsPending};',
         { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }
       ).outputText,
       context
@@ -107,7 +107,7 @@ const review = (id) => ({
   })
 })
 async function open(h, id) {
-  h.openReviewDialog(review(id))
+  h.openReviewTab(review(id))
   await vue.nextTick()
   h.disposeForm.reviewOpinion = 'approved ' + id
   h.disposeForm.signaturePassword = 'secret'
@@ -137,7 +137,7 @@ test('close and reopen same A invalidates former request', async () => {
   const h = harness()
   await open(h, 1)
   const p = h.handleDispose('REWORK')
-  h.reviewDialogVisible.value = false
+  h.reviewTabOpen.value = false
   await open(h, 1)
   await settle(h)
   await p
@@ -294,7 +294,7 @@ test('upload from closed and reopened A cannot append material', async () => {
   const h = harness()
   await open(h, 1)
   const p = h.handleMaterialUpload({ target: { files: [{}], value: 'x' } })
-  h.reviewDialogVisible.value = false
+  h.reviewTabOpen.value = false
   await open(h, 1)
   h.uploads[0].resolve({ url: 'obsolete', fileId: 33, fileName: 'old.pdf' })
   await p

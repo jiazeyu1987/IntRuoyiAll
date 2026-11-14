@@ -417,7 +417,7 @@
     <el-dialog v-model="ncrCreateVisible" title="发起不合格审批" width="520px" destroy-on-close>
       <el-alert v-if="ncrCreateError" :title="ncrCreateError" type="error" :closable="false" show-icon class="mb-12px" />
       <el-form :model="ncrCreateForm" label-width="110px">
-        <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="ncrCreateForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
+        <el-form-item label="QA评审责任人" required><QaReviewerSelect v-model="ncrCreateForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
         <el-form-item label="不合格原因" required>
           <el-input v-model="ncrCreateForm.nonconformanceReason" type="textarea" :rows="4" maxlength="500" show-word-limit />
         </el-form-item>
@@ -439,6 +439,7 @@
 <script setup lang="ts">
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import BusinessEvidenceDetails from '../processpool/components/BusinessEvidenceDetails.vue'
 import { closeDeviationHandling, getDeviation, getDeviationHandling, saveDeviationHandling, signDeviationHandling, type DeviationHandlingRespVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'

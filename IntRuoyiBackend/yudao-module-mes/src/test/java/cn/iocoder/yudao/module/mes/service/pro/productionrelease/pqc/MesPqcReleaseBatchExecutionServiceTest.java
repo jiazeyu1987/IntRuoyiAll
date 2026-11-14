@@ -95,6 +95,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
+    @Mock private MesReleaseAttachmentUploadService attachmentUploads;
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private MesPqcProductionReleaseService service;
     private TimeZone originalTimeZone;
@@ -114,6 +115,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
+        ReflectionTestUtils.setField(service, "attachmentUploads", attachmentUploads);
         ReflectionTestUtils.setField(service, "correctionService", mock(MesPqcReleaseCorrectionService.class));
 
         ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
@@ -300,6 +302,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
+        ReflectionTestUtils.setField(service, "attachmentUploads", attachmentUploads);
         ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
         ReflectionTestUtils.setField(service, "contentBatchMapper", batches);
@@ -379,6 +382,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify((cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService)
                 ReflectionTestUtils.getField(service, "signatureAuthentication")).authenticate(any());
         verify(batchExecutionPort).markReadyForMarketRelease(BATCH_EXECUTION_ID, PQC_USER_ID);
+        verify(attachmentUploads).initialize(any(), eq(PQC_USER_ID));
         verify(gxpAuditService).acquireLedgerLock();
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
         verify(gxpAuditService).append(auditCaptor.capture());

@@ -131,15 +131,14 @@
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 240)" fixed="right">
               <template #default="{ row }">
                 <div class="edhr-batch-page__operation-grid">
-                  <span v-hasPermi="['mes:pro-edhr-release:query']">
-                    <MarketReleaseNegativeDecision :release-transaction-id="row.releaseTransactionId" :pending="row.releaseStatus === 'PENDING_APPROVAL'" @changed="getList" />
-                    <MarketReleaseHandover
-                      :batch-execution-id="row.id" :access="row.marketReleaseAccess"
-                      :closed="row.releaseStatus === 'RELEASED' || [15,40,50,60].includes(Number(row.status))" @changed="getList" />
-                  </span>
-                  <fieldset class="market-release-actions" :disabled="row.marketReleaseAccess?.writable === false">
+                  <fieldset class="market-release-actions" :disabled="row.marketReleaseAccess?.writable === false && !uploadOnly">
+                  <div v-if="uploadOnly" class="edhr-batch-page__actions">
+                    <el-button link type="primary" data-edhr-batch-action="upload"
+                      v-hasPermi="['mes:pro-edhr-batch-execution:upload']"
+                      @click="openActiveOrderOtherUploadTab(row)">上传</el-button>
+                  </div>
                   <div
-                    v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
+                    v-else-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
                     class="edhr-batch-page__actions"
                   >
                     <el-button
@@ -199,7 +198,7 @@
                       详情
                     </el-button>
                     <el-button
-                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      v-hasPermi="['mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve']"
                       link
                       type="warning"
                       data-edhr-batch-action="reject"
@@ -231,8 +230,6 @@
                     </el-button>
                   </div>
                   <div v-else class="edhr-batch-page__actions">
-                    <el-button v-hasPermi="['mes:pro-edhr-change:void']" link type="danger"
-                      data-edhr-batch-action="void" @click="openVoidDialog(row)">作废</el-button>
                     <el-button
                       link
                       type="primary"
@@ -242,7 +239,7 @@
                       详情
                     </el-button>
                     <el-button
-                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      v-hasPermi="['mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve']"
                       link
                       type="warning"
                       data-edhr-batch-action="reject"
@@ -298,8 +295,8 @@
         class="edhr-batch-page__dialog-alert"
       />
       <el-alert
-        v-if="releaseError"
-        :title="releaseError"
+        v-if="releaseAccessError || releaseError"
+        :title="releaseAccessError || releaseError"
         type="error"
         :closable="false"
         show-icon
@@ -388,11 +385,6 @@
           @confirmed="confirmMarketReceipt"
         />
         <el-button
-          v-if="!releasePreview && releaseContext?.releaseTransactionId && !releaseCompletedReadOnly && !releaseResultUncertain"
-          :disabled="releaseContextLoading || releaseLoading"
-          @click="refreshReleasePreview"
-        >重新预览</el-button>
-        <el-button
           v-if="releaseCompletedReadOnly"
           type="primary"
           data-edhr-batch-action="completed-release-history"
@@ -404,7 +396,7 @@
           v-else-if="releaseContext?.releaseTransactionId"
           type="primary"
           :loading="releaseLoading"
-          :disabled="releaseContextLoading || !releasePreview || releaseResultUncertain"
+          :disabled="releaseContextLoading || !releasePreview || releaseResultUncertain || !!releaseAccessError"
           @click="submitRelease"
         >
           确认上市放行
@@ -456,7 +448,7 @@
         </section>
       </div>
       <el-form label-width="120px" class="mt-12px">
-        <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="rejectForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
+        <el-form-item label="QA评审责任人" required><QaReviewerSelect v-model="rejectForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
         <el-form-item label="不合格原因" required>
           <el-input
             v-model="rejectForm.nonconformanceReason"
@@ -841,8 +833,6 @@ import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
-import MarketReleaseNegativeDecision from '../production-release/components/MarketReleaseNegativeDecision.vue'
-import MarketReleaseHandover from '../production-release/components/MarketReleaseHandover.vue'
 import {
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_CLOSED,
@@ -866,6 +856,7 @@ import {
 } from '@/api/mes/pro/edhr/batchExecution'
 import { getApprovalReviewPreview, reviewApprovalTask, type ApprovalReviewPreview, type ApprovalDecisionReceipt } from '@/api/approval-center'
 import MarketReleaseReceipt from './components/MarketReleaseReceipt.vue'
+import { getMarketReleaseAccess } from '@/api/mes/pro/edhr/marketReleaseHandover'
 import {
   getEdhrRelease,
   getEdhrReleasePage,
@@ -882,6 +873,7 @@ import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/api/mes/pro/edhr/change'
 import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -899,6 +891,10 @@ const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const userStore = useUserStore()
+const uploadOnly = computed(() => userStore.roles.some(role => /^BATCH_ATTACHMENT_(INCOMING_INSPECTION_REPORT|STERILIZATION_REPORT|FINISHED_PRODUCT_INSPECTION_REPORT|FINISHED_PRODUCT_INSPECTION_RECORD)_UPLOAD_1$/.test(role)) &&
+  !['*:*:*', 'mes:pro-process-pool-team-leader:maintain', 'mes:pro-production-release:pqc-approve',
+    'mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve', 'mes:pro-edhr-change:void']
+    .some(permission => userStore.permissions.has(permission)))
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
 const hasGoldenFingerActionBypass = computed(() => hasGoldenFingerPermission.value)
@@ -943,6 +939,7 @@ const readinessUserLoading = ref(false)
 const loadError = ref('')
 const voidError = ref('')
 const releaseError = ref('')
+const releaseAccessError = ref('')
 watch(releaseError,value=>{if(value)workflowLog.blocked()})
 const rejectError = ref('')
 const readinessError = ref('')
@@ -1446,6 +1443,7 @@ const loadBatchList = async (isActionCurrent: () => boolean, quiet = false) => {
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 批次执行列表加载失败。')
+    if (quiet) return false
     throw error
   } finally {
     batchListRequestsInFlight--
@@ -1457,6 +1455,7 @@ const getList = async () => loadBatchList(() => true)
 let handoverRefreshTimer: ReturnType<typeof setInterval> | undefined
 let handoverRefreshActive = false
 let handoverRefreshGeneration = 0
+let handoverRefreshInFlight = false
 const stopHandoverRefresh = () => {
   handoverRefreshActive = false
   handoverRefreshGeneration++
@@ -1467,16 +1466,40 @@ const startHandoverRefresh = () => {
   handoverRefreshActive = true
   const generation = handoverRefreshGeneration
   const isActive = () => handoverRefreshActive && generation === handoverRefreshGeneration
-  handoverRefreshTimer = setInterval(async () => {
-    if (!isActive() || document.hidden || batchListRequestsInFlight > 0 || releaseLoading.value) return
-    if (!(await loadBatchList(isActive, true))) return
-    const selected = selectedReleaseBatch.value
-    if (releaseDialogVisible.value && selected && !list.value.some(row => String(row.id) === String(selected.id) && row.marketReleaseAccess?.writable !== false)) {
-      releaseDialogVisible.value = false
-      releaseForm.password = ''
-      message.warning('该单办理授权已变化，请重新选择当前可办理的任务。')
+  handoverRefreshTimer = setInterval(() => { void refreshHandover(isActive) }, 5000)
+}
+const refreshHandover = async (isActive: () => boolean) => {
+  if (!isActive() || document.hidden || handoverRefreshInFlight || batchListRequestsInFlight > 0 || releaseLoading.value) return
+  handoverRefreshInFlight = true
+  const generation = marketReleaseRouteGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const selected = selectedReleaseBatch.value
+  const isCurrent = () => isActive() && generation === marketReleaseRouteGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) && routeKey === route.fullPath &&
+    releaseDialogVisible.value && !releaseLoading.value && String(selectedReleaseBatch.value?.id) === String(selected?.id)
+  try {
+    if (!releaseDialogVisible.value) {
+      await loadBatchList(isActive, true)
+      return
     }
-  }, 5000)
+    if (!selected?.id || releaseCompletedReadOnly.value) return
+    // A page of list results cannot establish authorization for a selected batch.
+    const access = await getMarketReleaseAccess({ batchExecutionId: selected.id }, { isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    if (!access || typeof access.writable !== 'boolean' || typeof access.visible !== 'boolean') {
+      throw new Error('上市放行授权查询返回无效结果，请重新核查。')
+    }
+    releaseAccessError.value = access.visible && access.writable
+      ? '' : '该单当前不可办理，已保留放行意见，请核查办理授权后重试。'
+    if (releaseAccessError.value) releaseForm.password = ''
+  } catch (error) {
+    if (isCurrent()) {
+      releaseAccessError.value = resolveErrorMessage(error, '上市放行授权核查失败，暂不可确认，请等待核查恢复。')
+    }
+  } finally {
+    handoverRefreshInFlight = false
+  }
 }
 onMounted(startHandoverRefresh)
 onActivated(startHandoverRefresh)
@@ -1672,6 +1695,7 @@ const resetMarketReleaseDialog = () => {
   releaseContextLoading.value = false
   releaseLoading.value = false
   releaseError.value = ''
+  releaseAccessError.value = ''
   releaseResultUncertain.value = false
   uncertainPrepareId.value = undefined
   confirmedMarketReceipt.value = undefined
@@ -1811,20 +1835,6 @@ const openReleaseDialog = async (
   }
 }
 
-const refreshReleasePreview = async () => {
-  const batch = selectedReleaseBatch.value
-  const context = releaseContext.value
-  if (!batch?.id || !context?.releaseTransactionId || !context.releaseApprovalWorkTaskId) {
-    releaseError.value = '缺少原上市放行事务或任务，无法重新预览。'
-    return
-  }
-  await openReleaseDialog(batch, {
-    batchExecutionId: String(batch.id),
-    releaseTransactionId: String(context.releaseTransactionId),
-    workTaskId: String(context.releaseApprovalWorkTaskId)
-  })
-}
-
 const openCompletedReleaseHistory = async () => {
   const batch = selectedReleaseBatch.value
   const context = releaseContext.value
@@ -1880,6 +1890,7 @@ const confirmMarketReceipt = (receipt: ApprovalDecisionReceipt) => {
 
 const submitRelease = async () => {
   if (!releaseDialogVisible.value || releaseLoading.value || releaseContextLoading.value) return
+  if (releaseAccessError.value) return
   if (releaseResultUncertain.value) return
   if (releaseCompletedReadOnly.value || releaseContext.value?.releaseStatus === 'RELEASED') {
     releaseError.value = '该正式任务已完成上市放行，请查看历史批记录。'
@@ -1987,7 +1998,7 @@ const openActiveOrderOtherUploadTab = async (row: EdhrBatchExecutionRespVO) => {
     query: {
       batchExecutionId: String(row.id),
       from: 'execution',
-      tab: 'otherUpload'
+      tab: uploadOnly.value ? 'releaseUpload' : 'otherUpload'
     }
   })
 }

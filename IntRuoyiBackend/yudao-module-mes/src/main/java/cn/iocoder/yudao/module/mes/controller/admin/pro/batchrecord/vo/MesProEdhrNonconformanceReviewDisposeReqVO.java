@@ -22,7 +22,7 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
     @Schema(description = "评审材料URL摘要")
     private String reviewMaterialUrl;
 
-    @Schema(description = "当前有效评审材料清单", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "当前有效评审材料清单，选填，可为空")
     private List<ReviewMaterialReqVO> reviewMaterials;
 
     @Schema(description = "评审材料上传删除操作记录")

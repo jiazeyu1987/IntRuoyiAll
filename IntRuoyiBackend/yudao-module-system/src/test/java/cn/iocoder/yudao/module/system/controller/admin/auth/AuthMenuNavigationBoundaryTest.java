@@ -79,6 +79,53 @@ class AuthMenuNavigationBoundaryTest {
         assertTrue(AuthConvert.INSTANCE.buildMenuTree(List.of(root, nested, detail)).get(0).getVisible());
     }
 
+    @ParameterizedTest
+    @CsvSource({"dispose,true,false", "dispose,false,false", "dispose,true,true",
+            "query,true,false", "create,true,false", "deviation-create,true,false"})
+    void qaDispositionAuthorityShowsReviewEntryWithoutGrantingOtherActions(
+            String action, boolean originalVisible, boolean dynamicGrant) {
+        var controller = new AuthController();
+        var permissions = mock(PermissionService.class);
+        var users = mock(AdminUserService.class);
+        var roles = mock(RoleService.class);
+        var menus = mock(MenuService.class);
+        Map.of("permissionService", permissions, "userService", users, "roleService", roles, "menuService", menus)
+                .forEach((name, value) -> ReflectionTestUtils.setField(controller, name, value));
+        var root = menu(900220, 0, 1, "eDHR", "/mes/edhr-batch-processing", "");
+        var execution = menu(991516, 900220, 1, "生产执行", "/mes/edhr-production-execution", "");
+        var review = menu(9008300, 991516, 2, "不合格评审", "/mes/pro/feedback/edhr-nonconformance-review",
+                "mes:pro-edhr-nonconformance-review:query")
+                .setComponent("mes/pro/edhr-nonconformance/NonconformanceReviewPage").setVisible(originalVisible);
+        String authority = "mes:pro-edhr-nonconformance-review:" + action;
+        var button = menu(9008303, 9008300, 3, "评审操作", "", authority);
+        List<MenuDO> catalog = List.of(root, execution, review, button);
+        when(users.getUser(7L)).thenReturn(new AdminUserDO().setId(7L).setUsername("reviewer"));
+        when(permissions.getUserRoleIdListByUserId(7L)).thenReturn(Set.of(8L));
+        when(roles.getRoleList(Set.of(8L))).thenReturn(List.of(new RoleDO().setId(8L).setStatus(0).setCode("common")));
+        when(permissions.getRoleMenuListByRoleId(Set.of(8L))).thenReturn(dynamicGrant ? Set.of() : Set.of(9008303L));
+        when(permissions.getDynamicMenuListByUserId(7L)).thenReturn(dynamicGrant ? Set.of(9008303L) : Set.of());
+        when(menus.getMenuList(anyCollection())).thenAnswer(call -> {
+            Collection<Long> ids = call.getArgument(0);
+            return catalog.stream().filter(item -> ids.contains(item.getId())).toList();
+        });
+        when(menus.getMenu(anyLong())).thenAnswer(call -> catalog.stream()
+                .filter(item -> item.getId().equals(call.getArgument(0))).findFirst().orElse(null));
+        when(menus.filterDisableMenus(anyList())).thenAnswer(call -> call.getArgument(0));
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(7L);
+            var result = controller.getPermissionInfo().getData();
+            var navigation = result.getMenus().get(0);
+            var group = navigation.getChildren().get(0);
+            var page = group.getChildren().get(0);
+            boolean canDispose = "dispose".equals(action);
+            assertEquals(canDispose, navigation.getVisible());
+            assertEquals(canDispose, group.getVisible());
+            assertEquals(canDispose, page.getVisible());
+            assertEquals(Set.of(authority), result.getPermissions(), "入口可见性不得扩大发起、查询或处置权限");
+            assertEquals(originalVisible, review.getVisible(), "不得修改缓存中的菜单定义");
+        }
+    }
+
     private MenuDO menu(long id, long parent, int type, String name, String path, String permission) {
         return new MenuDO().setId(id).setParentId(parent).setType(type).setName(name).setPath(path)
                 .setPermission(permission).setStatus(0).setSort((int) id).setVisible(true);

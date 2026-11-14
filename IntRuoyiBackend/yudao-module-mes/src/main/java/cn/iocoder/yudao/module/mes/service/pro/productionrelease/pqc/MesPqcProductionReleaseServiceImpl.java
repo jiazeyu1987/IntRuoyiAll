@@ -142,6 +142,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
     @jakarta.annotation.Resource private MesPqcReleaseCorrectionService correctionService;
+    @Resource private MesReleaseAttachmentUploadService attachmentUploads;
 
     @Override
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
@@ -286,6 +287,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         requireManagerHandoff(application, command.getExpectedVersion() + 1,
                 activeOrderFactsSnapshotHash, managerStage);
         batchExecutionPort.markReadyForMarketRelease(batchExecutionId, actorUserId);
+        attachmentUploads.initialize(applicationMapper.selectById(application.getId()), actorUserId);
         recordDecisionAudit(application, workTask, result, idempotencyKey,
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED);
         appendPqcProductionReleaseGxpAudit(application, workTask, result,

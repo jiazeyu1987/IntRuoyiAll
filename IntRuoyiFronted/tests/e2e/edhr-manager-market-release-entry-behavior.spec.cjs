@@ -192,7 +192,7 @@ function releaseHarness(rows) {
   const writes = [], queries = [], navigation = [], invalidations = []
   const sessionKey = 'ordinary-test-tenant-session'
   const context = {
-    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releasePreview: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
+    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releasePreview: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''), releaseAccessError: vue.ref(''),
     releaseResultUncertain: vue.ref(false), uncertainPrepareId: vue.ref(), confirmedMarketReceipt: vue.ref(),
     releaseForm: vue.reactive({ password: '', reason: '', idempotencyKey: '' }), releaseDialogVisible: vue.ref(false), releaseContextLoading: vue.ref(false), releaseLoading: vue.ref(false),
     message: { error() {}, success() {}, warning() {} }, crypto: { randomUUID: () => '409ca1df-f5b1-4c8e-b506-dca2a21a0f65' },
@@ -227,6 +227,11 @@ test('market-release dialog cannot close while a signing request is in flight', 
 test('market-release dialog binds its close guard and disables cancel during signing', () => {
   assert.match(descriptor.template.content, /:before-close="beforeMarketReleaseDialogClose"/)
   assert.match(descriptor.template.content, /<el-button\s+:disabled="releaseLoading"\s+@click="releaseDialogVisible = false">/)
+})
+
+test('market-release dialog automatically prepares signing content without a re-preview button', () => {
+  assert.doesNotMatch(descriptor.template.content, /重新预览|refreshReleasePreview/)
+  assert.match(descriptor.template.content, /@click="submitRelease"/)
 })
 
 test('formal dialog signs the exact task and preview content after collecting the opinion', async () => {

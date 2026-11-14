@@ -102,7 +102,8 @@ class MesActiveOrderHandoffLifecycleTest {
   assertEquals(91L,task.getSourceId());assertEquals(91L,task.getRoundId());assertFalse(task.getNotificationOnly());assertEquals("TODO",task.getStatus());
   assertTrue(task.getActionUrl().startsWith("/mes/pro/feedback/edhr-nonconformance-review?"));
   assertEquals("91",MesActiveOrderHandoffContract.actionQuery(task).get("reviewId"));
-  verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:query");
+  verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
+  verify(owners,never()).user(345L,"mes:pro-edhr-nonconformance-review:query");
   verify(delivery).schedule(task);
   when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);
   service.qaReviewCreated(review,345L,343L);verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(1)).schedule(any());

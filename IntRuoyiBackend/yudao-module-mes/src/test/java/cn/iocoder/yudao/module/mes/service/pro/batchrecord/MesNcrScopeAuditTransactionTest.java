@@ -413,7 +413,7 @@ class MesNcrScopeAuditTransactionTest {
         jdbc.update("UPDATE " + TASK + " SET batch_execution_id=9001,work_order_id=3001 WHERE id IN (8001,8002)");
         jdbc.update("UPDATE " + RELEASE + " SET batch_execution_id=9001 WHERE id=9301");
         jdbc.update("INSERT INTO infra_file(id,config_id,name,path,url,size,type)"
-                + " VALUES(9102,10,'review.pdf','mes/edhr-ncr/reviews/1001/upload-1/review.pdf',"
+                + " VALUES(9102,10,'review.pdf','tenants/1/mes/edhr-ncr/reviews/1001/upload-1/review.pdf',"
                 + "'https://fixture.invalid/review.pdf',10,'application/pdf')");
         for (long i = 1; i <= 2; i++) {
             jdbc.update("INSERT INTO " + SNAPSHOT + "(id,tenant_id,active_order_id,work_order_id,route_id,route_version_id,"

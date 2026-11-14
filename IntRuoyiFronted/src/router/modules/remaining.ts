@@ -1774,8 +1774,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           canTo: true,
           icon: '',
           title: '不合格评审',
-          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
-          permission: ['mes:pro-edhr-nonconformance-review:query']
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution'
         }
       },
       {

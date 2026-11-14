@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Uses the existing business-detail authorization before reading any correction source. */
+/** Reads tenant-scoped formal correction evidence; active-order history is available to every signed-in user. */
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderCorrectionEvidenceService {
@@ -37,7 +37,7 @@ public class MesActiveOrderCorrectionEvidenceService {
     @Transactional(readOnly = true)
     public Timeline getTeam(Long actor, Long activeOrderId) {
         positive(actor); positive(activeOrderId);
-        return read(team.getDetail(actor, activeOrderId));
+        return read(team.getArchivedFormalDetail(activeOrderId));
     }
     @Transactional(readOnly = true)
     public Timeline getPqc(Long actor, Long applicationId) {

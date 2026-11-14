@@ -26,11 +26,24 @@ class MesProEdhrNonconformanceReviewControllerPermissionTest {
     }
 
     @Test
-    void allReviewPageUsesQueryPermission() throws Exception {
-        var method = MesProEdhrNonconformanceReviewController.class
-                .getDeclaredMethod("getPage", MesProEdhrNonconformanceReviewPageReqVO.class);
-        assertEquals("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')",
-                method.getAnnotation(PreAuthorize.class).value());
-        assertEquals("/page", method.getAnnotation(GetMapping.class).value()[0]);
+    void reviewReadsRequireLoginWithoutRolePermissions() {
+        var readMethods = java.util.Set.of("getPage", "getPendingPage", "get", "getActiveOrderDetail", "getBatchList");
+        var methods = java.util.Arrays.stream(MesProEdhrNonconformanceReviewController.class.getDeclaredMethods())
+                .filter(method -> readMethods.contains(method.getName())).toList();
+        assertEquals(5, methods.size());
+        for (var method : methods) {
+            assertEquals("isAuthenticated()", method.getAnnotation(PreAuthorize.class).value(), method.getName());
+        }
+    }
+
+    @Test
+    void creationAndDispositionStillRequireTheirOwnPermissions() throws Exception {
+        var controller = MesProEdhrNonconformanceReviewController.class;
+        assertEquals("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')",
+                controller.getDeclaredMethod("create", cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO.class)
+                        .getAnnotation(PreAuthorize.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-edhr-nonconformance-review:dispose')",
+                controller.getDeclaredMethod("dispose", cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO.class)
+                        .getAnnotation(PreAuthorize.class).value());
     }
 }

@@ -38,6 +38,7 @@ public class MesActiveOrderDossierCompletionService {
 
     public static final String TASK_TYPE = "DOSSIER_COMPLETE";
     public static final String SCOPE_TYPE = "ACTIVE_ORDER_DOSSIER";
+    @jakarta.annotation.Resource private MesReleaseAttachmentUploadService attachmentUploads;
     private static final List<String> CATEGORIES = List.of("INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE");
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderDossierFileMapper fileMapper;
@@ -112,8 +113,22 @@ public class MesActiveOrderDossierCompletionService {
 
     @Transactional(rollbackFor = Exception.class)
     public boolean completeUploadedCategory(Long actor, Long activeOrderId, String category, Long attachmentId) {
+        return completeUploadedCategory(actor, activeOrderId, category, attachmentId, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean completeUploadedCategory(Long actor, Long activeOrderId, String category, Long attachmentId, Long workTaskId) {
         requireActor(actor);
         requireCategory(category);
+        if (workTaskId != null && attachmentUploads.validateUpload(actor, workTaskId, activeOrderId, category)) {
+            var file = fileMapper.selectById(attachmentId);
+            if (file == null || !Objects.equals(file.getActiveOrderId(), activeOrderId)
+                    || !Objects.equals(file.getCategoryKey(), category) || !Objects.equals(file.getOperatorId(), actor))
+                throw new IllegalStateException("资料附件与上传任务、订单或类别不一致");
+            attachmentUploads.complete(actor, workTaskId, activeOrderId, category);
+            audit(taskMapper.selectById(workTaskId), actor, "DOSSIER_COMPLETE", "资料已上传补齐", attachmentId);
+            return true;
+        }
         var task = activeTask(activeOrderId, category);
         if (task == null) return false;
         if (!Objects.equals(task.getAssigneeUserId(), actor)
@@ -137,6 +152,8 @@ public class MesActiveOrderDossierCompletionService {
     private MesProEdhrWorkTaskDO activeTask(Long orderId, String category) {
         var rows = taskMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, SCOPE_TYPE).eq(MesProEdhrWorkTaskDO::getBusinessScopeId, orderId)
+                .and(source -> source.isNull(MesProEdhrWorkTaskDO::getResponsibilitySourceType)
+                        .or().ne(MesProEdhrWorkTaskDO::getResponsibilitySourceType, MesReleaseAttachmentUploadService.SOURCE))
                 .eq(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE).eq(MesProEdhrWorkTaskDO::getReviewSourceType, category)
                 .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE));
         if (rows.size() > 1) throw new IllegalStateException("同订单、同资料类别存在重复责任待办");
@@ -155,11 +172,13 @@ public class MesActiveOrderDossierCompletionService {
     }
     public boolean isAssigned(Long actor, Long orderId, String category) {
         requireActor(actor);
+        if (attachmentUploads.isAssigned(actor, orderId, category)) return true;
         var task = activeTask(orderId, category);
         return task != null && Objects.equals(task.getAssigneeUserId(), actor) && currentRound(task);
     }
     public void validateCompletionUpload(Long actor, Long taskId, Long activeOrderId, String category) {
         requireActor(actor);
+        if (attachmentUploads.validateUpload(actor, taskId, activeOrderId, category)) return;
         var task = activeTask(activeOrderId, category);
         if (task == null || !Objects.equals(task.getId(), taskId) || !Objects.equals(task.getAssigneeUserId(), actor)
                 || !currentRound(task) || !permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload"))
@@ -183,6 +202,8 @@ public class MesActiveOrderDossierCompletionService {
             throw new IllegalStateException("仅当前订单生产组长可查看资料指派");
         var rows = taskMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE).eq(MesProEdhrWorkTaskDO::getBusinessScopeType, SCOPE_TYPE)
+                .and(source -> source.isNull(MesProEdhrWorkTaskDO::getResponsibilitySourceType)
+                        .or().ne(MesProEdhrWorkTaskDO::getResponsibilitySourceType, MesReleaseAttachmentUploadService.SOURCE))
                 .eq(MesProEdhrWorkTaskDO::getBusinessScopeId, orderId).orderByDesc(MesProEdhrWorkTaskDO::getId));
         var latest = new java.util.LinkedHashMap<String,Responsibility>();
         for (var task : rows) {

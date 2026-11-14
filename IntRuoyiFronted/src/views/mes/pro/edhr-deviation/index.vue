@@ -60,7 +60,7 @@
       <el-form label-width="110px">
         <el-form-item label="不合格原因" required><el-input v-model="batchNcrForm.nonconformanceReason" type="textarea" :rows="4" maxlength="500" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="batchNcrForm.remark" type="textarea" :rows="2" maxlength="500" /></el-form-item>
-        <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="batchNcrForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
+        <el-form-item label="QA评审责任人" required><QaReviewerSelect v-model="batchNcrForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
         <el-form-item label="签名凭据" required><SignatureCredentialInput v-model="batchNcrForm.signaturePassword" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="batchNcrVisible = false">取消</el-button><el-button type="danger" :loading="batchNcrLoading" @click="submitBatchNcr">签名并发起</el-button></template>
@@ -80,6 +80,7 @@ import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web
 import dayjs from 'dayjs'
 import DeviationDetail from './DeviationDetail.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import { createCriticalDeviationReview } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'

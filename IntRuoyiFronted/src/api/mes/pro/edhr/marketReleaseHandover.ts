@@ -20,8 +20,9 @@ export interface MarketReleaseHandoverContext {
   blocker: string
   candidates: { id: string | number; name: string }[]
 }
-export const getMarketReleaseAccess = (params: {batchExecutionId?: string | number; activeOrderId?: string | number}) =>
-  request.get<MarketReleaseAccess>({url:'/mes/pro/edhr-release/handover/access',params,ignoreErrorMessage:true})
+export const getMarketReleaseAccess = (params: {batchExecutionId?: string | number; activeOrderId?: string | number},
+  options?: { isRequestContextCurrent?: () => boolean }) =>
+  request.get<MarketReleaseAccess>({url:'/mes/pro/edhr-release/handover/access',params,ignoreErrorMessage:true,...options})
 export const getMarketReleaseHandover = (batchExecutionId: string | number) =>
   request.get<MarketReleaseHandoverContext>({url:'/mes/pro/edhr-release/handover/context',params:{batchExecutionId},ignoreErrorMessage:true})
 export const changeMarketReleaseHandover = (action: 'assign' | 'recall', data: {

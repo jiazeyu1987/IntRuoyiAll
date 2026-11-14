@@ -1551,6 +1551,46 @@ function Assert-BackendExecutableJar {
     return [pscustomobject]@{ Path = $resolvedPath; Sha256 = $actualSha256 }
 }
 
+function Assert-BackendFileMetadataSchema([string]$JarPath) {
+    # This migration needs verified historical ownership; never auto-assign a tenant.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($JarPath)
+    try {
+        $libraries = @($archive.Entries | Where-Object { $_.FullName -clike 'BOOT-INF/lib/yudao-module-infra-*.jar' })
+        if ($libraries.Count -ne 1) { Fail 'Expected exactly one infra module for file schema verification' }
+        $buffer = [IO.MemoryStream]::new()
+        $stream = $libraries[0].Open()
+        try { $stream.CopyTo($buffer) } finally { $stream.Dispose() }
+        $buffer.Position = 0
+        $module = [IO.Compression.ZipArchive]::new($buffer, [IO.Compression.ZipArchiveMode]::Read)
+        try {
+            $tenantMappings = 0
+            foreach ($entity in @('FileDO', 'FileContentDO')) {
+                $entry = $module.GetEntry("cn/iocoder/yudao/module/infra/dal/dataobject/file/$entity.class")
+                if ($null -eq $entry) { Fail "Missing file entity mapping: $entity" }
+                $reader = [IO.BinaryReader]::new($entry.Open())
+                try { $bytes = $reader.ReadBytes([int]$entry.Length) } finally { $reader.Dispose() }
+                if ([Text.Encoding]::ASCII.GetString($bytes).Contains('cn/iocoder/yudao/framework/tenant/core/db/TenantBaseDO')) {
+                    $tenantMappings++
+                }
+            }
+        } finally { $module.Dispose(); $buffer.Dispose() }
+    } finally { $archive.Dispose() }
+    if ($tenantMappings -eq 0) { return }
+    if ($tenantMappings -ne 2) { Fail 'File metadata mappings disagree on tenant schema' }
+    $schemaReady = Test-LocalSqlProbe @'
+SELECT CASE WHEN COUNT(*)=2 THEN 1 ELSE 0 END FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('infra_file','infra_file_content')
+  AND COLUMN_NAME='tenant_id' AND IS_NULLABLE='NO';
+'@
+    if (-not $schemaReady -or -not (Test-LocalTableExists 'infra_file_tenant_migration')) {
+        Fail 'File tenant ownership migration is incomplete; verify historical ownership before starting this backend artifact'
+    }
+    if (-not (Test-LocalSqlProbe 'SELECT CASE WHEN EXISTS (SELECT 1 FROM infra_file_tenant_migration WHERE id=1) THEN 1 ELSE 0 END;')) {
+        Fail 'File tenant ownership migration has no completion receipt; backend not stopped'
+    }
+}
+
 function Assert-BackendLaunchConfiguration {
     foreach ($name in @('OnlyOfficeBaseUrl', 'OnlyOfficePublicFileBaseUrl',
             'DccSignatureEvidenceHmacSecret', 'DccSignatureEvidenceKeyVersion')) {
@@ -1601,6 +1641,7 @@ function Start-Backend {
     $null = Assert-BackendExecutableJar -Path $runtimeJar -ExpectedSha256 $artifact.Sha256
     Write-Host 'Backend stage: verify local schema'
     Ensure-RequiredLocalMySqlSchema
+    Assert-BackendFileMetadataSchema -JarPath $runtimeJar
     Write-Host 'Backend stage: verify protected media configuration'
     Assert-LocalShowroomFileConfigProtected
     Assert-LocalShowroomMediaBucketConsistency

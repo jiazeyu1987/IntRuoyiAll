@@ -33,6 +33,8 @@ assert.match(operationColumn, />\s*放行\s*</, '操作列必须显示放行按�
 assert.match(operationColumn, />\s*上传\s*</, '操作列必须显示上传按钮')
 assert.match(operationColumn, />\s*驳回\s*</, '操作列必须显示驳回按钮')
 assert.doesNotMatch(operationColumn, />\s*编辑\s*</, '操作列不得继续显示编辑按钮')
+assert.doesNotMatch(operationColumn, /MarketReleaseNegativeDecision|MarketReleaseHandover/, '操作列不得显示不予上市放行、撤回申请或交接入口')
+assert.doesNotMatch(operationColumn, /data-edhr-batch-action="void"/, '操作列不得显示作废按钮')
 
 assert.match(
   operationColumn,

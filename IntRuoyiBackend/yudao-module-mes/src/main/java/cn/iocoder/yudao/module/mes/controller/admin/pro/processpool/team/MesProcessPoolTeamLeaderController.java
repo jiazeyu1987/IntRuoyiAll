@@ -1096,6 +1096,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setInspectionProgressPercent(activeOrder.getInspectionProgressPercent())
                 .setActiveStatus(activeOrder.getActiveStatus())
                 .setBusinessStatus(activeOrder.getBusinessStatus())
+                .setPendingNonconformanceReviews(activeOrder.getPendingNonconformanceReviews())
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion())

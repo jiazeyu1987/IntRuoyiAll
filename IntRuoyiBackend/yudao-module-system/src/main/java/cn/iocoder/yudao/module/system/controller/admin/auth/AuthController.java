@@ -198,8 +198,17 @@ public class AuthController {
         }
 
         menuList = cn.iocoder.yudao.module.system.service.permission.OperationLogAccessPolicy.filterNavigation(menuList, roles);
+        // QA处置权限同时提供评审入口；不扩大其他按钮的页面导航权限。
+        Set<Long> qaReviewNavigationIds = permissionMenuList.stream()
+                .filter(menu -> "mes:pro-edhr-nonconformance-review:dispose".equals(menu.getPermission()))
+                .map(MenuDO::getParentId).collect(Collectors.toSet());
         // Ancestors support routing; button grants do not grant their parent page's navigation entry.
         menuList = menuList.stream().map(menu -> {
+            if (MenuTypeEnum.MENU.getType().equals(menu.getType())
+                    && qaReviewNavigationIds.contains(menu.getId())
+                    && "mes/pro/edhr-nonconformance/NonconformanceReviewPage".equals(menu.getComponent())) {
+                return BeanUtils.toBean(menu, MenuDO.class).setVisible(true);
+            }
             if (MenuTypeEnum.MENU.getType().equals(menu.getType()) && !grantedMenuIds.contains(menu.getId())) {
                 return BeanUtils.toBean(menu, MenuDO.class).setVisible(false);
             }

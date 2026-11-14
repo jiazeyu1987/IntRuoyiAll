@@ -38,6 +38,7 @@ class MesProEdhrBatchVisibilitySessionTest {
 
     @BeforeEach void setup() {
         TenantContextHolder.setTenantId(1L);
+        ReflectionTestUtils.setField(service, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
         Map.of("marketReleaseAccess", access, "permissionApi", permissions, "batchTaskMapper", tasks,
                 "batchOriginMapper", origins, "activeOrderMapper", orders, "releaseApplicationMapper", applications,
                 "releaseTransactionMapper", transactions, "workTaskMapper", workTasks,
@@ -53,6 +54,16 @@ class MesProEdhrBatchVisibilitySessionTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test void uploadDutiesGrantOnlyTheirBatchesWithoutLoadingApproverOrRouteEvidence() {
+        var uploads = (cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService)
+                ReflectionTestUtils.getField(service, "attachmentUploads");
+        when(uploads.readableBatchIds(USER, List.of(1L, 2L))).thenReturn(Set.of(1L, 2L));
+        assertEquals(List.of(1L, 2L), service.filterVisible(List.of(batch(1), batch(2)), USER).stream()
+                .map(MesProEdhrBatchExecutionDO::getId).toList());
+        verify(uploads).readableBatchIds(USER, List.of(1L, 2L));
+        verifyNoInteractions(transactions, workTasks, origins, orders, tasks, applications, reports, rules, resolver);
+    }
 
     @Test void hundredOrdinaryOwnerCandidatesUseOneQueryPerEvidenceTypeAndKeepExactVisibleCount() {
         List<MesProEdhrBatchExecutionDO> batches = LongStream.rangeClosed(1, 100).mapToObj(this::batch).toList();

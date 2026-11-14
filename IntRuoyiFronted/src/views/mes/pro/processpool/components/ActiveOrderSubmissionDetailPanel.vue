@@ -26,11 +26,6 @@
         :active-order-id="detail.activeOrderId"
         :source="detail.reworkSource"
       />
-      <ActiveOrderCorrectionHistoryPanel
-        v-if="!hideCorrectionHistory"
-        :context="signatureEvidenceContext"
-        @signature="signatureEvidenceViewer.open"
-      />
       <div
         v-if="!embedded && !hideOrderSummary"
         class="team-leader-workbench__active-order-detail-summary"
@@ -1376,6 +1371,19 @@
                 :disabled="activeOrderDossierMutationLocked"
               />
               <el-upload
+                v-for="duty in dossierFiles?.uploadTasks?.filter(task => task.categoryKey === category.key) || []"
+                :key="duty.workTaskId"
+                :disabled="activeOrderDossierMutationLocked"
+                :show-file-list="false"
+                :http-request="(options) => uploadDossierFile(category.key, options, duty.workTaskId)"
+                v-hasPermi="['mes:pro-edhr-batch-execution:upload']"
+                data-active-order-release-report-upload
+              >
+                <el-button type="primary" :disabled="activeOrderDossierMutationLocked"
+                  :loading="dossierFileUploadingKey === duty.workTaskId">上传{{ duty.label }}</el-button>
+              </el-upload>
+              <el-upload
+                v-if="!uploadOnly"
                 :disabled="activeOrderDossierMutationLocked"
                 :show-file-list="false"
                 :http-request="(options) => uploadDossierFile(category.key, options)"
@@ -1472,7 +1480,138 @@
             />
           </section>
         </el-tab-pane>
-        
+        <el-tab-pane
+          v-if="showSummaryTab"
+          label="操作记录"
+          name="operationRecords"
+          data-active-order-operation-records-tab
+        >
+            <table
+              v-if="detail.operationFacts?.length"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-operation-facts-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    操作记录
+                  </th>
+                </tr>
+                <tr>
+                  <th>操作</th>
+                  <th>操作人</th>
+                  <th>结果</th>
+                  <th>发生时间</th>
+                </tr>
+                <template v-for="fact in detail.operationFacts" :key="`${fact.sourceType}:${fact.operationType}:${fact.id}`">
+                  <tr
+                    data-active-order-operation-fact
+                    :data-active-order-operation-type="fact.operationType"
+                  >
+                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
+                    <td>{{ fact.actorName }}<div v-if="fact.actorUserId" class="text-xs text-gray-500">用户编号：{{ fact.actorUserId }}</div></td>
+                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
+                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                  </tr>
+                  <tr v-if="fact.handoverReason" data-market-release-handover-history>
+                    <td colspan="4">原办理人：{{ fact.handoverFromName }}；接收人：{{ fact.handoverToName }}；原因：{{ fact.handoverReason }}</td>
+                  </tr>
+                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
+                    <td colspan="4">
+                      <div
+                        class="team-leader-workbench__operation-fact-evidence"
+                        data-active-order-operation-ncr-evidence
+                      >
+                        <div class="team-leader-workbench__operation-fact-evidence-grid">
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              不合格原因
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.nonconformanceReason || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审意见
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.reviewOpinion || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              处置结果
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ resolveNonconformanceDispositionLabel(fact.disposition) }}
+                            </span>
+                          </div>
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              电子签名
+                            </span>
+                            <button
+                              type="button"
+                              class="team-leader-workbench__signature-link team-leader-workbench__operation-fact-evidence-value"
+                              data-active-order-summary-operation-signature
+                              :disabled="!fact.signatureId"
+                              @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                            >
+                              {{ formatOperationFactSignatureText(fact) }}
+                            </button>
+                          </div>
+                          <div
+                            v-if="
+                              fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
+                              resolveNonconformanceReviewMaterials(fact).length
+                            "
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审材料
+                            </span>
+                            <div
+                              class="team-leader-workbench__operation-fact-evidence-value"
+                            >
+                              <div
+                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
+                                :key="materialIndex"
+                              >
+                                <el-button
+                                  link
+                                  type="primary"
+                                  class="team-leader-workbench__operation-fact-evidence-value"
+                                  data-active-order-ncr-review-material-preview
+                                  @click="previewNonconformanceReviewMaterial(material)"
+                                >
+                                  {{ material.fileName }}
+                                </el-button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          <el-empty v-else :image-size="56" description="暂无操作记录" />
+        </el-tab-pane>
+        <el-tab-pane label="补正历史" name="correctionHistory" data-active-order-correction-history-tab>
+          <ActiveOrderCorrectionHistoryPanel
+            v-if="activeTab === 'correctionHistory'"
+            :context="signatureEvidenceContext"
+            @signature="signatureEvidenceViewer.open"
+          />
+        </el-tab-pane>
       </el-tabs>
       <el-dialog
         v-model="productionRecordFormVisible"
@@ -1994,6 +2133,7 @@ import {
   uploadActiveOrderDossierFile
 } from '@/api/mes/pro/processpool/teamLeader'
 import DossierResponsibilityAssignment from './DossierResponsibilityAssignment.vue'
+import { useUserStore } from '@/store/modules/user'
 import {
   type ActiveOrderAuditScope,
   type ActiveOrderAuditIdentity
@@ -2018,7 +2158,6 @@ import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePa
 import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO } from '@/api/mes/pro/edhr/deviation'
 
 const props = defineProps<{
-  hideCorrectionHistory?: boolean
   hideOrderSummary?: boolean
   detail?: TeamLeaderActiveOrderDetailRespVO
   sourceWorkOrder?: ProWorkOrderVO
@@ -2043,6 +2182,10 @@ defineEmits<{
 }>()
 
 const activeTab = ref('')
+const userStore = useUserStore()
+const uploadOnly = computed(() => userStore.roles.some(role => /^BATCH_ATTACHMENT_(INCOMING_INSPECTION_REPORT|STERILIZATION_REPORT|FINISHED_PRODUCT_INSPECTION_REPORT|FINISHED_PRODUCT_INSPECTION_RECORD)_UPLOAD_1$/.test(role)) &&
+  !['*:*:*', 'mes:pro-process-pool-team-leader:maintain', 'mes:pro-production-release:pqc-approve', 'mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve', 'mes:pro-edhr-change:void']
+    .some(permission => userStore.permissions.has(permission)))
 const productionActiveTab = ref('')
 const pqcInnerActiveTab = ref('originalSubmissions')
 const pqcActiveTab = ref('')
@@ -2217,7 +2360,7 @@ const activeOrderStatusTagType = computed(() => {
   return 'info'
 })
 const activeOrderDossierMutationLockReason = computed(() => {
-  if (props.readOnly) return '当前详情仅可查看，不能修改资料文件'
+  if (props.readOnly && !dossierFiles.value?.uploadTasks?.length) return '当前详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
   if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
     return '尚未申请放行，资料暂不可查询'
@@ -4044,6 +4187,10 @@ const loadDossierFiles = async () => {
         })
     if (dossierRequestContext.isCurrentRequest(requestToken)) {
       dossierFiles.value = response
+      if (uploadOnly.value && response.uploadTasks?.length && !response.uploadTasks.some(task =>
+        buildDossierFileTabName(task.categoryKey) === activeTab.value)) {
+        activeTab.value = buildDossierFileTabName(response.uploadTasks[0].categoryKey)
+      }
     }
   } catch (error) {
     if (!dossierRequestContext.isCurrentRequest(requestToken)) return
@@ -4057,7 +4204,7 @@ const loadDossierFiles = async () => {
   }
 }
 
-const uploadDossierFile = async (categoryKey: string, options: UploadRequestOptions) => {
+const uploadDossierFile = async (categoryKey: string, options: UploadRequestOptions, workTaskId?: string) => {
   if (activeOrderDossierMutationLocked.value) {
     const error = new Error(activeOrderDossierMutationLockReason.value)
     dossierFileError.value = error.message
@@ -4084,13 +4231,14 @@ const uploadDossierFile = async (categoryKey: string, options: UploadRequestOpti
     options.onError?.(new Error('资料上下文已切换，不能继续上传。') as UploadError)
     return
   }
-  dossierFileUploadingKey.value = categoryKey
+  dossierFileUploadingKey.value = workTaskId || categoryKey
   try {
     await uploadActiveOrderDossierFile(
       {
         activeOrderId,
         applicationId: dossierFiles.value?.applicationId,
         categoryKey,
+        workTaskId,
         file: options.file
       },
       options.onProgress

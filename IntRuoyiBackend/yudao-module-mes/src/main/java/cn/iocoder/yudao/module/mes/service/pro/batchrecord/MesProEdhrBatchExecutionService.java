@@ -27,6 +27,9 @@ public interface MesProEdhrBatchExecutionService {
 
     EdhrBatchExecutionRespVO get(Long id);
 
+    /** Authorize and read the persisted batch without provisioning tasks or synchronizing status. */
+    EdhrBatchExecutionRespVO getReadableBatchSource(Long id);
+
     EdhrBatchExecutionRespVO openOrCreate(EdhrBatchExecutionOpenOrCreateReqVO reqVO);
 
 

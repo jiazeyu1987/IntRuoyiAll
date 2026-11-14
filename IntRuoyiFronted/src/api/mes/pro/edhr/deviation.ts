@@ -177,3 +177,15 @@ export const signDeviationHandling = (data: { deviationId: number; node: string;
 
 export const closeDeviationHandling = (deviationId: number, expectedContentVersion: number, expectedContentHash: string) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/close', data: { deviationId, expectedContentVersion, expectedContentHash } })
+
+export const getActiveOrderDeviationCreationBatches = (activeOrderId: number | string) =>
+  request.get<DeviationBatchOptionRespVO[]>({
+    url: '/mes/pro/edhr-deviation/creation-batch-options-by-active-order',
+    params: { activeOrderId }
+  })
+
+export const createActiveOrderDeviation = (activeOrderId: number | string, data: DeviationCreateReqVO) =>
+  request.post<DeviationRespVO>({
+    url: '/mes/pro/edhr-deviation/create-by-active-order',
+    params: { activeOrderId }, data
+  })

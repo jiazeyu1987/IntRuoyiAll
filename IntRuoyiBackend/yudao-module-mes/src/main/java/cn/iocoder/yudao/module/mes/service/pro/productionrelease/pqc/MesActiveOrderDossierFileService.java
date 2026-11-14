@@ -111,7 +111,8 @@ public class MesActiveOrderDossierFileService {
                                 .map(MesActiveOrderDossierFileService::toFileItem)
                                 .toList()))
                 .toList();
-        return new Result(activeOrderId, applicationId, categories);
+        return new Result(activeOrderId, applicationId, categories,
+                attachmentUploads.pending(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), activeOrderId));
     }
 
     @Transactional(readOnly = true)
@@ -157,11 +158,16 @@ public class MesActiveOrderDossierFileService {
         var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), false, command.categoryKey());
         ResolvedContext context = new ResolvedContext(activeOrderMapper.selectByIdForUpdate(authorized.activeOrder().getId()), authorized.application());
         if (context.activeOrder() == null) throw dossierFileBlocked("活跃订单已不存在，请重新加载");
+        if (attachmentUploads.isAssigned(actorUserId, command.activeOrderId(), command.categoryKey())
+                && command.workTaskId() == null)
+            throw dossierFileBlocked("请通过对应的报告上传任务选择文件，不能省略上传任务编号。");
         if (command.workTaskId() != null) dossierCompletionService.validateCompletionUpload(actorUserId,
                 command.workTaskId(), command.activeOrderId(), command.categoryKey());
         assertMutable(context.activeOrder());
         if (context.application() != null && context.application().getBatchExecutionId() != null) {
-            if (!correctionService.requireMarketCorrectionMutation(actorUserId, context.activeOrder().getId(), context.application().getId()))
+            if (command.workTaskId() != null && attachmentUploads.validateUpload(actorUserId, command.workTaskId(), command.activeOrderId(), command.categoryKey()))
+                lifecycleGuard.requireAssignedDossierMutable(context.application().getBatchExecutionId());
+            else if (!correctionService.requireMarketCorrectionMutation(actorUserId, context.activeOrder().getId(), context.application().getId()))
                 lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
         }
         return context;
@@ -197,7 +203,7 @@ public class MesActiveOrderDossierFileService {
         recordDossierOperation("DOSSIER_UPLOAD", "活跃订单资料上传", actorUserId, operatorName, row, null, row.getSha256(),
                 operatedAt);
         appendDossierGxpAudit("mes.dossier.upload", "ABSENT", "PRESENT", row, null, row.getSha256(), operatedAt);
-        dossierCompletionService.completeUploadedCategory(actorUserId, row.getActiveOrderId(), row.getCategoryKey(), row.getId());
+        dossierCompletionService.completeUploadedCategory(actorUserId, row.getActiveOrderId(), row.getCategoryKey(), row.getId(), command.workTaskId());
         return toFileItem(row);
     }
 
@@ -461,7 +467,9 @@ public class MesActiveOrderDossierFileService {
     public record DeleteCommand(Long activeOrderId, Long applicationId, String categoryKey, Long attachmentId) {
     }
 
-    public record Result(Long activeOrderId, Long applicationId, List<CategoryFiles> categories) {
+    @jakarta.annotation.Resource private MesReleaseAttachmentUploadService attachmentUploads;
+
+    public record Result(Long activeOrderId, Long applicationId, List<CategoryFiles> categories, List<MesReleaseAttachmentUploadService.Duty> uploadTasks) {
     }
 
     public record CategoryFiles(String key, String label, List<FileItem> files) {

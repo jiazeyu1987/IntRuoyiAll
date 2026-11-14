@@ -37,7 +37,7 @@
         /></el-form-item>
         <template v-if="action === 'reject'">
           <el-form-item label="QA评审责任人" required
-            ><UserSelectV2 v-model="qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人"
+            ><QaReviewerSelect v-model="qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人"
           /></el-form-item>
           <el-form-item label="签名凭据" required
             ><SignatureCredentialInput v-model="password"
@@ -66,7 +66,7 @@
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { ref, watch } from 'vue'
 import { generateUUID } from '@/utils'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import {
   getEdhrRelease,
   rejectEdhrRelease,
