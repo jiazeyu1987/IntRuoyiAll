@@ -1413,11 +1413,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .filter(item -> item.getId() != null)
                 .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity(), (left, right) -> left));
         Set<Long> sameChainEditablePredecessors = resolveSameChainEditablePredecessors(currentFile, versionsById);
+        DccControlledFileDO baseline = versionPolicy.isControlledBaseline(currentFile) ? currentFile
+                : versionsById.get(currentFile.getRevisionBaseActiveControlledFileId());
         boolean hasOtherUnfinishedWorkflow = masterVersions.stream()
                 .filter(Objects::nonNull)
                 .filter(item -> !Objects.equals(item.getId(), currentFile.getId()))
                 .anyMatch(item -> isUnfinishedWorkflowVersion(item)
-                        && !isUnsubmittedBaselineIteration(currentFile, item)
+                        && !isUnsubmittedBaselineIteration(baseline, item)
                         && !sameChainEditablePredecessors.contains(item.getId()));
         if (hasOtherUnfinishedWorkflow) {
             throw exception(CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
