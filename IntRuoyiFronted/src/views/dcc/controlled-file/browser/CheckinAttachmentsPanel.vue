@@ -8,10 +8,10 @@
       :http-request="uploadAttachment"
       :before-remove="removeAttachment"
     >
-      <el-button :disabled="disabled || !validContext || cleanupLoading">选择普通附件</el-button>
+      <el-button :disabled="disabled || !validContext || cleanupLoading">选择附件（支持多选）</el-button>
     </el-upload>
     <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-      本次普通附件全部上传并保存成功后才能检入；历史培训记录不随本次上传复制。
+      附件可不上传，支持一次选择多个文件；所选附件随本次工作小版本保存。上传失败或未完成时不能检入；历史培训记录不随本次上传复制。
     </div>
     <el-alert v-if="error" class="mt-8px" type="error" :closable="false" :title="error" />
     <el-button v-if="cleanupFailures.length" class="mt-8px" :disabled="disabled" :loading="cleanupLoading" @click="retryCleanup">

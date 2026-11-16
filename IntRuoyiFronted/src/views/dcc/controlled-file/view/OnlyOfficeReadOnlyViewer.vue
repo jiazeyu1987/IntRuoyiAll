@@ -1,5 +1,22 @@
 <template>
   <div class="onlyoffice-viewer-shell" :class="{ 'onlyoffice-viewer-shell--compact': compact }">
+    <div v-if="isWordDocument" class="office-navigation" data-testid="office-navigation">
+      <div class="office-navigation__group">
+        <el-input v-model="searchQuery" size="small" aria-label="正文搜索关键词" placeholder="搜索正文" @keyup.enter="searchDocument(0)" />
+        <el-button size="small" :disabled="!navigationReady || navigationBusy || !searchQuery.trim()" @click="searchDocument(0)">搜索</el-button>
+        <el-button size="small" :disabled="!navigationReady || navigationBusy || !matchCount" @click="searchDocument(matchIndex - 1)">上一处</el-button>
+        <el-button size="small" :disabled="!navigationReady || navigationBusy || !matchCount" @click="searchDocument(matchIndex + 1)">下一处</el-button>
+        <span role="status">{{ navigationMessage }}</span>
+      </div>
+      <div class="office-navigation__group">
+        <el-button size="small" :disabled="!navigationReady || navigationBusy || currentPage <= 1" @click="goToPage(currentPage - 1)">上一页</el-button>
+        <span>第 {{ currentPage }} / {{ pageCount }} 页</span>
+        <el-button size="small" :disabled="!navigationReady || navigationBusy || currentPage >= pageCount" @click="goToPage(currentPage + 1)">下一页</el-button>
+        <el-input v-model="pageInput" size="small" class="office-navigation__page" aria-label="正文页码" inputmode="numeric" @keyup.enter="goToPage(Number(pageInput))" />
+        <el-button size="small" :disabled="!navigationReady || navigationBusy" @click="goToPage(Number(pageInput))">跳转</el-button>
+      </div>
+      <span v-if="navigationError" role="alert">{{ navigationError }}</span>
+    </div>
     <el-alert
       v-if="errorMessage"
       :closable="false"
@@ -141,6 +158,73 @@ const isZoomModifierPressed = ref(false)
 let editorInstance: { destroyEditor?: () => void } | null = null
 let editorGeneration = 0
 let viewerUnmounted = false
+const isWordDocument = computed(() => resolveDocumentType(resolveFileExtension(props.documentTitle || props.documentUrl)) === 'word')
+const navigationReady = ref(false)
+const navigationBusy = ref(false)
+const navigationError = ref('')
+const searchQuery = ref('')
+const searchedQuery = ref('')
+const matchCount = ref(0)
+const matchIndex = ref(-1)
+const currentPage = ref(1)
+const pageCount = ref(0)
+const pageInput = ref('1')
+const navigationMessage = computed(() => !navigationReady.value ? '正文导航加载中' : searchedQuery.value
+  ? matchCount.value ? `第 ${matchIndex.value + 1} / ${matchCount.value} 处匹配` : '未找到匹配内容' : '')
+let navigationWindow: Window | null = null
+let navigationRequest = 0
+let navigationTimer: ReturnType<typeof setTimeout> | undefined
+
+const sendNavigation = (action: string, data: Record<string, unknown> = {}) => {
+  if (!navigationWindow || navigationBusy.value) return
+  navigationError.value = ''
+  navigationBusy.value = true
+  clearTimeout(navigationTimer)
+  navigationWindow.postMessage({ type: 'dcc-office-command', id: ++navigationRequest, action, ...data }, window.location.origin)
+  navigationTimer = setTimeout(() => {
+    navigationBusy.value = false
+    navigationError.value = '正文导航响应超时，请重新打开预览'
+  }, 15000)
+}
+const searchDocument = (index: number) => {
+  if (!navigationReady.value || navigationBusy.value || !searchQuery.value.trim()) return
+  const query = searchQuery.value.trim()
+  sendNavigation('search', { query, index: query === searchedQuery.value ? index : 0 })
+  searchedQuery.value = query
+}
+const goToPage = (page: number) => {
+  if (!Number.isInteger(page) || page < 1 || page > pageCount.value) {
+    navigationError.value = `请输入 1 至 ${pageCount.value} 的页码`
+    return
+  }
+  sendNavigation('page', { page })
+}
+const handleNavigationMessage = (event: MessageEvent) => {
+  if (event.origin !== window.location.origin || event.data?.type !== 'dcc-office-navigation' || !event.source) return
+  const editorWindow = stageRef.value?.querySelector('iframe')?.contentWindow
+  if (!editorWindow || (event.source as Window).parent !== editorWindow) return
+  if (event.data.ready) {
+    navigationWindow = event.source as Window
+    sendNavigation('state')
+    return
+  }
+  if (event.source !== navigationWindow || event.data.id !== navigationRequest) return
+  clearTimeout(navigationTimer)
+  navigationBusy.value = false
+  const result = event.data.result
+  if (!result || result.error) {
+    navigationError.value = result?.error || '正文导航未返回有效结果'
+    return
+  }
+  navigationReady.value = true
+  pageCount.value = result.total
+  currentPage.value = result.current
+  pageInput.value = String(result.current)
+  if (event.data.action === 'search') {
+    matchCount.value = result.count
+    matchIndex.value = result.index
+  }
+}
 
 const onlyOfficeReadOnlyPermissions = {
   edit: false,
@@ -284,6 +368,18 @@ const loadOnlyOfficeScript = async (baseUrl: string) => {
 }
 
 const destroyEditor = () => {
+  clearTimeout(navigationTimer)
+  navigationWindow = null
+  navigationReady.value = false
+  navigationBusy.value = false
+  navigationError.value = ''
+  searchQuery.value = ''
+  searchedQuery.value = ''
+  matchCount.value = 0
+  matchIndex.value = -1
+  pageCount.value = 0
+  currentPage.value = 1
+  pageInput.value = '1'
   const instance = editorInstance
   editorInstance = null
   instance?.destroyEditor?.()
@@ -403,6 +499,10 @@ const mountEditor = async () => {
         mode: 'view',
         lang: 'zh-CN',
         user: onlyOfficeReadOnlyUser,
+        ...(documentType === 'word' ? { plugins: {
+          autostart: ['asc.{4B72DF08-FF56-4E8A-8F7C-50EB83F9DA31}'],
+          pluginsData: [new URL(`${import.meta.env.BASE_URL}dcc-office-navigation/config.json`, window.location.origin).href]
+        } } : {}),
         customization: {
           anonymous: {
             request: false
@@ -419,6 +519,11 @@ const mountEditor = async () => {
         onDocumentReady: () => {
           if (!isCurrentEditorSource() || documentReadyEmitted || errorMessage.value) return
           documentReadyEmitted = true
+          if (documentType === 'word' && !navigationReady.value && !navigationBusy.value) {
+            navigationTimer = setTimeout(() => {
+              navigationError.value = '正文导航未就绪，请重新打开预览'
+            }, 30000)
+          }
           emit('opened', { documentUrl })
         },
         onError: (event: unknown) => {
@@ -435,7 +540,7 @@ const mountEditor = async () => {
           emit('error', { documentUrl, message })
         }
       },
-      type: props.compact ? 'embedded' : 'desktop',
+      type: props.compact && documentType !== 'word' ? 'embedded' : 'desktop',
       width: '100%',
       height: '100%'
     })
@@ -462,12 +567,14 @@ watch(
 )
 
 onMounted(() => {
+  window.addEventListener('message', handleNavigationMessage)
   window.addEventListener('keydown', handleWindowKeydown)
   window.addEventListener('keyup', handleWindowKeyup)
   window.addEventListener('blur', handleWindowBlur)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('message', handleNavigationMessage)
   stageResizeObserver?.disconnect()
   viewerUnmounted = true
   editorGeneration++
@@ -479,6 +586,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.office-navigation { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 0; flex-shrink: 0; }
+.office-navigation__group { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.office-navigation__group .el-input { width: 160px; }
+.office-navigation__group .office-navigation__page { width: 52px; }
 .onlyoffice-viewer-shell {
   min-height: 560px;
 }

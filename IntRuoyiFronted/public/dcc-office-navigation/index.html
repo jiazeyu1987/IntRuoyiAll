@@ -1,0 +1,9 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>受控正文导航</title></head><body>
+<script>
+// Use the SDK belonging to the editor that loaded this plugin.
+const sdk = document.createElement('script');
+sdk.src = new URL('/sdkjs-plugins/v1/plugins.js', document.referrer).href;
+sdk.onload = () => { const script = document.createElement('script'); script.src = 'navigation.js'; document.body.appendChild(script); };
+document.head.appendChild(sdk);
+</script></body></html>

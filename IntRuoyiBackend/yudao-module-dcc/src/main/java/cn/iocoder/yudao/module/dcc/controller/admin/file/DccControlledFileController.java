@@ -111,6 +111,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ContentDisposition;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -1199,6 +1201,25 @@ public class DccControlledFileController {
                 .header(DOWNLOAD_REQUEST_ID_HEADER, binary.downloadRequestId())
                 .header(DOWNLOAD_PLAIN_SHA256_HEADER, binary.plainSha256())
                 .body(binary.bytes());
+    }
+
+    @GetMapping("/{id:\\d+}/checkout/download")
+    @Operation(summary = "Download own checked-out Word source or exact version attachment")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadCheckedOutFile(@PathVariable("id") Long id,
+            @RequestParam(value = "attachmentId", required = false) Long attachmentId,
+            @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
+            @RequestParam("downloadRequestId") String requestId, HttpServletRequest request) {
+        var binary = queryService.readCheckoutDownloadFile(getLoginUserId(), id, attachmentId, confirmed,
+                requestId, auditContext(request, requestId));
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(binary.fileName(), StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION + ","
+                        + ACCESS_EVENT_CODE_HEADER + "," + DOWNLOAD_REQUEST_ID_HEADER + "," + DOWNLOAD_PLAIN_SHA256_HEADER)
+                .header(ACCESS_EVENT_CODE_HEADER, binary.accessEventCode())
+                .header(DOWNLOAD_REQUEST_ID_HEADER, binary.downloadRequestId())
+                .header(DOWNLOAD_PLAIN_SHA256_HEADER, binary.plainSha256()).body(binary.bytes());
     }
 
     @GetMapping("/{id:\\d+}/attachments/{attachmentId:\\d+}/download")
