@@ -49,7 +49,8 @@ class GxpAuditModePersistenceTest {
         assertThrows(IllegalArgumentException.class, () -> new GxpAuditDevelopmentMode(new MockEnvironment(), mapper));
     }
 
-    @Test void disabledSpringContextDoesNotLoadAnyPolicy() {
+    @ParameterizedTest @ValueSource(strings = {"local", "dev", "prod"})
+    void disabledSpringContextDoesNotLoadAnyPolicy(String profile) {
         var mapper = mock(ConfigMapper.class);
         when(mapper.selectByKey(GxpAuditMode.CONFIG_KEY)).thenReturn(row("DEVELOPMENT_DISABLED"));
         var loader = mock(GxpAuditPolicyBundleLoader.class);
@@ -57,8 +58,8 @@ class GxpAuditModePersistenceTest {
                 .withUserConfiguration(GxpAuditRuntimeConfiguration.class, GxpAuditDevelopmentMode.class)
                 .withBean(ConfigMapper.class, () -> mapper)
                 .withBean(GxpAuditPolicyBundleLoader.class, () -> loader)
-                .withPropertyValues("spring.profiles.active=local",
-                        "spring.datasource.dynamic.datasource.master.url=jdbc:mysql://127.0.0.1/test")
+                .withPropertyValues("spring.profiles.active=" + profile,
+                        "spring.datasource.dynamic.datasource.master.url=jdbc:mysql://mysql:3306/test")
                 .run(context -> {
                     assertNull(context.getStartupFailure());
                     assertTrue(context.getBeansOfType(GxpLocalDevelopmentPolicy.class).isEmpty());
