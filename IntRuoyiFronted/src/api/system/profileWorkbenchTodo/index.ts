@@ -9,11 +9,13 @@ export interface ProfileWorkbenchTodoQuery {
   visibility: 'visible' | 'hidden'
   enabledSources: string[]
   taskType?: string
+  listFilters?: string
   quickFilter?: { fieldKey: string; operator: 'contains' | 'eq'; value?: string }
   sort?: { key: string; order: 'asc' | 'desc' }
 }
 export interface WorkbenchQuerySpec {
   visibility: 'visible' | 'hidden'
+  listFilters?: string | null
   taskType?: string | null
   quickFilter?: { fieldKey: string; operator: 'contains' | 'eq'; value: string } | null
   sort?: { key: string; order: 'asc' | 'desc' } | null
@@ -72,7 +74,9 @@ export const normalizeWorkbenchQuerySpec = (query: WorkbenchQuerySpec): Workbenc
     !['contains', 'eq'].includes(filter.operator) || typeof filter.value !== 'string' || filter.value.length > 1000)) throw new Error('工作台筛选条件无效。')
   if (query.sort && (!['taskType', 'source', 'detail', 'statusLabel'].includes(query.sort.key) ||
     !['asc', 'desc'].includes(query.sort.order))) throw new Error('工作台排序无效。')
+  if (query.listFilters != null && typeof query.listFilters !== 'string') throw new Error('Invalid listFilters')
   return { visibility: query.visibility, taskType: query.taskType ?? null,
+    ...(query.listFilters != null ? { listFilters: query.listFilters } : {}),
     quickFilter: filter ? { ...filter, value: filter.value.trim() } : null, sort: query.sort ?? null }
 }
 export const initializeWorkbenchContext = async (registryRevision: string, sources: SourceDescriptor[], contextEpoch: string, querySpec: WorkbenchQuerySpec) => {

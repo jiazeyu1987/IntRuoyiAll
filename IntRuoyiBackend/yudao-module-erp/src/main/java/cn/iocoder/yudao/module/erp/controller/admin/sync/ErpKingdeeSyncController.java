@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncRunRes
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncWatermarkRespVO;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeProductionOrderCreateService;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncAdminService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncRunRecoveryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -37,6 +39,44 @@ public class ErpKingdeeSyncController {
     private ErpKingdeeSyncAdminService syncAdminService;
     @Resource
     private ErpKingdeeProductionOrderCreateService productionOrderCreateService;
+
+    @Resource
+    private ErpKingdeeSyncRunRecoveryService runRecoveryService;
+
+    @GetMapping("/run/get")
+    @Operation(summary = "刷新单条同步运行记录")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<ErpKingdeeSyncRunRespVO> getRun(@RequestParam Long id) {
+        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
+                runRecoveryService.getRun(id), ErpKingdeeSyncRunRespVO.class));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/run/delete")
+    @Operation(summary = "先停止执行再删除同步运行记录")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<Boolean> deleteRun(@RequestParam Long id) {
+        try {
+            return success(runRecoveryService.stopAndDelete(id));
+        } catch (IllegalStateException failure) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED,
+                    failure.getMessage());
+        }
+    }
+
+    @PostMapping("/run/recover")
+    @Operation(summary = "核验集群并结束已中断的同步记录")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<Boolean> recoverRun(@RequestParam Long id) {
+        try {
+            runRecoveryService.recover(id);
+        } catch (IllegalStateException failure) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED,
+                    failure.getMessage());
+        }
+        return success(true);
+    }
 
     @GetMapping("/run/page")
     @Operation(summary = "分页查询 ERP 金蝶同步运行记录")
@@ -67,6 +107,14 @@ public class ErpKingdeeSyncController {
     public CommonResult<ErpKingdeeFullSyncRespVO> runFullSync(
             @Valid @RequestBody ErpKingdeeFullSyncReqVO reqVO) {
         return success(syncAdminService.runFullSync(reqVO.getSyncType()));
+    }
+
+    @PostMapping("/full-sync-recent")
+    @Operation(summary = "后台全量同步最近指定天数内的数据，跳过已有记录")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<ErpKingdeeFullSyncRespVO> runRecentFullSync(
+            @Valid @RequestBody cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeRecentFullSyncReqVO reqVO) {
+        return success(syncAdminService.runRecentFullSync(reqVO.getSyncType(), reqVO.getDays(), reqVO.getClickedAt()));
     }
 
     @PostMapping("/production-order/create")

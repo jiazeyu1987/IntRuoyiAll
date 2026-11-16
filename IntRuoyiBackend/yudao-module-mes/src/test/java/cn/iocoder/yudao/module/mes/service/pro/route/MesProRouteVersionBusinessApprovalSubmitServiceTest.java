@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
@@ -137,6 +139,37 @@ class MesProRouteVersionBusinessApprovalSubmitServiceTest {
             assertEquals("route version publish applicant is required", ex.getMessage());
         }
         verify(businessApprovalOrchestrator, never()).submit(any(BusinessApprovalContext.class), any());
+    }
+
+    @Test
+    void missingPublishPolicyReturnsActionableBusinessErrorWithoutPublishing() {
+        when(workflowService.getVersion(1002L)).thenReturn(draftCandidate());
+        when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
+                .thenThrow(new BusinessApprovalException(
+                        BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND, "missing policy"));
+        TenantContextHolder.setTenantId(122L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(501L);
+            ServiceException ex = assertThrows(ServiceException.class,
+                    () -> service.submitAndPublishCandidate(1002L));
+            assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_PUBLISH_POLICY_NOT_FOUND.getCode(), ex.getCode());
+            assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_PUBLISH_POLICY_NOT_FOUND.getMsg(), ex.getMessage());
+        }
+        verify(workflowService).getVersion(1002L);
+    }
+
+    @Test
+    void otherApprovalFailuresRemainVisible() {
+        when(workflowService.getVersion(1002L)).thenReturn(draftCandidate());
+        BusinessApprovalException failure = new BusinessApprovalException(
+                BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_CONFLICT, "conflicting policies");
+        when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class))).thenThrow(failure);
+        TenantContextHolder.setTenantId(122L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(501L);
+            assertSame(failure, assertThrows(BusinessApprovalException.class,
+                    () -> service.submitAndPublishCandidate(1002L)));
+        }
     }
 
     private MesProRouteVersionDO draftCandidate() {

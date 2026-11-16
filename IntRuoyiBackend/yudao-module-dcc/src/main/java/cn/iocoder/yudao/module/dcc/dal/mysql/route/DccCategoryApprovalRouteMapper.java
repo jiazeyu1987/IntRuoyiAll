@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.dal.mysql.route;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.route.vo.DccApprovalRoutePageReqVO;
@@ -9,6 +10,11 @@ import cn.hutool.core.util.StrUtil;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.SelectProvider;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import java.util.List;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -20,14 +26,27 @@ import java.util.Comparator;
 public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryApprovalRouteDO> {
 
     default PageResult<DccCategoryApprovalRouteDO> selectPage(DccApprovalRoutePageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
+        var wrapper = new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
                 .eqIfPresent(DccCategoryApprovalRouteDO::getCategoryId, reqVO.getCategoryId())
                 .eqIfPresent(DccCategoryApprovalRouteDO::getActionType, reqVO.getActionType())
                 .orderByAsc(DccCategoryApprovalRouteDO::getCategoryId)
                 .orderByAsc(DccCategoryApprovalRouteDO::getActionType)
                 .orderByDesc(DccCategoryApprovalRouteDO::getVersionNo)
-                .orderByDesc(DccCategoryApprovalRouteDO::getId));
+                .orderByDesc(DccCategoryApprovalRouteDO::getId);
+        ListFilterQueryUtils.apply(reqVO, wrapper, DccRouteListFilterSql.fields());
+        long count=countFiltered(TenantContextHolder.getRequiredTenantId(),wrapper);
+        if (count==0) return PageResult.empty(0L);
+        return new PageResult<>(selectFilteredPage(TenantContextHolder.getRequiredTenantId(),wrapper,
+                reqVO.getPageSize(),Math.multiplyExact((long)reqVO.getPageNo()-1,reqVO.getPageSize())),count);
     }
+
+    // The displayed stage string may exceed MySQL's 1024-byte GROUP_CONCAT default.
+    // This read-only statement hint keeps the complete value for all nested aggregates.
+    @SelectProvider(type=DccRouteListFilterSql.class,method="count")
+    long countFiltered(@Param("tenant") Long tenant,@Param(Constants.WRAPPER) LambdaQueryWrapper<DccCategoryApprovalRouteDO> wrapper);
+    @SelectProvider(type=DccRouteListFilterSql.class,method="page")
+    List<DccCategoryApprovalRouteDO> selectFilteredPage(@Param("tenant") Long tenant,@Param(Constants.WRAPPER) LambdaQueryWrapper<DccCategoryApprovalRouteDO> wrapper,
+            @Param("size") int size,@Param("offset") long offset);
 
     default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId) {
         return selectLatestActiveByCategoryId(categoryId, LocalDateTime.now());

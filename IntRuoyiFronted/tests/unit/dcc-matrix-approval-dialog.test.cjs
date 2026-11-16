@@ -60,7 +60,8 @@ test('result uses captured task identity and shared dialog keeps actual file fac
   assert.match(source, /taskDefinitionKey: approvalTodoTask.value\?\.taskDefinitionKey/)
   assert.match(source, /buildActionSuccessMessage\(request.action, result.response, request.taskDefinitionKey\)/)
   const dialog = source.split('v-model="actionDialog.visible"')[1].split('</el-dialog>')[0]
-  for (const fact of ['ep:document', 'fileDetail?.fileName', 'fileDetail?.fileNumber', 'fileDetail?.versionNo', 'currentSignerLabel', '请输入当前登录密码', 'type="password"']) assert.ok(dialog.includes(fact), fact)
+  for (const fact of ['ep:document', 'fileDetail?.fileName', 'fileDetail?.fileNumber', 'fileDetail?.versionNo', 'currentSignerLabel']) assert.ok(dialog.includes(fact), fact)
+  assert.match(dialog, /<SignatureCredentialInput\s+v-model="actionDialog.form.password"/)
   assert.ok(dialog.indexOf('v-model="actionDialog.form.reason"') < dialog.indexOf('v-model="actionDialog.form.password"'))
   assert.ok(dialog.indexOf('确认批准并签名') < dialog.lastIndexOf('取消'))
   assert.match(source, /if \(actionDialog.submitting \|\| !actionDialog.visible\) return/)

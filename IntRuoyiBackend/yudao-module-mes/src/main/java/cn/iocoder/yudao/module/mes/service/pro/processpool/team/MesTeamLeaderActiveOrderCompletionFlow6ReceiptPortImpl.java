@@ -84,7 +84,7 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
         }
         MesEdhrSourceCreationEvidence creation = creationVerifier.requireCompletionCreation(tenantId, receipt.getId());
         String transactionId = creationVerifier.requireCompletionTransactionId(tenantId, receipt.getId());
-        if (creation == null || creation.creationEventId() == null || creation.creationEventId() <= 0
+        if (creation == null || creation.creationEventId() == null || (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && creation.creationEventId() <= 0)
                 || transactionId == null || transactionId.isBlank()) {
             throw new IllegalStateException("Completion creation audit binding is missing");
         }

@@ -38,6 +38,8 @@ public class MesTeamLeaderActiveOrderRow {
     private BigDecimal inspectionProgressPercent;
     private String activeStatus;
     private String businessStatus;
+    /** Only formally bound, pending NCR reviews for this active order. */
+    private List<PendingNonconformanceReview> pendingNonconformanceReviews = List.of();
     private LocalDateTime joinedAt;
     private LocalDateTime removedAt;
     private Integer version;
@@ -47,6 +49,7 @@ public class MesTeamLeaderActiveOrderRow {
     private Long releaseApplicationId;
     private Long pqcReleaseWorkTaskId;
     private String releaseApplicationStatus;
+    private Boolean releaseCorrectionReceivable;
     private String releaseSourceSnapshotHash;
     private Integer releaseApplicationVersion;
     private Boolean quantityConflict;
@@ -61,11 +64,21 @@ public class MesTeamLeaderActiveOrderRow {
 
     @Data
     @Accessors(chain = true)
+    public static class PendingNonconformanceReview {
+        private String reviewId;
+        private String reviewCode;
+        private String qaReviewerUserId;
+        private String qaReviewerName;
+    }
+
+    @Data
+    @Accessors(chain = true)
     public static class ProcessRemainingQuantity {
 
         private Long routeProcessId;
         private Long processId;
         private BigDecimal plannedQuantity;
+        private BigDecimal upperQuantity;
         private BigDecimal allocatedQuantity;
         private BigDecimal remainingQuantity;
         private Boolean quantityConflict;

@@ -435,7 +435,7 @@ class MesProAutoScheduleServiceImplTest {
         lenient().when(workOrderService.getWorkOrderMap(any())).thenReturn(Map.of(workOrder.getId(), workOrder));
         lenient().when(routeProductService.getRouteProductByItemId(100L)).thenReturn(routeProduct);
         lenient().when(routeProcessService.getRouteProcessListByRouteId(20L)).thenReturn(List.of(routeProcess));
-        lenient().when(routeService.getRouteMapIgnoreDeleted(any())).thenReturn(Map.of(20L,
+        lenient().when(routeService.getRouteMap(any())).thenReturn(Map.of(20L,
                 MesProRouteDO.builder().id(20L).code("ROUTE-20").name("球囊扩张导管").build()));
         lenient().when(itemService.getItemMap(any())).thenAnswer(invocation -> {
             Collection<Long> ids = invocation.getArgument(0);
@@ -1768,7 +1768,7 @@ class MesProAutoScheduleServiceImplTest {
                         .build());
         when(routeProcessService.getRouteProcessListByRouteId(20L)).thenReturn(List.of(routeProcess));
         when(routeProcessService.getRouteProcessListByRouteId(21L)).thenReturn(List.of(secondRouteProcess));
-        when(routeService.getRouteMapIgnoreDeleted(any())).thenReturn(Map.of(
+        when(routeService.getRouteMap(any())).thenReturn(Map.of(
                 20L, MesProRouteDO.builder().id(20L).code("ROUTE-20").name("球囊扩张导管").build(),
                 21L, MesProRouteDO.builder().id(21L).code("ROUTE-21").name("球囊扩张导管二线").build()));
         when(scheduleOrderMapper.selectByIds(List.of(501L, 502L))).thenReturn(List.of(scheduleOrder, secondScheduleOrder));

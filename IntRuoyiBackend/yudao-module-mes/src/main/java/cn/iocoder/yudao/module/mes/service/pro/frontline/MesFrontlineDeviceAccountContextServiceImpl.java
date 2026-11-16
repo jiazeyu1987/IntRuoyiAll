@@ -56,6 +56,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 
 @Service
 public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontlineDeviceAccountContextService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
 
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
     private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
@@ -435,6 +436,11 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
 
     private Set<Long> resolveRouteStartProductionLeaderAuthorizedRouteIds(
             Long loginUserId, Map<Long, MesProRouteDO> routeMap) {
+        if (packagingAccess.isPackagingLeader(loginUserId)) {
+            Set<Long> routes = new LinkedHashSet<>(packagingAccess.activeRouteIds(loginUserId));
+            routes.retainAll(routeMap.keySet());
+            return routes;
+        }
         List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeMap.keySet());
         if (CollUtil.isEmpty(routeVersions)) {
             return Set.of();

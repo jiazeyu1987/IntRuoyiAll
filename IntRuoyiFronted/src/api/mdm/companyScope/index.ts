@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MdmEnterpriseRespVO } from '@/api/mdm/enterprise'
 
 export const MDM_COMPANY_SCOPE_TYPE_USER = 'USER'
 export const MDM_COMPANY_SCOPE_TYPE_ROLE = 'ROLE'
@@ -50,4 +51,22 @@ export const updateCompanyScope = async (data: MdmCompanyScopeSaveReqVO): Promis
 
 export const deleteCompanyScope = async (scopeType: string, id: number): Promise<boolean> => {
   return await request.delete({ url: '/mdm/company-scope/delete', params: { scopeType, id } })
+}
+
+export const getOwnedCompanyPage = async (
+  params: PageParam & { keyword?: string; status?: string }
+): Promise<PageResult<MdmEnterpriseRespVO[]>> => {
+  return await request.get({ url: '/mdm/company-scope/companies', params })
+}
+
+export const createEnabledCompany = async (name: string): Promise<number> => {
+  return await request.post({ url: '/mdm/company-scope/companies', data: { name } })
+}
+
+export const updateOwnedCompany = async (id: number, name: string): Promise<boolean> => {
+  return await request.put({ url: '/mdm/company-scope/companies', data: { id, name } })
+}
+
+export const updateOwnedCompanyStatus = async (id: number, status: string): Promise<boolean> => {
+  return await request.put({ url: '/mdm/company-scope/companies/status', params: { id, status } })
 }

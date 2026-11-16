@@ -35,19 +35,19 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_REJECT, "批记录审批驳回"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL, "批记录归档密封"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE, "批记录字段变更"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION, "巡检轮次更正确认"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW, "批记录表单复核"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, "生产提交"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, "PQC提交"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE, "PQC放行"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_MARKET_RELEASE, "上市放行"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_MARKET_RELEASE_REJECT, "不予上市放行"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW, "班组长复核"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_VOID_REQUEST, "eDHR批次作废申请"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_CLOSE, "关闭eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QUALITY_REJECT, "质量终态拒收eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT,
                         "上市放行负责人发起eDHR不合格评审"),
-                action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REVIEW_CREATE,
-                        "QA发起关键偏差不合格评审"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_SPECIAL_NODE_SKIP, "跳过eDHR特殊工序"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置"),
@@ -61,6 +61,12 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_QUALITY, "偏差质量负责人批准"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_MANAGEMENT, "关键偏差管理者代表批准")
         );
+    }
+
+    @Override
+    public boolean allowsSessionConfirmation(String actionCode, String subjectType) {
+        return MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION.equals(actionCode)
+                && SUBJECT_TYPE.equals(subjectType);
     }
 
     @Override

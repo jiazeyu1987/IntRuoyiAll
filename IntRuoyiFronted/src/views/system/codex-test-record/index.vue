@@ -20,11 +20,17 @@
       @quick-filter-query="recordQuickFilter.applyQuickFilter"
       @column-change="saveRecordColumnConfig"
       @pagination="getRecordList"
+      server-filter
+      :server-filter-query="getRecordList"
+
+
+
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button :loading="recordLoading" @click="getRecordList">刷新</el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="recordLoadError"
           class="codex-test-record-error"
@@ -36,7 +42,7 @@
           v-loading="recordLoading"
           data-user-table-column-explicit
           data-user-table-key="system.codex-test.records"
-          :data="recordList"
+          :data="resolveRows(recordList)"
           border
           :stripe="true"
           empty-text="暂无测试记录"
@@ -228,6 +234,9 @@
 </template>
 
 <script lang="ts" setup>
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import * as CodexTestApi from '@/api/system/codexTestManagement'
@@ -394,22 +403,17 @@ async function getTenantOptions() {
   }
 }
 
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { recordLoading.value = value }, { flush: 'sync' })
 async function getRecordList() {
-  recordLoading.value = true
   recordLoadError.value = ''
   try {
-    const data = await CodexTestApi.getCodexTestExecutionPage(recordQueryParams)
+    return await listPageRequest.run(() => CodexTestApi.getCodexTestExecutionPage({ ...recordQueryParams }), data => {
     recordList.value = data.list
     recordTotal.value = data.total
-  } catch (error) {
-    const errorMessage = resolveRequestError(error, '测试记录加载失败')
-    recordLoadError.value = errorMessage
-    recordList.value = []
-    recordTotal.value = 0
-    message.error(errorMessage)
-  } finally {
-    recordLoading.value = false
+  })
   }
+  catch (error) { recordLoadError.value = resolveRequestError(error, '测试记录加载失败'); throw error }
 }
 
 async function cancelRecord(id: number) {
@@ -447,6 +451,28 @@ onMounted(async () => {
   await getTenantOptions()
   await getRecordList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'targetTenantId',
+    label: '测试租户',
+    type: 'text',
+    getValue: (row) => [formatTenantLabel(row)].join(' ')
+  },
+  {
+    key: 'executionMode',
+    label: '方法',
+    type: 'text',
+    getValue: (row) => [formatExecutionMode(row.executionMode)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [statusText(row.status)].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

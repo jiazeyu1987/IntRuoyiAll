@@ -67,7 +67,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import(MesProEdhrRecordChangeServiceImpl.class)
+@Import({MesProEdhrRecordChangeServiceImpl.class, MesEdhrSupplementRevisionService.class})
 class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
 
     private static final Long ACTOR_ID = 101L;
@@ -104,14 +104,26 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
+    @MockitoBean
+    private MesEdhrRecordChangeTaskService recordChangeTaskService;
+    @MockitoBean
+    private MesMarketReleaseAccess marketReleaseAccess;
+    @MockitoBean
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @BeforeEach
     void setUpBpm() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(0L);
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("void-process-default");
         when(signatureService.recordBatchVoidRequestSignature(any(), any(), any(), any(), any()))
                 .thenReturn(9101L);
         when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
                 .thenAnswer(invocation -> submitBatchVoidBusinessApprovalInTest(invocation));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearRecordChangeTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
     }
 
     @Test
@@ -661,6 +673,8 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionDO closedBatch = insertClosedBatchExecution();
         insertPendingReleaseTransaction(closedBatch.getId());
         MesProBatchRecordExecutionDO execution = insertApprovedExecution();
+        execution.setBatchExecutionId(activeBatch.getId());
+        executionMapper.updateById(execution);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
             assertServiceException(() -> changeService.requestVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
@@ -676,7 +690,7 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
                             .setPassword("request-pass")),
                     PRO_EDHR_RELEASE_STATUS_INVALID);
             assertServiceException(() -> changeService.requestSupplement(new EdhrRecordChangeRequestReqVO()
-                            .setBatchExecutionId(activeBatch.getId())
+                            .setBatchExecutionId(execution.getBatchExecutionId())
                             .setExecutionId(execution.getId())
                             .setReasonCategory("MISSING_NOTE")
                             .setReasonText("放行审批中不得再提交补录申请。")
@@ -817,6 +831,15 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         assertEquals(9202L, event.getApprovalSignatureId());
         assertEquals(archive.getSha256(), event.getPreviousArchiveHash());
         assertEquals(archive.getSha256(), event.getNewArchiveHash());
+        assertNotNull(event.getNewExecutionId());
+        MesProBatchRecordExecutionDO revision = executionMapper.selectById(event.getNewExecutionId());
+        assertEquals(0, revision.getStatus());
+        assertEquals(execution.getId(), revision.getSupplementSourceExecutionId());
+        assertEquals(execution.getCellValuesJson(), revision.getCellValuesJson());
+        assertEquals(execution.getCellValuesHash(), updatedExecution.getCellValuesHash());
+        assertEquals(execution.getFieldAuditHeadHash(), updatedExecution.getFieldAuditHeadHash());
+        assertEquals(execution.getApprovedBy(), updatedExecution.getApprovedBy());
+        verify(workTaskService).createRecordChangeRework(event.getId(), execution.getId(), revision.getId(), event.getReasonText());
     }
 
     @Test
@@ -1058,6 +1081,99 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
                 .setReasonText(String.valueOf(context.getVariables().get("reasonText")))
                 .setPassword(String.valueOf(context.getTransientVariables().get("password")))
                 .setComment((String) context.getVariables().get("comment"));
+    }
+
+    @Test
+    void rejection_keepsOriginalRecordAndArchiveValidAndPersistsSignedReason() {
+        var execution = insertApprovedExecution();
+        when(signatureService.recordSubmitSignature(any(), any(), any())).thenReturn(9301L);
+        when(signatureService.recordApprovalSignature(any(MesProBatchRecordExecutionApprovalSignatureCommand.class))).thenReturn(9302L);
+        try (var security = mockLoginUser()) {
+            var submitted = changeService.requestReopenExecution(new EdhrRecordChangeRequestReqVO()
+                    .setExecutionId(execution.getId()).setReasonCategory("DATA_ERROR").setReasonText("申请重开")
+                    .setPassword("request-pass").setApproverUserId(202L));
+            var rejected = changeService.decide(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO()
+                    .setChangeEventId(submitted.getId()).setDecision("REJECTED").setReason("不符合重开依据").setPassword("review-pass"));
+            assertEquals("REJECTED", rejected.getChangeStatus());
+            assertEquals("不符合重开依据", rejected.getDecisionReason());
+            assertEquals(9302L, rejected.getApprovalSignatureId());
+            assertEquals(3, executionMapper.selectById(execution.getId()).getStatus());
+            assertNull(rejected.getEffectiveAt());
+            assertThrows(Exception.class, () -> changeService.approveReopenExecution(new EdhrRecordChangeApproveReqVO()
+                    .setChangeEventId(submitted.getId()).setPassword("review-pass")));
+            verify(recordChangeTaskService).completeNegativeDecision(any());
+        }
+    }
+
+    @Test
+    void returnedRequest_blocksParallelApplicationAndResubmitsAsNewSignedRound() {
+        var execution = insertApprovedExecution();
+        when(signatureService.recordSubmitSignature(any(), any(), any())).thenReturn(9401L, 9403L);
+        when(signatureService.recordApprovalSignature(any(MesProBatchRecordExecutionApprovalSignatureCommand.class))).thenReturn(9402L);
+        try (var security = mockLoginUser()) {
+            var req = new EdhrRecordChangeRequestReqVO().setExecutionId(execution.getId())
+                    .setReasonCategory("DATA_ERROR").setReasonText("原始说明").setPassword("request-pass").setApproverUserId(202L);
+            var submitted = changeService.requestSupplement(req);
+            changeService.decide(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO()
+                    .setChangeEventId(submitted.getId()).setDecision("RETURNED").setReason("请补充影响范围").setPassword("review-pass"));
+            assertThrows(Exception.class, () -> changeService.requestSupplement(req));
+            var correction = new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeResubmitReqVO()
+                    .setChangeEventId(submitted.getId());
+            correction.setReasonCategory("DATA_ERROR").setReasonText("已补充影响范围与证据").setPassword("request-pass").setApproverUserId(203L);
+            var next = changeService.resubmit(correction);
+            assertEquals("SUBMITTED", next.getChangeStatus());
+            assertEquals(submitted.getId(), next.getPreviousChangeEventId());
+            assertEquals(9403L, next.getRequestSignatureId());
+            assertEquals("已补充影响范围与证据", next.getReasonText());
+            var old = changeService.get(submitted.getId());
+            assertEquals("RESUBMITTED", old.getChangeStatus());
+            assertEquals("原始说明", old.getReasonText());
+            assertEquals(9402L, old.getApprovalSignatureId());
+            assertEquals("请补充影响范围", old.getDecisionReason());
+            verify(recordChangeTaskService).completeCorrection(any());
+            assertThrows(Exception.class, () -> changeService.resubmit(correction));
+            assertEquals(3, executionMapper.selectById(execution.getId()).getStatus());
+        }
+    }
+
+    @Test
+    void decision_rejectsStaleSourceVersionAndNotificationFailureRollsBack() {
+        var execution = insertApprovedExecution();
+        when(signatureService.recordSubmitSignature(any(), any(), any())).thenReturn(9501L);
+        when(signatureService.recordApprovalSignature(any(MesProBatchRecordExecutionApprovalSignatureCommand.class))).thenReturn(9502L);
+        try (var security = mockLoginUser()) {
+            var event = changeService.requestReopenExecution(new EdhrRecordChangeRequestReqVO().setExecutionId(execution.getId())
+                    .setReasonCategory("DATA_ERROR").setReasonText("受控重开").setPassword("pass").setApproverUserId(202L));
+            var decision = new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO()
+                    .setChangeEventId(event.getId()).setDecision("RETURNED").setReason("补证据").setPassword("pass");
+            executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId()).setFieldAuditHeadHash("b".repeat(64)));
+            assertThrows(IllegalArgumentException.class, () -> changeService.decide(decision));
+            executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId()).setFieldAuditHeadHash(execution.getFieldAuditHeadHash()));
+            org.mockito.Mockito.doThrow(new IllegalStateException("站内信保存失败")).when(recordChangeTaskService).completeNegativeDecision(any());
+            assertThrows(IllegalStateException.class, () -> changeService.decide(decision));
+            assertEquals("SUBMITTED", changeService.get(event.getId()).getChangeStatus());
+            assertNull(changeService.get(event.getId()).getApprovalSignatureId());
+        }
+    }
+
+    @Test
+    void selectedBatchReopenReviewerIsIndependentOfMarketHandoverOwnership() {
+        var batch = insertClosedBatchExecution();
+        when(signatureService.recordSubmitSignature(any(), any(), any())).thenReturn(9601L);
+        when(signatureService.recordApprovalSignature(any(MesProBatchRecordExecutionApprovalSignatureCommand.class))).thenReturn(9602L);
+        try (var security = mockLoginUser()) {
+            var event = changeService.requestReopenBatch(new EdhrRecordChangeRequestReqVO().setBatchExecutionId(batch.getId())
+                    .setReasonCategory("DATA_ERROR").setReasonText("关闭后受控重开").setPassword("pass").setApproverUserId(202L));
+            org.mockito.Mockito.clearInvocations(marketReleaseAccess);
+            org.mockito.Mockito.doThrow(new IllegalStateException("市场可读授权已收回")).when(marketReleaseAccess).requireReadable(batch.getId());
+            org.mockito.Mockito.doThrow(new IllegalStateException("非市场办理人")).when(marketReleaseAccess).requireWritable(batch.getId());
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(202L);
+            var approved = changeService.approveReopenBatch(new EdhrRecordChangeApproveReqVO().setChangeEventId(event.getId()).setPassword("review-pass"));
+            assertEquals("EFFECTIVE", approved.getChangeStatus());
+            assertEquals(202L, approved.getApprovedBy());
+            assertEquals(70, batchExecutionMapper.selectById(batch.getId()).getStatus());
+            org.mockito.Mockito.verifyNoInteractions(marketReleaseAccess);
+        }
     }
 
     private MockedStatic<SecurityFrameworkUtils> mockLoginUser() {

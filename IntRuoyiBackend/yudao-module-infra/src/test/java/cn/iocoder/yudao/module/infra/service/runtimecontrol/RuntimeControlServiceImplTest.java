@@ -595,7 +595,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 command.getArguments().contains("-BackendRuntimeBaseMode")
                         && command.getArguments().contains("offline-tar")
                         && command.getArguments().contains("-BackendRuntimeBaseTarPath")
-                        && command.getArguments().contains("D:/ProjectPackage/Int/BaseImages/intruoyi-backend-runtime-base-20260604.tar")
+                        && command.getArguments().contains(".runtime/base-images/intruoyi-backend-runtime-base-20260604.tar")
                         && command.getArguments().contains("-BackendRuntimeBaseTarSha256")
                         && command.getArguments().contains("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                         && command.getArguments().contains("-BackendRuntimeBaseImage")
@@ -1925,7 +1925,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private void configureBackendRuntimeBase() {
         releasePackageConfigService.config = new RuntimeControlReleasePackageConfig(
                 "offline-tar",
-                "D:/ProjectPackage/Int/BaseImages/intruoyi-backend-runtime-base-20260604.tar",
+                ".runtime/base-images/intruoyi-backend-runtime-base-20260604.tar",
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 "intruoyi-backend-runtime-base:20260604",
                 "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",

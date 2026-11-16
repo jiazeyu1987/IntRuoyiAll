@@ -83,7 +83,8 @@ test('actual signer never mounts assignment inputs or loads assignment relation 
 test('actual component template has one department candidate selector and no ALL option', () => {
   const descriptor = parse(read('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue')).descriptor
   const compiled = compileScript(descriptor, { id: 'department-template', inlineTemplate: true })
-  const component = moduleFrom(compiled.content, { './workflow-actions': actions }).default
+  const selectors = []
+  const component = moduleFrom(compiled.content, { './workflow-actions': actions, '@/views/system/user/components/UserSelectV2.vue': { default: { props: ['userOptions'], setup(props) { selectors.push(props.userOptions); return () => vue.h('span') } } } }).default
   const values = [], optionLabels = [], mounted = []
   const app = renderer().createApp(component, { fileId: '10', processInstanceId: 'round-a', taskId: 'task-a',
     departmentName: 'A部门', users: [{ id: '99', name: '本人' }], assigned: false, save: async () => true,
@@ -97,9 +98,9 @@ test('actual component template has one department candidate selector and no ALL
   })
   try {
     app.mount({ children: [] })
-    assert.equal(mounted.filter(name => name === 'ElSelect').length, 1)
-    assert.deepEqual(values, ['99'])
-    assert.equal(optionLabels.some(label => /全员|其他部门/.test(label)), false)
+    assert.equal(selectors.length, 1)
+    assert.deepEqual(Array.from(selectors[0], user => user.id), ['99'])
+    assert.equal(selectors[0].some(user => /全员|其他部门/.test(user.nickname)), false)
   } finally { app.unmount() }
 })
 

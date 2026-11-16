@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
@@ -15,6 +17,57 @@ import java.util.Collection;
 
 @Mapper
 public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesProEdhrNonconformanceReviewDO> {
+
+    @lombok.Data
+    @lombok.experimental.Accessors(chain = true)
+    class FreezeCount {
+        private String scope;
+        private Long scopeId;
+        private Long reviewCount;
+    }
+
+    default List<FreezeCount> selectFreezeCounts(Collection<Long> batchIds, Collection<Long> workOrderIds,
+                                                Collection<Long> activeOrderIds) {
+        if (batchIds.isEmpty()) return List.of();
+        return selectFreezeCountsInternal(batchIds, workOrderIds, activeOrderIds,
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
+    @Select("""
+            <script>
+            SELECT 'BATCH' AS scope, r.batch_execution_id AS scope_id, COUNT(*) AS review_count
+            FROM mes_pro_edhr_nonconformance_review r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND CAST(r.review_status AS BINARY) = CAST('pending_review' AS BINARY)
+              AND r.batch_execution_id IN
+              <foreach collection="batchIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            GROUP BY r.batch_execution_id
+            <if test="!workOrderIds.isEmpty()">
+            UNION ALL
+            SELECT 'WORK_ORDER' AS scope, r.work_order_id AS scope_id, COUNT(*) AS review_count
+            FROM mes_pro_edhr_nonconformance_review r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND (r.review_status = 'pending_review' OR r.disposition = 'void')
+              AND r.work_order_id IN
+              <foreach collection="workOrderIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            GROUP BY r.work_order_id
+            </if>
+            <if test="!activeOrderIds.isEmpty()">
+            UNION ALL
+            SELECT 'ACTIVE_ORDER' AS scope, r.active_order_id AS scope_id, COUNT(*) AS review_count
+            FROM mes_pro_edhr_nonconformance_review r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND CAST(r.source_type AS BINARY) &lt;&gt; CAST('PQC_RELEASE' AS BINARY)
+              AND (r.review_status = 'pending_review' OR r.disposition = 'void')
+              AND r.active_order_id IN
+              <foreach collection="activeOrderIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            GROUP BY r.active_order_id
+            </if>
+            </script>
+            """)
+    List<FreezeCount> selectFreezeCountsInternal(@Param("batchIds") Collection<Long> batchIds,
+            @Param("workOrderIds") Collection<Long> workOrderIds,
+            @Param("activeOrderIds") Collection<Long> activeOrderIds, @Param("tenantId") Long tenantId);
 
     String STATUS_PENDING_REVIEW = "pending_review";
 
@@ -246,7 +299,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
 
     private LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO> buildPageQuery(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {
-        return new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+        return ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getReviewCode, reqVO.getReviewCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceType, reqVO.getSourceType())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceId, reqVO.getSourceId())
@@ -257,6 +310,13 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getBatchCode, reqVO.getBatchCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getReviewStatus, reqVO.getReviewStatus())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getDisposition, reqVO.getDisposition())
-                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId);
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId), java.util.Map.ofEntries(
+                java.util.Map.entry("reviewCode", text("CONCAT(COALESCE(review_code, '--'), ' ', CASE source_type WHEN 'ACTIVE_ORDER' THEN '活跃订单' WHEN 'PQC_RELEASE' THEN 'PQC生产放行' WHEN 'PQC_SUBMISSION' THEN 'PQC提交记录' WHEN 'DEVIATION' THEN '偏差' ELSE '未知来源' END)")),
+                java.util.Map.entry("workOrderCode", text("CONCAT(COALESCE(work_order_code, '--'), ' ', COALESCE(batch_code, '--'))")),
+                java.util.Map.entry("nonconformanceReason", text("nonconformance_reason")),
+                java.util.Map.entry("reviewStatus", text("CASE WHEN review_status = 'pending_review' THEN '进行中' ELSE '已关闭' END")),
+                java.util.Map.entry("disposition", text("CASE disposition WHEN 'concession_release' THEN '让步放行' WHEN 'rework' THEN '返工' WHEN 'void' THEN '作废' ELSE '未处置' END")),
+                java.util.Map.entry("frozenAt", dateTime("frozen_at"))
+        ));
     }
 }

@@ -22,7 +22,8 @@ SET s.facts_json=JSON_OBJECT('certificateType','DOMESTIC','certificateStatus',IF
  'certificateNo',v.certificate_no,'classification',v.classification,'remark',v.remark,
  'firstObtainedDate',DATE_FORMAT(c.first_obtained_date,'%Y-%m-%d'),
  'approvalDate',DATE_FORMAT(v.approval_date,'%Y-%m-%d'),'effectiveDate',DATE_FORMAT(v.effective_date,'%Y-%m-%d'),
- 'expiryDate',DATE_FORMAT(v.expiry_date,'%Y-%m-%d'))
+ 'expiryDate',DATE_FORMAT(v.expiry_date,'%Y-%m-%d')),
+ s.update_time=s.update_time
 WHERE s.facts_json IS NULL;
 DELIMITER $$
 CREATE TRIGGER trg_dcc_reg_cert_snapshot_immutable_bu BEFORE UPDATE ON dcc_registration_certificate_snapshot FOR EACH ROW

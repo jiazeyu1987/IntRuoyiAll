@@ -133,6 +133,7 @@ import download from '@/utils/download'
 import * as DictDataApi from '@/api/system/dict/dict.data'
 import * as DictTypeApi from '@/api/system/dict/dict.type'
 import DictDataForm from './DictDataForm.vue'
+import { useDictStore } from '@/store/modules/dict'
 
 defineOptions({ name: 'SystemDictData' })
 
@@ -201,6 +202,7 @@ const handleDelete = async (id: number) => {
     await message.delConfirm()
     // 发起删除
     await DictDataApi.deleteDictData(id)
+    useDictStore().invalidateDict()
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
@@ -219,6 +221,7 @@ const handleDeleteBatch = async () => {
     await message.delConfirm()
     // 发起批量删除
     await DictDataApi.deleteDictDataList(checkedIds.value)
+    useDictStore().invalidateDict()
     checkedIds.value = []
     message.success(t('common.delSuccess'))
     // 刷新列表

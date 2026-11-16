@@ -5,6 +5,7 @@ export type EdhrOperationAuditPermissionDecision = 'ALLOW' | 'DENY'
 export type EdhrOperationAuditResultStatus = 'SUCCESS' | 'FAILED' | 'REJECTED'
 
 export interface EdhrOperationAuditPageReqVO extends PageParam {
+  listFilters?: string
   batchExecutionId?: EdhrRouteId
   executionId?: EdhrRouteId
   workTaskId?: EdhrRouteId

@@ -1,4 +1,6 @@
 import request from '@/config/axios'
+import type { OwnReturnDetail } from '../processpool/frontlineReturnCorrection'
+import { restoreReturnedPqcProcesses } from './pqcReturnedSubmission'
 import type { DeviceParameterValueType } from '@/api/mes/pro/processpool/teamLeader'
 import {
   projectFrontlinePqcProcesses,
@@ -84,7 +86,7 @@ export interface ProFeedbackVO {
 }
 
 export interface ProFrontlineLossDetailReqVO {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName?: string
   quantity: number
@@ -98,7 +100,7 @@ export interface ProFrontlineSelectedDeviceReqVO {
 }
 
 export type ProFrontlineParameterStatus = 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
-export type FrontlinePqcInspectionRuleKey = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type FrontlinePqcInspectionRuleKey = 'FIRST' | 'PATROL' | 'FINAL'
 export type FrontlinePqcResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 export type FrontlinePqcTaskStatus = 'PENDING' | 'SUBMITTED' | 'CONFIRMED' | 'CANCELLED'
 export type FrontlinePqcTaskSummaryState =
@@ -188,6 +190,7 @@ export interface ProFrontlineProcessPoolContextReqVO {
 }
 
 export interface ProFrontlineFeedbackSubmitReqVO {
+  quantityDraftId?: number
   materialDetails: ProFrontlineFeedbackMaterialReqVO[]
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
   recordbookPayload?: ProFrontlineRecordbookPayloadReqVO
@@ -204,6 +207,9 @@ export interface ProFrontlineFeedbackSubmitReqVO {
 }
 
 export interface ProFrontlineFeedbackSubmitRespVO {
+  submissionStatus: 'SUBMITTED' | 'QUANTITY_BLOCKED'
+  quantityDraftId?: number
+  quantityBlockMessage?: string
   feedbackId: number
   recordbookEntryId?: number
   recordbookEventId?: number
@@ -251,7 +257,14 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationCode?: string
   workstationName?: string
   submittedQuantity: number
+  targetQuantity?: number
+  lossCoefficient?: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlineProcessSopVO {
+  processId: number
+  fileUrl?: string | null
 }
 
 export interface FrontlinePqcInspectionTypeRuleVO {
@@ -298,6 +311,18 @@ export interface FrontlinePqcProcessVO {
   productionSubmitCandidates: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
+export interface FrontlinePqcReviewHistoryVO {
+  reviewId: number
+  eventId: number
+  reviewStatus: 'APPROVED' | 'REJECTED'
+  reviewRemark?: string
+  reviewedAt: string | number
+  reviewerUserId: number
+  reviewerName?: string
+  reviewRound: number
+  revisionId?: number
+}
+
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
   routeProcessId?: number | null
@@ -308,11 +333,23 @@ export interface FrontlinePqcTaskOptionVO {
   qaItemCode?: string | null
   inspectionRuleKey: FrontlinePqcInspectionRuleKey
   taskStatus: FrontlinePqcTaskStatus
+  cancelReason?: string
+  submittedEventId?: number
+  submittedContentHash?: string
+  reviewHistory?: FrontlinePqcReviewHistoryVO[]
+  currentReviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  returnedSubmission?: OwnReturnDetail
+  submittedInspection?: {
+    actualInspectionQuantity: number
+    scrapQuantity: number
+    items: { itemCode: string; selectedEquipmentNumber?: string; sampleValues: string[] }[]
+  }
   finalInspectionApplicable?: boolean
   inspectionType: FrontlinePqcInspectionType
   businessDate: string
   shiftCode: string
   roundNo: number
+  createTime: string | number
   plannedInspectionQuantity: number
   ruleSort: number
   inspectionTypeRule: FrontlinePqcInspectionTypeRuleVO
@@ -352,6 +389,8 @@ export interface FrontlinePqcDeviceParameterVO {
 }
 
 export interface FrontlinePqcInspectionItemVO {
+  samplingEvidence?: { standard: string; totalQuantity: number; inspectionLevel: string;
+    sampleCode?: string; nominalSampleSize?: number; inspectionQuantity: number; fullInspection: boolean }
   plannedInspectionQuantity?: number
   itemSort: number
   itemCode: string
@@ -369,7 +408,9 @@ export interface FrontlinePqcInspectionItemVO {
   equipmentOptions?: FrontlinePqcEquipmentOptionVO[]
   applicableInspectionTypes: FrontlinePqcInspectionType[]
   firstInspectionQuantity?: number
-  patrolInspectionRatio?: number | string
+  finalInspectionQuantity?: number
+  inspectionLevel?: string
+  aql?: number | string
   critical: boolean
   failureRule?: string
   sourceNote?: string
@@ -390,7 +431,7 @@ export interface FrontlineActiveOrderVO {
   workOrderId: number
   workOrderCode?: string
   workOrderName?: string
-  productId: number
+  productId: number | string
   productCode?: string
   productName: string
   batchCode?: string
@@ -537,7 +578,7 @@ export interface FrontlineRuntimeDeviceVO {
 }
 
 export interface FrontlineRuntimeDefectReasonVO {
-  reasonId: number
+  reasonId: number | string
   reasonType?: string
   reasonCode: string
   reasonName: string
@@ -1174,6 +1215,8 @@ export const ProFeedbackApi = {
   frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
     return await request.post<ProFrontlineFeedbackSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/submit`,
+      // Allow the formal transaction and its acknowledgement to finish; never auto-retry.
+      timeout: 150000,
       data,
       ignoreErrorMessage: true,
       isRequestContextCurrent: options?.isRequestContextCurrent,
@@ -1280,6 +1323,19 @@ export const ProFeedbackApi = {
       ignoreErrorMessage: true
     })
   },
+  // 读取当前活跃订单范围内工序的 SOP 文件绑定
+  getFrontlineProductionProcessSop: async (params: {
+    activeOrderId: number
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineProcessSopVO>({
+      url: `/mes/pro/feedback/frontline/device-account/process-sop`,
+      params,
+      ignoreErrorMessage: true
+    })
+  },
   // 获取 PQC 当前活跃订单
   getFrontlinePqcActiveOrders: async () => {
     return await request.get<FrontlineActiveOrderVO[]>({
@@ -1287,6 +1343,23 @@ export const ProFeedbackApi = {
       ignoreErrorMessage: true
     })
   },
+  createFrontlinePqcPatrolRound: async (data: { activeOrderId: number; expectedPreviousRoundNo: number }) => {
+    return await request.post<number>({
+      url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round',
+      data,
+      ignoreErrorMessage: true
+    })
+  },
+  cancelFrontlinePqcPatrolRound: async (data: { activeOrderId: number; roundNo: number }) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/cancel', data, ignoreErrorMessage: true }),
+  restoreFrontlinePqcPatrolRound: async (data: { activeOrderId: number; roundNo: number }) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/restore', data, ignoreErrorMessage: true }),
+  createFrontlinePqcFinalInspection: async (activeOrderId: number) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/final-inspection', params: { activeOrderId }, ignoreErrorMessage: true }),
+  correctFrontlinePqcPatrolRound: async (data: {
+    sourceTaskId: number; targetTaskId: number; expectedSubmittedEventId: number;
+    expectedContentHash: string
+  }) => request.post<number>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/correct', data, ignoreErrorMessage: true }),
   // 获取 PQC 活跃订单对应 QA 规程工序
   getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number) => {
     const processes = await request.get<FrontlinePqcProcessResponseVO[]>({
@@ -1294,7 +1367,9 @@ export const ProFeedbackApi = {
       params: { activeOrderId, actualEmployeeId },
       ignoreErrorMessage: true
     })
-    return projectFrontlinePqcProcesses(processes)
+    const projected = projectFrontlinePqcProcesses(processes)
+    await restoreReturnedPqcProcesses(projected, activeOrderId)
+    return projected
   },
   // 获取当前工序可切换员工
   getFrontlineEmployeeCandidates: async (params: {

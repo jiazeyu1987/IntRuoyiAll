@@ -59,12 +59,15 @@ class ApprovalCenterControllerTest {
     private ApprovalCenterService approvalCenterService;
     @Mock
     private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReviewFacade reviewFacade;
+    @Mock
+    private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService receiptService;
     @InjectMocks
     private ApprovalCenterController controller;
 
     @BeforeEach
     void injectReviewFacadeAfterConstructorInjection() {
         org.springframework.test.util.ReflectionTestUtils.setField(controller, "reviewFacade", reviewFacade);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "receiptService", receiptService);
     }
 
     @Test
@@ -85,6 +88,24 @@ class ApprovalCenterControllerTest {
         }
 
         verify(approvalCenterService).listProviders(100L);
+    }
+
+    @Test
+    void receiptQueryUsesLoggedInActorAndDoesNotSubmitAnotherDecision() throws Exception {
+        var request = new ApprovalReceiptQueryReqVO();
+        request.setModuleCode(ApprovalModuleCode.EDHR); request.setIdempotencyKey("original-key");
+        request.setSourceTaskType("EDHR_WORK_TASK"); request.setSourceTaskId("3006"); request.setPrepareId("preview");
+        var receipt = new cn.iocoder.yudao.module.bpm.approval.content.ApprovalDecisionReceipt(
+                "receipt", "original-key", "preview", "signature", "hash", "APPROVE", "RELEASED", "time");
+        when(receiptService.findDecisionReceipt(100L, "original-key", "EDHR", "EDHR_WORK_TASK", "3006", "preview")).thenReturn(receipt);
+        try (MockedStatic<WebFrameworkUtils> web = mockStatic(WebFrameworkUtils.class)) {
+            web.when(WebFrameworkUtils::getLoginUserId).thenReturn(100L);
+            assertSame(receipt, controller.getReviewReceipt(request).getData());
+        }
+        verifyNoInteractions(reviewFacade, approvalCenterService);
+        var method = ApprovalCenterController.class.getDeclaredMethod("getReviewReceipt", ApprovalReceiptQueryReqVO.class);
+        assertArrayEquals(new String[]{"/tasks/review-receipt"}, method.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('bpm:task:query')", method.getAnnotation(PreAuthorize.class).value());
     }
 
     @Test
@@ -135,7 +156,7 @@ class ApprovalCenterControllerTest {
     @MethodSource("blankReviewReasons")
     void reviewRequestVoRejectsBlankRejectionReason(ApprovalTaskReviewResult result, String reason) {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
-            var violations = factory.getValidator().validate(reviewRequest(result, reason));
+            var violations = factory.getValidator().validate(reviewRequest(result, reason).setModuleCode(ApprovalModuleCode.BPM));
             assertTrue(!violations.isEmpty());
             assertTrue(violations.stream().allMatch(violation ->
                     "rejectReasonValid".equals(violation.getPropertyPath().toString())
@@ -153,7 +174,7 @@ class ApprovalCenterControllerTest {
             var mvcResult = standaloneSetup(controller).setValidator(validator).build().perform(
                     post("/approval-center/tasks/review")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(new ObjectMapper().writeValueAsString(reviewRequest(result, reason))))
+                            .content(new ObjectMapper().writeValueAsString(reviewRequest(result, reason).setModuleCode(ApprovalModuleCode.BPM))))
                     .andExpect(status().isBadRequest()).andReturn();
             MethodArgumentNotValidException ex = assertInstanceOf(MethodArgumentNotValidException.class,
                     mvcResult.getResolvedException());
@@ -197,6 +218,15 @@ class ApprovalCenterControllerTest {
         verify(reviewFacade).review(eq(100L), captor.capture());
         assertEquals(result, captor.getValue().getResult());
         assertEquals(originalReason, captor.getValue().getReason());
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankReviewReasons")
+    void onlyEdhrApprovalAllowsBlankOpinion(ApprovalTaskReviewResult result, String reason) {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var violations = factory.getValidator().validate(reviewRequest(result, reason));
+            assertEquals(result == ApprovalTaskReviewResult.APPROVE, violations.isEmpty());
+        }
     }
 
     private static ApprovalTaskReviewReqVO reviewRequest(ApprovalTaskReviewResult result, String reason) {

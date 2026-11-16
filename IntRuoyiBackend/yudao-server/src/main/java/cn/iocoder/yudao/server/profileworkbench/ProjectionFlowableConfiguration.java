@@ -38,6 +38,9 @@ public class ProjectionFlowableConfiguration {
                 public CommandInterceptor getNext(){return next;}
                 public void setNext(CommandInterceptor value){next=value;}
                 @SuppressWarnings("unchecked") public <T>T execute(CommandConfig config,Command<T> command,CommandExecutor executor) {
+                    // This closed command only resolves engine candidate groups; it never mutates facts.
+                    if(command instanceof cn.iocoder.yudao.module.bpm.approval.service.ApprovalFlowableTaskQueryService.CandidateGroupsRead)
+                        return next.execute(config,command,executor);
                     try {return (T)fence.engineWrite(()->next.execute(config,command,executor));}
                     catch(RuntimeException|Error failure){throw failure;}
                     catch(Throwable failure){throw new IllegalStateException("Projection-fenced engine command failed",failure);}

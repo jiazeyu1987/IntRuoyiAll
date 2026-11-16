@@ -42,25 +42,29 @@ public class ShowroomReleaseAutoPublishScheduler {
 
     @Scheduled(cron = "0 * * * * ?")
     public void schedule() {
-        ShowroomReleaseAutoPublishService.ReleaseAutoPublishState state = autoPublishService.inspectState();
-        if (!state.dirty()) {
-            log.debug("[schedule][showroom release clean，跳过自动发布]");
-            return;
+        RuntimeException failure = null;
+        for (Long tenantId : tenantFrameworkService.getTenantIds()) {
+            try {
+                TenantUtils.execute(tenantId, () -> {
+                    if (!autoPublishService.inspectState().dirty()) return;
+                    AutoPublishScope scope = resolveAutoPublishScope();
+                    ShowroomPublicSiteBindingDO binding = resolveEnabledBinding(scope);
+                    if (!tenantId.equals(binding.getTenantId())) {
+                        throw new ShowroomReleaseApiException(HttpStatus.FAILED_DEPENDENCY,
+                                "SHOWROOM_AUTO_PUBLISH_SCOPE_BINDING_REQUIRED",
+                                "Auto-publish site binding must belong to the current tenant.", false,
+                                Map.of("tenantId", tenantId, "siteKey", scope.siteKey(), "stage", scope.stage()));
+                    }
+                    scheduleBoundTenant(tenantId, scope);
+                });
+            } catch (RuntimeException ex) {
+                log.error("[schedule][tenantId({}) auto publish failed]", tenantId, ex);
+                if (failure == null) failure = ex;
+                else failure.addSuppressed(ex);
+            }
         }
-
-        AutoPublishScope scope = resolveAutoPublishScope();
-        ShowroomPublicSiteBindingDO binding = resolveEnabledBinding(scope);
-        Long bindingTenantId = binding.getTenantId();
-        if (!tenantFrameworkService.getTenantIds().contains(bindingTenantId)) {
-            log.error("[schedule][tenantId({}) siteKey({}) stage({}) showroom release dirty 但 binding tenant 不在启用租户列表]",
-                    bindingTenantId, scope.siteKey(), scope.stage());
-            throw new ShowroomReleaseApiException(HttpStatus.FAILED_DEPENDENCY,
-                    "SHOWROOM_AUTO_PUBLISH_SCOPE_BINDING_REQUIRED",
-                    "Configured showroom auto-publish scope must have an enabled public site binding.", false,
-                    Map.of("tenantId", bindingTenantId, "siteKey", scope.siteKey(), "stage", scope.stage()));
-        }
-
-        TenantUtils.execute(bindingTenantId, () -> scheduleBoundTenant(bindingTenantId, scope));
+        // Report failures after processing independent tenants; never silently discard them.
+        if (failure != null) throw failure;
     }
 
     private void scheduleBoundTenant(Long tenantId, AutoPublishScope scope) {

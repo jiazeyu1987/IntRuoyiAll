@@ -14,6 +14,11 @@ import java.util.List;
 @Data
 public class MesProEdhrDeviationNcrCreateReqVO {
 
+    @jakarta.validation.constraints.NotNull(message = "请选择QA评审责任人")
+    @jakarta.validation.constraints.Positive(message = "QA评审责任人编号必须为正数")
+    @Schema(description = "发起人明确选择的QA评审责任人", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long qaReviewerUserId;
+
     @NotNull
     @Schema(description = "正式批记录ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long batchExecutionId;

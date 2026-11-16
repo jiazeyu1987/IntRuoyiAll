@@ -42,7 +42,7 @@ const harness = () => {
     queryParams: { pageNo: 1, pageSize: 10, workOrderCode: '', batchCode: '' }, activeView: ref('PENDING'),
     detailVisible: ref(false), detailLoading: ref(false), detailError: ref(''), detailRow: ref(undefined), detailApplicationId: ref(undefined), detailReadOnly: ref(false), orderDetail: ref(undefined),
     watch: (getter, callback) => watchers.push({getter,callback}), onDeactivated: callback => deactivated.push(callback), onBeforeUnmount: callback => unmounted.push(callback), openPqcReleaseFromRoute: () => {},
-    PQC_RELEASE_VIEW_CONCESSION_RELEASED: 'CONCESSION_RELEASED', PQC_RELEASE_VIEW_RELEASED: 'RELEASED',
+    PQC_RELEASE_VIEW_COMPLETED: 'COMPLETED', PQC_RELEASE_VIEW_CONCESSION_RELEASED: 'CONCESSION_RELEASED', PQC_RELEASE_VIEW_RELEASED: 'RELEASED',
     message: { success: text => notices.push(['success',text]), warning: text => notices.push(['warning',text]) }, resolveErrorMessage: e => e?.message ?? String(e),
     approvePqcProductionRelease: async payload => { writes++; lastPayload = payload; start.resolve(payload); return receipt() },
     getPqcProductionRelease: async id => { reads++; assert.equal(id, row.applicationId); return receipt() },
@@ -51,7 +51,7 @@ const harness = () => {
   const declarations = 'let pqcReleaseRouteGeneration = 0; let listRequestSequence = 0; let detailRequestSequence = 0;'
   const code = declarations + block('const releaseRequestOwner =', 'let listRequestSequence =') + block('const getList =', 'type PqcReleaseRouteContext') + block('const clearOrderDetail =', 'const isExactPositiveId =') +
     block('const isExactPositiveId =', 'const openCompletedPqcReleaseDetail =') + block('let releaseDialogGeneration =', 'const openNonconformanceReview =')
-  runInNewContext(stripTypeScriptTypes(code + '\nObject.assign(globalThis,{submitRelease,recoverUncertainRelease,captureReleaseContext,openReleaseDialog,invalidatePqcReleasePage,pqcReleasePayloadHash,freezeReleaseRequest,getList,resetReleaseDialog,releaseRequestScopeKey,releaseIdempotencyKeys,releaseRequestStates})'), runtime)
+  runInNewContext(stripTypeScriptTypes(code + '\nObject.assign(globalThis,{submitRelease,recoverUncertainRelease,captureReleaseContext,openReleaseDialog,invalidatePqcReleasePage,pqcReleasePayloadHash,freezeReleaseRequest,getList,resetReleaseDialog,beforeReleaseDialogClose,releaseRequestScopeKey,releaseIdempotencyKeys,releaseRequestStates})'), runtime)
   const navigate = mode => {
     if (mode === 'session') { session = { key: 's2', tenantId: '2', loginUserId: '8' }; state.setSession(session.key); watchers[1].callback() }
     else if (mode === 'deactivate') deactivated[0]()
@@ -241,3 +241,98 @@ test('actual PQC source switch during hash preparation stops before formal write
   const pending=h.runtime.submitRelease();h.navigate('route');await pending
   assert.equal(h.counts().writes,0);assert.equal(h.events.length,0);assert.equal(h.runtime.releaseSubmitting.value,true);assert.equal(h.runtime.releaseForm.signaturePassword,'new-password')
 })
+
+const roleRejectionError = payload => ({ message: '未配置管理者代表', details: {
+  blockers: [{ blockerType: 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED', reason: '未配置管理者代表，无法完成生产放行' }],
+  rejectedDecision: { outcome: 'ROLLED_BACK', applicationId: payload.applicationId, workTaskId: payload.pqcReleaseWorkTaskId,
+    actorId: '7', expectedVersion: payload.expectedVersion, idempotencyKey: payload.idempotencyKey, payloadHash: formalPayloadHash(payload) }
+} })
+const authenticationRejectionError = payload => {
+  const error = roleRejectionError(payload)
+  error.details.rejectedDecision.outcome = 'NOT_STARTED'
+  error.details.blockers = [{ blockerType: 'SIGNATURE_AUTHENTICATION_FAILED', reason: '签名认证失败：BAD_CREDENTIALS' }]
+  return error
+}
+
+for (const submitting of [true,false]) test(`dialog close while submitting=${submitting} follows the actual write boundary`,()=>{
+  const h=harness();let closes=0
+  h.runtime.releaseSubmitting.value=submitting
+  h.runtime.beforeReleaseDialogClose(()=>closes++)
+  assert.equal(closes,submitting?0:1)
+})
+
+test('confirmed authentication rejection allows correcting the password without reloading or claiming rollback',async()=>{
+  const h=harness(),approve=h.runtime.approvePqcProductionRelease
+  h.runtime.approvePqcProductionRelease=async payload=>{await approve(payload);throw authenticationRejectionError(payload)}
+  await h.runtime.submitRelease()
+  assert.match(h.runtime.releaseError.value,/签名认证失败.*本次未提交放行/)
+  assert.doesNotMatch(h.runtime.releaseError.value,/已回滚|无法确认/)
+  assert.equal(h.runtime.releaseOutcomeUncertain.value,false)
+  assert.equal(h.runtime.releaseSubmitting.value,false)
+  assert.equal(h.runtime.releaseForm.signaturePassword,'')
+  assert.equal(h.events.length,0)
+  h.runtime.approvePqcProductionRelease=approve;h.runtime.releaseForm.signaturePassword='corrected-password'
+  await h.runtime.submitRelease()
+  assert.equal(h.counts().writes,2);assert.equal(h.events.length,1)
+})
+
+for (const field of ['applicationId','workTaskId','actorId','expectedVersion','idempotencyKey','payloadHash']) {
+  test(`authentication rejection with mismatched ${field} must not unlock another request`,async()=>{
+    const h=harness(),approve=h.runtime.approvePqcProductionRelease
+    h.runtime.approvePqcProductionRelease=async payload=>{
+      await approve(payload);const error=authenticationRejectionError(payload)
+      error.details.rejectedDecision[field]='wrong';throw error
+    }
+    await h.runtime.submitRelease();assert.equal(h.runtime.releaseOutcomeUncertain.value,true);assert.equal(h.events.length,0)
+    await h.runtime.submitRelease();assert.equal(h.counts().writes,1)
+  })
+}
+
+test('NOT_STARTED for an unrelated blocker must retain uncertain-outcome protection',async()=>{
+  const h=harness(),approve=h.runtime.approvePqcProductionRelease
+  h.runtime.approvePqcProductionRelease=async payload=>{
+    await approve(payload);const error=roleRejectionError(payload);error.details.rejectedDecision.outcome='NOT_STARTED';throw error
+  }
+  await h.runtime.submitRelease();assert.equal(h.runtime.releaseOutcomeUncertain.value,true);assert.equal(h.events.length,0)
+  await h.runtime.submitRelease();assert.equal(h.counts().writes,1)
+})
+test('confirmed rollback displays missing management representative and allows a new explicit submit',async()=>{
+  const h=harness(),approve=h.runtime.approvePqcProductionRelease
+  h.runtime.approvePqcProductionRelease=async payload=>{await approve(payload);throw roleRejectionError(payload)}
+  await h.runtime.submitRelease()
+  assert.match(h.runtime.releaseError.value,/未配置管理者代表/)
+  assert.doesNotMatch(h.runtime.releaseError.value,/无法确认/)
+  assert.equal(h.runtime.releaseOutcomeUncertain.value,false)
+  assert.equal(h.runtime.releaseSubmitting.value,false)
+  assert.equal(h.events.length,0)
+  h.runtime.approvePqcProductionRelease=approve;h.runtime.releaseForm.signaturePassword='retry'
+  await h.runtime.submitRelease();assert.equal(h.counts().writes,2);assert.equal(h.events.length,1)
+})
+test('confirmed UDI rollback permits correcting the value and signing again without a false success',async()=>{
+  const h=harness(),approve=h.runtime.approvePqcProductionRelease
+  h.runtime.approvePqcProductionRelease=async payload=>{
+    await approve(payload)
+    const error=roleRejectionError(payload)
+    error.details.blockers=[{blockerType:'UNSUPPORTED_RELEASE_ACTION',reason:'活跃订单已有不同的UDI编号，不能覆盖'}]
+    throw error
+  }
+  await h.runtime.submitRelease()
+  assert.match(h.runtime.releaseError.value,/UDI.*本次放行已回滚/)
+  assert.equal(h.runtime.releaseOutcomeUncertain.value,false)
+  assert.equal(h.runtime.releaseForm.signaturePassword,'')
+  assert.equal(h.events.length,0)
+  h.runtime.approvePqcProductionRelease=approve
+  h.runtime.releaseForm.udiControlDocumentNo='original-udi'
+  h.runtime.releaseForm.signaturePassword='new-signature'
+  await h.runtime.submitRelease()
+  assert.equal(h.counts().writes,2)
+  assert.equal(h.events.length,1)
+})
+for (const field of ['outcome','applicationId','workTaskId','actorId','expectedVersion','idempotencyKey','payloadHash']) {
+  test(`management role error with mismatched ${field} remains uncertain`,async()=>{
+    const h=harness(),approve=h.runtime.approvePqcProductionRelease
+    h.runtime.approvePqcProductionRelease=async payload=>{await approve(payload);const error=roleRejectionError(payload);error.details.rejectedDecision[field]='wrong';throw error}
+    await h.runtime.submitRelease();assert.equal(h.runtime.releaseOutcomeUncertain.value,true);assert.equal(h.events.length,0)
+    await h.runtime.submitRelease();assert.equal(h.counts().writes,1)
+  })
+}

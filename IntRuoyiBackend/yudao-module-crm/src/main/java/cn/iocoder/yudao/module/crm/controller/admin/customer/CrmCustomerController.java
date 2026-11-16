@@ -142,6 +142,7 @@ public class CrmCustomerController {
         // 2. 转换成 VO
         return BeanUtils.toBean(list, CrmCustomerRespVO.class, customerVO -> {
             customerVO.setAreaName(AreaUtils.format(customerVO.getAreaId()));
+            customerVO.setAreaPath(AreaUtils.format(customerVO.getAreaId(), "/"));
             // 2.1 设置创建人、负责人名称
             MapUtils.findAndThen(userMap, NumberUtils.parseLong(customerVO.getCreator()),
                     user -> customerVO.setCreatorName(user.getNickname()));
@@ -265,8 +266,36 @@ public class CrmCustomerController {
     @PreAuthorize("@ss.hasPermission('crm:customer:import')")
     public CommonResult<CrmCustomerImportRespVO> importExcel(@Valid CrmCustomerImportReqVO importReqVO)
             throws Exception {
+        validateCustomerImportHeaders(importReqVO.getFile());
         List<CrmCustomerImportExcelVO> list = ExcelUtils.read(importReqVO.getFile(), CrmCustomerImportExcelVO.class);
         return success(customerService.importCustomerList(list, importReqVO));
+    }
+
+    private void validateCustomerImportHeaders(org.springframework.web.multipart.MultipartFile file) throws IOException {
+        var headers = new java.util.ArrayList<String>();
+        try (var input = file.getInputStream()) {
+            cn.idev.excel.FastExcelFactory.read(input,
+                    new cn.idev.excel.event.AnalysisEventListener<Map<Integer, String>>() {
+                        @Override
+                        public void invokeHeadMap(Map<Integer, String> head, cn.idev.excel.context.AnalysisContext context) {
+                            headers.addAll(head.values());
+                        }
+                        @Override
+                        public void invoke(Map<Integer, String> row, cn.idev.excel.context.AnalysisContext context) { }
+                        @Override
+                        public void doAfterAllAnalysed(cn.idev.excel.context.AnalysisContext context) { }
+                        @Override
+                        public boolean hasNext(cn.idev.excel.context.AnalysisContext context) {
+                            return headers.isEmpty();
+                        }
+                    }).autoCloseStream(false).sheet(0).doRead();
+        }
+        if ((headers.contains("wechat") && !headers.contains("微信"))
+                || (headers.contains("email") && !headers.contains("邮箱"))
+                || ((headers.contains("地区编号") || headers.contains("地区名称")) && !headers.contains("地区"))) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "客户文件包含无法导入的旧导出列，请重新导出或使用导入模板；微信、邮箱、地区列必须使用正式表头");
+        }
     }
 
     @PutMapping("/transfer")

@@ -39,6 +39,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID;
@@ -135,12 +136,12 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
 
     private void validateDisplayedContexts(MesTeamLeaderSubmissionReviewReqBO request, List<MesProProcessPoolEventDO> members) {
         var expected=request.getExpectedReviews();
-        if(expected==null || expected.size()!=members.size()) throw new IllegalStateException("PQC审核上下文缺失，请刷新后重新复核");
+        if(expected==null || expected.size()!=members.size()) throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED, "PQC");
         var indexed=new java.util.HashMap<Long,MesSubmissionReviewExpectedContext>();
         for(var value:expected) {
             if(value==null || value.getEventId()==null || value.getPayloadHash()==null
                     ||value.getRevisionId()==null||value.getReviewId()==null||value.getReviewRound()==null
-                    ||indexed.put(value.getEventId(),value)!=null) throw new IllegalStateException("PQC审核上下文无效，请刷新后重新复核");
+                    ||indexed.put(value.getEventId(),value)!=null) throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED, "PQC");
         }
         for(var event:members) {
             var value=indexed.get(event.getId());
@@ -152,7 +153,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                     ||(!isExactDisplayedReplay(request,review)
                     &&(!Objects.equals(value.getReviewId(),review==null?0L:review.getId())
                     ||!Objects.equals(value.getReviewRound(),review==null?0:review.getReviewRound()))))
-                throw new IllegalStateException("PQC提交正文或审核轮次已变化，请刷新后重新复核");
+                throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED, "PQC");
         }
     }
 

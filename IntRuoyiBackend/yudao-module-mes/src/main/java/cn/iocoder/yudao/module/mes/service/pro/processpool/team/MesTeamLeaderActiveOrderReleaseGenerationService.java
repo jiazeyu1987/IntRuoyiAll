@@ -49,6 +49,13 @@ import java.util.Set;
 
 @Service
 public class MesTeamLeaderActiveOrderReleaseGenerationService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper productionEventMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
+
 
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final int MAX_APPLY_REMARK_LENGTH = 500;
@@ -107,6 +114,21 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderReleaseApplicationResult generate(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
+        return generate(leaderUserId, command, null);
+    }
+
+    /** Called only after the original applicant's correction task has been locked and validated. */
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderReleaseApplicationResult generateCorrection(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId) {
+        if (rejectedApplicationId == null || rejectedApplicationId <= 0) {
+            throw new IllegalArgumentException("补正必须关联正式驳回申请");
+        }
+        return generate(leaderUserId, command, rejectedApplicationId);
+    }
+
+    private MesTeamLeaderActiveOrderReleaseApplicationResult generate(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId) {
         String requestKey = validateCommand(leaderUserId, command);
         Long tenantId = requireTenantId();
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
@@ -114,9 +136,13 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         String batchCode = requireBatchCode(workOrder);
         Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
         String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
+        if (rejectedApplicationId != null) {
+            businessKey = DigestUtil.sha256Hex(businessKey + "|CORRECTION:" + rejectedApplicationId);
+        }
 
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
-                findExistingApplication(activeOrder.getId(), requestKey, businessKey);
+                rejectedApplicationId == null ? findExistingApplication(activeOrder.getId(), requestKey, businessKey)
+                        : applicationMapper.selectByBusinessIdempotencyKey(activeOrder.getId(), businessKey);
         if (existing != null) {
             return persistenceService.toResult(requireCurrentApplication(existing));
         }
@@ -183,7 +209,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         if (activeOrder == null) {
             throw forbidden(activeOrderId);
         }
-        if (!Objects.equals(userId, activeOrder.getLeaderUserId())) {
+        if (!(Objects.equals(userId, activeOrder.getLeaderUserId()) || packagingAccess.canAccess(userId, activeOrder))) {
             MesProEdhrWorkTaskDO task = application.getPqcReleaseWorkTaskId() == null
                     ? null : workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
             if (!isFrozenPqcCandidate(task, application, userId)) {
@@ -219,7 +245,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
 
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long activeOrderId, Long leaderUserId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
-        if (activeOrder == null || !Objects.equals(leaderUserId, activeOrder.getLeaderUserId())) {
+        if (activeOrder == null || !(Objects.equals(leaderUserId, activeOrder.getLeaderUserId()) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw forbidden(activeOrderId);
         }
         if (!STATUS_ACTIVE.equals(activeOrder.getActiveStatus()) || activeOrder.getWorkOrderId() == null
@@ -322,12 +348,11 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             targetQuantityByProcess.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                    snapshot.getPlannedQuantitySnapshot());
+                    MesProductionQuantityRange.of(snapshot).upper());
         }
 
-        Map<ProcessIdentity, BigDecimal> allocatedQuantityByProcess = new LinkedHashMap<>();
-        for (MesProcessPoolReportAllocationDO allocation
-                : list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())))) {
+        var allocations = list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())));
+        for (MesProcessPoolReportAllocationDO allocation : allocations) {
             if (allocation == null || !Objects.equals(activeOrder.getId(), allocation.getActiveOrderId())
                     || !Objects.equals(activeOrder.getWorkOrderId(), allocation.getWorkOrderId())) {
                 throw blocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT, null,
@@ -350,18 +375,26 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                         null, "formal production allocation points to an unknown frozen process",
                         "由组长纠正该工单工序的报工分配后重新申请放行");
             }
-            allocatedQuantityByProcess.merge(identity, allocation.getAllocatedQuantity(), BigDecimal::add);
         }
+
+        var eventIds = allocations.stream().map(MesProcessPoolReportAllocationDO::getEventId)
+                .filter(Objects::nonNull).distinct().toList();
+        var productionEvents = eventIds.isEmpty()
+                ? List.<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO>of()
+                : productionEventMapper.selectProductionSubmitsByIdsForUpdate(eventIds);
 
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
             BigDecimal targetQuantity = targetQuantityByProcess.get(identity);
-            BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(identity, BigDecimal.ZERO);
             if (!positive(targetQuantity)) {
                 throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
                         activeOrder, snapshot, "formal production target is missing",
                         "补齐该冻结工序的正式生产目标后重新申请放行");
             }
+            // Split material submissions measure the same process. Check the highest material
+            // total for overproduction, matching the existing allocation and progress rules.
+            BigDecimal allocatedQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                    activeOrder, snapshot, productionEvents, allocations);
             if (allocatedQuantity.compareTo(targetQuantity) > 0) {
                 BigDecimal overageQuantity = allocatedQuantity.subtract(targetQuantity);
                 throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT,
@@ -374,12 +407,18 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     }
 
     private InspectionEvidence requireFormalInspectionCompletions(MesProcessPoolActiveOrderDO activeOrder) {
-        List<MesPqcInspectionTaskDO> tasks = list(pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId()));
+        List<MesPqcInspectionTaskDO> tasks = list(pqcTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId()));
         List<MesPqcProcessInspectionAggregateDetailDO> details = list(aggregateDetailMapper.selectListByActiveOrderId(activeOrder.getId()));
         if (tasks.isEmpty()) {
             throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
                     "ACTIVE_ORDER", String.valueOf(activeOrder.getId()), null,
                     "整单QA检验任务缺失", "完成整单QA检验与PQC组长复核");
+        }
+        var missingPqcCoverage = pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, tasks);
+        if (!missingPqcCoverage.isEmpty()) {
+            throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
+                    "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()), null,
+                    String.join("；", missingPqcCoverage), "创建并完成所有适用的首检、巡检和末检工序");
         }
         for (var task : tasks) {
             if (task == null || task.getId() == null || task.getQaProcessId() == null || task.getRegulationVersionId() == null
@@ -404,10 +443,15 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                     && detail.getRouteProcessId() == null && detail.getProcessId() == null);
             valid = valid && taskDetails.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                     .collect(java.util.stream.Collectors.toSet()).equals(plan.keySet());
+            var actualQuantities = taskDetails.stream().collect(java.util.stream.Collectors.groupingBy(
+                    MesPqcProcessInspectionAggregateDetailDO::getItemCode, java.util.stream.Collectors.summingInt(detail -> 1)));
+            valid = valid && cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan
+                    .matchesActualQuantities(task, actualQuantities, task.getActualInspectionQuantity());
             for (var entry : plan.entrySet()) {
                 var samples = taskDetails.stream().filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
-                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
-                valid = valid && samples.equals(java.util.stream.IntStream.rangeClosed(1, entry.getValue()).boxed().toList());
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).toList();
+                valid = valid && cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan
+                        .completeSamples(task, entry.getKey(), samples);
             }
             if (!valid) throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
                     "PQC_INSPECTION_TASK", String.valueOf(task.getId()), null,
@@ -465,6 +509,12 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 applicationMapper.selectByRequestIdempotencyKey(activeOrderId, requestKey);
         if (requestExisting != null) {
             return requestExisting;
+        }
+        // A correction creates a new immutable application. Ordinary apply must read that latest round,
+        // and must never resurrect the first round through its original business key.
+        MesProcessPoolActiveOrderReleaseApplicationDO latest = applicationMapper.selectLatestByActiveOrderId(activeOrderId);
+        if (latest != null && !isReworkClosedReleaseApplication(latest)) {
+            return latest;
         }
         MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
                 applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);

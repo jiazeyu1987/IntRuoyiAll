@@ -69,7 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -89,6 +91,8 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
     @Mock
     private DccElectronicSignatureAuthorizationAuditMapper authorizationAuditMapper;
+    @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccSignatureAuthorizationUserMapper authorizationUserMapper;
     @Mock
     private AdminUserService adminUserService;
     @Mock
@@ -347,13 +351,118 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getSignaturePage_rejectsUnpagedAndMalformedRequestsBeforeQuery() {
+        DccElectronicSignaturePageReqVO request = new DccElectronicSignaturePageReqVO();
+        request.setPageSize(PageParam.PAGE_SIZE_NONE);
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getSignaturePage(request));
+        request.setPageSize(10);
+        request.setListFilters("[{not-json]");
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getSignaturePage(request));
+        verify(signatureMapper, never()).selectPage(any(DccElectronicSignaturePageReqVO.class));
+        verify(signatureMapper, never()).selectFilterCandidates(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void signatureFilterKeyset_preservesTiedAndNullSignedAtWithoutDuplicates() throws Exception {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
+                DccControlledFileSignatureDO.class);
+        DccControlledFileSignatureMapper mapper = org.mockito.Mockito.mock(DccControlledFileSignatureMapper.class,
+                withSettings().defaultAnswer(CALLS_REAL_METHODS));
+        try (java.sql.Connection connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:signature_filter_keyset;MODE=MySQL", "sa", "")) {
+            connection.createStatement().execute("CREATE TABLE dcc_controlled_file_signature (id BIGINT PRIMARY KEY,signed_at TIMESTAMP,version_no VARCHAR(20),deleted BOOLEAN DEFAULT FALSE)");
+            connection.createStatement().execute("INSERT INTO dcc_controlled_file_signature(id,signed_at,version_no) VALUES (6,'2026-10-02 10:00:00','A.1'),(5,'2026-10-01 10:00:00','A.1'),(4,'2026-10-01 10:00:00','A.1'),(3,NULL,'A.1'),(2,NULL,'A.1'),(1,NULL,'B.1')");
+            doAnswer(invocation -> {
+                AbstractWrapper<?, ?, ?> wrapper = invocation.getArgument(0);
+                String segment = wrapper.getSqlSegment();
+                java.util.regex.Matcher references = java.util.regex.Pattern.compile("#\\{ew\\.paramNameValuePairs\\.([^}]+)}").matcher(segment);
+                List<Object> bindings = new java.util.ArrayList<>();
+                while (references.find()) bindings.add(wrapper.getParamNameValuePairs().get(references.group(1)));
+                // MySQL's CHAR cast is unbounded; H2 otherwise defaults CHAR to one character.
+                String sql = "SELECT id,signed_at FROM dcc_controlled_file_signature WHERE deleted=FALSE AND "
+                        + references.replaceAll("?").replace(" AS CHAR)", " AS VARCHAR)");
+                try (java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
+                    for (int i = 0; i < bindings.size(); i++) statement.setObject(i + 1, bindings.get(i));
+                    try (java.sql.ResultSet result = statement.executeQuery()) {
+                        List<DccControlledFileSignatureDO> rows = new java.util.ArrayList<>();
+                        while (result.next()) rows.add(DccControlledFileSignatureDO.builder().id(result.getLong(1))
+                                .signedAt(result.getTimestamp(2) == null ? null : result.getTimestamp(2).toLocalDateTime()).build());
+                        return rows;
+                    }
+                }
+            }).when(mapper).selectList(any(Wrapper.class));
+            DccElectronicSignaturePageReqVO request = new DccElectronicSignaturePageReqVO();
+            request.setListFilters("[{\"key\":\"versionNo\",\"operator\":\"eq\",\"value\":\"A.1\"}]");
+            List<Long> ids = new java.util.ArrayList<>();
+            LocalDateTime cursorAt = null;
+            Long cursorId = null;
+            while (true) {
+                List<DccControlledFileSignatureDO> batch = mapper.selectFilterCandidates(request, cursorAt, cursorId, 2);
+                if (batch.isEmpty()) break;
+                batch.forEach(row -> ids.add(row.getId()));
+                DccControlledFileSignatureDO tail = batch.get(batch.size() - 1);
+                cursorAt = tail.getSignedAt(); cursorId = tail.getId();
+                assertTrue(ids.size() <= 5, "cursor must advance");
+            }
+            assertEquals(List.of(6L, 5L, 4L, 3L, 2L), ids);
+        }
+    }
+
+    @Test
+    void getSignaturePage_dynamicEvidenceFiltersCountAllBatchesWithoutRetainingAllRows() {
+        DccElectronicSignaturePageReqVO request=new DccElectronicSignaturePageReqVO();
+        request.setPageNo(2);request.setPageSize(10);
+        request.setListFilters("[{\"key\":\"versionNo\",\"operator\":\"eq\",\"value\":\"A.1\"},{\"key\":\"evidenceSummary\",\"operator\":\"contains\",\"value\":\"校验失败\"},{\"key\":\"controlledCopyHashStatus\",\"operator\":\"eq\",\"value\":\"INVALID\"}]");
+        List<DccControlledFileSignatureDO> candidates=java.util.stream.IntStream.range(0,103).mapToObj(index ->
+                DccControlledFileSignatureDO.builder().id(103L-index).controlledFileId(900L).actorId(99L)
+                        .versionNo("A.1").actionType("APPROVE").evidenceStatus("VALID")
+                        .controlledCopyHashStatus("NOT_APPLICABLE")
+                        .signedAt(LocalDateTime.of(2026,10,1,10,0).minusSeconds(index)).build()).toList();
+        when(signatureMapper.selectFilterCandidates(eq(request),any(),any(),eq(100)))
+                .thenReturn(candidates.subList(0,100),candidates.subList(100,103));
+        DccControlledFileDO file=DccControlledFileDO.builder().id(900L).publishedFileId(777L).build();
+        when(controlledFileMapper.selectBatchIds(Set.of(900L))).thenReturn(List.of(file));
+        when(adminUserService.getUserList(Set.of(99L))).thenReturn(List.of(AdminUserDO.builder().id(99L).nickname("签名人").build()));
+        when(signatureBindingService.verifyPublishedCopyBinding(any(),eq(file))).thenAnswer(invocation -> {
+            DccControlledFileSignatureDO row=invocation.getArgument(0);
+            return row.getId()%2==1 ? DccControlledFileSignatureBindingVerification.invalid("LIVE_HASH_MISMATCH")
+                    : DccControlledFileSignatureBindingVerification.notApplicable();
+        });
+        PageResult<DccElectronicSignatureRespVO> result=service.getSignaturePage(request);
+        assertEquals(52L,result.getTotal());assertEquals(10,result.getList().size());
+        assertEquals(83L,result.getList().get(0).getId());assertEquals(65L,result.getList().get(9).getId());
+        assertTrue(result.getList().stream().allMatch(row -> "INVALID".equals(row.getEvidenceStatus())));
+        assertTrue(request.getListFilters().contains("versionNo"));
+        assertFalse(request.getListFilters().contains("evidenceSummary"));
+        verify(signatureBindingService,times(103)).verifyPublishedCopyBinding(any(),eq(file));
+        verify(signatureMapper,times(2)).selectFilterCandidates(eq(request),any(),any(),eq(100));
+        verify(signatureMapper,never()).selectPage(any(DccElectronicSignaturePageReqVO.class));
+    }
+
+    @Test
+    void getSignaturePage_dynamicVerificationFailurePropagatesWithoutDefaultSuccess() {
+        DccElectronicSignaturePageReqVO request=new DccElectronicSignaturePageReqVO();
+        request.setListFilters("[{\"key\":\"evidenceStatus\",\"operator\":\"eq\",\"value\":\"INVALID\"}]");
+        DccControlledFileSignatureDO signature=DccControlledFileSignatureDO.builder().id(1L).controlledFileId(900L).actorId(99L)
+                .actionType("APPROVE").evidenceStatus("VALID").build();
+        when(signatureMapper.selectFilterCandidates(eq(request),any(),any(),eq(100))).thenReturn(List.of(signature));
+        DccControlledFileDO file=DccControlledFileDO.builder().id(900L).publishedFileId(777L).build();
+        when(controlledFileMapper.selectBatchIds(Set.of(900L))).thenReturn(List.of(file));
+        when(adminUserService.getUserList(Set.of(99L))).thenReturn(List.of());
+        when(signatureBindingService.verifyPublishedCopyBinding(signature,file)).thenThrow(new IllegalStateException("object storage unavailable"));
+        IllegalStateException failure=org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,()->service.getSignaturePage(request));
+        assertEquals("object storage unavailable",failure.getMessage());
+    }
+
+    @Test
     void getSignaturePage_normalizesFrontendFiltersBeforeMapperQuery() {
         DccElectronicSignaturePageReqVO approvedReqVO = new DccElectronicSignaturePageReqVO();
         approvedReqVO.setPageNo(1);
         approvedReqVO.setPageSize(10);
         approvedReqVO.setSignerUserId(113L);
         approvedReqVO.setTaskActionResult("APPROVED");
-        approvedReqVO.setControlledCopyHashStatus("NOT_APPLICABLE");
+
         approvedReqVO.setEvidenceHashShort("6f2c91ab03d4");
         DccElectronicSignaturePageReqVO rejectedReqVO = new DccElectronicSignaturePageReqVO();
         rejectedReqVO.setPageNo(1);
@@ -401,7 +510,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         verify(signatureMapper, times(7)).selectPage(reqCaptor.capture());
         assertEquals(113L, reqCaptor.getAllValues().get(0).getSignerUserId());
         assertEquals("APPROVE", reqCaptor.getAllValues().get(0).getPersistentActionType());
-        assertEquals("NOT_APPLICABLE", reqCaptor.getAllValues().get(0).getControlledCopyHashStatus());
+
         assertEquals("6f2c91ab03d4", reqCaptor.getAllValues().get(0).getEvidenceHashShort());
         assertEquals(114L, reqCaptor.getAllValues().get(1).getSignerUserId());
         assertEquals("REJECT", reqCaptor.getAllValues().get(1).getPersistentActionType());
@@ -780,7 +889,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         DccElectronicSignatureAuthorizationAuditPageReqVO reqVO = new DccElectronicSignatureAuthorizationAuditPageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
-        when(authorizationAuditMapper.selectPage(eq(reqVO), any())).thenReturn(new PageResult<>(List.of(
+        when(authorizationAuditMapper.selectAuditPage(eq(101L), eq(reqVO))).thenReturn(new PageResult<>(List.of(
                 DccElectronicSignatureAuthorizationAuditDO.builder()
                         .id(61001L)
                         .targetUserId(101L)
@@ -807,7 +916,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
         LocalDateTime operatedAt = LocalDateTime.of(2026, 5, 26, 13, 0, 0);
-        when(authorizationAuditMapper.selectPage(eq(reqVO), any())).thenReturn(new PageResult<>(List.of(
+        when(authorizationAuditMapper.selectAuditPage(eq(101L), eq(reqVO))).thenReturn(new PageResult<>(List.of(
                 DccElectronicSignatureAuthorizationAuditDO.builder()
                         .id(61001L)
                         .targetUserId(101L)
@@ -840,7 +949,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         reqVO.setPageSize(10);
         AdminUserDO user = AdminUserDO.builder()
                 .id(101L).username("zhangsan").nickname("张三").deptId(20L).build();
-        when(adminUserService.getUserPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
+        when(authorizationUserMapper.selectAuthorizationPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
         when(authorizationMapper.selectListByUserIds(Set.of(101L))).thenReturn(List.of(DccElectronicSignatureAuthorizationDO.builder()
                 .userId(101L)
                 .electronicSignatureEnabled(Boolean.FALSE)
@@ -872,7 +981,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         AdminUserDO user = AdminUserDO.builder()
                 .id(101L).username("aoteman").nickname("奥特曼").build();
         LocalDateTime auditAt = LocalDateTime.of(2026, 5, 26, 16, 40, 0);
-        when(adminUserService.getUserPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
+        when(authorizationUserMapper.selectAuthorizationPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
         when(authorizationMapper.selectListByUserIds(Set.of(101L))).thenReturn(List.of(DccElectronicSignatureAuthorizationDO.builder()
                 .userId(101L)
                 .electronicSignatureEnabled(Boolean.TRUE)
@@ -904,7 +1013,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         reqVO.setPageSize(10);
         AdminUserDO user = AdminUserDO.builder()
                 .id(102L).username("aoteman").nickname("??1").build();
-        when(adminUserService.getUserPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
+        when(authorizationUserMapper.selectAuthorizationPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
         when(authorizationMapper.selectListByUserIds(Set.of(102L))).thenReturn(List.of());
         when(authorizationAuditMapper.selectList(any())).thenReturn(List.of());
 
@@ -923,7 +1032,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         reqVO.setPageSize(10);
         AdminUserDO user = AdminUserDO.builder()
                 .id(101L).username("zhangsan").nickname("张三").deptId(20L).build();
-        when(adminUserService.getUserPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
+        when(authorizationUserMapper.selectAuthorizationPage(any())).thenReturn(new PageResult<>(List.of(user), 1L));
         when(authorizationMapper.selectListByUserIds(Set.of(101L))).thenReturn(List.of(DccElectronicSignatureAuthorizationDO.builder()
                 .userId(101L)
                 .electronicSignatureEnabled(Boolean.TRUE)

@@ -233,7 +233,7 @@ class MesProAutoScheduleContractTest {
         ReflectionTestUtils.setField(autoScheduleService, "routeSnapshotResolver", routeSnapshotResolver);
         ReflectionTestUtils.setField(autoScheduleService, "schedulePlanner", schedulePlanner);
         ReflectionTestUtils.setField(autoScheduleService, "scheduleApplier", scheduleApplier);
-        lenient().when(routeService.getRouteMapIgnoreDeleted(any())).thenReturn(Collections.emptyMap());
+        lenient().when(routeService.getRouteMap(any())).thenReturn(Collections.emptyMap());
         lenient().when(routeScheduleConfigMapper.selectListByRouteVersionId(anyLong()))
                 .thenReturn(Collections.<MesProRouteScheduleConfigDO>emptyList());
         org.mockito.Mockito.lenient().when(routeFlowConfigMapper.selectByRouteIdAndUseType(

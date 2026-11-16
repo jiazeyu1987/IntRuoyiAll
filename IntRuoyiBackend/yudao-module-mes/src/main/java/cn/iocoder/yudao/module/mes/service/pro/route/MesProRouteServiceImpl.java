@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
+import cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ObjUtil;
@@ -8,6 +10,10 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
@@ -85,6 +91,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 @Validated
 public class MesProRouteServiceImpl implements MesProRouteService {
 
+    @jakarta.annotation.Resource
+    private MesVersionOperateLogService versionOperateLogService;
+
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
     private static final String COPY_NAME_SUFFIX = "-副本";
@@ -119,6 +128,10 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteMapper routeMapper;
     @Resource
     private MesProRouteProductMapper routeProductMapper;
+    @Resource
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Resource
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Resource
     private MesProRouteProcessMapper routeProcessMapper;
     @Resource
@@ -163,12 +176,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
+    @Resource private MesProRouteProjectGuard projectGuard;
+    @Resource private MesProRouteWorkstationService routeWorkstationService;
     @Resource
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRouteWithProcesses(MesProRouteCreateReqVO reqVO) {
+        projectGuard.requireAvailable(reqVO.getDccProjectCodeId(), null);
+        routeWorkstationService.requireWorkshop(reqVO.getWorkshopId());
         String name = StrUtil.trim(reqVO.getName());
         if (StrUtil.isBlank(name)) {
             throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST,
@@ -190,17 +207,20 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             }
             processDefinitions.put(processId, process);
         }
-        String code = autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode());
-        if (code == null || !code.matches("GYLC-[0-9]{4,}")) {
+        String code = autoCodeRecordService.generateProjectCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode(), reqVO.getDccProjectCodeId());
+        if (code == null || code.isBlank()) {
             throw exception(AUTO_CODE_GENERATE_FAILED);
         }
         MesProRouteDO route = MesProRouteDO.builder().code(code).name(name).remark(reqVO.getRemark())
                 .status(CommonStatusEnum.DISABLE.getStatus()).build();
         insertRoute(route);
+        projectGuard.bindNewRoute(route.getId(), reqVO.getDccProjectCodeId());
         List<MesProRouteProcessDO> routeProcesses = new ArrayList<>();
         for (int index = 0; index < processIds.size(); index++) {
             MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                     .routeId(route.getId()).processId(processIds.get(index)).sort(index + 1)
+                    .workstationId(routeWorkstationService.create(route.getId(), index + 1,
+                            processDefinitions.get(processIds.get(index)), reqVO.getWorkshopId()))
                     .nextProcessId(index + 1 < processIds.size() ? processIds.get(index + 1) : null)
                     .linkType(MesProLinkTypeEnum.FINISH_START.getType())
                     .keyFlag(false).checkFlag(false).build();
@@ -293,6 +313,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRoute(MesProRouteSaveReqVO createReqVO) {
+        projectGuard.requireAvailable(createReqVO.getDccProjectCodeId(), null);
         createReqVO.setName(StrUtil.trim(createReqVO.getName()));
         // 1. 校验编码唯一性
         validateRouteCodeUnique(null, createReqVO.getCode());
@@ -302,6 +323,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         route.setRemark(buildRouteRemark(createReqVO.getRemark(), createReqVO.getOwnerName()));
         route.setStatus(CommonStatusEnum.DISABLE.getStatus());
         insertRoute(route);
+        projectGuard.bindNewRoute(route.getId(), createReqVO.getDccProjectCodeId());
         createInitialRouteVersion(route);
         routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
         return route.getId();
@@ -334,7 +356,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long copyRoute(Long sourceRouteId, String targetCode, String targetName) {
+    public Long copyRoute(Long sourceRouteId, String targetCode, String targetName, Long dccProjectCodeId) {
+        projectGuard.requireAvailable(dccProjectCodeId, null);
         MesProRouteDO sourceRoute = validateRouteExists(sourceRouteId);
         validateRouteCodeUnique(null, targetCode);
         String resolvedTargetName = resolveUniqueCopyRouteName(targetName);
@@ -347,9 +370,10 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 .remark(sourceRoute.getRemark())
                 .build();
         routeMapper.insert(targetRoute);
+        projectGuard.bindNewRoute(targetRoute.getId(), dccProjectCodeId);
         routeOwnerPermissionService.bindCurrentUserAsOwner(targetRoute.getId());
 
-        copyProductBindings(sourceRouteId, targetRoute.getId());
+        // 副本属于另一个项目，产品及 BOM 由目标项目重新配置。
 
         Map<Long, Long> copiedRouteProcessIds = new HashMap<>();
         for (MesProRouteProcessDO sourceProcess : routeProcessMapper.selectListByRouteId(sourceRouteId)) {
@@ -364,6 +388,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
                 sourceVersion == null ? null : sourceVersion.getId());
         JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
+        if (inheritedRouteLevelConfigSnapshots == null && sourceVersion != null) {
+            inheritedRouteLevelConfigSnapshots = new JSONObject(true);
+        }
+        inheritCopiedProductionProcessConfigs(inheritedRouteLevelConfigSnapshots, sourceVersion,
+                copiedRouteProcessIds);
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
@@ -428,29 +457,6 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
     }
 
-    private void copyProductBindings(Long sourceRouteId, Long targetRouteId) {
-        List<MesProRouteProductDO> sourceProducts = routeProductMapper.selectListByRouteId(sourceRouteId);
-        if (CollUtil.isNotEmpty(sourceProducts)) {
-            for (MesProRouteProductDO sourceProduct : sourceProducts) {
-                MesProRouteProductDO targetProduct = BeanUtils.toBean(sourceProduct, MesProRouteProductDO.class);
-                targetProduct.setId(null);
-                targetProduct.setRouteId(targetRouteId);
-                routeProductMapper.insert(targetProduct);
-            }
-        }
-
-        List<MesProRouteProductBomDO> sourceProductBoms = routeProductBomMapper.selectList(sourceRouteId, null, null);
-        if (CollUtil.isNotEmpty(sourceProductBoms)) {
-            for (MesProRouteProductBomDO sourceProductBom : sourceProductBoms) {
-                MesProRouteProductBomDO targetProductBom = BeanUtils.toBean(sourceProductBom,
-                        MesProRouteProductBomDO.class);
-                targetProductBom.setId(null);
-                targetProductBom.setRouteId(targetRouteId);
-                routeProductBomMapper.insert(targetProductBom);
-            }
-        }
-    }
-
     @Override
     public void updateRouteStatus(Long id, Integer status) {
         // 1.1 校验存在
@@ -467,10 +473,19 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteRoute(Long id) {
-        // 1.1 校验存在
-        validateRouteExists(id);
+        // Serialize deletion with new business binding to this route.
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(id);
+        if (route == null) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
         // 1.2 已启用的工艺路线，不允许删除
-        validateRouteNotEnable(id);
+        if (CommonStatusEnum.ENABLE.getStatus().equals(route.getStatus())) {
+            throw exception(PRO_ROUTE_IS_ENABLE);
+        }
+        if (routeMapper.existsUnfinishedBusinessByRouteId(id)) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "工艺流程仍被活跃订单、未完成排产或批次执行引用，请先结束相关业务后再删除");
+        }
         // 1.3 删除路线前必须结束其开放候选，避免留下无法再编辑或发布的孤立草稿
         cancelOpenCandidateBeforeDelete(id);
 
@@ -480,6 +495,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         routeProductService.deleteRouteProductByRouteId(id);
         routeProductBomService.deleteRouteProductBomByRouteId(id);
         // 2.2 删除工艺路线
+        routeDccProjectBindingMapper.delete(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
+                .eq(MesRouteDccProjectBindingDO::getRouteId, id));
         routeMapper.deleteById(id);
     }
 
@@ -672,11 +689,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionSnapshotIdentityWriter.apply(version,
                 buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.insert(version);
+        MesProRouteVersionDO source = sourceRouteVersionId == null ? null : routeVersionMapper.selectById(sourceRouteVersionId);
+        versionOperateLogService.route(Boolean.TRUE.equals(active) ? "创建" : "升版", source, version,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
         return version;
     }
 
     private void registerActiveVersionRef(MesProRouteVersionDO activeVersion) {
         platformAdapter.recordActiveRegistered(activeVersion, null, "route active version registered");
+        versionOperateLogService.route("发布", null, activeVersion,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
     }
 
     private void ensureDefaultScheduleUseConfig(MesProRouteDO route, MesProRouteProcessDO routeProcess) {
@@ -939,10 +961,17 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                                              JSONObject inheritedConfigSnapshots) {
         JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey("lossCoefficient")) {
+            configSnapshots.put("lossCoefficient", MesRouteLossCoefficient.read(inheritedConfigSnapshots));
+        }
+        if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey(PRODUCTION_PROCESS_CONFIGS_KEY)) {
+            configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
+                    inheritedConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY));
+        }
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
         MesProRouteVersionSnapshotIdentityWriter.apply(update,
-                buildRouteSnapshotJson(route, configSnapshots));
+                buildRouteSnapshotJson(route, routeVersionId, configSnapshots));
         routeVersionMapper.updateById(update);
     }
 
@@ -952,7 +981,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (route == null) {
             throw exception(PRO_ROUTE_NOT_EXISTS);
         }
-        return buildRouteSnapshotJson(route, buildCompleteRouteConfigSnapshots(routeId, routeVersionId));
+        return buildRouteSnapshotJson(route, routeVersionId,
+                buildCompleteRouteConfigSnapshots(routeId, routeVersionId));
     }
 
     private JSONObject buildCompleteRouteConfigSnapshots(Long routeId, Long routeVersionId) {
@@ -967,6 +997,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
         configSnapshots.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION);
+        Object lossCoefficient = resolveExistingConfigSnapshot(routeVersionId, "lossCoefficient");
+        configSnapshots.put("lossCoefficient", lossCoefficient == null ? MesRouteLossCoefficient.DEFAULT : lossCoefficient);
+        MesRouteLossCoefficient.read(configSnapshots);
         Object productionProcessConfigs =
                 resolveExistingConfigSnapshot(routeVersionId, PRODUCTION_PROCESS_CONFIGS_KEY);
         configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
@@ -1230,6 +1263,47 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return reusableConfigSnapshots.isEmpty() ? null : reusableConfigSnapshots;
     }
 
+    private void inheritCopiedProductionProcessConfigs(JSONObject inheritedConfigSnapshots,
+                                                       MesProRouteVersionDO sourceVersion,
+                                                       Map<Long, Long> copiedRouteProcessIds) {
+        if (sourceVersion == null || inheritedConfigSnapshots == null) {
+            return;
+        }
+        JSONObject sourceConfigSnapshots = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigSnapshots == null || !sourceConfigSnapshots.containsKey(PRODUCTION_PROCESS_CONFIGS_KEY)) {
+            return;
+        }
+        Object rawConfigs = sourceConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY);
+        if (!(rawConfigs instanceof JSONArray sourceConfigs)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+        }
+        JSONArray copiedConfigs = new JSONArray();
+        for (Object rawConfig : sourceConfigs) {
+            if (!(rawConfig instanceof JSONObject sourceConfig)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            Long sourceRouteProcessId = sourceConfig.getLong("routeProcessId");
+            Long targetRouteProcessId = copiedRouteProcessIds.get(sourceRouteProcessId);
+            if (targetRouteProcessId == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            JSONObject copiedConfig = JSON.parseObject(sourceConfig.toJSONString());
+            copiedConfig.put("routeProcessId", targetRouteProcessId);
+            JSONArray parameterRules = copiedConfig.getJSONArray("parameterRules");
+            if (parameterRules != null) {
+                for (Object rawRule : parameterRules) {
+                    if (!(rawRule instanceof JSONObject rule)
+                            || !Objects.equals(sourceRouteProcessId, rule.getLong("routeProcessId"))) {
+                        throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+                    }
+                    rule.put("routeProcessId", targetRouteProcessId);
+                }
+            }
+            copiedConfigs.add(copiedConfig);
+        }
+        inheritedConfigSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY, copiedConfigs);
+    }
+
     private void inheritConfigSnapshotIfMissing(JSONObject targetConfigSnapshots,
                                                 JSONObject inheritedConfigSnapshots,
                                                 String configKey) {
@@ -1242,8 +1316,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     }
 
     private String buildRouteSnapshotJson(MesProRouteDO route, JSONObject configSnapshots) {
+        return buildRouteSnapshotJson(route, null, configSnapshots);
+    }
+
+    private String buildRouteSnapshotJson(MesProRouteDO route, Long routeVersionId,
+                                          JSONObject configSnapshots) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
+        if (routeVersionId != null) {
+            snapshot.put("routeVersionId", routeVersionId);
+        }
         snapshot.put("routeCode", route.getCode());
         snapshot.put("routeName", route.getName());
         snapshot.put("id", route.getId());
@@ -1262,10 +1344,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     public MesProRouteRespVO getRouteRespVO(Long id) {
         MesProRouteDO route = routeMapper.selectById(id);
         if (route == null) {
-            route = routeMapper.selectByIdIgnoreDeleted(id);
-        }
-        if (route == null) {
-            return null;
+            throw exception(PRO_ROUTE_NOT_EXISTS);
         }
         MesProRouteRespVO respVO = BeanUtils.toBean(route, MesProRouteRespVO.class);
         enrichRouteDisplayFields(List.of(respVO));
@@ -1345,7 +1424,12 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         Map<Long, String> ownerByRouteId = buildOwnerByRouteId(routeIds);
         Map<Long, String> keyProcessByRouteId = buildKeyProcessByRouteId(routeIds);
         Map<Long, String> lastProcessByRouteId = buildLastProcessByRouteId(routeIds);
-        Map<Long, String> productCodesByRouteId = buildProductCodesByRouteId(routeIds);
+        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
+        Map<Long, String> productCodesByRouteId = buildProductCodesByRouteId(routeProducts);
+        Map<Long, Set<Long>> productIdsByRouteId = routeProducts.stream()
+                .collect(Collectors.groupingBy(MesProRouteProductDO::getRouteId,
+                        Collectors.mapping(MesProRouteProductDO::getItemId, Collectors.toSet())));
+        Map<Long, String> dccProjectCodesByRouteId = buildDccProjectCodesByRouteId(routeIds);
         Map<Long, Boolean> flowGraphConfiguredByRouteId = buildFlowGraphConfiguredByRouteId(routeIds);
         Map<Long, Map<String, Boolean>> flowConfigEnabledByRouteId = buildRouteFlowConfigEnabledByRouteId(routeIds);
         List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeIds);
@@ -1359,6 +1443,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             route.setKeyProcessName(keyProcessByRouteId.get(route.getId()));
             route.setLastProcessName(lastProcessByRouteId.get(route.getId()));
             route.setProductCodes(productCodesByRouteId.get(route.getId()));
+            route.setProductCount(productIdsByRouteId.getOrDefault(route.getId(), Collections.emptySet()).size());
+            route.setDccProjectCode(dccProjectCodesByRouteId.get(route.getId()));
             route.setFlowGraphConfigured(Boolean.TRUE.equals(flowGraphConfiguredByRouteId.get(route.getId())));
             Map<String, Boolean> flowConfigEnabled = flowConfigEnabledByRouteId.getOrDefault(route.getId(), Collections.emptyMap());
             route.setScheduleRouteEnabled(Boolean.TRUE.equals(flowConfigEnabled.get(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
@@ -1481,41 +1567,48 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             return Collections.emptyMap();
         }
 
-        Map<Long, MesProRouteProcessDO> keyProcessByRouteId = new HashMap<>();
-        for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            if (!Boolean.TRUE.equals(routeProcess.getKeyFlag())) {
-                continue;
-            }
-            MesProRouteProcessDO current = keyProcessByRouteId.get(routeProcess.getRouteId());
-            if (current == null
-                    || Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
-                    .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo))
-                    .compare(routeProcess, current) < 0) {
-                keyProcessByRouteId.put(routeProcess.getRouteId(), routeProcess);
-            }
-        }
-
-        Set<Long> processIds = keyProcessByRouteId.values().stream()
-                .map(MesProRouteProcessDO::getProcessId)
-                .filter(ObjUtil::isNotNull)
-                .collect(Collectors.toSet());
+        Map<Long, List<MesProRouteProcessDO>> keyProcessesByRouteId = routeProcesses.stream()
+                .filter(row -> Boolean.TRUE.equals(row.getKeyFlag()))
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo)))
+                .collect(Collectors.groupingBy(MesProRouteProcessDO::getRouteId));
+        Set<Long> processIds = keyProcessesByRouteId.values().stream().flatMap(Collection::stream)
+                .map(MesProRouteProcessDO::getProcessId).filter(ObjUtil::isNotNull).collect(Collectors.toSet());
         Map<Long, MesProProcessDO> processMap = processIds.isEmpty()
                 ? Collections.emptyMap()
                 : processMapper.selectListByIds(processIds).stream()
                 .collect(Collectors.toMap(MesProProcessDO::getId, process -> process));
-
         Map<Long, String> keyProcessNameByRouteId = new HashMap<>();
-        for (Map.Entry<Long, MesProRouteProcessDO> entry : keyProcessByRouteId.entrySet()) {
-            MesProProcessDO process = processMap.get(entry.getValue().getProcessId());
-            if (process != null) {
-                keyProcessNameByRouteId.put(entry.getKey(), process.getName());
-            }
-        }
+        keyProcessesByRouteId.forEach((routeId, rows) -> {
+            String names = rows.stream().map(row -> processMap.get(row.getProcessId()))
+                    .filter(Objects::nonNull).map(MesProProcessDO::getName)
+                    .collect(Collectors.joining("、"));
+            keyProcessNameByRouteId.put(routeId, names);
+        });
         return keyProcessNameByRouteId;
     }
 
-    private Map<Long, String> buildProductCodesByRouteId(Set<Long> routeIds) {
-        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
+    private Map<Long, String> buildDccProjectCodesByRouteId(Set<Long> routeIds) {
+        List<MesRouteDccProjectBindingDO> bindings = routeDccProjectBindingMapper.selectCurrentListByRouteIds(routeIds);
+        if (bindings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<Long> projectIds = bindings.stream().map(MesRouteDccProjectBindingDO::getDccProjectCodeId)
+                .collect(Collectors.toSet());
+        Map<Long, DccProjectCodeDO> projects = dccProjectCodeMapper.selectByIds(projectIds).stream()
+                .collect(Collectors.toMap(DccProjectCodeDO::getId, project -> project));
+        Map<Long, String> result = new HashMap<>();
+        for (MesRouteDccProjectBindingDO binding : bindings) {
+            DccProjectCodeDO project = projects.get(binding.getDccProjectCodeId());
+            if (project == null) {
+                throw new IllegalStateException("工艺路线关联项目不存在：" + binding.getDccProjectCodeId());
+            }
+            result.put(binding.getRouteId(), project.getProjectCode());
+        }
+        return result;
+    }
+
+    private Map<Long, String> buildProductCodesByRouteId(List<MesProRouteProductDO> routeProducts) {
         if (CollUtil.isEmpty(routeProducts)) {
             return Collections.emptyMap();
         }

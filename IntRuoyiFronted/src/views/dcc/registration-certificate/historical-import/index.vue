@@ -29,13 +29,16 @@
       @quick-filter-query="historicalImportQuickFilter.applyQuickFilter"
       @column-change="saveHistoricalImportColumnConfig"
       @pagination="getList"
+      server-filter
+            :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.registrationCertificate.historicalImport"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :empty-text="historicalImportEmptyText"
           :show-overflow-tooltip="true"
@@ -151,6 +154,8 @@
 </template>
 
 <script setup lang="ts">
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { onMounted, reactive, ref } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -173,6 +178,7 @@ const list = ref<DccRegistrationCertificateHistoricalImportRespVO[]>([])
 const loadError = ref('')
 
 type HistoricalImportPageQuery = DccRegistrationCertificateHistoricalImportPageReqVO & {
+  listFilters?: string
   pageNo: number
   pageSize: number
 }
@@ -180,6 +186,7 @@ type HistoricalImportPageQuery = DccRegistrationCertificateHistoricalImportPageR
 const queryParams = reactive<HistoricalImportPageQuery>({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   sourceHash: undefined
 })
 
@@ -237,21 +244,26 @@ const resolvePageErrorMessage = (error: unknown) => {
   )
 }
 
+let listRequestGeneration = 0
 const getList = async () => {
+  const generation = ++listRequestGeneration
   loading.value = true
   loadError.value = ''
   try {
-    const data = await DccHistoricalImportApi.getHistoricalImportPage(queryParams)
+    const data = await DccHistoricalImportApi.getHistoricalImportPage({ ...queryParams })
+    if (generation !== listRequestGeneration) return
     list.value = data.list
     total.value = data.total
   } catch (error) {
+    if (generation !== listRequestGeneration) throw error
     const errorMessage = resolvePageErrorMessage(error)
     loadError.value = errorMessage
     list.value = []
     total.value = 0
     message.error(errorMessage)
+    throw error
   } finally {
-    loading.value = false
+    if (generation === listRequestGeneration) loading.value = false
   }
 }
 
@@ -267,6 +279,28 @@ const historicalImportQuickFilter = useTableQuickFilter(
 onMounted(() => {
   void getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo == null ? '-' : row.versionNo].join(' ')
+  },
+  {
+    key: 'result',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [formatResult(row.result)].join(' ')
+  },
+  {
+    key: 'restrictedReasons',
+    label: '受限原因',
+    type: 'text',
+    getValue: (row) => [formatRestrictedReasons(row.restrictedReasons)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

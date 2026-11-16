@@ -59,7 +59,7 @@ test('both modes share ordered fields, masked password and busy controls; Vue te
   assert.match(dialog, /label="电子签名" required/)
   assert.match(source, /\.action-signature-confirm--approve\s*\{[^}]*--el-button-bg-color: #008f7a/s)
   assert.match(dialog, /action-signature-flow--reject/)
-  for (const text of ['审批意见（选填）', '驳回原因（必填）', '请输入审批意见', '请填写具体的驳回原因，便于申请人修改', '请输入当前登录密码', 'type="password"', '确认批准并签名', '确认驳回并签名', '提交中', "'danger' : 'primary'"]) assert.ok(dialog.includes(text), text)
+  for (const text of ['审批意见（选填）', '驳回原因（必填）', '请输入审批意见', '请填写具体的驳回原因，便于申请人修改', '请输入所选签名方式的六位 PIN 码或密码', 'type="password"', '确认批准并签名', '确认驳回并签名', '提交中', "'danger' : 'primary'"]) assert.ok(dialog.includes(text), text)
   assert.match(dialog, /:disabled="actionDialog.submitting"/)
   for (const prop of ['close-on-click-modal', 'close-on-press-escape', 'show-close']) assert.ok(dialog.includes(`:${prop}="!actionDialog.submitting"`))
   const result = compileTemplate({ source: descriptor.template.content, filename: 'detail/index.vue', id: 'issue14' })

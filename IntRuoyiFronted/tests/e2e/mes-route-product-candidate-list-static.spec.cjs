@@ -21,7 +21,7 @@ assert.match(
   /getRouteProductListByRoute\(\s*props\.routeId,\s*props\.routeVersionEditContext\?\.routeVersionId\s*\)/,
   '候选编辑页列表刷新必须携带当前候选版本编号。'
 )
-assert.match(page, /row-key="itemId"/, '候选快照行必须以正式产品 itemId 作为稳定行身份。')
+assert.match(page, /:key="product\.itemId"/, '候选快照行必须以正式产品 itemId 作为稳定行身份。')
 assert.match(
   page,
   /sourceItemId:\s*row\.itemId/,

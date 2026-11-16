@@ -8,6 +8,19 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '../../src/views/mes/pro/edhr-deviation/DeviationDetail.vue'),
   'utf8'
 )
+const stateModule = { exports: {} }
+const stateCode = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../../src/store/modules/approvalCenterInvalidationState.ts'), 'utf8'),
+  { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
+vm.runInNewContext(stateCode, { exports: stateModule.exports, module: stateModule })
+const session = { key: 'deviation-test-session' }
+const currentDependencies = {
+  useApprovalCenterInvalidationStore: () => ({ syncSession: () => session, isCurrent: key => key === session.key }),
+  createFormalActionGuard: stateModule.exports.createFormalActionGuard,
+  useUserStore: () => ({ getUser: { id: 7, username: 'preparer' } }),
+  checkPermi: permissions => permissions.every(p => p.startsWith('mes:pro-edhr-deviation:')),
+  useRouter: () => ({ currentRoute: { value: { fullPath: '/mes/pro/feedback/edhr-deviation?deviationId=1' } }, push() {} }),
+  onBeforeUnmount() {}, onDeactivated() {}
+}
 function harness(options = {}) {
   const calls = []
   const errors = []
@@ -25,11 +38,13 @@ function harness(options = {}) {
     useMessage: () => ({ confirm: async () => {} }),
     defineProps: () => props,
     withDefaults: (v) => v,
+    defineEmits: () => () => {},
     getDeviation:
       options.getDeviation ||
       (async () => ({ id: 1, status: 'OPEN', level: 'CRITICAL', canTransferToNcr: true })),
     ElMessage: { warning: () => {}, error: (message) => errors.push(message) },
-    createCriticalDeviationReview: async (body) => calls.push(body)
+    createCriticalDeviationReview: async (body) => calls.push(body),
+    ...currentDependencies
   }
   let script = source
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]

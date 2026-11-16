@@ -18,6 +18,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesTeamLeaderActiveOrderCompletionBatchExecutionService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private static final String ENTRY_TYPE = "ACTIVE_ORDER_COMPLETION";
     private static final String SOURCE_CREDENTIAL_TYPE = "CompletionBackfillReceipt";
@@ -48,7 +50,7 @@ public class MesTeamLeaderActiveOrderCompletionBatchExecutionService {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
         if (activeOrder == null || !Objects.equals(activeOrder.getId(), activeOrderId)
-                || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)
+                || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || activeOrder.getWorkOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
                     activeOrderId, "活跃订单与当前生产组长不匹配");

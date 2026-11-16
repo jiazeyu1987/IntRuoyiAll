@@ -10,7 +10,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperation
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptPort;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import com.alibaba.fastjson.JSON;
@@ -60,7 +59,6 @@ class MesProEdhrBatchTraceTxCProducerTest {
                     mock(ApplicationEventPublisher.class),
                     mock(MesProEdhrBatchTraceTransactionService.class),
                     mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class),
-                    mock(MesIndependentBatchPrerequisiteReceiptPort.class),
                     mock(MesProEdhrBatchProvisioningRecordMapper.class));
             MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO().setId(101L).setTenantId(7L);
             when(batchExecutionMapper.selectById(101L)).thenReturn(batch);
@@ -112,7 +110,6 @@ class MesProEdhrBatchTraceTxCProducerTest {
                     mock(ApplicationEventPublisher.class),
                     mock(MesProEdhrBatchTraceTransactionService.class),
                     mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class),
-                    mock(MesIndependentBatchPrerequisiteReceiptPort.class),
                     mock(MesProEdhrBatchProvisioningRecordMapper.class));
 
             String fullReason = "正式来源映射失败|".repeat(100);

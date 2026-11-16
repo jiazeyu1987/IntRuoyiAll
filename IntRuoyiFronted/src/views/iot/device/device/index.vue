@@ -330,7 +330,7 @@
           >
             查看
           </el-button>
-          <el-button link type="primary" @click="openModel(scope.row.id)"> 日志 </el-button>
+          
           <el-button
             link
             type="primary"

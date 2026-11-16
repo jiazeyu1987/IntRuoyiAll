@@ -114,6 +114,9 @@
           @column-change="saveDccBrowserColumnConfig"
           @column-reset="resetDccBrowserColumnConfig"
           @pagination="handlePagination"
+          server-filter
+          :server-filter-query="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
           <el-form-item class="browser-search-scope-filter" label-width="0">
@@ -224,13 +227,13 @@
             </el-form-item>
           </template>
 
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           border
           data-user-table-column-explicit
           :data-user-table-key="DCC_BROWSER_COLUMN_TABLE_KEY"
-          :data="list"
+          :data="resolveRows(list)"
           :empty-text="tableEmptyText"
           height="100%"
           @header-dragend="handleDccBrowserHeaderDragend"
@@ -1036,6 +1039,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import CheckinAttachmentsPanel from './CheckinAttachmentsPanel.vue'
 import { formatControlledFileDateTime } from '../detail/presentation'
@@ -1077,6 +1082,7 @@ import {
   saveControlledFileBrowserExtensionBlacklist,
   submitControlledFileWorkingIteration,
   triggerControlledFileDownload,
+  triggerControlledFileVariantDownload,
   uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
   type ControlledFileBatchRecognitionTaskRespVO,
@@ -1405,6 +1411,7 @@ const queryParams = reactive({
   keyword: undefined as string | undefined,
   recognitionStatus: undefined as string | undefined,
   batchRecognitionTaskId: undefined as number | undefined,
+  listFilters: '',
   quickFilter: undefined as any
 })
 const batchRecognitionForm = reactive({
@@ -1789,28 +1796,34 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
 const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(canEditVersion(file) || isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
+const canSubmitWorkingIteration = (
+  _row: ControlledFileBrowserRow,
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => Boolean(
+  file.id &&
+  file.status === 'WORKING' &&
+  canEditVersion(file) &&
+  typeof file.actionProjection?.actionLocked === 'boolean' &&
+  file.actionProjection.pendingRequestId == null &&
+  !file.processInstanceId &&
+  !file.checkedOut &&
+  !file.checkedOutBy
+)
+
+
+const canOpenWorkingTypeStorageRecovery = (row: ControlledFileBrowserRow) =>
+  isLatestVersionSelected(row) && getSelectedVersion(row).changeType === 'NEW' &&
+  canSubmitWorkingIteration(row, getSelectedVersion(row))
+
 const browserMutationIdempotencyKeys = reactive<Record<string, string>>({})
 const getBrowserMutationCacheKey = (action: string, id: number | string) => `${action}:${id}`
 
-const createBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  if (typeof window.crypto?.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持安全请求标识，无法提交审批。')
-  }
-  return `dcc-${action}:${id}:${window.crypto.randomUUID()}`
-}
 
-const getOrCreateBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  const cacheKey = getBrowserMutationCacheKey(action, id)
-  if (browserMutationIdempotencyKeys[cacheKey]) {
-    return browserMutationIdempotencyKeys[cacheKey]
-  }
-  browserMutationIdempotencyKeys[cacheKey] = createBrowserMutationIdempotencyKey(action, id)
-  return browserMutationIdempotencyKeys[cacheKey]
-}
 
-const deleteBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  delete browserMutationIdempotencyKeys[getBrowserMutationCacheKey(action, id)]
-}
+
+
+
+
 
 const getCheckoutDisplayName = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   file.checkedOutByName || (file.checkedOutBy ? `用户 ${file.checkedOutBy}` : '')
@@ -3028,7 +3041,7 @@ const getList = async () => {
   try {
     const data = await (browserMode.value === 'working'
       ? getControlledFileWorkingBrowserPage(requestParams) : getControlledFileBrowserPage(requestParams))
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const loadedRows = data.list.map((item) => ({
       ...item,
       selectedVersionId: resolveInitialSelectedVersionId(item, requestWorkingQuery)
@@ -3037,7 +3050,7 @@ const getList = async () => {
       String(row.selectedVersionId) === requestWorkingQuery.workingFileId)) {
       throw new Error('当前授权目录列表未找到所选文件版本，请核对目录、文件权限和列表筛选后重新进入。')
     }
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     list.value = loadedRows
     total.value = data.total
     markBrowserListLoadedForState(requestRouteStateKey)
@@ -3081,12 +3094,12 @@ const loadDirectories = async () => {
         persistBrowserMetadataCache()
       }
     }
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const rootDirectories = (await getDirectoryTree()).map(toDirectoryNode)
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     applyDirectoryTree(rootDirectories)
     await openRememberedDirectoryInTree()
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     persistBrowserMetadataCache()
     browserDirectoriesLoaded = true
   } catch (error) {
@@ -3272,6 +3285,7 @@ const buildBrowserRequestParams = (includeWorkingScope = false): ControlledFileP
     recognitionStatus: queryParams.recognitionStatus,
     batchRecognitionTaskId: queryParams.batchRecognitionTaskId,
     quickFilter: queryParams.quickFilter,
+    listFilters: queryParams.listFilters,
     latestVersionOnly: true
   }
   if (isCurrentDirectorySearch.value) {
@@ -3888,6 +3902,58 @@ onBeforeUnmount(() => {
   checkinDrawingPdfRequestSequence++
   stopBatchRecognitionPolling()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'fileName',
+    label: '文件名称',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getBrowserFileDisplayName(row),
+        getBrowserFileDisplayName(row),
+        getBrowserCurrentActiveRowSummary(row).versionKindText,
+        getBrowserCurrentActiveRowSummary(row).versionNo,
+        getBrowserCurrentActiveRowSummary(row).directoryPath,
+        getBrowserCurrentActiveRowSummary(row).publishedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).stampedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).currentVersionSource
+      ].join(' ')
+  },
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getSelectedVersion(row).fileNumber,
+        getBrowserCurrentActiveRowSummary(row).versionKindText,
+        getBrowserCurrentActiveRowSummary(row).versionNo,
+        getBrowserCurrentActiveRowSummary(row).directoryPath,
+        getBrowserCurrentActiveRowSummary(row).publishedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).stampedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).currentVersionSource
+      ].join(' ')
+  },
+  {
+    key: 'directory',
+    label: '所在目录',
+    type: 'text',
+    getValue: (row) => [getBrowserDirectoryPath(row.directoryId)].join(' ')
+  },
+  {
+    key: 'category',
+    label: '类别',
+    type: 'text',
+    getValue: (row) => [categoryNameMap.value.get(row.categoryId) || '-'].join(' ')
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    type: 'text',
+    getValue: (row) => [getSelectedVersion(row).remark || '-'].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

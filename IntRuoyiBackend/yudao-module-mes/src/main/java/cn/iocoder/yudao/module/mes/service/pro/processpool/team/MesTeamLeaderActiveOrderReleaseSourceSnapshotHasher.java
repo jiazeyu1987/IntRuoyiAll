@@ -149,6 +149,7 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
                     value.put("qaProcessId", task.getQaProcessId());
                     value.put("regulationVersionId", task.getRegulationVersionId());
                     value.put("inspectionItemPlanJson", task.getInspectionItemPlanJson());
+                    value.put("inspectionSamplingPlanJson", task.getInspectionSamplingPlanJson());
                     value.put("taskStatus", task.getTaskStatus());
                     return value;
                 }).toList();

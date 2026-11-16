@@ -8,7 +8,6 @@ const files = [
   'store/modules/approvalCenterInvalidation.ts',
   'store/modules/approvalTodoBadge.ts',
   'views/approval-center/index.vue',
-  'views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue',
   'views/mes/pro/production-release/PqcProductionReleasePage.vue',
   'views/mes/pro/edhr-batch/BatchExecutionListPage.vue',
   'views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue',

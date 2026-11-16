@@ -144,7 +144,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         List<MesProcessPoolOrderProcessCompletionDO> completions = list(
                 completionMapper.selectListByWorkOrderIds(List.of(application.getWorkOrderId())));
         List<MesPqcInspectionTaskDO> inspectionTasks = list(
-                pqcTaskMapper.selectListByActiveOrderId(application.getActiveOrderId()));
+                pqcTaskMapper.selectEffectiveListByActiveOrderId(application.getActiveOrderId()));
         List<MesPqcProcessInspectionAggregateDetailDO> inspectionDetails = list(
                 aggregateDetailMapper.selectListByActiveOrderId(application.getActiveOrderId()));
         requireApplicationSources(application, tenantId, activeOrder, workOrder, snapshots);
@@ -181,7 +181,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         List<MesProcessPoolOrderProcessCompletionDO> completions = list(
                 completionMapper.selectListByWorkOrderIds(List.of(activeOrder.getWorkOrderId())));
         List<MesPqcInspectionTaskDO> inspectionTasks = list(
-                pqcTaskMapper.selectListByActiveOrderId(activeOrderId));
+                pqcTaskMapper.selectEffectiveListByActiveOrderId(activeOrderId));
         List<MesPqcProcessInspectionAggregateDetailDO> inspectionDetails = list(
                 aggregateDetailMapper.selectListByActiveOrderId(activeOrderId));
         String currentSourceHash = sourceSnapshotHasher.hash(

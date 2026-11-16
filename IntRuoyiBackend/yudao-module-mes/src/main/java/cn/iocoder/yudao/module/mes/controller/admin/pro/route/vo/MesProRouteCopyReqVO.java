@@ -9,6 +9,10 @@ import lombok.Data;
 @Data
 public class MesProRouteCopyReqVO {
 
+    @Schema(description = "所属项目代码ID，项目不得已有其他工艺流程", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "请选择项目代码")
+    private Long dccProjectCodeId;
+
     @Schema(description = "源路线编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "100")
     @NotNull(message = "源路线编号不能为空")
     private Long sourceRouteId;

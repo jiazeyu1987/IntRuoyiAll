@@ -3,6 +3,7 @@ import request from '@/config/axios'
 export interface UserVO {
   id: number
   username: string
+  yintaiAdminUsernameAllowed?: boolean
   nickname: string
   deptId: number
   deptName?: string
@@ -45,6 +46,8 @@ export type UserSaveVO = Omit<UserVO, 'deptId'> & { deptId: number | null }
 
 export interface UserDingTalkImportRespVO {
   createUsernames: string[]
+  existingUsernames: string[]
+  authorizedUsernames: string[]
   failureUsernames: Record<string, string>
   createdDeptPaths: string[]
   enabledDeptPaths: string[]
@@ -61,7 +64,22 @@ export interface UserLifecycleDeactivateReqVO {
 }
 
 // 查询用户管理列表
-export const getUserPage = (params: PageParam) => {
+export interface UserSelectionQuery extends PageParam {
+  username?: string
+  nickname?: string
+  mobile?: string
+  status?: number
+  deptId?: number
+  deptIds?: number[]
+  deptLeaderMode?: 'ALL' | 'MEMBER' | 'LEADER'
+  roleId?: number
+  postId?: number
+  includeChildDepts?: boolean
+  scopeDeptId?: number
+  scopeRoleId?: number
+  scopePostId?: number
+}
+export const getUserPage = (params: UserSelectionQuery) => {
   return request.get({ url: '/system/user/page', params })
 }
 
@@ -102,7 +120,7 @@ export const deleteUserList = (ids: number[]) => {
 
 // 导出用户
 export const exportUser = (params: any) => {
-  return request.download({ url: '/system/user/export-excel', params })
+  return request.download({ url: '/system/user/export-excel', method: 'POST', data: params })
 }
 
 // 导出通用账户不合规清单
@@ -117,7 +135,8 @@ export const importUserTemplate = () => {
 
 // 钉钉组织导入
 export const importDingTalkUsers = async (formData: FormData) => {
-  return await request.upload({ url: '/system/user/import-dingtalk', data: formData })
+  // 整批创建账号、加密密码及电子签名授权可能超过普通请求的 30 秒超时。
+  return await request.upload({ url: '/system/user/import-dingtalk', data: formData, timeout: 300000 })
 }
 
 // 用户密码重置
@@ -144,6 +163,10 @@ export const recordUserLifecycleDeactivation = (data: UserLifecycleDeactivateReq
 }
 
 // 解锁用户
+export const lockUser = (id: number, reason: string) => {
+  return request.put({ url: '/system/user/lock', params: { id, reason } })
+}
+
 export const unlockUser = (id: number, reason: string) => {
   return request.put({ url: '/system/user/unlock', params: { id, reason } })
 }
@@ -159,3 +182,47 @@ export const getDepartmentTree = (): Promise<import('@/api/system/dept').DeptVO[
 
 export const getSupervisorImpact = (ids: number[]): Promise<import('@/api/system/dept').DeptVO[]> =>
   request.get({ url: '/system/user/supervisor-impact', params: { ids: ids.join(',') } })
+
+// 人员选择只读精简身份接口，不使用用户管理详情权限。
+export const getSelectionPage = (params: UserSelectionQuery): Promise<{ list: import('@/views/system/user/components/userPicker').UserOption[]; total: number }> =>
+  request.get({ url: '/system/user/selection-page', params })
+export const getSelectionList = async (
+  ids: Array<number | string>,
+  scope: Pick<UserSelectionQuery, 'scopeDeptId' | 'scopeRoleId' | 'scopePostId'> = {}
+): Promise<import('@/views/system/user/components/userPicker').UserOption[]> => {
+  const rows: import('@/views/system/user/components/userPicker').UserOption[] = []
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const batch = await request.get({
+      url: '/system/user/selection-list',
+      params: { ids: ids.slice(offset, offset + 200).join(','), ...scope }
+    })
+    rows.push(...batch)
+  }
+  return rows
+}
+
+export interface UserImportPreview {
+  rowCount: number
+  personnel: string[]
+  organizations: string[]
+}
+
+interface UserImportPreviewResponse {
+  code: number
+  msg: string
+  data: UserImportPreview
+}
+
+const readUserImportPreview = async (url: string, data: FormData): Promise<UserImportPreview> => {
+  const response = await request.upload<UserImportPreviewResponse>({ url, data })
+  if (response.code !== 0 || !response.data) {
+    throw new Error(response.msg || '导入预览未返回有效数据')
+  }
+  return response.data
+}
+
+export const importUserPreview = (data: FormData): Promise<UserImportPreview> =>
+  readUserImportPreview('/system/user/import-preview', data)
+
+export const importDingTalkUserPreview = (data: FormData): Promise<UserImportPreview> =>
+  readUserImportPreview('/system/user/import-dingtalk-preview', data)

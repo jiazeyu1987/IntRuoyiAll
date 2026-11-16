@@ -8,6 +8,7 @@ export type FormFillLogContextStatus =
 export type FormFillLogHashStatus = 'VALID' | 'UNKNOWN' | 'CHECK_REQUIRED'
 
 export interface FormFillLogPageReqVO extends PageParam {
+  listFilters?: string
   batchRecordReportId?: string
   formKeyword?: string
   changedAtStart?: string
@@ -56,6 +57,7 @@ export interface FormFillLogDetailRespVO extends Omit<FormFillLogPageRespVO, 'ce
 }
 
 export interface ProductionReportRevisionLogPageReqVO extends PageParam {
+  listFilters?: string
   workOrderCode?: string
   processKeyword?: string
   actualEmployeeName?: string

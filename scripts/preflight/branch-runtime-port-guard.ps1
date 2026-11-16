@@ -49,12 +49,19 @@ $context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch
 $profile = $context.Profile
 $ports = $context.Ports
 
+$expectedProfiles = @('int_main', 'int_batch', 'int_shedule', 'int_qms')
+$actualProfiles = @(Get-BranchRuntimeProfiles | ForEach-Object { $_.Name })
+if (@(Compare-Object $expectedProfiles $actualProfiles).Count -gt 0) {
+    throw 'Runtime profiles differ from the supported four-profile contract.'
+}
+$defaultMain = @(Get-BranchRuntimeProfiles | Where-Object { $_.Branches -contains 'int_main' -and $_.DefaultForBranch })
+if ($defaultMain.Count -ne 1 -or $defaultMain[0].Name -ne 'int_main' -or
+    $defaultMain[0].FrontendBasePort -ne 8081 -or $defaultMain[0].BackendBasePort -ne 48081) {
+    throw 'The default int_main runtime must use frontend 8081 and backend 48081.'
+}
+
 Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     $script:PortContractVersion,
-    '`int_main_d`',
-    'INTRUOYI_RUNTIME_PROFILE=int_main_d',
-    '`8101`',
-    '`48101`',
     '`int_main`',
     'default profile',
     '`8081`',
@@ -85,9 +92,6 @@ Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
 
 Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
     'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
-    '`int_main_d`',
-    '`8101`',
-    '`48101`',
     '`int_main`',
     '`8081`',
     '`48081`',
@@ -114,7 +118,6 @@ Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
 
 Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
     'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
-    '`int_main_d` profile',
     '`int_main` profile',
     '`int_batch` profile',
     '`int_shedule` profile',
@@ -130,7 +133,6 @@ Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
 Assert-Contains -RelativePath 'docs\codex-branch-runtime-handoff.md' -Needles @(
     'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
     'reserve-worktree-slot.ps1',
-    '`int_main_d`',
     '`1..100`',
     '`20..30`',
     '`31..40`',
@@ -145,7 +147,7 @@ Assert-Contains -RelativePath 'docs\codex-branch-runtime-handoff.md' -Needles @(
 Assert-Contains -RelativePath 'AGENTS.md' -Needles @(
     'Branch runtime port matrix',
     'docs\branch-runtime-ports.md',
-    'int_main_d=8101/48101',
+    'int_main=8081/48081',
     'slot in `1..100`',
     'reserve-worktree-slot.ps1'
 )
@@ -158,7 +160,6 @@ Assert-Contains -RelativePath 'IntRuoyiFronted\vite.config.ts' -Needles @(
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-batch' -FrontendPort 8041 -BackendPort 48041
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-shedule' -FrontendPort 8021 -BackendPort 48021
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-qms' -FrontendPort 8061 -BackendPort 48061
-Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-main-d' -FrontendPort 8101 -BackendPort 48101
 
 $legacySheduleEnv = Join-Path $repoRoot 'IntRuoyiFronted\.env.shedule'
 if (Test-Path $legacySheduleEnv) {

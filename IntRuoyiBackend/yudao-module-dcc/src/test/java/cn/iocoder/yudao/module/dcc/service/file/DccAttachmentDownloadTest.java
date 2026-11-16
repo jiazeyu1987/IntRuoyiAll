@@ -44,6 +44,7 @@ class DccAttachmentDownloadTest {
         when(assignment.isWithinAssignedFileScope(99L,20L)).thenReturn(true);
         DccProjectAccessService project=port("projectAccessService");when(project.listReadableProjectIds(99L)).thenReturn(List.of(4L));
         DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");when(permissions.hasCategoryPermission(2L,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
+        when(permissions.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
         DccDirectoryAccessPermissionService directory=port("directoryAccessPermissionService");when(directory.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.DOWNLOAD)).thenReturn(Set.of(3L));
         when(directory.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of(3L));
         var users=(cn.iocoder.yudao.module.system.api.user.AdminUserApi)port("adminUserApi");
@@ -80,6 +81,7 @@ class DccAttachmentDownloadTest {
     }
     @Test void revokedPermissionAndUnconfirmedWarningNeverReadAttachmentBytes() {
         DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");when(permissions.hasCategoryPermission(2L,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(false);
+        when(permissions.hasFilePermission(file,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(false);
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->download(true));assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->download(false));verifyNoInteractions(storage);
     }
     @Test void foreignTenantOrForeignAttachmentIsRejectedBeforeStorageRead() {
@@ -94,7 +96,7 @@ class DccAttachmentDownloadTest {
         DccControlledFileDownloadRecordMapper downloads=port("downloadRecordMapper");
         var record=org.mockito.ArgumentCaptor.forClass(DccControlledFileDownloadRecordDO.class);verify(downloads).insert(record.capture());assertEquals(event.getValue().getId(),record.getValue().getAccessEventId());
     }
-    @Test void historicalAttachmentWithViewAndDownloadDoesNotNeedObsoletePermission() throws Throwable {
+    @Test void archivedAttachmentRequiresArchiveAccessWithoutObsoletePermission() throws Throwable {
         file.setStatus("OBSOLETE");file.setSupersededByFileId(21L);DccControlledFileCategoryPermissionSupport permissions=port("permissionSupport");
         DccControlledFileMasterMapper masters=port("controlledFileMasterMapper");
         when(masters.selectById(700L)).thenReturn(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO.builder().id(700L).tenantId(1L)
@@ -105,6 +107,9 @@ class DccAttachmentDownloadTest {
         current.setRevisionSourceControlledFileId(20L);
         DccControlledFileMapper controlled=port("controlledFileMapper");when(controlled.selectById(21L)).thenReturn(current);when(controlled.selectListByMasterId(700L)).thenReturn(List.of(file,current));
         assertFalse(permissions.hasCategoryPermission(2L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->download(true));
+        verifyNoInteractions(storage);
+        DccArchiveAccessService archive=port("archiveAccess");when(archive.canDownload(99L,file,700L)).thenReturn(true);
         var result=download(true);assertEquals("notes.json",result.fileName());assertArrayEquals("{\"ok\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8),result.bytes());
     }
     @Test void pendingStateNeverReturnsAttachment() {

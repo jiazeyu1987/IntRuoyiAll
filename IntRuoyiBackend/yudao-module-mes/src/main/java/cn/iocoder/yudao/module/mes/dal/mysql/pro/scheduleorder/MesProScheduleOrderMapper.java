@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
@@ -25,6 +26,61 @@ import cn.hutool.core.collection.CollUtil;
  */
 @Mapper
 public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrderDO> {
+
+    java.util.Map<String, ListFilterQueryUtils.Field> LIST_FILTER_FIELDS = java.util.Map.ofEntries(
+            java.util.Map.entry("id", ListFilterQueryUtils.number("id")),
+            java.util.Map.entry("code", ListFilterQueryUtils.text("code")),
+            java.util.Map.entry("workOrderId", ListFilterQueryUtils.number("work_order_id")),
+            java.util.Map.entry("erpWorkOrderCode", ListFilterQueryUtils.text("erp_work_order_code")),
+            java.util.Map.entry("productId", ListFilterQueryUtils.number("product_id")),
+            java.util.Map.entry("quantity", ListFilterQueryUtils.number("quantity")),
+            java.util.Map.entry("promiseDate", ListFilterQueryUtils.date("promise_date")),
+            java.util.Map.entry("priorityNo", ListFilterQueryUtils.number("priority_no")),
+            java.util.Map.entry("status", ListFilterQueryUtils.number("status")),
+            java.util.Map.entry("diffStatus", ListFilterQueryUtils.number("diff_status")),
+            java.util.Map.entry("riskStatus", ListFilterQueryUtils.number("risk_status")),
+            java.util.Map.entry("routeStatus", ListFilterQueryUtils.number("route_status")),
+            java.util.Map.entry("autoSchedulable", ListFilterQueryUtils.bool("auto_schedulable")),
+            java.util.Map.entry("routeId", ListFilterQueryUtils.number("route_id")),
+            java.util.Map.entry("routeVersionId", ListFilterQueryUtils.number("route_version_id")),
+            java.util.Map.entry("routeVersion", ListFilterQueryUtils.text("route_version")),
+            java.util.Map.entry("scheduleConfigVersion", ListFilterQueryUtils.text("schedule_config_version")),
+            java.util.Map.entry("latestStartTime", ListFilterQueryUtils.dateTime("latest_start_time")),
+            java.util.Map.entry("plannedStartTime", ListFilterQueryUtils.dateTime("planned_start_time")),
+            java.util.Map.entry("plannedEndTime", ListFilterQueryUtils.dateTime("planned_end_time")),
+            java.util.Map.entry("startRiskFlag", ListFilterQueryUtils.bool("start_risk_flag")),
+            java.util.Map.entry("delayRiskFlag", ListFilterQueryUtils.bool("delay_risk_flag")),
+            java.util.Map.entry("totalQuantity", ListFilterQueryUtils.number("total_quantity")),
+            java.util.Map.entry("completedQuantity", ListFilterQueryUtils.number("completed_quantity")),
+            java.util.Map.entry("uncompletedQuantity", ListFilterQueryUtils.number("uncompleted_quantity")),
+            java.util.Map.entry("progressPercent", ListFilterQueryUtils.number("progress_percent")),
+            java.util.Map.entry("frozen", ListFilterQueryUtils.bool("frozen")),
+            java.util.Map.entry("frozenTime", ListFilterQueryUtils.dateTime("frozen_time")),
+            java.util.Map.entry("frozenBy", ListFilterQueryUtils.number("frozen_by")),
+            java.util.Map.entry("freezeReason", ListFilterQueryUtils.text("freeze_reason")),
+            java.util.Map.entry("manualFinished", ListFilterQueryUtils.bool("manual_finished")),
+            java.util.Map.entry("manualFinishedTime", ListFilterQueryUtils.dateTime("manual_finished_time")),
+            java.util.Map.entry("manualFinishedBy", ListFilterQueryUtils.number("manual_finished_by")),
+            java.util.Map.entry("manualFinishedReason", ListFilterQueryUtils.text("manual_finished_reason")),
+            java.util.Map.entry("removedFromSchedule", ListFilterQueryUtils.bool("removed_from_schedule")),
+            java.util.Map.entry("removedFromScheduleTime", ListFilterQueryUtils.dateTime("removed_from_schedule_time")),
+            java.util.Map.entry("removedFromScheduleBy", ListFilterQueryUtils.number("removed_from_schedule_by")),
+            java.util.Map.entry("removedFromScheduleReason", ListFilterQueryUtils.text("removed_from_schedule_reason")),
+            java.util.Map.entry("removedFromScheduleStatus", ListFilterQueryUtils.number("removed_from_schedule_status")),
+            java.util.Map.entry("reentryBlocked", ListFilterQueryUtils.bool("reentry_blocked")),
+            java.util.Map.entry("sourceSnapshotJson", ListFilterQueryUtils.text("source_snapshot_json")),
+            java.util.Map.entry("routeSnapshotJson", ListFilterQueryUtils.text("route_snapshot_json")),
+            java.util.Map.entry("capacitySnapshotJson", ListFilterQueryUtils.text("capacity_snapshot_json")),
+            java.util.Map.entry("remark", ListFilterQueryUtils.text("remark")),
+            java.util.Map.entry("createTime", ListFilterQueryUtils.dateTime("create_time")),
+            java.util.Map.entry("creator", ListFilterQueryUtils.text("creator")),
+            java.util.Map.entry("productCode", ListFilterQueryUtils.text("(SELECT x.code FROM mes_md_item x WHERE x.id=mes_pro_schedule_order.product_id AND x.tenant_id=mes_pro_schedule_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productSpecification", ListFilterQueryUtils.text("(SELECT x.specification FROM mes_md_item x WHERE x.id=mes_pro_schedule_order.product_id AND x.tenant_id=mes_pro_schedule_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productName", ListFilterQueryUtils.text("(SELECT x.name FROM mes_md_item x WHERE x.id=mes_pro_schedule_order.product_id AND x.tenant_id=mes_pro_schedule_order.tenant_id AND x.deleted=0)")),
+            java.util.Map.entry("productionMaterialList", ListFilterQueryUtils.text("COALESCE(JSON_UNQUOTE(CONCAT(CHAR(34),REPLACE(SUBSTRING(CAST((SELECT JSON_ARRAYAGG(x.source_bill_no) OVER(ORDER BY x.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list x WHERE x.work_order_id=mes_pro_schedule_order.work_order_id AND x.tenant_id=mes_pro_schedule_order.tenant_id AND x.deleted=0 AND x.source_bill_no IS NOT NULL AND x.source_bill_no<>'' AND NOT EXISTS(SELECT 1 FROM mes_kingdee_production_material_list y WHERE y.work_order_id=x.work_order_id AND y.tenant_id=x.tenant_id AND y.deleted=0 AND y.source_bill_no=x.source_bill_no AND y.id<x.id) LIMIT 1) AS CHAR),3,CHAR_LENGTH(CAST((SELECT JSON_ARRAYAGG(x.source_bill_no) OVER(ORDER BY x.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM mes_kingdee_production_material_list x WHERE x.work_order_id=mes_pro_schedule_order.work_order_id AND x.tenant_id=mes_pro_schedule_order.tenant_id AND x.deleted=0 AND x.source_bill_no IS NOT NULL AND x.source_bill_no<>'' AND NOT EXISTS(SELECT 1 FROM mes_kingdee_production_material_list y WHERE y.work_order_id=x.work_order_id AND y.tenant_id=x.tenant_id AND y.deleted=0 AND y.source_bill_no=x.source_bill_no AND y.id<x.id) LIMIT 1) AS CHAR))-4),CONCAT(CHAR(34),', ',CHAR(34)), '、'),CHAR(34))),'')"))
+    );
+
+
 
     default PageResult<MesProScheduleOrderDO> selectPage(MesProScheduleOrderPageReqVO reqVO) {
         return selectPageByProductIds(reqVO, null);
@@ -59,8 +115,19 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                 "promiseDate", QuickFilterUtils.QuickFilterField.localDateRange(MesProScheduleOrderDO::getPromiseDate),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProScheduleOrderDO::getStatus)
         ));
+        if (CollUtil.isNotEmpty(reqVO.getResolvedCurrentProcessFilterIds())) {
+            String placeholders = java.util.stream.IntStream.range(0, reqVO.getResolvedCurrentProcessFilterIds().size())
+                    .mapToObj(i -> "{" + i + "}").collect(java.util.stream.Collectors.joining(","));
+            queryWrapper.apply("EXISTS (SELECT 1 FROM mes_pro_schedule_order_process sp "
+                    + "JOIN mes_pro_route_process rp ON rp.id=sp.route_process_id "
+                    + "AND rp.route_id=mes_pro_schedule_order.route_id AND rp.tenant_id=sp.tenant_id "
+                    + "WHERE sp.schedule_order_id=mes_pro_schedule_order.id "
+                    + "AND sp.tenant_id=mes_pro_schedule_order.tenant_id AND sp.deleted=0 AND sp.enabled=1 "
+                    + "AND (sp.progress_percent IS NULL OR sp.progress_percent<100) "
+                    + "AND rp.process_id IN (" + placeholders + "))", reqVO.getResolvedCurrentProcessFilterIds().toArray());
+        }
         applyPageSort(queryWrapper, reqVO);
-        return selectPage(reqVO, queryWrapper);
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, queryWrapper, MesScheduleOrderListFilters.augment(LIST_FILTER_FIELDS)));
     }
 
     default void applyPageSort(LambdaQueryWrapperX<MesProScheduleOrderDO> queryWrapper,

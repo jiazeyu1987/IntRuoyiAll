@@ -1,7 +1,6 @@
 <template>
-  <el-table
-    class="project-folder-file-table"
-    :data="rows"
+  <el-table border stripe class="project-folder-file-table"
+    :data="resolveRows ? resolveRows(rows) : rows"
     :row-key="(row) => row.key"
     v-loading="loading"
     highlight-current-row
@@ -121,6 +120,7 @@ const props = defineProps<{
   readOnly?: boolean
   canManage?: (file: FileCandidate) => boolean
   files: FileCandidate[]
+  resolveRows?: (rows: FolderFileRow[]) => FolderFileRow[]
   references: ReferenceRow[]
   usage: Record<string, { referenceProjectCount: number; referenced: boolean }>
   keyword: string

@@ -7,10 +7,10 @@
 
 ## Current Baseline Reviewed
 
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260521-showroom-product-status-assignee-columns-restore\task.md`
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260521-showroom-product-status-assignee-viewport-regression\task.md`
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\src\views\showroom-admin\components\ProductListTable.vue`
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\showroom-admin-product-list.test.mjs`
+- `./IntRuoyiFronted/doc/tasks/20260521-showroom-product-status-assignee-columns-restore/task.md`
+- `./IntRuoyiFronted/doc/tasks/20260521-showroom-product-status-assignee-viewport-regression/task.md`
+- `./IntRuoyiFronted/src/views/showroom-admin/components/ProductListTable.vue`
+- `./IntRuoyiFronted/scripts/showroom-admin-product-list.test.mjs`
 
 ## Classification
 

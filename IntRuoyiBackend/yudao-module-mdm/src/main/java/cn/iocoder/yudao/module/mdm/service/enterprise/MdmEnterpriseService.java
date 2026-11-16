@@ -12,6 +12,12 @@ public interface MdmEnterpriseService {
 
     Long createEnterprise(MdmEnterpriseSaveReqVO reqVO);
 
+    Long createEnabledOwnedCompany(String name);
+
+    void updateOwnedCompanyName(Long id, String name);
+
+    void updateOwnedCompanyStatus(Long id, String status);
+
     void updateEnterprise(MdmEnterpriseSaveReqVO reqVO);
 
     void updateEnterpriseStatus(Long id, String status);

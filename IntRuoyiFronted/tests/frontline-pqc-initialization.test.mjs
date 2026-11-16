@@ -22,12 +22,13 @@ const deferred = () => {
 const harness = () => {
   const catalog = deferred(), refresh = deferred(), errors = [], opened = []
   const runtime = {
-    computed, frontlineInitializing: ref(true), isPqcMode: ref(true),
-    payloadLoading: ref(false), pqcSignatureDialogVisible: ref(false), pqcSubmitResultUncertain: ref(false),
+    computed, frontlineInitializing: ref(true), isPqcMode: ref(true), frontlinePanelRef: ref(undefined),
+    payloadLoading: ref(false), pqcSignatureDialogVisible: ref(false), pqcSubmitResultUncertain: ref(false), pqcPatrolRoundCreating: ref(false),
     deviceState: { loadingActiveOrders: false, loadingProcesses: false, loadingEmployees: false, loadingTemplate: false },
     activePicker: ref(undefined), activeOrderKeyword: ref('previous'), activeOrderSearchInputRef: ref({ focus: () => opened.push('focus') }),
     nextTick: fn => fn(), document: { addEventListener() {} }, window: { addEventListener() {} },
     syncPqcFullscreenState() {}, handlePqcForegroundRefresh() {}, scheduleProductionViewportScaleUpdate() {},
+    ResizeObserver: class { observe() {} }, resolveErrorMessage: error => error.message,
     initialHandoffPageMounted: false, hasInitialHandoffQuery: ref(false), hasReturnNotification: ref(false),
     hydrateContextFromRoute() {}, FrontlineTemplateApi: { getCatalog: () => catalog.promise },
     catalog: ref([]), draft: { fieldValues: {} }, buildPqcFieldValues: () => ({ checked: true }),

@@ -126,20 +126,13 @@
               prop="userIds"
               span="24"
             >
-              <el-select
-                filterable
+              <UserSelectV2
                 v-model="configForm.userIds"
                 clearable
                 multiple
                 style="width: 100%"
-              >
-                <el-option
-                  v-for="item in userOptions"
-                  :key="item.id"
-                  :label="item.nickname"
-                  :value="item.id"
-                />
-              </el-select>
+                :user-options="userOptions"
+              />
             </el-form-item>
             <el-form-item
               v-if="configForm.candidateStrategy === CandidateStrategy.USER_GROUP"
@@ -365,20 +358,13 @@
               prop="assignEmptyHandlerUserIds"
               span="24"
             >
-              <el-select
-                filterable
+              <UserSelectV2
                 v-model="configForm.assignEmptyHandlerUserIds"
                 clearable
                 multiple
                 style="width: 100%"
-              >
-                <el-option
-                  v-for="item in userOptions"
-                  :key="item.id"
-                  :label="item.nickname"
-                  :value="item.id"
-                />
-              </el-select>
+                :user-options="userOptions"
+              />
             </el-form-item>
 
             <div v-if="currentNode.type === NodeType.USER_TASK_NODE">
@@ -525,6 +511,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   SimpleFlowNode,
   APPROVE_TYPE,

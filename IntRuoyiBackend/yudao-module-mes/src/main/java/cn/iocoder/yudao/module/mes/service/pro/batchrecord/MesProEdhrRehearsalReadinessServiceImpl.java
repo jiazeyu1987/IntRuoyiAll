@@ -270,7 +270,7 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
         if (rule == null) {
             addBlocker(result, "ARCHIVE_RULE_MISSING", "archiver", archiverUserId,
                     "工艺路线未配置启用的最终归档责任规则，批次关闭后无法生成可处理的归档待办。",
-                    "在 eDHR 工作任务看板的归档规则中，为该工艺路线配置启用的最终归档责任人。");
+                    "在工艺路线的归档规则中，为该工艺路线配置启用的最终归档责任人。");
             return;
         }
         Long expectedArchiverId = rule.getCandidateSourceId() != null ? rule.getCandidateSourceId() : rule.getAssigneeUserId();

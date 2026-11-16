@@ -9,6 +9,9 @@ import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface MesProcessPoolTeamEmployeeProfileMapper extends BaseMapperX<MesProcessPoolTeamEmployeeProfileDO> {
+    @org.apache.ibatis.annotations.Update("UPDATE mes_pro_process_pool_team_employee_profile SET signature_credential_type=#{type},signature_pin_hash=#{hash},update_time=CURRENT_TIMESTAMP WHERE tenant_id=#{tenantId} AND id=#{profileId} AND deleted=0")
+    int updateSignatureSettings(@org.apache.ibatis.annotations.Param("tenantId") Long tenantId,@org.apache.ibatis.annotations.Param("profileId") Long profileId,@org.apache.ibatis.annotations.Param("type") String type,@org.apache.ibatis.annotations.Param("hash") String hash);
+
     @Select("SELECT password_hash FROM mes_employee_signature_password_history WHERE tenant_id=#{tenant} AND employee_profile_id=#{id} ORDER BY id DESC LIMIT 5")
     java.util.List<String> selectSignaturePasswordHistory(@Param("tenant") Long tenant,@Param("id") Long id);
     @org.apache.ibatis.annotations.Insert("INSERT INTO mes_employee_signature_password_history(tenant_id,employee_profile_id,password_hash,changed_at) VALUES(#{tenant},#{id},#{hash},#{at})")

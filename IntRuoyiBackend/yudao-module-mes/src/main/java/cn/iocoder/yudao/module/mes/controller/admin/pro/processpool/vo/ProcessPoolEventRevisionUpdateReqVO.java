@@ -33,7 +33,7 @@ public class ProcessPoolEventRevisionUpdateReqVO {
     private String changeReason;
 
     @Schema(description = "当前登录人的电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
 
     @Schema(description = "字段级修改明细", requiredMode = Schema.RequiredMode.REQUIRED)

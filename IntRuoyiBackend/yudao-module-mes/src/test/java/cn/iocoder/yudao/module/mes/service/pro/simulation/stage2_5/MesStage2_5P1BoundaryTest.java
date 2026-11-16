@@ -68,4 +68,38 @@ class MesStage2_5P1BoundaryTest {
             TenantContextHolder.clear();
         }
     }
+    @Test
+    void activeOrderBackfillSnapshotDoesNotRequireLegacyDossierTasks() throws Exception {
+        var constructor = MesStage2_5BackfillBatchExecutionSimulationServiceImpl.class.getConstructors()[0];
+        Map<Class<?>, Object> dependencies = new LinkedHashMap<>();
+        Object[] arguments = java.util.Arrays.stream(constructor.getParameterTypes())
+                .map(type -> dependencies.computeIfAbsent(type, key -> mock(key))).toArray();
+        var service = (MesStage2_5BackfillBatchExecutionSimulationServiceImpl) constructor.newInstance(arguments);
+        var order = MesProcessPoolActiveOrderDO.builder().id(81L).workOrderId(91L)
+                .routeId(11L).routeVersionId(12L).build();
+        var workOrder = MesProWorkOrderDO.builder().id(91L).code("WO-91").orderSourceCode("ERP-91").build();
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(31L).sourceSnapshotHash("formal-source").hasActualLoss(false).build();
+        var backfill = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt()
+                .setBatchRecordId(41L).setProcessInspectionId(42L);
+        var batch = new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO()
+                .setId(51L).setWorkOrderId(91L).setRouteId(11L).setBatchCode("B-91");
+        Map<String, Object> snapshot = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "buildSnapshot", MesStage2_5BackfillBatchExecutionSimulationCommand.validate("P2-81",81L,0,1L),
+                order, workOrder, java.util.List.of(), java.util.List.of(), receipt, batch, backfill);
+        assertNotNull(snapshot);
+        assertEquals("activeOrderCompletionBackfill.v1", snapshot.get("sourceInputContract"));
+        assertEquals("BACKFILL_COMPLETED", snapshot.get("status"));
+        assertFalse(snapshot.containsKey("specialNodeUploadStatus"));
+        assertEquals(java.util.List.of(), snapshot.get("optionalLossReportLinks"));
+        assertTrue(snapshot.get("batchRecordLinks").toString().contains("41"));
+        assertTrue(snapshot.get("processInspectionLinks").toString().contains("42"));
+        assertTrue(snapshot.get("sourceHash").toString().contains("formal-source"));
+        verifyNoInteractions(dependencies.get(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper.class));
+        backfill.setProcessInspectionId(null);
+        assertThrows(IllegalStateException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "buildSnapshot", MesStage2_5BackfillBatchExecutionSimulationCommand.validate("P2-81",81L,0,1L),
+                order,workOrder,java.util.List.of(),java.util.List.of(),receipt,batch,backfill));
+    }
+
 }

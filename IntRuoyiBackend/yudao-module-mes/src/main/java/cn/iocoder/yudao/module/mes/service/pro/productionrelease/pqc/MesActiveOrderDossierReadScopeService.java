@@ -30,6 +30,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MesActiveOrderDossierReadScopeService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
     private static final String BATCH_QUERY = "mes:pro-edhr-batch-execution:query";
     private static final String PQC_QUERY = "mes:pro-production-release:query";
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -40,6 +42,10 @@ public class MesActiveOrderDossierReadScopeService {
     private final MesPqcProductionReleaseService pqcReleaseService;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final PermissionApi permissionApi;
+    private final cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
+    @jakarta.annotation.Resource
+    private MesActiveOrderDossierCompletionService dossierCompletionService;
+    @jakarta.annotation.Resource private MesReleaseAttachmentUploadService attachmentUploads;
 
     public Context requireBatch(Long actor, Long batchExecutionId, Long activeOrderId) {
         Long tenant = requireActor(actor);
@@ -64,21 +70,27 @@ public class MesActiveOrderDossierReadScopeService {
 
     /** Upload authorization is independent of caller-supplied application IDs. */
     public Context requireMutation(Long actor, Long activeId, Long requestedApplicationId, boolean deleting) {
+        return requireMutation(actor, activeId, requestedApplicationId, deleting, null);
+    }
+
+    public Context requireMutation(Long actor, Long activeId, Long requestedApplicationId, boolean deleting, String categoryKey) {
         Long tenant = requireActor(actor);
         var active = requireActive(activeId, tenant);
         var app = applicationMapper.selectLatestByActiveOrderId(activeId);
         if (app != null && positive(app.getBatchExecutionId())) {
-            var applications = applicationMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
-                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, app.getBatchExecutionId())
-                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getTenantId, tenant));
-            require(applications != null && applications.size() == 1
-                    && Objects.equals(applications.get(0).getId(), app.getId()), "正式批次放行申请归属不唯一，不能写入资料。");
+            var latestRound = applicationMapper.selectByBatchExecutionId(app.getBatchExecutionId());
+            require(latestRound != null && Objects.equals(latestRound.getTenantId(), tenant)
+                    && Objects.equals(latestRound.getId(), app.getId()), "资料申请不是当前正式批次的最新放行轮次。");
         }
         if (app != null) requireApplication(app, active, tenant);
         require(requestedApplicationId == null || app != null && Objects.equals(requestedApplicationId, app.getId()),
                 "上传申请与正式活跃订单关联不一致。");
-        if (Objects.equals(active.getLeaderUserId(), actor)
+        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))
                 && permissionApi.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain")) {
+            return new Context(active, app);
+        }
+        if (!deleting && categoryKey != null && permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload")
+                && dossierCompletionService.isAssigned(actor, activeId, categoryKey)) {
             return new Context(active, app);
         }
         requireApplication(app, active, tenant);
@@ -90,8 +102,20 @@ public class MesActiveOrderDossierReadScopeService {
             requireBatchIdentity(batch, app, active);
             return new Context(active, app);
         }
+        if (!deleting && permissionApi.hasAnyPermissions(actor, PQC_QUERY)
+                && "PQC_RELEASE_REJECTED".equals(app.getApplicationStatus()) && "REJECT".equals(app.getPqcDecision())) {
+            var corrections = workTaskMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                    .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_RELEASE_CORRECTION")
+                    .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                    .eq(MesProEdhrWorkTaskDO::getBusinessScopeId, app.getId())
+                    .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, actor)
+                    .in(MesProEdhrWorkTaskDO::getStatus, "TODO", "DOING"));
+            require(corrections.size() <= 1, "同一放行轮次存在重复补正责任待办。");
+            if (corrections.size() == 1) return new Context(active, app);
+        }
         require(!deleting && permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload"),
                 "当前用户无该资料的写入权限。");
+        require(!attachmentUploads.hasDuty(actor, activeId), "当前角色没有该类别的待上传任务，不能写入资料。");
         requireFormalBatch(actor, tenant, app, active);
         return new Context(active, app);
     }
@@ -109,9 +133,11 @@ public class MesActiveOrderDossierReadScopeService {
             requireApplication(app, active, tenant);
             require(Objects.equals(row.getApplicationId(), app.getId()), "资料文件与申请身份不一致。");
         }
-        if (Objects.equals(active.getLeaderUserId(), actor)) {
+        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))) {
             return;
         }
+        if (permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload")
+                && dossierCompletionService.isAssigned(actor, active.getId(), row.getCategoryKey())) return;
         if (row.getApplicationId() == null) {
             app = applicationMapper.selectLatestByActiveOrderId(active.getId());
             requireApplication(app, active, tenant);
@@ -138,6 +164,7 @@ public class MesActiveOrderDossierReadScopeService {
     }
 
     private MesProcessPoolActiveOrderDO requireActive(Long id, Long tenant) {
+        marketReleaseAccess.requireActiveOrderReadable(id);
         require(positive(id), "资料缺少正式活跃订单身份。");
         var active = activeOrderMapper.selectById(id);
         require(active != null && Objects.equals(id, active.getId()) && positive(active.getWorkOrderId())

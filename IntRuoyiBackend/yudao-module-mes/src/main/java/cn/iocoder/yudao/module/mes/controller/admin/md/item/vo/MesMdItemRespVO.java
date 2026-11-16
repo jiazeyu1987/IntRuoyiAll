@@ -41,11 +41,15 @@ public class MesMdItemRespVO {
 
     @Schema(description = "计量单位编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "202")
     private Long unitMeasureId;
+
+    @ExcelProperty("单位编码")
+    private String unitMeasureCode;
     @Schema(description = "计量单位名称", example = "个")
     @ExcelProperty("计量单位")
     private String unitMeasureName;
 
     @Schema(description = "物料分类编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
+    @ExcelProperty("物料分类编号")
     private Long itemTypeId;
     @Schema(description = "物料分类名称", requiredMode = Schema.RequiredMode.REQUIRED, example = "原材料")
     @ExcelProperty("物料分类")

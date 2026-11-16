@@ -1,74 +1,90 @@
 <!-- MES 质检指标列表 -->
 <template>
-  <doc-alert title="【质量】检测项设置、常见缺陷" url="https://doc.iocoder.cn/mes/qc/base/" />
+
 
   <ContentWrap>
-    <!-- 搜索工作栏 -->
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="100px"
+    <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
+      table-key="mes.qc.indicator.main"
+      :query-model="queryParams"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <el-form-item label="检测项编码" prop="code">
-        <el-input
-          v-model="queryParams.code"
-          placeholder="请输入检测项编码"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="检测项名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          placeholder="请输入检测项名称"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="检测项类型" prop="type">
-        <el-select
-          v-model="queryParams.type"
-          placeholder="请选择检测项类型"
-          clearable
-          class="!w-240px"
+      <template #filters>
+        <el-form
+          class="-mb-15px edhr-single-line-query"
+          :model="queryParams"
+          ref="queryFormRef"
+          :inline="true"
+          label-width="100px"
         >
-          <el-option
-            v-for="dict in getIntDictOptions(DICT_TYPE.MES_INDICATOR_TYPE)"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="结果值类型" prop="resultType">
-        <el-select
-          v-model="queryParams.resultType"
-          placeholder="请选择结果值类型"
-          clearable
-          class="!w-240px"
-        >
-          <el-option
-            v-for="dict in getIntDictOptions(DICT_TYPE.MES_QC_RESULT_TYPE)"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+          <el-form-item label="检测项编码" prop="code">
+            <el-input
+              v-model="queryParams.code"
+              placeholder="请输入检测项编码"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="检测项名称" prop="name">
+            <el-input
+              v-model="queryParams.name"
+              placeholder="请输入检测项名称"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="检测项类型" prop="type">
+            <el-select
+              v-model="queryParams.type"
+              placeholder="请选择检测项类型"
+              clearable
+              class="!w-240px"
+            >
+              <el-option
+                v-for="dict in getIntDictOptions(DICT_TYPE.MES_INDICATOR_TYPE)"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="结果值类型" prop="resultType">
+            <el-select
+              v-model="queryParams.resultType"
+              placeholder="请选择结果值类型"
+              clearable
+              class="!w-240px"
+            >
+              <el-option
+                v-for="dict in getIntDictOptions(DICT_TYPE.MES_QC_RESULT_TYPE)"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
         <el-button
           type="primary"
           plain
           @click="openForm('create')"
           v-hasPermi="['mes:qc-indicator:create']"
         >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增
+          <Icon icon="ep:plus" class="mr-5px" />
+          新增
         </el-button>
         <el-button
           type="success"
@@ -77,71 +93,74 @@
           :loading="exportLoading"
           v-hasPermi="['mes:qc-indicator:export']"
         >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
+          <Icon icon="ep:download" class="mr-5px" />
+          导出
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <!-- 列表 -->
-  <ContentWrap>
-    <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="检测项编码" align="center" prop="code" width="120" />
-      <el-table-column label="检测项名称" align="center" prop="name" min-width="150" />
-      <el-table-column label="检测项类型" align="center" prop="type" width="120">
-        <template #default="scope">
-          <dict-tag :type="DICT_TYPE.MES_INDICATOR_TYPE" :value="scope.row.type" />
-        </template>
-      </el-table-column>
-      <el-table-column label="检测工具" align="center" prop="tool" width="120" />
-      <el-table-column label="结果值类型" align="center" prop="resultType" width="120">
-        <template #default="scope">
-          <dict-tag :type="DICT_TYPE.MES_QC_RESULT_TYPE" :value="scope.row.resultType" />
-        </template>
-      </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" min-width="150" />
-      <el-table-column
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        :formatter="dateFormatter"
-        width="180px"
-      />
-      <el-table-column label="操作" align="center" width="130">
-        <template #default="scope">
-          <el-button
-            link
-            type="primary"
-            @click="openForm('update', scope.row.id)"
-            v-hasPermi="['mes:qc-indicator:update']"
-          >
-            编辑
-          </el-button>
-          <el-button
-            link
-            type="danger"
-            @click="handleDelete(scope.row.id)"
-            v-hasPermi="['mes:qc-indicator:delete']"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <!-- 分页 -->
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
-  </ContentWrap>
+      </template>
+      <template #table="{ resolveRows }">
+        <el-table
+          border
+          v-loading="loading"
+          :data="resolveRows(list)"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+        >
+          <el-table-column label="检测项编码" align="center" prop="code" width="120" />
+          <el-table-column label="检测项名称" align="center" prop="name" min-width="150" />
+          <el-table-column label="检测项类型" align="center" prop="type" width="120">
+            <template #default="scope">
+              <dict-tag :type="DICT_TYPE.MES_INDICATOR_TYPE" :value="scope.row.type" />
+            </template>
+          </el-table-column>
+          <el-table-column label="检测工具" align="center" prop="tool" width="120" />
+          <el-table-column label="结果值类型" align="center" prop="resultType" width="120">
+            <template #default="scope">
+              <dict-tag :type="DICT_TYPE.MES_QC_RESULT_TYPE" :value="scope.row.resultType" />
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" align="center" prop="remark" min-width="150" />
+          <el-table-column
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            :formatter="dateFormatter"
+            width="180px"
+          />
+          <el-table-column label="操作" align="center" width="130">
+            <template #default="scope">
+              <el-button
+                link
+                type="primary"
+                @click="openForm('update', scope.row.id)"
+                v-hasPermi="['mes:qc-indicator:update']"
+              >
+                编辑
+              </el-button>
+              <el-button
+                link
+                type="danger"
+                @click="handleDelete(scope.row.id)"
+                v-hasPermi="['mes:qc-indicator:delete']"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <!-- 分页 -->
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
   <IndicatorForm ref="formRef" @success="getList" />
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
@@ -159,6 +178,7 @@ const list = ref<QcIndicatorVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const exportLoading = ref(false) // 导出的加载中
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined,
@@ -170,14 +190,18 @@ const queryFormRef = ref() // 搜索的表单
 const formRef = ref() // 表单弹窗
 
 /** 查询列表 */
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await QcIndicatorApi.getIndicatorPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 
@@ -234,4 +258,87 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '检测项类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_INDICATOR_TYPE)
+  },
+  {
+    key: 'resultType',
+    label: '结果值类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_QC_RESULT_TYPE)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'code',
+    label: '检测项编码',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '检测项名称',
+    visible: true
+  },
+  {
+    key: 'type',
+    label: '检测项类型',
+    visible: true
+  },
+  {
+    key: 'tool',
+    label: '检测工具',
+    visible: true
+  },
+  {
+    key: 'resultType',
+    label: '结果值类型',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
 </script>
+
+<style scoped>
+@media (min-width: 1181px) {
+  .edhr-single-line-query {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .edhr-single-line-query > :deep(.el-form-item) {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-right: 0;
+  }
+  .edhr-single-line-query > :deep(.el-form-item:last-child) {
+    flex: 0 0 auto;
+  }
+  .edhr-single-line-query :deep(.el-form-item__content) {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+  .edhr-single-line-query :deep(.el-input),
+  .edhr-single-line-query :deep(.el-select),
+  .edhr-single-line-query :deep(.el-date-editor) {
+    width: 100% !important;
+    min-width: 0;
+  }
+}
+</style>

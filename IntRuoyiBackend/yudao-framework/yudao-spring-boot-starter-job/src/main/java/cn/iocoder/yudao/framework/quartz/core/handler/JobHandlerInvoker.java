@@ -15,6 +15,10 @@ import org.springframework.scheduling.quartz.QuartzJobBean;
 
 import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 import static cn.hutool.core.exceptions.ExceptionUtil.getRootCauseMessage;
 
@@ -52,6 +56,9 @@ public class JobHandlerInvoker extends QuartzJobBean {
         try {
             // 记录 Job 日志（初始）
             jobLogId = jobLogFrameworkService.createJobLog(jobId, startTime, jobHandlerName, jobHandlerParam, refireCount + 1);
+            if (!applicationContext.getBean(jobHandlerName, JobHandler.class).supportsAutomaticRetry()) {
+                retryCount = 0;
+            }
             // 执行任务
             data = this.executeInternal(jobHandlerName, jobHandlerParam);
         } catch (Throwable ex) {
@@ -96,6 +103,9 @@ public class JobHandlerInvoker extends QuartzJobBean {
         if (exception == null) {
             return;
         }
+        if (containsCancellation(exception)) {
+            throw new JobExecutionException(exception, false);
+        }
         // 情况一：如果到达重试上限，则直接抛出异常即可
         if (refireCount >= retryCount) {
             throw new JobExecutionException(exception);
@@ -108,6 +118,21 @@ public class JobHandlerInvoker extends QuartzJobBean {
         }
         // 第二个参数，refireImmediately = true，表示立即重试
         throw new JobExecutionException(exception, true);
+    }
+
+    private boolean containsCancellation(Throwable exception) {
+        // TenantJobAspect aggregates tenant failures as suppressed exceptions.
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ArrayDeque<Throwable> pending = new ArrayDeque<>();
+        pending.add(exception);
+        while (!pending.isEmpty()) {
+            Throwable failure = pending.removeFirst();
+            if (!visited.add(failure)) continue;
+            if (failure instanceof java.util.concurrent.CancellationException) return true;
+            if (failure.getCause() != null) pending.add(failure.getCause());
+            Collections.addAll(pending, failure.getSuppressed());
+        }
+        return false;
     }
 
 }

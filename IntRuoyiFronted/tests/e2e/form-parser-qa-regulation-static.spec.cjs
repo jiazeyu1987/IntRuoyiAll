@@ -24,18 +24,12 @@ const assertNotIncludes = (content, unexpected, message) => {
 }
 
 const parserPage = readFile('src/views/form-center/parser/index.vue')
-assertIncludes(parserPage, 'activeParserResultTab')
-assertIncludes(parserPage, 'form-parser-result-tabs')
-assertIncludes(parserPage, 'label="生产批记录"')
-assertIncludes(parserPage, 'name="production-batch-record"')
-assertIncludes(parserPage, 'label="QA检验规程"')
-assertIncludes(parserPage, 'name="qa-inspection-regulation"')
+assertNotIncludes(parserPage, '<el-tabs')
+assertIncludes(parserPage, `v-if="parserKind === 'production'"`)
+assertIncludes(parserPage, `v-if="parserKind === 'inspection'"`)
 assertIncludes(parserPage, 'QaInspectionRegulationParserPanel')
 assertIncludes(parserPage, 'ref="qaRegulationParserRef"')
-assertIncludes(parserPage, 'handleQaInspectionRegulation')
 assertIncludes(parserPage, 'handleQaRegulationFileChange')
-assertIncludes(parserPage, "activeParserResultTab.value = 'production-batch-record'")
-assertIncludes(parserPage, "activeParserResultTab.value = 'qa-inspection-regulation'")
 const parserButtons = parserPage.match(/<el-button[\s\S]*?<\/el-button>/g) || []
 const qaButton = parserButtons.find((button) => button.includes('QA检验规程'))
 if (!qaButton) {

@@ -57,6 +57,7 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
     private MesProcessPoolSubmissionReviewDO review;
     private MesProProcessPoolEventDO event;
     private MesProProcessPoolPqcRecordDO record;
+    private boolean independentQaTask;
     private final MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO().setId(9001L)
             .setTenantId(1L).setWorkOrderId(1001L).setRouteId(2001L).setRouteVersionId(2002L);
 
@@ -166,6 +167,35 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
                 Map.entry("workOrderId", 1001L), Map.entry("routeId", 2001L), Map.entry("routeVersionId", 2002L),
                 Map.entry("routeProcessId", 3001L), Map.entry("processId", 4001L))));
         freeze();
+    }
+
+    @Test
+    void independentQaTaskSupportsPersonAndEquipmentLookupWithoutProductionProcess() {
+        independentQaTask = true;
+        event.setRouteProcessId(null).setProcessId(null);
+        record.setRouteProcessId(null).setProcessId(null);
+        for (var detail : details) {
+            detail.remove("routeProcessId");
+            detail.remove("processId");
+            detail.put("regulationVersionId", 7102L);
+            detail.put("sampleNo", 1);
+            detail.put("itemCode", "QA-INDEPENDENT");
+            detail.put("itemName", "独立QA检验");
+            detail.put("resultType", "TEXT");
+            detail.put("itemResult", "PASS");
+            detail.put("measuredValue", "PASS");
+            detail.put("judgement", "PASS");
+            detail.put("selectedEquipmentId", 8801L);
+            detail.put("selectedEquipmentCode", "PQC-INDEPENDENT");
+            detail.put("selectedEquipmentName", "独立QA设备");
+        }
+        freeze();
+        assertTrue(adapter().readCatalog(batch).items().stream().anyMatch(item ->
+                "PERSON:SYSTEM_USER:PQC_SIGNATURE:21".equals(item.getEvidenceKey())));
+        var equipment = new MesProEdhrFormalReverseTraceAdapter(Category.EQUIPMENT, null, origins, links,
+                null, null, null, events, records, reviews, applications, releases, receipts);
+        assertTrue(equipment.readCatalog(batch).items().stream().anyMatch(item ->
+                "PQC-INDEPENDENT".equals(item.getSourceContext().get("selectedEquipmentCode"))));
     }
 
     @Test
@@ -341,6 +371,186 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         verify(reviews).selectById(id);
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 128})
+    void archiveWindowUsesConstantQueriesAndPreservesExactPqcEvidence(int size) {
+        var expected = adapter().readCatalog(batch);
+        var batches = stubWindow(size);
+        var result = adapter().readCatalogs(batches);
+        assertEquals(size, result.size());
+        for (var catalog : result.values()) {
+            assertEquals(expected.sourceVersion(), catalog.sourceVersion());
+            assertEquals(JSON.toJSONString(expected.items()), JSON.toJSONString(catalog.items()));
+        }
+        verify(origins).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(receipts).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(links).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(events).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(records).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(reviews).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(applications).selectListByBatchExecutionIds(anyCollection());
+        verify(releases).selectListByBatchExecutionIds(anyCollection());
+        verify(origins, never()).selectListByBatchExecutionId(anyLong());
+        verify(receipts, never()).selectByIdAndTenantId(anyLong(), anyLong());
+        verify(events, never()).selectById(anyLong());
+        verify(records, never()).selectByEventId(anyLong());
+        verify(reviews, never()).selectById(anyLong());
+    }
+
+    @Test
+    void archiveWindowRejectsTamperedReceiptAndDoesNotCachePreviousResult() {
+        var batches = stubWindow(1);
+        var reader = adapter();
+        assertEquals(1, reader.readCatalogs(batches).size());
+        var receipt = receipts.selectByIdAndTenantId(8101L, 1L);
+        receipt.setFormalSourceSnapshotJson("{}");
+        var failure = assertThrows(IllegalStateException.class, () -> reader.readCatalogs(batches));
+        assertTrue(failure.getMessage().contains("SOURCE_CONFLICT"));
+        assertTrue(failure.getMessage().contains("batch=9001"));
+    }
+
+    @Test
+    void archiveWindowRejectsMissingExactReview() {
+        var batches = stubWindow(1);
+        when(reviews.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+        assertTrue(assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches))
+                .getMessage().contains("SOURCE_MISSING"));
+        verify(reviews, never()).selectById(anyLong());
+    }
+
+    @Test
+    void archiveWindowRejectsCrossTenantEvidence() {
+        var batches = stubWindow(1);
+        event.setTenantId(2L);
+        assertTrue(assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches))
+                .getMessage().contains("SOURCE_CONFLICT"));
+    }
+
+    @Test
+    void archiveWindowStillChecksTraceWitnessHash() {
+        var batches = stubWindow(1);
+        var link = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTraceLinkDO()
+                .setBatchExecutionId(9001L).setTenantId(1L).setLinkType("PRODUCTION_SUBMIT")
+                .setRelationStatus("BOUND").setSnapshotJson("{}").setSnapshotHash("corrupt");
+        when(links.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(link));
+        assertTrue(assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches))
+                .getMessage().contains("SOURCE_CONFLICT"));
+    }
+
+    @Test
+    void archiveWindowFailsBeforeQueriesWhenOversizedOrMixedTenant() {
+        var oversized = java.util.Collections.nCopies(129, batch);
+        assertThrows(IllegalArgumentException.class, () -> adapter().readCatalogs(oversized));
+        assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(List.of(batch,
+                new MesProEdhrBatchExecutionDO().setId(9002L).setTenantId(2L))));
+        verify(origins, never()).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 128})
+    void multipleCategoriesShareQueriesAndSnapshotValidationWithinOneWindow(int size) {
+        details.get(0).putAll(Map.of("regulationVersionId", 1L, "sampleNo", 1,
+                "itemCode", "QA-R4", "resultType", "TEXT", "itemResult", "合格",
+                "measuredValue", "合格", "judgement", "PASS"));
+        freeze();
+        var batches = stubWindow(size);
+        var receipt = spy(receipts.selectByIdAndTenantId(8101L, 1L));
+        when(receipts.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(receipt));
+        var reader = adapter();
+        var expectedPerson = reader.readCatalogs(batches);
+        long singleCategorySnapshotReads = snapshotReads(receipt);
+        assertTrue(singleCategorySnapshotReads > 0);
+        clearInvocations(receipt, origins, receipts, links, events, records, reviews, applications, releases);
+
+        var result = reader.readCatalogs(batches, java.util.EnumSet.of(Category.PERSON, Category.EQUIPMENT, Category.MATERIAL));
+
+        assertEquals(3, result.size());
+        result.values().forEach(catalogs -> assertEquals(size, catalogs.size()));
+        assertEquals(JSON.toJSONString(expectedPerson), JSON.toJSONString(result.get(Category.PERSON)));
+        assertEquals(singleCategorySnapshotReads, snapshotReads(receipt), "additional categories must reuse the verified parsed snapshot");
+        verify(origins).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(receipts).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(links).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(events).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(records).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(reviews).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        verify(applications).selectListByBatchExecutionIds(anyCollection());
+        verify(releases).selectListByBatchExecutionIds(anyCollection());
+
+        receipt.setFormalSourceSnapshotJson("{}");
+        assertTrue(assertThrows(IllegalStateException.class, () -> reader.readCatalogs(batches,
+                java.util.EnumSet.of(Category.PERSON, Category.EQUIPMENT, Category.MATERIAL)))
+                .getMessage().contains("SOURCE_CONFLICT"), "a later call must revalidate the receipt");
+    }
+
+    private static long snapshotReads(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
+        return mockingDetails(receipt).getInvocations().stream()
+                .filter(invocation -> invocation.getMethod().getName().equals("getFormalSourceSnapshotJson")).count();
+    }
+
+    @Test
+    void multiCategoryWindowDoesNotSkipTailBatchWithBrokenOrigin() {
+        var batches = stubWindow(128);
+        var rows = origins.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrBatchExecutionOriginDO>());
+        rows.get(127).setCompletionBackfillReceiptHash("corrupt");
+        var failure = assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches,
+                java.util.EnumSet.of(Category.PERSON, Category.EQUIPMENT, Category.MATERIAL)));
+        assertTrue(failure.getMessage().contains("SOURCE_CONFLICT"));
+        assertTrue(failure.getMessage().contains("batch=9128"));
+    }
+
+    @Test
+    void multiCategoryWindowDoesNotSkipTailReceiptWithBadSnapshotHash() {
+        var batches = stubWindow(128);
+        var original = receipts.selectByIdAndTenantId(8101L, 1L);
+        var tailReceipt = new MesProcessPoolActiveOrderCompletionReceiptDO();
+        org.springframework.beans.BeanUtils.copyProperties(original, tailReceipt);
+        tailReceipt.setId(8102L);
+        tailReceipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(tailReceipt));
+        var rows = origins.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrBatchExecutionOriginDO>());
+        rows.get(127).setCompletionBackfillReceiptId(8102L).setCompletionBackfillReceiptHash(tailReceipt.getReceiptHash());
+        tailReceipt.setFormalSourceSnapshotJson("{}");
+        when(receipts.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(original, tailReceipt));
+        var failure = assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches,
+                java.util.EnumSet.of(Category.PERSON, Category.EQUIPMENT, Category.MATERIAL)));
+        assertTrue(failure.getMessage().contains("SOURCE_CONFLICT"));
+        assertTrue(failure.getMessage().contains("batch=9128"));
+    }
+
+    @Test
+    void multiCategoryWindowStillRequiresExactPqcReview() {
+        var batches = stubWindow(128);
+        when(reviews.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+        assertTrue(assertThrows(IllegalStateException.class, () -> adapter().readCatalogs(batches,
+                java.util.EnumSet.of(Category.PERSON, Category.EQUIPMENT, Category.MATERIAL)))
+                .getMessage().contains("SOURCE_MISSING"));
+    }
+
+    private List<MesProEdhrBatchExecutionDO> stubWindow(int size) {
+        var receipt = receipts.selectByIdAndTenantId(8101L, 1L);
+        var original = origins.selectListByBatchExecutionId(9001L).get(0);
+        List<MesProEdhrBatchExecutionDO> batches = new ArrayList<>();
+        List<MesProEdhrBatchExecutionOriginDO> rows = new ArrayList<>();
+        for (int index = 0; index < size; index++) {
+            batches.add(new MesProEdhrBatchExecutionDO().setId(9001L + index).setTenantId(1L)
+                    .setWorkOrderId(1001L).setRouteId(2001L).setRouteVersionId(2002L));
+            rows.add(new MesProEdhrBatchExecutionOriginDO().setBatchExecutionId(9001L + index).setTenantId(1L)
+                    .setActiveOrderId(6001L).setWorkOrderId(1001L).setCompletionVersion(1)
+                    .setCompletionBackfillReceiptId(8101L).setCompletionBackfillReceiptHash(original.getCompletionBackfillReceiptHash())
+                    .setSourceSnapshotHash(original.getSourceSnapshotHash()));
+        }
+        when(origins.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(rows);
+        when(receipts.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(receipt));
+        when(links.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+        when(events.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(event));
+        when(records.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(record));
+        when(reviews.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(review));
+        when(applications.selectListByBatchExecutionIds(anyCollection())).thenReturn(List.of());
+        when(releases.selectListByBatchExecutionIds(anyCollection())).thenReturn(List.of());
+        clearInvocations(origins, receipts, links, events, records, reviews, applications, releases);
+        return batches;
+    }
+
     private MesProEdhrFormalReverseTraceAdapter adapter() {
         return new MesProEdhrFormalReverseTraceAdapter(Category.PERSON, null, origins, links, null, null, null,
                 events, records, reviews, applications, releases, receipts);
@@ -355,7 +565,16 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
                 "pqcTasks", List.of(Map.of("id", 8001L, "tenantId", 1L, "activeOrderId", 6001L,
                         "workOrderId", 1001L, "routeId", 2001L, "routeVersionId", 2002L,
                         "routeProcessId", 3001L, "processId", 4001L, "qaProcessId", 7101L, "submittedEventId", 5101L)),
-                "pqcDetails", details));
+                "pqcDetails", details, "pickListBindingItems", List.of()));
+        if (independentQaTask) {
+            var frozen = JSON.parseObject(json);
+            for (Object value : frozen.getJSONArray("pqcTasks")) {
+                var task = (JSONObject) value;
+                task.remove("routeProcessId");
+                task.remove("processId");
+            }
+            json = frozen.toJSONString();
+        }
         var receipt = new MesProcessPoolActiveOrderCompletionReceiptDO().setId(8101L).setActiveOrderId(6001L)
                 .setWorkOrderId(1001L).setRouteId(2001L).setRouteVersionId(2002L).setCompletedVersion(1)
                 .setFormalSourceSnapshotJson(json).setLossConditionFactsJson("[]")

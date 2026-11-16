@@ -43,7 +43,7 @@ assertIncludes(
 assertIncludes(component, 'overflow: hidden;', 'no page scrollbar overflow')
 assertIncludes(
   component,
-  'grid-template-columns: 220px minmax(0, 1fr) 260px;',
+  'grid-template-columns: 220px minmax(0, 1fr) var(--detail-panel-width);',
   'single-screen process and relation panels'
 )
 assertIncludes(

@@ -1,14 +1,27 @@
 <template>
   <div class="hall-list-table">
-    <div class="hall-list-table__toolbar">
-      <el-input
-        v-model="keyword"
-        class="hall-list-table__search"
-        clearable
-        placeholder="搜索展柜名称 / 编码"
-        @keyup.enter="emitSearch"
-      />
-      <div class="hall-list-table__actions">
+    <UnifiedListTemplate
+      @query="emitSearch"
+      @reset="resetSearch"
+      :query-loading="loading"
+      table-key="showroom.hall.main"
+      :rows="filteredHalls"
+      :columns="listFilterColumns0"
+      :column-filter-definitions="hallAudioFilters"
+      :show-column-settings="false"
+    >
+      <template #filters>
+        <div>
+          <el-input
+            v-model="keyword"
+            class="hall-list-table__search"
+            clearable
+            placeholder="搜索展柜名称 / 编码"
+            @keyup.enter="emitSearch"
+          />
+        </div>
+      </template>
+      <template #actions>
         <el-button type="primary" @click="emit('create')">
           <Icon icon="ep:plus" class="mr-5px" />
           新增展柜
@@ -49,92 +62,88 @@
           <Icon icon="ep:microphone" class="mr-5px" />
           一键语音
         </el-button>
-        <el-button :loading="loading" @click="emitSearch">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetSearch">
-          <Icon icon="ep:refresh-left" class="mr-5px" />
-          重置
-        </el-button>
-      </div>
-    </div>
-
-    <div class="hall-list-table__body">
-      <el-table
-        v-loading="loading"
-        :data="filteredHalls"
-        row-key="hallId"
-        class="hall-list-table__grid"
-        empty-text="暂无展柜数据"
-      >
-        <el-table-column label="展柜名称" min-width="180" prop="name" show-overflow-tooltip />
-        <el-table-column label="英文名称" min-width="180" prop="nameEn" show-overflow-tooltip />
-        <el-table-column label="展柜编码" width="160" prop="hallCode" show-overflow-tooltip />
-        <el-table-column label="描述" min-width="240" prop="description" show-overflow-tooltip />
-        <el-table-column label="展项数量" width="112" prop="productCount" />
-        <el-table-column label="中文语音" min-width="220">
-          <template #default="{ row }">
-            <audio
-              v-if="hasReadyAudio(row.zhNarration)"
-              class="hall-list-table__audio"
-              controls
-              preload="none"
-              :src="row.zhNarration.audioUrl"
-            ></audio>
-            <span v-else class="hall-list-table__audio-empty">未生成</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="英文语音" min-width="220">
-          <template #default="{ row }">
-            <audio
-              v-if="hasReadyAudio(row.enNarration)"
-              class="hall-list-table__audio"
-              controls
-              preload="none"
-              :src="row.enNarration.audioUrl"
-            ></audio>
-            <span v-else class="hall-list-table__audio-empty">未生成</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" width="408">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="emit('edit', row)">编辑</el-button>
-            <el-button link type="primary" @click="emit('open-canvas', row)">画布布局</el-button>
-            <el-button
-              class="hall-list-table__mapping-action"
-              link
-              type="primary"
-              @click="emit('open-mapping', row)"
-            >
-              维护展项
-            </el-button>
-            <el-button
-              :disabled="!canGenerateAudio || batchGeneratingAudio"
-              :loading="generatingAudioHallId === row.hallId"
-              link
-              type="primary"
-              @click="emit('generateAudio', row)"
-            >
-              语音
-            </el-button>
-            <el-button
-              :loading="publishingPreviewHallId === row.hallId"
-              link
-              type="primary"
-              @click="emit('publishPreviewAsset', row)"
-            >
-              发布预览图
-            </el-button>
-            <el-button link type="danger" @click="emit('delete', row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+      </template>
+      <template #table="{ rows: standardRows }">
+        <el-table
+          stripe
+          border
+          v-loading="loading"
+          :data="standardRows"
+          row-key="hallId"
+          class="hall-list-table__grid"
+          empty-text="暂无展柜数据"
+        >
+          <el-table-column label="展柜名称" min-width="180" prop="name" show-overflow-tooltip />
+          <el-table-column label="英文名称" min-width="180" prop="nameEn" show-overflow-tooltip />
+          <el-table-column label="展柜编码" width="160" prop="hallCode" show-overflow-tooltip />
+          <el-table-column label="描述" min-width="240" prop="description" show-overflow-tooltip />
+          <el-table-column label="展项数量" width="112" prop="productCount" />
+          <el-table-column label="中文语音" min-width="220">
+            <template #default="{ row }">
+              <audio
+                v-if="hasReadyAudio(row.zhNarration)"
+                class="hall-list-table__audio"
+                controls
+                preload="none"
+                :src="row.zhNarration.audioUrl"
+              ></audio>
+              <span v-else class="hall-list-table__audio-empty">未生成</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="英文语音" min-width="220">
+            <template #default="{ row }">
+              <audio
+                v-if="hasReadyAudio(row.enNarration)"
+                class="hall-list-table__audio"
+                controls
+                preload="none"
+                :src="row.enNarration.audioUrl"
+              ></audio>
+              <span v-else class="hall-list-table__audio-empty">未生成</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" fixed="right" width="408">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="emit('edit', row)">编辑</el-button>
+              <el-button link type="primary" @click="emit('open-canvas', row)">画布布局</el-button>
+              <el-button
+                class="hall-list-table__mapping-action"
+                link
+                type="primary"
+                @click="emit('open-mapping', row)"
+              >
+                维护展项
+              </el-button>
+              <el-button
+                :disabled="!canGenerateAudio || batchGeneratingAudio"
+                :loading="generatingAudioHallId === row.hallId"
+                link
+                type="primary"
+                @click="emit('generateAudio', row)"
+              >
+                语音
+              </el-button>
+              <el-button
+                :loading="publishingPreviewHallId === row.hallId"
+                link
+                type="primary"
+                @click="emit('publishPreviewAsset', row)"
+              >
+                发布预览图
+              </el-button>
+              <el-button link type="danger" @click="emit('delete', row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 defineOptions({ name: 'HallListTable' })
 
 type RawHallRow = Record<string, unknown>
@@ -373,6 +382,68 @@ const resetSearch = () => {
 const hasReadyAudio = (narration: HallNarrationSummary | null) => {
   return Boolean(narration?.audioReady && narration.audioUrl)
 }
+
+
+
+const listFilterColumns0 = [
+  {
+    key: 'name',
+    label: '展柜名称',
+    visible: true
+  },
+  {
+    key: 'nameEn',
+    label: '英文名称',
+    visible: true
+  },
+  {
+    key: 'hallCode',
+    label: '展柜编码',
+    visible: true
+  },
+  {
+    key: 'description',
+    label: '描述',
+    visible: true
+  },
+  {
+    key: 'productCount',
+    label: '展项数量',
+    visible: true
+  },
+  {
+    key: 'displayColumn5',
+    label: '中文语音',
+    visible: true
+  },
+  {
+    key: 'displayColumn6',
+    label: '英文语音',
+    visible: true
+  }
+]
+const hallAudioFilters: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn5',
+    label: '中文语音',
+    type: 'select',
+    options: [
+      { label: '已生成', value: true },
+      { label: '未生成', value: false }
+    ],
+    getValue: (row) => hasReadyAudio(row.zhNarration)
+  },
+  {
+    key: 'displayColumn6',
+    label: '英文语音',
+    type: 'select',
+    options: [
+      { label: '已生成', value: true },
+      { label: '未生成', value: false }
+    ],
+    getValue: (row) => hasReadyAudio(row.enNarration)
+  }
+]
 </script>
 
 <style scoped>

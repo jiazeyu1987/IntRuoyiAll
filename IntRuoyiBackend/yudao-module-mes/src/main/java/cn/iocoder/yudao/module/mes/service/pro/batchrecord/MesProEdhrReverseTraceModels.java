@@ -205,6 +205,7 @@ public final class MesProEdhrReverseTraceModels {
         private String resultType;
         private String judgement;
         private Integer standardPrecision;
+        private Map<String, String> sourceContext;
         private Map<String, String> qualifiers;
         private List<String> allowedOperators = new ArrayList<>();
         private List<String> allowedValues = new ArrayList<>();

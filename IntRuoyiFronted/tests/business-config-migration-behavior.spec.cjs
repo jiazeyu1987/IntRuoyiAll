@@ -252,6 +252,31 @@ const erpHarness = bindings => component(erpFile, {
   ...bindings
 }, 'loadJobs, handleSave, form, jobsLoaded, jobsByHandlerName, loadLatestRuns, loadRunningSyncRuns, latestRuns, latestRunsLoaded, latestRunsError, runningSyncRuns, runningRunsLoaded, runningRunsError, formatLatestSyncStatus, waitForSubmittedRun, syncTypes, selectedSyncTypes, handleRunOnce, toDailyCronExpression')
 
+test('ERP remembers changed daily time across stopped tasks and reloads persisted cron', async () => {
+  const jobs = new Map()
+  const h = erpHarness({ JobApi: {
+    getJobPage: async ({ handlerName }) => {
+      if (!jobs.has(handlerName)) jobs.set(handlerName, { id: jobs.size + 1, handlerName, status: 2, cronExpression: '0 0 2 * * ?' })
+      return { list: [{ ...jobs.get(handlerName) }] }
+    },
+    updateJobStatus: async (id, status) => { [...jobs.values()].find(job => job.id === id).status = status },
+    updateJob: async data => {
+      const job = [...jobs.values()].find(job => job.id === data.id)
+      assert.equal(job.status, 1)
+      Object.assign(job, data)
+    }
+  }, ErpKingdeeSyncApi: {} })
+  assert.equal(h.instance.form.dailyStartTime, '02:00:00')
+  await h.instance.loadJobs()
+  h.instance.form.dailyStartTime = '03:15:20'
+  await h.instance.handleSave()
+  assert.equal(h.instance.form.dailyStartTime, '03:15:20')
+  assert.ok([...jobs.values()].every(job => job.status === 2 && job.cronExpression === '20 15 3 * * ?'))
+  await h.instance.loadJobs()
+  assert.equal(h.instance.form.dailyStartTime, '03:15:20')
+  assert.match(read(erpFile), /增量执行一次/)
+})
+
 test('ERP rejected run facts invalidate old facts and fail polling rather than reporting absent runs', async () => {
   for (const message of ['denied', 'timeout']) {
     const h = erpHarness({ JobApi: {}, ErpKingdeeSyncApi: { getRunPage: async () => { throw new Error(message) } } })
@@ -273,16 +298,16 @@ test('ERP rejected run facts invalidate old facts and fail polling rather than r
   }
 })
 
-test('ERP only loads consistent strict daily cron and blocks invalid or unknown schedules before any Job write', async () => {
+test('ERP offers 02:00 for mixed schedules and blocks invalid times before any Job write', async () => {
   for (const crons of [['0 0 2 * * MON'], ['0 0 2 * * ?', '0 0 3 * * ?'], ['0 0 24 * * ?'], ['0 60 0 * * ?']]) {
     let index = 0, writes = 0
     const h = erpHarness({ JobApi: {
       getJobPage: async query => ({ list: [{ id: ++index, handlerName: query.handlerName, status: 1, cronExpression: crons[(index-1)%crons.length] }] }),
       updateJob: async () => { writes++ }, updateJobStatus: async () => { writes++ }
     }, ErpKingdeeSyncApi: {} })
-    await assert.rejects(h.instance.loadJobs(), /合法且一致/)
-    h.instance.form.dailyStartTime = '02:00:00'; await h.instance.handleSave()
-    assert.equal(h.instance.jobsLoaded.value, false); assert.equal(writes, 0)
+    await h.instance.loadJobs()
+    assert.equal(h.instance.form.dailyStartTime, '02:00:00')
+    assert.equal(h.instance.jobsLoaded.value, true); assert.equal(writes, 0)
   }
   const h = erpHarness({ JobApi: { updateJob: async () => assert.fail('invalid time writes') }, ErpKingdeeSyncApi: {} })
   h.instance.jobsLoaded.value = true
@@ -293,7 +318,7 @@ test('ERP only loads consistent strict daily cron and blocks invalid or unknown 
 })
 
 
-test('ERP valid uniform source loads exactly and a changed incompatible source blocks save without writes', async () => {
+test('ERP loads exact daily cron and explicitly saves over an independent schedule', async () => {
   let cron = '5 4 3 * * ?', writes = 0
   const h = erpHarness({ JobApi: {
     getJobPage: async query => ({ list: [{ id: 7, handlerName: query.handlerName, status: 1, cronExpression: cron }] }),
@@ -304,7 +329,7 @@ test('ERP valid uniform source loads exactly and a changed incompatible source b
   assert.equal(h.instance.form.dailyStartTime, '03:04:05')
   cron = '0 0 2 * * MON'
   await h.instance.handleSave()
-  assert.equal(writes, 0, 'write-time fresh source facts must still satisfy the unchanged contract')
+  assert.equal(writes, 10, 'explicit save unifies independent task schedules')
 })
 
 
@@ -323,7 +348,7 @@ test('MES only treats real cancel/close actions silently; other confirmation rej
   }
 })
 
-test('ERP manual once preserves selected types despite incompatible schedules; save still writes no jobs', async () => {
+test('ERP manual once runs incremental selection without writing schedules', async () => {
   for (const mode of ['weekly', 'different', 'unselected-weekly']) {
     const submitted = [], messages = [], writes = []
     let selectedHandler
@@ -341,9 +366,9 @@ test('ERP manual once preserves selected types despite incompatible schedules; s
     await h.instance.handleRunOnce()
     assert.deepEqual(submitted, [selected.syncType]); assert.equal(writes.length, 0)
     assert.ok(messages.some(([kind, text]) => kind === 'success' && text.includes('已提交')))
-    assert.ok(messages.some(([kind, text]) => kind === 'error' && text.includes('任务已提交，但')))
+    assert.equal(messages.some(([kind]) => kind === 'error'), false)
     assert.equal(messages.some(([, text]) => text.includes('立即执行一次失败')), false)
     h.instance.jobsLoaded.value = true; h.instance.form.dailyStartTime = '02:00:00'
-    await h.instance.handleSave(); assert.equal(writes.length, 0)
+    await h.instance.handleSave(); assert.ok(writes.length > 0)
   }
 })

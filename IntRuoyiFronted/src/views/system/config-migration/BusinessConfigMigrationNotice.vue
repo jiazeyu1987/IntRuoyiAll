@@ -6,9 +6,6 @@
     show-icon
   />
   <div class="config-migration-links">
-    <el-button v-if="canMes" @click="configRouter.push({ name: 'MesEdhrGlobalConfig' })"
-      >MES · eDHR配置（记录本 / 放行资料）</el-button
-    >
     <el-button v-if="canErp" @click="configRouter.push({ name: 'ErpTableAutoSyncConfig' })"
       >ERP · 自动同步配置</el-button
     >
@@ -20,7 +17,7 @@
     >
   </div>
   <el-alert
-    v-if="!canMes && !canErp && !canDcc && !canInfra"
+    v-if="!canErp && !canDcc && !canInfra"
     title="当前账号没有业务配置查看权限。"
     type="warning"
     :closable="false"
@@ -30,13 +27,11 @@
 const configRouter = useRouter()
 import { useTestMode } from '@/store/modules/testMode'
 import {
-  GOLDEN_FINGER_PERMISSION,
   hasExplicitConfigPermission,
   hasInfraConfigPermission,
   hasErpConfigCapability
 } from '@/utils/businessConfigAccess'
 const testMode = useTestMode()
-const canMes = computed(() => testMode.value && hasExplicitConfigPermission(GOLDEN_FINGER_PERMISSION))
 const canErp = computed(() => testMode.value && hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']))
 const canDcc = computed(() =>
   testMode.value && hasExplicitConfigPermission('dcc:registration-certificate:config:query')

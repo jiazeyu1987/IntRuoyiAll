@@ -14,6 +14,11 @@ public interface MesKingdeeBomListService {
 
     MesKingdeeBomListSyncResult syncAllSkipExisting();
 
+    MesKingdeeBomListSyncResult syncAllSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd);
+
     int syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
+
+
+    int syncByCode(String code);
 
 }

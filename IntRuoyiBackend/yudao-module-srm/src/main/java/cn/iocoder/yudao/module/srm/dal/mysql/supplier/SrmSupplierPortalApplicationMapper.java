@@ -51,13 +51,18 @@ public interface SrmSupplierPortalApplicationMapper extends BaseMapperX<SrmSuppl
                                                                            Collection<String> applicationStatuses,
                                                                            Long userId, Long auditBy,
                                                                            String keyword) {
+        return selectList(unifiedApprovalQuery(tenantId, applicationStatuses, userId, auditBy, keyword)
+                .orderByDesc(SrmSupplierPortalApplicationDO::getSubmittedTime)
+                .orderByDesc(SrmSupplierPortalApplicationDO::getId));
+    }
+
+    default LambdaQueryWrapperX<SrmSupplierPortalApplicationDO> unifiedApprovalQuery(Long tenantId,
+            Collection<String> applicationStatuses, Long userId, Long auditBy, String keyword) {
         LambdaQueryWrapperX<SrmSupplierPortalApplicationDO> query = new LambdaQueryWrapperX<SrmSupplierPortalApplicationDO>()
                 .eq(SrmSupplierPortalApplicationDO::getTenantId, tenantId)
                 .inIfPresent(SrmSupplierPortalApplicationDO::getApplicationStatus, applicationStatuses)
                 .eqIfPresent(SrmSupplierPortalApplicationDO::getUserId, userId)
-                .eqIfPresent(SrmSupplierPortalApplicationDO::getAuditBy, auditBy)
-                .orderByDesc(SrmSupplierPortalApplicationDO::getSubmittedTime)
-                .orderByDesc(SrmSupplierPortalApplicationDO::getId);
+                .eqIfPresent(SrmSupplierPortalApplicationDO::getAuditBy, auditBy);
         if (StrUtil.isNotBlank(keyword)) {
             String value = keyword.trim();
             query.and(wrapper -> wrapper.like(SrmSupplierPortalApplicationDO::getCompanyName, value)
@@ -65,6 +70,6 @@ public interface SrmSupplierPortalApplicationMapper extends BaseMapperX<SrmSuppl
                     .or().like(SrmSupplierPortalApplicationDO::getContactName, value)
                     .or().like(SrmSupplierPortalApplicationDO::getContactPhone, value));
         }
-        return selectList(query);
+        return query;
     }
 }

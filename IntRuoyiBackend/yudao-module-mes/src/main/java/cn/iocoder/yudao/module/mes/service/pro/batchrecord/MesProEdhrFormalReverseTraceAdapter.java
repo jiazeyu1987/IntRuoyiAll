@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -67,6 +68,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+    private final Window window;
     private final Category category;
     private final MesProBatchRecordExecutionMapper executionMapper;
     private final MesProEdhrBatchExecutionOriginMapper originMapper;
@@ -93,6 +95,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                                         MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
                                         MesProEdhrReleaseTransactionMapper releaseTransactionMapper,
                                         MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper) {
+        this.window = null;
         this.category = Objects.requireNonNull(category);
         this.executionMapper = executionMapper;
         this.originMapper = originMapper;
@@ -106,6 +109,168 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         this.releaseApplicationMapper = releaseApplicationMapper;
         this.releaseTransactionMapper = releaseTransactionMapper;
         this.completionReceiptMapper = completionReceiptMapper;
+    }
+
+    private MesProEdhrFormalReverseTraceAdapter(MesProEdhrFormalReverseTraceAdapter source, Window window, Category category) {
+        this.window = window;
+        this.category = category;
+        this.executionMapper = source.executionMapper;
+        this.originMapper = source.originMapper;
+        this.traceLinkMapper = source.traceLinkMapper;
+        this.taskMapper = source.taskMapper;
+        this.formValueMapper = source.formValueMapper;
+        this.fieldAuditMapper = source.fieldAuditMapper;
+        this.eventMapper = source.eventMapper;
+        this.pqcRecordMapper = source.pqcRecordMapper;
+        this.reviewMapper = source.reviewMapper;
+        this.releaseApplicationMapper = source.releaseApplicationMapper;
+        this.releaseTransactionMapper = source.releaseTransactionMapper;
+        this.completionReceiptMapper = source.completionReceiptMapper;
+    }
+
+    /** Request-local bounded read set. Never retained by the singleton adapter. */
+    private static final class Window {
+        final Map<Long, List<MesProEdhrBatchExecutionOriginDO>> origins = new LinkedHashMap<>();
+        final Map<Long, List<MesProEdhrBatchExecutionTraceLinkDO>> links = new LinkedHashMap<>();
+        final Map<Long, List<MesProcessPoolActiveOrderReleaseApplicationDO>> applications = new LinkedHashMap<>();
+        final Map<Long, MesProcessPoolActiveOrderCompletionReceiptDO> receipts = new LinkedHashMap<>();
+        final Map<Long, MesProEdhrReleaseTransactionDO> releases = new LinkedHashMap<>();
+        final Map<Long, MesProProcessPoolEventDO> events = new LinkedHashMap<>();
+        final Map<Long, MesProProcessPoolPqcRecordDO> records = new LinkedHashMap<>();
+        final Map<Long, MesProcessPoolSubmissionReviewDO> reviews = new LinkedHashMap<>();
+        final Map<Long, JSONObject> snapshots = new LinkedHashMap<>();
+    }
+
+    @Override
+    public Map<Long, CatalogResult> readCatalogs(List<MesProEdhrBatchExecutionDO> batches) {
+        return readCatalogs(batches, Set.of(category)).get(category);
+    }
+
+    @Override
+    public Map<Category, Map<Long, CatalogResult>> readCatalogs(
+            List<MesProEdhrBatchExecutionDO> batches, Set<Category> categories) {
+        Objects.requireNonNull(categories, "正式来源分类缺失");
+        if (categories.isEmpty()) return Map.of();
+        if (batches == null || batches.size() > 128) throw new IllegalArgumentException("正式来源窗口必须不超过128批次");
+        if (batches.isEmpty()) {
+            Map<Category, Map<Long, CatalogResult>> empty = new java.util.EnumMap<>(Category.class);
+            categories.forEach(item -> empty.put(item, Map.of()));
+            return empty;
+        }
+        if (categories.contains(Category.FIELD)) throw new IllegalArgumentException("字段目录不支持历史反查窗口");
+        if (batches.get(0) == null) throw sourceMissing("窗口批次身份缺失");
+        Long tenantId = batches.get(0).getTenantId();
+        if (tenantId == null) throw sourceMissing("批次租户身份缺失");
+        Window data = new Window();
+        for (var batch : batches) {
+            if (batch == null || batch.getId() == null || !Objects.equals(tenantId, batch.getTenantId())) {
+                throw sourceConflict("正式来源窗口批次或租户身份冲突");
+            }
+            if (data.origins.put(batch.getId(), new ArrayList<>()) != null) throw sourceConflict("窗口批次身份重复");
+            data.links.put(batch.getId(), new ArrayList<>());
+            data.applications.put(batch.getId(), new ArrayList<>());
+        }
+        Set<Long> batchIds = data.origins.keySet();
+        var origins = requireRows(originMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionOriginDO>()
+                .eq(MesProEdhrBatchExecutionOriginDO::getTenantId, tenantId)
+                .in(MesProEdhrBatchExecutionOriginDO::getBatchExecutionId, batchIds)
+                .orderByAsc(MesProEdhrBatchExecutionOriginDO::getId)));
+        Set<Long> receiptIds = new java.util.LinkedHashSet<>();
+        for (var origin : origins) {
+            checkWindowOwner(tenantId, origin.getTenantId(), batchIds, origin.getBatchExecutionId());
+            data.origins.get(origin.getBatchExecutionId()).add(origin);
+            if (origin.getCompletionBackfillReceiptId() != null) receiptIds.add(origin.getCompletionBackfillReceiptId());
+        }
+        if (!receiptIds.isEmpty()) {
+            for (var receipt : requireRows(completionReceiptMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                    .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getTenantId, tenantId)
+                    .in(MesProcessPoolActiveOrderCompletionReceiptDO::getId, receiptIds)))) {
+                checkWindowOwner(tenantId, receipt.getTenantId(), receiptIds, receipt.getId());
+                if (data.receipts.put(receipt.getId(), receipt) != null) throw sourceConflict("完工回执身份重复");
+            }
+        }
+        if (categories.contains(Category.PERSON) || categories.contains(Category.EQUIPMENT) || categories.contains(Category.PARAMETER)) {
+            for (var link : requireRows(traceLinkMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionTraceLinkDO>()
+                    .eq(MesProEdhrBatchExecutionTraceLinkDO::getTenantId, tenantId)
+                    .in(MesProEdhrBatchExecutionTraceLinkDO::getBatchExecutionId, batchIds)
+                    .orderByAsc(MesProEdhrBatchExecutionTraceLinkDO::getId)))) {
+                checkWindowOwner(tenantId, link.getTenantId(), batchIds, link.getBatchExecutionId());
+                data.links.get(link.getBatchExecutionId()).add(link);
+            }
+        }
+        MesProEdhrFormalReverseTraceAdapter reader = new MesProEdhrFormalReverseTraceAdapter(this, data, Category.PERSON);
+        if (categories.contains(Category.PERSON)) {
+            Set<Long> eventIds = new java.util.LinkedHashSet<>();
+            Set<Long> reviewIds = new java.util.LinkedHashSet<>();
+            for (var batch : batches) {
+                try {
+                    JSONObject snapshot = reader.readFormalSnapshot(batch);
+                    Object rawDetails = snapshot.get("pqcDetails");
+                    if (!(rawDetails instanceof Collection<?>)) throw sourceMissing("正式PQC快照明细缺失");
+                    for (var detail : snapshotRows(rawDetails)) {
+                        if (detail.getLong("eventId") != null) eventIds.add(detail.getLong("eventId"));
+                        reviewIds.add(exactPqcReviewId(detail.get("reviewId")));
+                    }
+                } catch (IllegalStateException exception) { throw batchFailure(batch, exception); }
+            }
+            if (!eventIds.isEmpty()) {
+                for (var event : requireRows(eventMapper.selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                        .eq(MesProProcessPoolEventDO::getTenantId, tenantId).in(MesProProcessPoolEventDO::getId, eventIds)))) {
+                    checkWindowOwner(tenantId, event.getTenantId(), eventIds, event.getId());
+                    if (data.events.put(event.getId(), event) != null) throw sourceConflict("PQC事件身份重复");
+                }
+                for (var record : requireRows(pqcRecordMapper.selectList(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
+                        .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId).in(MesProProcessPoolPqcRecordDO::getEventId, eventIds)))) {
+                    checkWindowOwner(tenantId, record.getTenantId(), eventIds, record.getEventId());
+                    if (data.records.put(record.getEventId(), record) != null) throw sourceConflict("PQC事件对应记录冲突");
+                }
+            }
+            if (!reviewIds.isEmpty()) {
+                for (var review : requireRows(reviewMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolSubmissionReviewDO>()
+                        .eq(MesProcessPoolSubmissionReviewDO::getTenantId, tenantId).in(MesProcessPoolSubmissionReviewDO::getId, reviewIds)))) {
+                    checkWindowOwner(tenantId, review.getTenantId(), reviewIds, review.getId());
+                    if (data.reviews.put(review.getId(), review) != null) throw sourceConflict("PQC复核身份重复");
+                }
+            }
+            for (var application : requireRows(releaseApplicationMapper.selectListByBatchExecutionIds(batchIds))) {
+                checkWindowOwner(tenantId, application.getTenantId(), batchIds, application.getBatchExecutionId());
+                data.applications.get(application.getBatchExecutionId()).add(application);
+            }
+            for (var release : requireRows(releaseTransactionMapper.selectListByBatchExecutionIds(batchIds))) {
+                // ReleaseTransactionDO exposes no tenant column; the existing mapper uses tenant interception.
+                if (!batchIds.contains(release.getBatchExecutionId())) throw sourceConflict("上市放行窗口批次归属冲突");
+                // Same latest-id semantics as selectByBatchExecutionId.
+                data.releases.putIfAbsent(release.getBatchExecutionId(), release);
+            }
+        }
+        Map<Category, Map<Long, CatalogResult>> results = new java.util.EnumMap<>(Category.class);
+        for (Category requestedCategory : categories) {
+            var categoryReader = new MesProEdhrFormalReverseTraceAdapter(this, data, requestedCategory);
+            Map<Long, CatalogResult> catalogs = new LinkedHashMap<>();
+            for (var batch : batches) {
+                try { catalogs.put(batch.getId(), categoryReader.readCatalog(batch)); }
+                catch (IllegalStateException exception) { throw batchFailure(batch, exception); }
+            }
+            results.put(requestedCategory, catalogs);
+        }
+        return results;
+    }
+
+    private static IllegalStateException batchFailure(MesProEdhrBatchExecutionDO batch, IllegalStateException cause) {
+        return new IllegalStateException(cause.getMessage() + " [batch=" + batch.getId() + ", code=" + batch.getBatchCode() + "]", cause);
+    }
+
+    private static <T> List<T> requireRows(List<T> rows) {
+        if (rows == null || rows.stream().anyMatch(Objects::isNull)) throw sourceMissing("正式来源窗口未完整读取");
+        return rows;
+    }
+
+    private static void checkWindowOwner(Long tenantId, Long actualTenantId, Set<Long> ids, Long actualId) {
+        if (!Objects.equals(tenantId, actualTenantId) || !ids.contains(actualId)) throw sourceConflict("正式来源窗口归属冲突");
+    }
+
+    private MesProcessPoolActiveOrderCompletionReceiptDO readReceipt(Long id, Long tenantId) {
+        return window == null ? completionReceiptMapper.selectByIdAndTenantId(id, tenantId) : window.receipts.get(id);
     }
 
     @Override public Category category() { return category; }
@@ -469,7 +634,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                 }
             }
         }
-        List<MesProEdhrBatchExecutionTraceLinkDO> links = traceLinkMapper.selectListByBatchExecutionId(batch.getId());
+        List<MesProEdhrBatchExecutionTraceLinkDO> links = window == null ? traceLinkMapper.selectListByBatchExecutionId(batch.getId()) : window.links.get(batch.getId());
         if (links == null) throw sourceMissing("正式追溯清单读取失败");
         List<MesProEdhrBatchExecutionTraceLinkDO> productionLinks = links.stream()
                 .filter(link -> "PRODUCTION_SUBMIT".equals(link.getLinkType())).toList();
@@ -489,7 +654,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
             } else {
                 // The formal producer writes a receipt witness here, not an event ID.
                 var origin = resolveOrigin(batch);
-                var receipt = completionReceiptMapper.selectByIdAndTenantId(origin.getCompletionBackfillReceiptId(), batch.getTenantId());
+                var receipt = readReceipt(origin.getCompletionBackfillReceiptId(), batch.getTenantId());
                 JSONObject witness = parseJsonObject(link.getSnapshotJson(), "生产提交回执见证");
                 if (!"PRODUCTION_SUBMIT".equals(witness.getString("sourceType"))
                         || !Objects.equals(receipt.getBatchRecordId(), link.getSourceObjectId())
@@ -735,10 +900,10 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                 continue;
             }
 
-            MesProProcessPoolEventDO event = eventMapper.selectById(eventId);
+            MesProProcessPoolEventDO event = window == null ? eventMapper.selectById(eventId) : window.events.get(eventId);
             if (event == null) throw sourceMissing("正式PQC提交事件未完整读取");
             validateFormalPqcEvent(event, targetTenantId, targetWorkOrderId, targetRouteId, taskId, task);
-            MesProProcessPoolPqcRecordDO pqcRecord = pqcRecordMapper.selectByEventId(eventId);
+            MesProProcessPoolPqcRecordDO pqcRecord = window == null ? pqcRecordMapper.selectByEventId(eventId) : window.records.get(eventId);
             if (pqcRecord == null) throw sourceMissing("正式PQC记录未完整读取");
             validateFormalPqcRecord(pqcRecord, recordId, event, targetTenantId, targetWorkOrderId, targetRouteId, task);
             MesProcessPoolSubmissionReviewDO review = readFormalPqcReview(reviewId, eventId, targetTenantId);
@@ -778,7 +943,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
     private MesProcessPoolSubmissionReviewDO readFormalPqcReview(Long reviewId, Long eventId, Long tenantId) {
         // PQC reviews are terminal records; corrections re-aggregate with this same review ID.
         // Never substitute a latest review or collect all reviews of the event.
-        MesProcessPoolSubmissionReviewDO review = reviewMapper.selectById(reviewId);
+        MesProcessPoolSubmissionReviewDO review = window == null ? reviewMapper.selectById(reviewId) : window.reviews.get(reviewId);
         if (review == null || review.getLeaderUserId() == null || review.getReviewedAt() == null
                 || review.getReviewSignatureId() == null || review.getReviewSignatureUserId() == null
                 || StrUtil.isBlank(review.getReviewSignatureSnapshotJson())) {
@@ -811,7 +976,6 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                 || !Objects.equals(task.getLong("workOrderId"), targetWorkOrderId)
                 || !Objects.equals(task.getLong("routeId"), targetRouteId)
                 || !Objects.equals(task.getLong("routeVersionId"), routeVersionId)
-                || task.getLong("routeProcessId") == null || task.getLong("processId") == null
                 || task.getLong("qaProcessId") == null
                 || !Objects.equals(task.getLong("submittedEventId"), eventId)) {
             throw sourceConflict("正式PQC任务与批次或提交事件身份不一致");
@@ -880,8 +1044,8 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                             review.getReviewSignatureUserId(), "FLOW-04", "PRODUCTION_REVIEW_SIGNATURE", "review:" + review.getId(), review.getReviewedAt()));
                 }
             }
-        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications = releaseApplicationMapper
-                .selectListByBatchExecutionIds(List.of(batch.getId()));
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications = window == null ? releaseApplicationMapper
+                .selectListByBatchExecutionIds(List.of(batch.getId())) : window.applications.get(batch.getId());
         if (applications == null) throw sourceMissing("放行申请人员来源未完整读取");
         for (MesProcessPoolActiveOrderReleaseApplicationDO application : applications) {
             if (application.getPqcDecidedBy() != null) {
@@ -893,7 +1057,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                         application.getAppliedBy(), "FLOW-07", "PQC_RELEASE_APPLICATION", "release-application:" + application.getId(), application.getAppliedAt()));
             }
         }
-        MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        MesProEdhrReleaseTransactionDO transaction = window == null ? releaseTransactionMapper.selectByBatchExecutionId(batch.getId()) : window.releases.get(batch.getId());
         if (transaction != null) {
             if (transaction.getSubmittedBy() != null) {
                 facts.add(fact("PERSON:SYSTEM_USER:LISTING_RELEASE_SUBMIT:" + transaction.getSubmittedBy(), "上市放行提交人",
@@ -987,7 +1151,8 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
             if (StrUtil.isBlank(materialNumber) || StrUtil.isBlank(lotNumber)) throw sourceMissing("正式领料明细物料或批号缺失");
             facts.add(fact("MATERIAL:" + materialNumber + ":" + lotNumber, item.getString("materialName"), lotNumber,
                     "FLOW-07", "FORMAL_MATERIAL_LOT", "pick-list-item-snapshot:" + item.getString("id"),
-                    parseTime(item.getString("sourceModifyTime"))));
+                    parseTime(item.getString("sourceModifyTime")), SOURCE_VIEW, Map.of(),
+                    Map.of("materialNumber", materialNumber, "lotNumber", lotNumber)));
         }
         return facts;
     }
@@ -1022,7 +1187,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                      .setSelectedEquipmentName(row.getString("selectedEquipmentName"))
                      .setSelectedEquipmentNumber(row.getString("selectedEquipmentNumber"))
                      .setAggregatedAt(parseTime(row.getString("aggregatedAt")));
-            if (detail.getId() == null || detail.getRegulationVersionId() == null || detail.getSampleNo() == null || detail.getRouteProcessId() == null
+            if (detail.getId() == null || detail.getRegulationVersionId() == null || detail.getSampleNo() == null
                     || StrUtil.isBlank(detail.getItemCode()) || StrUtil.isBlank(detail.getResultType())) throw sourceMissing("正式PQC明细身份或类型缺失");
             if (StrUtil.hasBlank(detail.getItemResult(), detail.getMeasuredValue(), detail.getJudgement())) {
                 throw sourceMissing("正式PQC结果值缺失");
@@ -1052,6 +1217,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         putQualifier(context, "equipmentNamespace", "PRODUCTION");
         putQualifier(context, "deviceId", device.getLong("deviceId") == null ? null : String.valueOf(device.getLong("deviceId")));
         putQualifier(context, "deviceCode", device.getString("deviceCode"));
+        putQualifier(context, "deviceName", device.getString("deviceName"));
         putQualifier(context, "materialId", materialId);
         return context;
     }
@@ -1059,6 +1225,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
     private Map<String, String> pqcEquipmentContext(MesPqcProcessInspectionAggregateDetailDO detail) {
         Map<String, String> context = new LinkedHashMap<>(pqcQualifiers(detail));
         putQualifier(context, "equipmentNamespace", "PQC");
+        putQualifier(context, "selectedEquipmentName", detail.getSelectedEquipmentName());
         return context;
     }
 
@@ -1078,6 +1245,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         if (batch == null || batch.getId() == null || batch.getTenantId() == null || batch.getWorkOrderId() == null) {
             throw sourceMissing("批次或租户身份缺失");
         }
+        if (window != null && window.snapshots.containsKey(batch.getId())) return window.snapshots.get(batch.getId());
         MesProEdhrBatchExecutionOriginDO origin = resolveOrigin(batch);
         if (origin == null || origin.getCompletionBackfillReceiptId() == null) {
             throw sourceMissing("完工正式来源回执缺失");
@@ -1088,10 +1256,11 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         if (!Objects.equals(origin.getWorkOrderId(), batch.getWorkOrderId())) {
             throw sourceConflict("完工正式来源工单身份冲突");
         }
-        MesProcessPoolActiveOrderCompletionReceiptDO receipt = completionReceiptMapper
-                .selectByIdAndTenantId(origin.getCompletionBackfillReceiptId(), batch.getTenantId());
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = readReceipt(origin.getCompletionBackfillReceiptId(), batch.getTenantId());
         MesProEdhrReverseTraceReceiptValidator.validate(batch, origin, receipt);
-        return parseJsonObject(receipt.getFormalSourceSnapshotJson(), "完工正式来源快照JSON");
+        JSONObject snapshot = parseJsonObject(receipt.getFormalSourceSnapshotJson(), "完工正式来源快照JSON");
+        if (window != null) window.snapshots.put(batch.getId(), snapshot);
+        return snapshot;
     }
 
     private static JSONObject requiredSnapshotObject(JSONObject snapshot, String key, String missingMessage) {
@@ -1161,7 +1330,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
     }
 
     private MesProEdhrBatchExecutionOriginDO resolveOrigin(MesProEdhrBatchExecutionDO batch) {
-        List<MesProEdhrBatchExecutionOriginDO> origins = originMapper.selectListByBatchExecutionId(batch.getId());
+        List<MesProEdhrBatchExecutionOriginDO> origins = window == null ? originMapper.selectListByBatchExecutionId(batch.getId()) : window.origins.get(batch.getId());
         if (origins == null) {
             throw new IllegalStateException("SOURCE_MISSING: 批次正式来源查询返回空结果");
         }
@@ -1206,6 +1375,7 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         CatalogItem item = new CatalogItem().setEvidenceKey(evidenceKey).setCategory(category).setSourceView(sourceView)
                 .setSourceRef(sourceRef).setSemanticIdentity(evidenceKey).setLabel(label).setValueType(value instanceof Number ? "number" : "string")
                 .setSavedValue(savedValue).setRecordedAt(recordedAt).setRecordStatus("RECORDED")
+                .setSourceContext(sourceContext == null ? Map.of() : Map.copyOf(sourceContext))
                 .setQualifiers(qualifiers == null ? Map.of() : Map.copyOf(qualifiers))
                 .setAllowedOperators(category == Category.INSPECTION
                         ? List.of("EQ", "NE", "GT", "GE", "LT", "LE", "BETWEEN", "JUDGEMENT_EQ")

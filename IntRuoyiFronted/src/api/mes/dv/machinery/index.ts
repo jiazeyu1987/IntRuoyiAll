@@ -41,6 +41,10 @@ export const DvMachineryApi = {
     return await request.delete({ url: `/mes/dv/machinery/delete?id=` + id })
   },
 
+  deleteAllWithWorkshops: async () => {
+    return await request.delete({ url: '/mes/dv/machinery/delete-all-with-workshops' })
+  },
+
   exportMachinery: async (params: any) => {
     return await request.download({ url: `/mes/dv/machinery/export-excel`, params })
   },

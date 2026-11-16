@@ -17,7 +17,7 @@ class MesEdhrWorkTaskOverdueJobTest {
         MesProEdhrWorkTaskService workTaskService = mock(MesProEdhrWorkTaskService.class);
         when(workTaskService.processOverdueTasksWithSummary(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(200)))
                 .thenReturn(new MesProEdhrWorkTaskOverdueProcessResult(5, 3, 2, "CONCURRENT_STATUS_CHANGED"));
-        MesEdhrWorkTaskOverdueJob job = new MesEdhrWorkTaskOverdueJob(workTaskService);
+        MesEdhrWorkTaskOverdueJob job = new MesEdhrWorkTaskOverdueJob(workTaskService, mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOverdueService.class));
 
         String output = job.execute("");
 
@@ -31,7 +31,7 @@ class MesEdhrWorkTaskOverdueJobTest {
     @Test
     void execute_shouldFailFastWhenLimitParamInvalid() {
         MesProEdhrWorkTaskService workTaskService = mock(MesProEdhrWorkTaskService.class);
-        MesEdhrWorkTaskOverdueJob job = new MesEdhrWorkTaskOverdueJob(workTaskService);
+        MesEdhrWorkTaskOverdueJob job = new MesEdhrWorkTaskOverdueJob(workTaskService, mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOverdueService.class));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> job.execute("{\"limit\":0}"));

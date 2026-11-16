@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Task: YT-GW-001 showroom cover
 
 ## Goal
@@ -23,6 +25,6 @@ Completed.
 
 ## Final Verification
 
-- Generated PNG exists at `C:\Users\BJB110\.codex\generated_images\019e4b73-68e0-7830-80ad-48c6d61e9045\ig_0f3c8559c9aaebdb016a0f38612d0c8196ba1eb3037db04b46.png`.
+- Generated PNG exists at `历史外部材料（引用已移除）`.
 - Verified dimensions: `1254x1254`.
 - Generation used one native image generation call.

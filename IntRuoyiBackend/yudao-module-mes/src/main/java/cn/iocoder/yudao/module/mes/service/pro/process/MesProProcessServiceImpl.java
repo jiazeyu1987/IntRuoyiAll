@@ -112,7 +112,7 @@ public class MesProProcessServiceImpl implements MesProProcessService {
     public Long createProcess(MesProProcessCreateReqVO createReqVO) {
         MesProProcessDO process = BeanUtils.toBean(createReqVO, MesProProcessDO.class);
         process.setId(null);
-        return processCreationService.create(process);
+        return processCreationService.create(process, createReqVO.getProjectId());
     }
 
     @Override

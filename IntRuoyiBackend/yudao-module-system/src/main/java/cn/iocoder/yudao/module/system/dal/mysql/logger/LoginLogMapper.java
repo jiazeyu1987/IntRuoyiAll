@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.system.dal.mysql.logger;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
+
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.controller.admin.logger.vo.loginlog.LoginLogPageReqVO;
@@ -22,7 +25,15 @@ public interface LoginLogMapper extends BaseMapperX<LoginLogDO> {
             query.gt(LoginLogDO::getResult, LoginResultEnum.SUCCESS.getResult());
         }
         query.orderByDesc(LoginLogDO::getId); // 降序
-        return selectPage(reqVO, query);
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, query, java.util.Map.ofEntries(
+                java.util.Map.entry("id", number("id")),
+                java.util.Map.entry("username", text("username")),
+                java.util.Map.entry("userIp", text("user_ip")),
+                java.util.Map.entry("userAgent", text("user_agent")),
+                java.util.Map.entry("createTime", dateTime("create_time")),
+                java.util.Map.entry("logType", number("log_type")),
+                java.util.Map.entry("result", number("result"))
+        )));
     }
 
 }

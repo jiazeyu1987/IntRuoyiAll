@@ -51,6 +51,22 @@ public class ErpProductController {
     @Resource
     private ErpKingdeeProductSyncService kingdeeProductSyncService;
 
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.product.ErpProductImportService productImportService;
+
+    @GetMapping("/import-template")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public void importTemplate(HttpServletResponse response) throws IOException {
+        ExcelUtils.write(response, "物料导入模板.xls", "数据", ErpProductRespVO.class, java.util.Collections.emptyList());
+    }
+
+    @PostMapping("/import")
+    @Operation(summary = "导入物料（仅新增，整批事务）")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public CommonResult<Integer> importProducts(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws IOException {
+        return success(productImportService.importProducts(ExcelUtils.read(file, ErpProductRespVO.class)));
+    }
+
     @PostMapping("/create")
     @Operation(summary = "创建产品")
     @PreAuthorize("@ss.hasPermission('erp:product:create')")
@@ -91,15 +107,42 @@ public class ErpProductController {
         return success(productService.getProductVOPage(pageReqVO));
     }
 
+    @GetMapping("/simple-page")
+    @Operation(summary = "分页搜索启用产品下拉选项")
+    public CommonResult<PageResult<ErpProductRespVO>> getProductSimplePage(@Valid ErpProductPageReqVO reqVO) {
+        if (PageParam.PAGE_SIZE_NONE.equals(reqVO.getPageSize())) {
+            throw new IllegalArgumentException("产品选项必须分页查询");
+        }
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        PageResult<ErpProductRespVO> page = productService.getProductVOPage(reqVO);
+        return success(new PageResult<>(convertList(page.getList(), ErpProductController::simpleProduct), page.getTotal()));
+    }
+
+    @GetMapping("/simple-by-ids")
+    @Operation(summary = "按编号回显已选产品")
+    public CommonResult<List<ErpProductRespVO>> getProductSimpleByIds(
+            @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 100) List<Long> ids) {
+        // Existing documents may reference a product disabled after the document was saved.
+        // ID hydration preserves that saved reference; the search page still selects enabled products only.
+        List<ErpProductRespVO> products = productService.getProductVOList(ids);
+        if (products.size() != ids.stream().distinct().count()) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("已选产品不存在或已删除");
+        }
+        return success(convertList(products, ErpProductController::simpleProduct));
+    }
+
     @GetMapping("/simple-list")
     @Operation(summary = "获得产品精简列表", description = "只包含被开启的产品，主要用于前端的下拉选项")
     public CommonResult<List<ErpProductRespVO>> getProductSimpleList() {
         List<ErpProductRespVO> list = productService.getProductVOListByStatus(CommonStatusEnum.ENABLE.getStatus());
-        return success(convertList(list, product -> new ErpProductRespVO().setId(product.getId())
-                .setName(product.getName()).setBarCode(product.getBarCode())
+        return success(convertList(list, ErpProductController::simpleProduct));
+    }
+
+    private static ErpProductRespVO simpleProduct(ErpProductRespVO product) {
+        return new ErpProductRespVO().setId(product.getId()).setName(product.getName()).setBarCode(product.getBarCode())
                 .setCategoryId(product.getCategoryId()).setCategoryName(product.getCategoryName())
                 .setUnitId(product.getUnitId()).setUnitName(product.getUnitName())
-                .setPurchasePrice(product.getPurchasePrice()).setSalePrice(product.getSalePrice()).setMinPrice(product.getMinPrice())));
+                .setPurchasePrice(product.getPurchasePrice()).setSalePrice(product.getSalePrice()).setMinPrice(product.getMinPrice());
     }
 
     @GetMapping("/export-excel")

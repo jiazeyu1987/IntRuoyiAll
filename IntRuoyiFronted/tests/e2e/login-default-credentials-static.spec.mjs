@@ -37,14 +37,14 @@ assert.deepEqual(
   [],
   '.env must not define default login username or password'
 )
-assert.match(env, /^VITE_APP_DEFAULT_LOGIN_TENANT\s*=/m, '.env may keep a default tenant selector')
+assert.doesNotMatch(loginForm, /VITE_APP_DEFAULT_LOGIN_TENANT/, 'login must restore the last tenant instead of a build-time default')
 assert.doesNotMatch(
   auth,
   /OldDefaultTestTenantName|loginForm\.tenantName\s*===\s*OldDefaultTestTenantName/,
   'legacy default credential cleanup must not depend on one tenant only'
 )
-assert.match(
+assert.doesNotMatch(
   auth,
   /isLegacyDefaultLoginForm/,
-  'auth cache cleanup must explicitly remove legacy default credentials'
+  'saved usernames must not be discarded based on their value'
 )

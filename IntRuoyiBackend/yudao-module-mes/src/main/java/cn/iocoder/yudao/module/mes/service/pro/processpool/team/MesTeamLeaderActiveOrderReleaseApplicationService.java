@@ -9,4 +9,7 @@ public interface MesTeamLeaderActiveOrderReleaseApplicationService {
 
     MesTeamLeaderActiveOrderReleaseApplicationResult applyGenerated(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command);
+
+    MesTeamLeaderActiveOrderReleaseApplicationResult applyCorrection(Long leaderUserId,
+            MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId, Long batchExecutionId);
 }

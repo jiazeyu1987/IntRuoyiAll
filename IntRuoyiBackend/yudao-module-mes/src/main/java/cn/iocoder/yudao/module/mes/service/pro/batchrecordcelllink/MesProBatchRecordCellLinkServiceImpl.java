@@ -1640,8 +1640,6 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return switch (StrUtil.trim(inspectionType)) {
             case "FIRST" -> "首检";
             case "PATROL" -> "巡检";
-            case "PATROL_AM" -> "上午巡检";
-            case "PATROL_PM" -> "下午巡检";
             case "FINAL" -> "末检";
             default -> StrUtil.trim(inspectionType);
         };

@@ -45,6 +45,7 @@ class DccApprovalPositionControllerTest extends BaseMockitoUnitTest {
         assertEquals(21L, result.getData().get(0).getId());
         assertEquals("Document Control Reviewer", result.getData().get(0).getName());
         assertEquals("INTAUTH-21", result.getData().get(0).getCode());
+        assertEquals(List.of("USER", "POST", "DIRECT_SUPERVISOR", "DEPT_LEADER"), result.getData().get(0).getSupportedAssignmentTypes());
     }
 
     @Test
@@ -60,5 +61,11 @@ class DccApprovalPositionControllerTest extends BaseMockitoUnitTest {
         assertEquals(3, result.getData().getAdoptedCount());
         assertEquals(1, result.getData().getUpdatedCount());
         assertEquals(1, result.getData().getDisabledCount());
+    }
+
+    @Test
+    void relationshipCapabilitiesAreAdvertisedByTheBackendResponse() {
+        assertEquals(List.of("USER", "POST", "DIRECT_SUPERVISOR", "DEPT_LEADER"),
+                new DccApprovalPositionRespVO().getSupportedAssignmentTypes());
     }
 }

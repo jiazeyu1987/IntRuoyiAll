@@ -10,6 +10,8 @@ public interface ApprovalCenterService {
 
     PageResult<ApprovalTaskSummary> getTaskPage(Long loginUserId, ApprovalTaskQuery query);
 
+    long getTodoCount(Long loginUserId);
+
     List<ApprovalTaskTimelineEntry> listTaskTimeline(Long loginUserId, ApprovalTaskTimelineQuery query);
 
     void reviewTask(Long loginUserId, ApprovalTaskReviewCommand command);

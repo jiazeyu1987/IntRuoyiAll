@@ -38,8 +38,8 @@ const businessConfigRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           noCache: true,
-          title: '自动同步配置',
-          activeMenu: '/erp/sync/config'
+          title: 'ERP配置',
+          activeMenu: '/erp/kingdee-sync'
         }
       }
     ]

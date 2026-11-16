@@ -1,16 +1,5 @@
 <template>
   <div class="qa-regulation-page" data-qa-regulation-page>
-    <ContentWrap class="qa-regulation-page__workspace-tabs-wrap">
-      <el-tabs
-        v-model="regulationWorkspaceTab"
-        class="qa-regulation-page__workspace-tabs"
-        data-qa-regulation-workspace-tabs
-      >
-        <el-tab-pane label="QA检验规程" name="qa" data-qa-regulation-qa-workspace-tab />
-        <el-tab-pane label="通用检验规程" name="common" data-qa-regulation-common-workspace-tab />
-      </el-tabs>
-    </ContentWrap>
-
     <ContentWrap
       v-show="regulationWorkspaceTab === 'qa'"
       class="qa-regulation-page__project-wrap"
@@ -33,6 +22,7 @@
                 remote-show-suffix
                 reserve-keyword
                 :loading="dccProjectCodeOptionsLoading"
+                :disabled="qaRegulationPublishing || qaRegulationSaving"
                 :remote-method="loadDccProjectCodeOptions"
                 placeholder="请选择 DCC 项目代码"
                 class="qa-regulation-page__project-select !w-100%"
@@ -114,7 +104,12 @@
               size="small"
               filterable
               :loading="qaRegulationVersionOptionsLoading"
-              :disabled="!selectedDccProjectCode || qaRegulationVersionOptionsLoading"
+              :disabled="
+                !selectedDccProjectCode ||
+                qaRegulationVersionOptionsLoading ||
+                qaRegulationPublishing ||
+                qaRegulationSaving
+              "
               placeholder="请选择版本"
               class="qa-regulation-page__version-input"
               data-qa-regulation-version-dropdown
@@ -129,6 +124,16 @@
                 <span>{{ formatQaRegulationVersionOption(version) }}</span>
               </el-option>
             </el-select>
+          </label>
+          <label v-if="!selectedQaRegulationVersionId" class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">新版本号</span>
+            <el-input
+              v-model="qaRegulationDraft.versionNo"
+              aria-label="新规程版本号"
+              size="small"
+              :disabled="qaRegulationSaving || qaRegulationPublishing"
+              class="qa-regulation-page__version-input"
+            />
           </label>
           <label class="qa-regulation-page__header-field">
             <span class="qa-regulation-page__header-field-label">生效日期</span>
@@ -185,8 +190,9 @@
             <Icon icon="ep:document" class="mr-4px" />
             解析
           </el-button>
-          <el-button class="app-test-button"
-          v-if="testModeEnabled"
+          <el-button
+            class="app-test-button"
+            v-if="testModeEnabled"
             type="danger"
             plain
             data-qa-regulation-test-reset
@@ -217,6 +223,7 @@
     </ContentWrap>
 
     <ContentWrap
+      v-if="commonRegulationActiveTab !== 'published'"
       v-show="regulationWorkspaceTab === 'common'"
       class="qa-regulation-page__project-wrap"
       data-qa-common-layout-header
@@ -476,7 +483,7 @@
         >
           <el-tab-pane label="总览" name="overview" />
           <el-tab-pane label="检验项目" name="items" />
-          <el-tab-pane label="任务预览" name="verification" />
+          <el-tab-pane label="关联" name="association" />
         </el-tabs>
       </ContentWrap>
 
@@ -486,13 +493,20 @@
           class="qa-regulation-page__tabs qa-regulation-page__tabs--flat"
           data-qa-common-detail-tabs
         >
+          <el-tab-pane label="已发布规程" name="published" />
           <el-tab-pane label="总览" name="overview" />
           <el-tab-pane label="检验项目" name="items" />
           <el-tab-pane label="版本记录" name="versions" />
         </el-tabs>
       </ContentWrap>
 
+      <CommonRegulationLibrary
+        v-if="regulationWorkspaceTab === 'common' && commonRegulationActiveTab === 'published'"
+        @manage-sets="commonRegulationActiveTab = 'overview'"
+      />
+
       <ContentWrap
+        v-if="commonRegulationActiveTab !== 'published'"
         v-show="regulationWorkspaceTab === 'common'"
         v-loading="commonRegulationVersionOptionsLoading || commonRegulationSetLoading"
         data-qa-regulation-common-workspace
@@ -503,16 +517,13 @@
               <div class="qa-regulation-page__overview-stack">
                 <el-card
                   shadow="never"
-                  class="qa-regulation-page__overview-card qa-regulation-page__common-binding-card"
-                  data-qa-common-overview-summary
+                  class="qa-regulation-page__overview-card"
+                  data-qa-common-overview-actions
                 >
                   <template #header>
                     <div class="qa-regulation-page__common-binding-head">
                       <div>
                         <strong>通用规程套信息</strong>
-                        <p class="qa-regulation-page__common-binding-subtitle">
-                          维护可复用的通用检验规程套，供产品 QA 规程引用已发布套版本。
-                        </p>
                       </div>
                       <el-tag
                         data-qa-common-overview-status
@@ -531,97 +542,47 @@
                       </el-tag>
                     </div>
                   </template>
-                  <el-empty
-                    v-if="!selectedCommonRegulationSet"
-                    description="请选择一个通用规程套后查看总览"
-                    :image-size="72"
-                  />
-                  <template v-else>
-                    <div class="qa-regulation-page__common-grid">
-                      <div class="qa-regulation-page__common-field" data-qa-common-overview-current>
-                        <span class="qa-regulation-page__common-label">当前规程套</span>
-                        <strong class="qa-regulation-page__common-value">
-                          {{ selectedCommonRegulationSet.setName }}
-                        </strong>
-                      </div>
-                      <div class="qa-regulation-page__common-field" data-qa-common-overview-version>
-                        <span class="qa-regulation-page__common-label">所选版本</span>
-                        <strong class="qa-regulation-page__common-value">
-                          {{ selectedCommonRegulationSetVersionPreview?.versionNo || '未选择版本' }}
-                        </strong>
-                      </div>
-                      <div
-                        class="qa-regulation-page__common-field qa-regulation-page__common-field--control"
-                        data-qa-common-overview-version-select
-                      >
-                        <span class="qa-regulation-page__common-label">版本预览</span>
-                        <el-select
-                          v-model="selectedCommonRegulationSetVersionPreviewId"
-                          class="!w-100%"
-                          filterable
-                          placeholder="请选择版本"
-                          data-qa-common-overview-version-dropdown
-                          @change="handleCommonRegulationVersionChange"
-                        >
-                          <el-option
-                            v-for="version in selectedCommonRegulationSet?.versions || []"
-                            :key="version.id"
-                            :label="`${version.versionNo} / ${resolveQaRegulationLifecycleStatusText(version.lifecycleStatus)}`"
-                            :value="version.id"
-                          />
-                        </el-select>
-                      </div>
-                      <div class="qa-regulation-page__common-field" data-qa-common-overview-compose>
-                        <span class="qa-regulation-page__common-label">规程组成</span>
-                        <strong class="qa-regulation-page__common-value">
-                          {{ commonRegulationOverviewComposeText }}
-                        </strong>
-                      </div>
-                    </div>
-                    <div class="qa-regulation-page__common-actions">
-                      <el-button
-                        plain
-                        data-qa-common-overview-refresh
-                        :loading="commonRegulationSetLoading"
-                        @click="reloadCommonRegulationSets"
-                      >
-                        刷新
-                      </el-button>
-                      <el-button
-                        type="primary"
-                        plain
-                        data-qa-common-set-create
-                        @click="openCommonRegulationSetDialog()"
-                      >
-                        新增套
-                      </el-button>
-                      <el-button
-                        plain
-                        data-qa-common-overview-version-create
-                        @click="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)"
-                      >
-                        新增版本
-                      </el-button>
-                      <el-button
-                        plain
-                        data-qa-common-overview-edit
-                        @click="openCommonRegulationSetDialog(selectedCommonRegulationSet)"
-                      >
-                        编辑规程套
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        plain
-                        data-qa-common-overview-delete
-                        @click="
-                          selectedCommonRegulationSet &&
-                          deleteCommonRegulationSet(selectedCommonRegulationSet)
-                        "
-                      >
-                        删除
-                      </el-button>
-                    </div>
-                  </template>
+                  <div class="qa-regulation-page__common-actions !mt-0">
+                    <el-button
+                      type="primary"
+                      plain
+                      data-qa-common-set-create
+                      @click="openCommonRegulationSetDialog()"
+                    >
+                      新增套
+                    </el-button>
+                    <el-button
+                      plain
+                      data-qa-common-overview-version-create
+                      :disabled="!selectedCommonRegulationSet"
+                      @click="
+                        selectedCommonRegulationSet &&
+                        openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)
+                      "
+                    >
+                      新增版本
+                    </el-button>
+                    <el-button
+                      plain
+                      data-qa-common-overview-edit
+                      :disabled="!selectedCommonRegulationSet"
+                      @click="openCommonRegulationSetDialog(selectedCommonRegulationSet)"
+                    >
+                      编辑规程套
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      plain
+                      data-qa-common-overview-delete
+                      :disabled="!selectedCommonRegulationSet"
+                      @click="
+                        selectedCommonRegulationSet &&
+                        deleteCommonRegulationSet(selectedCommonRegulationSet)
+                      "
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </el-card>
 
                 <el-card
@@ -632,7 +593,7 @@
                   <template #header>规程信息</template>
                   <el-empty
                     v-if="!selectedCommonRegulationSet"
-                    description="请选择一个通用规程套后查看规程信息"
+                    description="请选择通用规程套；暂无规程套时，点击上方“新增套”，再新增版本并添加已发布的 Word 规程"
                     :image-size="72"
                   />
                   <el-form
@@ -668,19 +629,6 @@
                     </div>
                   </el-form>
                 </el-card>
-
-                <el-card
-                  shadow="never"
-                  class="qa-regulation-page__overview-card qa-regulation-page__overview-note"
-                  data-qa-common-overview-note
-                >
-                  <template #header>备注</template>
-                  <ol class="qa-regulation-page__overview-note-list">
-                    <li>这里维护的是可复用的通用检验规程主档；</li>
-                    <li>产品绑定关系应绑定到正式产品与已发布版本；</li>
-                    <li>不按产品名称或代际文本推断通用规程套版本。</li>
-                  </ol>
-                </el-card>
               </div>
             </div>
 
@@ -696,106 +644,116 @@
                 :image-size="72"
               />
               <template v-else>
-                <div class="qa-regulation-page__common-set-detail-head">
-                  <div class="qa-regulation-page__common-set-detail-title">
-                    <strong>套版本</strong>
-                    <span>{{ selectedCommonRegulationSet.setName }}</span>
-                    <el-tag effect="plain">{{ selectedCommonRegulationSet.setCode }}</el-tag>
-                  </div>
-                  <el-button
-                    type="primary"
-                    plain
-                    data-qa-common-set-version-create
-                    @click="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)"
-                  >
-                    <Icon class="mr-5px" icon="ep:plus" />
-                    新增套版本
-                  </el-button>
-                </div>
-                <el-table
-                  :data="selectedCommonRegulationSet.versions || []"
-                  row-key="id"
-                  border
-                  stripe
-                  highlight-current-row
-                  :current-row-key="selectedCommonRegulationSetVersionPreviewId"
-                  empty-text="该套暂无版本"
-                  max-height="320"
-                  data-qa-common-set-version-table
-                  @row-click="selectCommonRegulationSetVersion"
+                <UnifiedListTemplate
+                  table-key="mes.qa.commonRegulation.versions"
+                  :rows="selectedCommonRegulationSet.versions || []"
+                  class="unified-list-template--contained"
+                  data-list-viewport="embedded"
+                  :columns="listFilterColumns0"
+                  :show-column-settings="false"
+                  :column-filter-definitions="[
+                    ...listColumnFilterDefinitions0,
+                    ...allColumnDisplayFilters0
+                  ]"
                 >
-                  <el-table-column label="套版本" prop="versionNo" width="120">
-                    <template #default="{ row }">
-                      <div class="qa-regulation-page__common-set-version-cell">
-                        <strong>{{ row.versionNo }}</strong>
-                        <el-tag
-                          v-if="
-                            Number(row.id) === Number(selectedCommonRegulationSet.currentVersionId)
-                          "
-                          size="small"
-                          type="success"
-                          effect="plain"
-                        >
-                          当前
-                        </el-tag>
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="状态" width="100" align="center">
-                    <template #default="{ row }">
-                      <el-tag
-                        :type="resolveQaRegulationLifecycleStatusTagType(row.lifecycleStatus)"
-                        effect="plain"
+                  <template #actions>
+                    <el-button
+                      type="primary"
+                      plain
+                      data-qa-common-set-version-create
+                      @click="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)"
+                    >
+                      <Icon class="mr-5px" icon="ep:plus" />
+                      新增套版本
+                    </el-button>
+                  </template>
+                  <template #table="{ rows: standardRows }">
+                    <el-table
+                      :data="standardRows"
+                      row-key="id"
+                      border
+                      stripe
+                      highlight-current-row
+                      :current-row-key="selectedCommonRegulationSetVersionPreviewId"
+                      empty-text="该套暂无版本"
+                      data-qa-common-set-version-table
+                      @row-click="selectCommonRegulationSetVersion"
+                    >
+                      <el-table-column label="套版本" prop="versionNo" width="120">
+                        <template #default="{ row }">
+                          <div class="qa-regulation-page__common-set-version-cell">
+                            <strong>{{ row.versionNo }}</strong>
+                            <el-tag
+                              v-if="
+                                Number(row.id) ===
+                                Number(selectedCommonRegulationSet.currentVersionId)
+                              "
+                              size="small"
+                              type="success"
+                              effect="plain"
+                            >
+                              当前
+                            </el-tag>
+                          </div>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="状态" width="100" align="center">
+                        <template #default="{ row }">
+                          <el-tag
+                            :type="resolveQaRegulationLifecycleStatusTagType(row.lifecycleStatus)"
+                            effect="plain"
+                          >
+                            {{ resolveQaRegulationLifecycleStatusText(row.lifecycleStatus) }}
+                          </el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        label="生效日期"
+                        prop="effectiveDate"
+                        width="130"
+                        align="center"
+                      />
+                      <el-table-column label="成员数" width="100" align="center">
+                        <template #default="{ row }">{{ row.members?.length || 0 }}</template>
+                      </el-table-column>
+                      <el-table-column label="包含规程" min-width="320" show-overflow-tooltip>
+                        <template #default="{ row }">
+                          {{
+                            row.members?.map((member) => member.commonRegulationName).join('、') ||
+                            '未配置'
+                          }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        label="操作"
+                        width="160"
+                        :fixed="isCommonRegulationSetWideViewport ? 'right' : false"
+                        align="center"
                       >
-                        {{ resolveQaRegulationLifecycleStatusText(row.lifecycleStatus) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    label="生效日期"
-                    prop="effectiveDate"
-                    width="130"
-                    align="center"
-                  />
-                  <el-table-column label="成员数" width="100" align="center">
-                    <template #default="{ row }">{{ row.members?.length || 0 }}</template>
-                  </el-table-column>
-                  <el-table-column label="包含规程" min-width="320" show-overflow-tooltip>
-                    <template #default="{ row }">
-                      {{
-                        row.members?.map((member) => member.commonRegulationName).join('、') ||
-                        '未配置'
-                      }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    label="操作"
-                    width="160"
-                    :fixed="isCommonRegulationSetWideViewport ? 'right' : false"
-                    align="center"
-                  >
-                    <template #default="{ row }">
-                      <el-button
-                        link
-                        type="primary"
-                        :disabled="!canEditCommonSetVersion(row)"
-                        @click.stop="
-                          openCommonRegulationSetVersionDialog(selectedCommonRegulationSet, row)
-                        "
-                      >
-                        编辑
-                      </el-button>
-                      <el-button
-                        link
-                        type="danger"
-                        :disabled="!canEditCommonSetVersion(row)"
-                        @click.stop="deleteCommonRegulationSetVersion(row)"
-                      >
-                        删除
-                      </el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
+                        <template #default="{ row }">
+                          <el-button
+                            link
+                            type="primary"
+                            :disabled="!canEditCommonSetVersion(row)"
+                            @click.stop="
+                              openCommonRegulationSetVersionDialog(selectedCommonRegulationSet, row)
+                            "
+                          >
+                            编辑
+                          </el-button>
+                          <el-button
+                            link
+                            type="danger"
+                            :disabled="!canEditCommonSetVersion(row)"
+                            @click.stop="deleteCommonRegulationSetVersion(row)"
+                          >
+                            删除
+                          </el-button>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </template>
+                </UnifiedListTemplate>
               </template>
             </div>
 
@@ -820,37 +778,6 @@
                       </span>
                     </div>
                     <div class="qa-regulation-page__card-actions">
-                      <div
-                        class="qa-regulation-page__final-inspection-switch"
-                        data-qa-common-final-inspection-switch
-                      >
-                        <span class="qa-regulation-page__final-inspection-label">
-                          是否需要末检
-                        </span>
-                        <el-switch
-                          v-model="commonFinalInspectionRequired"
-                          active-text="需要"
-                          inactive-text="不需要"
-                        />
-                        <el-tag
-                          v-if="
-                            !commonFinalInspectionEdited &&
-                            ['MIXED', 'EMPTY'].includes(commonFinalInspectionSnapshot.state)
-                          "
-                          type="warning"
-                          effect="plain"
-                        >
-                          {{ commonFinalInspectionStatusText }}
-                        </el-tag>
-                        <el-input
-                          v-if="commonFinalInspectionReasonVisible"
-                          data-qa-common-final-not-applicable-reason
-                          v-model="commonFinalInspectionNotApplicableReason"
-                          placeholder="填写末检不适用的正式依据"
-                          clearable
-                          class="qa-regulation-page__final-inspection-reason"
-                        />
-                      </div>
                       <UserTableColumnSettings
                         :columns="qaItemsColumns"
                         :saving="qaItemsColumnSaving"
@@ -908,7 +835,25 @@
                   </div>
                 </div>
 
+                <el-form label-position="top">
+                  <el-form-item
+                    v-for="member in commonRegulationMembersWithoutFinal"
+                    :key="member.commonRegulationVersionId"
+                    :label="`${member.commonRegulationName}末检不适用依据`"
+                    required
+                  >
+                    <el-input
+                      v-model="commonMemberFinalInspectionReasons[member.commonRegulationVersionId]"
+                      type="textarea"
+                      :rows="2"
+                      :disabled="commonRegulationItemsSaving"
+                      placeholder="请填写原规程未设置末检的依据"
+                    />
+                  </el-form-item>
+                </el-form>
+
                 <UnifiedListTemplate
+                  single-line-toolbar
                   table-key="mes.qa.common-regulation.items.processMethods.v1"
                   :query-model="commonRegulationItemsQuery"
                   :filter-definitions="qaEmptyFilterDefinitions"
@@ -919,18 +864,25 @@
                   :columns="qaItemsColumns"
                   :column-saving="qaItemsColumnSaving"
                   :show-column-settings="false"
-                  :show-query-form="false"
+                  :show-query-form="true"
                   :total="commonRegulationItems.length"
                   v-model:page="commonRegulationItemsQuery.pageNo"
                   v-model:limit="commonRegulationItemsQuery.pageSize"
                   @column-change="saveQaItemsColumnConfig"
                   @column-reset="resetQaItemsColumnConfig"
+                  :filter-rows="commonRegulationItems"
+                  :column-filter-definitions="listColumnFilterDefinitions1"
                 >
                   <template
-                    #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+                    #table="{
+                      resolveRows,
+                      sortColumnAttrs,
+                      handleSortChange: handleTemplateSortChange
+                    }"
                   >
                     <el-table
-                      :data="pagedCommonRegulationItems"
+                      stripe
+                      :data="resolveRows(pagedCommonRegulationItems)"
                       row-key="rowKey"
                       border
                       size="small"
@@ -954,6 +906,14 @@
                             class="qa-regulation-page__process-name"
                             :disabled="commonRegulationItemsSaving"
                           />
+                          <el-switch
+:model-value="row.finalInspectionEnabled" active-text="末检"
+                            :aria-label="`${row.processName}需要末检`" :disabled="commonRegulationItemsSaving"
+                            @change="setProcessFinalInspection(row, Boolean($event), true)" />
+                          <el-input-number
+v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
+                            :aria-label="`${row.processName}末检数量`" :min="1" :precision="0" placeholder="末检数量"
+                            :disabled="commonRegulationItemsSaving" @change="setProcessFinalQuantity(row, $event, true)" />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -978,7 +938,10 @@
                         v-bind="sortColumnAttrs('itemCode')"
                       >
                         <template #default="{ row }">
-                          <el-input v-model="row.itemCode" :disabled="commonRegulationItemsSaving" />
+                          <el-input
+                            v-model="row.itemCode"
+                            :disabled="commonRegulationItemsSaving"
+                          />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -989,7 +952,10 @@
                         v-bind="sortColumnAttrs('itemName')"
                       >
                         <template #default="{ row }">
-                          <el-input v-model="row.itemName" :disabled="commonRegulationItemsSaving" />
+                          <el-input
+                            v-model="row.itemName"
+                            :disabled="commonRegulationItemsSaving"
+                          />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1073,18 +1039,9 @@
                               v-if="row.patrolInspectionEnabled"
                               class="qa-regulation-page__inspection-value"
                             >
-                              <span>AQL</span>
-                              <el-input-number
-                                v-model="row.patrolInspectionRatio"
-                                aria-label="巡检比例"
-                                :min="0.01"
-                                :max="100"
-                                :step="0.1"
-                                :precision="2"
-                                controls-position="right"
-                                :disabled="commonRegulationItemsSaving"
-                              />
-                              <span>%</span>
+
+                              <SamplingRuleEditor v-model:inspection-level="row.inspectionLevel" v-model:aql="row.aql" :disabled="commonRegulationItemsSaving" />
+
                             </div>
                           </div>
                         </template>
@@ -1199,6 +1156,16 @@
                               <Icon icon="ep:plus" class="mr-4px" />
                               新增设备
                             </el-button>
+                            <template v-if="!row.equipmentOptions.length && isNonSensoryTool(row.inspectionTool)">
+                              <el-input
+                                v-model="row.equipmentUnboundReason"
+                                type="textarea"
+                                aria-label="器具未绑定原因"
+                                placeholder="确认器具暂未绑定：请填写具体原因"
+                                :disabled="commonRegulationItemsSaving"
+                              />
+                              <p>{{ EQUIPMENT_UNBOUND_NOTICE }}</p>
+                            </template>
                             <span
                               v-if="qaMachineryOptionsLoadError"
                               class="qa-regulation-page__equipment-error"
@@ -1216,9 +1183,13 @@
                         v-bind="sortColumnAttrs('samplingPlan')"
                       >
                         <template #default="{ row }">
-                          <div class="qa-regulation-page__sampling-plan">
-                            {{ formatQaItemSamplingPlan(row) }}
-                          </div>
+                          <el-input
+                            v-model="row.samplingPlanText"
+                            type="textarea"
+                            aria-label="原抽样方案"
+                            :autosize="{ minRows: 2, maxRows: 6 }"
+                            :disabled="commonRegulationItemsSaving"
+                          />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1229,11 +1200,36 @@
                         v-bind="sortColumnAttrs('resultType')"
                       >
                         <template #default="{ row }">
-                          <el-select v-model="row.resultType" :disabled="commonRegulationItemsSaving">
+                          <el-select
+                            v-model="row.resultType"
+                            :disabled="commonRegulationItemsSaving"
+                          >
                             <el-option label="合格/不合格" value="BOOLEAN" />
                             <el-option label="数值" value="NUMERIC" />
                             <el-option label="文本" value="TEXT" />
                           </el-select>
+                          <template v-if="row.resultType === 'NUMERIC'">
+                            <label>
+                              <span>单位</span>
+                              <el-input
+                                v-model="row.standardUnit"
+                                aria-label="数值单位"
+                                :disabled="commonRegulationItemsSaving"
+                              />
+                            </label>
+                            <label>
+                              <span>小数位数</span>
+                              <el-input-number
+                                v-model="row.standardPrecision"
+                                aria-label="数值精度"
+                                :min="0"
+                                :max="8"
+                                :precision="0"
+                                :controls="false"
+                                :disabled="commonRegulationItemsSaving"
+                              />
+                            </label>
+                          </template>
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1304,7 +1300,10 @@
                         v-bind="sortColumnAttrs('critical')"
                       >
                         <template #default="{ row }">
-                          <el-checkbox v-model="row.critical" :disabled="commonRegulationItemsSaving">
+                          <el-checkbox
+                            v-model="row.critical"
+                            :disabled="commonRegulationItemsSaving"
+                          >
                             关键
                           </el-checkbox>
                         </template>
@@ -1317,7 +1316,10 @@
                         v-bind="sortColumnAttrs('failureRule')"
                       >
                         <template #default="{ row }">
-                          <el-input v-model="row.failureRule" :disabled="commonRegulationItemsSaving" />
+                          <el-input
+                            v-model="row.failureRule"
+                            :disabled="commonRegulationItemsSaving"
+                          />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1357,7 +1359,7 @@
 
       <ContentWrap
         v-show="
-          regulationWorkspaceTab === 'qa' && selectedDccProjectCode && qaActiveTab === 'overview'
+          regulationWorkspaceTab === 'qa' && selectedDccProjectCode && qaActiveTab === 'association'
         "
         v-loading="qaCurrentConfigurationLoading"
       >
@@ -1367,103 +1369,127 @@
             class="qa-regulation-page__overview-card qa-regulation-page__common-binding-card"
             data-qa-regulation-common-binding-control
           >
-            <template #header>
-              <div class="qa-regulation-page__common-binding-head">
-                <div>
-                  <strong>关联通用检验规程</strong>
-                  <p class="qa-regulation-page__common-binding-subtitle">
-                    当前产品 QA 规程维护专属检验内容，并引用一个已发布的通用规程套版本。
-                  </p>
-                </div>
-                <el-tag data-qa-regulation-common-binding-status type="info" effect="plain">
-                  {{ commonRegulationBindingStatusText }}
-                </el-tag>
-              </div>
-            </template>
-            <div class="qa-regulation-page__common-grid">
-              <div
-                class="qa-regulation-page__common-field"
-                data-qa-regulation-common-binding-current
-              >
-                <span class="qa-regulation-page__common-label">当前关联</span>
-                <strong class="qa-regulation-page__common-value">
-                  {{ commonRegulationBindingCurrentText }}
-                </strong>
-              </div>
-              <div class="qa-regulation-page__common-field" data-qa-regulation-common-binding-scope>
-                <span class="qa-regulation-page__common-label">引用范围</span>
-                <strong class="qa-regulation-page__common-value">
-                  {{ commonRegulationBindingScopeText }}
-                </strong>
-              </div>
-              <div
-                class="qa-regulation-page__common-field qa-regulation-page__common-field--control"
-                data-qa-regulation-common-binding-version
-              >
-                <span class="qa-regulation-page__common-label">绑定套版本</span>
-                <el-select
-                  v-model="selectedCommonRegulationSetVersionId"
-                  class="!w-100%"
-                  filterable
-                  :loading="commonRegulationVersionOptionsLoading"
-                  :disabled="commonRegulationBindingSaving"
-                  placeholder="请选择已发布通用规程套版本"
-                  data-qa-regulation-common-binding-version-select
-                >
-                  <el-option
-                    v-for="option in commonRegulationSetVersionOptions"
-                    :key="option.commonRegulationSetVersionId"
-                    :label="formatCommonRegulationSetVersionOption(option)"
-                    :value="option.commonRegulationSetVersionId"
-                  />
-                </el-select>
-              </div>
-              <div class="qa-regulation-page__common-field">
-                <span class="qa-regulation-page__common-label">一线 PQC 拼接方式</span>
-                <strong class="qa-regulation-page__common-value">
-                  产品专属工序 + 引用的通用包装工序
-                </strong>
-              </div>
-            </div>
             <el-alert
-              v-if="commonRegulationBindingLoadError"
+              v-if="commonRegulationBindingLoadError || commonRegulationVersionOptionsLoadError"
               class="qa-regulation-page__common-alert"
-              :title="commonRegulationBindingLoadError"
+              :title="commonRegulationBindingLoadError || commonRegulationVersionOptionsLoadError"
               type="error"
               :closable="false"
               show-icon
             />
+            <el-table
+              :data="commonRegulationBindingRows"
+              row-key="rowKey"
+              border
+              empty-text="暂无关联，点击下方新增"
+              data-qa-regulation-common-binding-list
+            >
+              <el-table-column type="index" label="序号" width="65" />
+              <el-table-column label="通用规程" min-width="360">
+                <template #default="{ row, $index }">
+                  <el-select
+                    v-model="row.commonRegulationVersionId"
+                    class="!w-100%"
+                    filterable
+                    :loading="commonRegulationVersionOptionsLoading"
+                    :disabled="
+                      !canEditCommonRegulationBindings ||
+                      qaRegulationPublishing ||
+                      qaRegulationSaving ||
+                      qaCurrentConfigurationLoading ||
+                      commonRegulationBindingLoading
+                    "
+                    placeholder="请选择已发布通用规程"
+                    :aria-label="`通用规程 ${$index + 1}`"
+                    data-qa-regulation-common-binding-version-select
+                    @change="(value) => changeCommonRegulationBindingRow(row, value)"
+                  >
+                    <el-option
+                      v-if="
+                        row.commonRegulationVersionId &&
+                        !commonRegulationVersionOptions.some(
+                          (option) =>
+                            option.commonRegulationVersionId === row.commonRegulationVersionId
+                        )
+                      "
+                      :label="
+                        [row.commonRegulationName, row.commonRegulationCode, row.versionNo].join(
+                          ' / '
+                        )
+                      "
+                      :value="row.commonRegulationVersionId"
+                      disabled
+                    />
+                    <el-option
+                      v-for="option in commonRegulationVersionOptions"
+                      :key="option.commonRegulationVersionId"
+                      :label="formatCommonRegulationVersionOption(option)"
+                      :value="option.commonRegulationVersionId"
+                      :disabled="
+                        commonRegulationBindingRows.some(
+                          (other) =>
+                            other.rowKey !== row.rowKey &&
+                            other.commonRegulationId === option.commonRegulationId
+                        )
+                      "
+                    />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column prop="commonRegulationCode" label="规程编号" min-width="150" />
+              <el-table-column prop="versionNo" label="版本" width="90" />
+              <el-table-column label="操作" width="90">
+                <template #default="{ row }">
+                  <el-button
+                    link
+                    type="danger"
+                    :disabled="
+                      !canEditCommonRegulationBindings ||
+                      qaRegulationPublishing ||
+                      qaRegulationSaving ||
+                      qaCurrentConfigurationLoading ||
+                      commonRegulationBindingLoading
+                    "
+                    v-hasPermi="['mes:qc-template:update']"
+                    data-qa-regulation-common-binding-remove
+                    @click="removeCommonRegulationBindingRow(row.rowKey)"
+                    >删除</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
             <div class="qa-regulation-page__common-actions">
               <el-button
-                plain
-                data-qa-regulation-common-binding-view
-                :disabled="!currentCommonRegulationBinding"
-                @click="viewCurrentCommonRegulation"
-              >
-                查看通用规程
-              </el-button>
-              <el-button
                 type="primary"
-                plain
-                data-qa-regulation-common-binding-change
-                :loading="commonRegulationBindingSaving"
-                :disabled="!selectedCommonRegulationSetVersionId"
-                @click="handleBindCommonRegulationVersion"
+                size="large"
+                class="qa-regulation-page__common-binding-add"
+                :disabled="
+                  !canEditCommonRegulationBindings ||
+                  qaRegulationPublishing ||
+                  qaRegulationSaving ||
+                  qaCurrentConfigurationLoading ||
+                  commonRegulationBindingLoading ||
+                  !!commonRegulationBindingLoadError
+                "
+                v-hasPermi="['mes:qc-template:update']"
+                data-qa-regulation-common-binding-add
+                @click="addCommonRegulationBindingRow"
               >
-                保存绑定
-              </el-button>
-              <el-button
-                type="danger"
-                plain
-                data-qa-regulation-common-binding-disable
-                :loading="commonRegulationBindingSaving"
-                :disabled="!currentCommonRegulationBinding"
-                @click="handleUnbindCommonRegulation"
-              >
-                解除关联
+                <Icon icon="ep:plus" class="mr-8px" />
+                新增
               </el-button>
             </div>
           </el-card>
+        </div>
+      </ContentWrap>
+
+      <ContentWrap
+        v-show="
+          regulationWorkspaceTab === 'qa' && selectedDccProjectCode && qaActiveTab === 'overview'
+        "
+        v-loading="qaCurrentConfigurationLoading"
+      >
+        <div class="qa-regulation-page__overview-stack">
           <el-card
             shadow="never"
             class="qa-regulation-page__overview-card"
@@ -1495,28 +1521,21 @@
                 >
                   <el-input :model-value="selectedDccProjectCodeLabel" disabled />
                 </el-form-item>
+                <el-form-item
+                  v-if="!qaRegulationItems.some((item) => item.finalInspectionEnabled)"
+                  label="末检不适用依据"
+                  required
+                  class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+                >
+                  <el-input
+                    v-model="qaRegulationDraft.finalInspectionNotApplicableReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请填写原规程中末检不适用的依据"
+                  />
+                </el-form-item>
               </div>
             </el-form>
-          </el-card>
-          <el-card
-            shadow="never"
-            class="qa-regulation-page__overview-card qa-regulation-page__overview-note"
-            data-qa-regulation-overview-note
-          >
-            <template #header>备注</template>
-            <ol
-              class="qa-regulation-page__overview-note-list"
-              data-qa-regulation-overview-note-list
-            >
-              <li> 设备初次开机、模具更换、参数调整、模具维修等需要按照抽样规则进行首件检验； </li>
-              <li>
-                首检如果发现不合格，及时向部门主管/领导汇报，待问题得到纠正后，生产稳定之后，重新进行首检，检验全部合格后，才可转入正常生产；
-              </li>
-              <li>如果样本量等于或超过批量，则进行100%检验；</li>
-              <li>
-                过程巡检应每班记录两次，上午和下午各一次，巡检过程中若发现产品不合格，应及时向部门主管反映不合格问题，并对之前生产的产品进行隔离，问题纠正之后，进行双倍检验，确认无异常之后，转入正常抽样。然后对之前生产的产品组织评审，根据评审结果对该批次产品进行处理。
-              </li>
-            </ol>
           </el-card>
         </div>
       </ContentWrap>
@@ -1532,25 +1551,6 @@
             <div class="qa-regulation-page__card-head">
               <span>工序检验方法与抽样方案</span>
               <div class="qa-regulation-page__card-actions">
-                <div
-                  class="qa-regulation-page__final-inspection-switch"
-                  data-qa-regulation-final-inspection-switch
-                >
-                  <span class="qa-regulation-page__final-inspection-label">是否需要末检</span>
-                  <el-switch
-                    v-model="finalInspectionRequired"
-                    active-text="需要"
-                    inactive-text="不需要"
-                  />
-                  <el-input
-                    data-qa-regulation-final-not-applicable-reason
-                    v-if="!finalInspectionRequired"
-                    v-model="finalInspectionNotApplicableReason"
-                    placeholder="填写末检不适用的正式依据"
-                    clearable
-                    class="qa-regulation-page__final-inspection-reason"
-                  />
-                </div>
                 <UserTableColumnSettings
                   :columns="qaItemsColumns"
                   :saving="qaItemsColumnSaving"
@@ -1569,6 +1569,7 @@
             </div>
           </template>
           <UnifiedListTemplate
+            single-line-toolbar
             table-key="mes.qa.regulation.items.processMethods.v3"
             :query-model="qaItemsQuery"
             :filter-definitions="qaEmptyFilterDefinitions"
@@ -1579,16 +1580,21 @@
             :columns="qaItemsColumns"
             :column-saving="qaItemsColumnSaving"
             :show-column-settings="false"
-            :show-query-form="false"
+            :show-query-form="true"
             :total="qaRegulationItems.length"
             v-model:page="qaItemsQuery.pageNo"
             v-model:limit="qaItemsQuery.pageSize"
             @column-change="saveQaItemsColumnConfig"
             @column-reset="resetQaItemsColumnConfig"
+            :filter-rows="qaRegulationItems"
+            :column-filter-definitions="listColumnFilterDefinitions2"
           >
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template
+              #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+            >
               <el-table
-                :data="pagedQaRegulationItems"
+                stripe
+                :data="resolveRows(pagedQaRegulationItems)"
                 border
                 size="small"
                 data-user-table-column-explicit
@@ -1610,6 +1616,14 @@
                       class="qa-regulation-page__process-name"
                       placeholder="请输入 QA 工序名称"
                     />
+                    <el-switch
+:model-value="row.finalInspectionEnabled" active-text="末检"
+                      :aria-label="`${row.processName}需要末检`"
+                      @change="setProcessFinalInspection(row, Boolean($event))" />
+                    <el-input-number
+v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
+                      :aria-label="`${row.processName}末检数量`" :min="1" :precision="0" placeholder="末检数量"
+                      @change="setProcessFinalQuantity(row, $event)" />
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -1723,17 +1737,9 @@
                         v-if="row.patrolInspectionEnabled"
                         class="qa-regulation-page__inspection-value"
                       >
-                        <span>AQL</span>
-                        <el-input-number
-                          v-model="row.patrolInspectionRatio"
-                          aria-label="巡检比例"
-                          :min="0.01"
-                          :max="100"
-                          :step="0.1"
-                          :precision="2"
-                          controls-position="right"
-                        />
-                        <span>%</span>
+
+                        <SamplingRuleEditor v-model:inspection-level="row.inspectionLevel" v-model:aql="row.aql" />
+
                       </div>
                     </div>
                   </template>
@@ -1836,6 +1842,16 @@
                         <Icon icon="ep:plus" class="mr-4px" />
                         新增设备
                       </el-button>
+                      <template v-if="!row.equipmentOptions.length && isNonSensoryTool(row.inspectionTool)">
+                        <el-input
+                          v-model="row.equipmentUnboundReason"
+                          type="textarea"
+                          aria-label="器具未绑定原因"
+                          placeholder="确认器具暂未绑定：请填写具体原因"
+                          :disabled="qaEquipmentAutoSaving"
+                        />
+                        <p>{{ EQUIPMENT_UNBOUND_NOTICE }}</p>
+                      </template>
                       <span
                         v-if="qaMachineryOptionsLoadError"
                         class="qa-regulation-page__equipment-error"
@@ -1859,9 +1875,12 @@
                   v-bind="sortColumnAttrs('samplingPlan')"
                 >
                   <template #default="{ row }">
-                    <div class="qa-regulation-page__sampling-plan">
-                      {{ formatQaItemSamplingPlan(row) }}
-                    </div>
+                    <el-input
+                      v-model="row.samplingPlanText"
+                      type="textarea"
+                      aria-label="原抽样方案"
+                      :autosize="{ minRows: 2, maxRows: 6 }"
+                    />
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -1877,6 +1896,23 @@
                       <el-option label="数值" value="NUMERIC" />
                       <el-option label="文本" value="TEXT" />
                     </el-select>
+                    <template v-if="row.resultType === 'NUMERIC'">
+                      <label>
+                        <span>单位</span>
+                        <el-input v-model="row.standardUnit" aria-label="数值单位" />
+                      </label>
+                      <label>
+                        <span>小数位数</span>
+                        <el-input-number
+                          v-model="row.standardPrecision"
+                          aria-label="数值精度"
+                          :min="0"
+                          :max="8"
+                          :precision="0"
+                          :controls="false"
+                        />
+                      </label>
+                    </template>
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -1988,180 +2024,6 @@
             </template>
           </UnifiedListTemplate>
         </el-card>
-      </ContentWrap>
-
-      <ContentWrap
-        v-show="
-          regulationWorkspaceTab === 'qa' &&
-          selectedDccProjectCode &&
-          qaActiveTab === 'verification'
-        "
-      >
-        <div class="qa-regulation-page__layout">
-          <el-card shadow="never" data-qa-regulation-completeness>
-            <template #header>发布必要条件</template>
-            <UnifiedListTemplate
-              table-key="mes.qa.regulation.checks"
-              :query-model="qaChecksQuery"
-              :filter-definitions="qaEmptyFilterDefinitions"
-              :show-quick-filter="false"
-              :quick-filter-state="qaEmptyQuickFilterState"
-              :selected-filter-definition="qaEmptySelectedFilterDefinition"
-              :operator-options="qaEmptyOperatorOptions"
-              :columns="qaChecksColumns"
-              :column-saving="qaChecksColumnSaving"
-              :total="qaRegulationPublishChecks.length"
-              v-model:page="qaChecksQuery.pageNo"
-              v-model:limit="qaChecksQuery.pageSize"
-              @column-change="saveQaChecksColumnConfig"
-              @column-reset="resetQaChecksColumnConfig"
-            >
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-                <el-table
-                  :data="pagedQaRegulationCompletenessChecks"
-                  border
-                  size="small"
-                  data-user-table-column-explicit
-                  data-user-table-key="mes.qa.regulation.checks"
-                  @header-dragend="handleQaChecksHeaderDragend"
-                  @sort-change="handleTemplateSortChange"
-                >
-                  <el-table-column
-                    v-if="isQaChecksColumnVisible('status')"
-                    label="状态"
-                    prop="status"
-                    :width="getQaChecksColumnWidthString('status', 110)"
-                    v-bind="sortColumnAttrs('status')"
-                  >
-                    <template #default="{ row }">
-                      <el-tag :type="row.passed ? 'success' : 'danger'" effect="plain">
-                        {{ row.passed ? '已满足' : '需补齐' }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    v-if="isQaChecksColumnVisible('label')"
-                    label="检查项"
-                    prop="label"
-                    :min-width="getQaChecksColumnMinWidthString('label', 180)"
-                    v-bind="sortColumnAttrs('label')"
-                  >
-                    <template #default="{ row }">
-                      <div
-                        class="qa-regulation-page__check-title"
-                        :class="{ 'is-passed': row.passed }"
-                      >
-                        {{ row.label }}
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    v-if="isQaChecksColumnVisible('detail')"
-                    label="说明"
-                    prop="detail"
-                    :min-width="getQaChecksColumnMinWidthString('detail', 260)"
-                    v-bind="sortColumnAttrs('detail')"
-                  />
-                </el-table>
-              </template>
-            </UnifiedListTemplate>
-            <div class="qa-regulation-page__actions">
-              <el-button :loading="qaRegulationSaving" @click="previewQaRegulationDraft">
-                保存草稿
-              </el-button>
-            </div>
-          </el-card>
-
-          <el-card shadow="never" data-qa-pqc-task-preview>
-            <template #header>PQC 任务预览</template>
-            <UnifiedListTemplate
-              table-key="mes.qa.regulation.pqcPreview.v2"
-              :query-model="qaPqcPreviewQuery"
-              :filter-definitions="qaEmptyFilterDefinitions"
-              :show-quick-filter="false"
-              :quick-filter-state="qaEmptyQuickFilterState"
-              :selected-filter-definition="qaEmptySelectedFilterDefinition"
-              :operator-options="qaEmptyOperatorOptions"
-              :columns="qaPqcPreviewColumns"
-              :column-saving="qaPqcPreviewColumnSaving"
-              :total="qaPqcTaskPreviewRows.length"
-              v-model:page="qaPqcPreviewQuery.pageNo"
-              v-model:limit="qaPqcPreviewQuery.pageSize"
-              @column-change="saveQaPqcPreviewColumnConfig"
-              @column-reset="resetQaPqcPreviewColumnConfig"
-            >
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-                <el-table
-                  :data="pagedQaPqcTaskPreviewRows"
-                  border
-                  size="small"
-                  data-user-table-column-explicit
-                  data-user-table-key="mes.qa.regulation.pqcPreview.v2"
-                  empty-text="当前没有可预览的检验任务"
-                  @header-dragend="handleQaPqcPreviewHeaderDragend"
-                  @sort-change="handleTemplateSortChange"
-                >
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('qaProcessName')"
-                    label="QA 工序"
-                    prop="qaProcessName"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('qaProcessName', 150)"
-                    v-bind="sortColumnAttrs('qaProcessName')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('itemName')"
-                    label="检验项目"
-                    prop="itemName"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('itemName', 160)"
-                    v-bind="sortColumnAttrs('itemName')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('inspectionTypeText')"
-                    label="检验类型"
-                    prop="inspectionTypeText"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('inspectionTypeText', 110)"
-                    v-bind="sortColumnAttrs('inspectionTypeText')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('roundText')"
-                    label="轮次"
-                    prop="roundText"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('roundText', 110)"
-                    v-bind="sortColumnAttrs('roundText')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('plannedQuantityText')"
-                    label="计划数量"
-                    prop="plannedQuantityText"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('plannedQuantityText', 110)"
-                    v-bind="sortColumnAttrs('plannedQuantityText')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('regulationVersionNo')"
-                    label="规程版本"
-                    prop="regulationVersionNo"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('regulationVersionNo', 110)"
-                    v-bind="sortColumnAttrs('regulationVersionNo')"
-                  />
-                  <el-table-column
-                    v-if="isQaPqcPreviewColumnVisible('taskIdentity')"
-                    label="任务身份"
-                    prop="taskIdentity"
-                    :min-width="getQaPqcPreviewColumnMinWidthString('taskIdentity', 260)"
-                    v-bind="sortColumnAttrs('taskIdentity')"
-                  />
-                </el-table>
-              </template>
-            </UnifiedListTemplate>
-            <el-alert
-              class="mt-12px"
-              title="QA 规程仅归属于 DCC 项目代码；QA 工序由 QA 独立维护，不与 MES 工艺路线工序进行映射或存在性校验。"
-              type="info"
-              :closable="false"
-              show-icon
-            />
-          </el-card>
-        </div>
       </ContentWrap>
     </template>
 
@@ -2332,9 +2194,15 @@
 </template>
 
 <script setup lang="ts">
+import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
+import { hasPermission } from '@/directives/permission/hasPermi'
+import CommonRegulationLibrary from './CommonRegulationLibrary.vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { EQUIPMENT_UNBOUND_NOTICE, isNonSensoryTool } from '@/views/form-center/parser/simplePqc'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard, useMediaQuery } from '@vueuse/core'
 import { useRoute } from 'vue-router'
@@ -2396,8 +2264,8 @@ defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
 type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 type RegulationWorkspaceTabName = 'qa' | 'common'
-type QaRegulationTabName = 'overview' | 'items' | 'verification'
-type CommonRegulationTabName = 'overview' | 'items' | 'versions'
+type QaRegulationTabName = 'overview' | 'items' | 'association'
+type CommonRegulationTabName = 'overview' | 'items' | 'versions' | 'published'
 type QaInspectionTypeValue = QaItemDisplayInspectionType
 
 interface QaInspectionTypeRule {
@@ -2413,6 +2281,7 @@ interface QaInspectionTypeRule {
 }
 
 interface QaRegulationItem extends QaItemInspectionState {
+  equipmentUnboundReason?: string
   qaProcessId?: number
   processCode: string
   processName: string
@@ -2449,6 +2318,7 @@ interface QaRegulationDraft {
   versionNo: string
   effectiveDate: string
   lifecycleStatus: string
+  finalInspectionNotApplicableReason: string
 }
 
 interface QaLocalListQuery {
@@ -2471,7 +2341,7 @@ interface CommonRegulationItem extends QaRegulationItem {
   sourceDocumentTitle: string
   sourceFileName: string
   memberRole: string
-  commonDccProjectCodeId: number
+  commonDccProjectCodeId?: number
   commonRegulationId: number
   commonRegulationVersionId: number
   commonRegulationCode: string
@@ -2482,21 +2352,27 @@ interface CommonRegulationItem extends QaRegulationItem {
   memberInspectionTypeRules: QaInspectionTypeRule[]
 }
 
-type CommonFinalInspectionState = 'EMPTY' | 'REQUIRED' | 'NOT_REQUIRED' | 'MIXED'
+type ProductQaRegulationSaveReqVO = QaInspectionRegulationSaveReqVO & {
+  ownerModule: 'MES_QA'
+  dccProjectCodeId: number
+}
 
 const DCC_PROJECT_CODE_PAGE_SIZE = 200
 const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
   'int-ruoyi:qa-regulation:last-dcc-project-code-id'
 
-const regulationWorkspaceTab = ref<RegulationWorkspaceTabName>('qa')
+const props = withDefaults(defineProps<{ workspace?: RegulationWorkspaceTabName }>(), {
+  workspace: 'qa'
+})
+const regulationWorkspaceTab = computed(() => props.workspace)
 const qaActiveTab = ref<QaRegulationTabName>('overview')
-const commonRegulationActiveTab = ref<CommonRegulationTabName>('overview')
+const commonRegulationActiveTab = ref<CommonRegulationTabName>('published')
 const qaItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
-const qaChecksQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
-const qaPqcPreviewQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const commonRegulationItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
-const selectedCommonRegulationVersionId = ref<number>()
-const selectedCommonRegulationSetVersionId = ref<number>()
+type CommonRegulationBindingRow = Partial<QaCommonRegulationVersionOptionVO> & { rowKey: number }
+let commonRegulationBindingRowSerial = 0
+const commonRegulationBindingRows = ref<CommonRegulationBindingRow[]>([])
+const canEditCommonRegulationBindings = computed(() => hasPermission(['mes:qc-template:update']))
 const currentCommonRegulationBinding = ref<QaCommonRegulationBindingVO>()
 const commonRegulationVersionOptions = ref<QaCommonRegulationVersionOptionVO[]>([])
 const commonRegulationSetVersionOptions = ref<QaCommonRegulationSetVersionOptionVO[]>([])
@@ -2507,12 +2383,8 @@ const commonRegulationVersionOptionsLoading = ref(false)
 const commonRegulationSetLoading = ref(false)
 const commonRegulationVersionOptionsLoadError = ref('')
 const commonRegulationBindingLoading = ref(false)
-const commonRegulationBindingSaving = ref(false)
 const commonRegulationSetSaving = ref(false)
 const commonRegulationItemsSaving = ref(false)
-const commonFinalInspectionEdited = ref(false)
-const commonFinalInspectionDraftRequired = ref(false)
-const commonFinalInspectionDraftReason = ref('')
 const commonRegulationBindingLoadError = ref('')
 const commonRegulationSetDialogVisible = ref(false)
 const commonRegulationSetVersionDialogVisible = ref(false)
@@ -2573,22 +2445,6 @@ const qaItemsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'actions', label: '操作', width: 90, hideable: false, business: false }
 ]
 
-const qaChecksDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'status', label: '状态', width: 110 },
-  { key: 'label', label: '检查项', minWidth: 180 },
-  { key: 'detail', label: '说明', minWidth: 260 }
-]
-
-const qaPqcPreviewDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'qaProcessName', label: 'QA 工序', minWidth: 150 },
-  { key: 'itemName', label: '检验项目', minWidth: 160 },
-  { key: 'inspectionTypeText', label: '检验类型', minWidth: 110 },
-  { key: 'roundText', label: '轮次', minWidth: 110 },
-  { key: 'plannedQuantityText', label: '计划数量', minWidth: 110 },
-  { key: 'regulationVersionNo', label: '规程版本', minWidth: 110 },
-  { key: 'taskIdentity', label: '任务身份', minWidth: 260 }
-]
-
 const {
   columns: qaItemsColumns,
   saving: qaItemsColumnSaving,
@@ -2600,27 +2456,6 @@ const {
   resetConfig: resetQaItemsColumnConfig
 } = useUserTableColumns('mes.qa.regulation.items.processMethods.v3', qaItemsDefaultColumns)
 
-const {
-  columns: qaChecksColumns,
-  saving: qaChecksColumnSaving,
-  isColumnVisible: isQaChecksColumnVisible,
-  getColumnWidthString: getQaChecksColumnWidthString,
-  getColumnMinWidthString: getQaChecksColumnMinWidthString,
-  handleHeaderDragend: handleQaChecksHeaderDragend,
-  saveConfig: saveQaChecksColumnConfig,
-  resetConfig: resetQaChecksColumnConfig
-} = useUserTableColumns('mes.qa.regulation.checks', qaChecksDefaultColumns)
-
-const {
-  columns: qaPqcPreviewColumns,
-  saving: qaPqcPreviewColumnSaving,
-  isColumnVisible: isQaPqcPreviewColumnVisible,
-  getColumnMinWidthString: getQaPqcPreviewColumnMinWidthString,
-  handleHeaderDragend: handleQaPqcPreviewHeaderDragend,
-  saveConfig: saveQaPqcPreviewColumnConfig,
-  resetConfig: resetQaPqcPreviewColumnConfig
-} = useUserTableColumns('mes.qa.regulation.pqcPreview.v2', qaPqcPreviewDefaultColumns)
-
 const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   regulationId: undefined,
   dccProjectCodeId: undefined,
@@ -2628,7 +2463,8 @@ const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   regulationName: '',
   versionNo: '',
   effectiveDate: '',
-  lifecycleStatus: 'DRAFT'
+  lifecycleStatus: 'DRAFT',
+  finalInspectionNotApplicableReason: ''
 })
 
 const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
@@ -2642,21 +2478,12 @@ const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
     releaseGate: '缺少适用检验项目时不能发布'
   },
   {
-    key: 'PATROL_AM',
+    key: 'PATROL',
     inspectionType: 'PATROL',
-    label: '上午巡检',
-    roundLabel: '上午班次独立轮次',
+    label: '巡检',
+    roundLabel: '按实际创建次数编号',
     required: true,
-    taskRule: '按订单数量与项目抽样比例生成任务',
-    releaseGate: '缺少适用检验项目时不能发布'
-  },
-  {
-    key: 'PATROL_PM',
-    inspectionType: 'PATROL',
-    label: '下午巡检',
-    roundLabel: '下午班次独立轮次',
-    required: true,
-    taskRule: '按订单数量与项目抽样比例生成任务',
+    taskRule: '按订单批量与项目检验水平查询抽样矩阵生成任务',
     releaseGate: '缺少适用检验项目时不能发布'
   },
   {
@@ -2719,8 +2546,7 @@ const isCommonRegulationSetWideViewport = useMediaQuery('(min-width: 900px)')
 
 const QA_INSPECTION_TYPE_LABELS: Record<QaInspectionTypeValue, string> = {
   FIRST: '首检',
-  PATROL_AM: '上午巡检',
-  PATROL_PM: '下午巡检',
+  PATROL: '巡检',
   FINAL: '末检'
 }
 
@@ -2735,69 +2561,33 @@ const qaWordImportConfirmText = computed(() =>
   qaWordImportOwnerModule.value === 'MES_QA_COMMON' ? '导入并发布' : '确定'
 )
 
-const finalInspectionRule = computed(() =>
-  qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
-)
-
-const finalInspectionRequired = computed<boolean>({
-  get: () => Boolean(finalInspectionRule.value?.required),
-  set: (required: boolean) => {
-    if (!finalInspectionRule.value) {
-      throw new Error('缺少末检规则配置')
-    }
-    finalInspectionRule.value.required = required
-  }
-})
-
-const finalInspectionNotApplicableReason = computed<string>({
-  get: () => finalInspectionRule.value?.notApplicableReason ?? '',
-  set: (reason: string) => {
-    if (!finalInspectionRule.value) {
-      throw new Error('缺少末检规则配置')
-    }
-    finalInspectionRule.value.notApplicableReason = reason
-  }
-})
-
 const resolveQaItemApplicableTypes = (item: QaRegulationItem) =>
-  resolveQaItemDisplayInspectionTypes(item, finalInspectionRequired.value)
+  resolveQaItemDisplayInspectionTypes(item, item.finalInspectionEnabled)
+
+const setProcessFinalInspection = (row: QaRegulationItem, enabled: boolean, common = false) => {
+  const rows = common ? commonRegulationItems.value : qaRegulationItems.value
+  for (const item of rows) {
+    if (item.processCode === row.processCode && (!common ||
+      (item as CommonRegulationItem).commonRegulationVersionId === (row as CommonRegulationItem).commonRegulationVersionId)) {
+      item.finalInspectionEnabled = enabled
+    }
+  }
+}
+
+const setProcessFinalQuantity = (row: QaRegulationItem, quantity: number | undefined, common = false) => {
+  const rows = common ? commonRegulationItems.value : qaRegulationItems.value
+  for (const item of rows) {
+    if (item.processCode === row.processCode && (!common ||
+      (item as CommonRegulationItem).commonRegulationVersionId === (row as CommonRegulationItem).commonRegulationVersionId)) {
+      item.finalInspectionQuantity = quantity
+    }
+  }
+}
 
 const pagedQaRegulationItems = computed(() => paginateQaRows(qaRegulationItems.value, qaItemsQuery))
 
 const selectedDccProjectCodeLabel = computed(() =>
   selectedDccProjectCode.value ? formatDccProjectCodeOption(selectedDccProjectCode.value) : ''
-)
-
-const commonRegulationBindingStatusText = computed(() =>
-  !selectedDccProjectCode.value
-    ? '未选择项目'
-    : commonRegulationBindingLoading.value || commonRegulationVersionOptionsLoading.value
-      ? '加载中'
-      : currentCommonRegulationBinding.value
-        ? '已关联'
-        : '未关联'
-)
-
-const commonRegulationBindingCurrentText = computed(() =>
-  currentCommonRegulationBinding.value
-    ? currentCommonRegulationBinding.value.commonRegulationSetId
-      ? commonRegulationSetDisplayText.value
-      : [
-          currentCommonRegulationBinding.value.commonRegulationName,
-          currentCommonRegulationBinding.value.commonRegulationCode,
-          currentCommonRegulationBinding.value.versionNo
-        ]
-          .filter(Boolean)
-          .join(' / ')
-    : selectedDccProjectCode.value
-      ? '未关联通用检验规程'
-      : '请先选择 DCC 项目代码'
-)
-
-const commonRegulationBindingScopeText = computed(() =>
-  selectedDccProjectCodeLabel.value
-    ? `当前 DCC 项目：${selectedDccProjectCodeLabel.value}`
-    : '请选择 DCC 项目代码'
 )
 
 const selectedCommonRegulationSet = computed(() =>
@@ -2900,7 +2690,7 @@ const resolveCommonMemberInspectionRules = (
   if (!Array.isArray(member.inspectionTypeRules)) {
     throw new Error(`${member.commonRegulationName || '通用规程成员'}缺少正式检验类型规则`)
   }
-  const rules = member.inspectionTypeRules.map((rule) => ({ ...rule }))
+  const rules = buildQaInspectionTypeRules(member.inspectionTypeRules)
   if (finalInspectionApplicable === undefined) {
     return rules
   }
@@ -2919,115 +2709,12 @@ const selectedCommonRegulationSetVersionMembers = computed(() =>
   sortCommonRegulationSetMembers(selectedCommonRegulationSetVersionPreview.value?.members || [])
 )
 
-const commonFinalInspectionSnapshot = computed<{
-  state: CommonFinalInspectionState
-  required: boolean
-  reason: string
-}>(() => {
-  const members = selectedCommonRegulationSetVersionMembers.value
-  if (members.length === 0) {
-    return { state: 'EMPTY', required: false, reason: '该套版本暂无成员规程' }
-  }
-  const memberStates = members.map(requireCommonMemberFinalInspectionApplicable)
-  const uniqueStates = new Set(memberStates)
-  if (uniqueStates.size > 1) {
-    return {
-      state: 'MIXED',
-      required: false,
-      reason: '成员规程的末检适用性不一致，请按来源规程查看'
-    }
-  }
-  const required = memberStates[0] === true
-  if (required) {
-    return { state: 'REQUIRED', required: true, reason: '' }
-  }
-  const reasons = Array.from(
-    new Set(
-      members
-        .map((member) => member.finalInspectionNotApplicableReason?.trim())
-        .filter((reason): reason is string => Boolean(reason))
-    )
-  )
-  return {
-    state: 'NOT_REQUIRED',
-    required: false,
-    reason: reasons.length > 0 ? reasons.join('；') : '未记录末检不适用依据'
-  }
-})
-
-const commonFinalInspectionRequired = computed<boolean>({
-  get: () => commonFinalInspectionDraftRequired.value,
-  set: (required: boolean) => applyCommonFinalInspectionRequired(required)
-})
-
-const commonFinalInspectionStatusText = computed(() => {
-  const snapshot = commonFinalInspectionSnapshot.value
-  if (snapshot.state === 'MIXED') {
-    return '成员配置不一致'
-  }
-  if (snapshot.state === 'EMPTY') {
-    return '未配置'
-  }
-  return snapshot.required ? '需要末检' : '不需要末检'
-})
-
-const commonFinalInspectionReasonVisible = computed(() => !commonFinalInspectionRequired.value)
-
-const commonFinalInspectionNotApplicableReason = computed<string>({
-  get: () => commonFinalInspectionDraftReason.value,
-  set: (reason: string) => applyCommonFinalInspectionReason(reason)
-})
-
-const resetCommonFinalInspectionDraft = () => {
-  const snapshot = commonFinalInspectionSnapshot.value
-  commonFinalInspectionEdited.value = false
-  commonFinalInspectionDraftRequired.value = snapshot.required
-  commonFinalInspectionDraftReason.value = snapshot.required ? '' : snapshot.reason
-}
-
-const syncCommonFinalInspectionToRows = (required: boolean, reason: string) => {
-  const nextReason = required ? '' : reason
-  commonRegulationItems.value.forEach((row) => {
-    row.memberFinalInspectionApplicable = required
-    row.memberFinalInspectionNotApplicableReason = nextReason
-    row.memberInspectionTypeRules = row.memberInspectionTypeRules.map((rule) => {
-      if (rule.key !== 'FINAL') {
-        return rule
-      }
-      return {
-        ...rule,
-        required,
-        notApplicableReason: required ? undefined : nextReason || undefined
-      }
-    })
-  })
-}
-
-const applyCommonFinalInspectionRequired = (required: boolean) => {
-  commonFinalInspectionEdited.value = true
-  commonFinalInspectionDraftRequired.value = required
-  if (required) {
-    commonFinalInspectionDraftReason.value = ''
-  }
-  syncCommonFinalInspectionToRows(required, commonFinalInspectionDraftReason.value)
-}
-
-const applyCommonFinalInspectionReason = (reason: string) => {
-  commonFinalInspectionEdited.value = true
-  commonFinalInspectionDraftReason.value = reason
-  syncCommonFinalInspectionToRows(false, reason)
-}
-
 const createCommonRegulationItemSourceNote = (
   document: CommonRegulationSetDocumentView,
   item: QaInspectionRegulationItemVO
 ) =>
-  [
-    item.sourceNote?.trim(),
-    `来源：${formatCommonRegulationSetDocumentTitle(document)} / ${formatCommonRegulationSetDocumentSource(document)}`
-  ]
-    .filter(Boolean)
-    .join('；')
+  [item.sourceNote?.trim(), `来源：${formatCommonRegulationSetDocumentTitle(document)} / ${formatCommonRegulationSetDocumentSource(document)}`]
+    .filter(Boolean).join('；')
 
 const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
   selectedCommonRegulationSetVersionDocuments.value.flatMap((document) =>
@@ -3051,6 +2738,7 @@ const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
             itemName: item.itemName || '',
             inspectionMethod: item.inspectionMethod || '',
             inspectionTool: item.inspectionTool || '',
+            equipmentUnboundReason: item.equipmentUnboundReason,
             samplingPlanText: item.samplingPlanText || '',
             resultType: (item.resultType || 'BOOLEAN') as QaInspectionResultType,
             standardText: item.standardText || '',
@@ -3086,9 +2774,17 @@ const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
   )
 
 const commonRegulationItems = ref<CommonRegulationItem[]>([])
+const commonMemberFinalInspectionReasons = ref<Record<number, string>>({})
+const commonRegulationMembersWithoutFinal = computed(() =>
+  selectedCommonRegulationSetVersionMembers.value.filter((member) =>
+    !commonRegulationItems.value.some((item) =>
+      item.commonRegulationVersionId === member.commonRegulationVersionId && item.finalInspectionEnabled
+    )
+  )
+)
 
 const resolveCommonItemApplicableTypes = (item: CommonRegulationItem) =>
-  resolveQaItemDisplayInspectionTypes(item, item.memberFinalInspectionApplicable)
+  resolveQaItemDisplayInspectionTypes(item, item.finalInspectionEnabled)
 
 const commonRegulationItemsSummaryText = computed(() => {
   const version = selectedCommonRegulationSetVersionPreview.value
@@ -3201,28 +2897,6 @@ const synchronizeCommonRegulationSetSelection = (sets: QaCommonRegulationSetVO[]
   }
 }
 
-const selectedCommonRegulationSetVersionOption = computed(() =>
-  commonRegulationSetVersionOptions.value.find(
-    (option) =>
-      Number(option.commonRegulationSetVersionId) ===
-      Number(selectedCommonRegulationSetVersionId.value)
-  )
-)
-
-const commonRegulationSetDisplayText = computed(() =>
-  currentCommonRegulationBinding.value?.commonRegulationSetId
-    ? [
-        currentCommonRegulationBinding.value.commonRegulationSetName,
-        currentCommonRegulationBinding.value.commonRegulationSetCode,
-        currentCommonRegulationBinding.value.commonRegulationSetVersionNo
-      ]
-        .filter(Boolean)
-        .join(' / ')
-    : selectedCommonRegulationSetVersionOption.value
-      ? formatCommonRegulationSetVersionOption(selectedCommonRegulationSetVersionOption.value)
-      : '未绑定通用规程套'
-)
-
 const QA_REGULATION_LIFECYCLE_STATUS_LABELS: Record<string, string> = {
   PUBLISHED: '已发布',
   RETIRED: '已作废',
@@ -3312,16 +2986,6 @@ const formatCommonRegulationVersionOption = (option: QaCommonRegulationVersionOp
     .filter(Boolean)
     .join(' / ')
 
-const formatCommonRegulationSetVersionOption = (option: QaCommonRegulationSetVersionOptionVO) =>
-  [
-    option.commonRegulationSetName,
-    option.commonRegulationSetCode,
-    option.versionNo,
-    `${option.memberCount} 个规程`
-  ]
-    .filter(Boolean)
-    .join(' / ')
-
 const incrementQaRegulationVersionNo = (versionNo: string) => {
   const normalizedVersionNo = versionNo.trim()
   const match = normalizedVersionNo.match(/^(.*?)(\d+)$/)
@@ -3385,17 +3049,22 @@ const resolveCommonSetNextVersionNo = () => {
   )
 }
 
-const resolveCommonMemberNextVersionNo = (member: QaCommonRegulationSetMemberVO) =>
-  incrementVersionNo(
+const resolveCommonMemberNextVersionNo = async (member: QaCommonRegulationSetMemberVO) => {
+  const versions = await QcTemplateApi.listCommonRegulationVersions(
+    resolvePositiveId(member.commonRegulationId, '通用检验规程 ID')
+  )
+  const memberVersions = versions.filter(
+    (version) => Number(version.regulationId) === Number(member.commonRegulationId)
+  )
+  if (!memberVersions.length) {
+    throw new Error(`${member.commonRegulationName}缺少正式版本记录，无法生成新版本号`)
+  }
+  return incrementVersionNo(
     member.versionNo,
-    new Set(
-      commonRegulationVersionOptions.value
-        .filter((option) => Number(option.commonRegulationId) === Number(member.commonRegulationId))
-        .map((option) => option.versionNo.trim())
-        .filter(Boolean)
-    ),
+    new Set(memberVersions.map((version) => version.versionNo.trim()).filter(Boolean)),
     member.commonRegulationName || '通用检验规程'
   )
+}
 
 const shouldLoadQaEquipmentBindingsForSelectedVersion = (
   configuration: QaInspectionRegulationPublishedVersionVO
@@ -3422,13 +3091,24 @@ const resolveRequiredText = (value: unknown, label: string) => {
   return text
 }
 
-const replaceQaInspectionTypeRules = (rules: QaInspectionRegulationInspectionTypeRuleVO[]) => {
-  const normalized = rules.map((rule) => ({
+const buildQaInspectionTypeRules = (
+  rules: QaInspectionRegulationInspectionTypeRuleVO[]
+): QaInspectionTypeRule[] => {
+  const finalRule = rules.find((rule) => rule.key === 'FINAL')
+  if (!finalRule || typeof finalRule.required !== 'boolean') {
+    throw new Error('检验规程缺少明确的末检适用性配置')
+  }
+  return createEmptyQaInspectionTypeRules().map((rule) => ({
     ...rule,
-    key: rule.key as QaInspectionTypeValue,
-    required: rule.key === 'FINAL' ? Boolean(rule.required) : true
+    fixedQuantity: rules.find((source) => source.key === rule.key)?.fixedQuantity,
+    ...(rule.key === 'FINAL'
+      ? { required: finalRule.required, notApplicableReason: finalRule.notApplicableReason }
+      : {})
   }))
-  qaInspectionTypeRules.splice(0, qaInspectionTypeRules.length, ...normalized)
+}
+
+const replaceQaInspectionTypeRules = (rules: QaInspectionRegulationInspectionTypeRuleVO[]) => {
+  qaInspectionTypeRules.splice(0, qaInspectionTypeRules.length, ...buildQaInspectionTypeRules(rules))
 }
 
 const flattenQaRegulationProcesses = (
@@ -3449,6 +3129,7 @@ const flattenQaRegulationProcesses = (
           itemName: item.itemName,
           inspectionMethod: item.inspectionMethod,
           inspectionTool: item.inspectionTool,
+          equipmentUnboundReason: item.equipmentUnboundReason,
           samplingPlanText: item.samplingPlanText,
           resultType: item.resultType as QaInspectionResultType,
           standardText: item.standardText,
@@ -3497,9 +3178,26 @@ const applyQaRegulationConfiguration = (
     regulationName: configuration.regulationName,
     versionNo: configuration.versionNo,
     effectiveDate: configuration.effectiveDate || '',
-    lifecycleStatus: configuration.lifecycleStatus
+    lifecycleStatus: configuration.lifecycleStatus,
+    finalInspectionNotApplicableReason: configuration.finalInspectionNotApplicableReason ?? ''
   })
-  replaceQaInspectionTypeRules(configuration.inspectionTypeRules)
+  if (configuration.commonRegulationVersions != null) {
+    commonRegulationBindingRows.value = configuration.commonRegulationVersions.map((member) => ({
+      ...member,
+      rowKey: ++commonRegulationBindingRowSerial
+    }))
+  }
+  replaceQaInspectionTypeRules(
+    configuration.inspectionTypeRules.map((rule) =>
+      rule.key === 'FINAL'
+        ? {
+            ...rule,
+            required: configuration.finalInspectionApplicable,
+            notApplicableReason: configuration.finalInspectionNotApplicableReason
+          }
+        : rule
+    )
+  )
   qaRegulationItems.value = flattenQaRegulationProcesses(configuration.processes)
   qaConfigurationExists.value = true
   qaPublishedVersionNo.value =
@@ -3539,6 +3237,7 @@ const applyQaEquipmentOptionsToItemNameGroup = (
 ) => {
   getQaItemNameGroup(row).forEach((candidate) => {
     candidate.equipmentOptions = options.map((option) => ({ ...option }))
+    if (options.length) candidate.equipmentUnboundReason = undefined
   })
 }
 
@@ -3724,6 +3423,7 @@ const addQaItemEquipment = (row: QaRegulationItem) => {
     defaultFlag: row.equipmentOptions.length === 0,
     sort: row.equipmentOptions.length + 1
   })
+  row.equipmentUnboundReason = undefined
   return autoSaveQaItemEquipment(row)
 }
 
@@ -3761,6 +3461,7 @@ const handleQaItemEquipmentChange = (
   equipment.equipmentCode = machinery.code
   equipment.equipmentName = machinery.name
   equipment.equipmentNumber = machinery.code
+  row.equipmentUnboundReason = undefined
   return autoSaveQaItemEquipment(row)
 }
 
@@ -3786,12 +3487,10 @@ const addCommonRegulationItemEquipment = (row: CommonRegulationItem) => {
     defaultFlag: row.equipmentOptions.length === 0,
     sort: row.equipmentOptions.length + 1
   })
+  row.equipmentUnboundReason = undefined
 }
 
-const removeCommonRegulationItemEquipment = (
-  row: CommonRegulationItem,
-  equipmentIndex: number
-) => {
+const removeCommonRegulationItemEquipment = (row: CommonRegulationItem, equipmentIndex: number) => {
   row.equipmentOptions.splice(equipmentIndex, 1)
   row.equipmentOptions.forEach((equipment, index) => {
     equipment.sort = index + 1
@@ -3825,6 +3524,7 @@ const handleCommonRegulationItemEquipmentChange = (
   equipment.equipmentCode = machinery.code
   equipment.equipmentName = machinery.name
   equipment.equipmentNumber = machinery.code
+  row.equipmentUnboundReason = undefined
   equipment.defaultFlag = equipment.defaultFlag === true || equipmentIndex === 0
   equipment.sort = equipmentIndex + 1
 }
@@ -3964,21 +3664,51 @@ const loadCommonRegulationVersionOptions = async () => {
   }
 }
 
+const addCommonRegulationBindingRow = () => {
+  commonRegulationBindingRows.value.push({ rowKey: ++commonRegulationBindingRowSerial })
+}
+
+const removeCommonRegulationBindingRow = (rowKey: number) => {
+  commonRegulationBindingRows.value = commonRegulationBindingRows.value.filter(
+    (row) => row.rowKey !== rowKey
+  )
+}
+
+const changeCommonRegulationBindingRow = (row: CommonRegulationBindingRow, versionId: number) => {
+  const option = commonRegulationVersionOptions.value.find(
+    (candidate) => candidate.commonRegulationVersionId === versionId
+  )
+  if (!option) throw new Error('所选通用规程版本不存在，请刷新后重试')
+  Object.assign(row, option)
+}
+
 const loadCurrentCommonRegulationBinding = async (dccProjectCodeId: number) => {
   const loadSerial = ++commonRegulationBindingLoadSerial
   commonRegulationBindingLoading.value = true
   commonRegulationBindingLoadError.value = ''
   currentCommonRegulationBinding.value = undefined
-  selectedCommonRegulationVersionId.value = undefined
-  selectedCommonRegulationSetVersionId.value = undefined
+  commonRegulationBindingRows.value = []
   try {
     const binding = await QcTemplateApi.getCurrentCommonRegulationBinding(dccProjectCodeId)
-    if (loadSerial !== commonRegulationBindingLoadSerial) {
-      return
+    let members: Partial<QaCommonRegulationVersionOptionVO>[] = []
+    if (binding?.commonRegulationSetId) {
+      const set = await QcTemplateApi.getCommonRegulationSet(binding.commonRegulationSetId)
+      const version = set.versions.find((item) => item.id === binding.commonRegulationSetVersionId)
+      if (!version || !version.members.length)
+        throw new Error('当前绑定的通用规程套版本或成员不存在')
+      members = version.members
+    } else if (binding) {
+      members = [binding]
     }
+    if (loadSerial !== commonRegulationBindingLoadSerial) return
     currentCommonRegulationBinding.value = binding || undefined
-    selectedCommonRegulationVersionId.value = binding?.commonRegulationVersionId
-    selectedCommonRegulationSetVersionId.value = binding?.commonRegulationSetVersionId
+    members.forEach((member) =>
+      resolvePositiveId(member.commonRegulationVersionId, '通用规程版本 ID')
+    )
+    commonRegulationBindingRows.value = members.map((member) => ({
+      ...member,
+      rowKey: ++commonRegulationBindingRowSerial
+    }))
   } catch (error) {
     if (loadSerial === commonRegulationBindingLoadSerial) {
       commonRegulationBindingLoadError.value =
@@ -3989,78 +3719,6 @@ const loadCurrentCommonRegulationBinding = async (dccProjectCodeId: number) => {
     if (loadSerial === commonRegulationBindingLoadSerial) {
       commonRegulationBindingLoading.value = false
     }
-  }
-}
-
-const handleBindCommonRegulationVersion = async () => {
-  if (!selectedDccProjectCode.value) {
-    ElMessage.warning('请先选择 DCC 项目代码')
-    return
-  }
-  if (!selectedCommonRegulationSetVersionId.value) {
-    ElMessage.warning('请选择已发布通用规程套版本')
-    return
-  }
-  const dccProjectCodeId = resolvePositiveId(selectedDccProjectCode.value.id, 'DCC 项目代码 ID')
-  commonRegulationBindingSaving.value = true
-  try {
-    const binding = await QcTemplateApi.bindCommonRegulationVersion({
-      dccProjectCodeId,
-      commonRegulationSetVersionId: selectedCommonRegulationSetVersionId.value,
-      changeReason: 'QA 页面维护产品通用检验规程套绑定'
-    })
-    currentCommonRegulationBinding.value = binding
-    selectedCommonRegulationVersionId.value = binding.commonRegulationVersionId
-    selectedCommonRegulationSetVersionId.value = binding.commonRegulationSetVersionId
-    ElMessage.success('通用规程套绑定已保存')
-  } catch (error) {
-    ElMessage.error('通用检验规程绑定保存失败：' + resolveDccProjectCodeErrorMessage(error))
-  } finally {
-    commonRegulationBindingSaving.value = false
-  }
-}
-
-const handleUnbindCommonRegulation = async () => {
-  if (!selectedDccProjectCode.value) {
-    ElMessage.warning('请先选择 DCC 项目代码')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      '解除后，新生成的一线 PQC 任务将不再拼接通用包装检验工序；已生成任务仍按各自快照执行。',
-      '确认解除通用检验规程关联',
-      { type: 'warning' }
-    )
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') {
-      return
-    }
-    throw error
-  }
-  const dccProjectCodeId = resolvePositiveId(selectedDccProjectCode.value.id, 'DCC 项目代码 ID')
-  commonRegulationBindingSaving.value = true
-  try {
-    await QcTemplateApi.unbindCommonRegulation(dccProjectCodeId)
-    currentCommonRegulationBinding.value = undefined
-    selectedCommonRegulationVersionId.value = undefined
-    selectedCommonRegulationSetVersionId.value = undefined
-    ElMessage.success('通用检验规程关联已解除')
-  } catch (error) {
-    ElMessage.error('通用检验规程解除关联失败：' + resolveDccProjectCodeErrorMessage(error))
-  } finally {
-    commonRegulationBindingSaving.value = false
-  }
-}
-
-const viewCurrentCommonRegulation = () => {
-  const binding = currentCommonRegulationBinding.value
-  if (!binding) {
-    ElMessage.warning('当前产品未关联通用检验规程')
-    return
-  }
-  regulationWorkspaceTab.value = 'common'
-  if (binding.commonRegulationSetId) {
-    handleCommonRegulationSetSwitch(binding.commonRegulationSetId)
   }
 }
 
@@ -4212,15 +3870,9 @@ const saveCommonRegulationSetVersion = async () => {
 }
 
 const saveCommonRegulationItemsVersion = async () => {
-  let payload: QaCommonRegulationSetItemsUpgradeReqVO
-  try {
-    payload = buildCommonRegulationItemsUpgradePayload()
-  } catch (error) {
-    ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
-    return
-  }
   commonRegulationItemsSaving.value = true
   try {
+    const payload = await buildCommonRegulationItemsUpgradePayload()
     const saved = await QcTemplateApi.upgradeCommonRegulationSetItems(payload)
     await loadCommonRegulationVersionOptions()
     selectedCommonRegulationSetId.value = saved.setId
@@ -4271,6 +3923,15 @@ const handleQaRegulationVersionChange = async (versionId?: number) => {
     )
     if (!configuration || Number(configuration.publishedVersionId) !== Number(versionId)) {
       throw new Error('后端返回的 QA 规程版本与所选版本不一致')
+    }
+    await loadCurrentCommonRegulationBinding(dccProjectCodeId)
+    if (
+      configuration.lifecycleStatus !== 'DRAFT' &&
+      configuration.commonRegulationVersions == null
+    ) {
+      commonRegulationBindingRows.value = []
+      commonRegulationBindingLoadError.value =
+        '该历史版本未记录关联快照，无法还原当时的关联；请重新选择项目以编辑当前正式绑定'
     }
     applyQaRegulationConfiguration(configuration)
     if (shouldLoadQaEquipmentBindingsForSelectedVersion(configuration)) {
@@ -4352,23 +4013,27 @@ const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
   selectedDccProjectCode.value = project
   persistLastDccProjectCodeSelection(project)
   if (!project) {
+    ++commonRegulationBindingLoadSerial
+    commonRegulationBindingLoading.value = false
     resetQaRegulationConfiguration()
     qaCurrentPublishedVersion.value = undefined
     qaRegulationVersionOptions.value = []
     qaRegulationVersionOptionsLoadError.value = ''
     currentCommonRegulationBinding.value = undefined
-    selectedCommonRegulationVersionId.value = undefined
-    selectedCommonRegulationSetVersionId.value = undefined
+    commonRegulationBindingRows.value = []
     commonRegulationBindingLoadError.value = ''
     return
   }
   const dccProjectCodeId = resolvePositiveId(project.id, 'DCC 项目代码 ID')
   qaRegulationDraft.dccProjectCodeId = dccProjectCodeId
   await Promise.all([
-    loadCurrentQaRegulation(dccProjectCodeId),
+    loadCurrentCommonRegulationBinding(dccProjectCodeId).then(() => {
+      if (Number(selectedDccProjectCode.value?.id) === dccProjectCodeId) {
+        return loadCurrentQaRegulation(dccProjectCodeId)
+      }
+    }),
     loadCurrentPublishedQaRegulationVersion(project),
-    loadQaRegulationVersionOptions(dccProjectCodeId),
-    loadCurrentCommonRegulationBinding(dccProjectCodeId)
+    loadQaRegulationVersionOptions(dccProjectCodeId)
   ])
 }
 
@@ -4497,8 +4162,6 @@ const submitQaWordImport = async () => {
     ])
     if (importCommonRegulation) {
       await loadCommonRegulationVersionOptions()
-      selectedCommonRegulationVersionId.value = savedResult.publishedVersionId
-      regulationWorkspaceTab.value = 'common'
       qaWordImportDialogVisible.value = false
       const routeText = savedResult.route === 'CREATE' ? '新建' : '升版'
       ElMessage.success(
@@ -4620,15 +4283,57 @@ const initializeQaRegulationPage = async () => {
 }
 
 const initializeCommonRegulationWorkspace = async () => {
+  if (props.workspace === 'common' && route.query.view === 'published') {
+    commonRegulationActiveTab.value = 'published'
+  }
   await loadCommonRegulationVersionOptions()
+  if (props.workspace === 'common' && route.query.commonRegulationSetId) {
+    const setId = resolvePositiveId(route.query.commonRegulationSetId, '通用规程套 ID')
+    if (!commonRegulationSets.value.some((set) => set.id === setId)) {
+      throw new Error('指定的通用规程套不存在或无权查看')
+    }
+    handleCommonRegulationSetSwitch(setId)
+    commonRegulationActiveTab.value = 'overview'
+  }
 }
 
+watch(
+  () => [route.path, route.query.dccProjectCodeId],
+  () => {
+    if (
+      props.workspace !== 'qa' ||
+      route.path !== '/mes/pro/process-pool/qa-regulation' ||
+      !route.query.dccProjectCodeId
+    ) {
+      return
+    }
+    void handleDccProjectCodeChange(resolveInitialDccProjectCodeId()).catch((error) => {
+      dccProjectCodeLoadError.value = resolveDccProjectCodeErrorMessage(error)
+      ElMessage.error(dccProjectCodeLoadError.value)
+    })
+  }
+)
+
+watch(
+  () => [route.path, route.query.commonRegulationSetId, route.query.view],
+  () => {
+    if (props.workspace !== 'common' || route.path !== '/mes/pro/process-pool/common-regulation') {
+      return
+    }
+    void initializeCommonRegulationWorkspace().catch((error) => {
+      ElMessage.error(resolveDccProjectCodeErrorMessage(error))
+    })
+  }
+)
+
 onMounted(() => {
-  void initializeQaRegulationPage().catch((error) => {
-    const message = resolveDccProjectCodeErrorMessage(error)
-    dccProjectCodeLoadError.value = message
-    ElMessage.error(message)
-  })
+  if (props.workspace === 'qa') {
+    void initializeQaRegulationPage().catch((error) => {
+      const message = resolveDccProjectCodeErrorMessage(error)
+      dccProjectCodeLoadError.value = message
+      ElMessage.error(message)
+    })
+  }
   void initializeCommonRegulationWorkspace().catch((error) => {
     ElMessage.error(resolveDccProjectCodeErrorMessage(error))
   })
@@ -4645,7 +4350,7 @@ const handleQaFirstInspectionEnabledChange = (item: QaRegulationItem) => {
 
 const handleQaPatrolInspectionEnabledChange = (item: QaRegulationItem) => {
   if (!item.patrolInspectionEnabled) {
-    item.patrolInspectionRatio = undefined
+    item.inspectionLevel = undefined
   }
 }
 
@@ -4661,10 +4366,11 @@ const addQaRegulationItem = () => {
     inspectionMethod: '',
     inspectionTool: '',
     samplingPlanText: '',
+    finalInspectionEnabled: false,
     firstInspectionEnabled: false,
     firstInspectionQuantity: undefined,
     patrolInspectionEnabled: false,
-    patrolInspectionRatio: undefined,
+    inspectionLevel: undefined,
     resultType: 'BOOLEAN',
     standardText: '',
     critical: false,
@@ -4698,7 +4404,7 @@ const buildQaRegulationSaveItem = (
   const itemName = resolveRequiredText(item.itemName, '检验项目名称')
   const inspectionConfiguration = resolveQaItemInspectionPayload(
     item,
-    finalInspectionRequired.value,
+    item.finalInspectionEnabled,
     itemName
   )
   return {
@@ -4707,6 +4413,7 @@ const buildQaRegulationSaveItem = (
     itemName,
     inspectionMethod: resolveRequiredText(item.inspectionMethod, itemName + '检验方法'),
     inspectionTool: resolveRequiredText(item.inspectionTool, itemName + '检验器具及设备'),
+    equipmentUnboundReason: item.equipmentUnboundReason?.trim() || undefined,
     samplingPlanText: resolveRequiredText(item.samplingPlanText, itemName + '抽样方案'),
     standardText: resolveRequiredText(item.standardText, itemName + '接受标准'),
     standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
@@ -4716,7 +4423,9 @@ const buildQaRegulationSaveItem = (
     resultType: item.resultType,
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
-    patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
+    finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
+    inspectionLevel: inspectionConfiguration.inspectionLevel,
+    aql: inspectionConfiguration.aql,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
     sourceNote: item.sourceNote.trim() || undefined,
@@ -4757,8 +4466,8 @@ const buildQaRegulationProcesses = (): QaInspectionRegulationSaveProcessVO[] => 
       processCode: group.code,
       processName: group.name,
       sort: processIndex + 1,
-    items: group.items.map((item, itemIndex) => buildQaRegulationSaveItem(item, itemIndex + 1))
-  }))
+      items: group.items.map((item, itemIndex) => buildQaRegulationSaveItem(item, itemIndex + 1))
+    }))
 }
 
 const buildCommonRegulationItemEquipmentOptions = (
@@ -4777,7 +4486,7 @@ const buildCommonRegulationItemEquipmentOptions = (
 const buildCommonRegulationSaveItem = (
   item: CommonRegulationItem,
   itemSort: number,
-  finalInspectionApplicable = item.memberFinalInspectionApplicable
+  finalInspectionApplicable = item.finalInspectionEnabled
 ): QaCommonRegulationSetItemsUpgradeItemReqVO => {
   const itemName = resolveRequiredText(item.itemName, '检验项目名称')
   const inspectionConfiguration = resolveQaItemInspectionPayload(
@@ -4791,6 +4500,7 @@ const buildCommonRegulationSaveItem = (
     itemName,
     inspectionMethod: resolveRequiredText(item.inspectionMethod, itemName + '检验方法'),
     inspectionTool: resolveRequiredText(item.inspectionTool, itemName + '检验器具及设备'),
+    equipmentUnboundReason: item.equipmentUnboundReason?.trim() || undefined,
     samplingPlanText: resolveRequiredText(item.samplingPlanText, itemName + '抽样方案'),
     standardText: resolveRequiredText(item.standardText, itemName + '接受标准'),
     standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
@@ -4800,7 +4510,9 @@ const buildCommonRegulationSaveItem = (
     resultType: item.resultType,
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
-    patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
+    finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
+    inspectionLevel: inspectionConfiguration.inspectionLevel,
+    aql: inspectionConfiguration.aql,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
     sourceNote: item.sourceNoteRaw.trim() || undefined,
@@ -4814,8 +4526,7 @@ const buildCommonRegulationSaveItem = (
 
 const buildCommonRegulationSaveProcesses = (
   member: QaCommonRegulationSetMemberVO,
-  items: CommonRegulationItem[],
-  finalInspectionApplicable?: boolean
+  items: CommonRegulationItem[]
 ): QaCommonRegulationSetItemsUpgradeProcessReqVO[] => {
   const groups = new Map<
     string,
@@ -4832,7 +4543,9 @@ const buildCommonRegulationSaveProcesses = (
     )
     const existing = groups.get(code)
     if (existing && existing.name !== name) {
-      throw new Error(`通用规程 ${member.commonRegulationName} 的 QA 工序编码 ${code} 对应了多个工序名称`)
+      throw new Error(
+        `通用规程 ${member.commonRegulationName} 的 QA 工序编码 ${code} 对应了多个工序名称`
+      )
     }
     const group = existing || {
       code,
@@ -4853,12 +4566,12 @@ const buildCommonRegulationSaveProcesses = (
       processName: group.name,
       sort: processIndex + 1,
       items: group.items.map((item, itemIndex) =>
-        buildCommonRegulationSaveItem(item, itemIndex + 1, finalInspectionApplicable)
+        buildCommonRegulationSaveItem(item, itemIndex + 1, item.finalInspectionEnabled)
       )
     }))
 }
 
-const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsUpgradeReqVO => {
+const buildCommonRegulationItemsUpgradePayload = async (): Promise<QaCommonRegulationSetItemsUpgradeReqVO> => {
   const set = selectedCommonRegulationSet.value
   const sourceVersion = selectedCommonRegulationSetVersionPreview.value
   if (!set?.id || !sourceVersion?.id) {
@@ -4881,33 +4594,21 @@ const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsU
     versionNo: resolveCommonSetNextVersionNo(),
     effectiveDate: sourceVersion.effectiveDate || undefined,
     remark: `检验项目编辑升版自 ${sourceVersion.versionNo}`,
-    members: selectedCommonRegulationSetVersionMembers.value.map((member, index) => {
+    members: await Promise.all(selectedCommonRegulationSetVersionMembers.value.map(async (member, index) => {
       const memberVersionId = resolvePositiveId(
         member.commonRegulationVersionId,
         `${member.commonRegulationName}版本`
       )
       const memberRows = rowsByMemberVersionId.get(memberVersionId) || []
-      const finalInspectionApplicable = commonFinalInspectionEdited.value
-        ? commonFinalInspectionRequired.value
-        : requireCommonMemberFinalInspectionApplicable(member)
-      const finalInspectionNotApplicableReason = finalInspectionApplicable
-        ? undefined
-        : commonFinalInspectionEdited.value
-          ? resolveRequiredText(
-              commonFinalInspectionNotApplicableReason.value,
-              '末检不适用依据'
-            )
-          : resolveRequiredText(member.finalInspectionNotApplicableReason, '末检不适用依据')
+      const finalInspectionApplicable = memberRows.some((item) => item.finalInspectionEnabled)
+      const finalInspectionNotApplicableReason = finalInspectionApplicable ? undefined
+        : resolveRequiredText(commonMemberFinalInspectionReasons.value[memberVersionId], `${member.commonRegulationName}末检不适用依据`)
       return {
         commonRegulationId: resolvePositiveId(member.commonRegulationId, '通用检验规程 ID'),
         sourceCommonRegulationVersionId: memberVersionId,
-        commonDccProjectCodeId: resolvePositiveId(
-          member.commonDccProjectCodeId,
-          '通用 DCC 项目代码 ID'
-        ),
         commonRegulationCode: resolveRequiredText(member.commonRegulationCode, '通用规程编号'),
         commonRegulationName: resolveRequiredText(member.commonRegulationName, '通用规程名称'),
-        versionNo: resolveCommonMemberNextVersionNo(member),
+        versionNo: await resolveCommonMemberNextVersionNo(member),
         sort: member.sort ?? (index + 1) * 10,
         memberRole: member.memberRole || undefined,
         remark: member.remark || undefined,
@@ -4915,26 +4616,28 @@ const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsU
         finalInspectionNotApplicableReason,
         inspectionTypeRules: resolveCommonMemberInspectionRules(
           member,
-          commonFinalInspectionEdited.value ? finalInspectionApplicable : undefined,
+          finalInspectionApplicable,
           finalInspectionNotApplicableReason
         ),
-        processes: buildCommonRegulationSaveProcesses(member, memberRows, finalInspectionApplicable)
+        processes: buildCommonRegulationSaveProcesses(member, memberRows)
       }
-    })
+    }))
   }
 }
 
-const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
-  const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
-  const finalInspectionApplicable = Boolean(finalRule?.required)
+const buildQaRegulationSavePayload = (): ProductQaRegulationSaveReqVO => {
+  const finalInspectionApplicable = qaRegulationItems.value.some((item) => item.finalInspectionEnabled)
   const finalInspectionNotApplicableReason = finalInspectionApplicable
     ? undefined
-    : resolveRequiredText(finalRule?.notApplicableReason, '末检不适用依据')
+    : resolveRequiredText(qaRegulationDraft.finalInspectionNotApplicableReason, '末检不适用依据')
   return {
     regulationId: qaRegulationDraft.regulationId,
     dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
-    expectedDraftRevision: resolveQaRegulationDraftVersionNoForSave() === qaRegulationDraft.loadedVersionNo
-      && qaRegulationDraft.lifecycleStatus === 'DRAFT' ? qaRegulationDraft.draftRevision! : 0,
+    expectedDraftRevision:
+      resolveQaRegulationDraftVersionNoForSave() === qaRegulationDraft.loadedVersionNo &&
+      qaRegulationDraft.lifecycleStatus === 'DRAFT'
+        ? qaRegulationDraft.draftRevision!
+        : 0,
     ownerModule: 'MES_QA',
     regulationCode: resolveRequiredText(qaRegulationDraft.regulationCode, '规程编号'),
     regulationName: resolveRequiredText(qaRegulationDraft.regulationName, '规程名称'),
@@ -4942,7 +4645,9 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
     effectiveDate: qaRegulationDraft.effectiveDate || undefined,
     finalInspectionApplicable,
     finalInspectionNotApplicableReason,
-    inspectionTypeRules: qaInspectionTypeRules.map((rule) => ({ ...rule })),
+    inspectionTypeRules: qaInspectionTypeRules.map((rule) => rule.key === 'FINAL'
+      ? { ...rule, required: finalInspectionApplicable, notApplicableReason: finalInspectionNotApplicableReason }
+      : { ...rule }),
     processes: buildQaRegulationProcesses()
   }
 }
@@ -4981,9 +4686,9 @@ const qaRegulationPublishChecks = computed(() => [
     passed:
       qaRegulationItems.value.length > 0 &&
       qaRegulationItems.value.every((item) =>
-        isQaItemInspectionConfigurationComplete(item, finalInspectionRequired.value)
+        isQaItemInspectionConfigurationComplete(item, item.finalInspectionEnabled)
       ),
-    detail: '每个检验项目至少启用一种检验类型；启用首检或巡检时必须填写该项目自己的数量或比例'
+    detail: '每个检验项目至少启用一种检验类型；首检需填写固定数量，巡检需选择该项目的检验水平'
   },
   {
     label: '抽样方案原文',
@@ -4998,60 +4703,6 @@ const qaPublishBlockers = computed(() =>
   qaRegulationPublishChecks.value.filter((check) => !check.passed)
 )
 
-const pagedQaRegulationCompletenessChecks = computed(() =>
-  paginateQaRows(qaRegulationPublishChecks.value, qaChecksQuery)
-)
-
-const resolveQaPreviewPlannedQuantity = (
-  item: QaRegulationItem,
-  inspectionType: QaInspectionTypeValue,
-  rule: QaInspectionTypeRule
-) => {
-  if (inspectionType === 'FIRST') {
-    return item.firstInspectionQuantity
-      ? `固定 ${item.firstInspectionQuantity} 件`
-      : '未配置首检数量'
-  }
-  if (inspectionType === 'PATROL_AM' || inspectionType === 'PATROL_PM') {
-    return item.patrolInspectionRatio ? `AQL ${item.patrolInspectionRatio}%` : '未配置巡检比例'
-  }
-  return rule.fixedQuantity ? `固定 ${rule.fixedQuantity} 件` : '未配置末检数量'
-}
-
-const qaPqcTaskPreviewRows = computed(() => {
-  if (!qaConfigurationExists.value && qaRegulationItems.value.length === 0) {
-    return []
-  }
-  return qaRegulationItems.value.flatMap((item) =>
-    resolveQaItemApplicableTypes(item).map((inspectionType) => {
-      const rule = qaInspectionTypeRules.find((candidate) => candidate.key === inspectionType)
-      if (!rule) {
-        throw new Error(`缺少 ${resolveQaInspectionTypeLabel(inspectionType)} 规则配置`)
-      }
-      return {
-        qaProcessName: item.processName,
-        itemName: item.itemName,
-        inspectionTypeText: rule.label,
-        roundText: rule.roundLabel,
-        plannedQuantityText: resolveQaPreviewPlannedQuantity(item, inspectionType, rule),
-        regulationVersionNo: qaRegulationDraft.versionNo || '--',
-        taskIdentity:
-          (selectedDccProjectCode.value?.projectCode || '--') +
-          ' / ' +
-          item.processName +
-          ' / ' +
-          item.itemName +
-          ' / ' +
-          rule.key
-      }
-    })
-  )
-})
-
-const pagedQaPqcTaskPreviewRows = computed(() =>
-  paginateQaRows(qaPqcTaskPreviewRows.value, qaPqcPreviewQuery)
-)
-
 watch(
   () => qaRegulationItems.value.length,
   (total) => keepQaLocalPageInRange(qaItemsQuery, total)
@@ -5060,7 +4711,11 @@ watch(
   selectedCommonRegulationSetVersionDocuments,
   () => {
     commonRegulationItems.value = buildCommonRegulationItemsFromDocuments()
-    resetCommonFinalInspectionDraft()
+    commonMemberFinalInspectionReasons.value = Object.fromEntries(
+      selectedCommonRegulationSetVersionMembers.value.map((member) => [
+        member.commonRegulationVersionId, member.finalInspectionNotApplicableReason ?? ''
+      ])
+    )
     commonRegulationItemsQuery.pageNo = 1
   },
   { immediate: true }
@@ -5069,17 +4724,8 @@ watch(
   () => commonRegulationItems.value.length,
   (total) => keepQaLocalPageInRange(commonRegulationItemsQuery, total)
 )
-watch(
-  () => qaRegulationPublishChecks.value.length,
-  (total) => keepQaLocalPageInRange(qaChecksQuery, total)
-)
-watch(
-  () => qaPqcTaskPreviewRows.value.length,
-  (total) => keepQaLocalPageInRange(qaPqcPreviewQuery, total)
-)
-
 const previewQaRegulationDraft = async () => {
-  let payload: QaInspectionRegulationSaveReqVO
+  let payload: ProductQaRegulationSaveReqVO
   try {
     payload = buildQaRegulationSavePayload()
   } catch (error) {
@@ -5110,7 +4756,7 @@ const previewQaRegulationDraft = async () => {
     })
     qaRegulationProjectStatusByDccId.value = statusMap
     await loadQaRegulationVersionOptions(payload.dccProjectCodeId)
-    ElMessage.success('QA 规程草稿已保存到后端：' + result.versionNo)
+    ElMessage.success('QA 规程草稿已保存：' + result.versionNo + '；关联修改仍需发布后生效')
   } catch (error) {
     ElMessage.error('QA 规程草稿保存失败：' + resolveDccProjectCodeErrorMessage(error))
   } finally {
@@ -5123,16 +4769,33 @@ const runQaPublishPrecheck = async () => {
     ElMessage.warning(qaPublishBlockers.value.map((check) => check.detail).join('；'))
     return
   }
-  let payload: QaInspectionRegulationSaveReqVO
+  let payload: ProductQaRegulationSaveReqVO
   try {
+    if (
+      commonRegulationBindingLoading.value ||
+      commonRegulationBindingLoadError.value ||
+      commonRegulationVersionOptionsLoading.value ||
+      commonRegulationVersionOptionsLoadError.value
+    ) {
+      throw new Error(
+        commonRegulationBindingLoadError.value ||
+          commonRegulationVersionOptionsLoadError.value ||
+          '关联规程正在加载，请稍后发布'
+      )
+    }
     payload = buildQaRegulationSavePayload()
+    payload.commonRegulationVersionIds = commonRegulationBindingRows.value.map((row) =>
+      resolvePositiveId(row.commonRegulationVersionId, '通用规程版本 ID，请选择规程或删除空白行')
+    )
   } catch (error) {
     ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
     return
   }
   qaRegulationPublishing.value = true
+  let publicationCommitted = false
   try {
     const publishedVersion = await QcTemplateApi.publishQaRegulation(payload)
+    publicationCommitted = true
     applyQaRegulationConfiguration(publishedVersion)
     qaCurrentPublishedVersion.value = publishedVersion
     const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
@@ -5147,14 +4810,133 @@ const runQaPublishPrecheck = async () => {
       lifecycleStatus: 'PUBLISHED'
     })
     qaRegulationProjectStatusByDccId.value = statusMap
+    await loadCurrentCommonRegulationBinding(payload.dccProjectCodeId)
     await loadQaRegulationVersionOptions(payload.dccProjectCodeId)
     ElMessage.success('QA 规程已发布为不可变版本：' + publishedVersion.versionNo)
   } catch (error) {
-    ElMessage.error('QA 规程发布失败：' + resolveDccProjectCodeErrorMessage(error))
+    ElMessage.error(
+      (publicationCommitted ? 'QA 规程已发布，但页面刷新失败：' : 'QA 规程发布失败：') +
+        resolveDccProjectCodeErrorMessage(error)
+    )
   } finally {
     qaRegulationPublishing.value = false
   }
 }
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveQaRegulationLifecycleStatusText(row.lifecycleStatus)].join(' ')
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    type: 'text',
+    getValue: (row) => [row.members?.length || 0].join(' ')
+  },
+  {
+    key: 'members',
+    label: '包含规程',
+    type: 'text',
+    getValue: (row) =>
+      [row.members?.map((member) => member.commonRegulationName).join('、') || '未配置'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'samplingPlan',
+    label: '原抽样方案',
+    type: 'text',
+    getValue: (row) => [formatQaItemSamplingPlan(row)].join(' ')
+  },
+  {
+    key: 'sourceOriginalExcerpt',
+    label: '原文依据',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.sourceOriginalPage || '未记录',
+        row.sourceOriginalItem || row.sourceDocumentTitle,
+        row.sourceOriginalExcerpt || '该通用规程未记录原文摘录。',
+        row.sourceOriginalMethod
+      ].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'samplingPlan',
+    label: '原抽样方案',
+    type: 'text',
+    getValue: (row) => [formatQaItemSamplingPlan(row)].join(' ')
+  },
+  {
+    key: 'sourceOriginalExcerpt',
+    label: '原文依据',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.sourceOriginalPage || '待补充',
+        row.sourceOriginalItem || '待补充原文项目',
+        row.sourceOriginalExcerpt || 'QA 手工新增项目需补充对应 PDF/规程原文摘录。',
+        row.sourceOriginalMethod
+      ].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'versionNo',
+    label: '套版本',
+    visible: true
+  },
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'effectiveDate',
+    label: '生效日期',
+    visible: true
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    visible: true
+  },
+  {
+    key: 'displayColumn4',
+    label: '包含规程',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'versionNo', label: '套版本', type: 'text', getValue: (row) => [row.versionNo].join(' ') },
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveQaRegulationLifecycleStatusText(row.lifecycleStatus)].join(' ')
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    type: 'text',
+    getValue: (row) => [row.members?.length || 0].join(' ')
+  },
+  {
+    key: 'displayColumn4',
+    label: '包含规程',
+    type: 'text',
+    getValue: (row) =>
+      [row.members?.map((member) => member.commonRegulationName).join('、') || '未配置'].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -5179,34 +4961,11 @@ const runQaPublishPrecheck = async () => {
   font-weight: 700;
 }
 
-.qa-regulation-page__workspace-tabs-wrap {
-  margin-bottom: 0 !important;
-}
-
-.qa-regulation-page__workspace-tabs-wrap :deep(.el-card__body) {
-  padding-top: 10px !important;
-  padding-bottom: 0 !important;
-}
-
-.qa-regulation-page__workspace-tabs :deep(.el-tabs__header) {
-  margin-bottom: 0;
-}
-
-.qa-regulation-page__workspace-tabs :deep(.el-tabs__content) {
-  display: none;
-}
-
 .qa-regulation-page__hint {
   margin-top: 4px;
   color: #667085;
   font-size: 13px;
   line-height: 1.5;
-}
-
-.qa-regulation-page__layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  gap: 16px;
 }
 
 .qa-regulation-page__form :deep(.el-form-item:last-child) {
@@ -5474,27 +5233,6 @@ const runQaPublishPrecheck = async () => {
   white-space: nowrap;
 }
 
-.qa-regulation-page__overview-note {
-  margin-top: 0;
-}
-
-.qa-regulation-page__overview-note-list {
-  margin: 0;
-  padding-left: 24px;
-  color: #344054;
-  font-size: 14px;
-  line-height: 1.75;
-  overflow-wrap: anywhere;
-}
-
-.qa-regulation-page__overview-note-list li {
-  padding-left: 4px;
-}
-
-.qa-regulation-page__overview-note-list li + li {
-  margin-top: 8px;
-}
-
 .qa-regulation-page__common-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -5522,13 +5260,6 @@ const runQaPublishPrecheck = async () => {
   color: #172033;
   font-size: 16px;
   font-weight: 700;
-}
-
-.qa-regulation-page__common-binding-subtitle {
-  margin: 6px 0 0;
-  color: #667085;
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .qa-regulation-page__common-set-workbench {
@@ -5747,6 +5478,13 @@ const runQaPublishPrecheck = async () => {
   margin-top: 14px;
 }
 
+.qa-regulation-page__common-binding-add {
+  width: 100%;
+  min-width: 120px;
+  height: 44px;
+  font-size: 16px;
+}
+
 .qa-regulation-page__card-head {
   display: flex;
   flex-wrap: wrap;
@@ -5834,7 +5572,7 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__equipment-binding {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
 }
@@ -5853,13 +5591,16 @@ const runQaPublishPrecheck = async () => {
 }
 
 .qa-regulation-page__equipment-select {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
 .qa-regulation-page__equipment-number {
+  min-width: 0;
   color: #667085;
   font-size: 12px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .qa-regulation-page__equipment-error {
@@ -5920,18 +5661,6 @@ const runQaPublishPrecheck = async () => {
   background: #f5fff7;
 }
 
-.qa-regulation-page__check-title {
-  color: #172033;
-  font-weight: 700;
-}
-
-.qa-regulation-page__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-}
-
 @media (max-width: 1500px) {
   .qa-regulation-page__header {
     flex-wrap: wrap;
@@ -5961,10 +5690,6 @@ const runQaPublishPrecheck = async () => {
     order: 3;
     flex: 1 0 100%;
     min-width: 0;
-  }
-
-  .qa-regulation-page__layout {
-    grid-template-columns: 1fr;
   }
 
   .qa-regulation-page__scope-grid {

@@ -7,12 +7,21 @@
     <!-- 左侧部门树 -->
     <el-col :span="4" :xs="24">
       <ContentWrap class="h-1/1">
+        <div class="flex flex-wrap gap-8px px-15px pt-15px" v-if="checkPermi(['system:dept:create', 'system:dept:update'])">
+          <el-button v-if="checkPermi(['system:dept:create'])" type="primary" plain size="small" @click="openDeptForm('create')">
+            新增部门
+          </el-button>
+          <el-button v-if="checkPermi(['system:dept:update']) && checkPermi(['system:dept:query'])" plain size="small" :disabled="selectedDeptId === undefined" @click="openDeptForm('update')">
+            编辑部门
+          </el-button>
+        </div>
         <DeptTreeSelect :key="deptTreeRenderKey" :departments="departments" show-supervisor @node-click="handleDeptNodeClick" />
       </ContentWrap>
     </el-col>
     <el-col :span="20" :xs="24">
       <ContentWrap>
         <UnifiedListTemplate
+          ref="userListTemplateRef"
           table-key="system.user.main"
           :query-model="queryParams"
           label-width="68px"
@@ -26,23 +35,30 @@
           :total="total"
           v-model:page="queryParams.pageNo"
           v-model:limit="queryParams.pageSize"
+          :rows="list"
+          :sort-state="userSortState"
           @update:quick-filter-state="userQuickFilter.updateState"
           @quick-filter-query="handleQuery"
           @column-change="saveUserColumnConfig"
-          @pagination="getList"
+          @pagination="handleUserPagination"
+          @sort-change="handleUserSortChange"
+          server-filter
+          :server-filter-query="getList"
+
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
-            <el-button plain @click="handoverRef.open()" v-hasPermi="['bpm:task:manager-query']">主管待办交接</el-button>
             <el-dropdown
               class="system-user-advanced-actions"
               trigger="click"
               @command="handleAdvancedCommand"
-              v-hasPermi="[
+              v-if="checkPermi([
                 'system:user:create',
                 'system:user:import',
                 'system:user:delete',
-                'system:dept:delete'
-              ]"
+                'system:dept:delete',
+                'system:user:export'
+              ])"
             >
               <el-button type="primary" plain>
                 <span>高级</span>
@@ -50,26 +66,38 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="create" v-hasPermi="['system:user:create']">
+                  <el-dropdown-item command="exportUsers" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">
+                    <Icon icon="ep:download" />
+                    <span class="ml-5px">导出用户</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="exportGeneric" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">
+                    <Icon icon="ep:download" />
+                    <span class="ml-5px">导出不合规清单</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="create" v-if="checkPermi(['system:user:create'])">
                     <Icon icon="ep:plus" />
                     <span class="ml-5px">新增</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="import" v-hasPermi="['system:user:import']">
+                  <el-dropdown-item command="import" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:upload" />
                     <span class="ml-5px">导入</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="dingTalkImport" v-hasPermi="['system:user:import']">
+                  <el-dropdown-item command="teamRoster" v-if="checkPermi(['system:user:import']) && checkPermi(['system:user:create']) && checkPermi(['system:permission:assign-user-role'])">
+                    <Icon icon="ep:upload" />
+                    <span class="ml-5px">从车间名单导入生产组长</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="dingTalkImport" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:office-building" />
                     <span class="ml-5px">钉钉导入</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="deleteBatch" v-hasPermi="['system:user:delete']">
+                  <el-dropdown-item command="deleteBatch" v-if="checkPermi(['system:user:delete'])">
                     <Icon icon="ep:delete" />
                     <span class="ml-5px">批量删除</span>
                   </el-dropdown-item>
                   <el-dropdown-item
                     command="deleteDept"
                     :disabled="selectedDeptId === undefined"
-                    v-hasPermi="['system:dept:delete']"
+                    v-if="checkPermi(['system:dept:delete'])"
                   >
                     <Icon icon="ep:delete-filled" />
                     <span class="ml-5px">删除组织</span>
@@ -78,13 +106,13 @@
               </template>
             </el-dropdown>
           </template>
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ rows, resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="loading"
               class="system-user-resizable-table"
               data-user-table-column-explicit
               data-user-table-key="system.user.main"
-              :data="list"
+              :data="rows ?? resolveRows(list)"
               row-key="id"
               border
               :allow-drag-last-column="true"
@@ -273,69 +301,22 @@
                 <template #default="scope">
                   <div class="system-user-row-actions">
                     <div class="system-user-row-actions__row">
-                      <el-button
-                        type="primary"
-                        link
-                        @click="openForm('update', scope.row.id)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        修改
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        link
-                        @click="handleDelete(scope.row.id)"
-                        v-hasPermi="['system:user:delete']"
-                      >
-                        删除
-                      </el-button>
-                    </div>
-                    <div class="system-user-row-actions__row">
-                      <el-button
-                        type="warning"
-                        link
-                        @click="handleResetPwd(scope.row)"
-                        v-hasPermi="['system:user:update-password']"
-                      >
-                        重置密码
-                      </el-button>
-                      <el-button
-                        type="primary"
-                        link
-                        @click="handleRole(scope.row)"
-                        v-hasPermi="['system:permission:assign-user-role']"
-                      >
-                        分配角色
-                      </el-button>
-                      <el-button
-                        v-if="scope.row.loginLocked === 1"
-                        type="success"
-                        link
-                        @click="handleUnlock(scope.row)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        解锁
-                      </el-button>
-                    </div>
-                    <div class="system-user-row-actions__row">
-                      <el-button
-                        type="primary"
-                        link
-                        :disabled="scope.row.status !== CommonStatusEnum.ENABLE"
-                        @click="directSupervisorRef?.open(scope.row.id)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        设置直属主管
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        link
-                        :disabled="Boolean(scope.row.lifecycleDeactivatedTime)"
-                        @click="openLifecycleDeactivate(scope.row)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        离职/转岗
-                      </el-button>
+                      <el-button v-hasPermi="['system:user:update']" type="primary" link @click="openForm('update', scope.row.id)">修改</el-button>
+                      <el-button v-hasPermi="['system:permission:assign-user-role']" type="primary" link @click="handleRole(scope.row)">分配</el-button>
+                      <el-dropdown v-if="checkPermi(['system:user:delete', 'system:user:update-password', 'system:user:update', 'bpm:task:manager-query'])" trigger="click">
+                        <el-button type="primary" link aria-label="更多操作">...</el-button>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item v-if="checkPermi(['system:user:delete'])" :disabled="deleteLoading" @click="handleDelete(scope.row)">删除</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update-password'])" @click="handleResetPwd(scope.row)">重置密码</el-dropdown-item>
+                            <el-dropdown-item v-if="scope.row.loginLocked !== 1 && checkPermi(['system:user:update'])" @click="handleLock(scope.row)">锁定</el-dropdown-item>
+                            <el-dropdown-item v-if="scope.row.loginLocked === 1 && checkPermi(['system:user:update'])" @click="handleUnlock(scope.row)">解锁</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update'])" :disabled="scope.row.status !== CommonStatusEnum.ENABLE" @click="directSupervisorRef?.open(scope.row.id)">设置直属主管</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update'])" :disabled="Boolean(scope.row.lifecycleDeactivatedTime)" @click="openLifecycleDeactivate(scope.row)">离职/转岗</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['bpm:task:manager-query'])" @click="openAccountHandover(scope.row)">交接待办</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                   </div>
                 </template>
@@ -348,20 +329,26 @@
   </el-row>
 
   <SupervisorHandoverDialog ref="handoverRef" />
+  <DeptForm ref="deptFormRef" @success="refreshAfterDeptChange" />
   <!-- 添加或修改用户对话框 -->
   <UserForm ref="formRef" @success="getList" />
   <!-- 用户导入对话框 -->
   <UserImportForm ref="importFormRef" @success="refreshAfterLifecycleChange" />
+  <TeamRosterImportDialog ref="teamRosterImportRef" @success="refreshAfterLifecycleChange" />
   <!-- 钉钉导入对话框 -->
   <UserDingTalkImportForm ref="dingTalkImportFormRef" @success="refreshAfterLifecycleChange" />
   <!-- 分配角色 -->
   <UserAssignRoleForm ref="assignRoleFormRef" @success="getList" />
   <!-- 离职/转岗联动停用 -->
-  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" />
+  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" @handover="openLifecycleHandover" />
   <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
+import download from '@/utils/download'
+import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { checkPermi } from '@/utils/permission'
 import { isNavigationFailure } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
@@ -381,22 +368,24 @@ import * as UserApi from '@/api/system/user'
 import UserForm from './UserForm.vue'
 import SupervisorHandoverDialog from './SupervisorHandoverDialog.vue'
 import UserImportForm from './UserImportForm.vue'
+import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
 import UserDingTalkImportForm from './UserDingTalkImportForm.vue'
 import UserAssignRoleForm from './UserAssignRoleForm.vue'
 import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
 import UserDirectSupervisorDialog from './UserDirectSupervisorDialog.vue'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
+import DeptForm from '@/views/system/dept/DeptForm.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
   buildDeptLeaderLookup,
   formatDisplayNames,
   isDeptLeader,
-  sortUsersByDeptLeader
+  type UserTableSortOrder
 } from './utils'
 
 defineOptions({ name: 'SystemUser' })
 
-const handoverRef = ref()
+const handoverRef = ref<InstanceType<typeof SupervisorHandoverDialog>>()
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
@@ -435,19 +424,19 @@ const userQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => 
 
 const userDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'selection', label: '选择', width: 55, hideable: false, business: false, sortable: false },
-  { key: 'id', label: '用户编号', width: 100 },
-  { key: 'username', label: '用户名称', minWidth: 120 },
-  { key: 'nickname', label: '用户昵称', minWidth: 120 },
-  { key: 'deptName', label: '部门', minWidth: 120 },
-  { key: 'roleNamesText', label: '角色', minWidth: 180 },
-  { key: 'postNamesText', label: '岗位', minWidth: 180 },
-  { key: 'mobile', label: '手机号码', width: 120 },
-  { key: 'status', label: '状态', width: 100 },
-  { key: 'loginLocked', label: '锁定状态', width: 100 },
-  { key: 'lifecycleDocumentNo', label: '离职/转岗单号', minWidth: 160, visible: false },
-  { key: 'lifecycleEffectiveTime', label: '停用生效时间', width: 180, visible: false },
-  { key: 'lifecycleDeactivatedTime', label: '联动停用时间', width: 180, visible: false },
-  { key: 'createTime', label: '创建时间', width: 180 },
+  { key: 'id', label: '用户编号', width: 100, sortable: 'custom' },
+  { key: 'username', label: '用户名称', minWidth: 120, sortable: 'custom' },
+  { key: 'nickname', label: '用户昵称', minWidth: 120, sortable: 'custom' },
+  { key: 'deptName', label: '部门', minWidth: 120, sortable: 'custom' },
+  { key: 'roleNamesText', label: '角色', minWidth: 180, sortable: 'custom' },
+  { key: 'postNamesText', label: '岗位', minWidth: 180, sortable: 'custom' },
+  { key: 'mobile', label: '手机号码', width: 120, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 100, sortable: 'custom' },
+  { key: 'loginLocked', label: '锁定状态', width: 100, sortable: 'custom' },
+  { key: 'lifecycleDocumentNo', label: '离职/转岗单号', minWidth: 160, visible: false, sortable: 'custom' },
+  { key: 'lifecycleEffectiveTime', label: '停用生效时间', width: 180, visible: false, sortable: 'custom' },
+  { key: 'lifecycleDeactivatedTime', label: '联动停用时间', width: 180, visible: false, sortable: 'custom' },
+  { key: 'createTime', label: '创建时间', width: 180, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 230, hideable: false, business: false, sortable: false }
 ]
 
@@ -464,6 +453,7 @@ const {
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
+const userSortState = ref<{ key?: keyof UserTableRow; order: UserTableSortOrder }>({ order: null })
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
 const departments = ref<DeptApi.DeptVO[]>([])
@@ -489,6 +479,22 @@ const loadDeptMetadata = async () => {
   departments.value = deptList
   deptLeaderByDeptId.value = buildDeptLeaderLookup(deptList)
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
+}
+
+const deptFormRef = ref<InstanceType<typeof DeptForm>>()
+const openDeptForm = (type: 'create' | 'update') => {
+  if (type === 'update' && selectedDeptId.value === undefined) return
+  return deptFormRef.value?.open(type, type === 'update' ? selectedDeptId.value : undefined,
+    type === 'create' ? selectedDeptId.value : undefined)
+}
+const refreshAfterDeptChange = async () => {
+  await loadDeptMetadata()
+  if (selectedDeptId.value !== undefined && !deptNameById.value.has(selectedDeptId.value)) {
+    queryParams.deptId = undefined
+    deptTreeRenderKey.value += 1
+  }
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const buildUserTableRows = (users: UserApi.UserListVO[]): UserTableRow[] =>
@@ -522,20 +528,31 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
 let listRequestId = 0
 const getList = async () => {
   const requestId = ++listRequestId
-  const params = { ...queryParams }
+  const params = {
+    ...queryParams,
+    sortKey: userSortState.value.order ? userSortState.value.key : undefined,
+    sortOrder: userSortState.value.order ?? undefined
+  }
   loading.value = true
   try {
     const data = await UserApi.getUserPage(params)
     if (requestId !== listRequestId) return
     const pageList = data.list as UserApi.UserListVO[]
-    const orderedList = params.deptId !== undefined
-      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
-      : pageList
-    list.value = buildUserTableRows(orderedList)
+    list.value = buildUserTableRows(pageList)
     total.value = data.total
   } finally {
     if (requestId === listRequestId) loading.value = false
   }
+}
+
+const handleUserSortChange = async ({ key, order }: { key?: keyof UserTableRow; order: UserTableSortOrder }) => {
+  userSortState.value = { key, order }
+  queryParams.pageNo = 1
+  await getList()
+}
+
+const handleUserPagination = () => {
+  return getList()
 }
 
 const userQuickFilter = useTableQuickFilter(
@@ -558,7 +575,7 @@ const handleDeptNodeClick = async (deptId: number | undefined) => {
 
 const refreshDeptTreeAndList = async () => {
   queryParams.deptId = undefined
-  checkedIds.value = []
+  checkedUsers.value = []
   deptTreeRenderKey.value += 1
   await loadDeptMetadata()
   await getList()
@@ -582,12 +599,15 @@ const handleDingTalkImport = () => {
   dingTalkImportFormRef.value.open()
 }
 
-const supervisorImpactText = async (ids: number[]) => {
+const supervisorImpactText = async (ids: number[], operation: 'disable' | 'delete' = 'disable') => {
   const affected = await UserApi.getSupervisorImpact(ids)
-  return affected.length
+  const supervisorImpact = affected.length
     ? '将解除以下部门的主管配置：' + affected.map((dept) => dept.name).join('、') +
-      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。已有待办须显式交接。'
-    : '已有待办不会自动转移，如需调整请办理交接。'
+      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。'
+    : ''
+  return supervisorImpact + (operation === 'delete'
+    ? '将删除用户及其角色、岗位关联，已有待办不会自动转移；如需交接，请取消并先办理“交接待办”。'
+    : '停用后将自动打开待办交接确认，已有待办经确认后才转移。')
 }
 const refreshAfterLifecycleChange = async () => {
   await loadDeptMetadata()
@@ -605,6 +625,7 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
     // 发起修改状态
     await UserApi.updateUserStatus(row.id, row.status)
     saved = true
+    if (row.status === CommonStatusEnum.DISABLE) await openAccountHandover(row, '账号已停用，请确认未完成待办的接收人。')
     await loadDeptMetadata()
     await getList()
   } catch (error) {
@@ -616,45 +637,60 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
 }
 
 /** 删除按钮操作 */
-const handleDelete = async (id: number) => {
+type DeleteTarget = Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>
+const deleteLoading = ref(false)
+const describeDeleteTargets = (targets: DeleteTarget[]) => targets
+  .map((user) => `账号“${user.username}”（${user.nickname}，编号 ${user.id}）`).join('；')
+const handleDelete = async (row: DeleteTarget) => {
+  if (deleteLoading.value) return
+  const target = { id: row.id, username: row.username, nickname: row.nickname }
+  deleteLoading.value = true
   try {
-    const impact = await supervisorImpactText([id])
-    await message.delConfirm('确认删除该用户吗？' + impact)
+    const impact = await supervisorImpactText([target.id], 'delete')
+    await message.delConfirm(`确认删除以下 1 位用户吗？${describeDeleteTargets([target])}。${impact}`)
     // 发起删除
-    await UserApi.deleteUser(id)
+    await UserApi.deleteUser(target.id)
     await loadDeptMetadata()
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') throw error
+  } finally {
+    deleteLoading.value = false
   }
 }
 
 /** 批量删除按钮操作 */
-const checkedIds = ref<number[]>([])
+const checkedUsers = ref<DeleteTarget[]>([])
 const handleRowCheckboxChange = (rows: UserApi.UserVO[]) => {
-  checkedIds.value = rows.map((row) => row.id)
+  checkedUsers.value = rows.map(({ id, username, nickname }) => ({ id, username, nickname }))
 }
 
 const handleDeleteBatch = async () => {
-  if (checkedIds.value.length === 0) {
+  if (deleteLoading.value) return
+  if (checkedUsers.value.length === 0) {
     message.warning('请选择需要删除的用户')
     return
   }
+  const targets = checkedUsers.value.map((user) => ({ ...user }))
+  const ids = targets.map((user) => user.id)
+  deleteLoading.value = true
   try {
     // 删除的二次确认
-    const impact = await supervisorImpactText(checkedIds.value)
-    await message.delConfirm('确认删除选中的用户吗？' + impact)
+    const impact = await supervisorImpactText(ids, 'delete')
+    await message.delConfirm(`确认删除以下 ${targets.length} 位用户吗？${describeDeleteTargets(targets)}。${impact}`)
     // 发起批量删除
-    await UserApi.deleteUserList(checkedIds.value)
+    await UserApi.deleteUserList(ids)
     await loadDeptMetadata()
-    checkedIds.value = []
+    checkedUsers.value = []
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') throw error
+  } finally {
+    deleteLoading.value = false
   }
 }
 
@@ -675,13 +711,71 @@ const handleDeleteSelectedDept = async () => {
   } catch {}
 }
 
+const userListTemplateRef = ref()
+const exportLoading = ref(false)
+const handleUserExport = async (generic: boolean) => {
+  if (exportLoading.value) return
+  exportLoading.value = true
+  try {
+    const tenant = getTenantId()
+    const visit = getVisitTenantId()
+    const token = getAccessToken()
+    const query = JSON.stringify(queryParams)
+    const scope = generic ? undefined : userListTemplateRef.value.getExportScope()
+    const scopeKey = scope ? JSON.stringify(scope) : ''
+    const params = JSON.parse(query)
+    params.sortKey = userSortState.value.order ? userSortState.value.key : undefined
+    params.sortOrder = userSortState.value.order
+    delete params.pageNo
+    delete params.pageSize
+    if (scope?.mode === 'local' && scope.active) {
+      if (!scope.ids.length) throw new Error('当前筛选结果为空，无用户可导出')
+      params.ids = scope.ids
+    }
+    const range = generic
+      ? '当前租户全部通用账户不合规记录，不应用页面部门、查询或列筛选。'
+      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${total.value} 位用户。` : ''}筛选参数：${JSON.stringify(params)}`
+    try {
+      await message.confirm(`导出类型：${generic ? '通用账户不合规清单' : '用户数据'}\n租户 ID：${visit || tenant}\n范围：${range}`, '确认导出类型及范围')
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    const assertExportContext = () => {
+      if (getTenantId() !== tenant || getVisitTenantId() !== visit || getAccessToken() !== token ||
+        (!generic && (JSON.stringify(queryParams) !== query || JSON.stringify(userListTemplateRef.value.getExportScope()) !== scopeKey))) {
+        throw new Error('租户、登录状态或筛选范围已变化，请重新确认导出')
+      }
+    }
+    assertExportContext()
+    const data = generic ? await UserApi.exportGenericAccountUsers() : await UserApi.exportUser(params)
+    assertExportContext()
+    download.excel(data, generic ? '通用账户不合规清单.xlsx' : '用户数据.xlsx')
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+    throw error
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const teamRosterImportRef = ref<InstanceType<typeof TeamRosterImportDialog>>()
 const handleAdvancedCommand = async (command: string) => {
   switch (command) {
+    case 'exportUsers':
+      await handleUserExport(false)
+      break
+    case 'exportGeneric':
+      await handleUserExport(true)
+      break
     case 'create':
       openForm('create')
       break
     case 'import':
       handleImport()
+      break
+    case 'teamRoster':
+      teamRosterImportRef.value?.open('leader')
       break
     case 'dingTalkImport':
       handleDingTalkImport()
@@ -702,7 +796,7 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   let password: string
   try {
     const result = await message.prompt(
-      '请输入"' + row.username + '"的新密码',
+      '请输入"' + row.username + '"的新密码。重置成功后，该用户的现有登录会话将失效，须重新登录并修改密码；如为当前账号，本次操作后将退出登录。',
       t('common.reminder'),
       { inputType: 'password' }
     )
@@ -743,6 +837,28 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   }
 }
 
+/** 锁定用户 */
+const handleLock = async (row: UserApi.UserVO) => {
+  let reason: string
+  try {
+    const result = await message.prompt(
+      '锁定后30分钟内无法通过密码登录，可由管理员提前解锁。请输入锁定"' + row.username + '"用户的原因',
+      '锁定用户',
+      {
+        inputPlaceholder: '请输入锁定原因',
+        inputValidator: (value) => !!value?.trim() || '锁定原因不能为空'
+      }
+    )
+    reason = result.value.trim()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  await UserApi.lockUser(row.id, reason)
+  message.success('锁定成功')
+  await getList()
+}
+
 /** 解锁用户 */
 const handleUnlock = async (row: UserApi.UserVO) => {
   let reason: string
@@ -778,6 +894,12 @@ const openLifecycleDeactivate = (row: UserApi.UserVO) => {
   lifecycleDeactivateFormRef.value.open(row)
 }
 
+const openAccountHandover = (row: Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>, notice = '请选择未完成待办并确认接收人；未交接事项可从本账号的“交接待办”继续办理。') =>
+  handoverRef.value?.open({ assigneeUserId: row.id, assigneeName: row.nickname || row.username,
+    reason: '', notice })
+const openLifecycleHandover = (row: Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>) =>
+  openAccountHandover(row, '离职/转岗停用已登记，请办理现有待办交接；定时生效前新增的待办仍需另行交接。')
+
 /** 初始化 */
 onMounted(async () => {
   await loadDeptMetadata()
@@ -792,6 +914,15 @@ watch(
     await getList()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'loginLocked',
+    label: '锁定状态',
+    type: 'text',
+    getValue: (row) => [row.loginLocked === 1 ? '已锁定' : '未锁定'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

@@ -56,7 +56,7 @@ class MesKingdeeProductionMaterialListSchemaTest {
         assertNotNull(MesKingdeeProductionMaterialListMapper.class.getMethod("selectPage",
                 MesKingdeeProductionMaterialListPageReqVO.class));
         assertNotNull(MesKingdeeProductionMaterialListMapper.class.getMethod("selectGroupList",
-                MesKingdeeProductionMaterialListPageReqVO.class));
+                MesKingdeeProductionMaterialListPageReqVO.class, com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.class));
         assertNotNull(MesKingdeeProductionMaterialListMapper.class.getMethod("selectListBySourceBillNo",
                 String.class));
         assertEquals(String.class,

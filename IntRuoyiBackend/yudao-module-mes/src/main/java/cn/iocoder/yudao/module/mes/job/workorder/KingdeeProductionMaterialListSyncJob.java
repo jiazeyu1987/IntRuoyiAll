@@ -24,8 +24,17 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
 
     @Override
-    @TenantJob
+    public boolean supportsAutomaticRetry() {
+        // The client retries only the failed page; never restart the entire sync on failure.
+        return false;
+    }
+
+    @Override
+    @TenantJob(failOnError = true)
     public String execute(String param) {
+        if (param != null && param.startsWith(WINDOW_SYNC_JOB_PREFIX)) {
+            return executeWindowSync(param);
+        }
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
         }
@@ -50,18 +59,26 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
-        AtomicReference<MesKingdeeProductionMaterialListSyncResult> resultReference = new AtomicReference<>();
+        return executeFullSync(null, windowEnd);
+    }
+
+    @Override
+    public String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd) {
+        AtomicReference<ErpKingdeeSyncRunResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .forceInitialWindowStart(windowStart != null)
+                .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
+            ErpKingdeeSyncRunResult result = windowStart == null ? syncService.syncAllSkipExisting(context.getRunId())
+                    : syncService.syncAllSkipExisting(context.getRunId(), windowStart, windowEnd);
             resultReference.set(result);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
+            return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null, result.getCreatedCount(),
                     result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
-        MesKingdeeProductionMaterialListSyncResult result = resultReference.get();
+        ErpKingdeeSyncRunResult result = resultReference.get();
         return String.format("ERP production material list full sync: created=%d, updated=%d, skipped=%d",
                 result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
     }

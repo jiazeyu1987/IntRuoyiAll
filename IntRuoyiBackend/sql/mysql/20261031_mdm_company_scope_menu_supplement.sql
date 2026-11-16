@@ -58,7 +58,8 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Authorized-company reserved menu ID contract conflict';
   END IF;
   IF EXISTS (SELECT 1 FROM system_menu actual JOIN tmp_word14_scope_menus expected
-                    ON actual.permission = expected.permission AND actual.id <> expected.id)
+                    ON actual.permission = expected.permission AND actual.id <> expected.id
+                   WHERE actual.deleted = b'0')
      OR EXISTS (SELECT 1 FROM system_menu WHERE deleted = b'0' AND id <> 990255
                   AND ((parent_id = 990200 AND path = 'company-scope') OR path = '/mdm/company-scope'
                        OR component = 'mdm/company-scope/index' OR component_name = 'MdmCompanyScope')) THEN

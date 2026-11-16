@@ -45,4 +45,9 @@ public class DccNativeApprovalSummaryEnricher implements ApprovalTaskSummaryEnri
         summary.setBusinessContextTags(summaries.buildDccBusinessContextTags(file, summary.getCurrentNodeName()));
         summary.setBusinessDeleted(Boolean.TRUE.equals(file.getDeleted()));
     }
+    @Override
+    public void enrichFilterFacts(java.util.Map<String, String> facts, FilterContext context) {
+        DccNativeApprovalFilterSql.enrich(facts, context, false);
+    }
+
 }

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.historicalimport.DccRegistrationCertificateHistoricalImportRow;
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
@@ -50,22 +51,26 @@ public interface DccRegistrationCertificateAuditMapper {
 
     @Select("""
             <script>
-            SELECT COUNT(*)
+            SELECT /*+ SET_VAR(group_concat_max_len=4294967295) */ COUNT(*)
               FROM dcc_registration_certificate_audit a
+              LEFT JOIN dcc_registration_certificate_version v ON v.tenant_id=a.tenant_id AND v.id=a.version_id AND v.deleted=0
+              LEFT JOIN dcc_registration_certificate_snapshot s ON s.tenant_id=a.tenant_id AND s.id=a.snapshot_id AND s.deleted=0
              WHERE a.tenant_id = #{tenantId}
                AND a.event_type = 'HISTORICAL_IMPORT'
                <if test="sourceHash != null and sourceHash != ''">
                  AND a.event_key LIKE CONCAT('HISTORICAL_IMPORT:', #{sourceHash}, ':%')
                </if>
+               <if test="ew != null and !ew.emptyOfNormal"> AND (${ew.sqlSegment}) </if>
             </script>
             """)
     @InterceptorIgnore(tenantLine = "true")
     long countHistoricalImportPage(@Param("tenantId") Long tenantId,
-                                   @Param("sourceHash") String sourceHash);
+                                   @Param("sourceHash") String sourceHash,
+                                   @Param("ew") QueryWrapper<Object> filter);
 
     @Select("""
             <script>
-            SELECT a.id,
+            SELECT /*+ SET_VAR(group_concat_max_len=4294967295) */ a.id,
                    a.owner_company_id AS ownerCompanyId,
                    a.certificate_id AS certificateId,
                    c.id AS certificateRecordId,
@@ -101,6 +106,7 @@ public interface DccRegistrationCertificateAuditMapper {
                <if test="sourceHash != null and sourceHash != ''">
                  AND a.event_key LIKE CONCAT('HISTORICAL_IMPORT:', #{sourceHash}, ':%')
                </if>
+               <if test="ew != null and !ew.emptyOfNormal"> AND (${ew.sqlSegment}) </if>
              ORDER BY a.occurred_at DESC, a.id DESC
              LIMIT #{limit} OFFSET #{offset}
             </script>
@@ -109,6 +115,7 @@ public interface DccRegistrationCertificateAuditMapper {
     List<DccRegistrationCertificateHistoricalImportRow> selectHistoricalImportPage(
             @Param("tenantId") Long tenantId,
             @Param("sourceHash") String sourceHash,
+            @Param("ew") QueryWrapper<Object> filter,
             @Param("limit") int limit,
             @Param("offset") int offset);
 }

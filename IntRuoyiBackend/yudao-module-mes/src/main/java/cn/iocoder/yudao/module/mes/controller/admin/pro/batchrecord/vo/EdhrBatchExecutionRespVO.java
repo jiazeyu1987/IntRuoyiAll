@@ -11,6 +11,7 @@ import java.util.List;
 public class EdhrBatchExecutionRespVO {
 
     private Long id;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess.Access marketReleaseAccess;
 
     private String batchExecutionCode;
 

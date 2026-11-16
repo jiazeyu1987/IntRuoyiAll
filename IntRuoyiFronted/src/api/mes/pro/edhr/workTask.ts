@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 interface EdhrWorkTaskRequestOptions {
   ignoreErrorMessage?: boolean
@@ -62,6 +63,8 @@ export interface EdhrWorkTaskRespVO {
   sourceUserName?: string
   responsibilitySource?: string
   inactionReason?: string
+  actionable?: boolean
+  blockedReason?: string
   signatureCellKey?: string
   signatureRowIndex?: number
   signatureColumnIndex?: number
@@ -101,18 +104,10 @@ export interface EdhrWorkTaskArchiveRuleReqVO {
   remark?: string
 }
 
-export interface EdhrWorkTaskCloseRuleReqVO {
-  routeId: number
-  assigneeUserId: number
-  dueMinutes: number
-  enabled: boolean
-  remark?: string
-}
-
 export type EdhrWorkTaskReleaseApprovalCandidateSourceType = 'USER' | 'ROLE_GROUP'
 
 export interface EdhrWorkTaskReleaseApprovalRuleReqVO {
-  routeId: number
+  routeId: MesRouteId
   candidateSourceType: EdhrWorkTaskReleaseApprovalCandidateSourceType
   candidateSourceId: number
   enabled: boolean
@@ -196,27 +191,7 @@ export const saveEdhrRouteArchiveRule = async (data: EdhrWorkTaskArchiveRuleReqV
   })
 }
 
-export const getEdhrRouteCloseRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
-  return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
-    ignoreErrorMessage: options?.ignoreErrorMessage,
-    isRequestContextCurrent: options?.isRequestContextCurrent,
-    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
-    url: '/mes/pro/edhr-work-task/route-close-rule',
-    params: { routeId }
-  })
-}
-
-export const saveEdhrRouteCloseRule = async (data: EdhrWorkTaskCloseRuleReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
-  return await request.post<EdhrWorkTaskAssignmentRuleRespVO>({
-    ignoreErrorMessage: options?.ignoreErrorMessage,
-    isRequestContextCurrent: options?.isRequestContextCurrent,
-    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
-    url: '/mes/pro/edhr-work-task/route-close-rule',
-    data
-  })
-}
-
-export const getEdhrRouteReleaseApprovalRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+export const getEdhrRouteReleaseApprovalRule = async (routeId: MesRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
     ignoreErrorMessage: options?.ignoreErrorMessage,
     isRequestContextCurrent: options?.isRequestContextCurrent,

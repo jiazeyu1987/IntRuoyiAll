@@ -74,8 +74,14 @@ class MesOrderReleaseCompletenessServiceTest {
     @Mock
     private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper qaProcessMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper qaItemMapper;
+
     @BeforeEach
     void setUp() {
+        mockQaItems(9902L, 7001L, "QA-ITEM-A");
         lenient().when(regulationVersionMapper.selectById(9902L))
                 .thenReturn(regulationVersion(true, null));
     }
@@ -105,7 +111,7 @@ class MesOrderReleaseCompletenessServiceTest {
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId()))
                 .thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId()))
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId()))
                 .thenReturn(pendingTasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
@@ -117,24 +123,20 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     @Test
-    void evaluateInspectionResultBlocksWhenConfirmedPqcTasksMissExpectedPatrolPmIdentity() {
+    void evaluateInspectionResultBlocksWhenNoPatrolRoundWasCreated() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
                 confirmedPqcTask(1L, "FIRST", "FIRST"),
-                confirmedPqcTask(2L, "PATROL", "AM"),
                 confirmedPqcTask(3L, "FINAL", "FINAL")));
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
         assertTrue(result.failureReason().contains("缺少预期 PQC 检验任务身份"));
-        assertTrue(result.failureReason().contains("inspectionType=PATROL"));
-        assertTrue(result.failureReason().contains("shiftCode=PM"));
+        assertTrue(result.failureReason().contains("PATROL"));
     }
 
     @Test
@@ -149,9 +151,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(3L, "PATROL", "PM"),
                 confirmedPqcTask(4L, "FINAL", "FINAL"));
         mockFormalSuccessEvidence(tasks);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -176,11 +176,12 @@ class MesOrderReleaseCompletenessServiceTest {
                 .thenReturn(regulationVersion(9902L, true, null));
         when(regulationVersionMapper.selectById(9903L))
                 .thenReturn(regulationVersion(9903L, false, "通用外观规程由专用末检覆盖"));
+        activeOrder.setPqcQaSourceVersionIdsJson("[9902,9903]");
+        mockQaItems(9902L, 7101L, "DEDICATED-PRESSURE");
+        mockQaItems(9903L, 7201L, "COMMON-APPEARANCE");
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -209,9 +210,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 .thenReturn(closedPqcSubmissionReview(scrapOnlyFailure.getSubmittedEventId()));
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -236,9 +235,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -262,9 +259,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -283,9 +278,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(4L, "FINAL", "FINAL"));
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -300,14 +293,12 @@ class MesOrderReleaseCompletenessServiceTest {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
                 confirmedPqcTask(1L, "FIRST", "FIRST"),
                 confirmedPqcTask(2L, "FIRST", "FIRST"),
                 confirmedPqcTask(3L, "PATROL", "AM"),
                 confirmedPqcTask(4L, "PATROL", "PM"),
                 confirmedPqcTask(5L, "FINAL", "FINAL")));
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -329,9 +320,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(2L, "PATROL", "AM"),
                 confirmedPqcTask(3L, "PATROL", "PM"));
         mockFormalSuccessEvidence(tasks);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
@@ -340,7 +329,7 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     @Test
-    void evaluateInspectionResultPassesWithoutFinalWhenRegulationMissingExplicitApplicability() {
+    void evaluateInspectionResultBlocksWhenRegulationMissingExplicitApplicability() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         when(regulationVersionMapper.selectById(9902L))
@@ -352,14 +341,12 @@ class MesOrderReleaseCompletenessServiceTest {
                 confirmedPqcTask(2L, "PATROL", "AM"),
                 confirmedPqcTask(3L, "PATROL", "PM"));
         mockFormalSuccessEvidence(tasks);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
-        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
-        assertTrue(result.failureReason().contains("身份完整"));
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("末检适用性未配置"));
     }
 
     @Test
@@ -370,17 +357,15 @@ class MesOrderReleaseCompletenessServiceTest {
                 .thenReturn(regulationVersion(false, null));
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+        when(pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
                 confirmedPqcTask(1L, "FIRST", "FIRST"),
                 confirmedPqcTask(2L, "PATROL", "AM"),
                 confirmedPqcTask(3L, "PATROL", "PM")));
-        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
-                .thenReturn(List.of(processSnapshot()));
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
-        assertTrue(result.failureReason().contains("末检不适用但缺少明确依据"));
+        assertTrue(result.failureReason().contains("QA规程末检不适用配置无效"));
     }
 
     @Test
@@ -516,6 +501,18 @@ class MesOrderReleaseCompletenessServiceTest {
         assertTrue(result.failureReason().contains("追溯来源已接入"));
     }
 
+    private void mockQaItems(long versionId, long processId, String code) {
+        lenient().when(qaProcessMapper.selectListByVersionIds(List.of(versionId))).thenReturn(List.of(
+            cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO.builder().id(processId).regulationVersionId(versionId).build()));
+        lenient().when(qaItemMapper.selectListByVersionId(versionId)).thenReturn(java.util.stream.Stream.of("FIRST", "PATROL", "FINAL").map(type ->
+            cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO.builder()
+                .regulationVersionId(versionId).qaProcessId(processId).itemCode(code).inspectionType(type).build()).toList());
+    }
+
+    private static String frozenItemCode(MesPqcInspectionTaskDO task) {
+        return cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task).keySet().iterator().next();
+    }
+
     private static MesProEdhrBatchExecutionDO batch() {
         return MesProEdhrBatchExecutionDO.builder()
                 .workOrderId(980008L)
@@ -531,7 +528,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 .workOrderId(batch.getWorkOrderId())
                 .routeId(batch.getRouteId())
                 .routeVersionId(batch.getRouteVersionId())
-                .activeStatus("ACTIVE")
+                .qaRegulationVersionId(9902L).pqcQaSourceVersionIdsJson("[9902]").activeStatus("ACTIVE")
                 .build();
     }
 
@@ -555,27 +552,31 @@ class MesOrderReleaseCompletenessServiceTest {
     private static MesPqcInspectionTaskDO confirmedPqcTask(Long id, String inspectionType, String shiftCode,
                                                           Long regulationVersionId, Long qaProcessId,
                                                           String qaItemCode, String inspectionRuleKey) {
-        return MesPqcInspectionTaskDO.builder()
+        var task = MesPqcInspectionTaskDO.builder()
                 .id(id)
                 .activeOrderId(12L)
                 .workOrderId(980008L)
                 .routeId(922119L)
                 .routeVersionId(922120L)
-                .routeProcessId(928609L)
-                .processId(6001L)
+                .routeProcessId(null)
+                .processId(null)
                 .qaProcessId(qaProcessId)
-                .qaItemCode(qaItemCode)
+                .qaItemCode(null)
                 .regulationVersionId(regulationVersionId)
                 .inspectionType(inspectionType)
-                .inspectionRuleKey(inspectionRuleKey)
+                .inspectionRuleKey(inspectionType)
                 .businessDate(LocalDate.of(2026, 9, 13))
-                .shiftCode(shiftCode)
-                .roundNo(1)
+                .shiftCode(inspectionType)
+                .roundNo("PM".equals(shiftCode) ? 2 : 1)
                 .plannedInspectionQuantity(1)
                 .actualInspectionQuantity(1)
                 .taskStatus("CONFIRMED")
                 .submittedEventId(10000L + id)
                 .build();
+        task.setInspectionItemPlanJson(cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.encode(java.util.Map.of(qaItemCode, 1)));
+        if ("PATROL".equals(inspectionType)) task.setInspectionSamplingPlanJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(qaItemCode,
+            cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE, "I"))));
+        return task;
     }
 
     private static String inspectionRuleKey(String inspectionType, String shiftCode) {
@@ -602,6 +603,7 @@ class MesOrderReleaseCompletenessServiceTest {
                 .lifecycleStatus("PUBLISHED")
                 .finalInspectionApplicable(finalInspectionApplicable)
                 .finalInspectionNotApplicableReason(reason)
+                .inspectionTypeRulesJson("[{\"key\":\"FIRST\",\"inspectionType\":\"FIRST\",\"required\":true},{\"key\":\"PATROL\",\"inspectionType\":\"PATROL\",\"required\":true},{\"key\":\"FINAL\",\"inspectionType\":\"FINAL\",\"required\":" + Boolean.TRUE.equals(finalInspectionApplicable) + "}]")
                 .snapshotJson("{}")
                 .build();
     }
@@ -641,8 +643,8 @@ class MesOrderReleaseCompletenessServiceTest {
                 .id(50000L + task.getId())
                 .taskId(task.getId())
                 .sampleNo(1)
-                .itemCode(task.getQaItemCode())
-                .itemName(task.getQaItemCode())
+                .itemCode(frozenItemCode(task))
+                .itemName(frozenItemCode(task))
                 .inspectionMethod("目视")
                 .standardText("合格")
                 .resultType("TEXT")

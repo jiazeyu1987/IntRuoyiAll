@@ -68,6 +68,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
                 productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(port, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
                 .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
                 .setDeviceAccountId(341L).setActualEmployeeId(342L).setSignatureUserId(342L);
@@ -93,7 +94,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.mockito.Mockito.lenient().when(completionMapper.updateById(
                 org.mockito.ArgumentMatchers.any(MesProcessPoolOrderProcessCompletionDO.class)))
                 .thenReturn(1);
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
         org.mockito.Mockito.lenient().when(productIssueMapper.selectListByWorkOrderIdForUpdate(30L))
@@ -130,6 +131,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
         var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
                 port, pickLists, trace, aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var audits = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
         List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand> auditCommands = new ArrayList<>();
@@ -143,6 +145,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
             auditCommands.add(command); auditBindings.add(binding); return binding;
         });
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", audits);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "fixedTestCompletionSourceInitializer", org.mockito.Mockito.mock(MesFixedTestOrderCompletionSourceInitializer.class));
         var affected = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
@@ -288,23 +291,52 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void noReplenishmentConfirmationIsPassedAndRecordedWithTheLeader() {
+    void noReplenishmentIsEvaluatedWithoutClaimingLeaderConfirmation() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
-        var draft = port.prepare(20L, order(), command().setConfirmNoReplenishmentInfo(true));
-        verify(lossSourceReader).read(org.mockito.ArgumentMatchers.argThat(cmd ->
-                Boolean.TRUE.equals(cmd.getRequireNoReplenishmentConfirmation())
-                        && Boolean.TRUE.equals(cmd.getConfirmNoReplenishmentInfo())));
-        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\":20"));
-        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":true"));
+        var draft = port.prepare(20L, order(), command());
+        verify(lossSourceReader).read(any());
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"evaluatedBy\":20"));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"determinationMode\":\"SOURCE_QUERY\""));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":false"));
+        assertFalse(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\""));
     }
 
     @Test
-    void missingReplenishmentPreservesTheConfirmationErrorAndWritesNothing() {
+    void invalidReplenishmentPreservesTheSourceErrorAndWritesNothing() {
         when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
                 .setProcessSources(List.of()).setBlockers(List.of(new MesTeamLeaderActiveOrderReleaseBlocker()
-                        .setBlockerType("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"))));
-        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
-        assertTrue(error.getMessage().contains("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"));
+                        .setBlockerType("LOSS_REPLENISHMENT_SOURCE_INVALID"))));
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("LOSS_REPLENISHMENT_SOURCE_INVALID"));
+        org.mockito.Mockito.verifyNoInteractions(backfillMapper);
+    }
+
+    @Test
+    void completionPreservesEveryLossBlockerAndItsProcessingEvidence() {
+        var unbound = new MesTeamLeaderActiveOrderReleaseBlocker()
+                .setBlockerType("LOSS_REPLENISHMENT_MATERIAL_UNBOUND")
+                .setFieldCode("materialCode")
+                .setObjectType("REPLENISHMENT_ITEM").setObjectId("379").setObjectCode("SIM-COPY-BL")
+                .setReason("补料物料尚未关联所属工序").setSuggestion("请在订单详情签名关联");
+        var unsigned = new MesTeamLeaderActiveOrderReleaseBlocker()
+                .setBlockerType("LOSS_SIGNATURE_REQUIRED").setObjectType("PROCESS").setObjectId("101")
+                .setRouteProcessId(101L).setProcessId(1L).setReason("正式损耗签名不完整")
+                .setSuggestion("请核对正式损耗签名");
+        when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
+                .setProcessSources(List.of()).setBlockers(List.of(unbound, unsigned)));
+        var error = assertThrows(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException.class,
+                () -> port.prepare(20L, order(), command()));
+        var response = cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowExceptionAdvice.toResult(error);
+        assertTrue(response.getCode() != 0);
+        var blockers = response.getData().getBlockers();
+        assertEquals(2, blockers.size());
+        assertEquals(unbound.getReason(), blockers.get(0).getReason());
+        assertEquals(unbound.getSuggestion(), blockers.get(0).getSuggestion());
+        assertEquals("379", blockers.get(0).getObjectId());
+        assertEquals("SIM-COPY-BL", blockers.get(0).getObjectCode());
+        assertEquals(unbound.getFieldCode(), blockers.get(0).getFieldCode());
+        assertEquals(101L, blockers.get(1).getRouteProcessId());
         org.mockito.Mockito.verifyNoInteractions(backfillMapper);
     }
 
@@ -421,7 +453,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .thenReturn(List.of(allocation(201L, 101L), allocation(202L, 102L)));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
                 .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 102L, 202L)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO,
                 List.of(snapshot(101L, 1L), secondSnapshot)));
@@ -448,7 +480,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     void multipleInspectionDetailsForOneConfirmedTaskMustBeAccepted() {
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
@@ -472,7 +504,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void mixedItemSamplingUsesFrozenItemQuantitiesInsteadOfTotalDetailCount() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
                 .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2),
@@ -486,6 +518,21 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void stricterActualSamplingIsPreservedWithoutChangingFrozenPlan() {
+        var task = task(701L, 3).setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}").setPlannedInspectionQuantity(2);
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 3), detail(802L, 701L, 2, 3), detail(803L, 701L, 3, 3),
+                detail(804L, 701L, 1, 3).setItemCode("I2"), detail(805L, 701L, 2, 3).setItemCode("I2")));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var draft = port.prepare(20L, order(), command());
+        assertEquals(List.of(701L, 801L, 802L, 803L, 804L, 805L),
+                JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class));
+        assertEquals("{\"I1\":2,\"I2\":1}", task.getInspectionItemPlanJson());
+        assertEquals(3, task.getActualInspectionQuantity());
+    }
+
+    @Test
     void sevenQaProcessesAcrossThreeStagesProduceTwentyOneBackfillTasks() {
         List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
         List<MesPqcProcessInspectionAggregateDetailDO> details = new ArrayList<>();
@@ -496,7 +543,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 details.add(detail(801L + index, 701L + index, 1, 1));
             }
         }
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(details);
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
@@ -507,7 +554,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void productionBoundQaTaskCannotBeUsedAsWholeOrderInspectionEvidence() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L))
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(task().setRouteProcessId(101L).setProcessId(1L)));
 
         assertMissingInspectionSource();
@@ -515,7 +562,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void missingInspectionItemCannotBeHiddenByAnotherItemsSampleCount() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
                 .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
@@ -525,7 +572,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void duplicateSampleNumberCannotSatisfyFrozenItemSamplingPlan() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 1, 2)));
 

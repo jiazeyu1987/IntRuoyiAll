@@ -11,7 +11,7 @@
     <template v-else-if="current">
       <div class="showroom-company-version__toolbar">
         <div>
-          <h3 class="showroom-company-version__title">公司版本</h3>
+
           <p class="showroom-company-version__subtitle">
             {{ current.displayName || '未命名公司' }}
           </p>
@@ -42,7 +42,6 @@
       <section class="showroom-company-version__panel">
         <div class="showroom-company-version__panel-header">
           <div>
-            <h4>版本历史</h4>
             <p class="showroom-company-version__panel-tip">
               当前页用于查看公司历史版本，并把旧版本复制为最新版本。
             </p>
@@ -61,51 +60,63 @@
         />
 
         <div v-else v-loading="historyLoading" class="showroom-company-version__history-table-shell">
-          <el-table :data="historyRows" row-key="revisionId" empty-text="暂无历史版本">
-            <el-table-column label="版本" width="110">
-              <template #default="{ row }">
-                <strong>V{{ row.revisionNo }}</strong>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="120">
-              <template #default="{ row }">
-                <el-tag :type="resolveCompanyHistoryStatusTagType(row.status)">
-                  {{ resolveCompanyHistoryStatusText(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="变更摘要" min-width="360">
-              <template #default="{ row }">
-                {{ resolveHistoryPreview(row) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="差异条数" width="100">
-              <template #default="{ row }">
-                {{ row.diffItems.length }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  type="primary"
-                  :loading="previewLoadingRevisionId === row.revisionId"
-                  @click="handleViewHistoryRevision(row)"
-                >
-                  查看版本
-                </el-button>
-                <el-button
-                  link
-                  type="primary"
-                  :disabled="current.revisionId === row.revisionId"
-                  :loading="restoringRevisionId === row.revisionId"
-                  @click="handleRestoreHistoryRevision(row)"
-                >
-                  复制为最新版本
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <UnifiedListTemplate
+            table-key="showroom.company.versions"
+            :rows="historyRows"
+            class="unified-list-template--contained"
+            data-list-viewport="embedded"
+            :columns="listFilterColumns0"
+            :show-column-settings="false"
+            :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
+          >
+            <template #table="{ rows: standardRows }">
+              <el-table stripe border :data="standardRows" row-key="revisionId" empty-text="暂无历史版本">
+                <el-table-column label="版本" width="110">
+                  <template #default="{ row }">
+                    <strong>V{{ row.revisionNo }}</strong>
+                  </template>
+                </el-table-column>
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <el-tag :type="resolveCompanyHistoryStatusTagType(row.status)">
+                      {{ resolveCompanyHistoryStatusText(row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="变更摘要" min-width="360">
+                  <template #default="{ row }">
+                    {{ resolveHistoryPreview(row) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="差异条数" width="100">
+                  <template #default="{ row }">
+                    {{ row.diffItems.length }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="220" fixed="right">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      :loading="previewLoadingRevisionId === row.revisionId"
+                      @click="handleViewHistoryRevision(row)"
+                    >
+                      查看版本
+                    </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      :disabled="current.revisionId === row.revisionId"
+                      :loading="restoringRevisionId === row.revisionId"
+                      @click="handleRestoreHistoryRevision(row)"
+                    >
+                      复制为最新版本
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
         </div>
       </section>
 
@@ -230,6 +241,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ShowroomAdminApi, type ShowroomCompanyRevisionRestoreReqVO } from '@/api/showroom-admin'
 import { getVersionCenterDetail } from '@/api/showroom-admin/version-center'
 import {
@@ -456,6 +470,66 @@ const handleRestoreHistoryRevision = async (revision: CompanyVersionHistory) => 
 onMounted(() => {
   void loadCompanyCurrent()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveCompanyHistoryStatusText(row.status)].join(' ')
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    type: 'text',
+    getValue: (row) => [row.diffItems.length].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'revisionNo',
+    label: '版本',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'displayColumn2',
+    label: '变更摘要',
+    visible: true
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'revisionNo', label: '版本', type: 'text', getValue: (row) => [row.revisionNo].join(' ') },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveCompanyHistoryStatusText(row.status)].join(' ')
+  },
+  {
+    key: 'displayColumn2',
+    label: '变更摘要',
+    type: 'text',
+    getValue: (row) => [resolveHistoryPreview(row)].join(' ')
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    type: 'text',
+    getValue: (row) => [row.diffItems.length].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -463,7 +537,14 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - 37px);
+  min-height: 0;
+  overflow: hidden;
 }
+.showroom-company-version > .showroom-company-version__toolbar { flex-shrink: 0; }
+.showroom-company-version > .showroom-company-version__panel { display:flex;flex:1;flex-direction:column;min-height:0; }
+.showroom-company-version__history-table-shell { display:flex;flex:1;flex-direction:column;min-height:0; }
+.showroom-company-version__history-table-shell > .unified-list-template { flex:1;height:auto;min-height:0; }
 
 .showroom-company-version__toolbar,
 .showroom-company-version__panel {

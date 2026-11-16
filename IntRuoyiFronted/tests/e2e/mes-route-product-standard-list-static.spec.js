@@ -3,143 +3,52 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+const product = read('src/views/mes/pro/route/RouteProductList.vue')
+const form = read('src/views/mes/pro/route/RouteFormContent.vue')
+const designer = read('src/views/mes/pro/route/RouteFlowGraphDesigner.vue')
+const listView = product.slice(0, product.indexOf('<!-- 表单弹窗'))
 
-const routeProductList = read('src/views/mes/pro/route/RouteProductList.vue')
-const routeFormContent = read('src/views/mes/pro/route/RouteFormContent.vue')
-const routeEditPage = read('src/views/mes/pro/route/RouteEditPage.vue')
-const routeForm = read('src/views/mes/pro/route/RouteForm.vue')
-
-const extractSlot = (source, slotName) => {
-  const pattern = new RegExp(`<template\\s+#${slotName}\\b[^>]*>([\\s\\S]*?)<\\/template>`)
-  const match = source.match(pattern)
-  assert.ok(match, `missing #${slotName} slot`)
-  return match[1]
+// Only codes belong in the panel; dialogs retain their existing fields.
+for (const removed of ['UnifiedListTemplate', 'useUserTableColumns', 'useTableQuickFilter',
+  'el-table', 'el-pagination', 'routeProductQueryParams', 'routeProductSortState']) {
+  assert.ok(!product.includes(removed), `轻量列表不得保留 ${removed}`)
 }
-
-const assertIncludes = (source, expected, label) => {
-  assert.ok(source.includes(expected), `${label}: expected ${JSON.stringify(expected)}`)
+assert.match(listView, /v-for="product in list"/, '全部编码直接显示，不受分页或历史过滤影响')
+assert.match(listView, /:key="product\.itemId"/, '行身份沿用正式物料编号')
+assert.match(listView, /\{\{ product\.itemCode \}\}/, '行内展示产品编码')
+for (const field of ['itemName', 'specification', 'unitName', 'quantity', 'productionTime', 'remark']) {
+  assert.ok(!listView.includes(field), `编码列表不得显示 ${field}`)
 }
-
-const assertNotIncludes = (source, unexpected, label) => {
-  assert.ok(!source.includes(unexpected), `${label}: must not include ${JSON.stringify(unexpected)}`)
-}
-
-assertIncludes(
-  routeProductList,
-  "import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'",
-  '关联产品列表必须导入标准列表模板'
-)
-assertIncludes(
-  routeProductList,
-  "from '@/hooks/web/useUserTableColumns'",
-  '关联产品列表必须接入显示字段和列宽持久化'
-)
-assertIncludes(
-  routeProductList,
-  "from '@/hooks/web/useTableQuickFilter'",
-  '关联产品列表必须接入标准快速过滤'
-)
-assertIncludes(routeProductList, '<UnifiedListTemplate', '关联产品列表必须使用标准列表模板')
-assertIncludes(
-  routeProductList,
-  'table-key="mes.pro.route.product"',
-  '关联产品列表必须使用稳定 tableKey'
-)
-assertIncludes(
-  routeProductList,
-  ':columns="routeProductColumns"',
-  '关联产品列表必须把显示字段状态交给模板'
-)
-assertIncludes(
-  routeProductList,
-  '@column-change="saveRouteProductColumnConfig"',
-  '显示字段变更必须保存'
-)
-assertIncludes(
-  routeProductList,
-  '@header-dragend="handleRouteProductHeaderDragend"',
-  '关联产品列宽拖拽必须持久化'
-)
-assertIncludes(
-  routeProductList,
-  'data-user-table-key="mes.pro.route.product"',
-  '关联产品表格必须声明列配置 tableKey'
-)
-
-const actionsSlot = extractSlot(routeProductList, 'actions')
-for (const label of ['关联产品', '保存']) {
-  assertIncludes(actionsSlot, label, `工具栏必须显示 ${label} 按钮`)
-  assert.ok(label.length <= 4, `${label} 文案不得超过 4 个字`)
-}
-assertIncludes(actionsSlot, "openForm('create')", '关联产品按钮必须保持原新增逻辑')
-assertIncludes(actionsSlot, 'request-submit', '保存按钮必须请求父级执行现有保存逻辑')
-assertNotIncludes(actionsSlot, '补齐产品', '工具栏不得保留按路线名称自动补齐产品入口')
-assertNotIncludes(routeProductList, 'class="mt-12px"', '补齐按钮不得继续放在列表下方')
-
-const tableSlot = extractSlot(routeProductList, 'table')
-assertIncludes(tableSlot, ':data="pagedRouteProductList"', '表格必须展示标准模板分页后的列表数据')
-assertIncludes(tableSlot, '@sort-change="handleTemplateSortChange"', '表格排序必须交给标准模板')
-for (const key of [
-  'itemCode',
-  'itemName',
-  'specification',
-  'unitName',
-  'quantity',
-  'productionTime',
-  'remark'
-]) {
-  assertIncludes(
-    routeProductList,
-    `v-if="isRouteProductColumnVisible('${key}')"`,
-    `关联产品列 ${key} 必须受显示字段控制`
-  )
-  assertIncludes(
-    routeProductList,
-    `v-bind="sortColumnAttrs('${key}')"`,
-    `关联产品列 ${key} 必须接入标准排序属性`
-  )
-}
-assertIncludes(
-  routeProductList,
-  "v-if=\"isEditable && isRouteProductColumnVisible('operation')\"",
-  '操作列必须继续只在编辑态显示并受固定列配置控制'
-)
-
-assertIncludes(
-  routeFormContent,
-  '@request-submit="handleSubmitRequest"',
-  '关联产品工具栏保存必须复用父级统一提交入口'
-)
-assertIncludes(
-  routeFormContent,
-  ':submitting="formLoading"',
-  '关联产品保存按钮必须沿用父级加载态'
-)
-assertIncludes(
-  routeFormContent,
-  "const isProductTabActive = computed(() => activeTab.value === 'product')",
-  '父级必须暴露当前是否为关联产品页签'
-)
-assert.match(
-  routeFormContent,
-  /const shouldSaveFlowGraphOnSubmit = \(\) =>[\s\S]*activeTab\.value === 'flow'/,
-  '父级保存只有在流转关系图页签才要求流转图组件'
-)
-assertIncludes(
-  routeFormContent,
-  'isProductTabActive,',
-  '父级必须向外暴露关联产品页签状态'
-)
-assertIncludes(
-  routeEditPage,
-  "!['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)",
-  '编辑页底部旧保存按钮必须在关联产品页签隐藏'
-)
-assertIncludes(
-  routeForm,
-  '!contentRef?.isProductTabActive',
-  '弹窗页脚旧保存按钮必须在关联产品页签隐藏'
-)
-
-console.log('mes-route-product-standard-list-static PASS')
+assert.match(listView, /@click="handleOpenItemDetail\(product\)"/, '编码保留详情跳转')
+assert.match(product, /name: 'MesMdItem',[\s\S]*code: row\.itemCode,[\s\S]*openDetailId: String\(row\.itemId\)/)
+assert.match(listView, /<div class="route-product-list__actions">/, '只读版本仍展示添加入口')
+assert.ok(!listView.includes('v-if="isEditable" class="route-product-list__actions"'))
+assert.match(listView, /openForm\('create'\)/)
+assert.match(listView, /emit\('request-submit'\)/)
+assert.match(listView, /:disabled="submitting \|\| productionConfigActionDisabled"/)
+assert.match(listView, /<div class="route-product-list__row-actions">/, '只读版本仍展示删除入口')
+assert.ok(!listView.includes('v-if="isEditable" class="route-product-list__row-actions"'))
+assert.match(listView, /当前为只读浏览，请点击修改后在草稿版本中维护关联产品。/)
+assert.ok(!form.includes('进入草稿编辑'), '编辑入口已经选择草稿，面板不得重复要求进入草稿')
+const editPage = read('src/views/mes/pro/route/RouteEditPage.vue')
+assert.match(editPage, /tab: contentRef\.value\?\.isProductTabActive \? 'product' : activeRouteTab\.value/)
+assert.ok(!listView.includes('el-dropdown'), '关联产品列表移除更多下拉入口')
+assert.ok(!listView.includes('更多'), '关联产品行不再显示更多按钮')
+assert.match(listView, /@click="handleDelete\(product\)"/)
+assert.match(listView, /:aria-label="'删除关联产品 ' \+ product\.itemCode"/)
+assert.match(listView, /添加产品/)
+assert.ok(!designer.includes('>字段明细</h4>'), '右侧面板移除字段明细标题')
+assert.match(listView, /v-loading="loading"/)
+assert.match(listView, /v-if="loadError"/)
+assert.match(listView, /!loading && list\.length === 0/)
+assert.match(product, /loadError\.value = resolveRouteOperationErrorMessage\(error,/)
+assert.match(product, /white-space: normal;[\s\S]*overflow-wrap: anywhere;/)
+assert.match(product, /grid-template-columns: minmax\(0, 1fr\) auto;/)
+assert.match(designer, /--detail-panel-width: 260px;/)
+assert.match(designer, /grid-template-columns: 220px minmax\(0, 1fr\) var\(--detail-panel-width\);/)
+assert.match(designer, /width: var\(--detail-panel-width\);/)
+assert.match(designer, /\.route-flow-graph-designer__selected-field-section \{[\s\S]*?min-width: 0;[\s\S]*?overflow-y: auto;/)
+assert.match(form, /@request-submit="handleSubmitRequest"/)
+assert.match(form, /:submitting="formLoading"/)
+console.log('mes-route-product-lightweight-list-static PASS')

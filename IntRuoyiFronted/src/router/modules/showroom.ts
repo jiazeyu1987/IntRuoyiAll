@@ -17,6 +17,12 @@ const showroomRoutes: AppRouteRecordRaw[] = [
     },
     children: [
       {
+        path: '/mes/md/showroom-product',
+        component: () => import('@/views/mdm/product/index.vue'),
+        name: 'MdmProduct',
+        meta: { title: '展厅主数据', icon: 'ep:goods', canTo: true }
+      },
+      {
         path: 'company',
         component: showroomAdminView,
         name: 'ShowroomAdminCompany',

@@ -61,6 +61,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 
 @Service
 public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChangeService {
+    @jakarta.annotation.Resource private MesMarketReleaseAccess marketReleaseAccess;
 
     public static final String BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY =
             "mes-edhr-batch-execution-void-v1";
@@ -84,7 +85,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     private static final String TARGET_SCOPE_BATCH = "BATCH";
     private static final String BATCH_SIGNATURE_ACTION_VOID_REQUEST = "BATCH_VOID_REQUEST";
     private static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
-    private static final Set<String> OPEN_CHANGE_STATUSES = Set.of("DRAFT", "SUBMITTED", "APPROVED");
+    private static final Set<String> OPEN_CHANGE_STATUSES = Set.of("DRAFT", "SUBMITTED", "APPROVED", "RETURNED");
 
     @Resource
     private MesProBatchRecordExecutionMapper executionMapper;
@@ -114,19 +115,119 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesEdhrRecordChangeTaskService recordChangeTaskService;
+    @Resource private MesEdhrSupplementRevisionService supplementRevisionService;
+    @Resource private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EdhrRecordChangeRespVO decide(cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO req) {
+        var event = requireLockedChangeEvent(req.getChangeEventId());
+        if (!(Set.of(CHANGE_TYPE_REOPEN, CHANGE_TYPE_SUPPLEMENT).contains(event.getChangeType())
+                || (CHANGE_TYPE_VOID.equals(event.getChangeType()) && TARGET_SCOPE_EXECUTION.equals(event.getTargetScope())))
+                || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())
+                || !Set.of("REJECTED", "RETURNED").contains(req.getDecision())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
+        }
+        if (StrUtil.isBlank(req.getReason()) || req.getReason().length() > 500) {
+            throw new IllegalArgumentException("请填写不超过500字的决定原因");
+        }
+        recordChangeTaskService.requireReviewer(event);
+        requireReleaseActionUnlocked(event.getBatchExecutionId(), false);
+        validateSourceSnapshot(event);
+        var signatureCommand = new MesProBatchRecordExecutionApprovalSignatureCommand()
+                .setExecutionId(event.getExecutionId() == null ? 0L : event.getExecutionId())
+                .setPassword(req.getPassword()).setComment(req.getDecision() + "：" + req.getReason().trim())
+                .setApprovalResult(MesProBatchRecordExecutionSignatureService.ACTION_REJECT)
+                .setReason(req.getReason().trim()).setReviewSourceType("RECORD_CHANGE")
+                .setReviewSourceId(event.getId()).setReviewSourceName(event.getChangeCode())
+                .setFieldAuditHeadHash(event.getPreviousHeadHash());
+        if (TARGET_SCOPE_EXECUTION.equals(event.getTargetScope())) {
+            var execution = executionMapper.selectByIdForUpdate(event.getExecutionId());
+            signatureCommand.setFieldAuditRevision(execution.getFieldAuditRevision()).setCellValuesHash(execution.getCellValuesHash());
+        }
+        Long signatureId = signatureService.recordApprovalSignature(signatureCommand);
+        if (signatureId == null || signatureId <= 0) throw new IllegalStateException("决定签名未保存");
+        event.setChangeStatus(req.getDecision()).setDecisionReason(req.getReason().trim())
+                .setApprovedBy(SecurityFrameworkUtils.getLoginUserId()).setApprovedAt(now()).setApprovalSignatureId(signatureId);
+        if (changeEventMapper.updateById(event) != 1) throw new IllegalStateException("变更决定保存失败");
+        recordChangeTaskService.completeNegativeDecision(event);
+        return toResp(event);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EdhrRecordChangeRespVO resubmit(cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeResubmitReqVO req) {
+        var previous = requireLockedChangeEvent(req.getChangeEventId());
+        if (!"RETURNED".equals(previous.getChangeStatus())
+                || !(Set.of(CHANGE_TYPE_REOPEN, CHANGE_TYPE_SUPPLEMENT).contains(previous.getChangeType())
+                || (CHANGE_TYPE_VOID.equals(previous.getChangeType()) && TARGET_SCOPE_EXECUTION.equals(previous.getTargetScope())))) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
+        }
+        recordChangeTaskService.requireRequester(previous);
+        validateReason(req.getReasonCategory(), req.getReasonText());
+        req.setBatchExecutionId(previous.getBatchExecutionId()).setExecutionId(previous.getExecutionId());
+        // The old signed request and decision stay immutable; the new request receives its own signature and task.
+        if (changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO().setId(previous.getId())
+                .setChangeStatus("RESUBMITTED")) != 1) throw new IllegalStateException("原轮次保存失败");
+        EdhrRecordChangeRespVO next;
+        if (CHANGE_TYPE_VOID.equals(previous.getChangeType())) next = requestVoidExecution(req);
+        else if (CHANGE_TYPE_SUPPLEMENT.equals(previous.getChangeType())) next = requestSupplement(req);
+        else if (TARGET_SCOPE_BATCH.equals(previous.getTargetScope())) next = requestReopenBatch(req);
+        else next = requestReopenExecution(req);
+        if (changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO().setId(next.getId())
+                .setPreviousChangeEventId(previous.getId())) != 1) throw new IllegalStateException("补正轮次关联保存失败");
+        recordChangeTaskService.completeCorrection(previous);
+        return toResp(requireChangeEvent(next.getId()));
+    }
+
+    private void validateSourceSnapshot(MesProEdhrRecordChangeEventDO event) {
+        String status;
+        String head;
+        Long archiveId;
+        String archiveHash;
+        if (TARGET_SCOPE_BATCH.equals(event.getTargetScope())) {
+            var batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), event.getBatchExecutionId());
+            if (batch == null) throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
+            status = String.valueOf(batch.getStatus()); head = batch.getAggregateHash();
+            var archive = latestBatchArchive(batch.getId());
+            archiveId = archive == null ? null : archive.getId();
+            archiveHash = archive == null ? null : archive.getContentHash();
+        } else {
+            var execution = executionMapper.selectByIdForUpdate(event.getExecutionId());
+            if (execution == null) throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
+            if (!Objects.equals(event.getBatchExecutionId(), execution.getBatchExecutionId())) {
+                throw new IllegalArgumentException("变更目标记录与批次归属不一致");
+            }
+            if (Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+            }
+            status = String.valueOf(execution.getStatus()); head = execution.getFieldAuditHeadHash();
+            var archive = archiveMapper.selectLatestByExecutionId(execution.getId());
+            archiveId = archive == null ? null : archive.getId();
+            archiveHash = archive == null ? null : archive.getSha256();
+        }
+        if (!Objects.equals(event.getPreviousStatus(), status) || !Objects.equals(event.getPreviousHeadHash(), head)
+                || !Objects.equals(event.getSourceArchiveId(), archiveId) || !Objects.equals(event.getPreviousArchiveHash(), archiveHash)) {
+            throw new IllegalArgumentException("原记录状态或内容版本已改变，请重新核对后申请");
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO requestVoidExecution(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
-        requireReleaseActionUnlocked(reqVO.getBatchExecutionId());
-        MesProBatchRecordExecutionDO execution = requireExecution(reqVO.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        MesProBatchRecordExecutionDO execution = requireLockedExecutionForRequest(reqVO);
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         assertNoOpenChange(execution.getId(), CHANGE_TYPE_VOID);
+        recordChangeTaskService.validateApprover(reqVO.getApproverUserId(), SecurityFrameworkUtils.getLoginUserId());
 
         Long signatureId = signatureService.recordSubmitSignature(execution.getId(), reqVO.getPassword(), reqVO.getComment());
+        if (signatureId == null || signatureId <= 0) throw new IllegalStateException("作废申请签名未保存");
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectLatestByExecutionId(execution.getId());
         MesProEdhrRecordChangeEventDO event = MesProEdhrRecordChangeEventDO.builder()
                 .changeCode("EDHR-VOID-" + execution.getId() + "-" + System.currentTimeMillis())
@@ -149,17 +250,22 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .newArchiveHash(archive == null ? null : archive.getSha256())
                 .remark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getComment()), null))
                 .build();
-        changeEventMapper.insert(event);
+        if (changeEventMapper.insert(event) != 1 || event.getId() == null) throw new IllegalStateException("作废申请保存失败");
+        recordChangeTaskService.assign(event, reqVO.getApproverUserId());
         return toResp(event);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO approveVoidExecution(EdhrRecordChangeApproveReqVO reqVO) {
-        MesProEdhrRecordChangeEventDO event = requireChangeEvent(reqVO.getChangeEventId());
-        if (!CHANGE_TYPE_VOID.equals(event.getChangeType()) || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
+        MesProEdhrRecordChangeEventDO event = requireLockedChangeEvent(reqVO.getChangeEventId());
+        if (!CHANGE_TYPE_VOID.equals(event.getChangeType()) || !TARGET_SCOPE_EXECUTION.equals(event.getTargetScope())
+                || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
         }
+        recordChangeTaskService.requireReviewer(event);
+        requireReleaseActionUnlocked(event.getBatchExecutionId(), false);
+        validateSourceSnapshot(event);
         MesProBatchRecordExecutionDO execution = requireExecution(event.getExecutionId());
         if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
@@ -172,24 +278,31 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                         .setComment(reqVO.getComment())
                         .setApprovalResult(MesProBatchRecordExecutionSignatureService.ACTION_APPROVE)
                         .setReason(event.getReasonText())
+                        .setReviewSourceType("RECORD_CHANGE")
+                        .setReviewSourceId(event.getId())
+                        .setReviewSourceName(event.getChangeCode())
                         .setFieldAuditRevision(execution.getFieldAuditRevision())
                         .setFieldAuditHeadHash(execution.getFieldAuditHeadHash())
                         .setCellValuesHash(execution.getCellValuesHash()));
 
+        if (approvalSignatureId == null || approvalSignatureId <= 0) throw new IllegalStateException("作废批准签名未保存");
         LocalDateTime now = now();
-        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+        if (executionMapper.updateById(new MesProBatchRecordExecutionDO()
                 .setId(execution.getId())
                 .setStatus(STATUS_VOIDED)
-                .setVoidedByChangeEventId(event.getId()));
+                .setVoidedByChangeEventId(event.getId())) != 1) throw new IllegalStateException("作废记录保存失败");
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectLatestByExecutionId(execution.getId());
-        if (archive != null) {
-            archiveMapper.updateById(new MesProBatchRecordExecutionArchiveDO()
-                    .setId(archive.getId())
+        // Invalidate every still-valid artifact; preserve earlier invalidation events and all audit bytes/hashes.
+        for (var artifact : archiveMapper.selectList(new LambdaQueryWrapperX<MesProBatchRecordExecutionArchiveDO>()
+                .eq(MesProBatchRecordExecutionArchiveDO::getExecutionId, execution.getId())
+                .eq(MesProBatchRecordExecutionArchiveDO::getArchiveValidFlag, Boolean.TRUE))) {
+            if (archiveMapper.updateById(new MesProBatchRecordExecutionArchiveDO()
+                    .setId(artifact.getId())
                     .setArchiveValidFlag(Boolean.FALSE)
                     .setArchiveValidStatus("VOIDED")
-                    .setInvalidatedByChangeEventId(event.getId()));
+                    .setInvalidatedByChangeEventId(event.getId())) != 1) throw new IllegalStateException("作废归档失效保存失败");
         }
-        changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
+        if (changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
                 .setChangeStatus(CHANGE_STATUS_EFFECTIVE)
                 .setApprovedBy(SecurityFrameworkUtils.getLoginUserId())
@@ -197,7 +310,10 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setApprovalSignatureId(approvalSignatureId)
                 .setEffectiveAt(now)
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getSha256())
-                .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getSha256()));
+                .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getSha256())) != 1) {
+            throw new IllegalStateException("作废批准事件保存失败");
+        }
+        recordChangeTaskService.complete(changeEventMapper.selectById(event.getId()));
         return toResp(changeEventMapper.selectById(event.getId()));
     }
 
@@ -362,11 +478,15 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     public EdhrRecordChangeRespVO requestReopenBatch(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
+        batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), batch.getId());
+        if (batch == null) throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
         requireReleaseActionUnlocked(batch.getId());
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "记录变更申请");
         if (!isReopenableBatchStatus(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         assertNoOpenBatchChange(batch.getId(), CHANGE_TYPE_REOPEN);
+        recordChangeTaskService.validateApprover(reqVO.getApproverUserId(), SecurityFrameworkUtils.getLoginUserId());
 
         Long signatureId = signatureService.recordSubmitSignature(0L, reqVO.getPassword(), reqVO.getComment());
         MesProEdhrBatchExecutionArchiveDO archive = latestBatchArchive(batch.getId());
@@ -391,18 +511,23 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .remark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getComment()), null))
                 .build();
         changeEventMapper.insert(event);
+        recordChangeTaskService.assign(event, reqVO.getApproverUserId());
         return toResp(event);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO approveReopenBatch(EdhrRecordChangeApproveReqVO reqVO) {
-        MesProEdhrRecordChangeEventDO event = requireChangeEvent(reqVO.getChangeEventId());
-        if (!CHANGE_TYPE_REOPEN.equals(event.getChangeType()) || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
+        MesProEdhrRecordChangeEventDO event = requireLockedChangeEvent(reqVO.getChangeEventId());
+        if (!CHANGE_TYPE_REOPEN.equals(event.getChangeType()) || !TARGET_SCOPE_BATCH.equals(event.getTargetScope())
+                || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
         }
-        requireReleaseActionUnlocked(event.getBatchExecutionId());
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(event.getBatchExecutionId());
+        recordChangeTaskService.requireReviewer(event);
+        validateSourceSnapshot(event);
+        requireReleaseActionUnlocked(event.getBatchExecutionId(), false);
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(
+                TenantContextHolder.getRequiredTenantId(), event.getBatchExecutionId());
         if (!isReopenableBatchStatus(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
@@ -413,7 +538,10 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                         .setPassword(reqVO.getPassword())
                         .setComment(reqVO.getComment())
                         .setApprovalResult(MesProBatchRecordExecutionSignatureService.ACTION_APPROVE)
-                        .setReason(event.getReasonText()));
+                        .setReason(event.getReasonText())
+                        .setReviewSourceType("RECORD_CHANGE")
+                        .setReviewSourceId(event.getId())
+                        .setReviewSourceName(event.getChangeCode()));
 
         LocalDateTime now = now();
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
@@ -436,6 +564,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setEffectiveAt(now)
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
+        recordChangeTaskService.complete(changeEventMapper.selectById(event.getId()));
         return toResp(changeEventMapper.selectById(event.getId()));
     }
 
@@ -448,32 +577,38 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO requestReopenExecution(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
-        requireReleaseActionUnlocked(reqVO.getBatchExecutionId());
-        MesProBatchRecordExecutionDO execution = requireExecution(reqVO.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        MesProBatchRecordExecutionDO execution = requireLockedExecutionForRequest(reqVO);
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         assertNoOpenChange(execution.getId(), CHANGE_TYPE_REOPEN);
+        recordChangeTaskService.validateApprover(reqVO.getApproverUserId(), SecurityFrameworkUtils.getLoginUserId());
 
         Long signatureId = signatureService.recordSubmitSignature(execution.getId(), reqVO.getPassword(), reqVO.getComment());
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectLatestByExecutionId(execution.getId());
         MesProEdhrRecordChangeEventDO event = buildExecutionChangeEvent(reqVO, execution, archive,
                 CHANGE_TYPE_REOPEN, CHANGE_STATUS_SUBMITTED, STATUS_REOPENED, signatureId);
         changeEventMapper.insert(event);
+        recordChangeTaskService.assign(event, reqVO.getApproverUserId());
         return toResp(event);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO approveReopenExecution(EdhrRecordChangeApproveReqVO reqVO) {
-        MesProEdhrRecordChangeEventDO event = requireChangeEvent(reqVO.getChangeEventId());
+        MesProEdhrRecordChangeEventDO event = requireLockedChangeEvent(reqVO.getChangeEventId());
         if (!CHANGE_TYPE_REOPEN.equals(event.getChangeType()) || !TARGET_SCOPE_EXECUTION.equals(event.getTargetScope())
                 || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
         }
-        requireReleaseActionUnlocked(event.getBatchExecutionId());
+        recordChangeTaskService.requireReviewer(event);
+        validateSourceSnapshot(event);
+        requireReleaseActionUnlocked(event.getBatchExecutionId(), false);
         MesProBatchRecordExecutionDO execution = requireExecution(event.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        execution = executionMapper.selectByIdForUpdate(execution.getId());
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         Long approvalSignatureId = signatureService.recordApprovalSignature(
@@ -483,6 +618,9 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                         .setComment(reqVO.getComment())
                         .setApprovalResult(MesProBatchRecordExecutionSignatureService.ACTION_APPROVE)
                         .setReason(event.getReasonText())
+                        .setReviewSourceType("RECORD_CHANGE")
+                        .setReviewSourceId(event.getId())
+                        .setReviewSourceName(event.getChangeCode())
                         .setFieldAuditRevision(execution.getFieldAuditRevision())
                         .setFieldAuditHeadHash(execution.getFieldAuditHeadHash())
                         .setCellValuesHash(execution.getCellValuesHash()));
@@ -509,6 +647,8 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setEffectiveAt(now)
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getSha256())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getSha256()));
+        workTaskService.createRecordChangeRework(event.getId(), execution.getId(), execution.getId(), event.getReasonText());
+        recordChangeTaskService.complete(changeEventMapper.selectById(event.getId()));
         return toResp(changeEventMapper.selectById(event.getId()));
     }
 
@@ -516,12 +656,13 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO requestSupplement(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
-        requireReleaseActionUnlocked(reqVO.getBatchExecutionId());
-        MesProBatchRecordExecutionDO execution = requireExecution(reqVO.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        MesProBatchRecordExecutionDO execution = requireLockedExecutionForRequest(reqVO);
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         assertNoOpenChange(execution.getId(), CHANGE_TYPE_SUPPLEMENT);
+        recordChangeTaskService.validateApprover(reqVO.getApproverUserId(), SecurityFrameworkUtils.getLoginUserId());
 
         Long signatureId = signatureService.recordSubmitSignature(execution.getId(), reqVO.getPassword(), reqVO.getComment());
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectLatestByExecutionId(execution.getId());
@@ -547,6 +688,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .remark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getComment()), null))
                 .build();
         changeEventMapper.insert(event);
+        recordChangeTaskService.assign(event, reqVO.getApproverUserId());
         return toResp(event);
     }
 
@@ -554,15 +696,16 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO saveSupplementDraft(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
-        requireReleaseActionUnlocked(reqVO.getBatchExecutionId());
-        MesProBatchRecordExecutionDO execution = requireExecution(reqVO.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        MesProBatchRecordExecutionDO execution = requireLockedExecutionForRequest(reqVO);
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         assertNoOpenChange(execution.getId(), CHANGE_TYPE_SUPPLEMENT);
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectLatestByExecutionId(execution.getId());
         MesProEdhrRecordChangeEventDO event = buildExecutionChangeEvent(reqVO, execution, archive,
                 CHANGE_TYPE_SUPPLEMENT, CHANGE_STATUS_DRAFT, execution.getStatus(), null);
+        event.setRequestedBy(SecurityFrameworkUtils.getLoginUserId());
         changeEventMapper.insert(event);
         return toResp(event);
     }
@@ -570,12 +713,21 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO submitSupplement(EdhrRecordChangeApproveReqVO reqVO) {
-        MesProEdhrRecordChangeEventDO event = requireChangeEvent(reqVO.getChangeEventId());
+        MesProEdhrRecordChangeEventDO event = requireLockedChangeEvent(reqVO.getChangeEventId());
         if (!CHANGE_TYPE_SUPPLEMENT.equals(event.getChangeType()) || !CHANGE_STATUS_DRAFT.equals(event.getChangeStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
         }
+        if (!Objects.equals(event.getRequestedBy(), SecurityFrameworkUtils.getLoginUserId())) {
+            throw new IllegalArgumentException("只有原草稿申请人可以签名提交补录申请");
+        }
+        recordChangeTaskService.validateApprover(reqVO.getApproverUserId(), event.getRequestedBy());
         requireReleaseActionUnlocked(event.getBatchExecutionId());
+        nonconformanceReviewService.ensureBatchNotFrozen(event.getBatchExecutionId(), "记录变更申请");
         MesProBatchRecordExecutionDO execution = requireExecution(event.getExecutionId());
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        }
         Long signatureId = signatureService.recordSubmitSignature(execution.getId(), reqVO.getPassword(), reqVO.getComment());
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
@@ -584,19 +736,24 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setRequestedAt(now())
                 .setRequestSignatureId(signatureId)
                 .setRemark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getComment()), event.getRemark())));
+        recordChangeTaskService.assign(changeEventMapper.selectById(event.getId()), reqVO.getApproverUserId());
         return toResp(changeEventMapper.selectById(event.getId()));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO approveSupplement(EdhrRecordChangeApproveReqVO reqVO) {
-        MesProEdhrRecordChangeEventDO event = requireChangeEvent(reqVO.getChangeEventId());
+        MesProEdhrRecordChangeEventDO event = requireLockedChangeEvent(reqVO.getChangeEventId());
         if (!CHANGE_TYPE_SUPPLEMENT.equals(event.getChangeType()) || !CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
         }
-        requireReleaseActionUnlocked(event.getBatchExecutionId());
+        recordChangeTaskService.requireReviewer(event);
+        validateSourceSnapshot(event);
+        requireReleaseActionUnlocked(event.getBatchExecutionId(), false);
         MesProBatchRecordExecutionDO execution = requireExecution(event.getExecutionId());
-        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())) {
+        execution = executionMapper.selectByIdForUpdate(execution.getId());
+        if (!Integer.valueOf(STATUS_APPROVED).equals(execution.getStatus())
+                || Boolean.FALSE.equals(execution.getActiveRevisionFlag()) || execution.getSupersededByExecutionId() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
 
@@ -607,24 +764,32 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                         .setComment(reqVO.getComment())
                         .setApprovalResult(MesProBatchRecordExecutionSignatureService.ACTION_APPROVE)
                         .setReason(event.getReasonText())
+                        .setReviewSourceType("RECORD_CHANGE")
+                        .setReviewSourceId(event.getId())
+                        .setReviewSourceName(event.getChangeCode())
                         .setFieldAuditRevision(execution.getFieldAuditRevision())
                         .setFieldAuditHeadHash(execution.getFieldAuditHeadHash())
                         .setCellValuesHash(execution.getCellValuesHash()));
 
+        MesProBatchRecordExecutionDO revision = supplementRevisionService.create(event, execution);
+        workTaskService.createRecordChangeRework(event.getId(), execution.getId(), revision.getId(), event.getReasonText());
         LocalDateTime now = now();
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
                 .setChangeStatus(CHANGE_STATUS_EFFECTIVE)
+                .setSourceExecutionId(execution.getId()).setNewExecutionId(revision.getId())
                 .setApprovedBy(SecurityFrameworkUtils.getLoginUserId())
                 .setApprovedAt(now)
                 .setApprovalSignatureId(approvalSignatureId)
                 .setEffectiveAt(now));
+        recordChangeTaskService.complete(changeEventMapper.selectById(event.getId()));
         return toResp(changeEventMapper.selectById(event.getId()));
     }
 
     @Override
     public PageResult<EdhrRecordChangeRespVO> getPage(EdhrRecordChangePageReqVO reqVO) {
-        return BeanUtils.toBean(changeEventMapper.selectPage(reqVO), EdhrRecordChangeRespVO.class);
+        PageResult<MesProEdhrRecordChangeEventDO> page = changeEventMapper.selectPage(reqVO);
+        return new PageResult<>(page.getList().stream().map(this::toResp).toList(), page.getTotal());
     }
 
     @Override
@@ -640,6 +805,24 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
         return execution;
     }
 
+    private MesProBatchRecordExecutionDO requireLockedExecutionForRequest(EdhrRecordChangeRequestReqVO request) {
+        MesProBatchRecordExecutionDO execution = requireExecution(request.getExecutionId());
+        execution = executionMapper.selectByIdForUpdate(execution.getId());
+        if (request.getBatchExecutionId() != null && !Objects.equals(request.getBatchExecutionId(), execution.getBatchExecutionId())) {
+            throw new IllegalArgumentException("执行记录不属于指定批次");
+        }
+        request.setBatchExecutionId(execution.getBatchExecutionId());
+        requireReleaseActionUnlocked(execution.getBatchExecutionId());
+        nonconformanceReviewService.ensureBatchNotFrozen(execution.getBatchExecutionId(), "记录变更申请");
+        return execution;
+    }
+
+    private MesProEdhrRecordChangeEventDO requireLockedChangeEvent(Long id) {
+        MesProEdhrRecordChangeEventDO event = changeEventMapper.selectByIdAndTenantForUpdate(id, TenantContextHolder.getRequiredTenantId());
+        if (event == null) throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_NOT_EXISTS);
+        return event;
+    }
+
     private MesProEdhrRecordChangeEventDO requireChangeEvent(Long id) {
         MesProEdhrRecordChangeEventDO event = id == null ? null : changeEventMapper.selectById(id);
         if (event == null) {
@@ -649,6 +832,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     }
 
     private MesProEdhrBatchExecutionDO requireBatchExecution(Long batchExecutionId) {
+        marketReleaseAccess.requireReadable(batchExecutionId);
         MesProEdhrBatchExecutionDO batch = batchExecutionId == null ? null : batchExecutionMapper.selectById(batchExecutionId);
         if (batch == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
@@ -676,12 +860,21 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     }
 
     private void requireReleaseActionUnlocked(Long batchExecutionId) {
+        requireReleaseActionUnlocked(batchExecutionId, true);
+    }
+
+    private void requireReleaseActionUnlocked(Long batchExecutionId, boolean requiresBatchWriteOwnership) {
+        if (batchExecutionId != null) {
+            if (requiresBatchWriteOwnership) marketReleaseAccess.requireWritable(batchExecutionId);
+            // A formal independent reviewer acts under the selected record-change task, not market handover ownership.
+            else nonconformanceReviewService.ensureBatchNotFrozen(batchExecutionId, "记录变更审批");
+        }
         if (batchExecutionId == null) {
             return;
         }
         MesProEdhrReleaseTransactionDO releaseTransaction =
                 releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId);
-        if (!hasGoldenFingerActionBypass()
+        if ((!requiresBatchWriteOwnership || !hasGoldenFingerActionBypass())
                 && releaseTransaction != null
                 && MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL.equals(releaseTransaction.getReleaseStatus())) {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
@@ -906,7 +1099,30 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     }
 
     private EdhrRecordChangeRespVO toResp(MesProEdhrRecordChangeEventDO event) {
-        return BeanUtils.toBean(event, EdhrRecordChangeRespVO.class);
+        EdhrRecordChangeRespVO response = BeanUtils.toBean(event, EdhrRecordChangeRespVO.class);
+        if (CHANGE_TYPE_REOPEN.equals(event.getChangeType()) || CHANGE_TYPE_SUPPLEMENT.equals(event.getChangeType())
+                || (CHANGE_TYPE_VOID.equals(event.getChangeType()) && TARGET_SCOPE_EXECUTION.equals(event.getTargetScope()))) {
+            var task = recordChangeTaskService.find(event.getId());
+            response.setCanApprove(false).setCanResubmit(false);
+            var correction = recordChangeTaskService.findCorrection(event.getId());
+            if (correction != null) {
+                response.setCorrectionWorkTaskId(correction.getId()).setCanResubmit("RETURNED".equals(event.getChangeStatus())
+                        && Objects.equals(event.getRequestedBy(), SecurityFrameworkUtils.getLoginUserId())
+                        && Objects.equals(correction.getAssigneeUserId(), SecurityFrameworkUtils.getLoginUserId()));
+            }
+            var revisionTask = recordChangeTaskService.findOwnRevision(event.getId());
+            if (revisionTask != null) {
+                response.setRevisionWorkTaskId(revisionTask.getId()).setRevisionActionUrl(revisionTask.getActionUrl());
+            }
+            if (task != null) {
+                response.setApproverUserId(task.getAssigneeUserId()).setApprovalWorkTaskId(task.getId())
+                        .setCanApprove(CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())
+                                && Objects.equals(task.getAssigneeUserId(), SecurityFrameworkUtils.getLoginUserId())
+                                && !Objects.equals(event.getRequestedBy(), SecurityFrameworkUtils.getLoginUserId())
+                                && Set.of("TODO", "OVERDUE").contains(task.getStatus()));
+            }
+        }
+        return response;
     }
 
     private LocalDateTime now() {

@@ -3,11 +3,10 @@
     <el-alert title="引用文件需要升版时，请先取消当前文件夹中的引用，再上传一份新文件；源文件需要升版时，须先取消指向该文件的全部引用关系，再按源文件升版流程办理。" type="info" :closable="false" show-icon />
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <div class="dcc-project-references__toolbar">
-    <el-button v-if="isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
-    <el-button
-      v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
+    <el-button v-if="!embeddedToolbar && isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
+    <el-button v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
       :disabled="busy || loading || savedReadFailure || !selectedReference" @click="selectedReference && prepareCancel(selectedReference)">取消引用</el-button>
-    <el-button data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
+    <el-button v-if="!embeddedToolbar" data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
       <span class="dcc-project-references__column-controls" data-dcc-reference-column-controls></span>
     </div>
     <DccFileSelector v-model="selectorVisible" :source="selectorSource" purpose="reference" :directories="directories" :selected="[]" :load-page="loadPage" :open-preview="openPreview" :persist="createSelected" @confirmed="referencesCreated">
@@ -62,7 +61,7 @@ import DccFileSelector from './DccFileSelector.vue'
 import type { SelectorSource, DirectoryNode } from './DccFileSelector.vue'
 import type { FileCandidate, SelectorPage, SelectorQuery } from './selector-state'
 import type { ReferenceRow } from './project-reference-contract'
-const props = defineProps<{ contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
+const props = defineProps<{ pageRows?: ReferenceRow[]; embeddedToolbar?: boolean; contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
   openReferencePreview?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   openReferenceTrace?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   createReferences: (projectId: string, folderId: string, selectedFileIds: string[], reason: string) => Promise<ReferenceRow[]>; loadReferences: (projectId: string, folderId: string) => Promise<ReferenceRow[]>; cancelReference: (projectId: string, folderId: string, masterId: string, referenceId: string, reason: string) => Promise<number> }>()
@@ -105,7 +104,7 @@ const createSelected=async (selected: FileCandidate[]) => {
     if(context!==props.contextKey || token!==generation)throw new Error('引用结果所属上下文已变化，请在原目录核对保存结果')
     const result=new Map(rows.value.map(row=>[row.reference.id,row]))
     created.forEach(row=>result.set(row.reference.id,row));rows.value=Array.from(result.values())
-    created.forEach(row=>emit('changed',row.referenceProjectCount,row.reference.masterId))
+    if (created.length) emit('changed',created[created.length-1].referenceProjectCount,created[created.length-1].reference.masterId)
   } catch (cause) {
     if (token === generation && (cause as { referenceSaved?: unknown })?.referenceSaved === true) {
       selectorVisible.value = false; savedReadFailure.value = true
@@ -122,7 +121,7 @@ const load = async () => {
   loading.value = true; error.value = ''; rows.value = []
   selectedReference.value = undefined
   pending.value = undefined; confirmVisible.value = false; reason.value = ''; readSequence++; readingReferenceId.value = ''
-  try { const result = await props.loadReferences(project, folder); if (token === generation) { rows.value = result; savedReadFailure.value = false } }
+  try { const result = props.pageRows !== undefined ? props.pageRows : await props.loadReferences(project, folder); if (token === generation) { rows.value = result; savedReadFailure.value = false } }
   catch (e) { if (token === generation) error.value = savedReadFailure.value ? `引用已保存，但引用列表读取失败：${String(e)}` : String(e) }
   finally { if (token === generation) loading.value = false }
 }
@@ -148,11 +147,14 @@ const cancelConfirmed = async () => {
   finally { if (token === generation) busy.value = false }
 }
 watch(() => props.contextKey, () => { generation++; readSequence++; savedReadFailure.value = false; readingReferenceId.value = ''; busy.value = false; confirmVisible.value = false; selectorVisible.value=false; pending.value = undefined; selectedReference.value = undefined; referenceReason.value=''; void load() }, { immediate: true })
+watch(() => props.pageRows, value => { if (value !== undefined) { generation++; readSequence++; rows.value=value; selectedReference.value=undefined; readingReferenceId.value=''; savedReadFailure.value=false; busy.value=false; pending.value=undefined; confirmVisible.value=false } })
 watch(() => props.isProjectLeader, () => { selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; selectorVisible.value = false })
 watch(() => props.selectionContextKey, () => {
   readSequence++; readingReferenceId.value = ''; selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; reason.value = ''
 })
 onBeforeUnmount(() => { generation++; readSequence++; readingReferenceId.value = ''; rows.value = [] })
+const cancelSelectedReference = () => { if (selectedReference.value) prepareCancel(selectedReference.value) }
+defineExpose({ openSelector, cancelSelectedReference, refresh, selectedReference, loading, busy, savedReadFailure })
 </script>
 <style scoped>
 .dcc-project-references__toolbar { display: flex; align-items: center; gap: 8px; }

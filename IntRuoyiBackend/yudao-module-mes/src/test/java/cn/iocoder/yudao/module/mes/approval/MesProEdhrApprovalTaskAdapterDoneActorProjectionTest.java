@@ -87,7 +87,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     void prepareFixtureAccess() {
         jdbc = new JdbcTemplate(dataSource);
         cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(resolver, signatures, 1L);
-        when(handoffProjection.prefix(any(), anyLong())).thenReturn(new PageResult<>(List.of(), 0L));
+        when(handoffProjection.window(any(), any(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.class))).thenReturn(new PageResult<>(List.of(), 0L));
     }
 
     @AfterEach
@@ -227,7 +227,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         fixture.summary().setStatus(status).setCompletedAt(null);
         fixture.task().setStatus(status).setCompletedAt(null);
         persistTaskChanges(fixture.task());
-        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), anyLong()))
+        when(workTaskService.getApprovalCenterAuthorizedWindow(any(), eq(false), eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())), 1L));
         exposeTimeline(fixture);
         assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.TODO, false)).getList().get(0).getAssigneeUserId());
@@ -464,7 +464,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         fixture.summary().setStatus("TODO").setCompletedAt(null);
         fixture.task().setStatus("TODO").setCompletedAt(null);
         persistTaskChanges(fixture.task());
-        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(),eq(false),eq(false),anyLong()))
+        when(workTaskService.getApprovalCenterAuthorizedWindow(any(),eq(false),eq(false), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())),1L));
         when(workTaskService.getApprovalCenterTimelineTasks(fixture.task().getId(),null,false)).thenReturn(List.of(fixture.task()));
         org.mockito.Mockito.clearInvocations(signatures,users);
@@ -584,7 +584,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     }
 
     private void exposePqc(PqcFixture fixture) {
-        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(),eq(false),eq(true),anyLong()))
+        when(workTaskService.getApprovalCenterAuthorizedWindow(any(),eq(false),eq(true), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())),1L));
         when(workTaskService.getApprovalCenterTimelineTasks(fixture.task().getId(),null,false)).thenReturn(List.of(fixture.task()));
     }
@@ -660,7 +660,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     }
 
     private void exposeDone(Fixture fixture, boolean globalView) {
-        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(), eq(globalView), eq(true), anyLong()))
+        when(workTaskService.getApprovalCenterAuthorizedWindow(any(), eq(globalView), eq(true), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())), 1L));
         exposeTimeline(fixture);
     }

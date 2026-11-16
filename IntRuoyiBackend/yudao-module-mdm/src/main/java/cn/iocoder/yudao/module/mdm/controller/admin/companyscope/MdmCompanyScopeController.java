@@ -2,8 +2,15 @@ package cn.iocoder.yudao.module.mdm.controller.admin.companyscope;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterprisePageReqVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterpriseRespVO;
+import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
+import cn.iocoder.yudao.module.mdm.service.enterprise.MdmEnterpriseService;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopePageReqVO;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeRespVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeCreateCompanyReqVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeUpdateCompanyReqVO;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeSaveReqVO;
 import cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +38,42 @@ public class MdmCompanyScopeController {
 
     @Resource
     private MdmCompanyScopeService companyScopeService;
+
+    @Resource
+    private MdmEnterpriseService enterpriseService;
+
+    @GetMapping("/companies")
+    @Operation(summary = "获得所属公司分页")
+    @PreAuthorize("@ss.hasPermission('mdm:company-scope:query')")
+    public CommonResult<PageResult<MdmEnterpriseRespVO>> getOwnedCompanyPage(
+            @Valid MdmEnterprisePageReqVO reqVO) {
+        reqVO.setType(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+        return success(BeanUtils.toBean(enterpriseService.getEnterprisePage(reqVO), MdmEnterpriseRespVO.class));
+    }
+
+    @PutMapping("/companies")
+    @Operation(summary = "修改所属公司名称")
+    @PreAuthorize("@ss.hasPermission('mdm:company-scope:update')")
+    public CommonResult<Boolean> updateCompany(@Valid @RequestBody MdmCompanyScopeUpdateCompanyReqVO reqVO) {
+        enterpriseService.updateOwnedCompanyName(reqVO.getId(), reqVO.getName());
+        return success(true);
+    }
+
+    @PostMapping("/companies")
+    @Operation(summary = "新建自动可用所属公司")
+    @PreAuthorize("@ss.hasPermission('mdm:company-scope:create')")
+    public CommonResult<Long> createEnabledCompany(@Valid @RequestBody MdmCompanyScopeCreateCompanyReqVO reqVO) {
+        return success(enterpriseService.createEnabledOwnedCompany(reqVO.getName()));
+    }
+
+    @PutMapping("/companies/status")
+    @Operation(summary = "启用或停用所属公司")
+    @PreAuthorize("@ss.hasPermission('mdm:company-scope:update')")
+    public CommonResult<Boolean> updateCompanyStatus(@RequestParam("id") Long id,
+                                                     @RequestParam("status") String status) {
+        enterpriseService.updateOwnedCompanyStatus(id, status);
+        return success(true);
+    }
 
     @GetMapping("/page")
     @Operation(summary = "获得企业公司范围分页")

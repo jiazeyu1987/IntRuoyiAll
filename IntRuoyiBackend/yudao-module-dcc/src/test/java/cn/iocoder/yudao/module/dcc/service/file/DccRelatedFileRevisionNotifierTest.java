@@ -50,7 +50,7 @@ class DccRelatedFileRevisionNotifierTest extends BaseDbUnitTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation (tenant_id BIGINT,source_master_id BIGINT,related_master_id BIGINT)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation_set (tenant_id BIGINT,source_master_id BIGINT,controlled_file_id BIGINT)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_controlled_file (id BIGINT,tenant_id BIGINT,master_id BIGINT,deleted INT,controlled_time DATETIME,status VARCHAR(40))");
-        jdbc.update("DELETE FROM system_notify_message");
+        jdbc.update("DELETE FROM system_tenant_notify_message");
         jdbc.update("DELETE FROM dcc_current_file_relation"); jdbc.update("DELETE FROM dcc_current_file_relation_set");
         jdbc.update("DELETE FROM dcc_controlled_file");
         jdbc.update("INSERT INTO dcc_current_file_relation VALUES (1,10,20),(2,30,20)");
@@ -74,12 +74,12 @@ class DccRelatedFileRevisionNotifierTest extends BaseDbUnitTest {
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
     void notifyRevision() { new TransactionTemplate(manager).executeWithoutResult(s -> notifier.onLifecycleEvent(event)); }
-    int count() { return jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message", Integer.class); }
+    int count() { return jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message", Integer.class); }
 
     @Test void signedCompilerReceivesOneRealPlatformMessageAcrossReplay() {
         notifyRevision(); notifyRevision(); assertEquals(1, count());
-        assertEquals(8L, jdbc.queryForObject("SELECT user_id FROM system_notify_message", Long.class));
-        assertTrue(jdbc.queryForObject("SELECT template_content FROM system_notify_message", String.class).contains("A 关联的 B"));
+        assertEquals(8L, jdbc.queryForObject("SELECT user_id FROM system_tenant_notify_message", Long.class));
+        assertTrue(jdbc.queryForObject("SELECT template_content FROM system_tenant_notify_message", String.class).contains("A 关联的 B"));
         verify(files, never()).selectById(300L);
     }
     @Test void outerControlRollbackAlsoRollsBackRealPlatformMessage() {

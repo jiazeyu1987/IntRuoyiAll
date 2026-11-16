@@ -66,26 +66,17 @@ class MesReleaseFinalizationValidatorTest {
     }
 
     @Test
-    void independentSourceDoesNotRequireActiveOrderFieldsButRequiresCanonicalReceipt() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(new IndependentBatchPrerequisiteReceipt()
-                        .setReceiptId("independent-1")
-                        .setBatchExecutionId(20L)
-                        .setSourceRelation("formal-source")
-                        .setSourceSnapshotHash("source-hash")
-                        .setReceiptHash("receipt-hash")
-                        .setIssuedBy(100L)
-                        .setIssuedAt(LocalDateTime.of(2026, 8, 21, 0, 0))
-                        .setExpiresAt(LocalDateTime.of(2026, 8, 23, 0, 0))
-                        .setVersion(1));
-
-        assertDoesNotThrow(() -> MesReleaseFinalizationValidator.validate(command, CLOCK));
+    void retiredIndependentOriginsCannotFinalizeWithPreviouslyValidReceipts() {
+        for (MesReleaseOrigin origin : List.of(MesReleaseOrigin.MANUAL, MesReleaseOrigin.SCHEDULED, MesReleaseOrigin.PQC_INDEPENDENT)) {
+            MesReleaseFinalizationCommand command = base(origin).setIndependentPrerequisiteReceipt(validIndependentReceipt());
+            assertThrows(MesReleaseFlowBlockerException.class, () -> MesReleaseFinalizationValidator.validate(command, CLOCK));
+            assertThrows(MesReleaseFlowBlockerException.class, () -> MesReleaseFinalizationValidator.validate(command, authoritativeEvidence(command), CLOCK));
+        }
     }
 
     @Test
     void materialGateMustContainExactlyFourOfficialTypes() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(validIndependentReceipt());
+        MesReleaseFinalizationCommand command = activeOrderCommand();
         command.getMaterialGateReceipt().setMaterialTypeKeys(Set.of("INCOMING_INSPECTION_REPORT"));
 
         MesReleaseFlowBlockerException failure = assertThrows(
@@ -97,43 +88,12 @@ class MesReleaseFinalizationValidatorTest {
     }
 
     @Test
-    void independentReceiptMustMatchFormalSourceSnapshot() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(validIndependentReceipt()
-                        .setSourceSnapshotHash("different-hash"));
-
-        assertThrows(MesReleaseFlowBlockerException.class,
-                () -> MesReleaseFinalizationValidator.validate(command, CLOCK));
-    }
-
-    @Test
-    void independentReceiptMustMatchFormalSourceRelation() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(validIndependentReceipt()
-                        .setSourceRelation("different-source"));
-
-        assertThrows(MesReleaseFlowBlockerException.class,
-                () -> MesReleaseFinalizationValidator.validate(command, CLOCK));
-    }
-
-    @Test
     void materialGateSourceSnapshotMustMatchRequestWhenProvided() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(validIndependentReceipt())
+        MesReleaseFinalizationCommand command = activeOrderCommand()
                 .setMaterialGateSourceSnapshotHash("different-gate-source");
 
         assertThrows(MesReleaseFlowBlockerException.class,
                 () -> MesReleaseFinalizationValidator.validate(command, authoritativeEvidence(command), CLOCK));
-    }
-
-    @Test
-    void independentReceiptIssuedInTheFutureIsInvalid() {
-        MesReleaseFinalizationCommand command = base(MesReleaseOrigin.MANUAL)
-                .setIndependentPrerequisiteReceipt(validIndependentReceipt()
-                        .setIssuedAt(LocalDateTime.of(2026, 8, 23, 0, 0)));
-
-        assertThrows(MesReleaseFlowBlockerException.class,
-                () -> MesReleaseFinalizationValidator.validate(command, CLOCK));
     }
 
     @Test

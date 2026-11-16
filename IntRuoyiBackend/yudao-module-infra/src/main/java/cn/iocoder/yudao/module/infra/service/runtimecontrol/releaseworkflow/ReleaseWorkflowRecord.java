@@ -158,7 +158,8 @@ public record ReleaseWorkflowRecord(
         }
 
         public boolean isHeartbeatMonitored() {
-            return !isTerminal() && this != READY && this != TEST_DEPLOYED && this != TESTED;
+            return !isTerminal() && this != READY && this != TEST_DEPLOYED && this != TESTED
+                    && this != RECOVERY_REQUIRED;
         }
     }
 

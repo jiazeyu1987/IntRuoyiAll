@@ -7,12 +7,14 @@ const page = fs.readFileSync(
   'utf8'
 )
 
+const commonPage = fs.readFileSync(
+  path.join(process.cwd(), 'src/views/mes/pro/processpool/CommonRegulationPage.vue'), 'utf8'
+)
+const routes = fs.readFileSync(path.join(process.cwd(), 'src/router/modules/remaining.ts'), 'utf8')
 assert(
-  page.includes('data-qa-regulation-workspace-tabs') &&
-    page.includes('label="QA检验规程"') &&
-    page.includes('label="通用检验规程"') &&
-    page.includes("type RegulationWorkspaceTabName = 'qa' | 'common'"),
-  'RED: QA and common inspection regulations must be separate first-level workspaces'
+  !page.includes('data-qa-regulation-workspace-tabs') &&
+    commonPage.includes('<QaRegulationPage workspace="common" />'),
+  'QA and common regulations must have separate menu pages without nested workspace tabs'
 )
 
 const qaSecondaryTabs =
@@ -20,9 +22,9 @@ const qaSecondaryTabs =
 assert(
   qaSecondaryTabs.includes('label="总览"') &&
     qaSecondaryTabs.includes('label="检验项目"') &&
-    qaSecondaryTabs.includes('label="任务预览"') &&
+    !qaSecondaryTabs.includes('label="任务预览"') &&
     !qaSecondaryTabs.includes('label="通用检验规程"'),
-  'RED: the QA detail tabs must contain only QA-owned views'
+  'RED: the QA detail tabs must contain overview and inspection items without task preview'
 )
 
 assert(
@@ -42,7 +44,7 @@ assert(
 )
 
 assert(
-  page.includes("regulationWorkspaceTab.value = 'common'") &&
+  routes.includes("path: 'pro/process-pool/common-regulation'") &&
     !page.includes("qaActiveTab.value = 'common'") &&
     !page.includes("type QaRegulationTabName = 'overview' | 'common'"),
   'RED: common regulation navigation must not reuse QA detail-tab state'

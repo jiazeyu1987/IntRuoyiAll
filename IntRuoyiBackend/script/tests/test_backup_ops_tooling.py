@@ -3967,8 +3967,8 @@ def test_backup_ops_uses_explicit_local_workspace_root_outside_repo() -> None:
     config_text = (root / "config" / "backup-ops.config.json").read_text(encoding="utf-8")
     example_text = (root / "config" / "backup-ops.config.example.json").read_text(encoding="utf-8")
 
-    assert '"localWorkspaceRoot": "D:\\\\IntRuoyi-BackupOps\\\\tmp"' in config_text
-    assert '"localWorkspaceRoot": "D:\\\\IntRuoyi-BackupOps\\\\tmp"' in example_text
+    assert '"localWorkspaceRoot": ".runtime/backup-ops/tmp"' in config_text
+    assert '"localWorkspaceRoot": ".runtime/backup-ops/tmp"' in example_text
     assert "@('backup', 'localWorkspaceRoot')" in validation_text
     assert "Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'localWorkspaceRoot')" in file_ops_text
     assert "Join-Path $rootDir 'tmp'" not in file_ops_text

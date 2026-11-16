@@ -109,6 +109,52 @@ public class DccOfflineTrainingRecordService {
                 .filter(file -> canUpload(actor, file) || canOrganizeTraining(actor,file)).toList();
     }
 
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+
+    /** SQL authorization and displayed-column filters precede count and the bounded task window. */
+    public cn.iocoder.yudao.framework.common.pojo.PageResult<DccControlledFileDO> pageForActor(
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext context) {
+        Long actor=context.getLoginUserId(),tenant=TenantContextHolder.getRequiredTenantId();
+        if(!hasEnabledAccount(actor))return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L);
+        var trainingCategories=categories.exactCategoryIds(actor,DccFileCategoryPermissionActionEnum.TRAINING_RECORD);
+        var editCategories=categories.editableCategoryIds(actor);
+        var scope=projectAccess.editorScope(actor);
+        String project="dcc_controlled_file.dcc_project_code_id";
+        String library="SELECT 1 FROM dcc_project_code ep WHERE ep.id="+project+" AND ep.tenant_id="+tenant+" AND ep.deleted=0";
+        String editor;
+        if(scope.administrator())editor="EXISTS("+library+")";
+        else editor="((NOT EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+sqlIn(project,scope.projectIds())+") OR EXISTS("+library+" AND ep.status='ENABLE' AND ((ep.library_scope='QMS' AND "+scope.qms()+") OR (ep.library_scope='GENERAL' AND "+scope.general()+"))))";
+        String libraryEditor="EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+editor;
+        String categoryEditor="NOT EXISTS("+library+" AND ep.library_scope IN ('QMS','GENERAL')) AND "+sqlIn("dcc_controlled_file.category_id",editCategories)+" AND "+editor;
+        String upload="(dcc_controlled_file.requester_id="+actor+" AND ("+sqlIn("dcc_controlled_file.category_id",trainingCategories)+" OR ("+libraryEditor+") OR ("+categoryEditor+")))";
+        var fileIds=fileScope.resolveActiveAssignedControlledFileIds(actor);
+        if(fileIds!=null)upload="("+upload+" AND "+sqlIn("dcc_controlled_file.id",fileIds)+")";
+        if(!permissions.hasAnyPermissions(actor,"dcc:project-code:scope:all") && permissions.hasAnyPermissions(actor,"dcc:project-code-assignment:execute"))
+            upload="("+upload+" AND "+sqlIn(project,Objects.requireNonNull(projectAssignments.selectActiveProjectCodeIdsByAssigneeUserId(tenant,actor,LocalDateTime.now()),"active assigned project scope"))+")";
+        String owner="(dcc_controlled_file.file_owner_user_id="+actor+" AND dcc_controlled_file.file_owner_signature_id>0 AND NULLIF(TRIM(dcc_controlled_file.file_owner_approval_task_id),'') IS NOT NULL AND NULLIF(TRIM(dcc_controlled_file.process_instance_id),'') IS NOT NULL AND dcc_controlled_file.process_instance_id=dcc_controlled_file.file_owner_process_instance_id AND dcc_controlled_file.file_owner_selected_time IS NOT NULL)";
+        var query=new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DccControlledFileDO>();
+        query.eq("tenant_id",tenant).eq("status",STATUS).in("process_definition_key",PROCESS_KEYS).apply("("+upload+" OR "+owner+")");
+        if(context.getKeyword()!=null && !context.getKeyword().isBlank()) {
+            String key=context.getKeyword().trim().toLowerCase(java.util.Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_");
+            query.apply("(LOWER(title) LIKE {0} ESCAPE '!' OR LOWER(file_number) LIKE {0} ESCAPE '!' OR CAST(id AS CHAR) LIKE {0} ESCAPE '!')","%"+key+"%");
+        }
+        String node="CASE WHEN "+upload+" AND "+owner+" THEN '组织培训并上传本次记录' WHEN "+upload+" THEN '上传本次线下培训记录' ELSE '组织本轮文件培训' END";
+        var filter=new cn.iocoder.yudao.framework.common.pojo.PageParam();filter.setListFilters(context.getListFilters());
+        cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.apply(filter,query,cn.iocoder.yudao.module.dcc.approval.DccApprovalListFilterSql.training(node,actor));
+        long total=files.selectCount(query);
+        var window=cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        if(total==0 || window.limit()==0)return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),total);
+        query.last("ORDER BY (approved_time IS NULL) ASC,approved_time DESC,CAST(CONCAT('DCC_OFFLINE_TRAINING_RECORD:',tenant_id,':',id,':',process_instance_id) AS BINARY) ASC LIMIT "+window.offset()+","+window.limit());
+        var result=files.selectList(query);
+        // Keep the authoritative workflow/identity checks on every task returned to the caller.
+        result.forEach(file->{if(!(canUpload(actor,file) || canOrganizeTraining(actor,file)))throw new IllegalStateException("DCC_OFFLINE_TRAINING_SQL_AUTHORIZATION_MISMATCH");});
+        return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(result,total);
+    }
+    private static String sqlIn(String expression,java.util.Collection<Long> ids) {
+        if(ids.isEmpty())return "1=0";
+        return expression+" IN ("+ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","))+")";
+    }
+
     public Waiting requireWaiting(DccControlledFileDO file) {
         Long tenant = TenantContextHolder.getRequiredTenantId();
         if (!isNativeWaitingFile(file) || file.getId() == null || file.getId() <= 0

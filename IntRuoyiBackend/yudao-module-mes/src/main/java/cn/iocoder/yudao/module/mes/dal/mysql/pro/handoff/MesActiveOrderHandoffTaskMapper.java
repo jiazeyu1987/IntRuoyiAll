@@ -9,6 +9,18 @@ import java.util.List;
 
 @Mapper
 public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOrderHandoffTaskDO> {
+    @Select("SELECT h.* FROM mes_active_order_handoff_task h WHERE h.tenant_id=#{tenant} AND h.deleted=FALSE"
+            + " AND h.status='TODO' AND h.notification_only=FALSE AND h.task_type IN ('QA_REVIEW','QA_DECISION_HANDOFF')"
+            + " AND h.due_time IS NOT NULL AND h.due_time<=#{now} AND h.overdue_notified_at IS NULL"
+            + " AND EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order ao WHERE ao.id=h.active_order_id"
+            + " AND ao.tenant_id=h.tenant_id AND ao.deleted=FALSE AND ao.active_status='ACTIVE')"
+            + " AND (h.task_type='QA_REVIEW' OR EXISTS (SELECT 1 FROM mes_pro_work_order w WHERE w.id=h.work_order_id"
+            + " AND w.tenant_id=h.tenant_id AND w.deleted=FALSE AND w.temporary_frozen=FALSE))"
+            + " ORDER BY h.due_time,h.id LIMIT #{limit} FOR UPDATE")
+    List<MesActiveOrderHandoffTaskDO> due(@Param("tenant") Long tenant, @Param("now") LocalDateTime now, @Param("limit") int limit);
+    @Update("UPDATE mes_active_order_handoff_task SET overdue_notified_at=#{now},update_time=#{now}"
+            + " WHERE id=#{id} AND tenant_id=#{tenant} AND deleted=FALSE AND status='TODO' AND overdue_notified_at IS NULL")
+    int markOverdueNotified(@Param("tenant") Long tenant,@Param("id") Long id,@Param("now") LocalDateTime now);
     default LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO> approvalCenterQuery(
             Long tenant, Long actor, boolean global, boolean done, String keyword) {
         var query = new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>();
@@ -17,6 +29,11 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
                 .apply("CAST(status AS BINARY) = CAST({0} AS BINARY)", done ? "DONE" : "TODO")
                 .and(notification -> notification.isNull(MesActiveOrderHandoffTaskDO::getNotificationOnly)
                         .or().eq(MesActiveOrderHandoffTaskDO::getNotificationOnly, false));
+        // Production and PQC reviews stay in their business workbenches; exclude before count/window.
+        query.apply("COALESCE(CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY)), TRUE)");
+        if (!done) {
+            query.apply("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)");
+        }
         if (!global) {
             query.apply("FIND_IN_SET({0}, candidate_user_snapshot) > 0", actor);
             if (done) query.eq(MesActiveOrderHandoffTaskDO::getCompletedBy, actor);
@@ -40,8 +57,13 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
     }
 
     default cn.iocoder.yudao.framework.common.pojo.PageResult<MesActiveOrderHandoffTaskDO> selectApprovalCenterPrefix(
-            Long tenant, Long actor, boolean global, boolean done, String keyword, long limit) {
-        if (limit < 1) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+            Long tenant, Long actor, boolean global, boolean done, String keyword, long limit, String listFilters) {
+        return selectApprovalCenterWindow(tenant,actor,global,done,keyword,0,limit,listFilters);
+    }
+
+    default cn.iocoder.yudao.framework.common.pojo.PageResult<MesActiveOrderHandoffTaskDO> selectApprovalCenterWindow(
+            Long tenant, Long actor, boolean global, boolean done, String keyword, long offset, long limit, String listFilters) {
+        if (offset < 0 || limit < 0) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
         // A SQL CASE must not silently hide the corruption that label() previously rejected.
         var invalidType = approvalCenterQuery(tenant, actor, global, done, null);
         // Formal CI/PAD SPACE columns must retain the exact Java enum contract, including trailing spaces.
@@ -54,11 +76,15 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
                 .apply("CAST(task_type AS BINARY) NOT IN (" + binaryTypes + ")", types.toArray()));
         cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.require(
                 selectCount(invalidType) == 0, "未知交接类型");
-        long total = selectCount(approvalCenterQuery(tenant, actor, global, done, keyword));
+        var countQuery=approvalCenterQuery(tenant, actor, global, done, keyword);
+        cn.iocoder.yudao.module.mes.approval.MesHandoffApprovalListFilters.apply(listFilters,done,countQuery);
+        long total = selectCount(countQuery);
+        if (limit == 0 || total == 0) return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), total);
         var query = approvalCenterQuery(tenant, actor, global, done, keyword);
+        cn.iocoder.yudao.module.mes.approval.MesHandoffApprovalListFilters.apply(listFilters,done,query);
         String time = done ? "completed_at" : "create_time";
         query.last("ORDER BY " + time + " IS NULL ASC, " + time
-                + " DESC, CAST(id AS BINARY) ASC LIMIT " + limit);
+                + " DESC, CAST(id AS BINARY) ASC LIMIT " + (offset==0?Long.toString(limit):offset+","+limit));
         return new cn.iocoder.yudao.framework.common.pojo.PageResult<>(selectList(query), total);
     }
 

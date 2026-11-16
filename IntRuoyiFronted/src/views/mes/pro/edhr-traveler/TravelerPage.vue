@@ -98,7 +98,7 @@
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetailDrawer(row)">详情</el-button>
-              <el-button link type="primary" @click="openEventDrawer(row)">事件</el-button>
+              
             </template>
           </el-table-column>
         </el-table>
@@ -289,33 +289,15 @@
         <el-descriptions-item label="批次">{{ currentTraveler.batchCode || '--' }}</el-descriptions-item>
         <el-descriptions-item label="SN">{{ currentTraveler.serialNo || '--' }}</el-descriptions-item>
         <el-descriptions-item label="工序">{{ currentTraveler.processName || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="业务键">{{ currentTraveler.businessKeyHash || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="技术详情">
+          <details class="traveler-technical"><summary>查看业务唯一性校验信息</summary>
+            <p>业务唯一性校验码：{{ currentTraveler.businessKeyHash || '未记录' }}</p>
+          </details>
+        </el-descriptions-item>
       </el-descriptions>
     </el-drawer>
 
-    <el-drawer v-model="eventDrawerVisible" title="流转单事件" size="760px">
-      <el-table
-        v-loading="eventLoading"
-        :data="eventList"
-        stripe
-        :show-overflow-tooltip="true"
-        empty-text="暂无事件"
-      >
-        <el-table-column label="事件" prop="eventType" min-width="160" />
-        <el-table-column label="结果" prop="resultStatus" width="120" />
-        <el-table-column label="失败原因" prop="failureReason" min-width="220" />
-        <el-table-column label="操作人" min-width="130">
-          <template #default="{ row }">{{ row.operatorUsername || row.operatorUserId || '--' }}</template>
-        </el-table-column>
-        <el-table-column label="发生时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
-      </el-table>
-      <Pagination
-        :total="eventTotal"
-        v-model:page="eventQuery.pageNo"
-        v-model:limit="eventQuery.pageSize"
-        @pagination="loadEventList"
-      />
-    </el-drawer>
+    
   </ContentWrap>
 </template>
 
@@ -325,16 +307,17 @@ import {
   activateEdhrTravelerTemplate,
   createEdhrTravelerTemplate,
   generateEdhrTraveler,
-  getEdhrTravelerEventPage,
+  
   getEdhrTravelerPage,
   getEdhrTravelerTemplatePage,
-  type EdhrTravelerEventRespVO,
+  
   type EdhrTravelerGenerateReqVO,
   type EdhrTravelerRespVO,
   type EdhrTravelerTemplateCreateReqVO,
   type EdhrTravelerTemplateRespVO
 } from '@/api/mes/pro/edhr/traveler'
 import { edhrDateTimeFormatter } from '@/views/mes/pro/edhr/shared/dateTime'
+
 
 const message = useMessage()
 
@@ -369,15 +352,11 @@ const templateQuery = reactive({
   status: undefined as string | undefined
 })
 
-const eventLoading = ref(false)
-const eventDrawerVisible = ref(false)
-const eventList = ref<EdhrTravelerEventRespVO[]>([])
-const eventTotal = ref(0)
-const eventQuery = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  travelerId: undefined as number | undefined
-})
+
+
+
+
+
 
 const detailDrawerVisible = ref(false)
 const currentTraveler = ref<EdhrTravelerRespVO>()
@@ -469,19 +448,7 @@ const loadTemplateList = async () => {
   }
 }
 
-const loadEventList = async () => {
-  if (!eventQuery.travelerId) return
-  eventLoading.value = true
-  try {
-    const data = await getEdhrTravelerEventPage(eventQuery)
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '流转单事件加载失败。'))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
 
 const handleTravelerQuery = () => {
   travelerQuery.pageNo = 1
@@ -614,17 +581,7 @@ const openDetailDrawer = (row: EdhrTravelerRespVO) => {
   detailDrawerVisible.value = true
 }
 
-const openEventDrawer = async (row: EdhrTravelerRespVO) => {
-  if (!row.id) {
-    message.error('流转单ID缺失，无法查看事件。')
-    return
-  }
-  currentTraveler.value = row
-  eventQuery.pageNo = 1
-  eventQuery.travelerId = row.id
-  eventDrawerVisible.value = true
-  await loadEventList()
-}
+
 
 const handleTabChange = () => {
   if (activeTab.value === 'template' && !templateList.value.length) {
@@ -662,6 +619,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.traveler-technical { overflow-wrap: anywhere; }
+.traveler-technical summary { cursor: pointer; color: var(--el-text-color-secondary); }
 .edhr-traveler-page {
   display: flex;
   flex-direction: column;

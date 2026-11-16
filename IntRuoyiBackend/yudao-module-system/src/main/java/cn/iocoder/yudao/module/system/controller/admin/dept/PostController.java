@@ -79,7 +79,7 @@ public class PostController {
     @GetMapping(value = "/get")
     @Operation(summary = "获得岗位信息")
     @Parameter(name = "id", description = "岗位编号", required = true, example = "1024")
-    @PreAuthorize("@ss.hasPermission('system:post:query')")
+    @PreAuthorize("@ss.hasPermission('system:post:query') or @organizationRolePageAccess.canRead()")
     public CommonResult<PostRespVO> getPost(@RequestParam("id") Long id) {
         PostDO post = postService.getPost(id);
         return success(BeanUtils.toBean(post, PostRespVO.class));
@@ -97,7 +97,7 @@ public class PostController {
 
     @GetMapping("/page")
     @Operation(summary = "获得岗位分页列表")
-    @PreAuthorize("@ss.hasPermission('system:post:query')")
+    @PreAuthorize("@ss.hasPermission('system:post:query') or @organizationRolePageAccess.canRead()")
     public CommonResult<PageResult<PostRespVO>> getPostPage(@Validated PostPageReqVO pageReqVO) {
         PageResult<PostDO> pageResult = postService.getPostPage(pageReqVO);
         return success(BeanUtils.toBean(pageResult, PostRespVO.class));

@@ -28,9 +28,10 @@ assert.deepEqual(
   panes,
   [
     { label: '总览', name: 'overview' },
-    { label: '检验项目', name: 'items' }
+    { label: '检验项目', name: 'items' },
+    { label: '关联', name: 'association' }
   ],
-  'QA navigation must expose only the overview and inspection-item tabs.'
+  'QA navigation must expose the overview, inspection-item and association tabs.'
 )
 assert.doesNotMatch(
   tabsSource,

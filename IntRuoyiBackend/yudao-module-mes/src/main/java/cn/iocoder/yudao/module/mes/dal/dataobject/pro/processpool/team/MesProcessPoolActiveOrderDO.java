@@ -38,6 +38,8 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private Long dccProjectCodeId;
     private Long qaRegulationId;
     private Long qaRegulationVersionId;
+    /** Frozen product and common QA sources used when PQC creates additional rounds. */
+    private String pqcQaSourceVersionIdsJson;
     private Long reworkSourceActiveOrderId;
     private Long reworkReviewId;
     private BigDecimal erpFixedQuantitySnapshot;

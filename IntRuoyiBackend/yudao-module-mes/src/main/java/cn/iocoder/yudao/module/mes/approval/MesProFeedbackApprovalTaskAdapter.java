@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Comparator;
 
 @Component
 public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
@@ -46,18 +45,6 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
             MesProFeedbackStatusEnum.UNCHECK.getStatus(),
             MesProFeedbackStatusEnum.FINISHED.getStatus()
     );
-    private static final List<Integer> DONE_QUERY_STATUSES = List.of(
-            MesProFeedbackStatusEnum.APPROVING.getStatus(),
-            MesProFeedbackStatusEnum.UNCHECK.getStatus(),
-            MesProFeedbackStatusEnum.FINISHED.getStatus(),
-            MesProFeedbackStatusEnum.PREPARE.getStatus()
-    );
-    private static final List<Integer> ACTIVE_STATUSES = List.of(
-            MesProFeedbackStatusEnum.APPROVING.getStatus(),
-            MesProFeedbackStatusEnum.UNCHECK.getStatus(),
-            MesProFeedbackStatusEnum.FINISHED.getStatus()
-    );
-
     private final MesProFeedbackMapper feedbackMapper;
     private final MesProFeedbackService feedbackService;
     private final MesFeedbackFormalReviewProjection formalReviewProjection;
@@ -101,50 +88,47 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,
+            isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        Objects.requireNonNull(context.getLoginUserId(), "APPROVAL_LOGIN_USER_REQUIRED");
-        List<MesProFeedbackDO> rows = switch (context.getViewType()) {
-            case TODO -> feedbackMapper.selectUnifiedApprovalList(resolveApproveUserId(context), null,
-                    List.of(MesProFeedbackStatusEnum.APPROVING.getStatus()), context.getKeyword());
-            case DONE -> feedbackMapper.selectUnifiedApprovalList(resolveApproveUserId(context), null,
-                    DONE_QUERY_STATUSES, context.getKeyword());
-            case MY_INITIATED -> feedbackMapper.selectUnifiedApprovalList(null, resolveFeedbackUserId(context),
-                    ACTIVE_STATUSES, context.getKeyword());
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: MES_FEEDBACK does not support "
-                    + context.getViewType());
-        };
-        Map<Long, MesProFeedbackDO> candidates = new LinkedHashMap<>();
-        rows.forEach(row -> candidates.put(requireFeedbackId(row), row));
-        if (context.getViewType() == ApprovalTaskViewType.DONE && !context.isGlobalView()) {
-            List<Long> reviewedIds = formalReviewProjection.reviewedFeedbackIds(context.getLoginUserId());
-            if (!reviewedIds.isEmpty()) {
-                feedbackMapper.selectUnifiedFormalApprovalSources(reviewedIds, context.getKeyword()).stream()
-                        .forEach(row -> candidates.put(requireFeedbackId(row), row));
-            }
-        }
-        List<MesProFeedbackDO> ordered = candidates.values().stream()
-                .sorted(Comparator.comparing(MesProFeedbackDO::getId).reversed()).toList();
-        Map<Long, MesFeedbackFormalReviewProjection.Fact> formal = formalReviewProjection.read(ordered);
-        List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        for (MesProFeedbackDO row : ordered) {
-            MesFeedbackFormalReviewProjection.Fact fact = formal.get(row.getId());
-            boolean done = fact == null ? isApprovalDone(row) : fact.reviewed();
-            if (context.getViewType() == ApprovalTaskViewType.TODO && done
-                    || context.getViewType() == ApprovalTaskViewType.DONE && !done) continue;
-            if (fact != null && context.getViewType() != ApprovalTaskViewType.MY_INITIATED
-                    && !context.isGlobalView()
-                    && !Objects.equals(context.getLoginUserId(), fact.reviewed()
-                    ? fact.reviewerId() : row.getApproveUserId())) continue;
-            summaries.add(fact == null ? toSummary(row) : toFormalSummary(row, fact));
-        }
-        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
-                cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
+        return window(context, cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context));
     }
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper approvalQueries;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.system.api.user.AdminUserApi filterUsers;
+
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,
+            isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
             cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
-        return page(context.withWindow(window));
+        var split=cn.iocoder.yudao.framework.mybatis.core.util.ListFilterValueUtils.split(context.getListFilters(),
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.STATIC_KEYS,
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.dynamicFields(context));
+        var staticContext=context.withWindow(window);staticContext.setListFilters(split.staticFilters());
+        cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskFilteredWindow.Source candidates=(offset,limit)->{
+            var query=approvalQueries.query(staticContext);long total=approvalQueries.count(query);
+            if(offset>=total || limit==0)return new PageResult<>(List.of(),total);
+            String time=context.getViewType()==ApprovalTaskViewType.DONE
+                    ? cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper.COMPLETED
+                    : cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesFeedbackApprovalQueryMapper.CREATED;
+            query.last("ORDER BY ("+time+") IS NULL ASC,"+time+" DESC,CAST(f.id AS BINARY) ASC LIMIT "+offset+","+limit);
+            var rows=approvalQueries.window(query).stream().map(this::requireFeedback).toList();
+            var formal=formalReviewProjection.read(rows);var summaries=new ArrayList<ApprovalTaskSummary>();
+            for(var row:rows){
+                // Production review remains in report management, outside every approval-center view.
+                if (formal.containsKey(row.getId())) continue;
+                boolean done = isApprovalDone(row);
+                if(context.getViewType()==ApprovalTaskViewType.TODO&&done || context.getViewType()==ApprovalTaskViewType.DONE&&!done)continue;
+                summaries.add(toSummary(row));
+            }
+            if(split.hasDynamicFilters())cn.iocoder.yudao.module.bpm.approval.service.ApprovalListFilterValues.enrichUsers(summaries,filterUsers);
+            return new PageResult<>(summaries,total);
+        };
+        // Formal corrections can remove candidates even without a column filter, so exact count always uses proof.
+        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskFilteredWindow.read(List.of(candidates),context,window,true,split::matches);
     }
 
     @Override
@@ -162,26 +146,6 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
             throw new IllegalStateException("MES_FEEDBACK_TIMELINE_ACCESS_DENIED: " + feedbackId);
         }
         return buildFormalTimeline(feedback, fact);
-    }
-
-    private ApprovalTaskSummary toFormalSummary(MesProFeedbackDO feedback, MesFeedbackFormalReviewProjection.Fact fact) {
-        ApprovalTaskSummary summary = toSummary(feedback);
-        String status = fact.reviewed() ? fact.review().getReviewStatus() : "PENDING";
-        summary.setBusinessStatus(!fact.reviewed() ? "待生产组长复核" : "APPROVED".equals(status) ? "生产复核通过" : "生产复核驳回")
-                .setCurrentNodeCode(status).setCurrentNodeName("生产组长报工复核")
-                .setAssigneeUserId(fact.reviewed() ? fact.reviewerId() : feedback.getApproveUserId())
-                .setInitiatedAt(fact.event().getServerSubmitTime()).setTaskCreatedAt(fact.event().getServerSubmitTime())
-                .setTaskCompletedAt(fact.reviewed() ? fact.review().getReviewedAt() : null)
-                .setApprovalResult(!fact.reviewed() ? null : "APPROVED".equals(status)
-                        ? ApprovalTaskReviewResult.APPROVE : ApprovalTaskReviewResult.REJECT)
-                .setApprovalRemark(fact.reviewed() ? fact.review().getReviewRemark() : null)
-                .setAvailableActions(PROCESS_ACTIONS)
-                .setDetailRoute("/mes/pro/process-pool/production-leader")
-                .setDetailQuery(Map.of("eventId", String.valueOf(fact.event().getId())))
-                .setBusinessContextTags(fact.reviewed()
-                        ? List.of("生产事件 " + fact.event().getId(), "复核签名 " + fact.review().getReviewSignatureId())
-                        : List.of("生产事件 " + fact.event().getId()));
-        return summary;
     }
 
     private List<ApprovalTaskTimelineEntry> buildFormalTimeline(MesProFeedbackDO feedback,

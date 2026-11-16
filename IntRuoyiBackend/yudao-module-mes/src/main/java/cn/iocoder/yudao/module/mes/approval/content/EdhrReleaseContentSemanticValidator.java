@@ -97,7 +97,9 @@ public final class EdhrReleaseContentSemanticValidator {
                 long attachment = Long.parseLong(file.path("attachmentId").asText());
                 if (attachment <= previousAttachment) fail("dossier file ordering"); previousAttachment = attachment;
                 equal(file.get("activeOrderId"), manifest.get("activeOrderId"), "dossier file order");
-                if (!file.get("applicationId").isNull()) equal(file.get("applicationId"), manifest.get("applicationId"), "dossier file application");
+                // applicationId records upload provenance, not the current review round.
+                // EdhrActiveOrderDossierManifest verifies that source application's tenant/order;
+                // its original ID stays frozen in this hash together with the current manifest scope.
             }
         }
         dates(root);

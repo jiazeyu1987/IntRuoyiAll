@@ -52,6 +52,7 @@ const currentLocale = computed(() => localeStore.currentLocale)
 
 <template>
   <ElConfigProvider
+    :z-index="4000"
     :namespace="variables.elNamespace"
     :locale="currentLocale.elLocale"
     :message="{ max: 5 }"

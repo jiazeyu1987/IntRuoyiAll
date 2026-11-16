@@ -27,4 +27,6 @@ public class MesKingdeeBomListPageReqVO extends PageParam {
     @Schema(description = "子项物料名称")
     private String childMaterialName;
 
+
+    private String syncCode;
 }

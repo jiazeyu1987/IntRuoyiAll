@@ -27,6 +27,7 @@ public class ShowroomKeywordService {
         PageParam pageParam = new PageParam();
         pageParam.setPageNo(reqVO.getPageNo());
         pageParam.setPageSize(reqVO.getPageSize());
+        pageParam.setListFilters(reqVO.getListFilters());
         PageResult<ShowroomKeywordDO> page = keywordMapper.selectPageByKeyword(pageParam, reqVO.getKeyword());
         List<KeywordPageRespVO> rows = page.getList().stream()
                 .map(keyword -> new KeywordPageRespVO(

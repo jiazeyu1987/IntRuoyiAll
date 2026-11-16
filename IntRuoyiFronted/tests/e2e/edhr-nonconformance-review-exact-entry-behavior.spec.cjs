@@ -8,7 +8,7 @@ const { parse } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
 const tick = async () => { await vue.nextTick(); for (let i = 0; i < 20; i++) await Promise.resolve() }
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
-const row = (overrides = {}) => ({ id: 48, sourceType: 'DEVIATION', sourceId: 1225, batchExecutionId: 1225, deviationIdsJson: '[91,92]', reviewStatus: 'pending_review', ...overrides })
+const row = (overrides = {}) => ({ id: 48, qaReviewerUserId: 12, sourceType: 'DEVIATION', sourceId: 1225, batchExecutionId: 1225, deviationIdsJson: '[91,92]', reviewStatus: 'pending_review', ...overrides })
 const entry = (overrides = {}) => ({ reviewId: '48', from: 'deviation', deviationId: '91', batchExecutionId: '1225', ...overrides })
 const handoffEntry = (overrides = {}) => ({ activeOrderId: '7', reviewId: '48', handoffTaskId: '101', roundId: '48', handoffType: 'QA_REVIEW', ...overrides })
 const handoffContext = (query = handoffEntry(), overrides = {}) => ({
@@ -28,6 +28,15 @@ function pageHarness(query = entry(), overrides = {}) {
   const route = vue.reactive({ name: 'MesProFeedbackEdhrNonconformanceReview', query })
   const mounted = [], unmounted = [], exactReads = [], listReads = [], writes = [], messages = [], stops = []
   const context = {
+    useApprovalCenterInvalidationStore: () => ({
+      syncSession: () => ({ key: 'test-session' }),
+      isCurrent: key => key === 'test-session',
+      captureHandoffSourceSuccess: () => ({ session: { key: 'test-session' } }),
+      publishEdhrSuccess() {}
+    }),
+    useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
+    useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
+    useUserStore: () => ({ getUser: { id: 12 } }),
     ...vue, defineOptions() {}, useRoute: () => route,
     watch: (...args) => { const stop = vue.watch(...args); stops.push(stop); return stop },
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
@@ -51,7 +60,7 @@ function pageHarness(query = entry(), overrides = {}) {
     uploadNonconformanceReviewMaterial: async () => { throw Error('entry must not upload') },
     ...overrides
   }
-  const page = Function(...Object.keys(context), `${compile(body)}; return { errorText, selectedReview, selectedReviewReadOnly, reviewDialogVisible, createDialogVisible, selectedActiveOrderId, disposeForm, reviews, openReviewDialog, openCreateDialog, resolveSourceTypeLabel, handleDispose, handleMaterialUpload };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${compile(body)}; return { errorText, selectedReview, canDisposeSelectedReview, selectedReviewReadOnly, reviewTabOpen, createDialogVisible, selectedActiveOrderId, disposeForm, reviews, openReviewTab, openCreateDialog, resolveSourceTypeLabel, handleDispose, handleMaterialUpload };`)(...Object.values(context))
   const unmount = () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) }
   return { page, route, exactReads, listReads, writes, messages, unmount, mount: async () => { mounted.forEach(fn => fn()); await tick() } }
 }
@@ -68,7 +77,7 @@ test('deviation exact entry reads formal review outside first list page, without
   const h = pageHarness(); await h.mount()
   assert.deepEqual(h.exactReads, ['48'])
   assert.equal(h.page.selectedReview.value?.id, 48)
-  assert.equal(h.page.reviewDialogVisible.value, true)
+  assert.equal(h.page.reviewTabOpen.value, true)
   assert.equal(h.page.createDialogVisible.value, false)
   assert.equal(h.page.disposeForm.signaturePassword, '')
   assert.deepEqual(h.writes, []); h.unmount()
@@ -86,20 +95,24 @@ test('malformed, missing or duplicate source queries fail before reads or writes
     const h = pageHarness(query); await h.mount()
     assert.ok(h.page.errorText.value, JSON.stringify(query))
     assert.equal(h.exactReads.length, 0); assert.equal(h.listReads.length, 0)
-    assert.equal(h.page.reviewDialogVisible.value, false); assert.equal(h.page.createDialogVisible.value, false)
+    assert.equal(h.page.reviewTabOpen.value, false); assert.equal(h.page.createDialogVisible.value, false)
     assert.deepEqual(h.writes, []); h.unmount()
   }
 })
-test('existing query permission is required, with no silent list fallback', async () => {
+test('logged-in readers can open the exact review without write permissions', async () => {
   const h = pageHarness(entry(), { hasPermission: () => false }); await h.mount()
-  assert.equal(h.exactReads.length, 0); assert.equal(h.listReads.length, 0)
-  assert.ok(h.page.errorText.value); assert.equal(h.page.reviewDialogVisible.value, false); h.unmount()
+  assert.deepEqual(h.exactReads, ['48']); assert.equal(h.listReads.length, 1)
+  assert.equal(h.page.errorText.value, ''); assert.equal(h.page.reviewTabOpen.value, true)
+  assert.equal(h.page.canDisposeSelectedReview.value, false)
+  await h.page.handleDispose('rework')
+  await h.page.handleMaterialUpload([{ name: 'forbidden.txt', size: 10 }])
+  assert.deepEqual(h.writes, []); h.unmount()
 })
 test('wrong review, source, batch, sourceId or deviation membership is refused', async () => {
   for (const bad of [row({ id: 49 }), row({ sourceType: 'ACTIVE_ORDER' }), row({ batchExecutionId: 1226 }), row({ sourceId: 1226 }), row({ deviationIdsJson: '[93]' }), row({ deviationIdsJson: undefined }), row({ deviationIdsJson: '{' }), row({ deviationIdsJson: '{}' }), row({ deviationIdsJson: '[91.1]' }), row({ id: Number.MAX_SAFE_INTEGER + 1 }), undefined]) {
     const h = pageHarness(entry(), { getNonconformanceReview: async () => bad }); await h.mount()
     assert.ok(h.page.errorText.value); assert.equal(h.page.selectedReview.value, undefined)
-    assert.equal(h.page.reviewDialogVisible.value, false); assert.deepEqual(h.writes, []); h.unmount()
+    assert.equal(h.page.reviewTabOpen.value, false); assert.deepEqual(h.writes, []); h.unmount()
   }
 })
 test('large string identities remain exact in route and formal source membership', async () => {
@@ -107,12 +120,12 @@ test('large string identities remain exact in route and formal source membership
   const reads = []
   const h = pageHarness(entry(identity), { getNonconformanceReview: async id => { reads.push(id); return row({ id, sourceId: identity.batchExecutionId, batchExecutionId: identity.batchExecutionId, deviationIdsJson: '[9007199254740995]' }) } })
   await h.mount(); assert.deepEqual(reads, [identity.reviewId]); assert.equal(h.page.selectedReview.value?.id, identity.reviewId)
-  assert.equal(h.page.reviewDialogVisible.value, true); h.unmount()
+  assert.equal(h.page.reviewTabOpen.value, true); h.unmount()
 })
 test('formal read errors are visible and do not open or create another object', async () => {
   const h = pageHarness(entry(), { getNonconformanceReview: async () => { throw { response: { data: { msg: '无权访问关联评审' } } } } })
   await h.mount(); assert.match(h.page.errorText.value, /无权访问关联评审/)
-  assert.equal(h.page.reviewDialogVisible.value, false); assert.equal(h.page.selectedReview.value, undefined); assert.deepEqual(h.writes, []); h.unmount()
+  assert.equal(h.page.reviewTabOpen.value, false); assert.equal(h.page.selectedReview.value, undefined); assert.deepEqual(h.writes, []); h.unmount()
 })
 test('late old route result cannot replace a newer exact review', async () => {
   const old = deferred(), reads = []
@@ -120,7 +133,7 @@ test('late old route result cannot replace a newer exact review', async () => {
   await h.mount(); h.route.query = entry({ reviewId: '49' }); await tick()
   old.resolve(row()); await tick()
   assert.deepEqual(reads, ['48', '49']); assert.equal(h.page.selectedReview.value?.id, 49)
-  assert.equal(h.page.reviewDialogVisible.value, true); h.unmount()
+  assert.equal(h.page.reviewTabOpen.value, true); h.unmount()
 })
 test('late response and error after route departure or unmount cannot reopen a dialog', async () => {
   for (const departure of ['query', 'name', 'unmount']) for (const failed of [false, true]) {
@@ -130,7 +143,7 @@ test('late response and error after route departure or unmount cannot reopen a d
     else if (departure === 'name') h.route.name = 'OtherPage'
     else h.unmount()
     await tick(); if (failed) old.reject(Error('old route failure')); else old.resolve(row()); await tick()
-    assert.equal(h.page.reviewDialogVisible.value, false); assert.equal(h.page.selectedReview.value, undefined)
+    assert.equal(h.page.reviewTabOpen.value, false); assert.equal(h.page.selectedReview.value, undefined)
     assert.equal(h.page.errorText.value, '')
     h.unmount()
   }
@@ -142,30 +155,30 @@ test('late list projection cannot replace the formal exact detail, closing retur
   list.resolve({ list: [row({ sourceType: 'ACTIVE_ORDER', deviationIdsJson: undefined })], total: 1 }); await tick()
   assert.equal(h.page.selectedReview.value?.sourceType, 'DEVIATION')
   assert.equal(h.page.reviews.value.length, 1)
-  h.page.reviewDialogVisible.value = false; await tick()
-  assert.equal(h.page.reviewDialogVisible.value, false); assert.equal(h.page.reviews.value.length, 1); h.unmount()
+  h.page.reviewTabOpen.value = false; await tick()
+  assert.equal(h.page.reviewTabOpen.value, false); assert.equal(h.page.reviews.value.length, 1); h.unmount()
 })
 test('malformed formal materials do not expose a writable selected object', async () => {
   const h = pageHarness(entry(), { getNonconformanceReview: async () => row({ reviewMaterialsJson: '{' }) }); await h.mount()
   assert.match(h.page.errorText.value, /材料清单格式无效/)
-  assert.equal(h.page.selectedReview.value, undefined); assert.equal(h.page.reviewDialogVisible.value, false); h.unmount()
+  assert.equal(h.page.selectedReview.value, undefined); assert.equal(h.page.reviewTabOpen.value, false); h.unmount()
 })
 test('manual review or create action invalidates an outstanding route read', async () => {
   for (const action of ['review', 'create']) {
     const old = deferred()
     const h = pageHarness(entry(), { getNonconformanceReview: () => old.promise }); await h.mount()
-    if (action === 'review') h.page.openReviewDialog(row({ id: 77, sourceType: 'ACTIVE_ORDER' }))
+    if (action === 'review') h.page.openReviewTab(row({ id: 77, sourceType: 'ACTIVE_ORDER' }))
     else await h.page.openCreateDialog()
     old.resolve(row()); await tick()
     assert.equal(h.page.selectedReview.value?.id, action === 'review' ? 77 : undefined)
-    assert.equal(h.page.reviewDialogVisible.value, action === 'review')
+    assert.equal(h.page.reviewTabOpen.value, action === 'review')
     assert.equal(h.page.createDialogVisible.value, action === 'create'); h.unmount()
   }
 })
 test('normal list and existing active-order autoCreate paths remain independent', async () => {
   const ordinary = pageHarness({}); await ordinary.mount()
   assert.equal(ordinary.listReads.length, 1); assert.equal(ordinary.exactReads.length, 0)
-  assert.equal(ordinary.page.reviewDialogVisible.value, false); ordinary.unmount()
+  assert.equal(ordinary.page.reviewTabOpen.value, false); ordinary.unmount()
   const create = pageHarness({ activeOrderId: '7', autoCreate: '1' }); await create.mount()
   assert.equal(create.page.createDialogVisible.value, true); assert.equal(create.page.selectedActiveOrderId.value, 7)
   assert.equal(create.exactReads.length, 0); assert.deepEqual(create.writes, []); create.unmount()
@@ -175,7 +188,7 @@ test('formal QA handoff opens its exact review and active cycle without starting
   const h = pageHarness(handoffEntry(), { getNonconformanceReview: async id => row({ id, activeOrderId: 7 }) })
   await h.mount()
   assert.equal(h.page.selectedReview.value.id, '48')
-  assert.equal(h.page.reviewDialogVisible.value, true)
+  assert.equal(h.page.reviewTabOpen.value, true)
   assert.equal(h.page.selectedReviewReadOnly.value, false)
   assert.equal(h.page.createDialogVisible.value, false)
   assert.deepEqual(h.writes, []); h.unmount()
@@ -189,7 +202,7 @@ test('malformed or mixed handoff entries cannot fall back to lists or create ano
     const h = pageHarness(query); await h.mount()
     assert.ok(h.page.errorText.value, JSON.stringify(query))
     assert.equal(h.listReads.length, 0); assert.equal(h.exactReads.length, 0)
-    assert.equal(h.page.reviewDialogVisible.value, false); assert.equal(h.page.createDialogVisible.value, false)
+    assert.equal(h.page.reviewTabOpen.value, false); assert.equal(h.page.createDialogVisible.value, false)
     assert.deepEqual(h.writes, []); h.unmount()
   }
 })
@@ -205,7 +218,7 @@ test('handoff task, frozen link, current cycle and actual review must all agree'
     { ...good, task: { ...good.task, actionUrl: good.task.actionUrl + '&reviewId=48' } },
     { ...good, task: { ...good.task, actionUrl: 'https://example.org' + good.task.actionUrl } }]) {
     const h = pageHarness(handoffEntry(), { handoffNavigationContext: async () => context }); await h.mount()
-    assert.ok(h.page.errorText.value); assert.equal(h.page.reviewDialogVisible.value, false)
+    assert.ok(h.page.errorText.value); assert.equal(h.page.reviewTabOpen.value, false)
     assert.equal(h.exactReads.length, 0); assert.deepEqual(h.writes, []); h.unmount()
   }
   for (const review of [row({ activeOrderId: 8 }), row({ activeOrderId: 7, reviewStatus: 'closed' })]) {
@@ -221,7 +234,7 @@ test('void result is read-only even outside the active cycle and handlers cannot
   const h = pageHarness(query, { handoffNavigationContext: async () => context,
     getNonconformanceReview: async () => row({ activeOrderId: 7, reviewStatus: 'closed', disposition: 'void' }) })
   await h.mount()
-  assert.equal(h.page.reviewDialogVisible.value, true); assert.equal(h.page.selectedReviewReadOnly.value, true)
+  assert.equal(h.page.reviewTabOpen.value, true); assert.equal(h.page.selectedReviewReadOnly.value, true)
   await h.page.handleDispose('void')
   await h.page.handleMaterialUpload({ target: { files: [{ name: 'forbidden.txt' }], value: 'file' } })
   assert.deepEqual(h.writes, []); assert.match(h.messages.at(-1), /只允许查看/); h.unmount()

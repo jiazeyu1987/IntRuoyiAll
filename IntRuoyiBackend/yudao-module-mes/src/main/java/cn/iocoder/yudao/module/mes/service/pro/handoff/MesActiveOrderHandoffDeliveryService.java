@@ -22,11 +22,16 @@ public class MesActiveOrderHandoffDeliveryService {
     @Resource private MesActiveOrderHandoffDeliveryTransactionService transactions;
     @Resource private MesReleaseTaskNotificationPlatformSender platformSender;
     @Resource private MesActiveOrderHandoffAudit audit;
+    @Resource(name = "applicationTaskExecutor") private org.springframework.core.task.TaskExecutor notificationExecutor;
 
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public void schedule(MesActiveOrderHandoffTaskDO task) {
         require(TransactionSynchronizationManager.isSynchronizationActive(),"通知意图必须加入正式交接事务");
-        validate(task); audit.lock(); Long currentTenant=tenant();
+        require(!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消");
+        validate(task);
+        // Production and PQC reviews retain workbench responsibility without notification delivery.
+        if (Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
+        audit.lock(); Long currentTenant=tenant();
         String params=JsonUtils.toJsonString(Map.of("activeOrderId",task.getActiveOrderId().toString(),
                 "taskName",label(task.getTaskType()),"actionUrl",task.getActionUrl(),"reason",task.getReason(),"handoffTaskId",task.getId().toString(),"handoffType",task.getTaskType()));
         var recipients=candidates(task.getCandidateUserSnapshot());
@@ -46,10 +51,19 @@ public class MesActiveOrderHandoffDeliveryService {
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
-                Long previous=TenantContextHolder.getTenantId();
-                try { TenantContextHolder.setTenantId(currentTenant); dispatchPending(task.getId()); }
-                catch(RuntimeException failure) { log.error("Committed handoff notification incomplete: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure)); }
-                finally { if(previous==null)TenantContextHolder.clear();else TenantContextHolder.setTenantId(previous); }
+                // The committed intent is the recovery boundary. Fan-out must not hold the
+                // business response open while every recipient's message and audit commit.
+                Runnable delivery = new org.springframework.security.concurrent.DelegatingSecurityContextRunnable(() -> {
+                    Long previous=TenantContextHolder.getTenantId();
+                    try { TenantContextHolder.setTenantId(currentTenant); dispatchPending(task.getId()); }
+                    catch(RuntimeException failure) { log.error("Committed handoff notification incomplete: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure)); }
+                    finally { if(previous==null)TenantContextHolder.clear();else TenantContextHolder.setTenantId(previous); }
+                });
+                try { notificationExecutor.execute(delivery); }
+                catch(RuntimeException failure) {
+                    // Queue rejection retains PENDING receipts for the original recipient's retry.
+                    log.error("Committed handoff notification enqueue failed: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure));
+                }
             }
         });
     }
@@ -66,6 +80,9 @@ public class MesActiveOrderHandoffDeliveryService {
         dispatch(row,reason.trim());
     }
     private void dispatchPending(Long taskId) {
+        var task = tasks.selectById(taskId);
+        require(task != null, "交接通知原任务不存在");
+        if ("CANCELED".equals(task.getStatus()) || Set.of("PRODUCTION_REVIEW", "PQC_REVIEW").contains(task.getTaskType())) return;
         for(var row:mapper.forTask(tenant(),taskId)) {
             if(!"PENDING".equals(row.getStatus()))continue;
             try { dispatch(row,"正式业务提交后自动投递交接通知"); }
@@ -73,6 +90,8 @@ public class MesActiveOrderHandoffDeliveryService {
         }
     }
     private void dispatch(MesActiveOrderHandoffDeliveryDO row,String reason) {
+        var task=tasks.selectById(row.getHandoffTaskId());
+        require(task!=null&&!Set.of("PQC_HANDOFF", "PQC_REVIEW", "PRODUCTION_REVIEW").contains(task.getTaskType()),"生产复核、PQC检验接手及复核通知已取消或交接不存在");
         var attempt=transactions.recordAttempt(row.getId(),row.getRowVersion(),reason);
         try {
             var request=new NotifySendSingleToUserIdempotentReqDTO();request.setUserId(attempt.getUserId());request.setTemplateCode(TEMPLATE);request.setBusinessKey(attempt.getBusinessKey());

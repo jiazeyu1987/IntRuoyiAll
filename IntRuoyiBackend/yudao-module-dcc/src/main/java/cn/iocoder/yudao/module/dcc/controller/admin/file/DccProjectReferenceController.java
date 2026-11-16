@@ -25,6 +25,15 @@ public class DccProjectReferenceController extends DccRelationsExceptionHandler 
     @GetMapping("/usage") public CommonResult<ReferenceUsage> usage(@RequestParam Long selectedFileId){
         return success(service.getUsage(SecurityFrameworkUtils.getLoginUserId(),selectedFileId));
     }
+    @PostMapping("/usage-batch") public CommonResult<List<ReferenceUsage>> usageBatch(@Valid @RequestBody UsageBatchRequest request) {
+        return success(service.getUsageBatch(SecurityFrameworkUtils.getLoginUserId(), request.selectedFileIds()));
+    }
+    public record UsageBatchRequest(@NotEmpty @Size(max=200) List<@NotNull @Positive Long> selectedFileIds) {}
+    @PostMapping("/selected") public CommonResult<List<ReferenceListView>> selected(@Valid @RequestBody SelectedRequest request) {
+        return success(service.listSelected(SecurityFrameworkUtils.getLoginUserId(),request.projectId(),request.folderId(),request.referenceIds()));
+    }
+    public record SelectedRequest(@NotNull @Positive Long projectId,@NotNull @Positive Long folderId,
+            @NotEmpty @Size(max=200) List<@NotNull @Positive Long> referenceIds) {}
     @GetMapping("/usage-page") public CommonResult<cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceUsagePage> usagePage(
             @RequestParam Long selectedFileId,@RequestParam(defaultValue="1") Integer pageNo,
             @RequestParam(defaultValue="20") Integer pageSize) {

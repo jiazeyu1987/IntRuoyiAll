@@ -943,17 +943,23 @@ public class ShowroomAdminController {
 
     public record PageQueryReqVO(String keyword, Integer pageNo, Integer pageSize, String ownerCompanyId,
                                  String ownerType, String lifecycleStage, String incompleteStatus,
-                                 String approvalStatus, Long productId) {
+                                 String approvalStatus, Long productId, String listFilters) {
+
+        public PageQueryReqVO(String keyword, Integer pageNo, Integer pageSize, String ownerCompanyId,
+                              String ownerType, String lifecycleStage, String incompleteStatus,
+                              String approvalStatus, Long productId) {
+            this(keyword, pageNo, pageSize, ownerCompanyId, ownerType, lifecycleStage, incompleteStatus, approvalStatus, productId, null);
+        }
 
         public PageQueryReqVO(String keyword, Integer pageNo, Integer pageSize) {
-            this(keyword, pageNo, pageSize, null, null, null, null, null, null);
+            this(keyword, pageNo, pageSize, null, null, null, null, null, null, null);
         }
 
         public PageQueryReqVO(String keyword, Integer pageNo, Integer pageSize, String ownerCompanyId,
                               String ownerType, String lifecycleStage, String incompleteStatus,
                               String approvalStatus) {
             this(keyword, pageNo, pageSize, ownerCompanyId, ownerType, lifecycleStage, incompleteStatus,
-                    approvalStatus, null);
+                    approvalStatus, null, null);
         }
     }
 
@@ -1279,13 +1285,13 @@ public class ShowroomAdminController {
     }
 
     public record ApprovalActionReqVO(Long id, Long reviewerUserId,
-                                      @NotBlank(message = "签名密码不能为空")
+                                      @NotBlank(message = "签名凭据不能为空")
                                       String password,
                                       String comment) {
     }
 
     public record ApprovalRejectReqVO(Long id, Long reviewerUserId,
-                                      @NotBlank(message = "签名密码不能为空")
+                                      @NotBlank(message = "签名凭据不能为空")
                                       String password,
                                       @NotBlank(message = "驳回原因不能为空")
                                       String reason) {

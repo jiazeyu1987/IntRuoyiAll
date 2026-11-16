@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.security.config.SecurityProperties;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -18,9 +19,11 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.logger.LoginLogTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.service.permission.TenantAdminBusinessPolicy;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -169,24 +172,48 @@ public class AuthController {
         grantedMenuIds.addAll(permissionService.getDynamicMenuListByUserId(loginUserId));
         grantedMenuIds.addAll(permissionService.getTemporaryMenuListByUserId(loginUserId));
         List<MenuDO> permissionMenuList = getEnabledMenuList(grantedMenuIds);
+        permissionMenuList = permissionMenuList.stream()
+                .filter(menu -> !cn.iocoder.yudao.module.system.service.permission.PlatformConfigurationAccess
+                        .isPlatformPermission(menu.getPermission())
+                        || permissionService.hasAnyPermissions(loginUserId, menu.getPermission()))
+                .collect(Collectors.toList());
+        grantedMenuIds.retainAll(convertSet(permissionMenuList, MenuDO::getId));
         List<MenuDO> menuList = menuService.filterDisableMenus(getEnabledMenuList(
                 expandMenuIdsWithParents(permissionMenuList)));
-        if (roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
             permissionMenuList = filterSrmMenus(permissionMenuList);
             menuList = filterSrmMenus(menuList);
         }
-        if (!isAdminUser(user)) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && !isAdminUser(user)) {
             permissionMenuList = filterDccAdminMenu(permissionMenuList);
             menuList = filterDccAdminMenu(menuList);
         }
-        if (roles.stream().noneMatch(role -> RoleCodeEnum.PUHUI_SCHEDULE_ADMIN.getCode().equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.PUHUI_SCHEDULE_ADMIN.getCode().equals(role.getCode()))) {
             permissionMenuList = filterPuhuiScheduleMenu(permissionMenuList);
             menuList = filterPuhuiScheduleMenu(menuList);
         }
-        if (roles.stream().noneMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()))) {
             permissionMenuList = filterInvoiceVoucherPrintMenu(permissionMenuList);
             menuList = filterInvoiceVoucherPrintMenu(menuList);
         }
+
+        menuList = cn.iocoder.yudao.module.system.service.permission.OperationLogAccessPolicy.filterNavigation(menuList, roles);
+        // QA处置权限同时提供评审入口；不扩大其他按钮的页面导航权限。
+        Set<Long> qaReviewNavigationIds = permissionMenuList.stream()
+                .filter(menu -> "mes:pro-edhr-nonconformance-review:dispose".equals(menu.getPermission()))
+                .map(MenuDO::getParentId).collect(Collectors.toSet());
+        // Ancestors support routing; button grants do not grant their parent page's navigation entry.
+        menuList = menuList.stream().map(menu -> {
+            if (MenuTypeEnum.MENU.getType().equals(menu.getType())
+                    && qaReviewNavigationIds.contains(menu.getId())
+                    && "mes/pro/edhr-nonconformance/NonconformanceReviewPage".equals(menu.getComponent())) {
+                return BeanUtils.toBean(menu, MenuDO.class).setVisible(true);
+            }
+            if (MenuTypeEnum.MENU.getType().equals(menu.getType()) && !grantedMenuIds.contains(menu.getId())) {
+                return BeanUtils.toBean(menu, MenuDO.class).setVisible(false);
+            }
+            return menu;
+        }).collect(Collectors.toList());
 
         // 2. 拼接结果返回
         AuthPermissionInfoRespVO respVO = AuthConvert.INSTANCE.convert(user, roles, menuList);
@@ -406,7 +433,7 @@ public class AuthController {
     }
 
     private static boolean hasInvoiceVoucherPrintRole(List<RoleDO> roles) {
-        return roles.stream().anyMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()));
+        return TenantAdminBusinessPolicy.isTenantAdmin(roles) || roles.stream().anyMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()));
     }
 
     private static String formatInvoiceVoucherPrintTicketKey(String ticket) {

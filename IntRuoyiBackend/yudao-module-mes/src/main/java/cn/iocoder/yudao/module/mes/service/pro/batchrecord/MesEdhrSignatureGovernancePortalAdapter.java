@@ -54,12 +54,12 @@ public class MesEdhrSignatureGovernancePortalAdapter implements SignatureGoverna
 
     @Override
     public String getSecondaryRouteLabel() {
-        return "工作任务";
+        return "审批中心";
     }
 
     @Override
     public String getSecondaryRoute() {
-        return "/mes/pro/feedback/edhr-work-task";
+        return "/approval-center/todo?moduleCode=EDHR";
     }
 
     @Override

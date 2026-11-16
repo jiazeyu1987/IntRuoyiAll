@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 class MesEmployeeSignatureAuthenticationServiceTest {
     @Test void wrongPasswordCommitsANormalRejectionFactAndNeverReturnsASigner() {
         var profiles=mock(MesProcessPoolTeamEmployeeProfileMapper.class);var events=mock(SignatureAuthenticationEventMapper.class);var encoder=mock(PasswordEncoder.class);
-        var row=new MesProcessPoolTeamEmployeeProfileDO();row.setId(7L);row.setTenantId(1L);row.setEnabled(true);row.setSignatureCredentialStatus("ACTIVE");row.setSignaturePasswordHash("hash");row.setSignaturePasswordUpdatedAt(LocalDateTime.of(2026,10,9,10,0));row.setSignatureCredentialVersion(1L);row.setSignatureCredentialGeneration("ce75d9a0-9194-4bcb-a26e-ef302b9bc956");
+        var row=new MesProcessPoolTeamEmployeeProfileDO();row.setId(7L);row.setTenantId(1L);row.setEnabled(true);row.setSignatureCredentialType("PASSWORD");row.setSignatureCredentialStatus("ACTIVE");row.setSignaturePasswordHash("hash");row.setSignaturePasswordUpdatedAt(LocalDateTime.of(2026,10,9,10,0));row.setSignatureCredentialVersion(1L);row.setSignatureCredentialGeneration("ce75d9a0-9194-4bcb-a26e-ef302b9bc956");
         when(profiles.selectSignatureIdentityForUpdate(1L,7L)).thenReturn(row);when(profiles.writeSignatureFailures(eq(1L),eq(7L),eq(1),any(),isNull())).thenReturn(1);
         when(events.insert(any(cn.iocoder.yudao.module.system.dal.dataobject.signature.SignatureAuthenticationEventDO.class))).thenAnswer(i->{((cn.iocoder.yudao.module.system.dal.dataobject.signature.SignatureAuthenticationEventDO)i.getArgument(0)).setId(71L);return 1;});
         TenantContextHolder.setTenantId(1L);
@@ -27,4 +27,19 @@ class MesEmployeeSignatureAuthenticationServiceTest {
         assertEquals(7,AuthenticatedSigner.class.getRecordComponents().length);
         assertThrows(IllegalArgumentException.class,()->new AuthenticatedSigner(1L,"MES_EMPLOYEE_PROFILE",7L,2L,"ce75d9a0-9194-4bcb-a26e-ef302b9bc956",0L,"request"));
     }
+    @Test void pinDoesNotRequirePasswordOrCountOrLockFailures() {
+        var profiles=mock(MesProcessPoolTeamEmployeeProfileMapper.class); var events=mock(SignatureAuthenticationEventMapper.class); var encoder=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        var row=new MesProcessPoolTeamEmployeeProfileDO(); row.setId(7L);row.setTenantId(1L);row.setEnabled(true);row.setSignatureCredentialType("PIN");row.setSignaturePinHash(encoder.encode("000001"));row.setSignatureCredentialVersion(1L);row.setSignatureCredentialGeneration("ce75d9a0-9194-4bcb-a26e-ef302b9bc956");row.setSignatureLockedUntil(LocalDateTime.of(2026,10,11,10,0));
+        when(profiles.selectSignatureIdentityForUpdate(1L,7L)).thenReturn(row);
+        when(events.insert(any(cn.iocoder.yudao.module.system.dal.dataobject.signature.SignatureAuthenticationEventDO.class))).thenAnswer(i->{i.getArgument(0,cn.iocoder.yudao.module.system.dal.dataobject.signature.SignatureAuthenticationEventDO.class).setId(71L);return 1;});
+        TenantContextHolder.setTenantId(1L);
+        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(2L);
+            var service=new MesEmployeeSignatureAuthenticationService(profiles,events,encoder,Clock.fixed(Instant.parse("2026-10-10T02:00:00Z"),ZoneOffset.UTC));
+            for(int attempt=0;attempt<6;attempt++) assertEquals("BAD_CREDENTIALS",service.authenticate(new SignatureAuthenticationRequest(1L,"MES_EMPLOYEE_PROFILE",7L,2L,"bad-pin","123456")).rejectionCode());
+            assertTrue(service.authenticate(new SignatureAuthenticationRequest(1L,"MES_EMPLOYEE_PROFILE",7L,2L,"good-pin","000001")).succeeded());
+            verify(profiles,never()).writeSignatureFailures(anyLong(),anyLong(),anyInt(),any(),any());
+        } finally {TenantContextHolder.clear();}
+    }
+
 }

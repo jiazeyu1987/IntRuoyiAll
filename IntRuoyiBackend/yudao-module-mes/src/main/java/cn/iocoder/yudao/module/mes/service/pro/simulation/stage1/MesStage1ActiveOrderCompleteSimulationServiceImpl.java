@@ -175,6 +175,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesWmProductIssueDetailMapper productIssueDetailMapper;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
 
+    private final cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderPickListInitializer fixedTestPickListInitializer;
+
     public MesStage1ActiveOrderCompleteSimulationServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProWorkOrderMapper workOrderMapper,
@@ -218,7 +220,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesWmProductIssueMapper productIssueMapper,
             MesWmProductIssueLineMapper productIssueLineMapper,
             MesWmProductIssueDetailMapper productIssueDetailMapper,
-            MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService) {
+            MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
+            cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderPickListInitializer fixedTestPickListInitializer) {
+        this.fixedTestPickListInitializer = fixedTestPickListInitializer;
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.workOrderService = workOrderService;
@@ -278,6 +282,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireTemplate(templateActiveOrder, validated.getActorUserId());
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(templateActiveOrder.getWorkOrderId());
+
+        fixedTestPickListInitializer.prepare(templateWorkOrder.getCode(), validated.getActorUserId());
 
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
                 .simulateActiveOrderCompletion(validated.getActorUserId(), templateActiveOrder.getId(), STAGE,
@@ -2136,14 +2142,12 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                                          LocalDateTime sourceModifyTime, Map<String, Object> trace) {
     }
 
-    private record PqcStage1ProgressIdentity(Long routeProcessId, Long processId,
-                                             Long regulationVersionId, Long qaProcessId, String qaItemCode,
+    private record PqcStage1ProgressIdentity(Long regulationVersionId, Long qaProcessId,
                                              String inspectionRuleKey, String inspectionType,
                                              LocalDate businessDate, String shiftCode, Integer roundNo) {
 
         private static PqcStage1ProgressIdentity of(MesPqcInspectionTaskDO task) {
-            return new PqcStage1ProgressIdentity(task.getRouteProcessId(), task.getProcessId(),
-                    task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode().trim(),
+            return new PqcStage1ProgressIdentity(task.getRegulationVersionId(), task.getQaProcessId(),
                     task.getInspectionRuleKey().trim(),
                     normalizeStage1PqcInspectionType(task.getInspectionType()), task.getBusinessDate(),
                     task.getShiftCode().trim(), task.getRoundNo());

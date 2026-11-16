@@ -26,4 +26,6 @@ public interface MesMdAutoCodeRecordService {
      */
     String generateAutoCode(String ruleCode, String inputChar);
 
+    String generateProjectCode(String ruleCode, Long projectId);
+
 }

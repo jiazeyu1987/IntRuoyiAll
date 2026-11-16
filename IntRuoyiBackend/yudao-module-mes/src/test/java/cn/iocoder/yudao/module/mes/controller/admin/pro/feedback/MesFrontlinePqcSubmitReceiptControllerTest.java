@@ -95,12 +95,13 @@ class MesFrontlinePqcSubmitReceiptControllerTest {
                         heldRole.set(role);
                         assertAllowed(method, proxy, args);
                         heldPermission.set(null);
-                        assertDenied(method, proxy, args);
+                        if (guard.value().contains("hasPermission")) assertDenied(method, proxy, args);
+                        else assertAllowed(method, proxy, args);
                         heldPermission.set(permission);
                     }
                 }
             }
-            assertEquals(10, protectedMethods);
+            assertEquals(15, protectedMethods);
             // The shared return endpoints remain available to production for their own production returns.
             var returnFactory = new org.springframework.aop.framework.ProxyFactory(targets.get(1));
             returnFactory.setProxyTargetClass(true);

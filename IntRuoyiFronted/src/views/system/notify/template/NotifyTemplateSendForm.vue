@@ -30,14 +30,11 @@
         <el-input v-model="formData.userId" style="width: 160px" />
       </el-form-item>
       <el-form-item v-show="formData.userType === 2" label="接收人" prop="userId">
-        <el-select v-model="formData.userId" placeholder="请选择接收人">
-          <el-option
-            v-for="item in userOption"
-            :key="item.id"
-            :label="item.nickname"
-            :value="item.id"
-          />
-        </el-select>
+        <UserSelectV2
+          v-model="formData.userId"
+          placeholder="请选择接收人"
+          :user-options="userOption"
+        />
       </el-form-item>
       <el-form-item
         v-for="param in formData.params"
@@ -58,6 +55,7 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import * as UserApi from '@/api/system/user'
 import * as NotifyTemplateApi from '@/api/system/notify/template'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'

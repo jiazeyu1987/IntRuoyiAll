@@ -13,6 +13,7 @@ import static org.mockito.Mockito.*;
 /** Actual SQL candidate filters/real Query aggregation. Permission APIs remain parent test ports. */
 class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDatabaseTest {
     private static final long CURRENT=9007199254740993L;
+    private DccStorageBrowserProjectionFixture projection;
 
     @BeforeEach void exactFixture() {
         jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2',activated_time=controlled_time WHERE id=?",CURRENT);
@@ -23,6 +24,12 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
         var unrelated=new DccControlledFileDO();BeanUtils.copyProperties(files.selectById(CURRENT),unrelated);
         unrelated.setId(400L);unrelated.setMasterId(40L);unrelated.setFileNumber("OTHER");files.insert(unrelated);
         ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
+        var assignmentScope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
+        when(assignmentScope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(null);
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(query,"detailAuthorizationGuard"),"offlineTraining",
+                ReflectionTestUtils.getField(query,"offlineTraining"));
+        projection = new DccStorageBrowserProjectionFixture(query, files);
+        projection.rows(CURRENT);
         var projects=(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService)
                 ReflectionTestUtils.getField(query,"projectAccessService");
         when(projects.listReadableProjectIds(99L)).thenReturn(java.util.List.of(5L));
@@ -42,8 +49,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
 
     private DccControlledFilePageReqVO request(boolean exact) {
         var request=new DccControlledFilePageReqVO();request.setPageNo(1);request.setPageSize(10);request.setLatestVersionOnly(true);
-        // This behavior RED remains compilable before the formal optional contract exists.
-        if(exact && Arrays.stream(request.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("workingFileId"))) {
+        if(exact) {
             ReflectionTestUtils.setField(request,"workingFileId",CURRENT);ReflectionTestUtils.setField(request,"workingMasterId",10L);
         }
         return request;
@@ -58,6 +64,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
 
     @Test void historicalOnlyKeywordIsStillFilteredAfterCanonicalAggregation() {
         var req=request(true);req.setKeyword("OLD-ONLY");
+        projection.rows();
         assertEquals(0,query.getControlledFileWorkingBrowserPage(99L,req).getTotal());
     }
 
@@ -66,6 +73,8 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
         when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(java.util.Set.of(400L));
         when(scope.isWithinAssignedFileScope(99L,CURRENT)).thenReturn(false);
         when(scope.isWithinAssignedFileScope(99L,300L)).thenReturn(false);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(java.util.Set.of());
+        projection.rows();
         assertEquals(0,query.getControlledFileWorkingBrowserPage(99L,request(true)).getTotal());
         var req=request(true);ReflectionTestUtils.setField(req,"workingMasterId",40L);
         assertThrows(RuntimeException.class,()->query.getControlledFileWorkingBrowserPage(99L,req));
@@ -81,6 +90,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
     }
 
     @Test void ordinaryRequestWithoutExactPairRetainsItsExistingFullListBehavior() {
+        projection.rows(CURRENT, 400L);
         assertEquals(2,query.getControlledFileBrowserPage(99L,request(false)).getTotal());
     }
 

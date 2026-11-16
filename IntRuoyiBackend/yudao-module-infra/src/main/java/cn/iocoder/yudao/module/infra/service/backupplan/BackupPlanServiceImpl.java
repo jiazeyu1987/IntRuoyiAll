@@ -109,7 +109,7 @@ public class BackupPlanServiceImpl implements BackupPlanService {
 
     @Override
     public PageResult<RuntimeControlBackupPointRespVO> getHistoryPage(BackupPlanHistoryPageReqVO pageReqVO) {
-        List<RuntimeControlBackupPointRespVO> backupPoints = backupDrillService.listBackupPoints();
+        List<RuntimeControlBackupPointRespVO> backupPoints = BackupHistoryFilters.filter(backupDrillService.listBackupPoints(), pageReqVO.getListFilters());
         int fromIndex = Math.min((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), backupPoints.size());
         int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), backupPoints.size());
         return new PageResult<>(backupPoints.subList(fromIndex, toIndex), (long) backupPoints.size());

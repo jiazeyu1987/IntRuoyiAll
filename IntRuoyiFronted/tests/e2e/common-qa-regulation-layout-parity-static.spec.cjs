@@ -39,7 +39,7 @@ assert(
   detailTabs.includes('label="总览"') &&
     detailTabs.includes('label="检验项目"') &&
     detailTabs.includes('label="版本记录"') &&
-    page.includes("type CommonRegulationTabName = 'overview' | 'items' | 'versions'"),
+    page.includes("type CommonRegulationTabName = 'overview' | 'items' | 'versions' | 'published'"),
   'RED: common regulation details must use QA-style secondary tabs'
 )
 

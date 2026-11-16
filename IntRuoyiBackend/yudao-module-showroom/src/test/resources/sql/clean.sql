@@ -36,3 +36,7 @@ DELETE FROM "showroom_award";
 DELETE FROM "showroom_product";
 DELETE FROM "showroom_company_revision";
 DELETE FROM "showroom_company";
+
+DELETE FROM "system_tenant_notify_template";
+
+DELETE FROM "system_tenant_notify_message";

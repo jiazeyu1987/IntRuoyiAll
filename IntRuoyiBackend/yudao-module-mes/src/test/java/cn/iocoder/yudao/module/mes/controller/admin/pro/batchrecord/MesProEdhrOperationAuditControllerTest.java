@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrActiveOrderAuditAccess;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -47,6 +48,8 @@ class MesProEdhrOperationAuditControllerTest {
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock
     private MesProBatchRecordExecutionMapper executionMapper;
+    @Mock
+    private MesProEdhrActiveOrderAuditAccess activeOrderAuditAccess;
     @InjectMocks
     private MesProEdhrOperationAuditController controller;
 
@@ -171,6 +174,41 @@ class MesProEdhrOperationAuditControllerTest {
                 () -> controller.page(new MesProEdhrOperationAuditPageReqVO()));
 
         assertEquals(PRO_EDHR_PERMISSION_CONTEXT_MISSING.getCode(), exception.getCode());
+        verify(auditService, never()).getPage(any());
+    }
+
+    @Test
+    void pageAndGet_formalActiveBatchUsesItsOwnReadScope() {
+        var request = new MesProEdhrOperationAuditPageReqVO().setObjectType("BATCH_EXECUTION").setObjectId("100");
+        var event = new MesProEdhrOperationAuditRespVO().setId(1L).setObjectType("BATCH_EXECUTION")
+                .setObjectId("100").setBatchExecutionId(100L).setOperationType("PRINT_PDF");
+        when(batchTaskMapper.selectListByBatchExecutionId(100L)).thenReturn(List.of());
+        when(auditService.getPage(request)).thenReturn(new PageResult<>(List.of(event), 1L));
+        when(auditService.get(1L)).thenReturn(event);
+        assertSame(event, controller.page(request).getData().getList().get(0));
+        assertSame(event, controller.get(1L).getData());
+        verify(activeOrderAuditAccess, times(2)).requireAuditView(100L);
+        verify(permissionGateService, never()).requireAbility(any());
+    }
+
+    @Test
+    void page_formalAccessDeniedDoesNotReadAuditRows() {
+        when(batchTaskMapper.selectListByBatchExecutionId(100L)).thenReturn(List.of());
+        org.mockito.Mockito.doThrow(new ServiceException(403, "revoked"))
+                .when(activeOrderAuditAccess).requireAuditView(100L);
+        assertEquals(403, assertThrows(ServiceException.class, () -> controller.page(
+                new MesProEdhrOperationAuditPageReqVO().setObjectType("BATCH_EXECUTION").setObjectId("100"))).getCode());
+        verify(auditService, never()).getPage(any());
+    }
+
+    @Test
+    void page_mismatchedObjectAndBatchCannotBorrowAnotherBatchPermission() {
+        var request = new MesProEdhrOperationAuditPageReqVO().setObjectType("BATCH_EXECUTION")
+                .setObjectId("100").setBatchExecutionId(200L);
+        assertEquals(PRO_EDHR_PERMISSION_CONTEXT_MISSING.getCode(),
+                assertThrows(ServiceException.class, () -> controller.page(request)).getCode());
+        verify(batchTaskMapper, never()).selectListByBatchExecutionId(any());
+        verify(activeOrderAuditAccess, never()).requireAuditView(any());
         verify(auditService, never()).getPage(any());
     }
 

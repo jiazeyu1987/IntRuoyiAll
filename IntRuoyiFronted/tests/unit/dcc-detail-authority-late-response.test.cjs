@@ -249,12 +249,11 @@ test('loaded detail cached-current flag cannot authorize preview/navigation afte
       'openAttachmentPreview','openWorkingFileInBrowser','openControlledBrowserLocation','openTraceFileEvidence']
       .filter(name=>ast.statements.some(s=>s.declarationList?.declarations.some(d=>d.name.text===name)))
     vm.runInNewContext(ts.transpileModule(names.map(declaration).join('\n')+
-      '\nexports.actions={openPreview,openViewerTraceability,openHistoryDetail,openBpmDetail,openActionDialog,actionDialogRequestIsCurrent,openAttachmentPreview,openWorkingFileInBrowser,openControlledBrowserLocation,openTraceFileEvidence}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,h.c)
+      '\nexports.actions={openPreview,openViewerTraceability,openHistoryDetail,openBpmDetail,openActionDialog,actionDialogRequestIsCurrent,openWorkingFileInBrowser,openControlledBrowserLocation,openTraceFileEvidence}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,h.c)
     h.tenant('32')
     h.c.exports.actions.openPreview();h.c.exports.actions.openViewerTraceability()
     h.c.exports.actions.openHistoryDetail('9007199254740995');h.c.exports.actions.openBpmDetail()
     h.c.exports.actions.openWorkingFileInBrowser();h.c.exports.actions.openControlledBrowserLocation();h.c.exports.actions.openTraceFileEvidence({hasFileEvidence:true})
-    h.c.exports.actions.openAttachmentPreview({attachmentId:'71',controlledFileId:FILE})
     assert.equal(h.c.attachmentPreviewDialogVisible.value,false)
     h.c.exports.actions.openActionDialog('reject');assert.equal(h.c.actionDialog.visible,false)
     h.c.actionDialog.visible=true

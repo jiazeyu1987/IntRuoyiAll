@@ -100,6 +100,15 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFull(LocalDateTime windowStart, LocalDateTime windowEnd) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncProductionOrders(properties,
+                productionOrderClient.fetchProductionOrdersModifiedBetween(properties, windowStart, windowEnd), false, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
@@ -111,6 +120,11 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             ErpKingdeeProperties kingdeeProperties,
             List<ErpKingdeeProductionOrder> productionOrders,
             boolean verifyInactiveOrders) {
+        return syncProductionOrders(kingdeeProperties, productionOrders, verifyInactiveOrders, false);
+    }
+
+    private MesKingdeeProductionOrderSyncResult syncProductionOrders(ErpKingdeeProperties kingdeeProperties,
+            List<ErpKingdeeProductionOrder> productionOrders, boolean verifyInactiveOrders, boolean skipExisting) {
         // The outer transaction can update other orders before later cancelling a void order.
         // Acquire the shared audit ledger before its first business read/write lock.
         gxpAuditService.acquireLedgerLock();
@@ -133,6 +147,10 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             }
             MesKingdeeProductionOrderSyncRecordDO syncRecord = selectSyncRecord(productionOrder);
             MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
+            if (skipExisting && existingWorkOrder != null) {
+                result.addSkipped(sourceKey);
+                continue;
+            }
             Long productId = ensureMesItem(productionOrder);
             if (existingWorkOrder == null) {
                 Long workOrderId = workOrderService.createWorkOrder(buildCreateReqVO(productionOrder, productId));
@@ -744,6 +762,40 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             return 1;
         }
         return left.compareTo(right);
+    }
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        code = StrUtil.trimToEmpty(code);
+        if (code.isEmpty() || code.length() > 100 || code.contains("'")
+                || code.chars().anyMatch(Character::isISOControl)) {
+            throw ServiceExceptionUtil.exception0(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID.getCode(),
+                    "请输入有效的完整生产订单号");
+        }
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        List<ErpKingdeeProductionOrder> orders;
+        try {
+            orders = productionOrderClient.fetchProductionOrdersByBillNos(properties, List.of(code));
+        } catch (org.springframework.web.client.RestClientException cause) {
+            var failure = ServiceExceptionUtil.exception0(
+                    cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL.getCode(),
+                    "ERP连接或请求失败，订单尚未同步，请检查ERP服务及网络连接后重试");
+            failure.initCause(cause);
+            throw failure;
+        }
+        if (orders.isEmpty()) {
+            throw ServiceExceptionUtil.exception0(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID.getCode(),
+                    "ERP中未找到生产订单 " + code + "，请检查订单号是否正确");
+        }
+        var result = syncProductionOrders(properties, orders, false);
+        if (result.getCreatedCount() + result.getUpdatedCount() == 0) {
+            throw ServiceExceptionUtil.exception0(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID.getCode(),
+                    "ERP生产订单 " + code + " 不可同步，请检查订单是否已作废");
+        }
+        return result.getCreatedCount() + result.getUpdatedCount();
     }
 
 }

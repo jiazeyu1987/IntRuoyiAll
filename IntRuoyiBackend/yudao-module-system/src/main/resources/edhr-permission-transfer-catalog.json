@@ -1,0 +1,417 @@
+[
+  {
+    "permission": "mes:pro-batch-record-execution-archive:create",
+    "purpose": "正式批记录执行归档：创建记录或发起业务",
+    "sources": "MesProBatchRecordExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution-archive:download",
+    "purpose": "正式批记录执行归档：下载正式归档包",
+    "sources": "MesProBatchRecordExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution-archive:query",
+    "purpose": "正式批记录执行归档：查询列表、详情及业务证据",
+    "sources": "MesProBatchRecordExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:approve",
+    "purpose": "逐工序正式批记录执行：审批与签署",
+    "sources": "MesProBatchRecordExecutionController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:create",
+    "purpose": "逐工序正式批记录执行：创建记录或发起业务",
+    "sources": "MesProBatchRecordExecutionController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:domain-trace-query",
+    "purpose": "逐工序正式批记录执行：查询业务域追溯",
+    "sources": "MesProBatchRecordDomainTraceController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:domain-trace-verify",
+    "purpose": "逐工序正式批记录执行：核验业务域证据",
+    "sources": "MesProBatchRecordDomainTraceController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:field-audit-export",
+    "purpose": "导出正式批记录字段审计变更明细，供字段级记录追溯",
+    "sources": "MesProBatchRecordExecutionFieldAuditController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:field-audit-query",
+    "purpose": "查询正式批记录字段审计、变更历史及证据详情",
+    "sources": "MesProBatchRecordExecutionFieldAuditController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:field-audit-update",
+    "purpose": "修订正式批记录字段并保留原值、变更原因和审计证据",
+    "sources": "MesProBatchRecordExecutionFieldAuditController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:field-audit-verify",
+    "purpose": "核验正式批记录字段审计证据及完整性",
+    "sources": "MesProBatchRecordExecutionFieldAuditController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:query",
+    "purpose": "逐工序正式批记录执行：查询列表、详情及业务证据",
+    "sources": "MesProBatchRecordExecutionController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:signature-query",
+    "purpose": "逐工序正式批记录执行：查询签名证据",
+    "sources": "MesProBatchRecordExecutionController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:track",
+    "purpose": "逐工序正式批记录执行：查看执行追踪",
+    "sources": "MesProBatchRecordExecutionController"
+  },
+  {
+    "permission": "mes:pro-batch-record-execution:update",
+    "purpose": "逐工序正式批记录执行：维护记录及关联证据",
+    "sources": "MesProBatchRecordExecutionController, MesProBatchRecordExecutionFieldAuditController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution-archive:create",
+    "purpose": "eDHR批次执行归档：创建记录或发起业务",
+    "sources": "MesProEdhrBatchExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution-archive:download",
+    "purpose": "eDHR批次执行归档：下载正式归档包",
+    "sources": "MesProEdhrBatchExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution-archive:query",
+    "purpose": "eDHR批次执行归档：查询列表、详情及业务证据",
+    "sources": "MesProEdhrBatchExecutionArchiveController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:create",
+    "purpose": "eDHR批次执行及下游证据关联：创建记录或发起业务",
+    "sources": "MesProEdhrBatchExecutionController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:quality-reject",
+    "purpose": "eDHR批次执行及下游证据关联：执行质量退回",
+    "sources": "MesProEdhrBatchExecutionController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:query",
+    "purpose": "eDHR批次执行及下游证据关联：查询列表、详情及业务证据",
+    "sources": "MesActiveOrderCorrectionEvidenceController, MesMarketReleaseHandoverController, MesProEdhrBatchExecutionController, MesProEdhrReverseTraceController, MesProEdhrWorkTaskController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:trace-capture",
+    "purpose": "eDHR批次执行及下游证据关联：采集批次追溯快照",
+    "sources": "MesProEdhrBatchExecutionController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:update",
+    "purpose": "eDHR批次执行及下游证据关联：维护记录及关联证据",
+    "sources": "MesProEdhrBatchExecutionController"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-execution:upload",
+    "purpose": "被指派的资料责任人查询和上传活跃订单生产记录、检验报告等资料文件；由原业务校验资料归属与办理资格",
+    "sources": "MesActiveOrderDossierFileController, MesActiveOrderDossierReadScopeService"
+  },
+  {
+    "permission": "mes:pro-edhr-batch-processing:query",
+    "purpose": "eDHR批记录父级入口：使已授权的下游业务菜单可达；各业务动作仍按子菜单和接口权限分别校验",
+    "sources": "sql/mysql/20260611_mes_edhr_batch_processing_tabs.sql; MenuServiceImpl; PermissionServiceImpl"
+  },
+  {
+    "permission": "mes:pro-edhr-change:approve",
+    "purpose": "正式记录变更：审批与签署",
+    "sources": "MesProEdhrRecordChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:event-query",
+    "purpose": "正式记录变更：查看事件历史",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:impact-query",
+    "purpose": "正式记录变更：预览变更影响",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:query",
+    "purpose": "正式记录变更：查询列表、详情及业务证据",
+    "sources": "MesProEdhrRecordChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:reopen",
+    "purpose": "正式记录变更：申请重开正式记录",
+    "sources": "MesProEdhrRecordChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:supplement",
+    "purpose": "正式记录变更：申请补录正式记录",
+    "sources": "MesProEdhrRecordChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:unified-approve",
+    "purpose": "审批eDHR统一变更，记录审批结论与签署证据",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:unified-create",
+    "purpose": "创建eDHR统一变更草稿，声明涉及的正式记录与变更内容",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:unified-effect",
+    "purpose": "执行已获批准的eDHR统一变更并记录生效结果",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:unified-query",
+    "purpose": "正式记录变更：查询统一变更",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:unified-submit",
+    "purpose": "提交eDHR统一变更审批，冻结申请内容与审批责任",
+    "sources": "MesProEdhrUnifiedChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-change:void",
+    "purpose": "正式记录变更：申请作废正式记录",
+    "sources": "MesProEdhrRecordChangeController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:create",
+    "purpose": "eDHR偏差处理：创建记录或发起业务",
+    "sources": "MesProEdhrDeviationController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:critical-management-approve",
+    "purpose": "eDHR偏差处理：管理者代表批准关键偏差",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:department-confirm",
+    "purpose": "eDHR偏差处理：部门确认偏差",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:handle",
+    "purpose": "eDHR偏差处理：保存偏差处理记录并签署处理节点",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:qa-close",
+    "purpose": "eDHR偏差处理：QA关闭偏差",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:quality-approve",
+    "purpose": "eDHR偏差处理：质量负责人批准偏差",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:query",
+    "purpose": "eDHR偏差处理：查询列表、详情及业务证据",
+    "sources": "MesProEdhrDeviationController, MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-deviation:verify",
+    "purpose": "eDHR偏差处理：核验偏差处理有效性",
+    "sources": "MesProEdhrDeviationHandlingController"
+  },
+  {
+    "permission": "mes:pro-edhr-form-instance:create",
+    "purpose": "eDHR独立表单实例：创建记录或发起业务",
+    "sources": "MesProEdhrFormInstanceController"
+  },
+  {
+    "permission": "mes:pro-edhr-form-instance:query",
+    "purpose": "eDHR独立表单实例：查询列表、详情及业务证据",
+    "sources": "MesProEdhrFormInstanceController"
+  },
+  {
+    "permission": "mes:pro-edhr-form-instance:save",
+    "purpose": "eDHR独立表单实例：保存草稿",
+    "sources": "MesProEdhrFormInstanceController"
+  },
+  {
+    "permission": "mes:pro-edhr-form-instance:submit",
+    "purpose": "eDHR独立表单实例：提交审核",
+    "sources": "MesProEdhrFormInstanceController"
+  },
+  {
+    "permission": "mes:pro-edhr-form:query",
+    "purpose": "现有表单父级入口：使已授权的生产组长等表单业务菜单可达；不替代子菜单和接口的独立授权",
+    "sources": "现有菜单权限标识（真实预览）；MenuServiceImpl; PermissionServiceImpl"
+  },
+  {
+    "permission": "mes:pro-edhr-nonconformance-review:create",
+    "purpose": "不合格评审：创建记录或发起业务",
+    "sources": "MesProEdhrNonconformanceReviewController"
+  },
+  {
+    "permission": "mes:pro-edhr-nonconformance-review:deviation-create",
+    "purpose": "不合格评审：从关键偏差发起不合格评审",
+    "sources": "MesProEdhrNonconformanceReviewController"
+  },
+  {
+    "permission": "mes:pro-edhr-nonconformance-review:dispose",
+    "purpose": "不合格评审：QA处置不合格评审及上传材料",
+    "sources": "MesProEdhrNonconformanceReviewController"
+  },
+  {
+    "permission": "mes:pro-edhr-nonconformance-review:query",
+    "purpose": "不合格评审：查询列表、详情及业务证据",
+    "sources": "MesProEdhrNonconformanceReviewController"
+  },
+  {
+    "permission": "mes:pro-edhr-operation-audit:query",
+    "purpose": "eDHR操作审计：查询列表、详情及业务证据",
+    "sources": "MesProEdhrOperationAuditController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook-entry:create",
+    "purpose": "eDHR记录簿条目：创建记录或发起业务",
+    "sources": "MesProEdhrRecordbookEntryController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook-entry:query",
+    "purpose": "eDHR记录簿条目：查询列表、详情及业务证据",
+    "sources": "MesProEdhrRecordbookEntryController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook-entry:save",
+    "purpose": "eDHR记录簿条目：保存草稿",
+    "sources": "MesProEdhrRecordbookEntryController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook-entry:submit",
+    "purpose": "eDHR记录簿条目：提交审核",
+    "sources": "MesProEdhrRecordbookEntryController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook:create",
+    "purpose": "eDHR记录簿：创建记录或发起业务",
+    "sources": "MesProEdhrRecordbookController"
+  },
+  {
+    "permission": "mes:pro-edhr-recordbook:query",
+    "purpose": "eDHR记录簿：查询列表、详情及业务证据",
+    "sources": "MesProEdhrRecordbookController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:approve",
+    "purpose": "上市放行：审批与签署",
+    "sources": "MesMarketReleaseHandoverController, MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:event-query",
+    "purpose": "上市放行：查看事件历史",
+    "sources": "MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:precheck",
+    "purpose": "上市放行：执行放行前置核验",
+    "sources": "MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:query",
+    "purpose": "上市放行：查询列表、详情及业务证据",
+    "sources": "MesMarketReleaseHandoverController, MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:reject",
+    "purpose": "上市放行：驳回申请",
+    "sources": "MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:submit",
+    "purpose": "上市放行：提交审核",
+    "sources": "MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-release:withdraw",
+    "purpose": "上市放行：撤回申请",
+    "sources": "MesProEdhrReleaseController"
+  },
+  {
+    "permission": "mes:pro-edhr-work-task:query",
+    "purpose": "eDHR责任任务：查询列表、详情及业务证据",
+    "sources": "MesPqcReleaseCorrectionController, MesProEdhrWorkTaskController, MesReleaseTaskNotificationController"
+  },
+  {
+    "permission": "mes:pro-edhr-work-task:update",
+    "purpose": "eDHR责任任务：维护记录及关联证据",
+    "sources": "MesProEdhrWorkTaskController"
+  },
+  {
+    "permission": "mes:pro-feedback:create",
+    "purpose": "一线生产与PQC报工：创建记录或发起业务",
+    "sources": "MesFrontlineDeviceAccountController, MesProFrontlineReturnCorrectionController"
+  },
+  {
+    "permission": "mes:pro-feedback:query",
+    "purpose": "一线生产与PQC报工：查询列表、详情及业务证据",
+    "sources": "MesFrontlineDeviceAccountController, MesProFrontlineReturnCorrectionController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:abnormal",
+    "purpose": "生产组长活跃订单及班组：上报生产工单异常",
+    "sources": "MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:maintain",
+    "purpose": "生产组长活跃订单及班组：维护活跃订单、人员与设备；同一权限还控制现有清理及模拟入口，受原业务条件限制",
+    "sources": "MesPqcReleaseCorrectionController, MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:query",
+    "purpose": "生产组长活跃订单及班组：查询列表、详情及业务证据",
+    "sources": "MesActiveOrderCorrectionEvidenceController, MesProProcessPoolEventRevisionController, MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:release-apply",
+    "purpose": "生产组长活跃订单及班组：提交PQC生产放行申请",
+    "sources": "MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:review",
+    "purpose": "生产组长活跃订单及班组：复核员工提交并确认报工分配",
+    "sources": "MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool-team-leader:version-upgrade",
+    "purpose": "生产组长活跃订单及班组：预览并申请活跃订单版本升级重启",
+    "sources": "MesProcessPoolTeamLeaderController"
+  },
+  {
+    "permission": "mes:pro-process-pool:event-revision:update",
+    "purpose": "修订工序池已提交事件并保留修订原因、版本与追溯证据",
+    "sources": "MesProProcessPoolEventRevisionController"
+  },
+  {
+    "permission": "mes:pro-production-release:pqc-approve",
+    "purpose": "PQC生产放行：PQC批准或驳回生产放行",
+    "sources": "MesProductionReleaseController"
+  },
+  {
+    "permission": "mes:pro-production-release:pqc-reject",
+    "purpose": "PQC生产放行：驳回生产放行并发起不合格评审",
+    "sources": "MesProEdhrNonconformanceReviewController"
+  },
+  {
+    "permission": "mes:pro-production-release:query",
+    "purpose": "PQC生产放行：查询列表、详情及业务证据",
+    "sources": "MesActiveOrderCorrectionEvidenceController, MesPqcReleaseOrderDetailController, MesProcessPoolTeamLeaderController, MesProductionReleaseController"
+  },
+  {
+    "permission": "mes:pro-smart-scheduling:query",
+    "purpose": "智能排产共享父级入口：使已授权的报工等菜单可达；不隐含排产修改、生产或放行权限",
+    "sources": "sql/mysql/20260611_mes_smart_scheduling_tabs.sql; MenuServiceImpl; PermissionServiceImpl"
+  }
+]

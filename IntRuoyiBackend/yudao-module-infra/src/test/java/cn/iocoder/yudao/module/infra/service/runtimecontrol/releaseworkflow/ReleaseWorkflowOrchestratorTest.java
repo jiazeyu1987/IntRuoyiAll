@@ -241,6 +241,59 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void staleOperationWithUnconfirmedTerminationIsIsolatedOnceAndKeepsLease() {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "lost executor tracking", "approved-source");
+        operationStore.save(operation);
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+
+        IllegalStateException failure = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.recoverStaleWorkflows(Instant.now()));
+
+        ReleaseWorkflowRecord isolated = workflowService.require(workflow.workflowId());
+        assertTrue(failure.getMessage().contains(workflow.workflowId()));
+        assertTrue(failure.getMessage().contains(operation.getOperationId()));
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, isolated.state());
+        assertEquals("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED", isolated.errorCode());
+        assertFalse(isolated.retryable());
+        assertFalse(isolated.zeroWriteEvidence());
+        assertEquals("running", operationStore.findById(operation.getOperationId()).getStatus());
+        assertEquals(List.of("operation/" + operation.getOperationId()), isolated.evidenceRefs());
+        try (ReleaseWorkflowService.OptionalLease other = workflowService.acquireEnvironmentLease("build", "another-workflow")) {
+            assertFalse(other.acquired());
+        }
+
+        Instant nextScan = Instant.now().plusSeconds(60);
+        assertEquals(List.of(), orchestrator.reconcileActiveWorkflows(nextScan));
+        assertEquals(List.of(), orchestrator.recoverStaleWorkflows(nextScan));
+        assertEquals(isolated.stateVersion(), workflowService.require(workflow.workflowId()).stateVersion());
+        verify(runtimeControlService, times(1)).cancelOperation(operation.getOperationId());
+    }
+
+    @Test
+    void staleOperationStillRunningAfterCancellationIsIsolatedWithoutReportingSuccess() {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        when(runtimeControlService.cancelOperation(any())).thenReturn(true);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "termination status unchanged", "approved-source");
+        operationStore.save(operation);
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.recoverStaleWorkflows(Instant.now()));
+
+        ReleaseWorkflowRecord isolated = workflowService.require(workflow.workflowId());
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, isolated.state());
+        assertEquals("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED", isolated.errorCode());
+        assertEquals("running", operationStore.findById(operation.getOperationId()).getStatus());
+        assertEquals(List.of(), orchestrator.recoverStaleWorkflows(Instant.now().plusSeconds(60)));
+        verify(runtimeControlService, times(1)).cancelOperation(operation.getOperationId());
+    }
+
+    @Test
     void recoveryRequiredBuildWithObservedStageLogStaysReadable() throws Exception {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);

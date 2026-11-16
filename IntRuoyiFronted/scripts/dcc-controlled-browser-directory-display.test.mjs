@@ -5,7 +5,7 @@ async (page) => {
   const loginUsername = 'aoteman'
   const loginPassword = 'admin123'
   const screenshotPath =
-    'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/output/playwright/dcc-browser-directory-display-red.png'
+    'output/playwright/dcc-browser-directory-display-red.png'
 
   let directoryTreePayload = null
 
@@ -155,7 +155,7 @@ async (page) => {
   }
 
   await page.screenshot({
-    path: 'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/output/playwright/dcc-browser-directory-display-green.png',
+    path: 'output/playwright/dcc-browser-directory-display-green.png',
     fullPage: true
   })
 

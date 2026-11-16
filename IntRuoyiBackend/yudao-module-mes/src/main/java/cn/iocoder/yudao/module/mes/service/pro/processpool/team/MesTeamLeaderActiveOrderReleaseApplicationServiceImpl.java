@@ -25,6 +25,9 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         implements MesTeamLeaderActiveOrderReleaseApplicationService {
+    @Resource private MesPackagingLeaderAccess packagingAccess;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
 
     private final MesTeamLeaderActiveOrderReleaseGenerationService generationService;
     private final MesTeamLeaderActiveOrderCompletionService completionService;
@@ -81,8 +84,13 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
 
     private Long requirePersistedP2BatchExecutionId(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
+        var order = activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
+        if (order == null || !(Objects.equals(order.getLeaderUserId(), leaderUserId)
+                || packagingAccess.canAccess(leaderUserId, order))) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, command.getActiveOrderId(), "当前用户无权申请该订单放行");
+        }
         var receipt = receiptMapper.selectByActiveOrderIdForUpdate(command.getActiveOrderId());
-        if (receipt == null || !Objects.equals(receipt.getLeaderUserId(), leaderUserId)
+        if (receipt == null
                 || !Objects.equals(receipt.getActiveOrderId(), command.getActiveOrderId())
                 || !"BACKFILL_SUCCEEDED".equals(receipt.getReceiptStatus())
                 || !"SUCCESS".equals(receipt.getBatchRecordStatus())
@@ -112,6 +120,29 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
                     command.getActiveOrderId(), "P2生成的有效批次不存在");
         }
         return batch.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderReleaseApplicationResult applyCorrection(Long leaderUserId,
+            MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId, Long batchExecutionId) {
+        gxpAuditService.acquireLedgerLock();
+        Long formalBatchId = requirePersistedP2BatchExecutionId(leaderUserId, command);
+        if (!Objects.equals(formalBatchId, batchExecutionId)) {
+            throw new IllegalStateException("补正申请与本轮P2正式批次不一致");
+        }
+        var previous = applicationMapper.selectByIdForUpdate(rejectedApplicationId);
+        if (!cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService.isCorrectable(previous)
+                || !Objects.equals(previous.getAppliedBy(), leaderUserId)
+                || !Objects.equals(previous.getActiveOrderId(), command.getActiveOrderId())
+                || !Objects.equals(previous.getBatchExecutionId(), batchExecutionId))
+            throw new IllegalStateException("补正重提缺少原申请人的正式PQC驳回或上市撤回回执");
+        Map<String, Object> affectedBefore = affectedStates.capture(batchExecutionId, null, null, null, true);
+        var generated = generationService.generateCorrection(leaderUserId, command, rejectedApplicationId);
+        var bound = bindBatchExecution(generated, batchExecutionId);
+        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyCorrection", affectedBefore);
+        handoffService.productionLeaderContinued(command.getActiveOrderId(), leaderUserId, bound.getApplicationId());
+        return bound;
     }
 
     private MesTeamLeaderActiveOrderReleaseApplicationResult bindBatchExecution(

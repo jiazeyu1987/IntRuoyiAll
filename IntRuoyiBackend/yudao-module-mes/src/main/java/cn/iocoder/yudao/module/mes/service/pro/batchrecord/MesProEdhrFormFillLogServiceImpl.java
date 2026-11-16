@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogPageReqVO;
@@ -52,19 +51,7 @@ public class MesProEdhrFormFillLogServiceImpl implements MesProEdhrFormFillLogSe
     public PageResult<MesProEdhrFormFillLogPageRespVO> getPage(MesProEdhrFormFillLogPageReqVO pageReqVO) {
         MesProEdhrFormFillLogPageReqVO reqVO =
                 pageReqVO == null ? new MesProEdhrFormFillLogPageReqVO() : pageReqVO;
-        List<Long> executionIds = resolveExecutionIds(reqVO);
-        if (executionIds != null && executionIds.isEmpty()) {
-            return new PageResult<>(Collections.emptyList(), 0L);
-        }
-        LambdaQueryWrapperX<MesProBatchRecordExecutionFieldAuditBatchDO> query =
-                new LambdaQueryWrapperX<MesProBatchRecordExecutionFieldAuditBatchDO>()
-                        .inIfPresent(MesProBatchRecordExecutionFieldAuditBatchDO::getExecutionId, executionIds)
-                        .eqIfPresent(MesProBatchRecordExecutionFieldAuditBatchDO::getActorId, reqVO.getActorId())
-                        .likeIfPresent(MesProBatchRecordExecutionFieldAuditBatchDO::getActorName, reqVO.getActorName())
-                        .betweenIfPresent(MesProBatchRecordExecutionFieldAuditBatchDO::getChangedAt,
-                                reqVO.getChangedAtStart(), reqVO.getChangedAtEnd())
-                        .orderByDesc(MesProBatchRecordExecutionFieldAuditBatchDO::getChangedAt)
-                        .orderByDesc(MesProBatchRecordExecutionFieldAuditBatchDO::getId);
+        var query = auditBatchMapper.buildFormFillLogPageQuery(reqVO);
         PageResult<MesProBatchRecordExecutionFieldAuditBatchDO> page = auditBatchMapper.selectPage(reqVO, query);
         List<MesProEdhrFormFillLogPageRespVO> rows = toPageRespList(page.getList());
         return new PageResult<>(rows, page.getTotal());
@@ -154,37 +141,6 @@ public class MesProEdhrFormFillLogServiceImpl implements MesProEdhrFormFillLogSe
                 .setCellSummary(resolveCellSummary(items))
                 .setContextStatus(resolveContextStatus(execution, task))
                 .setHashStatus(resolveHashStatus(batch));
-    }
-
-    private List<Long> resolveExecutionIds(MesProEdhrFormFillLogPageReqVO reqVO) {
-        if (!hasExecutionFilter(reqVO)) {
-            return null;
-        }
-        LambdaQueryWrapperX<MesProBatchRecordExecutionDO> query =
-                new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>()
-                        .eqIfPresent(MesProBatchRecordExecutionDO::getBatchRecordReportId, reqVO.getBatchRecordReportId())
-                        .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
-                        .likeIfPresent(MesProBatchRecordExecutionDO::getBatchCode, reqVO.getBatchCode())
-                        .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode());
-        if (StrUtil.isNotBlank(reqVO.getFormKeyword())) {
-            String formKeyword = StrUtil.trim(reqVO.getFormKeyword());
-            query.and(wrapper -> wrapper
-                    .like(MesProBatchRecordExecutionDO::getTemplateName, formKeyword)
-                    .or()
-                    .like(MesProBatchRecordExecutionDO::getBatchRecordReportId, formKeyword));
-        }
-        return executionMapper.selectList(query).stream()
-                .map(MesProBatchRecordExecutionDO::getId)
-                .filter(Objects::nonNull)
-                .toList();
-    }
-
-    private boolean hasExecutionFilter(MesProEdhrFormFillLogPageReqVO reqVO) {
-        return StrUtil.isNotBlank(reqVO.getBatchRecordReportId())
-                || StrUtil.isNotBlank(reqVO.getFormKeyword())
-                || StrUtil.isNotBlank(reqVO.getExecutionCode())
-                || StrUtil.isNotBlank(reqVO.getBatchCode())
-                || StrUtil.isNotBlank(reqVO.getWorkOrderCode());
     }
 
     private String resolveBatchRecordReportId(MesProBatchRecordExecutionDO execution,

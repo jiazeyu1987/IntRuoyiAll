@@ -14,7 +14,7 @@ const state = read('src/views/mes/pro/edhr-batch/reverseTraceState.ts')
 assert.match(history, /data-edhr-history-reverse-trace/)
 assert.match(history, /BatchReverseTracePanel/)
 assert.match(history, /reverseTraceBatchExecutionId/)
-assert.match(detail, /data-edhr-detail-reverse-trace/)
+assert.doesNotMatch(detail, /data-edhr-detail-reverse-trace|反查关联批次/)
 assert.match(detail, /BatchReverseTracePanel/)
 assert.match(detail, /batchExecutionId/)
 assert.match(detail, /canOpenReverseTrace/)
@@ -38,7 +38,14 @@ assert.match(history, /:history-list-state="queryParams"/)
 assert.match(detail, /:restore-key="reverseTraceRestoreKey"/)
 assert.match(detail, /reverseTraceReturn/)
 assert.equal((panel.match(/<el-pagination\b/g) || []).length, 2)
-assert.doesNotMatch(panel, /JSON\.parse|JSON\.stringify/)
+// Category metadata comparison is not a query/result snapshot clone. Keep
+// snapshot copying centralized while allowing the paged catalog consistency check.
+const categoryComparison = 'JSON.stringify(firstPage.categories) !== JSON.stringify(page.categories)'
+assert.ok(panel.includes(categoryComparison))
+assert.doesNotMatch(panel.replace(categoryComparison, ''), /JSON\.parse|JSON\.stringify/)
+for (const snapshot of ['response.normalizedQuery', 'response', 'saved.conditions']) {
+  assert.ok(panel.includes(`copyReverseTraceState(${snapshot})`))
+}
 assert.match(api, /\/catalog/)
 assert.match(api, /\/query/)
 assert.match(api, /\/evidence/)

@@ -47,6 +47,24 @@ public class DccControlledFileCategoryPermissionSupport {
 
     public static final String EDIT_PERMISSION = "dcc:controlled-file:edit";
 
+    /** Resolve authorization configuration once; callers keep file selection inside SQL. */
+    public java.util.Set<Long> exactCategoryIds(Long userId, DccFileCategoryPermissionActionEnum action) {
+        if (TenantContextHolder.isIgnore() || userId == null || action == null) return java.util.Set.of();
+        var user = adminUserApi.getUser(userId);
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) return java.util.Set.of();
+        return permissionRuleMapper.selectList().stream()
+                .filter(rule -> Boolean.TRUE.equals(rule.getActive()))
+                .filter(rule -> StrUtil.equalsIgnoreCase(rule.getActionType(), action.getCode()))
+                .filter(rule -> matchesPermissionSubject(rule, userId, user))
+                .map(DccFileCategoryPermissionRuleDO::getCategoryId).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    public java.util.Set<Long> editableCategoryIds(Long userId) {
+        return userId != null && permissionApi.hasAnyPermissions(userId, EDIT_PERMISSION)
+                ? exactCategoryIds(userId, DccFileCategoryPermissionActionEnum.EDIT) : java.util.Set.of();
+    }
+
     public boolean hasEditableProjectCategory(Long userId, Long projectId, Long categoryId) {
         if (isLibrary(projectId)) return projectAccessService.hasProjectEditorOrOwner(userId, projectId);
         return projectId != null

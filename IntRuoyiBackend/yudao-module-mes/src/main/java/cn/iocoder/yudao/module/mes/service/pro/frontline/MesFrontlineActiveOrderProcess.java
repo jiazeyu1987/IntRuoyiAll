@@ -16,7 +16,7 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                              Long workstationId,
                                              String workstationCode,
                                              String workstationName,
-                                             BigDecimal productionQuantityFactor,
+                                             BigDecimal lossCoefficient,
                                              BigDecimal targetQuantity,
                                              BigDecimal submittedQuantity,
                                              Boolean checkFlag) {
@@ -34,10 +34,10 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           Long workstationId,
                                           String workstationCode,
                                           String workstationName,
-                                          BigDecimal productionQuantityFactor,
+                                          BigDecimal lossCoefficient,
                                           BigDecimal targetQuantity) {
         this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
-                processName, sort, workstationId, workstationCode, workstationName, productionQuantityFactor,
+                processName, sort, workstationId, workstationCode, workstationName, lossCoefficient,
                 targetQuantity, BigDecimal.ZERO, Boolean.FALSE);
     }
 
@@ -54,11 +54,11 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           Long workstationId,
                                           String workstationCode,
                                           String workstationName,
-                                          BigDecimal productionQuantityFactor,
+                                          BigDecimal lossCoefficient,
                                           BigDecimal targetQuantity,
                                           Boolean checkFlag) {
         this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
-                processName, sort, workstationId, workstationCode, workstationName, productionQuantityFactor,
+                processName, sort, workstationId, workstationCode, workstationName, lossCoefficient,
                 targetQuantity, BigDecimal.ZERO, checkFlag);
     }
 

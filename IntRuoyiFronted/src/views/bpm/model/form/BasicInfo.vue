@@ -145,7 +145,7 @@
   </el-form>
 
   <!-- 用户选择弹窗 -->
-  <UserSelectForm ref="userSelectFormRef" @confirm="handleUserSelectConfirm" />
+  <UserSelectForm :user-options="userList" ref="userSelectFormRef" @confirm="handleUserSelectConfirm" />
   <!-- 部门选择弹窗 -->
   <DeptSelectForm
     ref="deptSelectFormRef"
@@ -167,7 +167,7 @@ const props = defineProps({
     required: true
   },
   userList: {
-    type: Array,
+    type: Array as PropType<UserVO[]>,
     required: true
   },
   deptList: {

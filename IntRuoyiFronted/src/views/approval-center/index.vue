@@ -20,17 +20,11 @@
         @column-change="saveApprovalColumnConfig"
         @column-reset="resetApprovalColumnConfig"
         @pagination="handlePagination"
+        server-filter
+        :server-filter-query="getList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
-        <template #extra-filters>
-          <div class="approval-center__title-group">
-            <h3 class="approval-center__title">审批中心</h3>
-            <div class="approval-center__meta">
-              <el-tag size="small" type="info">{{ modules.length }} 个模块</el-tag>
-              <span>{{ activeTabLabel }}</span>
-            </div>
-          </div>
-        </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="approval-center__table-scope" data-user-table-column-explicit-scope>
             <el-alert
               v-if="loadError"
@@ -46,7 +40,7 @@
               class="approval-center__table"
               data-user-table-column-explicit
               :data-user-table-key="approvalCenterTableKey"
-              :data="list"
+              :data="resolveRows(list)"
               row-key="id"
               border
               stripe
@@ -418,14 +412,12 @@
         <el-alert v-if="reviewPreviewError" :title="reviewPreviewError" type="error" :closable="false" />
         <template v-if="reviewPreview">
           <p>{{ reviewPreview.content.scopeText }}。签署本次展示的审批内容。</p>
-          <p>正文摘要：{{ reviewPreview.content.contentHash }}</p>
-          <div style="max-height: 380px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;">
-            {{ JSON.stringify(JSON.parse(reviewPreview.content.canonicalBusinessContentJson), null, 2) }}
-          </div>
-          <p v-for="file in reviewPreview.content.attachments" :key="file.fileId">
+          <ReadableData title="本次审批资料" :source="reviewPreview.content.canonicalBusinessContentJson" :checksum="reviewPreview.content.contentHash" />
+          <div v-for="file in reviewPreview.content.attachments" :key="file.fileId">
             <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{ file.fileName }}</a>
-            · 版本 {{ file.version }} · {{ file.fileSize }} 字节 · SHA256 {{ file.sha256 }}
-          </p>
+            · 版本 {{ file.version }} · {{ file.fileSize }} 字节
+            <details><summary>附件校验信息</summary><span style="overflow-wrap: anywhere">内容校验码：{{ file.sha256 }}</span></details>
+          </div>
         </template>
         <el-button :disabled="reviewSubmitting" @click="loadReviewPreview">重新预览</el-button>
       </section>
@@ -450,15 +442,9 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required>
-          <el-input
+          <SignatureCredentialInput
             v-model="reviewForm.signaturePassword"
             name="approval-center-signature-password"
-            :readonly="!reviewForm.passwordFocused"
-            @focus="reviewForm.passwordFocused = true"
-            type="password"
-            show-password
-            autocomplete="new-password"
-            placeholder="请输入当前登录密码完成电子签名"
           />
         </el-form-item>
       </el-form>
@@ -473,6 +459,11 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
 import { formatDate } from '@/utils/formatTime'
@@ -604,6 +595,11 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   CANCELLED: '已取消',
   RUNNING: '进行中',
   PENDING: '待处理',
+  PENDING_REVIEW: '待审核',
+  PENDING_APPROVAL: '待批准',
+  WRITING: '写入中',
+  COMPLETED: '已完成',
+  WRITE_FAILED: '写入失败',
   PENDING_SUPERVISOR_REVIEW: '待直属主管审核',
   PENDING_MATRIX_REVIEW: '待会签',
   PENDING_MATRIX_APPROVAL: '待批准',
@@ -756,12 +752,8 @@ const approvalQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
 ])
 
 
-const activeTabLabel = computed(() => {
-  return viewTabs.find((item) => item.value === queryParams.viewType)?.label || '待办'
-})
-
 const isUnfilteredTodoQuery = () =>
-  queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim()
+  queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim() && !queryParams.listFilters
 
 const loadModules = async () => {
   const sessionKey = approvalInvalidation.syncSession().key
@@ -837,11 +829,9 @@ const getList = async (refreshBadge = false) => {
   } catch (error) {
     if (!isCurrent()) return false
     const message = resolveErrorMessage(error)
-    list.value = []
-    total.value = 0
     loadError.value = message
     ElMessage.error(message)
-    return false
+    throw error
   } finally {
     if (isCurrent()) loading.value = false
   }
@@ -992,7 +982,7 @@ const loadRouteQuery = async () => {
     if (!isCurrent()) return
     await syncApprovalQuickFilterStateFromQuery()
     if (!isCurrent()) return
-    await getList()
+    await getList(true)
   } catch (error) {
     if (!isCurrent()) return
     const message = resolveErrorMessage(error)
@@ -1315,7 +1305,8 @@ const loadReviewPreview = async () => {
     const preview = await getApprovalReviewPreview({ moduleCode: task.moduleCode, sourceTaskType: task.sourceTaskType, sourceTaskId: task.sourceTaskId, processInstanceId: task.processInstanceId })
     if (generation !== reviewGeneration || !reviewDialogVisible.value) return
     if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) throw new Error('审批正文响应不完整')
-    JSON.parse(preview.content.canonicalBusinessContentJson)
+    const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
+    if (presentation.error) throw new Error(presentation.error)
     reviewPreview.value = preview
     reviewIdempotencyKey.value = crypto.randomUUID()
   } catch (error) {
@@ -1340,7 +1331,7 @@ const submitReview = async () => {
     return
   }
   if (!reviewForm.signaturePassword.trim()) {
-    ElMessage.error('请输入电子签名密码')
+    ElMessage.error('请输入所选签名方式的六位 PIN 码或密码')
     return
   }
   const sourceTaskId = reviewTask.value.sourceTaskId
@@ -1419,11 +1410,11 @@ const submitReview = async () => {
         }
         return
       }
-      if (/STALE_CONTENT|APPROVAL_PREPARE_EXPIRED/.test(message)) {
+      if (/审批资料已变化|审批预览已过期|STALE_CONTENT|APPROVAL_PREPARE_EXPIRED/.test(message)) {
         reviewForm.signaturePassword = ''
         reviewForm.passwordFocused = false
         reviewPreview.value = undefined
-        reviewPreviewError.value = '审批内容已变化，请重新预览并确认'
+        reviewPreviewError.value = message
       }
       ElMessage.error(message)
     }
@@ -1689,7 +1680,7 @@ const resolveApprovalResultTagType = (result?: ApprovalTaskReviewResult) => {
 }
 
 const resolveApprovalRemark = (row: ApprovalTaskSummaryVO) => {
-  return row.approvalResult === 'REJECT' ? row.approvalRemark || '--' : ''
+  return row.approvalRemark || '--'
 }
 
 const formatApprovalTime = (value?: string | number | Date | null) => {
@@ -1741,6 +1732,8 @@ onActivated(() => { void applyRouteQueryAndLoad() })
 onDeactivated(() => {
   listUiGeneration++
   approvalListLoader.invalidate()
+  // Other login windows can finish tasks without publishing into this session.
+  approvalLastLoadedRouteStateKey = undefined
   timelineGeneration++
   timelineLoading.value = false
   reviewDialogVisible.value = false
@@ -1780,6 +1773,94 @@ watch(
     applyRouteQueryAndLoad()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'capabilities', label: '能力', type: 'text', getValue: (row) => [...(row.capabilities || [])].sort() },
+  {
+    key: 'source',
+    label: '审批来源',
+    type: 'text',
+    getValue: (row) =>
+      [resolveModuleName(row.moduleCode), resolveSourceTaskTypeLabel(row)].join(' ')
+  },
+  {
+    key: 'businessSummary',
+    label: '业务摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveBusinessTitleLabel(row),
+        resolveBusinessIdentifierLabel(row),
+        edhrReadDisplay(row).taskLabel,
+        edhrReadDisplay(row).sourceStatus,
+        edhrReadDisplay(row).businessStatus,
+        edhrReadDisplay(row).decisionLabel,
+        edhrReadDisplay(row).decisionSourceStatus,
+        edhrReadDisplay(row).opinion,
+        row.sourceRemark,
+        row.terminationReason,
+        ...resolveVisibleDccKeyFields(row).flatMap((field) => [field.label, field.value]),
+        ...resolveVisibleBusinessContextTags(row).map(resolveBusinessContextTagLabel)
+      ].join(' ')
+  },
+  {
+    key: 'applicant',
+    label: '申请人',
+    type: 'text',
+    getValue: (row) => [resolveApplicantLabel(row)].join(' ')
+  },
+  {
+    key: 'node',
+    label: '节点',
+    type: 'text',
+    getValue: (row) => [resolveNodeNameLabel(row), resolveNodeSubLabel(row)].join(' ')
+  },
+  {
+    key: 'reviewer',
+    label: '审核人',
+    type: 'text',
+    getValue: (row) => [resolveReviewerLabel(row)].join(' ')
+  },
+  {
+    key: 'approvalResult',
+    label: '审批结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        edhrReadDisplay(row).decisionLabel,
+        edhrReadDisplay(row).decisionSourceStatus,
+        resolveApprovalResultLabel(row.approvalResult)
+      ].join(' ')
+  },
+  {
+    key: 'approvalRemark',
+    label: '备注',
+    type: 'text',
+    getValue: (row) =>
+      [
+        edhrReadDisplay(row).opinion,
+        row.sourceRemark,
+        row.terminationReason,
+        edhrReadDisplay(row).evidenceType,
+        edhrReadDisplay(row).evidenceId,
+        resolveApprovalRemark(row)
+      ].join(' ')
+  },
+  {
+    key: 'time',
+    label: '时间',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatEdhrTime(row.taskCreatedAt),
+        formatEdhrTime(row.taskCompletedAt),
+        edhrReadDisplay(row).completionActorIdentity,
+        formatEdhrTime(row.decisionAt),
+        formatApprovalTime(row.taskCreatedAt || row.initiatedAt),
+        formatApprovalTime(row.taskCompletedAt)
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -1909,30 +1990,6 @@ watch(
 
 .approval-center :deep(.unified-list-template__toolbar-actions) {
   margin-left: 0;
-}
-
-.approval-center__title-group {
-  display: flex;
-  order: -1;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-}
-
-.approval-center__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.approval-center__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 13px;
 }
 
 .approval-center__filters {

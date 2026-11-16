@@ -20,21 +20,22 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 public class MesProEdhrBatchActiveOrderDetailService {
 
     private final MesProEdhrBatchExecutionService batchExecutionService;
+    private final MesMarketReleaseAccess marketReleaseAccess;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesTeamLeaderActiveOrderDetailService detailService;
 
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderDetail getDetail(Long batchExecutionId) {
-        return detailService.getArchivedFormalDetail(requireBatchSource(batchExecutionId));
+        return detailService.getArchivedFormalDetail(requireBatchSource(batchExecutionService.get(batchExecutionId)));
     }
 
     @Transactional(readOnly = true)
     public MesTeamLeaderActiveOrderDetail getSignatureDetail(Long batchExecutionId, Long signatureId) {
-        return detailService.getArchivedSignatureDetail(requireBatchSource(batchExecutionId), signatureId);
+        return detailService.getArchivedSignatureDetail(
+                requireBatchSource(batchExecutionService.getReadableBatchSource(batchExecutionId)), signatureId);
     }
 
-    private Long requireBatchSource(Long batchExecutionId) {
-        EdhrBatchExecutionRespVO batch = batchExecutionService.get(batchExecutionId);
+    private Long requireBatchSource(EdhrBatchExecutionRespVO batch) {
         Long activeOrderId = batch == null ? null : batch.getActiveOrderId();
         if (activeOrderId == null) {
             throw exception(PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING);
@@ -60,6 +61,7 @@ public class MesProEdhrBatchActiveOrderDetailService {
     }
 
     private void requireActiveOrderSource(Long activeOrderId) {
+        marketReleaseAccess.requireActiveOrderReadable(activeOrderId);
         if (activeOrderId == null || activeOrderId <= 0) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
         }

@@ -1,15 +1,25 @@
 import { defineStore } from 'pinia'
 import { store } from '../index'
-// @ts-ignore
-import { DictDataVO } from '@/api/system/dict/types'
+import type { DictDataVO } from '@/api/system/dict/dict.data'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
-const { wsCache } = useCache('sessionStorage')
 import { getSimpleDictDataList } from '@/api/system/dict/dict.data'
+import {
+  authContextRevision,
+  getAccessToken,
+  getAuthSessionId,
+  getTenantId,
+  getVisitTenantId
+} from '@/utils/auth'
+
+const { wsCache } = useCache('sessionStorage')
+// The old cache had no tenant owner and must never be reused.
+wsCache.delete(CACHE_KEY.DICT_CACHE)
 
 export interface DictValueType {
   value: any
   label: string
   clorType?: string
+  colorType?: string
   cssClass?: string
 }
 export interface DictTypeType {
@@ -17,94 +27,102 @@ export interface DictTypeType {
   dictValue: DictValueType[]
 }
 export interface DictState {
-  dictMap: Map<string, any>
+  dictMap: Record<string, DictValueType[]>
   isSetDict: boolean
+  owner: string
+  requestNumber: number
+  loading: boolean
 }
+
+function currentScope(): string {
+  // Read the observable so computed consumers update immediately on tenant switches.
+  void authContextRevision.value
+  const tenantId = (getAccessToken() && getVisitTenantId()) || getTenantId()
+  if (tenantId == null || tenantId === '') return ''
+  return JSON.stringify([String(tenantId), getAuthSessionId()])
+}
+const cacheKey = (scope: string) => `${CACHE_KEY.DICT_CACHE}:${scope}`
 
 export const useDictStore = defineStore('dict', {
   state: (): DictState => ({
-    dictMap: new Map<string, any>(),
-    isSetDict: false
+    dictMap: {},
+    isSetDict: false,
+    owner: '',
+    requestNumber: 0,
+    loading: false
   }),
   getters: {
-    getDictMap(): Recordable {
-      const dictMap = wsCache.get(CACHE_KEY.DICT_CACHE)
-      if (dictMap) {
-        this.dictMap = dictMap
-      }
-      return this.dictMap
+    getDictMap(): Record<string, DictValueType[]> {
+      return this.owner === currentScope() ? this.dictMap : {}
     },
     getIsSetDict(): boolean {
-      return this.isSetDict
+      return this.owner === currentScope() && this.isSetDict
     }
   },
   actions: {
-    async setDictMap() {
-      const dictMap = wsCache.get(CACHE_KEY.DICT_CACHE)
-      if (dictMap) {
-        this.dictMap = dictMap
+    async setDictMap(force = false) {
+      const scope = currentScope()
+      if (!scope) throw new Error('加载字典前必须选择租户')
+      if (this.owner !== scope || force) {
+        this.owner = scope
+        this.dictMap = {}
+        this.isSetDict = false
+        this.loading = false
+        this.requestNumber++
+      }
+      if (force) wsCache.delete(cacheKey(scope))
+      const cached = wsCache.get(cacheKey(scope))
+      if (cached) {
+        this.dictMap = cached
         this.isSetDict = true
-      } else {
-        const res = await getSimpleDictDataList()
-        if (!res || res.length === 0) {
+        return
+      }
+      if (this.loading) return
+      const request = ++this.requestNumber
+      const revision = authContextRevision.value
+      this.loading = true
+      try {
+        const rows: DictDataVO[] = await getSimpleDictDataList()
+        if (
+          currentScope() !== scope ||
+          authContextRevision.value !== revision ||
+          this.requestNumber !== request
+        )
           return
-        }
-        // 设置数据
-        const dictDataMap = new Map<string, any>()
-        res.forEach((dictData: DictDataVO) => {
-          // 获得 dictType 层级
-          const enumValueObj = dictDataMap[dictData.dictType]
-          if (!enumValueObj) {
-            dictDataMap[dictData.dictType] = []
-          }
-          // 处理 dictValue 层级
-          dictDataMap[dictData.dictType].push({
-            value: dictData.value,
-            label: dictData.label,
-            colorType: dictData.colorType,
-            cssClass: dictData.cssClass
+        const dictMap: Record<string, DictValueType[]> = Object.create(null)
+        rows.forEach((row) => {
+          if (!dictMap[row.dictType]) dictMap[row.dictType] = []
+          dictMap[row.dictType].push({
+            value: row.value,
+            label: row.label,
+            colorType: row.colorType,
+            cssClass: row.cssClass
           })
         })
-        this.dictMap = dictDataMap
+        this.dictMap = dictMap
         this.isSetDict = true
-        wsCache.set(CACHE_KEY.DICT_CACHE, dictDataMap, { exp: 60 }) // 60 秒 过期
+        wsCache.set(cacheKey(scope), dictMap, { exp: 60 })
+      } finally {
+        if (this.requestNumber === request) this.loading = false
       }
     },
     getDictByType(type: string) {
-      if (!this.isSetDict) {
-        this.setDictMap()
-      }
-      return this.dictMap[type]
+      if (!this.getIsSetDict && currentScope()) void this.setDictMap()
+      return this.getDictMap[type]
+    },
+    invalidateDict() {
+      const scope = currentScope()
+      if (scope) wsCache.delete(cacheKey(scope))
+      this.requestNumber++
+      this.owner = scope
+      this.dictMap = {}
+      this.isSetDict = false
+      this.loading = false
     },
     async resetDict() {
-      wsCache.delete(CACHE_KEY.DICT_CACHE)
-      const res = await getSimpleDictDataList()
-      if (!res || res.length === 0) {
-        return
-      }
-      // 设置数据
-      const dictDataMap = new Map<string, any>()
-      res.forEach((dictData: DictDataVO) => {
-        // 获得 dictType 层级
-        const enumValueObj = dictDataMap[dictData.dictType]
-        if (!enumValueObj) {
-          dictDataMap[dictData.dictType] = []
-        }
-        // 处理 dictValue 层级
-        dictDataMap[dictData.dictType].push({
-          value: dictData.value,
-          label: dictData.label,
-          colorType: dictData.colorType,
-          cssClass: dictData.cssClass
-        })
-      })
-      this.dictMap = dictDataMap
-      this.isSetDict = true
-      wsCache.set(CACHE_KEY.DICT_CACHE, dictDataMap, { exp: 60 }) // 60 秒 过期
+      await this.setDictMap(true)
     }
   }
 })
 
-export const useDictStoreWithOut = () => {
-  return useDictStore(store)
-}
+export const useDictStoreWithOut = () => useDictStore(store)

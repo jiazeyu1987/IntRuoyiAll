@@ -1,3 +1,5 @@
+const CONTROLLED_PREVIEW_STAMP_COLOR = 'rgba(210, 37, 37, 0.96)'
+export const CONTROLLED_PREVIEW_STAMP_TEXT = '受控'
 import type { ControlledPreviewWatermark } from '@/api/dcc/controlledFile/workflow'
 
 export type ControlledFileTraceabilityScope = 'trace' | 'signature'
@@ -146,7 +148,7 @@ export const buildPreviewWatermarkBackground = (
           x="0"
           y="0"
           font-size="${overlay.fontSize}"
-          font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif"
+          font-family="Microsoft YaHei"
           fill="${overlay.textColor}"
           fill-opacity="${overlay.opacity}"
         >${escapeXml(watermarkText)}</text>
@@ -166,6 +168,51 @@ export const buildPreviewWatermarkDetail = (watermark?: ControlledPreviewWaterma
 
 export const getPreviewWatermarkBadgeLabel = (watermark?: ControlledPreviewWatermark | null) =>
   String(watermark?.label || '受控预览').trim() || '受控预览'
+
+export const deriveStampShortText = (watermark?: ControlledPreviewWatermark | null) => {
+  const label = getPreviewWatermarkBadgeLabel(watermark)
+  if (label.includes('受控')) {
+    return CONTROLLED_PREVIEW_STAMP_TEXT
+  }
+  const normalized = label.replace(/\s+/g, '')
+  return normalized.slice(0, Math.min(4, normalized.length)) || CONTROLLED_PREVIEW_STAMP_TEXT
+}
+
+export const drawControlledPreviewStamp = (
+  context: CanvasRenderingContext2D,
+  viewport: { width: number; height: number },
+  watermark?: ControlledPreviewWatermark | null,
+  outputScale = 1
+) => {
+  const pageWidth = viewport.width * outputScale
+  const pageHeight = viewport.height * outputScale
+  const sizeFactor = Math.max(0.85, Math.min(1.2, Math.min(pageWidth, pageHeight) / 1200))
+  const boxWidth = Math.round(132 * outputScale * sizeFactor)
+  const boxHeight = Math.round(72 * outputScale * sizeFactor)
+  const paddingRight = Math.round(34 * outputScale)
+  const paddingTop = Math.round(26 * outputScale)
+  const borderWidth = Math.max(2, Math.round(3 * outputScale))
+  const textSize = Math.round(42 * outputScale * sizeFactor)
+  const textBaselineOffset = Math.round(8 * outputScale * sizeFactor)
+  const x = Math.max(Math.round(18 * outputScale), pageWidth - boxWidth - paddingRight)
+  const y = Math.max(Math.round(18 * outputScale), paddingTop)
+
+  context.save()
+  context.lineWidth = borderWidth
+  context.strokeStyle = CONTROLLED_PREVIEW_STAMP_COLOR
+  context.strokeRect(x, y, boxWidth, boxHeight)
+  context.fillStyle = CONTROLLED_PREVIEW_STAMP_COLOR
+  context.globalAlpha = 1
+  context.font = `700 ${textSize}px "Microsoft YaHei"`
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillText(
+    deriveStampShortText(watermark),
+    x + boxWidth / 2,
+    y + boxHeight / 2 + textBaselineOffset
+  )
+  context.restore()
+}
 
 export const shouldBlockPreviewShortcut = (event: KeyboardEvent) => {
   const key = String(event.key || '').toLowerCase()

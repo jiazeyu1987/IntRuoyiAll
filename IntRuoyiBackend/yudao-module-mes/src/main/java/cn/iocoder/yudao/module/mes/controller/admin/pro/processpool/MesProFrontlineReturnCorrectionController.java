@@ -22,22 +22,22 @@ public class MesProFrontlineReturnCorrectionController {
     private final MesProcessPoolProductionReportCorrectionService production;
     private final MesProcessPoolPqcInspectionCorrectionService pqc;
 
-    @GetMapping("/list") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission'))")
+    @GetMapping("/list") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission'))")
     public CommonResult<List<MesFrontlineReturnCorrectionService.ReturnRow>> list(@RequestParam String leaderType) {
         return success(returns.listOwnReturned(getLoginUserId(),leaderType));
     }
-    @GetMapping("/detail") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission'))")
+    @GetMapping("/detail") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission'))")
     public CommonResult<MesFrontlineReturnCorrectionService.ReturnDetail> detail(
             @RequestParam Long eventId,@RequestParam Long activeOrderId,@RequestParam Long rejectedReviewId,
             @RequestParam Long expectedRevisionId,@RequestParam String leaderType) {
         return success(returns.getOwnReturned(eventId,activeOrderId,rejectedReviewId,expectedRevisionId,getLoginUserId(),leaderType));
     }
-    @PostMapping("/production/resubmit") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PostMapping("/production/resubmit") @PreAuthorize("isAuthenticated()")
     public CommonResult<MesFrontlineReturnCorrectionService.CorrectionResult> productionResubmit(@Valid @RequestBody FrontlineOwnProductionReturnCorrectionReqVO request) {
         return success(production.correctOwnReturned(request.getCorrection().toCommand().setActorUserId(getLoginUserId()),
                 request.getActiveOrderId(),request.getRejectedReviewId(),request.getExpectedRevisionId()));
     }
-    @PostMapping("/pqc/resubmit") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PostMapping("/pqc/resubmit") @PreAuthorize("isAuthenticated() and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<MesFrontlineReturnCorrectionService.CorrectionResult> pqcResubmit(@Valid @RequestBody FrontlineOwnPqcReturnCorrectionReqVO request) {
         return success(pqc.correctOwnReturned(request.getCorrection().toCommand().setActorUserId(getLoginUserId()),
                 request.getActiveOrderId(),request.getRejectedReviewId(),request.getExpectedRevisionId()));

@@ -42,6 +42,7 @@
 </template>
 
 <script lang="ts" setup>
+import { showRecordImportResult } from '@/utils/importResult'
 import { DeviceApi } from '@/api/iot/device/device'
 import { getAccessToken, getTenantId } from '@/utils/auth'
 import download from '@/utils/download'
@@ -91,21 +92,13 @@ const submitFormSuccess = (response: any) => {
     formLoading.value = false
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '上传成功数量：' + data.createDeviceNames.length + ';'
-  for (let deviceName of data.createDeviceNames) {
-    text += '< ' + deviceName + ' >'
-  }
-  text += '更新成功数量：' + data.updateDeviceNames.length + ';'
-  for (const deviceName of data.updateDeviceNames) {
-    text += '< ' + deviceName + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureDeviceNames).length + ';'
-  for (const deviceName in data.failureDeviceNames) {
-    text += '< ' + deviceName + ': ' + data.failureDeviceNames[deviceName] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '设备',
+    created: data.createDeviceNames,
+    updated: data.updateDeviceNames,
+    failures: data.failureDeviceNames,
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件

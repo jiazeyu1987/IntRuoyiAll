@@ -33,7 +33,7 @@ class ShowroomFoundationContractTest {
     @Test
     void backendRootShouldBeFrozenAndReadable() {
         assertEquals("yudao-module-showroom", ShowroomBackendRootContract.moduleName());
-        assertTrue(ShowroomBackendRootContract.moduleRoot().endsWith("ruoyi-vue-pro/yudao-module-showroom"));
+        assertTrue(ShowroomBackendRootContract.moduleRoot().endsWith("yudao-module-showroom"));
     }
 
     @Test

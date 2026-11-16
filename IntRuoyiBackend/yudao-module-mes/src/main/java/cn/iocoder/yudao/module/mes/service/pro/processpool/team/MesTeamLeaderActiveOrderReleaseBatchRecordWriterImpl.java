@@ -635,7 +635,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                 && Objects.equals(review.getLeaderUserId(), allocation.getLeaderUserId())
                 && allocation.getAllocatedQuantity() != null && allocation.getAllocatedQuantity().signum() > 0
                 && allocation.getConfirmedAt() != null
-                && Objects.equals(review.getReviewedAt(), allocation.getConfirmedAt());
+                && MesReportAllocationReviewBinding.matches(allocation, review);
     }
 
     private boolean validateRuleSourceValues(List<MesProProcessPoolEventDO> events,

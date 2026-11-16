@@ -422,6 +422,8 @@ CREATE TABLE mes_active_order_handoff_task (
   completed_by BIGINT NULL,
   completion_source_id BIGINT NULL,
   completed_at timestamp(0) NULL,
+  due_time timestamp(0) NULL,
+  overdue_notified_at timestamp(0) NULL,
   creator VARCHAR(64) NULL,
   updater VARCHAR(64) NULL,
   create_time timestamp(0) NOT NULL DEFAULT CURRENT_TIMESTAMP,

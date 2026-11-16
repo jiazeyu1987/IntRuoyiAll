@@ -88,26 +88,9 @@
       <el-table-column label="文件类型" align="center" prop="type" width="180px" />
       <el-table-column label="文件内容" align="center" prop="url" width="110px">
         <template #default="{ row }">
-          <el-image
-            v-if="row.type.includes('image')"
-            class="h-80px w-80px"
-            lazy
-            :src="row.url"
-            :preview-src-list="[row.url]"
-            preview-teleported
-            fit="cover"
-          />
-          <el-link
-            v-else-if="row.type.includes('pdf')"
-            type="primary"
-            :href="row.url"
-            :underline="false"
-            target="_blank"
-            >预览</el-link
-          >
-          <el-link v-else type="primary" download :href="row.url" :underline="false" target="_blank"
-            >下载</el-link
-          >
+          <el-button link type="primary" :loading="openingFileId === row.id" @click="openFile(row)">
+            {{ canPreviewFile(row) ? '预览' : '下载' }}
+          </el-button>
         </template>
       </el-table-column>
       <el-table-column
@@ -119,9 +102,6 @@
       />
       <el-table-column label="操作" align="center">
         <template #default="scope">
-          <el-button link type="primary" @click="copyToClipboard(scope.row.url)">
-            复制链接
-          </el-button>
           <el-button
             link
             type="primary"
@@ -130,14 +110,7 @@
           >
             <Icon icon="ep:edit" class="mr-4px" />修改时间
           </el-button>
-          <el-button
-            link
-            type="primary"
-            @click="openUploadTimeAudit(scope.row)"
-            v-hasPermi="['intern-user:time-maintenance:file-upload-time-audit:query']"
-          >
-            <Icon icon="ep:document-checked" class="mr-4px" />修改审计
-          </el-button>
+
           <el-button
             link
             type="danger"
@@ -163,7 +136,11 @@
   <!-- 表单弹窗：添加/修改 -->
   <FileForm ref="formRef" @success="getList" />
   <FileUploadTimeForm ref="uploadTimeFormRef" @success="getList" />
-  <InternUserTimeAuditDialog ref="timeAuditDialogRef" />
+
+  <el-dialog v-model="previewVisible" :title="previewName" width="80%" destroy-on-close @closed="clearPreview">
+    <img v-if="previewType.startsWith('image/')" :src="previewUrl" :alt="previewName" class="max-h-[75vh] max-w-full mx-auto" />
+    <iframe v-else :src="previewUrl" :title="previewName" class="w-full h-[75vh] border-0"></iframe>
+  </el-dialog>
 </template>
 <script lang="ts" setup>
 import { isSearchFormInputEmpty } from '@/utils/search'
@@ -173,7 +150,7 @@ import * as FileApi from '@/api/infra/file'
 import FileForm from './FileForm.vue'
 import FileUploadTimeForm from './FileUploadTimeForm.vue'
 import InternUserTimeAuditDialog from '@/views/intern-user/time-maintenance/InternUserTimeAuditDialog.vue'
-import { useClipboard } from '@vueuse/core'
+import { authContextRevision } from '@/utils/auth'
 
 defineOptions({ name: 'InfraFile' })
 
@@ -201,7 +178,7 @@ const isProtectedShowroomFile = (row?: { configId?: number; path?: string }) => 
   return (
     row?.configId === PROTECTED_SHOWROOM_FILE_CONFIG_ID &&
     !!row?.path &&
-    row.path.startsWith(PROTECTED_SHOWROOM_PATH_PREFIX)
+    row.path.replace(/^tenants\/\d+\//, '').startsWith(PROTECTED_SHOWROOM_PATH_PREFIX)
   )
 }
 
@@ -210,8 +187,10 @@ const isFileRowSelectable = (row) => !isProtectedShowroomFile(row)
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
+  const revision = authContextRevision.value
   try {
-    const data = await FileApi.getFilePage(queryParams)
+    const data = await FileApi.getFilePage(queryParams, () => revision === authContextRevision.value)
+    if (revision !== authContextRevision.value) return
     list.value = data.list
     total.value = data.total
   } finally {
@@ -245,24 +224,57 @@ const uploadTimeFormRef = ref()
 const openUploadTimeForm = (row) => {
   uploadTimeFormRef.value.open(row)
 }
-
-const timeAuditDialogRef = ref()
-const openUploadTimeAudit = (row) => {
-  timeAuditDialogRef.value.open('fileUploadTime', row.id, '上传时间修改审计')
+type FileRow = { id: number; configId: number; path: string; name: string; type?: string }
+const openingFileId = ref<number>()
+const previewVisible = ref(false)
+const previewUrl = ref('')
+const previewName = ref('')
+const previewType = ref('')
+let previewRequest = 0
+const canPreviewFile = (row: FileRow) => row.type?.startsWith('image/') || row.type === 'application/pdf'
+const clearPreview = () => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
 }
-
-/** 复制到剪贴板方法 */
-const copyToClipboard = async (text: string) => {
-  const { copy, copied, isSupported } = useClipboard({ legacy: true, source: text })
-  if (!isSupported) {
-    message.error(t('common.copyError'))
-    return
-  }
-  await copy()
-  if (unref(copied)) {
-    message.success(t('common.copySuccess'))
+const openFile = async (row: FileRow) => {
+  const requestId = ++previewRequest
+  const revision = authContextRevision.value
+  openingFileId.value = row.id
+  try {
+    const blob = await FileApi.readFileContent(row, () => revision === authContextRevision.value)
+    if (revision !== authContextRevision.value || requestId !== previewRequest) return
+    clearPreview()
+    if (canPreviewFile(row)) {
+      previewUrl.value = URL.createObjectURL(new Blob([blob], { type: row.type }))
+      previewName.value = row.name
+      previewType.value = row.type || ''
+      previewVisible.value = true
+    } else {
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = row.name
+      anchor.click()
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    }
+  } finally {
+    if (requestId === previewRequest) openingFileId.value = undefined
   }
 }
+watch(authContextRevision, () => {
+  previewRequest += 1
+  openingFileId.value = undefined
+  previewVisible.value = false
+  clearPreview()
+  list.value = []
+  total.value = 0
+  checkedIds.value = []
+  checkedFileRows.value = []
+}, { flush: 'sync' })
+onBeforeUnmount(() => {
+  previewRequest += 1
+  clearPreview()
+})
 
 /** 删除按钮操作 */
 const handleDelete = async (row) => {
@@ -270,15 +282,21 @@ const handleDelete = async (row) => {
     message.warning(PROTECTED_SHOWROOM_FILE_MESSAGE)
     return
   }
+  const revision = authContextRevision.value
+  const isCurrentContext = () => revision === authContextRevision.value
   try {
     // 删除的二次确认
     await message.delConfirm()
+    if (!isCurrentContext()) throw new Error('登录或租户已切换，请重新选择文件')
     // 发起删除
-    await FileApi.deleteFile(row.id)
+    await FileApi.deleteFile(row.id, isCurrentContext)
+    if (!isCurrentContext()) return
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
-  } catch {}
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') throw error
+  }
 }
 
 /** 批量删除按钮操作 */
@@ -295,16 +313,23 @@ const handleDeleteBatch = async () => {
     message.warning(PROTECTED_SHOWROOM_FILE_MESSAGE)
     return
   }
+  const revision = authContextRevision.value
+  const isCurrentContext = () => revision === authContextRevision.value
+  const ids = [...checkedIds.value]
   try {
     // 删除的二次确认
     await message.delConfirm()
+    if (!isCurrentContext()) throw new Error('登录或租户已切换，请重新选择文件')
     // 发起批量删除
-    await FileApi.deleteFileList(checkedIds.value)
+    await FileApi.deleteFileList(ids, isCurrentContext)
+    if (!isCurrentContext()) return
     checkedIds.value = []
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
-  } catch {}
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') throw error
+  }
 }
 
 /** 初始化 **/

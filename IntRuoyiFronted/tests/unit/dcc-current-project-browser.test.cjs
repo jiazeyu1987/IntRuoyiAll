@@ -27,7 +27,7 @@ function fixture(rows = [], references = []) {
   const calls = []
   let sourcePermissionReads = 0
   const adapter = moduleAt('src/api/dcc/controlledFile/applicationRead.ts', {
-    '@/config/axios': { default: { get: async request => { calls.push(request); return { list: rows, total: rows.length } } } },
+    '@/config/axios': { default: { get: async request => { calls.push(request); const list=request.params.browserScope === 'PROJECT_FOLDER' ? [...rows,...references.map(referenceProjection => ({referenceProjection}))] : rows; return { list, total: list.length } } } },
     '@/views/dcc/controlled-file/project-attributes/state': moduleAt('src/views/dcc/controlled-file/project-attributes/state.ts')
   })
   const { ProjectBrowserState } = moduleAt('src/views/dcc/controlled-file/browser/project-browser.ts', {
@@ -38,9 +38,11 @@ function fixture(rows = [], references = []) {
     } },
     '@/api/dcc/controlledFile/workflow': {},
     '@/api/system/user': {},
-    '@/api/dcc/controlledFile/relations': { listProjectReferences: async () => references,
-      createProjectReferences: async (_project, _folder, ids) => ids.map(id => ({ reference: { selectedControlledFileId: id } })),
-      getProjectReferenceUsage: async controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false }) },
+    '@/hooks/web/useListColumnFilter': { loadAllListPages: () => { throw Error('Unexpected full-list read') } },
+    './folder-file-list': moduleAt('src/views/dcc/controlled-file/browser/folder-file-list.ts'),
+    '@/api/dcc/controlledFile/relations': { listSelectedProjectReferences: async () => references,
+      createProjectReferences: async (_project, _folder, ids) => ids.map(id => ({ reference: { id: '91', selectedControlledFileId: id } })),
+      getProjectReferenceUsageBatch: async ids => ids.map(controlledFileId => ({ masterId: String(BigInt(controlledFileId) + 1000n), referenceProjectCount: 0, referenced: false })) },
     '../basic-data/components/project-folder-tree': moduleAt('src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts'),
     '../relations/project-reference-contract': moduleAt('src/views/dcc/controlled-file/relations/project-reference-contract.ts')
   })
@@ -59,7 +61,7 @@ const listedReference = (status = 'ACTIVE', canPreview = false) => ({
 test('destination viewer sees existing active and retained references without source name permission', async () => {
   for (const status of ['ACTIVE', 'SUPERSEDED', 'OBSOLETE']) {
     const { state, sourcePermissionReads } = fixture([], [listedReference(status)])
-    const rows = await state.loadReferences('5', '51')
+    await state.selectProject('5'); await state.selectFolder(state.directories[0]); const rows = state.references
     assert.equal(rows.length, 1); assert.equal(rows[0].sourceProjectName, '来源项目')
     assert.equal(rows[0].selectedVersion.folderName, '来源目录')
     assert.equal(rows[0].selectedVersion.canPreview, false)
@@ -70,11 +72,11 @@ test('destination viewer sees existing active and retained references without so
 })
 test('reference list preserves body grants and rejects mismatched tenant, folder or permission identity', async () => {
   const allowed = listedReference('ACTIVE', true)
-  assert.equal((await fixture([], [allowed]).state.loadReferences('5', '51'))[0].selectedVersion.canPreview, true)
+  const positive = fixture([], [allowed]).state; await positive.selectProject('5'); await positive.selectFolder(positive.directories[0]); assert.equal(positive.references[0].selectedVersion.canPreview, true)
   for (const mutate of [row => row.selectedVersion.tenantId = '2', row => row.reference.folderId = '52',
     row => row.permissions.controlledFileId = '102', row => delete row.permissions]) {
     const row = listedReference(); mutate(row)
-    await assert.rejects(fixture([], [row]).state.loadReferences('5', '51'))
+    const invalid=fixture([], [row]).state; await invalid.selectProject('5'); await assert.rejects(invalid.selectFolder(invalid.directories[0]))
   }
 })
 test('creating references reads the destination list and reports an unconfirmed saved version explicitly', async () => {
@@ -132,7 +134,7 @@ test('current-project search ignores selected folder without losing it for later
 })
 test('current-project search without a selected project shows an error and sends no request', async () => {
   const { state, calls } = fixture()
-  await state.search('project', 'DOC')
+  await assert.rejects(state.search('project', 'DOC'), /请先选择项目/)
   assert.match(state.error, /请先选择项目/)
   assert.equal(calls.length, 0)
   assert.equal(state.rows.length, 0)

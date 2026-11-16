@@ -331,11 +331,11 @@ async function main() {
       0,
       'unconfigured DCC project must not render inspection item rows'
     )
-    await qaPage.getByRole('tab', { name: '任务预览', exact: true }).click()
-    await qaPage
-      .getByText('当前没有可预览的检验任务', { exact: true })
-      .first()
-      .waitFor({ state: 'visible' })
+    assert.equal(
+      await qaPage.getByRole('tab', { name: '任务预览', exact: true }).count(),
+      0,
+      'QA page must not render the removed task preview tab'
+    )
 
     assert.deepEqual(writeRequests, [], 'read-only QA display E2E must not send business writes')
     assert.deepEqual(badTargetResponses, [], 'QA target APIs must not return HTTP errors')

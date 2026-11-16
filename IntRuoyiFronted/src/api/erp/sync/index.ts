@@ -54,6 +54,16 @@ export interface ErpKingdeeFullSyncRespVO {
 }
 
 export const ErpKingdeeSyncApi = {
+  getRun: async (id: number): Promise<ErpKingdeeSyncRunVO | null> => {
+    return await request.get({ url: '/erp/kingdee-sync/run/get', params: { id } })
+  },
+  deleteRun: async (id: number): Promise<boolean> => {
+    return await request.delete({ url: '/erp/kingdee-sync/run/delete', params: { id } })
+  },
+  recoverRun: async (id: number): Promise<boolean> => {
+    return await request.post({ url: '/erp/kingdee-sync/run/recover', params: { id } })
+  },
+
   getRunPage: async (params: PageParam) => {
     return await request.get({ url: '/erp/kingdee-sync/run/page', params })
   },
@@ -72,6 +82,13 @@ export const ErpKingdeeSyncApi = {
     return await request.post({
       url: '/erp/kingdee-sync/incremental-sync',
       data: { syncType }
+    })
+  },
+
+  runRecentFullSync: async (syncType: string, days: number, clickedAt: number): Promise<ErpKingdeeFullSyncRespVO> => {
+    return await request.post({
+      url: '/erp/kingdee-sync/full-sync-recent',
+      data: { syncType, days, clickedAt }
     })
   },
 

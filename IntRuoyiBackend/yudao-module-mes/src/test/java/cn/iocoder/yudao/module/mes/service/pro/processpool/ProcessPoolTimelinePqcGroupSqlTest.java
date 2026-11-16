@@ -58,6 +58,17 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             req.setSubmissionReviewStatus("REJECTED");
             assertEquals(1, productionCount(db, params));
             assertEquals(List.of("103:0:原始记录暂无修改"), productionPageRows(db, params));
+            try (var st = db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET actual_employee_id=7");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET actual_employee_id=8 WHERE id=102");
+            }
+            req.setSubmissionReviewStatus(null); req.setAllocationView("WORKBENCH");
+            req.setEmployeeUserIds(Set.of(7L));
+            assertEquals(1, productionCount(db, params));
+            assertEquals(List.of("101:0:原始记录暂无修改"), productionPageRows(db, params));
+            req.setEmployeeUserIds(null); req.setEmployeeUserId(8L);
+            assertEquals(1, productionCount(db, params));
+            assertEquals(List.of("102:2:原始记录已修改 1 次"), productionPageRows(db, params));
         }
     }
 
@@ -93,9 +104,9 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             productionPageSchema(db);
             try (var st = db.createStatement()) {
                 st.execute("CREATE TABLE mes_pro_process_pool_report_allocation(id BIGINT,tenant_id BIGINT,event_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,allocated_quantity DECIMAL,lifecycle_status VARCHAR(40),deleted INT DEFAULT 0)");
-                st.execute("CREATE TABLE mes_pro_process_pool_active_order_process_snapshot(tenant_id BIGINT,active_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,planned_quantity_snapshot DECIMAL,deleted INT DEFAULT 0)");
+                st.execute("CREATE TABLE mes_pro_process_pool_active_order_process_snapshot(tenant_id BIGINT,active_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,planned_quantity_snapshot DECIMAL,erp_fixed_quantity_snapshot DECIMAL,production_config_snapshot_json VARCHAR,deleted INT DEFAULT 0)");
                 st.executeUpdate("INSERT INTO mes_pro_process_pool_report_allocation(id,tenant_id,event_id,active_order_id,work_order_id,route_process_id,process_id,allocated_quantity,lifecycle_status) VALUES(1,1,101,10,20,30,40,60,'CURRENT'),(2,1,102,10,20,30,40,50,'CURRENT'),(3,1,103,10,20,31,40,900,'CURRENT'),(4,1,104,10,20,30,40,900,'SUPERSEDED'),(5,2,101,10,20,30,40,900,'CURRENT')");
-                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(tenant_id,active_order_id,route_process_id,process_id,planned_quantity_snapshot) VALUES(1,10,30,40,100)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(tenant_id,active_order_id,route_process_id,process_id,planned_quantity_snapshot,erp_fixed_quantity_snapshot,production_config_snapshot_json) VALUES(1,10,30,40,900,100,'{\"lossCoefficient\":1}')");
                 st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_release_application(tenant_id,active_order_id,release_transaction_id) VALUES(1,10,50)");
                 st.executeUpdate("INSERT INTO mes_pro_edhr_release_transaction(id,tenant_id,release_status) VALUES(50,1,'RELEASED')");
             }
@@ -178,6 +189,67 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
         try (var statement = db.prepareStatement(count.getSql() + " AND pool_event.tenant_id = 1")) {
             bind(statement, count, params);
             try (var result = statement.executeQuery()) { result.next(); assertEquals(total, result.getLong(1)); }
+        }
+    }
+
+    @Test
+    void reviewScopeKeepsExcludedGroupMembersWithoutGrantingAccessToThem() throws Exception {
+        try (Connection db = database()) {
+            event(db, 1, 101, "g"); event(db, 1, 102, "g");
+            event(db, 1, 103, null); event(db, 1, 104, "unrelated");
+            event(db, 2, 201, "g");
+            review(db, 1, 301, 101, "REJECTED");
+            review(db, 1, 304, 104, "REJECTED");
+            review(db, 2, 401, 201, "REJECTED");
+            var params = request(null, 1, 20);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            req.setEventIds(Set.of(102L, 103L));
+            // The excluded rejected member still determines the group representative;
+            // neither it nor the authorized pending sibling may leak into this page.
+            assertScopedRows(db, params, 1, List.of("103:PENDING"));
+            req.setSubmissionReviewStatus("PENDING");
+            assertScopedRows(db, params, 1, List.of("103:PENDING"));
+            req.setEventIds(Set.of(101L, 102L, 103L));
+            req.setSubmissionReviewStatus(null);
+            assertScopedRows(db, params, 2, List.of("103:PENDING", "101:REJECTED"));
+            correction(db, 1, 501, 101, 301, 901L);
+            req.setEventIds(Set.of(102L, 103L));
+            assertScopedRows(db, params, 2, List.of("103:PENDING", "102:PENDING"));
+        }
+    }
+
+    @Test
+    void currentAndHistoryCountsKeepReleaseAndReviewFilters() throws Exception {
+        try (Connection db = database()) {
+            productionPageSchema(db);
+            event(db, 1, 101, null); event(db, 1, 102, null); event(db, 1, 103, null);
+            review(db, 1, 201, 101, "APPROVED"); review(db, 1, 202, 102, "APPROVED");
+            try (var st = db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET feedback_source_type='MES_PQC_INSPECTION_TASK',pqc_task_id=id");
+                st.executeUpdate("INSERT INTO mes_pqc_inspection_task(id,tenant_id,active_order_id) VALUES(101,1,11),(102,1,12),(103,1,13)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_release_application(tenant_id,active_order_id,release_transaction_id) VALUES(1,12,22)");
+                st.executeUpdate("INSERT INTO mes_pro_edhr_release_transaction(id,tenant_id,release_status) VALUES(22,1,'RELEASED')");
+            }
+            var params = request(null, 1, 20);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            req.setEventIds(Set.of(101L, 102L, 103L));
+            req.setPqcFormView("CURRENT");
+            assertEquals(1, productionCount(db, params));
+            req.setSubmissionReviewStatus("PENDING");
+            assertEquals(1, productionCount(db, params));
+            req.setSubmissionReviewStatus("APPROVED");
+            assertEquals(0, productionCount(db, params));
+            req.setSubmissionReviewStatus(null);
+            review(db, 1, 203, 103, "REJECTED");
+            assertEquals(0, productionCount(db, params));
+            review(db, 1, 204, 103, "PENDING");
+            assertEquals(1, productionCount(db, params));
+            review(db, 1, 205, 103, "APPROVED");
+            assertEquals(0, productionCount(db, params));
+            req.setSubmissionReviewStatus(null); req.setPqcFormView("HISTORY");
+            assertEquals(3, productionCount(db, params));
+            req.setEventIds(Set.of());
+            assertEquals(0, productionCount(db, params));
         }
     }
 
@@ -490,20 +562,26 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
     void actualGroupPayloadQueryCarriesEachDisplayedVersionAndReviewRound() throws Exception {
         try(Connection db=database()) {
             event(db,1,101,"g");event(db,1,102,"g");
-            assertDisplayedContexts(db,List.of("101:0:0:0","102:0:0:0"));
+            assertDisplayedContexts(db,List.of("101:0:0:0:PENDING","102:0:0:0:PENDING"));
             review(db,1,201,101,"REJECTED");
             review(db,2,999,101,"APPROVED");
             try(var st=db.createStatement()) {
                 st.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET review_round=3 WHERE id=201");
             }
+            assertDisplayedContexts(db,List.of("101:0:201:3:REJECTED","102:0:0:0:PENDING"));
             correction(db,1,301,101,201,901L);
             correction(db,2,999,101,201,999L);
-            assertDisplayedContexts(db,List.of("101:301:201:3","102:0:0:0"));
+            // R4-05: reviewability is derived PENDING, while the formal optimistic context
+            // must retain the persisted REJECTED decision and its original review round.
+            assertDisplayedContexts(db,List.of("101:301:201:3:REJECTED","102:0:0:0:PENDING"));
+            assertRows(db,"PENDING",List.of("102:PENDING"));
             try(var st=db.createStatement()) {
                 st.executeUpdate("UPDATE mes_pro_process_pool_event_revision SET revision_status='REVOKED' WHERE tenant_id=1 AND id=301");
                 st.executeUpdate("UPDATE mes_pro_process_pool_event SET deleted=1 WHERE id=102");
             }
-            assertDisplayedContexts(db,List.of("101:0:201:3"));
+            assertDisplayedContexts(db,List.of("101:0:201:3:REJECTED"));
+            review(db,1,202,101,"APPROVED");
+            assertDisplayedContexts(db,List.of("101:0:202:0:APPROVED"));
         }
     }
 
@@ -516,7 +594,7 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             try(var rows=statement.executeQuery()) {
                 while(rows.next()) {
                     org.junit.jupiter.api.Assertions.assertEquals("g",JsonUtils.parseTree(rows.getString("originalPayloadJson")).path("pqcSubmissionGroupId").asText());
-                    actual.add(rows.getLong("id")+":"+rows.getLong("displayedRevisionId")+":"+rows.getLong("displayedReviewId")+":"+rows.getInt("displayedReviewRound"));
+                    actual.add(rows.getLong("id")+":"+rows.getLong("displayedRevisionId")+":"+rows.getLong("displayedReviewId")+":"+rows.getInt("displayedReviewRound")+":"+rows.getString("displayedReviewStatus"));
                 }
             }
         }

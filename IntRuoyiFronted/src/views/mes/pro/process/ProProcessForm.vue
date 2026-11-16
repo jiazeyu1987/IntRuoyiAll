@@ -9,6 +9,7 @@
       v-loading="formLoading"
       :disabled="isDetail"
       >
+      <el-form-item v-if="formType === 'create'" label="所属项目" prop="projectId" :rules="[{ required: true, message: '请选择所属项目' }]"><el-select v-model="formData.projectId" filterable><el-option v-for="p in codeProjects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
       <el-row :gutter="20">
         <el-col :span="8">
           <el-form-item label="产品名称" prop="productName">
@@ -20,7 +21,7 @@
             <el-input
               v-model="formData.code"
               :disabled="formType === 'create'"
-              :placeholder="formType === 'create' ? '保存后自动生成 GX- 编号' : '请输入工序编码'"
+              :placeholder="formType === 'create' ? '保存后按所属项目自动生成编号' : '请输入工序编码'"
             />
           </el-form-item>
         </el-col>
@@ -60,6 +61,14 @@
           type="textarea"
           :rows="3"
           placeholder="请输入工序说明"
+        />
+      </el-form-item>
+      <el-form-item label="SOP文件" prop="sopFileUrl">
+        <UploadFile
+          v-model="processSopFileUrl"
+          :limit="1"
+          :file-type="['pdf', 'png', 'jpg', 'jpeg', 'webp']"
+          :disabled="isDetail || formLoading"
         />
       </el-form-item>
       <el-form-item label="备注" prop="remark">
@@ -143,10 +152,12 @@
 </template>
 
 <script setup lang="ts">
+import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/route'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import ProProcessContentList from './ProProcessContentList.vue'
+import { UploadFile } from '@/components/UploadFile'
 
 defineOptions({ name: 'ProProcessForm' })
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
@@ -159,6 +170,7 @@ const { t } = useI18n() // 国际化
 const message = useMessage() // 消息弹窗
 const router = useRouter()
 
+const codeProjects = ref<RouteProjectOption[]>([])
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
@@ -175,6 +187,7 @@ const formData = ref<ProProcessVO>({
   code: '',
   name: '',
   attention: '',
+  sopFileUrl: '',
   status: 0,
   manualShiftCapacity: undefined,
   remark: ''
@@ -184,6 +197,10 @@ const formRules = computed(() => ({
   name: [{ required: true, message: '工序名称不能为空', trigger: 'blur' }],
   status: [{ required: true, message: '状态不能为空', trigger: 'change' }]
 }))
+const processSopFileUrl = computed({
+  get: () => formData.value.sopFileUrl ?? '',
+  set: (url: string) => { formData.value.sopFileUrl = url }
+})
 const formRef = ref() // 表单 Ref
 const canShowAssociatedConfig = computed(() =>
   Boolean(formData.value.id && selectedRouteId.value && selectedRouteProcessId.value && !routeContextError.value)
@@ -202,6 +219,7 @@ const routeSelectionTip = computed(() => {
 /** 打开弹窗 */
 const open = async (type: string, id?: number, context: ProProcessFormOpenContext = {}) => {
   dialogVisible.value = true
+  if (type === 'create') codeProjects.value = await getRouteProjectOptions()
   const titles: Record<string, string> = {
     create: '新增生产工序',
     update: '编辑生产工序',
@@ -222,6 +240,7 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
       )
       formData.value = {
         ...fetchedData,
+        sopFileUrl: fetchedData.sopFileUrl ?? '',
         routeList: fetchedData.routeList?.length ? fetchedData.routeList : context.row?.routeList
       }
       applyRouteContext(formData.value, context.routeId)
@@ -337,6 +356,7 @@ const resetForm = () => {
     code: '',
     name: '',
     attention: '',
+    sopFileUrl: '',
     status: 0,
     manualShiftCapacity: undefined,
     remark: ''

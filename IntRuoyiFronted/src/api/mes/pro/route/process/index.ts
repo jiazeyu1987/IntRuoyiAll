@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 // MES 工艺路线工序设备 VO
 export interface ProRouteProcessMachineryVO {
@@ -49,7 +50,7 @@ export interface ProRouteBaseProcessVO {
 // MES 工艺路线工序 VO
 export interface ProRouteProcessVO {
   id?: number // 编号
-  routeId: number // 工艺路线编号
+  routeId: MesRouteId // 工艺路线编号
   processId: number // 工序编号
   processCode?: string // 工序编码
   processName?: string // 工序名称
@@ -97,7 +98,7 @@ export const ProRouteProcessApi = {
     return await request.get({ url: `/mes/pro/route-process/list-base-by-route?routeId=` + routeId })
   },
 
-  getRouteProcessListByRoute: async (routeId: number) => {
+  getRouteProcessListByRoute: async (routeId: MesRouteId) => {
     return await request.get({ url: `/mes/pro/route-process/list-by-route?routeId=` + routeId })
   },
 

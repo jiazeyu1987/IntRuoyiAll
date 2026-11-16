@@ -43,6 +43,7 @@ class MesTeamLeaderWorkbenchServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(scopeService.listResponsibleEmployeeIds(7001L,"PRODUCTION")).thenReturn(Set.of(8001L));
         service = new MesTeamLeaderWorkbenchServiceImpl(scopeService, routeStartAuthorizationService, timelineService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", handoffService);
     }
@@ -88,7 +89,7 @@ class MesTeamLeaderWorkbenchServiceImplTest {
         assertEquals("WORKBENCH", captor.getValue().getAllocationView());
         assertEquals(Set.of(8101L, 8102L), captor.getValue().getProcessIds());
         assertNull(captor.getValue().getRouteProcessIds());
-        assertEquals(null, captor.getValue().getEmployeeUserIds());
+        assertEquals(Set.of(8001L), captor.getValue().getEmployeeUserIds());
     }
 
     @Test

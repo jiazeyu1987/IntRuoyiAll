@@ -19,10 +19,10 @@
         />
       </el-form-item>
       <el-form-item label="发起人" prop="userId">
-        <UserSelectV2 v-model="queryParams.userId" class="!w-240px" />
+        <UserSelectV2 allow-inactive v-model="queryParams.userId" class="!w-240px" />
       </el-form-item>
       <el-form-item label="处置人" prop="handlerUserId">
-        <UserSelectV2 v-model="queryParams.handlerUserId" class="!w-240px" />
+        <UserSelectV2 allow-inactive v-model="queryParams.handlerUserId" class="!w-240px" />
       </el-form-item>
       <el-form-item label="处理状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="!w-240px">

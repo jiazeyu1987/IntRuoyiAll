@@ -1,141 +1,247 @@
 <template>
   <div class="followup-management" data-testid="dcc-publication-followup-management">
     <ContentWrap>
-      <el-form :model="filters" class="management-filters" label-position="top">
-        <el-form-item label="文件编号"><el-input v-model="filters.fileNumber" clearable /></el-form-item>
-        <el-form-item label="发布版本"><el-input v-model="filters.versionNo" clearable /></el-form-item>
-        <el-form-item label="批次状态">
-          <el-select v-model="filters.batchStatus" clearable><el-option v-for="item in batchStatuses" :key="item" :label="batchStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="任务状态">
-          <el-select v-model="filters.taskStatus" clearable><el-option v-for="item in taskStatuses" :key="item" :label="impactTaskStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="通知状态">
-          <el-select v-model="filters.notificationStatus" clearable><el-option v-for="item in notificationStatuses" :key="item" :label="notificationStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="负责人 ID"><el-input v-model="filters.assigneeUserId" clearable /></el-form-item>
-        <div class="filter-actions">
-          <el-button type="primary" @click="search">查询</el-button>
-          <el-button @click="reset">重置</el-button>
-          <el-button class="refresh-action" :loading="loading" @click="loadPage">
-            <Icon icon="ep:refresh-right" class="mr-5px" />刷新
+      <UnifiedListTemplate
+        @query="search"
+        @reset="reset"
+        table-key="dcc.publicationFollowup.main"
+        :query-model="filters"
+        v-model:page="pageNo"
+        v-model:limit="pageSize"
+        :total="total"
+        @pagination="loadPage"
+        server-filter
+        :server-filter-query="loadPage"
+        :columns="listFilterColumns0"
+        :show-column-settings="false"
+        :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
+      >
+        <template #filters>
+          <el-form :model="filters" class="management-filters" label-position="left">
+            <el-form-item label="文件编号">
+              <el-input v-model="filters.fileNumber" clearable />
+            </el-form-item>
+            <el-form-item label="发布版本">
+              <el-input v-model="filters.versionNo" clearable />
+            </el-form-item>
+            <el-form-item label="批次状态">
+              <el-select v-model="filters.batchStatus" clearable>
+                <el-option
+                  v-for="item in batchStatuses"
+                  :key="item"
+                  :label="batchStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="任务状态">
+              <el-select v-model="filters.taskStatus" clearable>
+                <el-option
+                  v-for="item in taskStatuses"
+                  :key="item"
+                  :label="impactTaskStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="通知状态">
+              <el-select v-model="filters.notificationStatus" clearable>
+                <el-option
+                  v-for="item in notificationStatuses"
+                  :key="item"
+                  :label="notificationStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="负责人 ID">
+              <el-input v-model="filters.assigneeUserId" clearable />
+            </el-form-item>
+          </el-form>
+        </template>
+        <template #actions>
+          <el-button :loading="loading" @click="loadPage">
+            <Icon icon="ep:refresh-right" class="mr-5px" />
+            刷新
           </el-button>
-        </div>
-      </el-form>
-    </ContentWrap>
 
-    <ContentWrap>
-      <el-alert
-        v-if="loadError"
-        role="alert"
-        type="error"
-        :closable="false"
-        show-icon
-        title="发布后续加载失败"
-        :description="loadError"
-      />
-      <el-alert
-        v-if="actionError"
-        role="alert"
-        type="error"
-        :closable="false"
-        show-icon
-        title="发布后续操作失败"
-        :description="actionError"
-      />
-      <el-table v-loading="loading" :data="rows" empty-text="暂无发布后续记录" row-key="id">
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="expanded-grid">
-              <section>
-                <h2>通知明细</h2>
-                <el-table :data="row.notificationDeliveries" size="small" empty-text="无通知收件人">
-                  <el-table-column label="收件人" min-width="150">
-                    <template #default="scope">{{ scope.row.userName || scope.row.userId }}</template>
-                  </el-table-column>
-                  <el-table-column label="通知状态" width="110">
-                    <template #default="scope">{{ notificationStatusLabel(scope.row.status) }}</template>
-                  </el-table-column>
-                  <el-table-column label="收件原因" min-width="220">
-                    <template #default="scope">{{ scope.row.reasonSummaries.join('；') }}</template>
-                  </el-table-column>
-                  <el-table-column label="错误" min-width="180" prop="lastErrorSummary" />
-                  <el-table-column label="操作" width="90">
-                    <template #default="scope">
-                      <el-button
-                        v-if="scope.row.status === 'PENDING' || scope.row.status === 'FAILED'"
-                        link
-                        type="primary"
-                        :loading="retryingDeliveryId === scope.row.id"
-                        :disabled="Boolean(retryingDeliveryId)"
-                        @click="retry(scope.row)"
-                      >重试</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-              <section data-testid="dcc-management-publication-timeline">
-                <h2>完整时间线</h2>
-                <PublicationFollowupTimeline :timeline="row.timeline" />
-              </section>
-              <section>
-                <h2>影响评估</h2>
-                <el-table :data="row.impactTasks" size="small" empty-text="无需评估">
-                  <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
-                  <el-table-column label="方向" width="140">
-                    <template #default="scope">{{ scope.row.relationDirections.map(relationDirectionLabel).join(' / ') }}</template>
-                  </el-table-column>
-                  <el-table-column label="负责人" min-width="130" prop="assigneeUserName" />
-                  <el-table-column label="任务状态" width="120">
-                    <template #default="scope">{{ impactTaskStatusLabel(scope.row.taskStatus) }}</template>
-                  </el-table-column>
-                  <el-table-column label="评估结论" min-width="140">
-                    <template #default="scope">{{ scope.row.decision ? impactDecisionLabel(scope.row.decision) : '尚未提交' }}</template>
-                  </el-table-column>
-                  <el-table-column label="升版跟踪" width="140">
-                    <template #default="scope">{{ revisionTrackingStatusLabel(scope.row.revisionTrackingStatus) }}</template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="110">
-                    <template #default="scope">
-                      <el-button
-                        v-if="scope.row.taskStatus === 'COMPLETED'"
-                        link
-                        type="primary"
-                        :loading="reopeningTaskId === scope.row.id"
-                        :disabled="Boolean(reopeningTaskId)"
-                        @click="reopenImpact(scope.row)"
-                      >重新打开</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="文件编号" min-width="160" prop="fileNumber" />
-        <el-table-column label="文件名称" min-width="220" prop="fileName" />
-        <el-table-column label="发布版本" width="110" prop="versionNo" />
-        <el-table-column label="批次状态" width="140">
-          <template #default="{ row }">{{ batchStatusLabel(row.status) }}</template>
-        </el-table-column>
-        <el-table-column label="通知" width="100">
-          <template #default="{ row }">{{ row.notificationDeliveries.length }}</template>
-        </el-table-column>
-        <el-table-column label="任务" width="100">
-          <template #default="{ row }">{{ row.impactTasks.length }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openFile(row.publishedControlledFileId)">文件详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <Pagination v-model:page="pageNo" v-model:limit="pageSize" :total="total" @pagination="loadPage" />
-    </ContentWrap>
+
+        </template>
+        <template #table="{ resolveRows }">
+          <el-alert
+            v-if="loadError"
+            role="alert"
+            type="error"
+            :closable="false"
+            show-icon
+            title="发布后续加载失败"
+            :description="loadError"
+          />
+          <el-alert
+            v-if="actionError"
+            role="alert"
+            type="error"
+            :closable="false"
+            show-icon
+            title="发布后续操作失败"
+            :description="actionError"
+          />
+          <el-table
+            stripe
+            border
+            v-loading="loading"
+            :data="resolveRows(rows)"
+            empty-text="暂无发布后续记录"
+            row-key="id"
+          >
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <div class="expanded-grid">
+                  <section>
+                    <UnifiedListTemplate
+                      table-key="dcc.publicationFollowup.notifications"
+                      :rows="row.notificationDeliveries"
+                      class="unified-list-template--contained"
+                      data-list-viewport="embedded"
+                      :columns="listFilterColumns1"
+                      :show-column-settings="false"
+                      :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
+                    >
+                      <template #table="{ rows: detailRows }">
+                        <el-table
+                          stripe
+                          border
+                          :data="detailRows"
+                          size="small"
+                          empty-text="无通知收件人"
+                        >
+                          <el-table-column label="收件人" min-width="150">
+                            <template #default="scope">
+                              {{ scope.row.userName || scope.row.userId }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="通知状态" width="110">
+                            <template #default="scope">
+                              {{ notificationStatusLabel(scope.row.status) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="收件原因" min-width="220">
+                            <template #default="scope">
+                              {{ scope.row.reasonSummaries.join('；') }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="错误" min-width="180" prop="lastErrorSummary" />
+                          <el-table-column label="操作" width="90">
+                            <template #default="scope">
+                              <el-button
+                                v-if="scope.row.status === 'PENDING' || scope.row.status === 'FAILED'"
+                                link
+                                type="primary"
+                                :loading="retryingDeliveryId === scope.row.id"
+                                :disabled="Boolean(retryingDeliveryId)"
+                                @click="retry(scope.row)"
+                              >
+                                重试
+                              </el-button>
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                      </template>
+                    </UnifiedListTemplate>
+                  </section>
+                  <section data-testid="dcc-management-publication-timeline">
+                    <h2>完整时间线</h2>
+                    <PublicationFollowupTimeline :timeline="row.timeline" />
+                  </section>
+                  <section>
+                    <UnifiedListTemplate
+                      table-key="dcc.publicationFollowup.impactTasks"
+                      :rows="row.impactTasks"
+                      class="unified-list-template--contained"
+                      data-list-viewport="embedded"
+                      :columns="listFilterColumns2"
+                      :show-column-settings="false"
+                      :column-filter-definitions="[...listColumnFilterDefinitions2, ...allColumnDisplayFilters2]"
+                    >
+                      <template #table="{ rows: detailRows }">
+                        <el-table stripe border :data="detailRows" size="small" empty-text="无需评估">
+                          <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
+                          <el-table-column label="方向" width="140">
+                            <template #default="scope">
+                              {{ scope.row.relationDirections.map(relationDirectionLabel).join(' / ') }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="负责人" min-width="130" prop="assigneeUserName" />
+                          <el-table-column label="任务状态" width="120">
+                            <template #default="scope">
+                              {{ impactTaskStatusLabel(scope.row.taskStatus) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="评估结论" min-width="140">
+                            <template #default="scope">
+                              {{
+                                scope.row.decision
+                                  ? impactDecisionLabel(scope.row.decision)
+                                  : '尚未提交'
+                              }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="升版跟踪" width="140">
+                            <template #default="scope">
+                              {{ revisionTrackingStatusLabel(scope.row.revisionTrackingStatus) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="操作" width="110">
+                            <template #default="scope">
+                              <el-button
+                                v-if="scope.row.taskStatus === 'COMPLETED'"
+                                link
+                                type="primary"
+                                :loading="reopeningTaskId === scope.row.id"
+                                :disabled="Boolean(reopeningTaskId)"
+                                @click="reopenImpact(scope.row)"
+                              >
+                                重新打开
+                              </el-button>
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                      </template>
+                    </UnifiedListTemplate>
+                  </section>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="文件编号" min-width="160" prop="fileNumber" />
+            <el-table-column label="文件名称" min-width="220" prop="fileName" />
+            <el-table-column label="发布版本" width="110" prop="versionNo" />
+            <el-table-column label="批次状态" width="140">
+              <template #default="{ row }">{{ batchStatusLabel(row.status) }}</template>
+            </el-table-column>
+            <el-table-column label="通知" width="100">
+              <template #default="{ row }">{{ row.notificationDeliveries.length }}</template>
+            </el-table-column>
+            <el-table-column label="任务" width="100">
+              <template #default="{ row }">{{ row.impactTasks.length }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openFile(row.publishedControlledFileId)">
+                  文件详情
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+</ContentWrap>
   </div>
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ElMessageBox } from 'element-plus'
 import {
   getPublicationFollowupManagementPage,
@@ -167,7 +273,7 @@ const rows = ref<DccPublicationFollowupVO[]>([])
 const total = ref(0)
 const pageNo = ref(1)
 const pageSize = ref(10)
-const filters = reactive({ fileNumber: '', versionNo: '', batchStatus: '', taskStatus: '', notificationStatus: '', assigneeUserId: '' })
+const filters = reactive({ get pageNo() { return pageNo.value }, set pageNo(value: number) { pageNo.value = value }, listFilters: '', fileNumber: '', versionNo: '', batchStatus: '', taskStatus: '', notificationStatus: '', assigneeUserId: '' })
 const batchStatuses = ['PROCESSING', 'READY', 'PARTIAL_FAILED', 'COMPLETED']
 const taskStatuses = ['PENDING', 'UNASSIGNED', 'IN_REVIEW', 'COMPLETED']
 const notificationStatuses = ['PENDING', 'SENT', 'FAILED']
@@ -182,27 +288,32 @@ const isPositiveLongId = (value: string) => {
   return value.length < 19 || value <= '9223372036854775807'
 }
 
+let pageSequence=0
 const loadPage = async () => {
+  const sequence=++pageSequence
   loading.value = true
   loadError.value = ''
   try {
     if (filters.assigneeUserId && !isPositiveLongId(filters.assigneeUserId)) {
-      loadError.value = '负责人 ID 必须是有效的正十进制整数'
-      return
+      throw new Error('负责人 ID 必须是有效的正十进制整数')
     }
     const result = await getPublicationFollowupManagementPage({
-      pageNo: pageNo.value, pageSize: pageSize.value,
+      pageNo: pageNo.value, pageSize: pageSize.value, listFilters: filters.listFilters,
       fileNumber: filters.fileNumber || undefined, versionNo: filters.versionNo || undefined,
       batchStatus: filters.batchStatus || undefined, taskStatus: filters.taskStatus || undefined,
       notificationStatus: filters.notificationStatus || undefined,
       assigneeUserId: filters.assigneeUserId || undefined
     })
-    rows.value = result.list || []
-    total.value = result.total || 0
+    if (sequence!==pageSequence) return false
+    if (!result || !Array.isArray(result.list) || !Number.isSafeInteger(result.total) || result.total<0) throw new Error('发布后续分页响应无效')
+    rows.value = result.list
+    total.value = result.total
   } catch (error) {
+    if (sequence!==pageSequence) return false
     loadError.value = errorText(error)
+    throw error
   } finally {
-    loading.value = false
+    if (sequence===pageSequence) loading.value = false
   }
 }
 
@@ -251,6 +362,227 @@ const reopenImpact = async (task: DccPublicationImpactTaskVO) => {
 }
 
 onMounted(loadPage)
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '批次状态',
+    type: 'text',
+    getValue: (row) => [batchStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    type: 'text',
+    getValue: (row) => [row.notificationDeliveries.length].join(' ')
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    type: 'text',
+    getValue: (row) => [row.impactTasks.length].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '通知状态',
+    type: 'text',
+    getValue: (row) => [notificationStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    type: 'text',
+    getValue: (row) => [row.reasonSummaries.join('；')].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'relationDirections',
+    label: '方向',
+    type: 'text',
+    getValue: (row) => [row.relationDirections.map(relationDirectionLabel).join(' / ')].join(' ')
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    type: 'text',
+    getValue: (row) => [impactTaskStatusLabel(row.taskStatus)].join(' ')
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    type: 'text',
+    getValue: (row) => [row.decision ? impactDecisionLabel(row.decision) : '尚未提交'].join(' ')
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    type: 'text',
+    getValue: (row) => [revisionTrackingStatusLabel(row.revisionTrackingStatus)].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    visible: true
+  },
+  {
+    key: 'fileName',
+    label: '文件名称',
+    visible: true
+  },
+  {
+    key: 'versionNo',
+    label: '发布版本',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '批次状态',
+    visible: true
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    visible: true
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'status',
+    label: '批次状态',
+    type: 'text',
+    getValue: (row) => [batchStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    type: 'text',
+    getValue: (row) => [row.notificationDeliveries.length].join(' ')
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    type: 'text',
+    getValue: (row) => [row.impactTasks.length].join(' ')
+  }
+]
+
+const listFilterColumns1 = [
+  {
+    key: 'userName',
+    label: '收件人',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '通知状态',
+    visible: true
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    visible: true
+  },
+  {
+    key: 'lastErrorSummary',
+    label: '错误',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'userName',
+    label: '收件人',
+    type: 'text',
+    getValue: (row) => [row.userName || row.userId].join(' ')
+  },
+  {
+    key: 'status',
+    label: '通知状态',
+    type: 'text',
+    getValue: (row) => [notificationStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    type: 'text',
+    getValue: (row) => [row.reasonSummaries.join('；')].join(' ')
+  }
+]
+
+const listFilterColumns2 = [
+  {
+    key: 'relatedFileName',
+    label: '相关文件',
+    visible: true
+  },
+  {
+    key: 'relationDirections',
+    label: '方向',
+    visible: true
+  },
+  {
+    key: 'assigneeUserName',
+    label: '负责人',
+    visible: true
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    visible: true
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    visible: true
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters2: ListColumnFilterDefinition[] = [
+  {
+    key: 'relationDirections',
+    label: '方向',
+    type: 'text',
+    getValue: (row) => [row.relationDirections.map(relationDirectionLabel).join(' / ')].join(' ')
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    type: 'text',
+    getValue: (row) => [impactTaskStatusLabel(row.taskStatus)].join(' ')
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    type: 'text',
+    getValue: (row) => [row.decision ? impactDecisionLabel(row.decision) : '尚未提交'].join(' ')
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    type: 'text',
+    getValue: (row) => [revisionTrackingStatusLabel(row.revisionTrackingStatus)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

@@ -97,18 +97,8 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
 
     @Override
     public PageResult<DccTrainingTaskRespVO> getMyTrainingTaskPage(Long userId, DccTrainingTaskPageReqVO reqVO) {
-        List<DccTrainingTaskRespVO> rows = trainingProgressMapper.selectListByUserId(userId).stream()
-                .map(this::buildTaskRowOrNull)
-                .filter(java.util.Objects::nonNull)
-                .filter(row -> matchesTaskFilter(row, reqVO))
-                .sorted(Comparator.comparing(
-                                DccTrainingTaskRespVO::getPublishedTime,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(
-                                DccTrainingTaskRespVO::getProgressId,
-                                Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
-        return slicePage(reqVO.getPageNo(), reqVO.getPageSize(), rows);
+        PageResult<DccControlledFileTrainingProgressDO> page = trainingProgressMapper.selectTaskPage(userId, reqVO);
+        return new PageResult<>(page.getList().stream().map(this::buildTaskRow).toList(),page.getTotal());
     }
 
     @Override

@@ -2429,12 +2429,12 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
   const matchesResultEntryAction = (resultType) => {
     const normalized = String(resultType || '').trim().toUpperCase()
     if (normalized === 'NUMBER' || normalized === 'NUMERIC') {
-      return visibleActionText.includes('逐件填写')
+      return visibleActionText.includes('快速填写')
     }
     if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') {
       return visibleActionText.includes('全部合格') && visibleActionText.includes('全部不良')
     }
-    return visibleActionText.includes('逐件选择') || visibleActionText.includes('逐件填写')
+    return visibleActionText.includes('逐件选择') || visibleActionText.includes('快速填写')
   }
   const visibleFormalItem = selectedPqcProcess.inspectionItems
     .map((item) => ({ process: selectedPqcProcess, item }))

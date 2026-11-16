@@ -191,18 +191,28 @@ class DccProjectAccessServiceImplTest {
         verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
     }
 
-    @Test
-    void replaceProjectAccessRules_rejectsBlankChangeReasonBeforeDeletingRules() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"  ", " 项目授权 "})
+    void replaceProjectAccessRules_acceptsOptionalChangeReason(String reason) {
         when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
         DccProjectAccessRuleSaveReqVO ownerRule = saveRule("USER", 99L, "OWNER");
-        ownerRule.setChangeReason("  ");
+        ownerRule.setChangeReason(reason);
+        DccProjectAccessRuleSaveReqVO viewerRule = saveRule("USER", 100L, "VIEW");
+        viewerRule.setChangeReason(reason);
 
-        ServiceException error = assertThrows(ServiceException.class,
-                () -> service.replaceProjectAccessRules(100L, List.of(ownerRule)));
+        try (var validatorFactory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            assertEquals(Set.of(), validatorFactory.getValidator().validate(viewerRule));
+        }
+        var saved = service.replaceProjectAccessRules(100L, List.of(ownerRule, viewerRule));
 
-        assertEquals(DCC_PROJECT_ACCESS_RULE_INVALID.getCode(), error.getCode());
-        verify(accessRuleMapper, never()).deleteByProjectCodeId(any(Long.class));
-        verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
+        String expected = reason == null ? null : reason.trim();
+        assertEquals(expected, saved.get(0).getChangeReason());
+        assertEquals(expected, saved.get(1).getChangeReason());
+        ArgumentCaptor<DccProjectAccessRuleDO> captor = ArgumentCaptor.forClass(DccProjectAccessRuleDO.class);
+        verify(accessRuleMapper).deleteByProjectCodeId(100L);
+        verify(accessRuleMapper, times(2)).insert(captor.capture());
+        assertEquals(expected, captor.getAllValues().get(1).getChangeReason());
     }
 
     @Test
@@ -275,7 +285,7 @@ class DccProjectAccessServiceImplTest {
             login.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             assertThrows(ServiceException.class, () -> service.getProjectAccessRules(200L));
             verify(accessRuleMapper, never()).selectListByProjectCodeId(200L);
-            when(permissionApi.hasAnyRoles(99L,"super_admin")).thenReturn(true);
+            when(permissionApi.hasAnyRoles(99L,"super_admin","tenant_admin")).thenReturn(true);
             when(accessRuleMapper.selectListByProjectCodeId(200L)).thenReturn(List.of(rule("USER",99L,"VIEW")));
             assertEquals(1,service.getProjectAccessRules(200L).size());
         }

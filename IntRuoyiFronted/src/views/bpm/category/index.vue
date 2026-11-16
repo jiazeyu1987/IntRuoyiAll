@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="bpm.category.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,9 +23,11 @@
       @column-change="saveCategoryColumnConfig"
       @column-reset="resetCategoryColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         <el-button
           type="primary"
           plain
@@ -35,10 +38,10 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -147,6 +150,10 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { computed } from 'vue'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -184,10 +191,12 @@ const {
   resetConfig: resetCategoryColumnConfig
 } = useUserTableColumns('bpm.category.main', categoryDefaultColumns)
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<CategoryVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   name: undefined as string | undefined,
@@ -211,14 +220,10 @@ const categoryQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
 
 /** 查询列表 */
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await CategoryApi.getCategoryPage(queryParams)
+  return await listRequest.run(() => CategoryApi.getCategoryPage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const categoryQuickFilter = useTableQuickFilter(
@@ -261,4 +266,13 @@ const handleDelete = async (id: number) => {
 onMounted(() => {
   getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '分类状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>

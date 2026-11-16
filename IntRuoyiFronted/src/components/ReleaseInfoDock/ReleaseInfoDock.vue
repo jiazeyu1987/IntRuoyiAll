@@ -1,34 +1,25 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
+import { readReleaseInfo, type ReleaseInfo } from './releaseInfo'
 
-interface ReleaseChangeSet {
-  gitChanges?: string[]
-}
-
-interface ReleaseInfo {
-  releaseTag?: string
-  changeSet?: ReleaseChangeSet
-}
-
+const isDevelopment = import.meta.env.DEV
 const releaseInfo = ref<ReleaseInfo | null>(null)
 const loadError = ref('')
 const dialogVisible = ref(false)
 
 const currentReleaseTag = computed(() => releaseInfo.value?.releaseTag?.trim() || '')
-const statusText = computed(() => currentReleaseTag.value || '版本信息未生成')
+const statusText = computed(() => isDevelopment ? '本地开发' : currentReleaseTag.value || (loadError.value ? '版本信息读取失败' : '正在读取版本'))
 const gitChangeItems = computed(() => {
   return (releaseInfo.value?.changeSet?.gitChanges || []).slice(0, 10)
 })
 
 const loadReleaseInfo = async () => {
-  const response = await fetch('/release-info.json', { cache: 'no-store' })
-  if (!response.ok) {
-    throw new Error(`release-info.json HTTP ${response.status}`)
-  }
-  releaseInfo.value = await response.json()
+  const response = await fetch(`${import.meta.env.BASE_URL}release-info.json`, { cache: 'no-store' })
+  releaseInfo.value = await readReleaseInfo(response)
 }
 
 onMounted(async () => {
+  if (isDevelopment) return
   try {
     await loadReleaseInfo()
   } catch (error) {
@@ -41,7 +32,7 @@ onMounted(async () => {
   <div class="release-info-dock" data-testid="release-info-dock">
     <button
       class="release-info-dock__version"
-      :class="{ 'is-error': !currentReleaseTag }"
+      :class="{ 'is-error': !isDevelopment && !currentReleaseTag }"
       type="button"
       @click="dialogVisible = true"
     >
@@ -50,7 +41,8 @@ onMounted(async () => {
   </div>
 
   <ElDialog v-model="dialogVisible" title="版本变更说明" width="560px" append-to-body>
-    <div v-if="releaseInfo" class="release-info-dialog">
+    <p v-if="isDevelopment">当前为本地开发环境，运行工作区源码，尚未构建发布包。</p>
+    <div v-else-if="releaseInfo" class="release-info-dialog">
       <section class="release-info-dialog__section">
         <h3>版本变化（最多 10 条）</h3>
         <ul v-if="gitChangeItems.length">
@@ -60,7 +52,7 @@ onMounted(async () => {
       </section>
     </div>
     <div v-else class="release-info-dialog__error">
-      版本信息未生成：{{ loadError || 'release-info.json 不可读' }}
+      版本信息读取失败：{{ loadError || 'release-info.json 不可读' }}
     </div>
   </ElDialog>
 </template>

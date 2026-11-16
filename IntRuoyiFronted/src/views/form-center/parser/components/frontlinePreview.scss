@@ -1,0 +1,443 @@
+.form-parser-frontline-shell {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid #cfd9d4;
+  border-radius: 8px;
+  background: #eef5f0;
+}
+
+.form-parser-frontline-header {
+  display: grid;
+  grid-template-columns: minmax(0, 480px);
+  gap: 10px;
+  justify-content: center;
+  padding: 10px;
+}
+
+.form-parser-process-switcher,
+.form-parser-production-panel,
+.form-parser-equipment-panel,
+.form-parser-frontline-footer {
+  border: 1px solid #cad6d0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.form-parser-process-switcher {
+  display: grid;
+  min-height: 72px;
+  grid-template-columns: 74px minmax(0, 1fr) 74px;
+  gap: 10px;
+  padding: 10px;
+}
+
+.form-parser-nav-button,
+.form-parser-process-card {
+  border: 1px solid #cad6d0;
+  border-radius: 8px;
+  background: #fff;
+  color: #071814;
+}
+
+.form-parser-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 34px;
+
+  &:disabled {
+    color: #a9b4af;
+    cursor: not-allowed;
+  }
+}
+
+.form-parser-process-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  span {
+    color: #50645e;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 20px;
+  }
+
+  strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: #071814;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 34px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.form-parser-frontline-body {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.92fr) minmax(360px, 1.08fr);
+  gap: 12px;
+  padding: 0 10px 10px;
+}
+
+.form-parser-production-panel,
+.form-parser-equipment-panel {
+  min-width: 0;
+  min-height: 500px;
+  padding: 16px;
+}
+
+.form-parser-quantity-row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 130px minmax(150px, 1fr) 34px;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: #071814;
+
+  span {
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  b {
+    font-size: 18px;
+  }
+
+  :deep(.el-input-number) {
+    width: 100%;
+  }
+}
+
+.form-parser-quantity-row--readonly {
+  strong {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    border: 1px solid #d7e0dc;
+    border-radius: 8px;
+    background: #edf3f0;
+    font-size: 28px;
+    line-height: 36px;
+  }
+}
+
+.form-parser-material-block {
+  margin-top: 20px;
+}
+
+.form-parser-block-title {
+  margin-bottom: 10px;
+  color: #10231f;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 24px;
+}
+
+.form-parser-material-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.form-parser-material-chip {
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d0dbd6;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f2922;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: left;
+  word-break: break-word;
+}
+
+.form-parser-material-chip--output {
+  border-color: #1c8b69;
+  background: #f1fbf7;
+}
+
+.form-parser-confirm-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.form-parser-confirm-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid #cfd9d4;
+  border-radius: 8px;
+  background: #fff;
+  color: #12352c;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+
+  .iconify {
+    color: #9aa7a2;
+    font-size: 20px;
+  }
+}
+
+.form-parser-confirm-card--active {
+  border-color: #168767;
+  color: #12352c;
+
+  .iconify {
+    color: #168767;
+  }
+}
+
+.form-parser-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-parser-device-tabs {
+  display: grid;
+  grid-template-columns: repeat(var(--frontline-device-tab-count, 1), minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.form-parser-device-tab-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 36px;
+  min-width: 0;
+  height: 110px;
+  overflow: hidden;
+  border: 3px solid #cad6d0;
+  border-radius: 20px;
+  background: #f8faf8;
+
+  &.active {
+    border-color: #15815f;
+  }
+}
+
+.form-parser-device-tab {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 38px;
+  border: 0;
+  background: #20352d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-parser-device-tab-selection {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.form-parser-device-tab-card.active .form-parser-device-tab-selection {
+  border-color: #9ce0c1;
+  background: #15815f;
+}
+
+.form-parser-device-tab-code {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-parser-device-metering-validity {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: 18px auto;
+  gap: 6px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 6px;
+  background: #fff;
+  color: #071814;
+  cursor: default;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: #15815f;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  em {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.form-parser-device-current {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 280px;
+  overflow: auto;
+  padding: 14px;
+  border: 3px solid #cad6d0;
+  border-radius: 24px;
+  background: #fbfdfb;
+}
+
+.form-parser-parameter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.form-parser-parameter-field {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(128px, 0.45fr) minmax(220px, 0.55fr);
+  gap: 12px;
+}
+
+.form-parser-parameter-field__label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+
+  span {
+    color: #071814;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 22px;
+  }
+
+  em {
+    color: #335f55;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 16px;
+  }
+}
+
+.form-parser-parameter-field__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  :deep(.el-input-number),
+  :deep(.el-select),
+  :deep(.el-input) {
+    width: 100%;
+  }
+
+  b {
+    flex: 0 0 auto;
+    color: #071814;
+    font-size: 16px;
+    font-weight: 900;
+  }
+}
+
+.form-parser-empty-text,
+.form-parser-frontline-empty {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.form-parser-empty-text--panel {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #cbd5d1;
+  border-radius: 8px;
+}
+
+.form-parser-frontline-empty {
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 10px 10px;
+  border: 1px dashed #cbd5d1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.form-parser-frontline-footer {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.32fr) minmax(220px, 0.68fr);
+  gap: 12px;
+  padding: 12px;
+  border-width: 1px 0 0;
+  border-radius: 0;
+}
+
+.form-parser-footer-button {
+  min-height: 54px;
+  border: 1px solid #cfd9d4;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2937;
+  cursor: default;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.form-parser-footer-button--primary {
+  border-color: #168767;
+  background: #168767;
+  color: #fff;
+}

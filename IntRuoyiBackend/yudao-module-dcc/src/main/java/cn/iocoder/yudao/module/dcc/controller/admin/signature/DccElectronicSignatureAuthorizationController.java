@@ -41,7 +41,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @GetMapping("/page")
     @Operation(summary = "获取DCC电子签名授权分页")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<PageResult<DccElectronicSignatureAuthorizationRespVO>> getAuthorizationPage(
             @Valid DccElectronicSignatureAuthorizationPageReqVO reqVO) {
         return success(managementService.getAuthorizationPage(reqVO));
@@ -49,7 +49,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @PutMapping("/{userId}")
     @Operation(summary = "更新DCC电子签名授权")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<DccSignatureAuthorizationRespVO> updateAuthorization(
             @PathVariable("userId") Long userId,
             @Valid @RequestBody DccElectronicSignatureAuthorizationUpdateReqVO reqVO) {
@@ -59,7 +59,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @GetMapping("/{userId}/audits/page")
     @Operation(summary = "获取DCC电子签名授权审计分页")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<PageResult<DccElectronicSignatureAuthorizationAuditRespVO>> getAuthorizationAuditPage(
             @PathVariable("userId") Long userId,
             @Valid DccElectronicSignatureAuthorizationAuditPageReqVO reqVO) {
@@ -70,6 +70,12 @@ public class DccElectronicSignatureAuthorizationController {
     @Operation(summary = "获取当前用户DCC电子签名图片")
     public CommonResult<DccElectronicSignatureImageRespVO> getMySignatureImage() {
         return success(managementService.getMySignatureImage(getLoginUserId()));
+    }
+
+    @PostMapping("/my-image/initialize-default")
+    @Operation(summary = "为尚未设置图片的当前用户生成楷体默认签名")
+    public CommonResult<DccElectronicSignatureImageRespVO> initializeMyDefaultSignatureImage() {
+        return success(managementService.initializeMyDefaultSignatureImage(getLoginUserId()));
     }
 
     @PostMapping("/my-image/upload")
@@ -100,7 +106,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @PostMapping("/{userId}/unlock")
     @Operation(summary = "解锁DCC电子签名授权")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<DccSignatureAuthorizationRespVO> unlockAuthorization(
             @PathVariable("userId") Long userId,
             @Valid @RequestBody DccElectronicSignatureAuthorizationUnlockReqVO reqVO) {

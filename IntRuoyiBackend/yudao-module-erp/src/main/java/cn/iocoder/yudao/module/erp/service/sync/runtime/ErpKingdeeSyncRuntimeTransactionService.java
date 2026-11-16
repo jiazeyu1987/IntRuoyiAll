@@ -44,6 +44,7 @@ public class ErpKingdeeSyncRuntimeTransactionService {
                 .build();
         runMapper.insert(run);
         return new ErpKingdeeSyncExecution(run.getId(), ErpKingdeeSyncContext.builder()
+                .runId(run.getId())
                 .syncType(command.getSyncType())
                 .triggerType(command.getTriggerType())
                 .initialSync(initialSync)
@@ -75,6 +76,16 @@ public class ErpKingdeeSyncRuntimeTransactionService {
     public void fail(ErpKingdeeSyncExecution execution, RuntimeException failure) {
         updateRun(execution.getRunId(), ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), null,
                 failure.getMessage(), execution.getContext().getWindowEnd());
+    }
+
+    /** Must share the page transaction so progress never precedes committed business data. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY,
+            rollbackFor = Exception.class)
+    public void recordProductionMaterialListProgress(Long runId, ErpKingdeeSyncRunResult page) {
+        if (runId == null || runMapper.addProductionMaterialListProgress(runId, page.getCreatedCount(),
+                page.getUpdatedCount(), page.getSkippedCount()) != 1) {
+            throw new IllegalStateException("生产用料清单任务已结束或不存在，当前批次未提交");
+        }
     }
 
     private LocalDateTime resolveInitialWindowStart(ErpKingdeeSyncCommand command) {

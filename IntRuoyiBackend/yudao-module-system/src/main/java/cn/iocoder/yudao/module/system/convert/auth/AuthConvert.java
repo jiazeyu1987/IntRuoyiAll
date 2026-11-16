@@ -91,7 +91,30 @@ public interface AuthConvert {
             parentNode.getChildren().add(childNode);
         });
         // 获得到所有的根节点
-        return filterList(treeNodeMap.values(), node -> ID_ROOT.equals(node.getParentId()));
+        List<AuthPermissionInfoRespVO.MenuVO> roots = new ArrayList<>(filterList(treeNodeMap.values(), node -> ID_ROOT.equals(node.getParentId())));
+        Set<Long> directoryIds = convertSet(sortedMenuList.stream()
+                .filter(menu -> MenuTypeEnum.DIR.getType().equals(menu.getType())).toList(), MenuDO::getId);
+        pruneEmptyDirectories(roots, directoryIds);
+        return roots;
+    }
+
+    default void pruneEmptyDirectories(List<AuthPermissionInfoRespVO.MenuVO> nodes, Set<Long> directoryIds) {
+        nodes.removeIf(node -> {
+            if (node.getChildren() != null) {
+                pruneEmptyDirectories(node.getChildren(), directoryIds);
+            }
+            if (!directoryIds.contains(node.getId())) {
+                return false;
+            }
+            if (CollUtil.isEmpty(node.getChildren())) {
+                return true;
+            }
+            // Keep the routing shell for hidden detail pages, but omit it from navigation.
+            if (node.getChildren().stream().noneMatch(child -> !Boolean.FALSE.equals(child.getVisible()))) {
+                node.setVisible(false);
+            }
+            return false;
+        });
     }
 
     @Mapping(source = "reqVO.type", target = "socialType")

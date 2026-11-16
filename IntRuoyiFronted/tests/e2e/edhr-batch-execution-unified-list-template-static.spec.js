@@ -60,14 +60,7 @@ expectNotIncludes('<TableQuickFilter', '页面模板不应再直接渲染快速�
 expectIncludes('<UserTableColumnSettings', '页面模板必须直接渲染字段设置组件')
 expectNotIncludes('<Pagination', '分页应由标准列表模板统一承载')
 
-expectIncludes(
-  '<EdhrBatchRecordTabs active-tab="execution" />',
-  '批次执行列表必须接入 eDHR 批记录共享页签。'
-)
-expectIncludes(
-  "import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'",
-  '批次执行列表必须导入 eDHR 批记录共享页签组件。'
-)
+expectNotIncludes('EdhrBatchRecordTabs', '批次执行通过独立菜单进入，不再显示页面内导航 Tab。')
 expectNotIncludes(
   '<template #extra-filters>',
   '批次执行列表右侧额外筛选项已按截图要求隐藏，不应再渲染 extra-filters 插槽。'

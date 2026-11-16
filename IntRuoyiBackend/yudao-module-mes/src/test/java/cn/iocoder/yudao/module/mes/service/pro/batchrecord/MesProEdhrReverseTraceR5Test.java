@@ -188,6 +188,90 @@ class MesProEdhrReverseTraceR5Test {
         return new CatalogRequest().setAnchorBatchExecutionId("200").setCategory(Category.FIELD).setTargetScope(scope);
     }
 
+    @Test
+    void conditionsSatisfiedByDifferentBatchesCannotBeCombinedIntoAnAndMatch() {
+        candidates = List.of(anchor, target);
+        anchorVersion = "fixture-v1-200";
+        for (var adapter : adapters) {
+            if (adapter.category() != Category.FIELD && adapter.category() != Category.MATERIAL) continue;
+            doAnswer(invocation -> {
+                var original = (MesProEdhrReverseTraceSourceAdapter.EvaluationResult) invocation.callRealMethod();
+                var batch = invocation.getArgument(0, MesProEdhrBatchExecutionDO.class);
+                boolean matches = adapter.category() == Category.FIELD
+                        ? batch.getId().equals(anchor.getId()) : batch.getId().equals(target.getId());
+                return new MesProEdhrReverseTraceSourceAdapter.EvaluationResult(original.sourceVersion(),
+                        original.sourceIdentity(), "COMPLETE", null, null,
+                        original.matches().stream().map(match -> new MesProEdhrReverseTraceSourceAdapter.ConditionMatch(
+                                match.conditionId(), matches, "fixture", "fixture-ref")).toList());
+            }).when(adapter).evaluate(any(), any());
+        }
+        var query = queryRequest(service.getCatalog(catalogRequest()).getCatalogVersion());
+        query.setConditions(List.of(query.getConditions().get(0), new Condition().setConditionId("C2")
+                .setEvidenceKey("fixture-material").setSourceView("RECORDED").setOperator("EQ").setValue("fixture")));
+        var result = service.query(query);
+        assertEquals("NO_MATCH", result.getQueryStatus());
+        assertEquals("COMPLETE", result.getCoverageStatus());
+        assertEquals(2, result.getCoverage().getEvaluatedBatchCount());
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getList().isEmpty());
+        assertEquals("BATCH_SCOPE_INVALID", service.evidence(evidenceRequest(query, result.getQueryHash())).getReasonCode());
+    }
+
+    @Test
+    void allCandidatePagesAreEvaluatedBeforeIndependentResultPagingAndTargetEvidence() {
+        candidates = java.util.stream.LongStream.rangeClosed(400, 500).mapToObj(id -> batch(900 - id)).toList();
+        candidates.forEach(this::stubChain);
+        when(batches.selectPage(any(EdhrBatchExecutionPageReqVO.class))).thenAnswer(invocation -> {
+            EdhrBatchExecutionPageReqVO request = invocation.getArgument(0);
+            if (request.getBatchExecutionIds() != null) return new PageResult<>(List.of(anchor), 1L);
+            assertEquals(100, request.getPageSize());
+            int from = Math.min((request.getPageNo() - 1) * request.getPageSize(), candidates.size());
+            int to = Math.min(from + request.getPageSize(), candidates.size());
+            return new PageResult<>(candidates.subList(from, to), (long) candidates.size());
+        });
+        var query = queryRequest(service.getCatalog(catalogRequest()).getCatalogVersion()).setPageSize(100);
+        var first = service.query(query);
+        var second = service.query(query.setPageNo(2));
+        assertEquals("MATCHED", second.getQueryStatus());
+        assertEquals(101L, second.getTotal());
+        assertEquals(101, second.getCoverage().getEvaluatedBatchCount());
+        assertEquals(100, first.getList().size());
+        assertEquals("500", first.getList().get(0).getBatchExecutionId());
+        assertEquals(List.of("400"), second.getList().stream().map(QueryItem::getBatchExecutionId).toList());
+        assertEquals(first.getQueryHash(), second.getQueryHash());
+        assertTrue(first.getList().stream().noneMatch(QueryItem::isAnchor));
+        var evidence = service.evidence(evidenceRequest(query, second.getQueryHash()).setTargetBatchExecutionId("400"));
+        assertEquals("MATCHED", evidence.getEvidenceStatus());
+        assertEquals("400", evidence.getTargetBatchExecutionId());
+        assertTrue(evidence.getItems().stream().allMatch(item -> "400".equals(item.getTargetBatchExecutionId())));
+    }
+
+    @Test
+    void invisibleAndForeignTenantCandidatesNeverReachSourceReadsOrEvidence() {
+        var foreign = batch(300L).setTenantId(2L);
+        var hidden = batch(150L);
+        candidates = List.of(foreign, hidden, target);
+        when(visibility.canViewBatch(hidden, null)).thenReturn(false);
+        var query = queryRequest(service.getCatalog(catalogRequest()).getCatalogVersion());
+        var result = service.query(query);
+        assertEquals("MATCHED", result.getQueryStatus());
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of("100"), result.getList().stream().map(QueryItem::getBatchExecutionId).toList());
+        for (String forbidden : List.of("150", "300")) {
+            var evidence = service.evidence(evidenceRequest(query, result.getQueryHash()).setTargetBatchExecutionId(forbidden));
+            assertEquals("BLOCKED", evidence.getEvidenceStatus());
+            assertEquals("BATCH_SCOPE_INVALID", evidence.getReasonCode());
+            assertTrue(evidence.getItems().isEmpty());
+        }
+        verify(visibility, never()).canViewBatch(foreign, null);
+        for (var adapter : adapters) {
+            verify(adapter, never()).readCatalog(foreign);
+            verify(adapter, never()).readCatalog(hidden);
+        }
+        verify(origins, never()).selectListByBatchExecutionId(hidden.getId());
+        verify(origins, never()).selectListByBatchExecutionId(foreign.getId());
+    }
+
     private QueryRequest queryRequest(String version) {
         return new QueryRequest().setAnchorBatchExecutionId("200").setCatalogVersion(version)
                 .setTargetScope(scope).setLogic("AND").setConditions(List.of(new Condition()
@@ -225,8 +309,8 @@ class MesProEdhrReverseTraceR5Test {
                 .setProcessInspectionStatus(MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS)
                 .setFormalSourceSnapshotJson(snapshot).setLossConditionFactsJson("[]");
         receipt.setTenantId(1L);
-        receipt.setSourceSnapshotHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(
-                cn.hutool.crypto.digest.DigestUtil.sha256Hex(snapshot) + "|[]"));
+        receipt.setSourceSnapshotHash(cn.iocoder.yudao.module.mes.service.pro.processpool.team
+                .MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(snapshot, "[]"));
         receipt.setReceiptHash(cn.iocoder.yudao.module.mes.service.pro.processpool.team
                 .MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         when(origins.selectListByBatchExecutionId(id)).thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()

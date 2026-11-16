@@ -40,18 +40,24 @@
           :show-overflow-tooltip="true"
           empty-text="暂无放行追溯记录"
         >
-          <el-table-column label="放行对象" min-width="250">
+          <el-table-column label="放行对象" min-width="250" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <div class="edhr-release-page__strong">{{ row.batchExecutionCode || '--' }}</div>
-              <div class="edhr-release-page__muted">工单：{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-release-page__muted">批次：{{ row.batchCode || '--' }}</div>
+              <div class="edhr-release-page__strong release-text-summary">{{ row.batchExecutionCode || '未记录批次执行号' }}</div>
+              <div class="edhr-release-page__muted release-text-summary">工单：{{ row.workOrderCode || '未记录' }}</div>
+              <details class="release-technical"><summary>完整放行对象</summary>
+                <p>批次执行号：{{ row.batchExecutionCode || '未记录' }}</p>
+                <p>工单号：{{ row.workOrderCode || '未记录' }}</p><p>批次号：{{ row.batchCode || '未记录' }}</p>
+              </details>
             </template>
           </el-table-column>
-          <el-table-column label="产品/路线" min-width="230">
+          <el-table-column label="产品与路线" min-width="230" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <div class="edhr-release-page__strong">{{ row.productName || '--' }}</div>
-              <div class="edhr-release-page__muted">产品：{{ row.productCode || '--' }}</div>
-              <div class="edhr-release-page__muted">路线：{{ row.routeName || row.routeCode || '--' }}</div>
+              <div class="edhr-release-page__strong release-text-summary">{{ row.productName || '未记录产品名称' }}</div>
+              <div class="edhr-release-page__muted release-text-summary">产品编码：{{ row.productCode || '未记录' }}</div>
+              <details class="release-technical"><summary>完整产品与路线</summary>
+                <p>产品名称：{{ row.productName || '未记录' }}</p><p>产品编码：{{ row.productCode || '未记录' }}</p>
+                <p>路线名称：{{ row.routeName || '未记录' }}</p><p>路线编码：{{ row.routeCode || '未记录' }}</p>
+              </details>
             </template>
           </el-table-column>
           <el-table-column label="放行状态" width="145">
@@ -96,6 +102,7 @@
           <el-table-column label="追溯" width="220" fixed="right">
             <template #default="{ row }">
               <div class="edhr-release-page__actions">
+                <MarketReleaseNegativeDecision :release-transaction-id="row.releaseTransactionId" :pending="row.releaseStatus === 'PENDING_APPROVAL'" @changed="getList" />
                 <el-button
                   v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
                   link
@@ -109,15 +116,7 @@
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-release:event-query']"
-                  link
-                  type="primary"
-                  :disabled="!row.releaseTransactionId"
-                  @click="openEventDrawer(row)"
-                >
-                  事务事件
-                </el-button>
+                
               </div>
             </template>
           </el-table-column>
@@ -136,15 +135,21 @@
       <div v-loading="signedDossierLoading">
         <el-alert v-if="signedDossierError" :title="signedDossierError" type="error" :closable="false" />
         <template v-if="signedDossier">
-          <p>资料修订：{{ signedDossier.revision }}　清单摘要：{{ signedDossier.manifestHash }}</p>
+          <p>资料修订：{{ signedDossier.revision }}</p>
+          <details class="release-technical"><summary>清单校验信息</summary><p>清单校验码：{{ signedDossier.manifestHash }}</p></details>
           <el-table :data="signedDossier.files" empty-text="本次签署的资料清单为空">
             <el-table-column label="文件名" prop="fileName" />
             <el-table-column label="资料类别">
-              <template #default="{ row }">{{ dossierCategoryLabels[row.categoryKey] || row.categoryKey }}</template>
+              <template #default="{ row }">{{ dossierCategoryLabels[row.categoryKey] || `未识别类别（${row.categoryKey}）` }}</template>
             </el-table-column>
-            <el-table-column label="文件编号" prop="fileId" />
-            <el-table-column label="大小（字节）" prop="fileSize" />
-            <el-table-column label="文件摘要" prop="sha256" min-width="300" />
+            <el-table-column label="文件大小">
+              <template #default="{ row }">{{ dossierFileSizeLabel(row.fileSize) }}</template>
+            </el-table-column>
+            <el-table-column label="技术详情" min-width="170">
+              <template #default="{ row }"><details class="release-technical"><summary>文件编号与校验码</summary>
+                <p>文件编号：{{ row.fileId }}</p><p>文件大小（字节）：{{ row.fileSize }}</p><p>文件校验码：{{ row.sha256 }}</p>
+              </details></template>
+            </el-table-column>
           </el-table>
         </template>
       </div>
@@ -198,57 +203,22 @@
       />
     </el-drawer>
 
-    <el-drawer v-model="eventDrawerVisible" title="电子批记录放行事务事件" size="82%" class="edhr-release-page__drawer">
-      <el-table
-        v-loading="eventLoading"
-        :data="eventList"
-        stripe
-        :show-overflow-tooltip="true"
-        empty-text="暂无事务事件"
-      >
-        <el-table-column label="事件" width="120">
-          <template #default="{ row }">
-            <el-tag>{{ resolveReleaseEventLabel(row.eventType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态变化" width="190">
-          <template #default="{ row }">
-            {{ resolveReleaseStatusLabel(row.fromStatus) }} → {{ resolveReleaseStatusLabel(row.toStatus) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="幂等键" min-width="230" prop="idempotencyKey" />
-        <el-table-column label="签核证据" min-width="230" prop="signoffEvidenceHash" />
-        <el-table-column label="原因/意见" min-width="260">
-          <template #default="{ row }">
-            <div>{{ row.reason || row.opinion || '--' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作人" width="110" prop="actorUserId" />
-        <el-table-column label="发生时间" width="170">
-          <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
-        </el-table-column>
-      </el-table>
-      <Pagination
-        :total="eventTotal"
-        v-model:page="eventQuery.pageNo"
-        v-model:limit="eventQuery.pageSize"
-        @pagination="loadEventList"
-      />
-    </el-drawer>
+    
 
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
+import MarketReleaseNegativeDecision from '../production-release/components/MarketReleaseNegativeDecision.vue'
 import {
   getEdhrRelease,
   getEdhrReleaseCheckItemPage,
-  getEdhrReleaseEventPage,
+  
   getEdhrReleasePage,
   type EdhrReleaseCheckItemPageReqVO,
   type EdhrReleaseCheckItemVO,
-  type EdhrReleaseEventPageReqVO,
-  type EdhrReleaseEventRespVO,
+  
+  
   type EdhrReleaseRowVO,
   type EdhrReleaseStatus
 } from '@/api/mes/pro/edhr/release'
@@ -258,11 +228,13 @@ import {
   resolveReleaseCheckResultLabel,
   resolveReleaseCheckResultTagType,
   resolveReleaseCheckSourceObjectTypeLabel,
-  resolveReleaseEventLabel,
+  
   resolveReleaseStatusLabel,
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { dossierFileSizeLabel } from './releaseDisplay'
+import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 
 defineOptions({ name: 'MesProEdhrReleasePage' })
 
@@ -273,7 +245,7 @@ const dossierCategoryLabels: Record<string, string> = {
 interface SignedDossier {
   revision: string
   manifestHash: string
-  files: Array<{ fileName: string; categoryKey: string; fileId: string; fileSize: string; sha256: string }>
+  files: Array<{ fileName: string; categoryKey: string; fileId: string | number; fileSize: string | number; sha256: string }>
 }
 const signedDossier = ref<SignedDossier>()
 const signedDossierVisible = ref(false)
@@ -287,10 +259,11 @@ const openSignedDossier = async (row: EdhrReleaseRowVO) => {
   signedDossierVisible.value = true
   signedDossierLoading.value = true
   try {
+    if (!row.releaseTransactionId) throw new Error('放行记录缺少正式放行事务编号')
     const detail = await getEdhrRelease(row.releaseTransactionId)
     if (request !== signedDossierRequest) return
     if (!detail.signedDossierManifestJson) throw new Error('该历史放行记录未签署独立资料清单')
-    signedDossier.value = JSON.parse(detail.signedDossierManifestJson)
+    signedDossier.value = parseExactIntegerJson(detail.signedDossierManifestJson)
   } catch (error) {
     if (request === signedDossierRequest) signedDossierError.value = error instanceof Error ? error.message : '读取已签资料失败'
   } finally {
@@ -303,18 +276,18 @@ const router = useRouter()
 
 const loading = ref(false)
 const checkItemLoading = ref(false)
-const eventLoading = ref(false)
+
 const loadError = ref('')
 const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
 const total = ref(0)
 const drawerVisible = ref(false)
-const eventDrawerVisible = ref(false)
+
 const currentRow = ref<EdhrReleaseRowVO>()
 const checkItems = ref<EdhrReleaseCheckItemVO[]>([])
-const eventList = ref<EdhrReleaseEventRespVO[]>([])
+
 const checkItemTotal = ref(0)
-const eventTotal = ref(0)
+
 
 const queryParams = reactive({
   pageNo: 1,
@@ -334,12 +307,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   checkResult: ''
 })
 
-const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  releaseTransactionId: '',
-  eventType: ''
-})
+
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -442,39 +410,9 @@ const getCheckItems = async () => {
   }
 }
 
-const openEventDrawer = async (row: EdhrReleaseRowVO) => {
-  if (!row.releaseTransactionId) {
-    actionError.value = '该放行记录尚未生成放行事务，暂无事务事件。'
-    return
-  }
-  currentRow.value = row
-  eventDrawerVisible.value = true
-  eventQuery.pageNo = 1
-  eventQuery.releaseTransactionId = row.releaseTransactionId
-  await loadEventList()
-}
 
-const loadEventList = async () => {
-  if (!eventQuery.releaseTransactionId) {
-    eventList.value = []
-    eventTotal.value = 0
-    return
-  }
-  eventLoading.value = true
-  actionError.value = ''
-  try {
-    const data = await getEdhrReleaseEventPage(eventQuery)
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    eventList.value = []
-    eventTotal.value = 0
-    actionError.value = resolveErrorMessage(error, '电子批记录放行事务事件加载失败。')
-    message.error(resolveErrorMessage(error, actionError.value))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
+
 
 const formatDateTime = (value?: string | number) => {
   return formatEdhrDateTime(value)
@@ -486,6 +424,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.release-text-summary { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; white-space: normal; }
+.release-technical { overflow-wrap: anywhere; white-space: normal; }
+.release-technical summary { cursor: pointer; color: var(--el-text-color-secondary); }
+.release-technical p { margin: 6px 0; }
 .edhr-release-page {
   display: flex;
   flex-direction: column;

@@ -148,9 +148,16 @@ class MesCompletionAggregationAuditTransactionTest {
         var actor = new LoginUser();
         actor.setId(20L);
         actor.setTenantId(1L);
+        actor.setUserType(cn.iocoder.yudao.framework.common.enums.UserTypeEnum.ADMIN.getValue());
         actor.setInfo(Map.of("username", "completion-audit-test", LoginUser.INFO_KEY_NICKNAME, "completion-audit-test"));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null, List.of()));
         var writer = new GxpAuditServiceImpl();
+        var directory = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var currentActor = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO()
+                .setId(20L).setStatus(0).setUsername("completion-audit-test").setNickname("completion-audit-test");
+        currentActor.setTenantId(1L);
+        when(directory.selectGxpAuditActor(1L, 20L)).thenReturn(currentActor);
+        inject(writer, "adminUserMapper", directory);
         inject(writer, "auditEventMapper", sessions.getMapper(GxpAuditEventMapper.class));
         inject(writer, "eventRelationMapper", sessions.getMapper(GxpAuditEventRelationMapper.class));
         inject(writer, "ledgerSequenceMapper", sessions.getMapper(GxpAuditLedgerSequenceMapper.class));
@@ -168,6 +175,7 @@ class MesCompletionAggregationAuditTransactionTest {
         var actualBackfill = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(null, null,
                 sessions.getMapper(MesProcessPoolOrderProcessCompletionMapper.class), null, null, null, null,
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionBackfillMapper.class), null, null, null, null, null, null);
+        { org.springframework.test.util.ReflectionTestUtils.setField(actualBackfill, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var sourceBoundary = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
         when(sourceBoundary.prepare(anyLong(), any(), any())).thenAnswer(invocation -> draft());
         when(sourceBoundary.matchesReceiptSources(anyLong(), any(), any(), any())).thenReturn(true);
@@ -183,14 +191,16 @@ class MesCompletionAggregationAuditTransactionTest {
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class), progress, sourceBoundary,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(completion, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(completion, "gxpAuditService", audit);
+        inject(completion, "fixedTestCompletionSourceInitializer", mock(MesFixedTestOrderCompletionSourceInitializer.class));
         var sharedReader=new GxpCreationAuditVerificationService();
         inject(sharedReader,"auditEventMapper",sessions.getMapper(GxpAuditEventMapper.class));
         inject(sharedReader,"eventRelationMapper",sessions.getMapper(GxpAuditEventRelationMapper.class));
         var creationReader=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService(
-                null,null,completionReceiptMapper,
-                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity("",""),
+                null,completionReceiptMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity(),
                 null,sharedReader,new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationProtocolRegistry());
         inject(completion,"creationVerifier",creationReader);
         completionCollector = new MesReleaseAffectedStateCollector(source);

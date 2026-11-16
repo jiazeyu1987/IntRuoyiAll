@@ -9,22 +9,25 @@ const relative = 'IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionAct
 const source = process.argv.includes('--head-fixture')
   ? execFileSync('git', ['show', `HEAD:${relative}`], { cwd: root, encoding: 'utf8' })
   : fs.readFileSync(path.join(root, '../', relative), 'utf8')
-const block = (name) => {
-  const value = source.match(new RegExp(String.raw`const ${name} = async \(\) => \{([\s\S]*?)\n\}`, 'm'))?.[1]
+const panel = fs.readFileSync(path.join(root, 'src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'), 'utf8')
+const block = (name, text = source) => {
+  const value = text.match(new RegExp(String.raw`const ${name} = async \(\) => \{([\s\S]*?)\n\}`, 'm'))?.[1]
   assert.ok(value, `${name} 必须存在`)
   return value
 }
 
 test('偏差页签使用正式批次身份，保留零批次空态和多批次展示', () => {
-  assert.match(source, /<el-tab-pane label="偏差" name="deviation">/)
-  assert.match(source, /v-for="batch in deviationBatches"/)
-  assert.match(source, /:batch-execution-id="batch.batchExecutionId"/)
-  assert.match(source, /暂无正式批记录，无法查看偏差/)
+  assert.doesNotMatch(source, /label="偏差"|loadDeviationBatches|deviationSequence/)
+  assert.match(panel, /label="偏差" name="deviation"/)
+  assert.match(panel, /v-for="batch in deviationBatches"/)
+  assert.match(panel, /:batch-execution-id="batch.batchExecutionId"/)
+  assert.match(panel, /暂无正式批记录，无法查看偏差/)
 })
 
 test('主详情按活跃订单直接加载，偏差失败或悬挂不阻断详情', () => {
   const detail = block('loadDetail')
-  assert.match(detail, /getEdhrBatchActiveOrderDetail\(resolveDetailQuery\(\)\)/)
+  assert.match(detail, /const query = resolveDetailQuery\(\)/)
+  assert.match(detail, /getEdhrBatchActiveOrderDetail\(query\)/)
   assert.doesNotMatch(detail, /getDeviationBatchOptionsByActiveOrder|loadDeviationBatches|deviationBatches/)
   assert.match(source, /if \(activeOrderId\) \{\s*return \{ activeOrderId \}/)
   assert.match(source, /audit-scope-id="auditDetailQuery"/)
@@ -32,22 +35,21 @@ test('主详情按活跃订单直接加载，偏差失败或悬挂不阻断详�
 })
 
 test('偏差关联独立加载且显式显示失败，不要求唯一正式批次', () => {
-  const deviations = block('loadDeviationBatches')
-  assert.match(deviations, /getDeviationBatchOptionsByActiveOrder\(Number\(query.activeOrderId\)\)/)
-  assert.match(deviations, /batchExecutionId: Number\(query.batchExecutionId\)/)
+  const deviations = block('loadDeviationBatches', panel)
+  assert.match(deviations, /getDeviationBatchOptionsByActiveOrder\(activeOrderId!\)/)
   assert.match(deviations, /deviationLoading.value = true/)
-  assert.match(deviations, /deviationError.value = resolveErrorMessage\(errorValue\)/)
-  assert.match(source, /v-else-if="deviationError"/)
-  assert.match(source, /@click="loadDeviationBatches"/)
+  assert.match(deviations, /deviationError.value = cause/)
+  assert.match(panel, /v-else-if="deviationError"/)
+  assert.match(panel, /@click="loadDeviationBatches"/)
   assert.doesNotMatch(deviations, /length === 1|length !== 1/)
 })
 
 test('切换身份清除旧偏差关联并拒绝过期响应，详情失败不清除偏差', () => {
-  const deviations = block('loadDeviationBatches')
+  const deviations = block('loadDeviationBatches', panel)
   assert.match(deviations, /if \(sequence !== deviationSequence\) return\s*deviationBatches.value = batches/)
   assert.ok(deviations.indexOf('deviationBatches.value = []') < deviations.indexOf('await getDeviationBatchOptionsByActiveOrder'))
-  assert.match(source, /\[activeTab.value, route.query.batchExecutionId, route.query.activeOrderId\]/)
-  assert.match(source, /deviationSequence\+\+\s*deviationBatches.value = \[\]/)
-  assert.match(source, /if \(activeTab.value === 'deviation'\) void loadDeviationBatches\(\)/)
+  assert.match(panel, /\[props.detail\?\.activeOrderId, activeTab.value\]/)
+  assert.match(panel, /deviationSequence\+\+\s*deviationBatches.value = \[\]/)
+  assert.match(panel, /if \(activeTab.value === 'deviation'\) void loadDeviationBatches\(\)/)
   assert.doesNotMatch(block('loadDetail'), /deviationBatches.value = \[\]/)
 })

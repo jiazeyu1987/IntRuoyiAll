@@ -24,8 +24,6 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTracea
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceLinkType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionServiceImpl;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import org.springframework.stereotype.Service;
@@ -53,7 +51,6 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     private final ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort;
     private final MesProEdhrBatchTraceabilityService traceabilityService;
-    private final MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
 
     public MesReleaseAuthoritativeContextPortImpl(
             MesProEdhrReleaseTransactionMapper releaseTransactionMapper,
@@ -65,8 +62,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
             MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort,
             ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort,
-            MesProEdhrBatchTraceabilityService traceabilityService,
-            MesIndependentBatchPrerequisiteReceiptService independentReceiptService) {
+            MesProEdhrBatchTraceabilityService traceabilityService) {
         this.releaseTransactionMapper = releaseTransactionMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.applicationMapper = applicationMapper;
@@ -77,7 +73,6 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         this.completionReceiptPort = completionReceiptPort;
         this.materialGateReceiptPort = materialGateReceiptPort;
         this.traceabilityService = traceabilityService;
-        this.independentReceiptService = independentReceiptService;
     }
 
     @Override
@@ -161,6 +156,9 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             throw blocker(application, "formal Flow 7 origin must be unique for the release entry");
         }
         MesProEdhrBatchExecutionOriginDO origin = origins.get(0);
+        if (!"ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)) {
+            throw blocker(application, "独立凭证功能已删除，请使用活跃订单完工来源");
+        }
         MesProEdhrBatchTraceSourcePrecheckRespVO source = traceabilityService.resolveSourcePrecheck(
                 new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
         requireTracePrecheck(source, origin, batchExecutionId, application);
@@ -200,20 +198,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             evidence.setCompletionBackfillReceipt(completion);
             hydrate(command, application, transaction, origin, activeOrder, flow6Receipt, completion, gateReceipt);
         } else {
-            if (command.getIndependentPrerequisiteReceiptId() == null
-                    || isBlank(origin.getSourceSnapshotHash())
-                    || isBlank(origin.getSourceCredentialHash())) {
-                throw blocker(application, "IndependentBatchPrerequisiteReceipt witness is incomplete");
-            }
-            MesIndependentBatchPrerequisiteReceipt independent = independentReceiptService
-                    .getVerifiedByReceiptId(tenantId, command.getIndependentPrerequisiteReceiptId(),
-                            entryType, origin.getSourceSnapshotHash());
-            if (independent == null || !Objects.equals(independent.getReceiptHash(), origin.getSourceCredentialHash())) {
-                throw blocker(application, "IndependentBatchPrerequisiteReceipt does not match Flow 7 source snapshot");
-            }
-            IndependentBatchPrerequisiteReceipt releaseReceipt = toReleaseReceipt(independent, batchExecutionId);
-            evidence.setIndependentPrerequisiteReceipt(releaseReceipt);
-            hydrateIndependent(command, application, transaction, origin, releaseReceipt, gateReceipt);
+            throw blocker(application, "独立凭证功能已删除，请使用活跃订单完工来源");
         }
         return evidence;
     }
@@ -301,79 +286,6 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         }
         setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
                 value -> command.setExpectedVersion(value), "expectedVersion");
-    }
-
-    private void hydrateIndependent(MesReleaseFinalizationCommand command,
-                                    MesProcessPoolActiveOrderReleaseApplicationDO application,
-                                    MesProEdhrReleaseTransactionDO transaction,
-                                    MesProEdhrBatchExecutionOriginDO origin,
-                                    IndependentBatchPrerequisiteReceipt receipt,
-                                    MesReleaseMaterialGateReceipt gate) {
-        setOrRequire(command.getReleaseApplicationId(), application == null ? null : application.getId(), application,
-                value -> command.setReleaseApplicationId(value), "releaseApplicationId");
-        setOrRequire(command.getBatchExecutionId(), transaction.getBatchExecutionId(), application,
-                value -> command.setBatchExecutionId(value), "batchExecutionId");
-        setOrRequire(command.getWorkOrderId(), origin.getWorkOrderId(), application,
-                value -> command.setWorkOrderId(value), "workOrderId");
-        setOrRequire(command.getOrigin(), MesReleaseOrigin.valueOf(origin.getEntryType()), application,
-                value -> command.setOrigin(value), "origin");
-        setOrRequire(command.getEntryType(), origin.getEntryType(), application,
-                value -> command.setEntryType(value), "entryType");
-        setOrRequire(command.getSourceRelation(), receipt.getSourceRelation(), application,
-                value -> command.setSourceRelation(value), "sourceRelation");
-        setOrRequire(command.getSourceSnapshotHash(), receipt.getSourceSnapshotHash(), application,
-                value -> command.setSourceSnapshotHash(value), "sourceSnapshotHash");
-        setOrRequire(command.getIndependentPrerequisiteReceiptId(), receipt.getReceiptId(), application,
-                value -> command.setIndependentPrerequisiteReceiptId(value), "independentPrerequisiteReceiptId");
-        if (gate != null) {
-            setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
-                    value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
-            setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
-                    value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
-            setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
-                    value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
-        }
-        setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
-                value -> command.setExpectedVersion(value), "expectedVersion");
-    }
-
-    private IndependentBatchPrerequisiteReceipt toReleaseReceipt(
-            MesIndependentBatchPrerequisiteReceipt receipt, Long batchExecutionId) {
-        List<String> sourceIds = receipt.getSourceEvidence() == null ? List.of()
-                : receipt.getSourceEvidence().stream().map(item -> item == null ? null : item.getSourceId())
-                .filter(Objects::nonNull).toList();
-        return new IndependentBatchPrerequisiteReceipt()
-                .setReceiptId(receipt.getReceiptId())
-                .setTenantId(receipt.getTenantId())
-                .setEntryType(receipt.getEntryType())
-                .setBatchExecutionId(batchExecutionId)
-                .setWorkOrderId(receipt.getWorkOrderId())
-                .setWorkOrderCode(receipt.getWorkOrderCode())
-                .setRouteId(receipt.getRouteId())
-                .setRouteVersion(receipt.getRouteVersion())
-                .setBatchCode(receipt.getBatchCode())
-                .setSourceRelationId(receipt.getSourceRelationId())
-                .setSourceRelation(receipt.getSourceRelationId())
-                .setSourceIds(sourceIds)
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
-                .setBusinessReason(receipt.getBusinessReason())
-                .setIssuerSystem(receipt.getIssuerSystem())
-                .setIssuerUserId(receipt.getIssuerUserId())
-                .setIssuerUserRole(receipt.getIssuerUserRole())
-                .setIssuedBy(receipt.getIssuerUserId())
-                .setIssuedAt(receipt.getIssuedAt())
-                .setExpiresAt(receipt.getExpiresAt())
-                .setRevokedAt(receipt.getRevokedAt())
-                .setRevocationReason(receipt.getRevocationReason())
-                .setCredentialVersion(receipt.getCredentialVersion() == null ? null
-                        : receipt.getCredentialVersion().intValue())
-                .setPayloadHash(receipt.getPayloadHash())
-                .setSignature(receipt.getSignature())
-                .setReceiptHash(receipt.getReceiptHash())
-                .setAuditEventId(receipt.getAuditEventId())
-                .setIdempotencyKey(receipt.getIdempotencyKey())
-                .setVersion(receipt.getCredentialVersion() == null ? null
-                        : receipt.getCredentialVersion().intValue());
     }
 
     private CompletionBackfillReceipt toCompletionReceipt(

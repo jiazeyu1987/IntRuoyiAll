@@ -37,7 +37,7 @@ public class NotifyMessageServiceImpl implements NotifyMessageService {
     public Long createNotifyMessage(Long userId, Integer userType, NotifyTemplateDO template,
                                     String templateContent, Map<String, Object> templateParams, String businessKey) {
         NotifyMessageDO message = new NotifyMessageDO().setUserId(userId).setUserType(userType)
-                .setTenantId(businessKey == null ? null : TenantContextHolder.getRequiredTenantId())
+                .setTenantId(TenantContextHolder.getRequiredTenantId())
                 .setBusinessKey(businessKey)
                 .setTemplateId(template.getId()).setTemplateCode(template.getCode())
                 .setTemplateType(template.getType()).setTemplateNickname(template.getNickname())

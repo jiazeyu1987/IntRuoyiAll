@@ -91,9 +91,10 @@ class MesPqcApprovedDossierContractTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(guard, "batchMapper", batches);
         var pqc = new MesPqcProductionReleaseServiceImpl(apps, orders, workOrders, tasks,
                 mock(MesPqcReleaseDossierPort.class), mock(MesProductionReleaseBatchExecutionPort.class),
-                mock(MesProductionReleaseReportStageInitializer.class), manager, mock(MesReleaseFlowAuditRecorder.class),
+                manager, mock(MesReleaseFlowAuditRecorder.class),
                 signatures, mock(MesProEdhrNonconformanceReviewService.class), ncr, Clock.systemUTC());
         ReflectionTestUtils.setField(pqc, "gxpAuditService", audit);
+        ReflectionTestUtils.setField(pqc, "outcomeNotifications", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService.class));
         ReflectionTestUtils.setField(pqc, "lifecycleGuard", guard);
         var affectedStates = mock(MesReleaseAffectedStateCollector.class);
         when(affectedStates.capture(any(), any(), any(), any(), anyBoolean())).thenReturn(Map.of("batchExecutionId", batchId));
@@ -104,7 +105,8 @@ class MesPqcApprovedDossierContractTest extends BaseDbUnitTest {
                         permission.equals("mes:pro-production-release:pqc-approve") || alsoBatchUpload &&
                         permission.equals("mes:pro-edhr-batch-execution:upload")));
         var scope = new MesActiveOrderDossierReadScopeService(apps, orders, batches,
-                mock(MesProEdhrBatchExecutionVisibilityService.class), origins, pqc, tasks, permissions);
+                mock(MesProEdhrBatchExecutionVisibilityService.class), origins, pqc, tasks, permissions,
+                mock(MesMarketReleaseAccess.class));
         var users = mock(AdminUserApi.class);
         when(users.getUser(actor)).thenReturn(new AdminUserRespDTO().setId(actor).setNickname("PQC"));
         var storage = mock(FileService.class);

@@ -33,7 +33,7 @@ class MesProBatchRecordDocParserTest {
 
     private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\\u6279\u8bb0\u5f55\u6a21\u677f.doc");
+            "../../resource/\u6279\u8bb0\u5f55\u6a21\u677f.doc");
     private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path PROCESS_INSPECTION_DOCX_SAMPLE = Path.of(
             "C:\\Users\\BJB110\\Desktop\\\u6587\u6863\\\u8fc7\u7a0b\u68c0\u9a8c\u8bb0\u5f55.docx");

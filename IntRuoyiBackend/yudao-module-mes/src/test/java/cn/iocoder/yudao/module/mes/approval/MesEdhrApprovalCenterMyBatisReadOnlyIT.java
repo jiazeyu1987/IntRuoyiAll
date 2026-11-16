@@ -100,7 +100,7 @@ class MesEdhrApprovalCenterMyBatisReadOnlyIT {
                         assertTrue(workPage.getList().size()<=400);
                         probe.stage = (done?"DONE":"TODO")+"/"+(global?"global":"person")+"/handoff";
                         diagnostic.at(GateStage.HANDOFF_MAPPER,"MesActiveOrderHandoffTaskMapper.selectApprovalCenterPrefix");
-                        var handoffPage = handoff.selectApprovalCenterPrefix(tenant,actor,global,done,null,400L);
+                        var handoffPage = handoff.selectApprovalCenterPrefix(tenant,actor,global,done,null,400L,null);
                         assertNotNull(handoffPage.getTotal()); assertTrue(handoffPage.getTotal()>=handoffPage.getList().size());
                         assertTrue(handoffPage.getList().size()<=400);
                         // Both count/list pairs and H's corruption count must actually execute, including empty sets.

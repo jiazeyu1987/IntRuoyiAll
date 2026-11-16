@@ -3873,7 +3873,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
             YudaoAiProperties.CodexCli codexCli = new YudaoAiProperties.CodexCli();
             codexCli.setCommand(command.toString());
             codexCli.setTimeoutMs(5000L);
-            codexCli.setWorkingDirectory("D:\\ProjectPackage\\Int\\IntRuoyi\\ruoyi-vue-pro");
+            codexCli.setWorkingDirectory("yudao-module-showroom");
             when(yudaoAiProperties.getCodexCli()).thenReturn(codexCli);
         } catch (IOException exception) {
             throw new RuntimeException(exception);

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.wm.itemreceipt;
 
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.hutool.core.util.ObjUtil;
 import cn.iocoder.yudao.module.mes.controller.admin.wm.itemreceipt.vo.detail.MesWmItemReceiptDetailSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.itemreceipt.MesWmItemReceiptDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.itemreceipt.MesWmItemReceiptLineDO;
@@ -75,6 +76,12 @@ public class MesWmItemReceiptDetailServiceImpl implements MesWmItemReceiptDetail
     private void validateItemReceiptDetailSaveData(MesWmItemReceiptDetailSaveReqVO reqVO) {
         // 校验父单据存在且为可编辑状态
         itemReceiptService.validateItemReceiptEditable(reqVO.getReceiptId());
+        MesWmItemReceiptLineDO line = itemReceiptLineService.getItemReceiptLine(reqVO.getLineId());
+        if (line == null || ObjUtil.notEqual(line.getReceiptId(), reqVO.getReceiptId())
+                || ObjUtil.notEqual(line.getItemId(), reqVO.getItemId())) {
+            throw exception(WM_ITEM_RECEIPT_LINE_NOT_EXISTS);
+        }
+        reqVO.setBatchId(line.getBatchId());
         // 校验库区关系
         warehouseAreaService.validateWarehouseAreaExists(reqVO.getWarehouseId(), reqVO.getLocationId(), reqVO.getAreaId());
         // 校验库位物料/批次混放规则

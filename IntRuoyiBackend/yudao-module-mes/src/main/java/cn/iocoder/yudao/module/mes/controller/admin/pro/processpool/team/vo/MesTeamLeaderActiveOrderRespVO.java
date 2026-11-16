@@ -68,6 +68,9 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "跨角色业务状态", example = "ACTIVE")
     private String businessStatus;
 
+    @Schema(description = "当前活跃订单待处置不合格评审及已指派的QA责任人")
+    private List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow.PendingNonconformanceReview> pendingNonconformanceReviews = List.of();
+
     @Schema(description = "加入活跃池时间")
     private LocalDateTime joinedAt;
 
@@ -96,6 +99,8 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "生产放行申请状态", example = "PQC_RELEASE_PENDING")
     private String releaseApplicationStatus;
+    @Schema(description = "当前生产组长作为原申请人可接收该正式驳回的补正任务")
+    private Boolean releaseCorrectionReceivable;
 
     @Schema(description = "生产放行正式来源快照哈希")
     private String releaseSourceSnapshotHash;
@@ -144,6 +149,7 @@ public class MesTeamLeaderActiveOrderRespVO {
 
         @Schema(description = "当前工序计划生产数量", example = "100")
         private BigDecimal plannedQuantity;
+        private BigDecimal upperQuantity;
 
         @Schema(description = "当前工序已分配生产数量", example = "70")
         private BigDecimal allocatedQuantity;

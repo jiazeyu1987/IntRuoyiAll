@@ -30,6 +30,9 @@ public interface DccElectronicSignatureManagementService {
 
     DccElectronicSignatureImageRespVO getMySignatureImage(Long userId);
 
+    /** Initialize only users with no image history; preserve uploaded and disabled versions. */
+    DccElectronicSignatureImageRespVO initializeMyDefaultSignatureImage(Long userId);
+
     DccElectronicSignatureImageRespVO uploadMySignatureImage(Long userId, MultipartFile file, Long operatorId, String reason);
 
     DccElectronicSignatureImageRespVO enableMySignatureImage(Long userId, Long imageId, Long operatorId, String reason);

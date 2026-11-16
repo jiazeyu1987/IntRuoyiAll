@@ -20,20 +20,13 @@
         />
       </el-form-item>
       <el-form-item label="产品" prop="productId">
-        <el-select
+        <RemoteProductSelect
           v-model="queryParams.productId"
           clearable
           filterable
           placeholder="请选择产品"
           class="!w-240px"
-        >
-          <el-option
-            v-for="item in productList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
+         />
       </el-form-item>
       <el-form-item label="入库时间" prop="inTime">
         <el-date-picker
@@ -251,7 +244,7 @@ import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { StockInApi, StockInVO } from '@/api/erp/stock/in'
 import StockInForm from './StockInForm.vue'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
 import { SupplierApi, SupplierVO } from '@/api/erp/purchase/supplier'
 import { UserVO } from '@/api/system/user'
@@ -281,7 +274,6 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
 const supplierList = ref<SupplierVO[]>([]) // 供应商列表
 const userList = ref<UserVO[]>([]) // 用户列表
@@ -372,7 +364,6 @@ const handleSelectionChange = (rows: StockInVO[]) => {
 onMounted(async () => {
   await getList()
   // 加载产品、仓库列表、供应商
-  productList.value = await ProductApi.getProductSimpleList()
   warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
   supplierList.value = await SupplierApi.getSupplierSimpleList()
   userList.value = await UserApi.getSimpleUserList()

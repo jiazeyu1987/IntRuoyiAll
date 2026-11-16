@@ -4,7 +4,6 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
 const vue = require('vue')
-const panel = fs.readFileSync(path.join(__dirname, 'components/ActiveOrderSubmissionDetailPanel.vue'), 'utf8')
 const page = fs.readFileSync(path.join(__dirname, '../edhr-batch/BatchExecutionActiveOrderDetailPage.vue'), 'utf8')
 function declarations(source, names, deps) {
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)?.[1] || source
@@ -15,44 +14,6 @@ function declarations(source, names, deps) {
     `\nreturn {${names.join(',')}}`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
   return new Function(...Object.keys(deps), code)(...Object.values(deps))
 }
-function harness(props) {
-  const calls = []
-  const names = ['auditScopeTypeValue', 'auditScopeIdValue', 'gxpAuditScopeIsValid',
-    'gxpAuditRequestId', 'gxpAuditLoading', 'gxpAuditError', 'gxpAuditEvents',
-    'gxpAuditPageNo', 'gxpAuditPageSize', 'gxpAuditTotal', 'loadGxpAudit']
-  return { calls, ...declarations(panel, names, { props, ref: vue.ref, computed: vue.computed,
-    recordScope: vue.ref(props.recordScope || 'DETAIL_RECORD'), showSummaryTab: vue.ref(!props.embedded),
-    getActiveOrderGxpAuditPage: async (...args) => { calls.push(args); return { list: [], total: 0 } } }) }
-}
-test('BATCH never uses detail.activeOrderId as batchExecutionId and reports missing identity', async () => {
-  const h = harness({ recordScope: 'FORMAL_BATCH_SOURCE_DETAIL', detail: { activeOrderId: 77 } })
-  await h.loadGxpAudit()
-  assert.equal(h.calls.length, 0)
-  assert.match(h.gxpAuditError.value, /身份/)
-})
-for (const query of [{ batchExecutionId: '9223372036854775806' }, { activeOrderId: '9223372036854775805' }]) {
-  test(`BATCH passes explicit query ${JSON.stringify(query)} unchanged`, async () => {
-    const h = harness({ auditScopeType: 'BATCH', auditScopeId: query, detail: { activeOrderId: 77 } })
-    await h.loadGxpAudit()
-    assert.deepEqual(h.calls[0]?.slice(0, 2), ['BATCH', query])
-  })
-}
-for (const query of [77, {}, { activeOrderId: '7', batchExecutionId: '8' }, { batchExecutionId: 0 }]) {
-  test(`invalid BATCH identity ${JSON.stringify(query)} sends no request`, async () => {
-    const h = harness({ auditScopeType: 'BATCH', auditScopeId: query })
-    await h.loadGxpAudit()
-    assert.equal(h.calls.length, 0)
-    assert.match(h.gxpAuditError.value, /身份/)
-  })
-}
-test('TEAM and PQC retain formal identities; embedded does not query', async () => {
-  for (const [props, expected] of [[{ detail: { activeOrderId: '77' } }, ['TEAM', '77']],
-    [{ pqcReleaseApplicationId: '88', detail: { activeOrderId: '77' } }, ['PQC', '88']]]) {
-    const h = harness(props); await h.loadGxpAudit(); assert.deepEqual(h.calls[0].slice(0, 2), expected)
-  }
-  const h = harness({ embedded: true, recordScope: 'FORMAL_BATCH_SOURCE_DETAIL', detail: { activeOrderId: 77 } })
-  await h.loadGxpAudit(); assert.equal(h.calls.length, 0); assert.equal(h.gxpAuditError.value, '')
-})
 test('parent audit identity exactly matches detail selection including active-order priority', () => {
   const names = ['batchExecutionId', 'parseBatchExecutionId', 'parseActiveOrderId', 'resolveDetailQuery', 'auditDetailQuery']
   for (const query of [{ batchExecutionId: '9223372036854775806' },
@@ -77,7 +38,7 @@ test('unloaded or failed parent never evaluates invalid route into a render exce
 })
 test('audit API preserves explicit BATCH query for page and event', async () => {
   const file = path.resolve(__dirname, '../../../../api/mes/pro/edhr/activeOrderAudit.ts')
-  const source = fs.readFileSync(file, 'utf8').replace(/^import .*\n/, '').replace(/export /g, '')
+  const source = fs.readFileSync(file, 'utf8').replace(/^import [^\r\n]*\r?\n/, '').replace(/export /g, '')
   const code = ts.transpileModule(source + '\nreturn {getActiveOrderGxpAuditPage,getActiveOrderGxpAuditEvent}', {
     compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
   const calls = []

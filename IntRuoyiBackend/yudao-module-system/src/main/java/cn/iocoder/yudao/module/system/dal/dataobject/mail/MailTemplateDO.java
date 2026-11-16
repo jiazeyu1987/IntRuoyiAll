@@ -1,8 +1,8 @@
 package cn.iocoder.yudao.module.system.dal.dataobject.mail;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -18,12 +18,12 @@ import java.util.List;
  * @author wangjingyi
  * @since 2022-03-21
  */
-@TableName(value = "system_mail_template", autoResultMap = true)
+@TenantIsolated
+@TableName(value = "system_tenant_mail_template", autoResultMap = true)
 @KeySequence("system_mail_template_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TenantIgnore
-public class MailTemplateDO extends BaseDO {
+public class MailTemplateDO extends TenantBaseDO {
 
     /**
      * 主键

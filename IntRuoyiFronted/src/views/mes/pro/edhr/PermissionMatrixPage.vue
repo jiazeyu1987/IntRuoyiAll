@@ -70,7 +70,16 @@
           </el-table-column>
           <el-table-column label="主体" min-width="230">
             <template #default="{ row }">
+              <UserSelectV2
+                v-if="row.subjectType === 'USER'"
+                v-model="row.subjectId"
+                :user-options="userOptions"
+                :candidate-loading="subjectOptionsLoading"
+                placeholder="请选择主体"
+                class="!w-210px"
+              />
               <el-select
+                v-else
                 v-model="row.subjectId"
                 filterable
                 clearable
@@ -302,6 +311,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   EdhrPermissionApi,
   type EdhrPermissionAbility,

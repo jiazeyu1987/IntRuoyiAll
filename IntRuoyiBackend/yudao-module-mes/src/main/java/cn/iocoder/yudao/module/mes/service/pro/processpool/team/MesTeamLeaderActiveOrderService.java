@@ -13,6 +13,9 @@ public interface MesTeamLeaderActiveOrderService {
 
     MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(Long leaderUserId);
 
+    /** Read-only use of the same route, quantity and QA planning gates as a fresh activation. */
+    void checkFixedTestOrderProductionSource(Long routeId, Long routeVersionId);
+
     MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(
             Long leaderUserId, Long sourceActiveOrderId, String simulationRunId);
 
@@ -32,6 +35,10 @@ public interface MesTeamLeaderActiveOrderService {
     void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);
 
     List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId);
+
+    /** Shared read projection; callers must enforce their own access scope. */
+    List<MesTeamLeaderActiveOrderRow> projectActiveOrders(
+            List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO> activeOrders);
 
     PageResult<MesTeamLeaderActiveOrderRow> pageVoidedActiveOrders(Long leaderUserId,
                                                                    MesTeamLeaderVoidedActiveOrderPageReqVO reqVO);

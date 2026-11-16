@@ -54,11 +54,15 @@ class ErpKingdeeSyncAdminServiceImplTest {
     @Mock
     private ErpKingdeeFullSyncHandler fullSyncHandler;
 
+    @Mock
+    private cn.iocoder.yudao.framework.quartz.core.scheduler.SchedulerManager schedulerManager;
+
     private ErpKingdeeSyncAdminServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new ErpKingdeeSyncAdminServiceImpl();
+        ReflectionTestUtils.setField(service, "schedulerManager", schedulerManager);
         ReflectionTestUtils.setField(service, "runMapper", runMapper);
         ReflectionTestUtils.setField(service, "watermarkMapper", watermarkMapper);
         ReflectionTestUtils.setField(service, "kingdeeConfigService", configService);
@@ -119,8 +123,9 @@ class ErpKingdeeSyncAdminServiceImplTest {
                 ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST.getType());
 
         assertEquals(99L, response.getJobId());
-        verify(jobService).triggerJob(eq(99L), eq(TenantJobParam.forTenant(
-                1L, ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM)));
+        verify(schedulerManager).triggerUniqueJob(eq(99L), eq("kingdeeProductionMaterialListSyncJob"),
+                eq(TenantJobParam.forTenant(1L, ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM)),
+                eq("erp-full-PRODUCTION_MATERIAL_LIST"));
         verify(fullSyncHandler, never()).executeFullSync();
     }
 
@@ -138,4 +143,36 @@ class ErpKingdeeSyncAdminServiceImplTest {
         assertEquals("已提交增量同步任务", response.getMessage());
         verify(jobService).triggerJob(eq(102L), eq(TenantJobParam.forTenant(1L, null)));
     }
+    @Test
+    void recentFullSync_freezesClickWindowAndRejectsDuplicateTrigger() throws Exception {
+        TenantContextHolder.setTenantId(1L);
+        JobDO job = JobDO.builder().id(99L).handlerName("kingdeeProductItemSyncJob").build();
+        when(applicationContext.getBean(job.getHandlerName())).thenReturn(fullSyncHandler);
+        when(jobService.getJobPage(any(JobPageReqVO.class))).thenReturn(new PageResult<>(List.of(job), 1L));
+        LocalDateTime end = LocalDateTime.of(2026, 10, 30, 15, 45, 12);
+        long clickedAt = end.atZone(java.time.ZoneId.of("Asia/Shanghai")).toInstant().toEpochMilli();
+        String param = TenantJobParam.forTenant(1L, ErpKingdeeFullSyncHandler.windowParam(end.minusDays(7), end));
+        service.runRecentFullSync("PRODUCT", 7, clickedAt);
+        verify(schedulerManager).triggerUniqueJob(99L, job.getHandlerName(), param, "erp-full-PRODUCT");
+        org.mockito.Mockito.doThrow(new org.quartz.ObjectAlreadyExistsException("busy"))
+                .when(schedulerManager).triggerUniqueJob(99L, job.getHandlerName(), param, "erp-full-PRODUCT");
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.runRecentFullSync("PRODUCT", 7, clickedAt));
+        assertEquals("当前有其他任务正在同步，请稍后再试", failure.getMessage());
+        verify(fullSyncHandler, never()).executeFullSync(any(), any());
+    }
+
+    @Test
+    void recentFullSync_rejectsExistingRunningTaskBeforeSubmitting() {
+        TenantContextHolder.setTenantId(1L);
+        when(applicationContext.getBean("kingdeeProductItemSyncJob")).thenReturn(fullSyncHandler);
+        when(runMapper.selectRunningBySyncType("PRODUCT")).thenReturn(new ErpKingdeeSyncRunDO());
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.runRecentFullSync("PRODUCT", 7, System.currentTimeMillis()));
+        assertEquals("当前有其他任务正在同步，请稍后再试", failure.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(schedulerManager);
+    }
+
 }

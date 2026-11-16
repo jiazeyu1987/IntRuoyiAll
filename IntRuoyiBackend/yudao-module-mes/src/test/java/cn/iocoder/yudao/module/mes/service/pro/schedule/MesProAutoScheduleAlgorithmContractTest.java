@@ -237,7 +237,7 @@ class MesProAutoScheduleAlgorithmContractTest {
         lenient().when(routeProcessService.getRouteProcessListByRouteId(200L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(30L).routeId(200L).processId(300L).sort(1).prepareTime(0).waitTime(0).colorCode("#1677ff").build(),
                 MesProRouteProcessDO.builder().id(31L).routeId(200L).processId(301L).sort(2).prepareTime(0).waitTime(0).colorCode("#52c41a").build()));
-        lenient().when(routeService.getRouteMapIgnoreDeleted(any())).thenReturn(Map.of(200L,
+        lenient().when(routeService.getRouteMap(any())).thenReturn(Map.of(200L,
                 MesProRouteDO.builder().id(200L).code("ROUTE-A").name("路线A").build()));
         lenient().when(routeFlowConfigMapper.selectByRouteIdAndUseType(200L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(MesProRouteFlowConfigDO.builder()

@@ -13,14 +13,17 @@ const disposePermission = 'mes:pro-edhr-nonconformance-review:dispose'
 const tick = async () => { await vue.nextTick(); for (let i = 0; i < 20; i++) await Promise.resolve() }
 const review = { id: 48, sourceType: 'DEVIATION', sourceId: 1225, batchExecutionId: 1225, deviationIdsJson: '[91]', reviewStatus: 'pending_review' }
 
-function harness(permissions, query = {}) {
+function harness(permissions, query = {}, apiOverrides = {}) {
   const allowed = new Set(permissions)
   const route = vue.reactive({ name: 'MesProFeedbackEdhrNonconformanceReview', query })
-  const mounted = [], stops = [], unmounted = [], candidates = [], lists = [], exactReads = [], writes = []
+  const mounted = [], stops = [], unmounted = [], candidates = [], lists = [], exactReads = [], writes = [], orderReads = []
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const script = ast.statements.filter(s => !ts.isImportDeclaration(s) && !ts.isExportDeclaration(s)).map(s => s.getText(ast)).join('\n')
   const context = {
-    ...vue, defineOptions() {}, useRoute: () => route,
+    useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
+    useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
+    useUserStore: () => ({ getUser: { id: 50 } }),
+    ...vue, useApprovalCenterInvalidationStore: () => ({ syncSession: () => ({ key: "test-session" }) }), defineOptions() {}, useRoute: () => route,
     useMessage: () => ({ error() {}, success() {} }),
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
     watch: (...args) => { const stop = vue.watch(...args); stops.push(stop); return stop },
@@ -32,13 +35,15 @@ function harness(permissions, query = {}) {
     getNonconformanceReviewActiveOrderList: async () => { candidates.push('GET candidates'); return [{ id: 7, workOrderId: 990274 }] },
     getNonconformanceReviewPage: async request => { lists.push(request); return { list: [review], total: 1 } },
     getNonconformanceReview: async id => { exactReads.push(id); return review },
+    getNonconformanceReviewActiveOrderDetail: async id => { orderReads.push(id); return { activeOrderId: 7, workOrderCode: 'WO-7', processes: [] } },
     createNonconformanceReview: async request => { writes.push({ create: request }); throw Error('read entry must not write') },
     disposeNonconformanceReview: async request => { writes.push({ dispose: request }); throw Error('read entry must not dispose') },
-    uploadNonconformanceReviewMaterial: async () => { writes.push('upload'); throw Error('read entry must not upload') }
+    uploadNonconformanceReviewMaterial: async () => { writes.push('upload'); throw Error('read entry must not upload') },
+    ...apiOverrides
   }
   const compiled = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
-  const page = Function(...Object.keys(context), `${compiled}; return { createDialogVisible, reviewDialogVisible, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewDialog, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview, canConfigureQaAssignment };`)(...Object.values(context))
-  return { page, route, candidates, lists, exactReads, writes, mount: async () => { mounted.forEach(fn => fn()); await tick() }, close: () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) } }
+  const page = Function(...Object.keys(context), `${compiled}; return { orderDetailVisible, orderDetailLoading, orderDetailError, orderDetail, openActiveOrderDetail, closeOrderDetail, retryOrderDetail, createDialogVisible, reviewTabOpen, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewTab, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview, entryForm, submitCreateReview, canDisposeSelectedReview };`)(...Object.values(context))
+  return { page, route, candidates, lists, exactReads, writes, orderReads, mount: async () => { mounted.forEach(fn => fn()); await tick() }, close: () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) } }
 }
 
 function createButton(h) {
@@ -96,40 +101,104 @@ test('route change to unauthorized autoCreate cannot introduce creation reads', 
 test('query/dispose user retains exact formal deviation review and blank disposition password', async () => {
   const h = harness([queryPermission, disposePermission], { reviewId: '48', from: 'deviation', deviationId: '91', batchExecutionId: '1225' }); await h.mount()
   assert.deepEqual(h.exactReads, ['48']); assert.equal(h.page.selectedReview.value.id, 48)
-  assert.equal(h.page.reviewDialogVisible.value, true); assert.equal(h.page.disposeForm.signaturePassword, '')
+  assert.equal(h.page.reviewTabOpen.value, true); assert.equal(h.page.disposeForm.signaturePassword, '')
   assert.equal(h.candidates.length, 0); assert.deepEqual(h.writes, []); h.close()
+})
+test('logged-in user without review permissions can read the list and exact review without writes', async () => {
+  const list = harness([]); await list.mount()
+  assert.equal(list.lists.length, 1)
+  assert.equal(createButton(list).type, vue.Comment)
+  assert.deepEqual(list.writes, []); list.close()
+  const detail = harness([], { reviewId: '48', from: 'deviation', deviationId: '91', batchExecutionId: '1225' })
+  await detail.mount()
+  assert.deepEqual(detail.exactReads, ['48'])
+  assert.equal(detail.page.reviewTabOpen.value, true)
+  assert.equal(detail.page.canDisposeSelectedReview.value, false)
+  assert.deepEqual(detail.writes, []); detail.close()
 })
 test('refused creation does not dismiss or replace the existing disposition object', async () => {
   const h = harness([queryPermission, disposePermission]); await h.mount()
-  h.page.openReviewDialog(review); await h.page.openCreateDialog(); await tick()
-  assert.equal(h.page.selectedReview.value.id, 48); assert.equal(h.page.reviewDialogVisible.value, true)
+  h.page.openReviewTab(review); await h.page.openCreateDialog(); await tick()
+  assert.equal(h.page.selectedReview.value.id, 48); assert.equal(h.page.reviewTabOpen.value, true)
   assert.equal(h.candidates.length, 0); assert.equal(h.page.createDialogVisible.value, false)
   assert.deepEqual(h.writes, []); h.close()
 })
 
-function qaAssignmentEntry(h) {
-  const find = node => {
-    if (node.type === 1 && node.tag === 'QaHandoffAssignmentConfig') return node
-    for (const child of node.children || []) { const result = find(child); if (result) return result }
-  }
-  const node = find(descriptor.template.ast)
-  assert.ok(node, 'Existing NCR page must provide the formal QA assignment entry')
-  const built = compileTemplate({ source: node.loc.source, filename: 'qa-assignment-entry.vue', id: 'qa-assignment-entry', compilerOptions: { mode: 'function', prefixIdentifiers: false, cacheHandlers: false } })
+test('取消路线负责人配置后，页面保留评审材料上传入口', () => {
+  assert.doesNotMatch(descriptor.template.content, /QaHandoffAssignmentConfig|PqcHandoffAssignmentConfig/)
+  assert.doesNotMatch(descriptor.scriptSetup.content, /canConfigureQaAssignment|canConfigurePqcAssignment/)
+  assert.match(descriptor.template.content, /<NonconformanceReviewWorkspace[\s\S]*?@upload="handleMaterialUpload"/)
+  const workspace = parse(fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/edhr-nonconformance/NonconformanceReviewWorkspace.vue'), 'utf8')).descriptor
+  assert.match(workspace.template.content, /data-edhr-ncr-select-material/)
+  assert.match(workspace.template.content, /@change="handleFilesChange"/)
+  assert.deepEqual(compileTemplate({ source: workspace.template.content, filename: 'workspace.vue', id: 'workspace' }).errors, [])
+  const built = compileTemplate({ source: descriptor.template.content, filename: 'nonconformance.vue', id: 'nonconformance' })
   assert.deepEqual(built.errors, [])
-  return Function('Vue', built.code)({ ...vue, resolveComponent: () => 'qa-assignment-config' })({ canConfigureQaAssignment: h.page.canConfigureQaAssignment.value }, [])
-}
-
-test('ordinary QA, creator and update-only users cannot mount the management configuration', async () => {
-  for (const permissions of [[queryPermission, disposePermission], [queryPermission, createPermission], [queryPermission, 'mes:pro-edhr-work-task-rule:update']]) {
-    const h = harness(permissions); await h.mount()
-    assert.equal(qaAssignmentEntry(h).type, vue.Comment)
-    assert.deepEqual(h.writes, []); h.close()
-  }
 })
 
-test('formal rule query permission mounts QA configuration without acquiring NCR creation', async () => {
-  const h = harness([queryPermission, 'mes:pro-edhr-work-task-rule:query']); await h.mount()
-  assert.equal(qaAssignmentEntry(h).type, 'qa-assignment-config')
-  assert.equal(createButton(h).type, vue.Comment)
-  assert.equal(h.candidates.length, 0); assert.deepEqual(h.writes, []); h.close()
+
+test('explicit QA selection is mandatory before a creation request is sent', async () => {
+  const h=harness([queryPermission,createPermission]);await h.mount();await h.page.openCreateDialog();
+  h.page.entryForm.nonconformanceReason='task owned deviation';
+  await h.page.submitCreateReview();assert.deepEqual(h.writes,[]);h.close()
+})
+test('only the explicitly assigned QA can see the disposition controls', async () => {
+  const h=harness([queryPermission,disposePermission]);await h.mount();
+  h.page.openReviewTab({ ...review, qaReviewerUserId: 51 });assert.equal(h.page.canDisposeSelectedReview.value,false);
+  h.page.openReviewTab({ ...review, qaReviewerUserId: 50 });assert.equal(h.page.canDisposeSelectedReview.value,true);
+  h.page.openReviewTab({ ...review });assert.equal(h.page.canDisposeSelectedReview.value,false);h.close()
+})
+
+test('details button renders for every user and opens the formally linked active order', async () => {
+  const find = node => {
+    if (node.type === 1 && node.props.some(p => p.type === 6 && p.name === 'data-edhr-ncr-review-detail')) return node
+    for (const child of node.children || []) { const found = find(child); if (found) return found }
+  }
+  const button = find(descriptor.template.ast)
+  assert.ok(button)
+  const result = compileTemplate({ source: button.loc.source, filename: 'review-detail.vue', id: 'review-detail', compilerOptions: { mode: 'function', prefixIdentifiers: false, cacheHandlers: false } })
+  assert.deepEqual(result.errors, [])
+  const render = Function('Vue', result.code)({ ...vue, resolveComponent: () => 'button' })
+  for (const permissions of [[], [queryPermission], [disposePermission], [createPermission]]) {
+    const h = harness(permissions); await h.mount()
+    const rendered = render({ row: review, openActiveOrderDetail: h.page.openActiveOrderDetail }, [])
+    assert.equal(rendered.type, 'button')
+    await rendered.props.onClick({ stopPropagation() {} })
+    assert.deepEqual(h.orderReads, [review.id])
+    assert.equal(h.page.orderDetailVisible.value, true)
+    assert.equal(h.page.orderDetail.value.activeOrderId, 7)
+    assert.equal(h.page.reviewTabOpen.value, false)
+    assert.deepEqual(h.writes, []); h.close()
+  }
+  assert.match(descriptor.template.content, /<ActiveOrderSubmissionDetailPanel[\s\S]*?:detail="orderDetail"[\s\S]*?read-only/)
+})
+
+test('active order errors remain visible and retry reads the same review', async () => {
+  let attempts = 0
+  const h = harness([], {}, { getNonconformanceReviewActiveOrderDetail: async id => {
+    assert.equal(id, review.id)
+    if (++attempts === 1) throw Error('正式关联工单不存在')
+    return { activeOrderId: 7, workOrderCode: 'WO-7', processes: [] }
+  } })
+  await h.mount(); await h.page.openActiveOrderDetail(review)
+  assert.equal(h.page.orderDetailError.value, '正式关联工单不存在')
+  assert.equal(h.page.orderDetail.value, undefined)
+  h.page.retryOrderDetail(); await tick()
+  assert.equal(attempts, 2)
+  assert.equal(h.page.orderDetailError.value, '')
+  assert.equal(h.page.orderDetail.value.activeOrderId, 7)
+  assert.deepEqual(h.writes, []); h.close()
+})
+
+test('returning to the list discards an outstanding order detail response', async () => {
+  let resolve
+  const h = harness([], {}, { getNonconformanceReviewActiveOrderDetail: () => new Promise(done => { resolve = done }) })
+  await h.mount()
+  const pending = h.page.openActiveOrderDetail(review)
+  h.page.closeOrderDetail()
+  resolve({ activeOrderId: 7, workOrderCode: 'WO-7', processes: [] }); await pending
+  assert.equal(h.page.orderDetailVisible.value, false)
+  assert.equal(h.page.orderDetailLoading.value, false)
+  assert.equal(h.page.orderDetail.value, undefined)
+  assert.deepEqual(h.writes, []); h.close()
 })

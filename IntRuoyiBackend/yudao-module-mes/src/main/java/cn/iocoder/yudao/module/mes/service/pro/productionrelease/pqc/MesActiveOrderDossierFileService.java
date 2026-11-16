@@ -46,6 +46,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderDossierFileService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
+    @jakarta.annotation.Resource private MesPqcReleaseCorrectionService correctionService;
+
 
     private static final Set<String> CATEGORY_KEYS = Set.of(
             "INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE");
@@ -70,6 +74,8 @@ public class MesActiveOrderDossierFileService {
     @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
     @Resource
     private MesActiveOrderDossierReadScopeService dossierReadScopeService;
+    @Resource
+    private MesActiveOrderDossierCompletionService dossierCompletionService;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
@@ -105,7 +111,8 @@ public class MesActiveOrderDossierFileService {
                                 .map(MesActiveOrderDossierFileService::toFileItem)
                                 .toList()))
                 .toList();
-        return new Result(activeOrderId, applicationId, categories);
+        return new Result(activeOrderId, applicationId, categories,
+                attachmentUploads.pending(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), activeOrderId));
     }
 
     @Transactional(readOnly = true)
@@ -148,12 +155,20 @@ public class MesActiveOrderDossierFileService {
 
     private ResolvedContext requireUploadContext(Long actorUserId, UploadCommand command) {
         gxpAuditService.acquireLedgerLock();
-        var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), false);
+        var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), false, command.categoryKey());
         ResolvedContext context = new ResolvedContext(activeOrderMapper.selectByIdForUpdate(authorized.activeOrder().getId()), authorized.application());
         if (context.activeOrder() == null) throw dossierFileBlocked("活跃订单已不存在，请重新加载");
+        if (attachmentUploads.isAssigned(actorUserId, command.activeOrderId(), command.categoryKey())
+                && command.workTaskId() == null)
+            throw dossierFileBlocked("请通过对应的报告上传任务选择文件，不能省略上传任务编号。");
+        if (command.workTaskId() != null) dossierCompletionService.validateCompletionUpload(actorUserId,
+                command.workTaskId(), command.activeOrderId(), command.categoryKey());
         assertMutable(context.activeOrder());
         if (context.application() != null && context.application().getBatchExecutionId() != null) {
-            lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
+            if (command.workTaskId() != null && attachmentUploads.validateUpload(actorUserId, command.workTaskId(), command.activeOrderId(), command.categoryKey()))
+                lifecycleGuard.requireAssignedDossierMutable(context.application().getBatchExecutionId());
+            else if (!correctionService.requireMarketCorrectionMutation(actorUserId, context.activeOrder().getId(), context.application().getId()))
+                lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
         }
         return context;
     }
@@ -188,6 +203,7 @@ public class MesActiveOrderDossierFileService {
         recordDossierOperation("DOSSIER_UPLOAD", "活跃订单资料上传", actorUserId, operatorName, row, null, row.getSha256(),
                 operatedAt);
         appendDossierGxpAudit("mes.dossier.upload", "ABSENT", "PRESENT", row, null, row.getSha256(), operatedAt);
+        dossierCompletionService.completeUploadedCategory(actorUserId, row.getActiveOrderId(), row.getCategoryKey(), row.getId(), command.workTaskId());
         return toFileItem(row);
     }
 
@@ -206,7 +222,8 @@ public class MesActiveOrderDossierFileService {
         if (context.activeOrder() == null) throw dossierFileBlocked("活跃订单已不存在，请重新加载");
         assertMutable(context.activeOrder());
         if (context.application() != null && context.application().getBatchExecutionId() != null) {
-            lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
+            if (!correctionService.requireMarketCorrectionMutation(actorUserId, context.activeOrder().getId(), context.application().getId()))
+                lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
         }
         MesProcessPoolActiveOrderDossierFileDO row = dossierFileMapper.selectById(command.attachmentId());
         if (row == null) {
@@ -260,7 +277,8 @@ public class MesActiveOrderDossierFileService {
         if (activeOrder == null) {
             throw dossierFileBlocked("活跃订单不存在：" + activeOrderId);
         }
-        if (applicationId == null && !Objects.equals(activeOrder.getLeaderUserId(), actorUserId)) {
+        if (applicationId == null && !(Objects.equals(activeOrder.getLeaderUserId(), actorUserId) || packagingAccess.canAccess(actorUserId, activeOrder))
+                && !dossierCompletionService.hasAssignment(actorUserId, activeOrderId)) {
             throw dossierFileBlocked("当前用户不是该活跃订单生产组长，不能读取资料文件。");
         }
         return new ResolvedContext(activeOrder, application);
@@ -439,13 +457,19 @@ public class MesActiveOrderDossierFileService {
     }
 
     public record UploadCommand(Long activeOrderId, Long applicationId, String categoryKey,
-                                String fileName, String contentType, byte[] content) {
+                                String fileName, String contentType, byte[] content, Long workTaskId) {
+        public UploadCommand(Long activeOrderId, Long applicationId, String categoryKey,
+                             String fileName, String contentType, byte[] content) {
+            this(activeOrderId, applicationId, categoryKey, fileName, contentType, content, null);
+        }
     }
 
     public record DeleteCommand(Long activeOrderId, Long applicationId, String categoryKey, Long attachmentId) {
     }
 
-    public record Result(Long activeOrderId, Long applicationId, List<CategoryFiles> categories) {
+    @jakarta.annotation.Resource private MesReleaseAttachmentUploadService attachmentUploads;
+
+    public record Result(Long activeOrderId, Long applicationId, List<CategoryFiles> categories, List<MesReleaseAttachmentUploadService.Duty> uploadTasks) {
     }
 
     public record CategoryFiles(String key, String label, List<FileItem> files) {

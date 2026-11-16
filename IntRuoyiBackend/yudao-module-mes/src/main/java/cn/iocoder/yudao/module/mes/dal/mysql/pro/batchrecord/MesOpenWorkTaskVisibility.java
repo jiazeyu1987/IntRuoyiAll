@@ -8,6 +8,28 @@ public final class MesOpenWorkTaskVisibility {
             + " OR LOCATE(CONCAT(',', #{q.userId}, ','), CONCAT(',', " + TASK + ".candidate_user_snapshot, ',')) > 0)";
     public static final String OPEN_BATCH_SQL = batchSql(null);
 
+    // NCR freezes the release action without completing its task. Keep pending release tasks
+    // out of every open-task projection until the review has been disposed of.
+    public static final String OPEN_PQC_RELEASE_SQL = """
+            (mes_pro_edhr_work_task.task_type IS NULL
+             OR mes_pro_edhr_work_task.task_type <> 'PQC_PRODUCTION_RELEASE'
+             OR NOT EXISTS (
+                SELECT 1 FROM mes_pro_edhr_nonconformance_review release_ncr
+                LEFT JOIN mes_pro_process_pool_active_order_release_application release_app
+                  ON mes_pro_edhr_work_task.business_scope_type = 'RELEASE_APPLICATION'
+                  AND release_app.id = mes_pro_edhr_work_task.business_scope_id
+                  AND release_app.tenant_id = mes_pro_edhr_work_task.tenant_id
+                  AND release_app.deleted = 0
+                WHERE release_ncr.tenant_id = mes_pro_edhr_work_task.tenant_id
+                  AND release_ncr.deleted = 0 AND release_ncr.review_status = 'pending_review'
+                  AND (release_ncr.work_order_id = mes_pro_edhr_work_task.work_order_id
+                    OR release_ncr.batch_execution_id = mes_pro_edhr_work_task.batch_execution_id
+                    OR release_ncr.active_order_id = release_app.active_order_id
+                    OR release_ncr.work_order_id = release_app.work_order_id
+                    OR release_ncr.batch_execution_id = release_app.batch_execution_id)
+             ))
+            """;
+
     public static String ownerWrapperSql() {
         return OWNER_SQL.replace("#{q.userId}", "{0}");
     }
@@ -23,7 +45,12 @@ public final class MesOpenWorkTaskVisibility {
             excluded = "(b.status IN (" + MesProEdhrWorkTaskMapper.ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")"
                     + " OR (b.status = 30 AND (" + TASK + ".task_type IS NULL OR " + TASK + ".task_type != 'ARCHIVE')))";
         }
-        return "(" + TASK + ".batch_execution_id IS NULL OR NOT EXISTS ("
+        return "(" + TASK + ".batch_execution_id IS NULL OR (" + TASK + ".task_type IN ('PQC_RELEASE_CORRECTION','RECORD_CHANGE_APPROVE','RECORD_CHANGE_CORRECTION')"
+                + " AND EXISTS (SELECT 1 FROM mes_pro_edhr_batch_execution change_batch"
+                + " WHERE change_batch.id = " + TASK + ".batch_execution_id"
+                + " AND change_batch.tenant_id = " + TASK + ".tenant_id"
+                + " AND change_batch.deleted = 0 AND ((" + TASK + ".task_type IN ('RECORD_CHANGE_APPROVE','RECORD_CHANGE_CORRECTION') AND change_batch.status IN (30,50))"
+                + " OR (" + TASK + ".task_type = 'PQC_RELEASE_CORRECTION' AND change_batch.status = 30)))) OR NOT EXISTS ("
                 + "SELECT 1 FROM mes_pro_edhr_batch_execution b WHERE b.id = " + TASK + ".batch_execution_id"
                 + " AND b.tenant_id = " + TASK + ".tenant_id AND b.deleted = 0 AND " + excluded + "))";
     }

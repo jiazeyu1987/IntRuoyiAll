@@ -3,7 +3,7 @@ package cn.iocoder.yudao.module.infra.service.externalwritepermission;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
-import cn.iocoder.yudao.module.infra.service.config.ConfigService;
+import cn.iocoder.yudao.module.infra.service.config.TenantConfigService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -17,17 +17,17 @@ public class ExternalWritePermissionServiceImpl implements ExternalWritePermissi
     private static final String ERP_EXTERNAL_WRITE_ENABLED_CONFIG_REMARK = "ERP external write permission switch";
 
     @Resource
-    private ConfigService configService;
+    private TenantConfigService tenantConfigService;
 
     @Override
     public boolean isErpExternalWriteEnabled() {
-        ConfigDO config = configService.getConfigByKey(ERP_EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
+        ConfigDO config = tenantConfigService.getConfigByKey(ERP_EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
         return config != null && Boolean.parseBoolean(StrUtil.trim(config.getValue()));
     }
 
     @Override
     public void updateErpExternalWriteEnabled(Boolean enabled) {
-        ConfigDO existingConfig = configService.getConfigByKey(ERP_EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
+        ConfigDO existingConfig = tenantConfigService.getConfigByKey(ERP_EXTERNAL_WRITE_ENABLED_CONFIG_KEY);
         ConfigSaveReqVO configSaveReqVO = new ConfigSaveReqVO();
         configSaveReqVO.setId(existingConfig != null ? existingConfig.getId() : null);
         configSaveReqVO.setCategory(CONFIG_CATEGORY);
@@ -37,9 +37,9 @@ public class ExternalWritePermissionServiceImpl implements ExternalWritePermissi
         configSaveReqVO.setVisible(Boolean.FALSE);
         configSaveReqVO.setRemark(ERP_EXTERNAL_WRITE_ENABLED_CONFIG_REMARK);
         if (existingConfig == null) {
-            configService.createConfig(configSaveReqVO);
+            tenantConfigService.createConfig(configSaveReqVO);
         } else {
-            configService.updateConfig(configSaveReqVO);
+            tenantConfigService.updateConfig(configSaveReqVO);
         }
     }
 

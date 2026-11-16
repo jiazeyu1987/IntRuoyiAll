@@ -180,14 +180,20 @@
         v-model:limit="queryParams.pageSize"
         @update:quick-filter-state="handleQuickFilterStateUpdate"
         @pagination="getHistoryList"
+        server-filter
+        :server-filter-query="getHistoryList"
+
+
+
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <el-button :loading="historyLoading" @click="getHistoryList">刷新列表</el-button>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-table
             v-loading="historyLoading"
-            :data="historyList"
+            :data="resolveRows(historyList)"
             border
             @sort-change="handleTemplateSortChange"
           >
@@ -278,6 +284,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { checkPermi } from '@/utils/permission'
@@ -466,15 +475,13 @@ const loadStatus = async () => {
   }
 }
 
+const listPageRequest = useLatestListRequest()
+watch(listPageRequest.loading, value => { historyLoading.value = value }, { flush: 'sync' })
 const getHistoryList = async () => {
-  historyLoading.value = true
-  try {
-    const data = await getBackupPlanHistoryPage(queryParams)
-    historyList.value = data.list || []
-    total.value = data.total || 0
-  } finally {
-    historyLoading.value = false
-  }
+  return await listPageRequest.run(() => getBackupPlanHistoryPage({ ...queryParams }), data => {
+    historyList.value = data.list
+    total.value = data.total
+  })
 }
 
 const loadAll = async () => {
@@ -549,6 +556,16 @@ const openBackupDetail = (row: BackupPlanBackupPointVO) => {
 }
 
 onMounted(loadAll)
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'generatedTime', label: '生成时间', type: 'text', getValue: formatBackupGeneratedTime },
+  { key: 'backupMode', label: '类型', type: 'text', getValue: formatBackupType },
+  { key: 'backupChain', label: '备份链', type: 'text', getValue: formatBackupChain },
+  { key: 'result', label: '结果', type: 'text', getValue: row => row.recoverabilityStatus === 'RECOVERABLE' ? '成功' : '需检查' },
+  { key: 'recoverabilityStatus', label: '是否可恢复', type: 'text', getValue: row => row.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复' },
+  { key: 'manifestPath', label: '保存位置', type: 'text', getValue: formatBackupStorageLabel }
+])
 </script>
 
 <style scoped>

@@ -28,6 +28,39 @@ class MesProBatchRecordJimuReportGatewayImplTest {
 
     private final MesProBatchRecordJimuReportGatewayImpl gateway = new MesProBatchRecordJimuReportGatewayImpl();
 
+    @Test
+    void readOnlyTemplateReadDoesNotMaterializeDesignerData() {
+        FormTemplateVersionMapper versions = mock(FormTemplateVersionMapper.class);
+        JimuReportDao reports = mock(JimuReportDao.class);
+        ReflectionTestUtils.setField(gateway, "templateVersionMapper", versions);
+        ReflectionTestUtils.setField(gateway, "jimuReportDao", reports);
+        FormTemplateVersionDO version = new FormTemplateVersionDO();
+        version.setJimuSchemaJson("{\"sheetLayoutJson\":\"{\\\"rows\\\":{},\\\"cols\\\":{}}\"}");
+        when(versions.selectById(31L)).thenReturn(version);
+
+        assertNotNull(JSON.parseObject(gateway.getReportJsonReadOnly("FORMTPL:31")).getJSONObject("rows"));
+
+        org.mockito.Mockito.verifyNoInteractions(reports);
+        verify(versions).selectById(31L);
+        org.mockito.Mockito.verifyNoMoreInteractions(versions);
+    }
+
+    @Test
+    void readOnlyReportReadDoesNotWriteOrReplaceMissingContent() {
+        JimuReportDao reports = mock(JimuReportDao.class);
+        ReflectionTestUtils.setField(gateway, "jimuReportDao", reports);
+        JimuReport report = new JimuReport();
+        report.setJsonStr("{\"rows\":{}}");
+        when(reports.get("report-1")).thenReturn(report);
+
+        assertEquals(report.getJsonStr(), gateway.getReportJsonReadOnly("report-1"));
+        org.junit.jupiter.api.Assertions.assertNull(gateway.getReportJsonReadOnly("missing"));
+
+        verify(reports).get("report-1");
+        verify(reports).get("missing");
+        org.mockito.Mockito.verifyNoMoreInteractions(reports);
+    }
+
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();

@@ -1,10 +1,12 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
   <ContentWrap>
     <ActiveOrderDetailLayout v-if="detailVisible" data-pqc-production-release-order-detail>
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
       <ActiveOrderSubmissionDetailPanel
+        hide-order-summary
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"
         :loading="detailLoading"
@@ -15,145 +17,141 @@
       />
     </ActiveOrderDetailLayout>
     <div v-show="!detailVisible" class="pqc-release-page" data-pqc-production-release-page>
-      <div class="pqc-release-page__header">
-        <div>
-          <h2>PQC生产放行</h2>
-        </div>
-        <el-button :icon="Refresh" :loading="loading" circle title="刷新" @click="getList()" />
-      </div>
-
       <el-tabs v-model="activeView" class="pqc-release-page__tabs" @tab-change="handleTabChange">
         <el-tab-pane label="待放行" :name="PQC_RELEASE_VIEW_PENDING" />
-        <el-tab-pane label="已放行" :name="PQC_RELEASE_VIEW_RELEASED" />
-        <el-tab-pane label="已作废" :name="PQC_RELEASE_VIEW_VOIDED" />
-        <el-tab-pane label="已返工" :name="PQC_RELEASE_VIEW_REWORKED" />
-        <el-tab-pane label="已让步放行" :name="PQC_RELEASE_VIEW_CONCESSION_RELEASED" />
+        <el-tab-pane label="已处理" :name="PQC_RELEASE_VIEW_COMPLETED" />
       </el-tabs>
 
-      <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
-        <el-form-item label="工单号">
-          <el-input
-            v-model="queryParams.workOrderCode"
-            clearable
-            class="!w-200px"
-            data-pqc-production-release-work-order-filter
-          />
-        </el-form-item>
-        <el-form-item label="批次号">
-          <el-input v-model="queryParams.batchCode" clearable class="!w-200px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            :icon="Search"
-            data-pqc-production-release-query
-            @click="handleQuery"
-          >
-            查询
-          </el-button>
-          <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
-
-      <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-
-      <el-table
-        v-loading="loading"
-        :data="list"
-        data-pqc-production-release-list
-        stripe
-        row-key="applicationId"
-        empty-text="当前状态暂无生产放行记录"
-      >
-        <el-table-column label="生产对象" min-width="240">
-          <template #default="{ row }">
-            <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
-              {{ row.workOrderCode || '--' }}
-            </div>
-            <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="申请" min-width="180">
-          <template #default="{ row }">
-            <div>申请编号：{{ row.applicationId }}</div>
-            <div class="pqc-release-page__secondary">{{ formatDateTime(row.appliedAt) }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="150">
-          <template #default="{ row }">
-            <el-tag :type="resolveStatusTagType(row)">{{ resolveStatusLabel(row) }}</el-tag>
-            <div v-if="row.underReview" class="pqc-release-page__secondary">QA评审中</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="处置信息" min-width="240">
-          <template #default="{ row }">
-            <template v-if="row.nonconformanceReason">
-              <div>{{ row.nonconformanceReason }}</div>
-              <div class="pqc-release-page__secondary">
-                {{ formatDateTime(row.nonconformanceClosedAt) }}
-              </div>
-            </template>
-            <template v-else-if="row.approvalReady === false">
-              <div>{{ row.approvalBlockerReason || '放行资料尚未就绪' }}</div>
-              <div v-if="row.approvalBlockerSuggestion" class="pqc-release-page__secondary">
-                {{ row.approvalBlockerSuggestion }}
-              </div>
-            </template>
-            <span v-else class="pqc-release-page__secondary">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{ row }">
-            <div class="pqc-release-page__actions">
-              <ReleaseTaskNotificationEntry
-                v-hasPermi="['mes:pro-edhr-work-task:query']"
-                :work-task-id="row.pqcReleaseWorkTaskId"
-              />
-              <el-button
-                link
-                type="primary"
-                :disabled="!hasActiveOrderDetail(row)"
-                :title="hasActiveOrderDetail(row) ? '查看订单详情' : '缺少正式活跃订单来源，无法查看详情'"
-                data-pqc-production-release-detail
-                @click="openActiveOrderDetail(row)"
-              >
-                详情
-              </el-button>
-              <template v-if="activeView === PQC_RELEASE_VIEW_PENDING">
-                <el-button
-                  v-hasPermi="['mes:pro-production-release:pqc-approve']"
-                  link
-                  type="success"
-                  :disabled="row.underReview || row.approvalReady === false"
-                  :title="row.approvalBlockerReason || '放行'"
-                  data-pqc-production-release-approve
-                  @click="openReleaseDialog(row)"
-                >
-                  放行
-                </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
-                  link
-                  type="danger"
-                  :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
-                  data-pqc-production-release-nonconformance
-                  :data-pqc-production-release-application-id="String(row.applicationId)"
-                  @click="openNonconformanceReview(row)"
-                >
-                  不合格审查
-                </el-button>
-              </template>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <Pagination
+      <UnifiedListTemplate
+        @query="handleQuery"
+        @reset="resetQuery"
+        :query-button-attrs="{ 'data-pqc-production-release-query': '' }"
+        table-key="mes.pro.productionRelease.main"
+        :query-model="queryParams"
         :total="total"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
         @pagination="getList()"
-      />
+        server-filter
+        :server-filter-query="() => getList()"
+        :columns="listFilterColumns0"
+        :show-column-settings="false"
+        :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
+      >
+        <template #filters>
+          <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
+            <el-form-item label="工单号">
+              <el-input
+                v-model="queryParams.workOrderCode"
+                clearable
+                class="!w-200px"
+                data-pqc-production-release-work-order-filter
+              />
+            </el-form-item>
+            <el-form-item label="批次号">
+              <el-input v-model="queryParams.batchCode" clearable class="!w-200px" />
+            </el-form-item>
+          </el-form>
+        </template>
+
+        <template #table="{ resolveRows }">
+          <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+
+          <el-table
+            border
+            v-loading="loading"
+            :data="resolveRows(list)"
+            data-pqc-production-release-list
+            stripe
+            row-key="applicationId"
+            empty-text="当前状态暂无生产放行记录"
+          >
+            <el-table-column label="生产对象" min-width="240">
+              <template #default="{ row }">
+                <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
+                  {{ row.workOrderCode || '--' }}
+                </div>
+                <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="申请" min-width="180">
+              <template #default="{ row }">
+                <div>申请编号：{{ row.applicationId }}</div>
+                <div class="pqc-release-page__secondary">{{ formatDateTime(row.appliedAt) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="activeView === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态'"
+              width="150"
+            >
+              <template #default="{ row }">
+                <el-tag :type="resolveStatusTagType(row)">{{ resolveStatusLabel(row) }}</el-tag>
+                <div v-if="row.underReview" class="pqc-release-page__secondary">QA评审中</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="处置信息" min-width="240">
+              <template #default="{ row }">
+                <template v-if="row.nonconformanceReason">
+                  <div>{{ row.nonconformanceReason }}</div>
+                  <div class="pqc-release-page__secondary">
+                    {{ formatDateTime(row.nonconformanceClosedAt) }}
+                  </div>
+                </template>
+                <template v-else-if="row.approvalReady === false">
+                  <div>{{ row.approvalBlockerReason || '放行资料尚未就绪' }}</div>
+                  <div v-if="row.approvalBlockerSuggestion" class="pqc-release-page__secondary">
+                    {{ row.approvalBlockerSuggestion }}
+                  </div>
+                </template>
+                <span v-else class="pqc-release-page__secondary">--</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="320" fixed="right">
+              <template #default="{ row }">
+                <div class="pqc-release-page__actions">
+                  <el-button
+                    link
+                    type="primary"
+                    :disabled="!hasActiveOrderDetail(row)"
+                    :title="
+                      hasActiveOrderDetail(row) ? '查看订单详情' : '缺少正式活跃订单来源，无法查看详情'
+                    "
+                    data-pqc-production-release-detail
+                    @click="openActiveOrderDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <template v-if="activeView === PQC_RELEASE_VIEW_PENDING">
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-approve']"
+                      link
+                      type="success"
+                      :disabled="row.underReview || row.approvalReady === false"
+                      :title="row.approvalBlockerReason || '放行'"
+                      data-pqc-production-release-approve
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
+                      link
+                      type="danger"
+                      :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
+                      data-pqc-production-release-nonconformance
+                      :data-pqc-production-release-application-id="String(row.applicationId)"
+                      @click="openNonconformanceReview(row)"
+                    >
+                      不合格审查
+                    </el-button>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+
     </div>
 
     <Dialog
@@ -161,6 +159,7 @@
       data-pqc-production-release-dialog
       title="确认生产放行"
       width="540px"
+      :before-close="beforeReleaseDialogClose"
     >
       <div v-if="selectedRow" class="pqc-release-dialog">
         <el-descriptions :column="1" border>
@@ -177,16 +176,23 @@
 
         <el-alert
           v-if="releaseError"
-          :title="releaseError"
+          :title="releaseError.split('\n诊断信息：')[0]"
           type="error"
           :closable="false"
           show-icon
-        />
+        >
+          <template v-if="releaseError.includes('\n诊断信息：')" #default>
+            <details class="pqc-release-error-details">
+              <summary>查看诊断信息（供管理员排查）</summary>
+              <div style="white-space: pre-wrap; overflow-wrap: anywhere">{{ releaseError.split('\n诊断信息：').slice(1).join('\n诊断信息：') }}</div>
+            </details>
+          </template>
+        </el-alert>
 
         <el-result v-if="releaseResult" icon="success" title="生产放行完成">
           <template #sub-title>
             <span data-pqc-production-release-batch-execution-id>
-              批次执行 {{ releaseResult.batchExecutionId || '--' }} 已创建，后续进入资料上传。
+              批次执行 {{ releaseResult.batchExecutionId }} 已完成生产放行，已提交上市放行。
             </span>
           </template>
         </el-result>
@@ -202,14 +208,10 @@
               @keyup.enter="submitRelease"
             />
           </el-form-item>
-          <el-form-item label="电子签名密码" required>
-            <el-input
+          <el-form-item label="签名凭据" required>
+            <SignatureCredentialInput
               v-model="releaseForm.signaturePassword"
-              type="password"
               data-pqc-production-release-signature-password
-              show-password
-              autocomplete="current-password"
-              placeholder="请输入当前账号电子签名密码"
               @keyup.enter="submitRelease"
             />
           </el-form-item>
@@ -226,7 +228,7 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button @click="releaseDialogVisible = false">{{
+        <el-button :disabled="releaseSubmitting" @click="releaseDialogVisible = false">{{
           releaseResult ? '关闭' : '取消'
         }}</el-button>
         <el-button
@@ -245,13 +247,20 @@
 </template>
 
 <script setup lang="ts">
-import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import {useWorkflowInteractionLog} from '@/views/mes/pro/processpool/workflowInteractionLog'
+const workflowLog=useWorkflowInteractionLog('PQC_RELEASE')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import CryptoJS from 'crypto-js'
-import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
 import {
   PQC_RELEASE_VIEW_CONCESSION_RELEASED,
+  PQC_RELEASE_VIEW_COMPLETED,
   PQC_RELEASE_VIEW_PENDING,
   PQC_RELEASE_VIEW_RELEASED,
   PQC_RELEASE_VIEW_REWORKED,
@@ -262,7 +271,7 @@ import {
   getPqcProductionReleasePage,
   type MesPqcProductionReleaseDecisionRespVO,
   type MesPqcProductionReleasePageItemRespVO,
-  type MesPqcProductionReleaseViewStatus
+  type MesPqcProductionReleasePageReqVO
 } from '@/api/mes/pro/productionRelease'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import { useUserStore } from '@/store/modules/user'
@@ -287,10 +296,11 @@ const detailApplicationId = ref<string>()
 const detailReadOnly = ref(false)
 const orderDetail = ref<Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>>()
 let detailRequestSequence = 0
-const activeView = ref<MesPqcProductionReleaseViewStatus>(PQC_RELEASE_VIEW_PENDING)
+const activeView = ref<MesPqcProductionReleasePageReqVO['viewStatus']>(PQC_RELEASE_VIEW_PENDING)
 const releaseDialogVisible = ref(false)
 const releaseSubmitting = ref(false)
 const releaseError = ref('')
+watch(releaseError,value=>{if(value)workflowLog.blocked()})
 const selectedRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const releaseResult = ref<MesPqcProductionReleaseDecisionRespVO>()
 const releaseOutcomeUncertain = ref(false)
@@ -324,6 +334,7 @@ const releaseRequestStates = releaseRequestOwner.pqcReleaseRequests.states
 let listRequestSequence = 0
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   applicationId: undefined as string | undefined,
@@ -356,6 +367,7 @@ const getList = async (isCurrent: () => boolean = () => true) => {
   loadError.value = ''
   try {
     const data = await getPqcProductionReleasePage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       viewStatus: activeView.value,
@@ -364,7 +376,7 @@ const getList = async (isCurrent: () => boolean = () => true) => {
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
-    if (!current()) return
+    if (!current()) return false
     if (queryParams.applicationId && (
       data.list?.length !== 1 || data.total !== 1 ||
       String(data.list[0].applicationId) !== queryParams.applicationId ||
@@ -374,11 +386,13 @@ const getList = async (isCurrent: () => boolean = () => true) => {
     }
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
-    if (!current()) return
+    if (!current()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'PQC生产放行列表加载失败。')
+    throw error
   } finally {
     if (current()) loading.value = false
   }
@@ -448,14 +462,22 @@ const requireCompletedPqcReleaseDetail = (
     String(signature?.signatureId) !== String(decision.signatureId) || signature?.role !== 'PQC_RELEASE' ||
     !verification || !exactId(verification.signatureId) ||
     String(verification.signatureId) !== String(signature.signatureId)) {
-    throw new Error('订单详情签名关联与正式生产放行回执不一致。')
+    throw new Error('放行详情中的签名与放行结果记录不一致，无法展示详情。请联系管理员核查。')
   }
   const dimensions = [verification.digestStatus, verification.timeConsistencyStatus, verification.auditBindingStatus]
-  const overall = dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
-  if (dimensions.some((status) => !['CONSISTENT', 'MISSING', 'MISMATCH'].includes(status)) ||
+  const auditDisabled = verification.auditBindingStatus === 'DEVELOPMENT_DISABLED'
+  // V2 treats missing evidence as a mismatch; V1 retains its INCOMPLETE result.
+  const overall = verification.evidenceFormatVersion === 'V2'
+    ? verification.digestStatus === 'CONSISTENT' && verification.timeConsistencyStatus === 'CONSISTENT' &&
+      (verification.auditBindingStatus === 'CONSISTENT' || auditDisabled) ? 'VALID' : 'MISMATCH'
+    : dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
+  if ([verification.digestStatus, verification.timeConsistencyStatus].some((status) => !['CONSISTENT', 'MISSING', 'MISMATCH'].includes(status)) ||
+    !['CONSISTENT', 'MISSING', 'MISMATCH', 'DEVELOPMENT_DISABLED'].includes(verification.auditBindingStatus) ||
+    !Array.isArray(verification.reasonCodes) ||
+    (auditDisabled && !verification.reasonCodes.includes('GXP_AUDIT_DEVELOPMENT_DISABLED')) ||
     overall !== verification.verificationStatus || verification.verificationScope !== 'LOCAL_DIGEST_TIME_AND_CREATION_AUDIT' ||
     verification.timeTrustStatus !== 'NOT_BOUND' || !['SERVER_CLOCK', 'UNKNOWN'].includes(verification.timeSource) ||
-    !['V1', 'UNSUPPORTED'].includes(verification.evidenceFormatVersion) || !Array.isArray(verification.reasonCodes) ||
+    !['V1', 'V2', 'UNSUPPORTED'].includes(verification.evidenceFormatVersion) ||
     !isFormalSignedTime(verification.verifiedAt) ||
     (verification.digestStatus === 'CONSISTENT' && (!verification.storedContentHash || !verification.storedEvidenceHash ||
       verification.storedContentHash !== verification.calculatedContentHash || verification.storedEvidenceHash !== verification.calculatedEvidenceHash)) ||
@@ -466,7 +488,7 @@ const requireCompletedPqcReleaseDetail = (
     (signature.signerNameStatus === 'VERIFIED_SNAPSHOT' && (overall !== 'VALID' || !signature.signerName?.trim())) ||
     (signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' && (overall === 'VALID' || signature.signerName !== '签时姓名未核验')) ||
     (signature.signerNameStatus === 'NOT_RECORDED' && signature.signerName !== '未记录')) {
-    throw new Error('订单详情签名核验状态或姓名投影不一致。')
+    throw new Error('放行详情中的签名核验信息或签署人姓名不一致，无法展示可信的签名结果。请联系管理员核查。')
   }
 }
 
@@ -534,9 +556,11 @@ const openPqcReleaseFromRoute = async () => {
     if (!isCurrent() || loadError.value || !context) return
     const row = list.value[0]
     if (!row || row.viewStatus !== PQC_RELEASE_VIEW_PENDING ||
-      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview || row.approvalReady === false) {
+      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview) {
       throw new Error(row?.approvalBlockerReason || '当前生产放行申请不符合待放行任务状态。')
     }
+    // A configuration blocker keeps the real pending record visible with its disabled action.
+    if (row.approvalReady === false) return
     if (!userStore.permissions.has('mes:pro-production-release:pqc-approve') && !userStore.permissions.has('*:*:*')) {
       throw new Error('当前账号没有生产放行权限。')
     }
@@ -575,7 +599,7 @@ const resetQuery = () => {
 }
 
 const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
-  if (row.underReview) return '评审中'
+  if (row.underReview && row.viewStatus === PQC_RELEASE_VIEW_PENDING) return '评审中'
   if (
     row.viewStatus === PQC_RELEASE_VIEW_PENDING &&
     row.nonconformanceDisposition === 'concession_release'
@@ -584,7 +608,7 @@ const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
   }
   return {
     [PQC_RELEASE_VIEW_PENDING]: '待放行',
-    [PQC_RELEASE_VIEW_RELEASED]: '已生产放行',
+    [PQC_RELEASE_VIEW_RELEASED]: '已放行',
     [PQC_RELEASE_VIEW_VOIDED]: '已作废',
     [PQC_RELEASE_VIEW_REWORKED]: '已返工',
     [PQC_RELEASE_VIEW_CONCESSION_RELEASED]: '已让步放行'
@@ -592,7 +616,7 @@ const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
-  if (row.underReview) return 'warning'
+  if (row.underReview && row.viewStatus === PQC_RELEASE_VIEW_PENDING) return 'warning'
   if (
     row.viewStatus === PQC_RELEASE_VIEW_RELEASED ||
     row.viewStatus === PQC_RELEASE_VIEW_CONCESSION_RELEASED
@@ -605,6 +629,9 @@ const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 let releaseDialogGeneration = 0
+const beforeReleaseDialogClose = (done: () => void) => {
+  if (!releaseSubmitting.value) done()
+}
 const releaseRequestScopeKey = (row: MesPqcProductionReleasePageItemRespVO) =>
   JSON.stringify([approvalInvalidation.syncSession().key, row.applicationId, row.pqcReleaseWorkTaskId])
 
@@ -641,7 +668,7 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   releaseError.value = ''
   releaseResult.value = undefined
   releaseOutcomeUncertain.value = releaseRequestStates.has(releaseRequestScopeKey(row))
-  if (releaseOutcomeUncertain.value) releaseError.value = '本次申请已提交或结果尚未确认，请只读刷新正式回执后核对；禁止再次提交。'
+  if (releaseOutcomeUncertain.value) releaseError.value = '本次申请已提交或结果尚未确认，请勿重复提交。请刷新查看放行结果；仍无法确认时，请联系管理员。'
   releaseForm.signaturePassword = ''
   releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
@@ -711,6 +738,25 @@ const freezeReleaseRequest = (row: MesPqcProductionReleasePageItemRespVO) => {
 
 type FrozenPqcReleaseRequest = ReturnType<typeof freezeReleaseRequest> & { payloadHash: string }
 
+const confirmedReleaseRejection = (error: unknown, request: FrozenPqcReleaseRequest): string | undefined => {
+  const failure = (error as any)?.details
+  const receipt = failure?.rejectedDecision
+  const blockers = failure?.blockers
+  if (!receipt || !['NOT_STARTED', 'ROLLED_BACK'].includes(receipt.outcome) || receipt.applicationId !== request.applicationId ||
+    receipt.workTaskId !== request.pqcReleaseWorkTaskId || receipt.actorId !== request.actorId ||
+    receipt.expectedVersion !== request.expectedVersion || receipt.idempotencyKey !== request.idempotencyKey ||
+    receipt.payloadHash !== request.payloadHash || !Array.isArray(blockers) || blockers.length !== 1 ||
+    typeof blockers[0]?.blockerType !== 'string' || !blockers[0].blockerType.trim() ||
+    typeof blockers[0]?.reason !== 'string' || !blockers[0].reason.trim()) return
+  if (receipt.outcome === 'NOT_STARTED') {
+    if (blockers[0].blockerType !== 'SIGNATURE_AUTHENTICATION_FAILED') return
+    return `${blockers[0].reason}。本次未提交放行，请更正后重新签名提交。`
+  }
+  return blockers[0].blockerType === 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED'
+    ? `${blockers[0].reason}。请为管理者代表角色分配启用账号后重新放行。`
+    : `${blockers[0].reason}。本次放行已回滚，请更正后重新签名提交。`
+}
+
 const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcReleaseRequest) => {
   if (requirePqcReleaseAuthority(result, request) !== 'APPROVED' ||
     result.decisionIdempotencyKey !== request.idempotencyKey ||
@@ -734,7 +780,7 @@ const confirmReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, r
 }
 
 const applyReleaseSuccess = async (
-  row: MesPqcProductionReleasePageItemRespVO,
+  _row: MesPqcProductionReleasePageItemRespVO,
   result: MesPqcProductionReleaseDecisionRespVO,
   request: FrozenPqcReleaseRequest,
   recovered: boolean,
@@ -746,15 +792,14 @@ const applyReleaseSuccess = async (
   releaseForm.udiControlDocumentNo = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
-  activeView.value = row.nonconformanceDisposition === 'concession_release'
-    ? PQC_RELEASE_VIEW_CONCESSION_RELEASED : PQC_RELEASE_VIEW_RELEASED
+  activeView.value = PQC_RELEASE_VIEW_COMPLETED
   queryParams.pageNo = 1
   recovered ? message.warning('正式回执已确认本次生产放行完成') : message.success('生产放行完成')
   await getList(isCurrent)
   if (!isCurrent()) return
   if (loadError.value) {
     releaseError.value = `生产放行已成功，列表刷新失败：${loadError.value}`
-    message.warning(releaseError.value)
+    message.warning(releaseError.value.split('\n诊断信息：')[0])
   }
 }
 
@@ -777,8 +822,8 @@ const recoverUncertainRelease = async (
   } catch (receiptError) {
     if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
-    releaseError.value = `生产放行响应不确定，正式回执无法证明本次请求成功，请只读刷新核对。` +
-      `写入错误：${resolveErrorMessage(writeError, '响应异常')}；回执错误：${resolveErrorMessage(receiptError, '查询失败')}`
+    releaseError.value = `暂时无法确认生产放行结果，请勿重复提交。请刷新查看放行结果；仍无法确认时，请联系管理员核查。\n诊断信息：` +
+      `提交请求：${resolveErrorMessage(writeError, '响应异常')}\n结果查询：${resolveErrorMessage(receiptError, '查询失败')}`
     return
   }
 }
@@ -792,7 +837,7 @@ const submitRelease = async () => {
   const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
   if (!udiControlDocumentNo || udiControlDocumentNo.length > 128 || !signaturePassword) {
     releaseError.value = !udiControlDocumentNo ? 'UDI编号不能为空。' :
-      udiControlDocumentNo.length > 128 ? 'UDI编号长度不能超过128个字符。' : '电子签名密码不能为空。'
+      udiControlDocumentNo.length > 128 ? 'UDI编号长度不能超过128个字符。' : '电子签名凭据不能为空。'
     return
   }
   const scopeKey = releaseRequestScopeKey(row)
@@ -831,7 +876,18 @@ const submitRelease = async () => {
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     confirmReleasedReceipt(result, request)
   } catch (error) {
-    if (isReleaseTransportTimeout(error)) {
+    const rejection = confirmedReleaseRejection(error, request)
+    if (rejection) {
+      releaseRequestStates.delete(request.scopeKey)
+      releaseIdempotencyKeys.delete(request.scopeKey)
+      releaseRequestOwner.pqcReleaseRequests!.requests.delete(request.scopeKey)
+      if (!isCurrent()) return
+      releaseForm.signaturePassword = ''
+      releaseOutcomeUncertain.value = false
+      releaseError.value = rejection
+      releaseSubmitting.value = false
+      return
+    } else if (isReleaseTransportTimeout(error)) {
       releaseRequestStates.set(request.scopeKey, 'UNCERTAIN')
       const receipt = await recoverUncertainRelease(request, error, isCurrent)
       if (!isCurrent()) return
@@ -845,7 +901,7 @@ const submitRelease = async () => {
       releaseForm.signaturePassword = ''
       releaseOutcomeUncertain.value = true
       releaseError.value =
-        `生产放行结果无法确认，当前错误不符合自动回执恢复条件，请只读核对；禁止再次提交：${resolveErrorMessage(error, '响应异常')}`
+        `暂时无法确认生产放行结果，请勿重复提交。请查看放行结果记录，并联系管理员核查。\n诊断信息：${resolveErrorMessage(error, '响应异常')}`
       releaseSubmitting.value = false
       return
     }
@@ -855,8 +911,8 @@ const submitRelease = async () => {
   } catch (error) {
     if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
-    releaseError.value = `生产放行写入已完成，回执或列表读取未完成，请只读刷新核对：${resolveErrorMessage(error, '回执或读取失败。')}`
-    message.warning(releaseError.value)
+    releaseError.value = `生产放行已提交，但放行结果或列表未能加载。请勿重复提交，请刷新查看结果；仍无法查看时，请联系管理员。\n诊断信息：${resolveErrorMessage(error, '回执或读取失败。')}`
+    message.warning(releaseError.value.split('\n诊断信息：')[0])
   } finally {
     if (isCurrent()) releaseSubmitting.value = false
   }
@@ -915,6 +971,84 @@ const retryOrderDetail = () => {
 }
 
 onMounted(() => openPqcReleaseFromRoute())
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'releaseStatusDisplay',
+    label: activeView.value === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态',
+    type: 'text',
+    getValue: (row) => [resolveStatusLabel(row), row.underReview ? 'QA评审中' : ''].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    type: 'text',
+    getValue: (row) => [row.applicationId, formatDateTime(row.appliedAt)].join(' ')
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.nonconformanceReason,
+        formatDateTime(row.nonconformanceClosedAt),
+        row.approvalBlockerReason || '放行资料尚未就绪',
+        row.approvalBlockerSuggestion
+      ].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    visible: true
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    visible: true
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    type: 'text',
+    getValue: (row) => [row.applicationId, formatDateTime(row.appliedAt)].join(' ')
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.nonconformanceReason,
+        formatDateTime(row.nonconformanceClosedAt),
+        row.approvalBlockerReason || '放行资料尚未就绪',
+        row.approvalBlockerSuggestion
+      ].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -922,19 +1056,6 @@ onMounted(() => openPqcReleaseFromRoute())
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.pqc-release-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.pqc-release-page__header h2 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
 }
 
 .pqc-release-page__tabs,
@@ -955,8 +1076,14 @@ onMounted(() => openPqcReleaseFromRoute())
 
 .pqc-release-page__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   align-items: center;
   min-height: 32px;
+}
+
+.pqc-release-page__actions :deep(.el-button) {
+  margin: 0;
 }
 
 .pqc-release-dialog {

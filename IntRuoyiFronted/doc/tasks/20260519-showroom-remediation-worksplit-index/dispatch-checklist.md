@@ -3,13 +3,13 @@
 ## 迁仓说明
 
 - 当前文档中 `F4/F5` 属于当前仓库里的历史前台整改任务。
-- 新的 APP 展示层需求已迁移到 `D:\ProjectPackage\Website`。
+- 新的 APP 展示层需求已迁移到 `../Website`。
 - 如果后续要继续做“公司主页 / 展厅分类入口 / 产品图片墙 / 音频播放 / 讲解文字 / 多设备 APP 展示层”，请直接使用 Website 仓库里的 `W1-W4` 任务，不再从这里派 `F4/F5`。
 
 ## 统一规则
 
 - 每个 LLM 只拿两样东西：
-  - `D:\ProjectPackage\Int\IntRuoyi\AGENTS.md`
+  - `./AGENTS.md`
   - 它自己的 `task.md`
 - 一任务一独立 `worktree/branch`
 - 必须严格 TDD
@@ -41,8 +41,8 @@
 - 立即启动
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-worksplit-index\task.md`
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-worksplit-index\launch-plan.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-worksplit-index/task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-worksplit-index/launch-plan.md`
 
 发给总控 LLM 的提示词：
 
@@ -50,9 +50,9 @@
 你是展厅整改总控 LLM。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-worksplit-index\task.md
-3. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-worksplit-index\launch-plan.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-worksplit-index/task.md
+3. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-worksplit-index/launch-plan.md
 
 你的职责：
 - 按 launch-plan.md 分批启动 worker
@@ -75,7 +75,7 @@
 - 总控已就位
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b1-schema-persistence\task.md`
+- `./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b1-schema-persistence/task.md`
 
 发给 B1 LLM 的提示词：
 
@@ -83,8 +83,8 @@
 你是 B1 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b1-schema-persistence\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b1-schema-persistence/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 - 只改 task.md 允许的写入边界
@@ -101,7 +101,7 @@
 - `B1` 完成并提交
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b2-content-display-contract\task.md`
+- `./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b2-content-display-contract/task.md`
 
 提示词：
 
@@ -109,8 +109,8 @@
 你是 B2 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b2-content-display-contract\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b2-content-display-contract/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：对齐内容查询与前台 display 契约。
@@ -123,7 +123,7 @@
 - `B1` 完成并提交
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b3-approval-version-workflow\task.md`
+- `./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b3-approval-version-workflow/task.md`
 
 提示词：
 
@@ -131,8 +131,8 @@
 你是 B3 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b3-approval-version-workflow\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b3-approval-version-workflow/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：补齐审批与版本工作流。
@@ -146,7 +146,7 @@
 - 若 `B3` 正在改相同 workflow 文件，总控需先串行化
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b4-assignment-comment-collaboration\task.md`
+- `./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b4-assignment-comment-collaboration/task.md`
 
 提示词：
 
@@ -154,8 +154,8 @@
 你是 B4 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b4-assignment-comment-collaboration\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b4-assignment-comment-collaboration/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：补齐 assignment 与 comment collaboration。
@@ -168,7 +168,7 @@
 - `B1` 完成并提交
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b5-narration-preview-assets\task.md`
+- `./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b5-narration-preview-assets/task.md`
 
 提示词：
 
@@ -176,8 +176,8 @@
 你是 B5 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260519-showroom-remediation-b5-narration-preview-assets\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiBackend/doc/tasks/20260519-showroom-remediation-b5-narration-preview-assets/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：补齐 narration 与 preview assets 持久化和读取链路。
@@ -192,7 +192,7 @@
 - `B2` 契约稳定
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f1-admin-company-dashboard-history\task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f1-admin-company-dashboard-history/task.md`
 
 提示词：
 
@@ -200,8 +200,8 @@
 你是 F1 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f1-admin-company-dashboard-history\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f1-admin-company-dashboard-history/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：实现 Dashboard / 公司工作台 / 公司版本历史。
@@ -214,7 +214,7 @@
 - `B2` 契约稳定
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f2-admin-product-hall-operability\task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f2-admin-product-hall-operability/task.md`
 
 提示词：
 
@@ -222,8 +222,8 @@
 你是 F2 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f2-admin-product-hall-operability\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f2-admin-product-hall-operability/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：产品详情/历史入口与展厅映射入口。
@@ -236,7 +236,7 @@
 - `B3/B4/B5` 契约稳定
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f3-admin-workflow-workbenches\task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f3-admin-workflow-workbenches/task.md`
 
 提示词：
 
@@ -244,8 +244,8 @@
 你是 F3 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f3-admin-workflow-workbenches\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f3-admin-workflow-workbenches/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：审批/指派/讨论/讲解工作台。
@@ -258,7 +258,7 @@
 - `B2/B5` 契约稳定
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f4-frontstage-experience-alignment\task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f4-frontstage-experience-alignment/task.md`
 
 提示词：
 
@@ -266,8 +266,8 @@
 你是 F4 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f4-frontstage-experience-alignment\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f4-frontstage-experience-alignment/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：前台体验对齐设计文档。
@@ -286,7 +286,7 @@
 - `F1/F2/F3/F4` 全部完成并提交
 
 任务路径：
-- `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f5-frontend-route-integration-e2e\task.md`
+- `./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f5-frontend-route-integration-e2e/task.md`
 
 提示词：
 
@@ -294,8 +294,8 @@
 你是 F5 worker。
 
 先读：
-1. D:\ProjectPackage\Int\IntRuoyi\AGENTS.md
-2. D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-showroom-remediation-f5-frontend-route-integration-e2e\task.md
+1. ./AGENTS.md
+2. ./IntRuoyiFronted/doc/tasks/20260519-showroom-remediation-f5-frontend-route-integration-e2e/task.md
 
 你没有额外上下文。严格按 task.md 执行。
 核心目标：把前面独立交付的页面接进真实路由、真实入口和真实 E2E。

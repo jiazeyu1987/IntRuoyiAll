@@ -19,8 +19,11 @@ public class NotifyMessageRespVO {
     @Schema(description = "用户类型，参见 UserTypeEnum 枚举", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
     private Byte userType;
 
-    @Schema(description = "模版编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "13013")
+    @Schema(description = "当前租户模板编号，原始模板已删除的历史通知为空", example = "13013")
     private Long templateId;
+
+    @Schema(description = "迁移前的原始模板编号", example = "1")
+    private Long sourceTemplateId;
 
     @Schema(description = "模板编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "test_01")
     private String templateCode;

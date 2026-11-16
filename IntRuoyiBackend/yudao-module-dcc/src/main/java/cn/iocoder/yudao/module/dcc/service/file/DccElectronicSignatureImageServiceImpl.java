@@ -58,10 +58,54 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
     private AdminUserApi users;
     @Resource
     private ApprovalAuthorityApi authority;
+    @Resource
+    private DefaultSignatureImageRenderer defaultSignatureImageRenderer;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService signingAudit;
 
     @Override
     public DccElectronicSignatureImageRespVO getMySignatureImage(Long userId) {
         return toRespVO(signatureImageMapper.selectActiveByUserId(userId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccElectronicSignatureImageRespVO initializeMyDefaultSignatureImage(Long userId) {
+        var revision = lockImageIdentity(userId, userId);
+        var history = signatureImageMapper.selectIdentityHistoryForUpdate(userId);
+        if (history == null) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        // History, rather than the absence of an active row, decides eligibility.
+        // In particular, an intentionally disabled image must stay disabled.
+        if (!history.isEmpty()) {
+            var active = history.stream().filter(row -> Boolean.TRUE.equals(row.getActive())).toList();
+            if (!active.isEmpty()) return toRespVO(requireActive(history));
+            var latest = history.stream().max(java.util.Comparator.comparing(
+                    DccElectronicSignatureImageDO::getVersionNo)).orElseThrow();
+            return toRespVO(latest);
+        }
+        return toRespVO(createDefaultSignatureImageLocked(userId, revision));
+    }
+
+    private DccElectronicSignatureImageDO createDefaultSignatureImageLocked(
+            Long userId, ApprovalAuthorityRevisionDTO revision) {
+        var user = users.getUser(userId);
+        if (user == null || !Objects.equals(user.getId(), userId))
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        byte[] content = defaultSignatureImageRenderer.render(user.getNickname());
+        validateImageContent(content);
+        Long fileId = fileService.createFileAndReturnId(content, "default-signature-" + userId + ".png",
+                STORAGE_DIRECTORY, "image/png");
+        var file = requireStoredFile(fileId);
+        var now = LocalDateTime.now();
+        var image = DccElectronicSignatureImageDO.builder()
+                .userId(userId).versionNo(1).fileId(fileId).fileUrl(buildAdminFileAccessUrl(file))
+                .storagePath(file.getPath()).fileName(file.getName()).contentType("image/png")
+                .fileSize((long) content.length).sha256(sha256(content)).imageStatus(STATUS_ACTIVE)
+                .active(Boolean.TRUE).uploadedBy(userId).uploadedAt(now).enabledAt(now).referencedCount(0).build();
+        if (signatureImageMapper.insert(image) != 1 || image.getId() == null || image.getId() <= 0)
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
+        authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
+        return image;
     }
 
     @Override
@@ -175,13 +219,43 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccElectronicSignatureImageSnapshot requireSigningSnapshot(Long userId) {
+        // The signing kernel later takes this same ledger lock: keep ledger -> identity -> authority order.
+        signingAudit.acquireLedgerLock();
+        var revision = lockImageIdentity(userId, userId);
+        return signingSnapshotFromLockedHistory(userId, revision);
+    }
+
+    @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public DccElectronicSignatureImageSnapshot requireActiveSnapshotLocked(Long userId) {
         SignatureIdentityLockContext.requireSystemIdentityLock(userId);
-        var image = requireActive(signatureImageMapper.selectIdentityHistoryForUpdate(userId));
+        var revision = authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        return signingSnapshotFromLockedHistory(userId, revision);
+    }
+
+    private DccElectronicSignatureImageSnapshot signingSnapshotFromLockedHistory(
+            Long userId, ApprovalAuthorityRevisionDTO revision) {
+        var history = signatureImageMapper.selectIdentityHistoryForUpdate(userId);
+        if (history == null) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        var image = history.isEmpty() ? createDefaultSignatureImageLocked(userId, revision) : requireActive(history);
         if (!Objects.equals(image.getUserId(), userId))
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
         return toSnapshot(image, VERIFY_STATUS_VALID, verifyStoredImage(image));
+    }
+
+    @Override
+    public boolean canInitializeDefaultSignatureImage(Long userId) {
+        // Readiness checks must not create files or modify another participant's identity.
+        var history = signatureImageMapper.selectListByUserId(userId);
+        if (history == null) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        if (!history.isEmpty()) return false;
+        var user = users.getUser(userId);
+        if (user == null || !Objects.equals(user.getId(), userId))
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        defaultSignatureImageRenderer.render(user.getNickname());
+        return true;
     }
 
     @Override

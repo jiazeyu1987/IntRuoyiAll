@@ -62,6 +62,7 @@ const initChart = () => {
   try {
     const chart = echarts.init(deviceCountChartRef.value)
     chart.setOption({
+      textStyle: { fontFamily: 'Microsoft YaHei' },
       tooltip: {
         trigger: 'item'
       },

@@ -235,6 +235,12 @@ export const getMyDccElectronicSignatureImage =
     return await request.get({ url: '/dcc/electronic-signature-authorizations/my-image' })
   }
 
+export const initializeMyDefaultSignatureImage = async (): Promise<DccElectronicSignatureImageVO> => {
+  return await request.post({
+    url: '/dcc/electronic-signature-authorizations/my-image/initialize-default'
+  })
+}
+
 export const uploadDccElectronicSignatureImage = async (
   file: File,
   reason: string

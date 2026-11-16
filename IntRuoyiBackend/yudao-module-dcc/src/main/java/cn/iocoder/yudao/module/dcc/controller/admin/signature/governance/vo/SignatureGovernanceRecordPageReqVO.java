@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.springframework.format.annotation.DateTimeFormat;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +26,7 @@ public class SignatureGovernanceRecordPageReqVO extends PageParam {
     private String keyword;
 
     @Schema(description = "电子签名记录 ID（按来源记录 ID 精确筛选）", example = "9001")
+    @Pattern(regexp = "^[1-9][0-9]*$", message = "签名记录 ID 必须为正整数")
     private String signatureId;
 
     @Schema(description = "签名人用户编号", example = "101")

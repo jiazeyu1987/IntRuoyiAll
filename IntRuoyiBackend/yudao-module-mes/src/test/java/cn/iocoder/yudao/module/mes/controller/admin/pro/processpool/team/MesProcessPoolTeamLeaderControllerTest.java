@@ -923,6 +923,9 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("rebuildActiveOrder", new Class[]{MesTeamLeaderActiveOrderRebuildReqVO.class},
                 PostMapping.class, new String[]{"/active-order/rebuild"},
                 "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("resetFixedSimulationActiveOrder", new Class[]{}, PostMapping.class,
+                new String[]{"/active-order/simulation/test-reset"},
+                "mes:pro-process-pool-team-leader:maintain");
 
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);

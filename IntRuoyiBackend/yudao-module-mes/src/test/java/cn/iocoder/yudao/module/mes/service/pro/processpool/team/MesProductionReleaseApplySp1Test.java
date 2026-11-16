@@ -49,10 +49,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -245,6 +247,35 @@ class MesProductionReleaseApplySp1Test {
     }
 
     @Test
+    void correctionRegeneratesFormalSourcesAndCurrentPqcCandidatesWithoutRewritingRejectedRound() {
+        var rejected = existingApplication().setId(6999L).setApplicationStatus("PQC_RELEASE_REJECTED")
+                .setPqcDecision("REJECT").setPqcRejectReason("成品检文件不完整");
+        lenient().when(applicationMapper.selectLatestByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(rejected);
+        var result = generationService.generateCorrection(LEADER_USER_ID, command("correction-new-round"), rejected.getId());
+        var newApplication = ArgumentCaptor.forClass(MesProcessPoolActiveOrderReleaseApplicationDO.class);
+        verify(applicationMapper).insert(newApplication.capture());
+        assertEquals(APPLICATION_ID, result.getApplicationId());
+        assertNotEquals(rejected.getId(), result.getApplicationId());
+        assertEquals(DigestUtil.sha256Hex(rejected.getBusinessIdempotencyKey() + "|CORRECTION:6999"),
+                newApplication.getValue().getBusinessIdempotencyKey());
+        assertEquals("PQC_RELEASE_PENDING", newApplication.getValue().getApplicationStatus());
+        assertEquals("PQC_RELEASE_REJECTED", rejected.getApplicationStatus());
+        assertEquals("成品检文件不完整", rejected.getPqcRejectReason());
+        verify(candidateResolver).resolveRequiredCandidates(TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER);
+        verify(notificationService).scheduleAssigned(any(MesProEdhrWorkTaskDO.class), eq(LEADER_USER_ID));
+    }
+
+    @Test
+    void ordinaryApplyReadsLatestCorrectionRoundInsteadOfOriginalBusinessKey() {
+        var current = existingApplication().setId(7002L).setRequestIdempotencyKey("correction-new-round");
+        when(applicationMapper.selectLatestByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(current);
+        var replay = generationService.generate(LEADER_USER_ID, command("ordinary-refresh"));
+        assertEquals(7002L, replay.getApplicationId());
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+    }
+
+    @Test
     void productionBelowOneHundredPercentBlocksBeforeAnyWrite() {
         when(completionMapper.selectListByWorkOrderIds(List.of(WORK_ORDER_ID)))
                 .thenReturn(List.of(completion(BigDecimal.valueOf(9), "production-aggregate")));
@@ -275,6 +306,28 @@ class MesProductionReleaseApplySp1Test {
 
         assertEquals(APPLICATION_ID, result.getApplicationId());
         verify(applicationMapper).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+    }
+
+    @Test
+    void legacyProcessInspectionTaskCannotSatisfyWholeOrderQaReleaseGate() {
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(pqcTask().setRouteProcessId(ROUTE_PROCESS_ID).setProcessId(PROCESS_ID)));
+        var failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("legacy-process-pqc")));
+        assertBlocker(failure, MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED);
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+    }
+
+    @Test
+    void missingFrozenQaSampleCannotCreateCorrectionRound() {
+        when(aggregateDetailMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(aggregateDetail().setSampleNo(2)));
+        var failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> generationService.generateCorrection(LEADER_USER_ID, command("correction-missing-sample"), 6999L));
+        assertBlocker(failure, MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED);
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
     }
 
     @Test
@@ -557,8 +610,13 @@ class MesProductionReleaseApplySp1Test {
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
+                .qaProcessId(6301L)
+                .regulationVersionId(6401L)
+                .inspectionType("FINAL")
+                .inspectionItemPlanJson("{\"APPEARANCE\":1}")
+                .plannedInspectionQuantity(1)
+                .actualInspectionQuantity(1)
+                .submittedEventId(6501L)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
                 .build();
     }
@@ -571,8 +629,11 @@ class MesProductionReleaseApplySp1Test {
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
+                .regulationVersionId(6401L)
+                .eventId(6501L)
+                .inspectionType("FINAL")
+                .itemCode("APPEARANCE")
+                .sampleNo(1)
                 .build();
     }
 

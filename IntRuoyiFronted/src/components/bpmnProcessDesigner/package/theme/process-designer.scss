@@ -155,5 +155,5 @@ pre {
   white-space: pre-wrap;
 }
 .hljs * {
-  font-family: Consolas, Monaco, monospace;
+  font-family: var(--app-font-family);
 }

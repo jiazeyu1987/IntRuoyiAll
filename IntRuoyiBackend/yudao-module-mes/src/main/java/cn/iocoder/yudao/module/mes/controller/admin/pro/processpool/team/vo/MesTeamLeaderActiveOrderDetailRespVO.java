@@ -121,7 +121,9 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     @Data
     @Accessors(chain = true)
     public static class SubmissionDetail {
+        private List<LossDetail> lossDetails = List.of();
         private Long eventId;
+        private String originalBusinessIdentityJson;
         private BigDecimal submittedQuantity;
         private String submitterName;
         private String reviewerName;
@@ -133,6 +135,15 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<SubmissionDeviceParameterDetail> deviceParameters;
         private List<ClearanceConfirmationDetail> clearanceConfirmations;
         private List<SubmissionMaterialDetail> materials;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class LossDetail {
+        private Long reasonId;
+        private String reasonCode;
+        private String reasonName;
+        private BigDecimal quantity;
     }
 
     @Data
@@ -190,6 +201,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> pqcTaskIds;
         private Long submittedEventId;
         private List<Long> submittedEventIds;
+        private List<String> originalBusinessIdentities;
         private Long productionEventId;
         private List<Long> productionEventIds;
         private List<SignatureDetail> productionSubmitterSignatures;
@@ -246,6 +258,9 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     @Data
     @Accessors(chain = true)
     public static class OperationFact {
+        private String handoverFromName;
+        private String handoverToName;
+        private String handoverReason;
         private Long id;
         private String operationType;
         private String operationName;

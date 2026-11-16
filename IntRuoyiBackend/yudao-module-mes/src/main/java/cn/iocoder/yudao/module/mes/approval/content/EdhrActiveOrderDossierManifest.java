@@ -18,6 +18,8 @@ public class EdhrActiveOrderDossierManifest {
     private final MesProcessPoolActiveOrderDossierFileMapper dossiers;
     private final FileService files;
     private final cn.iocoder.yudao.module.infra.service.file.FileConfigService configurations;
+    @jakarta.annotation.Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper applications;
     public record Snapshot(JsonNode manifest, List<PreviewAttachment> attachments) { }
     public Snapshot read(Long tenantId, Long orderId, Long applicationId, Long batchId, boolean locked) {
         var order = locked ? orders.selectByIdForUpdate(orderId) : orders.selectById(orderId);
@@ -30,12 +32,26 @@ public class EdhrActiveOrderDossierManifest {
         if (locked) query.last("FOR UPDATE");
         var items = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
         var attachments = new ArrayList<PreviewAttachment>();
-        for (var row : dossiers.selectList(query)) {
+        var rows = dossiers.selectList(query);
+        // 上市放行资料选传；签署清单只冻结实际上传的文件，仍逐份验证来源及完整性。
+        var verifiedApplications = new HashSet<Long>();
+        verifiedApplications.add(applicationId);
+        for (var row : rows) {
             if (!Objects.equals(row.getTenantId(), tenantId) || !Objects.equals(row.getActiveOrderId(), orderId)
-                    || row.getApplicationId() != null && !Objects.equals(row.getApplicationId(), applicationId)
                     || row.getId() == null || row.getFileId() == null || row.getSha256() == null
                     || !row.getSha256().matches("[0-9a-f]{64}") || row.getFileSize() == null) {
                 throw new IllegalStateException("EDHR_DOSSIER_FILE_SCOPE_INVALID");
+            }
+            // Files belong to the active order. The upload-time application is immutable
+            // provenance, so a correction round retains files from that order's prior rounds.
+            if (row.getApplicationId() != null && !verifiedApplications.contains(row.getApplicationId())) {
+                var source = applications.selectById(row.getApplicationId());
+                if (source == null || !Objects.equals(source.getId(), row.getApplicationId())
+                        || !Objects.equals(source.getTenantId(), tenantId)
+                        || !Objects.equals(source.getActiveOrderId(), orderId)) {
+                    throw new IllegalStateException("EDHR_DOSSIER_FILE_APPLICATION_SCOPE_INVALID");
+                }
+                verifiedApplications.add(source.getId());
             }
             var file = files.getFile(row.getFileId());
             if (file == null || !Objects.equals(file.getConfigId(), row.getStorageConfigId())

@@ -31,6 +31,9 @@
             @pagination="loadPage"
             v-model:sort-state="currentSortState"
             @sort-change="handleCurrentSortChange"
+            server-filter
+            :server-filter-query="loadPage"
+            :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
               <el-button v-hasPermi="['dcc:registration-certificate:config:query']" @click="configRouter.push({ name: 'DccRegistrationCertificateConfig' })">注册证配置</el-button>
@@ -45,14 +48,14 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <div class="registration-certificate-current-table-scroll-region">
                 <el-table
                   v-loading="loading"
                   class="registration-certificate-current-table"
                   data-user-table-column-explicit
                   :data-user-table-key="CURRENT_TABLE_KEY"
-                  :data="list"
+                  :data="resolveRows(list)"
                   height="100%"
                   border
                   :stripe="true"
@@ -267,13 +270,16 @@
             @pagination="loadOldIndexPage"
             v-model:sort-state="oldSortState"
             @sort-change="handleOldSortChange"
+            server-filter
+            :server-filter-query="loadOldIndexPage"
+            :column-filter-definitions="listColumnFilterDefinitions1"
           >
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="oldLoading"
                 data-user-table-column-explicit
                 :data-user-table-key="OLD_TABLE_KEY"
-                :data="oldList"
+                :data="resolveRows(oldList)"
                 border
                 :stripe="true"
                 :show-overflow-tooltip="true"
@@ -428,6 +434,9 @@
 </template>
 
 <script setup lang="ts">
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+
 import CategoryFilters from '../shared/CategoryFilters.vue'
 import MyApplications from '../upload/MyApplications.vue'
 const configRouter = useRouter()
@@ -479,8 +488,10 @@ const REGISTRATION_CERTIFICATE_MANAGER_ROLE = 'dcc_registration_certificate_appr
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
 const activeTab = ref<'current' | 'old' | 'test' | 'applications'>('current')
-const loading = ref(false)
-const oldLoading = ref(false)
+const currentRequest = useLatestListRequest()
+const oldRequest = useLatestListRequest()
+const loading = currentRequest.loading
+const oldLoading = oldRequest.loading
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
@@ -495,7 +506,7 @@ const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsDoubleWidt
 const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.unifiedViewActionV1'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
-  Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
+  Required<Pick<PageParam, 'pageNo' | 'pageSize'>> & { listFilters?: string }
 type RegistrationCertificateSortOrder = 'ascending' | 'descending' | null
 type RegistrationCertificateSortState = {
   key?: string
@@ -506,8 +517,8 @@ type RegistrationCertificateSortChange = RegistrationCertificateSortState & {
   column?: unknown
 }
 
-const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
-const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
+const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10, listFilters: undefined as string | undefined })
+const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10, listFilters: undefined as string | undefined })
 const currentSortState = ref<RegistrationCertificateSortState>({})
 const oldSortState = ref<RegistrationCertificateSortState>({})
 const canUploadRegistrationCertificate = computed(() =>
@@ -841,25 +852,17 @@ const syncRegistrationCertificateQueryFromRoute = () => {
 }
 
 const loadPage = async () => {
-  loading.value = true
-  try {
-    const page = await getRegistrationCertificatePage(queryParams)
+  await currentRequest.run(() => getRegistrationCertificatePage({ ...queryParams }), (page) => {
     list.value = page.list
     total.value = page.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const loadOldIndexPage = async () => {
-  oldLoading.value = true
-  try {
-    const page = await getRegistrationCertificateOldIndexPage(oldQueryParams)
+  await oldRequest.run(() => getRegistrationCertificateOldIndexPage({ ...oldQueryParams }), (page) => {
     oldList.value = page.list
     oldTotal.value = page.total
-  } finally {
-    oldLoading.value = false
-  }
+  })
 }
 
 const applyRegistrationCertificateSort = (
@@ -1049,6 +1052,49 @@ watch(
     await loadPage()
   }
 )
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatRegistrationCertificateStatus(row.status)].join(' ')
+  },
+  {
+    key: 'reminder',
+    label: '提醒状态',
+    type: 'text',
+    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState)].join(' ')
+  },
+  {
+    key: 'hasProjectCode',
+    label: '项目代码',
+    type: 'text',
+    getValue: (row) => [formatMissingMarker(row.hasProjectCode)].join(' ')
+  },
+  {
+    key: 'hasRegistrationFile',
+    label: '注册证文件',
+    type: 'text',
+    getValue: (row) => [formatMissingMarker(row.hasRegistrationFile)].join(' ')
+  }
+])
+
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.status === 'OLD'
+          ? '已失效，失效日期 ' + formatRegistrationCertificateDate(row.expiryDate)
+          : formatRegistrationCertificateStatus(row.status)
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

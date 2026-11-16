@@ -9,9 +9,9 @@ This guide summarizes the currently verified operations toolkit for IntRuoyi.
 | Item | Value |
 |---|---|
 | Unified launcher | `运维工具.bat` |
-| Absolute path | `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\运维工具.bat` |
-| Recommended `cmd` invocation | `cmd /c "D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\运维工具.bat help"` |
-| Repository-root invocation | `运维工具.bat help` |
+| Repository-relative path | `./IntRuoyiBackend/运维工具.bat` |
+| Recommended `cmd` invocation | `cmd /c "./IntRuoyiBackend/运维工具.bat help"` |
+| Repository-root invocation | `cmd /c "./IntRuoyiBackend/运维工具.bat help"` |
 
 ## Unified Menu
 
@@ -46,7 +46,7 @@ This guide summarizes the currently verified operations toolkit for IntRuoyi.
 
 | Script | Purpose | Modes / Notes |
 |---|---|---|
-| `script\deploy\publish-int-ruoyi.ps1` | Unified publish implementation | Use `-Environment test` for `172.30.30.58`; use `-Environment prod -ConfirmText PROD` for `172.30.30.57`; builds backend/frontend from the local workspace, builds `D:\ProjectPackage\Website`, exports images, syncs MinIO, resets/imports MySQL, deploys `backend/frontend/website`, and prints both IntRuoyi + Website URLs |
+| `script\deploy\publish-int-ruoyi.ps1` | Unified publish implementation | Use `-Environment test` for `172.30.30.58`; use `-Environment prod -ConfirmText PROD` for `172.30.30.57`; builds backend/frontend from the local workspace, builds `../Website`, exports images, syncs MinIO, resets/imports MySQL, deploys `backend/frontend/website`, and prints both IntRuoyi + Website URLs |
 
 ## Restart Toolkit
 

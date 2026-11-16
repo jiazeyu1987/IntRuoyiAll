@@ -66,20 +66,20 @@ assert.match(
 
 assert.match(
   badgeStore,
-  /const\s+APPROVAL_TODO_BADGE_PAGE_SIZE\s*=\s*10/,
-  'badge store must share the approval center list page size so provider aggregation uses the same count source'
+  /getApprovalTodoCount\(/,
+  'badge store must use the permission-scoped count endpoint'
 )
 assert.match(
   badgeStore,
-  /getApprovalTaskPage\(\{\s*pageNo:\s*1,\s*pageSize:\s*APPROVAL_TODO_BADGE_PAGE_SIZE,\s*viewType:\s*'TODO'\s*\}\)/,
-  'badge store must load the unfiltered TODO total with the same page size as the approval-center TODO list'
+  /ignoreErrorMessage:\s*true,\s*isRequestContextCurrent/,
+  'badge count must keep the captured session guard and visible store errors'
 )
 assert.doesNotMatch(
   badgeStore,
-  /pageSize:\s*1/,
-  'badge store must not use pageSize 1 because it can under-count aggregated provider totals'
+  /getApprovalTaskPage|pageSize:/,
+  'badge count must not hydrate approval task pages'
 )
-assert.match(badgeStore, /throw error/, 'badge store must rethrow load failures instead of swallowing them')
+assert.match(readSource('src/store/modules/approvalCenterInvalidationState.ts'), /throw error/, 'badge loader must rethrow current load failures')
 assert.doesNotMatch(badgeStore, /mock|fallback|降级|吞异常/i, 'badge store must not use mock or fallback counts')
 assert.match(
   badgeStore,
@@ -128,13 +128,13 @@ for (const [source, label] of [
 
 assert.match(
   approvalPage,
-  /approvalTodoBadgeStore\.applyTodoTotal\(data\.total \|\| 0\)/,
-  'approval center TODO list must sync the badge count from the current unfiltered TODO page response'
+  /createApprovalListLoader(?:<[^>]+>)?\(/,
+  'approval center must use the session-scoped list loader'
 )
 assert.match(
   approvalPage,
-  /approvalTodoBadgeStore\.refreshTodoTotal\(\)/,
-  'approval center review completion must refresh the global todo badge count'
+  /refreshBadge:\s*\(\)\s*=>\s*approvalTodoBadgeStore\.refreshTodoTotal\(\)/,
+  'approval center list invalidation must refresh the global todo badge count'
 )
 
 console.log('PASS: approval todo badge static contract')

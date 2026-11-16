@@ -33,7 +33,8 @@ public class SmsProducer {
      */
     public void sendSmsSendMessage(Long logId, String mobile,
                                    Long channelId, String apiTemplateId, List<KeyValue<String, Object>> templateParams) {
-        SmsSendMessage message = new SmsSendMessage().setLogId(logId).setMobile(mobile);
+        SmsSendMessage message = new SmsSendMessage()
+                .setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()).setLogId(logId).setMobile(mobile);
         message.setChannelId(channelId).setApiTemplateId(apiTemplateId).setTemplateParams(templateParams);
         applicationContext.publishEvent(message);
     }

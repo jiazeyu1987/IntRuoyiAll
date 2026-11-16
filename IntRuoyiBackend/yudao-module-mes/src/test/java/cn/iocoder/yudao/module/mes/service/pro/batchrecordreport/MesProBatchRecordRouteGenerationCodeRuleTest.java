@@ -19,7 +19,7 @@ class MesProBatchRecordRouteGenerationCodeRuleTest {
     void generatedProcessCode_usesSharedAllocator() throws Exception {
         String source = Files.readString(SOURCE, StandardCharsets.UTF_8);
 
-        assertTrue(source.contains("processCreationService.create(process)"));
+        assertTrue(source.contains("processCreationService.create(process, projectCodeResolver.requireEnabledByRoute(routeId).dccProjectCodeId())"));
         assertFalse(source.contains("PROCESS_CODE_PREFIX"));
         assertTrue(source.contains("routeProcessFlowEdgeMapper.insert"),
                 "eDHR 自动生成路线必须同步写入工序流转边。");

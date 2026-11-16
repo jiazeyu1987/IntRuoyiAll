@@ -7,10 +7,163 @@ import showroomRoutes from '@/router/modules/showroom'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { isUrl } from '@/utils/is'
+import { filterSignatureMenus } from '@/utils/signatureAccess'
+import { filterOperationLogMenus } from '@/utils/operationLogAccess'
+import { useUserStore } from './user'
 
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
 const ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES = new Set(['DccCenterHidden'])
+// 仅隐藏指定导航入口，保留已授权路由供业务页面跳转。
+const HIDDEN_MODULE_MENU_PATHS = new Set([
+  '/mes',
+  '/infra',
+  '/report',
+  '/erp',
+  '/mes/md/erp-stock',
+  '/mdm/form-center/template',
+  '/mdm/form-center/parser',
+  '/mdm/form-center/inspection-parser',
+  '/mes/pro/edhr-config',
+  '/mes/pro/edhr-form',
+  '/mes/pro/feedback/edhr-batch-test',
+  '/mes/pro/feedback/edhr-form-trace',
+  '/mes/md/item-type',
+  '/mes/md/unit-measure',
+  '/mes/md/item',
+  '/mes/pro/mes-process',
+  '/system/dept',
+  '/system/dict',
+  '/system/messages',
+  '/system/oauth2',
+  '/system/social',
+  '/system/area',
+  '/system/config-package',
+  '/system/codex-test-management',
+  '/system/codex-test-record',
+  '/system/backup-plan',
+  '/system/temporary-role-grant',
+  '/system/user/temporary-role-grant'
+])
+// The retired production-task page must not be registered from cached server menus.
+const removeRetiredProductionTaskPage = (routes: AppCustomRouteRecordRaw[]): AppCustomRouteRecordRaw[] =>
+  routes.filter((route) => route.path !== '/mes/pro/feedback/edhr-work-task'
+    && route.component !== 'mes/pro/edhr-work-task/WorkTaskBoardPage')
+    .map((route) => ({ ...route, ...(route.children ? { children: removeRetiredProductionTaskPage(route.children) } : {}) }))
+const ROOT_MENU_ORDER = [
+  '/user',
+  '/approval-center',
+  '/mdm',
+  '/showroom',
+  '/dcc',
+  '/mes/smart-scheduling',
+  '/mes/edhr-batch-processing',
+  '/system'
+]
+const orderMenus = (routes: AppRouteRecordRaw[]) => {
+  const rank = (route: AppRouteRecordRaw) => {
+    const index = ROOT_MENU_ORDER.indexOf(`/${route.path.replace(/^\/+|\/+$/g, '')}`)
+    return index === -1 ? ROOT_MENU_ORDER.length : index
+  }
+  return [...routes].sort((left, right) => rank(left) - rank(right)).map((route) => {
+    if (route.path !== '/system' || !route.children) return route
+    const signatureRank = (child: AppRouteRecordRaw) =>
+      child.path === '/signature-governance' ? 0 : 1
+    return {
+      ...route,
+      children: [...route.children].sort((left, right) => signatureRank(left) - signatureRank(right))
+    }
+  })
+}
+const moveProjectCodeToMasterData = (routes: AppRouteRecordRaw[]) => {
+  const projectPath = '/mes/md/dcc-project-code'
+  const findParent = (items: AppRouteRecordRaw[]): AppRouteRecordRaw | undefined => {
+    for (const item of items) {
+      if (item.children?.some((child) => child.path === projectPath)) return item
+      const parent = item.children && findParent(item.children)
+      if (parent) return parent
+    }
+  }
+  const source = findParent(routes)
+  if (!source) return
+  const target = routes.find((route) => route.path === '/mdm')
+  if (!target) throw new Error('DCC项目代码菜单迁移缺少基础数据目录授权，请执行菜单迁移')
+  if (source === target) return
+  const index = source.children!.findIndex((child) => child.path === projectPath)
+  const [projectCode] = source.children!.splice(index, 1)
+  target.children = [...(target.children || []), projectCode]
+}
+const moveCraftToProcessManagement = (routes: AppCustomRouteRecordRaw[]) => {
+  let source: AppCustomRouteRecordRaw[] | undefined
+  let craft: AppCustomRouteRecordRaw | undefined
+  let target: AppCustomRouteRecordRaw | undefined
+  const visit = (items: AppCustomRouteRecordRaw[]) => {
+    for (const item of items) {
+      if (item.path === '/mes/edhr-process-settings') target = item
+      if (item.component === 'mes/pro/craft/index') {
+        source = items
+        craft = item
+      }
+      if (item.children) visit(item.children)
+    }
+  }
+  visit(routes)
+  if (!craft || !source) return
+  if (!target) throw new Error('工艺库菜单迁移缺少工序管理目录授权，请执行菜单迁移')
+  craft.path = '/mes/pro/craft'
+  if (source === target.children) return
+  source.splice(source.indexOf(craft), 1)
+  target.children = [...(target.children || []), craft]
+}
+const MANAGEMENT_REPRESENTATIVE_HIDDEN_MENU_PATHS = new Set([
+  '/mes/pro/batch-record-form-list',
+  '/mes/pro/feedback/edhr-batch-production-fill',
+  '/mes/pro/feedback/edhr-batch-pqc-fill',
+  '/mes/pro/production-release/pqc'
+])
+const filterHiddenModuleMenus = (
+  routes: AppRouteRecordRaw[],
+  roles: string[],
+  parentPath = ''
+): AppRouteRecordRaw[] =>
+  routes.flatMap((route) => {
+    const path = route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
+    const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
+    if (
+      HIDDEN_MODULE_MENU_PATHS.has(normalizedPath) ||
+      (roles.includes('MES_MANAGEMENT_REPRESENTATIVE') &&
+        MANAGEMENT_REPRESENTATIVE_HIDDEN_MENU_PATHS.has(normalizedPath)) ||
+      route.meta?.title === '配置中心'
+    ) {
+      return []
+    }
+    return [{
+      ...route,
+      ...(route.children
+        ? { children: filterHiddenModuleMenus(route.children, roles, normalizedPath) }
+        : {})
+    }]
+  })
+// 在所有导航过滤完成后向上收敛；原始树用于区分叶子页与子项被全部过滤的目录。
+const hideEmptyMenuParents = (
+  routes: AppRouteRecordRaw[],
+  originalRoutes: AppRouteRecordRaw[]
+): AppRouteRecordRaw[] =>
+  routes.map((route) => {
+    const original = originalRoutes.find(
+      (item) => item.path === route.path && item.name === route.name
+    )!
+    const children = route.children
+      ? hideEmptyMenuParents(route.children, original.children || [])
+      : undefined
+    const hasNoVisibleChildren =
+      !!original.children?.length && !children?.some((child) => !child.meta?.hidden)
+    return {
+      ...route,
+      ...(children ? { children } : {}),
+      ...(hasNoVisibleChildren ? { meta: { ...route.meta, hidden: true } } : {})
+    }
+  })
 const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
 const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
 const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
@@ -346,6 +499,38 @@ const normalizeApprovalCenterWorkflowManagementMenu = (
   const hiddenApprovalCenterOaExampleRoute = oaExampleRoute
     ? hideApprovalCenterMenuRoute(oaExampleRoute)
     : undefined
+  // 已授权业务审批策略时保留流程管理目录，避免默认管理员菜单被统一隐藏。
+  const policyRoute = (workflowManagementRoute.children || []).find(
+    (child) => getRouteName(child) === 'ApprovalCenterBpmBusinessApprovalPolicy'
+      && !child.meta?.hidden
+  )
+  if (policyRoute) {
+    const visibleWorkflowManagementRoute = cloneDeep(workflowManagementRoute)
+    visibleWorkflowManagementRoute.meta = {
+      ...visibleWorkflowManagementRoute.meta,
+      hidden: false,
+      alwaysShow: true
+    }
+    visibleWorkflowManagementRoute.children = (visibleWorkflowManagementRoute.children || []).map(
+      (child) => isApprovalCenterBpmModelRoute(child)
+        || getRouteName(child) === 'ApprovalCenterBpmBusinessApprovalPolicy'
+        ? child : hideApprovalCenterMenuRoute(child)
+    )
+    visibleWorkflowManagementRoute.redirect = modelRoute && !modelRoute.meta?.hidden
+      ? `${APPROVAL_CENTER_ROUTE_PATH}/${APPROVAL_CENTER_BPM_MODEL_MENU_PATH}`
+      : `${APPROVAL_CENTER_ROUTE_PATH}/manager/business-approval-policy`
+    normalizedRoute.children = [
+      ...insertApprovalCenterModelMenuAfterCc(
+        approvalCenterChildren.filter((child) =>
+          !isApprovalCenterWorkflowManagementRoute(child)
+          && !isApprovalCenterBpmModelRoute(child)
+          && !isApprovalCenterOaExampleRoute(child)),
+        visibleWorkflowManagementRoute
+      ),
+      ...(hiddenApprovalCenterOaExampleRoute ? [hiddenApprovalCenterOaExampleRoute] : [])
+    ]
+    return normalizedRoute
+  }
   const hiddenWorkflowManagementRoute = hideApprovalCenterMenuRoute({
     ...workflowManagementRoute,
     children: (workflowManagementRoute.children || []).filter(
@@ -675,6 +860,7 @@ const mergeStaticRoutesWithDynamicRoutes = (
 }
 
 export interface PermissionState {
+  initializationError: string
   staticRouteNamesToRemove: string[]
   routers: AppRouteRecordRaw[]
   addRouters: AppRouteRecordRaw[]
@@ -683,6 +869,7 @@ export interface PermissionState {
 
 export const usePermissionStore = defineStore('permission', {
   state: (): PermissionState => ({
+    initializationError: '',
     staticRouteNamesToRemove: [],
     routers: [],
     addRouters: [],
@@ -690,57 +877,68 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return useTestModeStore().enabled === true ? this.routers : filterTestModeMenus(this.routers)
+      const user = useUserStore()
+      const routes = orderMenus(filterSignatureMenus(
+        filterOperationLogMenus(filterHiddenModuleMenus(this.routers, user.getRoles), user.getRoles), user.getRoles, user.getPermissions
+      ))
+      return hideEmptyMenuParents(
+        useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),
+        this.routers
+      )
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      return useTestModeStore().enabled === true
-        ? this.menuTabRouters
-        : filterTestModeMenus(this.menuTabRouters)
+      const user = useUserStore()
+      const routes = orderMenus(filterSignatureMenus(
+        filterOperationLogMenus(filterHiddenModuleMenus(this.menuTabRouters, user.getRoles), user.getRoles), user.getRoles, user.getPermissions
+      ))
+      return hideEmptyMenuParents(
+        useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes),
+        this.menuTabRouters
+      )
     }
   },
   actions: {
-    async generateRoutes(): Promise<unknown> {
-      return new Promise<void>(async (resolve) => {
-        // 获得菜单列表，它在登录的时候，setUserInfoAction 方法中已经进行获取
-        let res: AppCustomRouteRecordRaw[] = []
-        const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
-        if (roleRouters) {
-          res = roleRouters as AppCustomRouteRecordRaw[]
-        }
-        const routerMap: AppRouteRecordRaw[] = generateRoute(res)
-        const {
-          staticRouteNamesToRemove,
-          authorizedStaticRoutes,
-          mergedStaticRoutes,
-          dynamicRoutesToAdd,
-          mergedRoutesToReplace
-        } = mergeStaticRoutesWithDynamicRoutes(
-          remainingRouter,
-          routerMap,
-          permissionControlledStaticRoutes
-        )
-        this.staticRouteNamesToRemove = staticRouteNamesToRemove
-        // 动态路由，404一定要放到最后面
-        // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
-        this.addRouters = mergedRoutesToReplace.concat(dynamicRoutesToAdd, [
-          {
-            path: '/:path(.*)*',
-            // redirect: '/404',
-            component: () => import('@/views/Error/404.vue'),
-            name: '404Page',
-            meta: {
-              hidden: true,
-              breadcrumb: false
-              }
+    async generateRoutes(): Promise<void> {
+      // 获得菜单列表，它在登录的时候，setUserInfoAction 方法中已经进行获取
+      let res: AppCustomRouteRecordRaw[] = []
+      const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
+      if (roleRouters) {
+        res = cloneDeep(roleRouters as AppCustomRouteRecordRaw[])
+      }
+      moveCraftToProcessManagement(res)
+      const routerMap: AppRouteRecordRaw[] = generateRoute(removeRetiredProductionTaskPage(res))
+      moveProjectCodeToMasterData(routerMap)
+      const {
+        staticRouteNamesToRemove,
+        authorizedStaticRoutes,
+        mergedStaticRoutes,
+        dynamicRoutesToAdd,
+        mergedRoutesToReplace
+      } = mergeStaticRoutesWithDynamicRoutes(
+        remainingRouter,
+        routerMap,
+        permissionControlledStaticRoutes
+      )
+      this.staticRouteNamesToRemove = staticRouteNamesToRemove
+      // 动态路由，404一定要放到最后面
+      // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
+      this.addRouters = mergedRoutesToReplace.concat(dynamicRoutesToAdd, [
+        {
+          path: '/:path(.*)*',
+          // redirect: '/404',
+          component: () => import('@/views/Error/404.vue'),
+          name: '404Page',
+          meta: {
+            hidden: true,
+            breadcrumb: false
           }
-        ])
-        // 渲染菜单的所有路由
-        this.routers = authorizedStaticRoutes.concat(mergedStaticRoutes, dynamicRoutesToAdd)
-        resolve()
-      })
+        }
+      ])
+      // 渲染菜单的所有路由
+      this.routers = authorizedStaticRoutes.concat(mergedStaticRoutes, dynamicRoutesToAdd)
     },
     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
       this.menuTabRouters = routers

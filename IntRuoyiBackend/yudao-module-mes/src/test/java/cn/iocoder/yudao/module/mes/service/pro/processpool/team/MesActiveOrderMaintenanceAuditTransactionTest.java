@@ -1,10 +1,12 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.security.core.LoginUser;
+import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.config.YudaoTenantAutoConfiguration;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolFifoAllocationLineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
@@ -13,7 +15,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.*;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.*;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.*;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -105,6 +109,8 @@ class MesActiveOrderMaintenanceAuditTransactionTest {
                 + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", "sa", "");
         jdbc = new JdbcTemplate(dataSource);
         for (Class<?> row : List.of(MesProcessPoolActiveOrderDO.class,
+                MesProEdhrNonconformanceReviewDO.class,
+                AdminUserDO.class,
                 MesProcessPoolActiveOrderReleaseApplicationDO.class,
                 MesProcessPoolTeamMaintenanceAuditDO.class, GxpAuditEventDO.class,
                 GxpAuditEventRelationDO.class, GxpAuditLedgerSequenceDO.class,
@@ -119,6 +125,7 @@ class MesActiveOrderMaintenanceAuditTransactionTest {
         new YudaoTenantAutoConfiguration().tenantLineInnerInterceptor(new TenantProperties(), tenantInterceptor);
         config.addInterceptor(tenantInterceptor);
         List<Class<?>> mapperTypes = List.of(MesProcessPoolActiveOrderMapper.class,
+                AdminUserMapper.class,
                 MesTeamLeaderDataCleanupMapper.class, MesProcessPoolActiveOrderReleaseApplicationMapper.class,
                 MesProcessPoolTeamMaintenanceAuditMapper.class, GxpAuditEventMapper.class,
                 GxpAuditEventRelationMapper.class, GxpAuditLedgerSequenceMapper.class,
@@ -131,6 +138,7 @@ class MesActiveOrderMaintenanceAuditTransactionTest {
         var manager = new DataSourceTransactionManager(dataSource);
         orders = session.getMapper(MesProcessPoolActiveOrderMapper.class);
         var writer = new GxpAuditServiceImpl();
+        inject(writer, "adminUserMapper", session.getMapper(AdminUserMapper.class));
         inject(writer, "auditEventMapper", session.getMapper(GxpAuditEventMapper.class));
         inject(writer, "eventRelationMapper", session.getMapper(GxpAuditEventRelationMapper.class));
         inject(writer, "ledgerSequenceMapper", session.getMapper(GxpAuditLedgerSequenceMapper.class));
@@ -157,8 +165,12 @@ class MesActiveOrderMaintenanceAuditTransactionTest {
         LoginUser actor = new LoginUser();
         actor.setId(3001L);
         actor.setTenantId(1L);
+        actor.setUserType(UserTypeEnum.ADMIN.getValue());
         actor.setInfo(Map.of("username", "maintenance-test", LoginUser.INFO_KEY_NICKNAME, "maintenance-test"));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null));
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(actor, null, List.of()));
+        jdbc.update("INSERT INTO system_users(id,tenant_id,username,nickname,status)"
+                + " VALUES(3001,1,'maintenance-test','maintenance-test',0)");
         jdbc.update("INSERT INTO gxp_audit_ledger_sequence(tenant_id,next_ledger_sequence) VALUES(1,1)");
         jdbc.update("INSERT INTO gxp_audit_policy_activation(id,tenant_id,policy_version) VALUES(1,1,'maintenance-test')");
         for (String operation : List.of("mes.active-order.reorder", "mes.active-order.data-cleanup")) {
@@ -184,6 +196,25 @@ class MesActiveOrderMaintenanceAuditTransactionTest {
                 return null;
             });
         }
+    }
+
+    @Test
+    void activePoolExcludesOnlyTheSameTenantAndCycleFormalVoid() {
+        String review = "INSERT INTO mes_pro_edhr_nonconformance_review"
+                + "(id,tenant_id,active_order_id,work_order_id,review_status,disposition,deleted) VALUES(?,?,?,?,?,?,?)";
+        jdbc.update(review, 1, 1, 101, 1101, "pending_review", null, false);
+        jdbc.update(review, 2, 1, 102, 1102, "closed", "concession_release", false);
+        jdbc.update(review, 3, 2, 103, 1103, "closed", "void", false);
+        jdbc.update(review, 4, 1, 103, 1103, "closed", "void", true);
+        jdbc.update(review, 5, 1, 103, 9999, "closed", "void", false);
+        assertEquals(List.of(101L, 102L, 103L), orders.selectActiveListByLeader(3001L).stream()
+                .map(MesProcessPoolActiveOrderDO::getId).toList());
+        jdbc.update(review, 6, 1, 101, 1101, "closed", "void", false);
+        assertEquals(List.of(102L, 103L), orders.selectActiveListByLeader(3001L).stream()
+                .map(MesProcessPoolActiveOrderDO::getId).toList());
+        assertEquals("ACTIVE", orders.selectById(101L).getActiveStatus(),
+                "The read filter must retain the original order and signed history");
+        assertEquals(6, count("mes_pro_edhr_nonconformance_review"));
     }
 
     @Test

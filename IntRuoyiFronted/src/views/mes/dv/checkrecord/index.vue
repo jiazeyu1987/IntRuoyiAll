@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.checkRecord.main"
       :query-model="queryParams"
       label-width="90px"
@@ -22,6 +23,9 @@
       @column-change="saveCheckRecordColumnConfig"
       @column-reset="resetCheckRecordColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -43,13 +47,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="check-record-standard-list-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.checkRecord.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -167,6 +171,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import download from '@/utils/download'
@@ -213,6 +220,7 @@ const list = ref<any[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const exportLoading = ref(false) // 导出的加载中
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   status: undefined as number | string | undefined,
@@ -240,14 +248,18 @@ const checkRecordQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>
 ])
 
 /** 查询列表 */
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await DvCheckRecordApi.getCheckRecordPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 
@@ -295,6 +307,16 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_CHECK_RECORD_STATUS)
+  }
+])
 </script>
 
 <style scoped>

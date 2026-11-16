@@ -26,7 +26,7 @@ export interface ProcessPoolTimelineReadonlyActionsVO {
 }
 
 export interface ProcessPoolTimelineLossDetailVO {
-  reasonId?: number
+  reasonId?: number | string
   reasonCode?: string
   reasonName?: string
   quantity?: number
@@ -90,7 +90,15 @@ export interface SubmissionReviewExpectedContext {
   allocationVersion?: number
 }
 
+export interface TimelineReviewEvidence {
+  eventId: string; reviewId: string; revisionId: string; reviewRound: number;
+  status: string; leaderType: string; actorId: string; reason: string;
+  signatureId: string; signatureActorId: string; signatureAction: string; signatureReason: string;
+  verification: string; contentHash: string; evidenceHash: string; signatureContent: string; reviewSnapshot: string; rawPayloadHash: string; signaturePayloadHash: string;
+}
+
 export interface ProcessPoolTimelineEventVO {
+  displayedReviewEvidence?: TimelineReviewEvidence[]
   displayedRevisionId?: number
   displayedPayloadHash?: string
   expectedReviews?: SubmissionReviewExpectedContext[]

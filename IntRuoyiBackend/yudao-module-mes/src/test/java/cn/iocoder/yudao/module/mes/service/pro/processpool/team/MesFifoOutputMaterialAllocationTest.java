@@ -35,6 +35,7 @@ class MesFifoOutputMaterialAllocationTest {
     void setUp() {
         service = new MesTeamLeaderFifoAllocationService(orders, workOrders, allocations, targets,
                 mock(MesWorkOrderAbnormalStateService.class), events, snapshots);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         order = MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(30L)
                 .workOrderId(91L).routeId(40L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();
         when(orders.selectActiveListByLeader(30L)).thenReturn(List.of(order));

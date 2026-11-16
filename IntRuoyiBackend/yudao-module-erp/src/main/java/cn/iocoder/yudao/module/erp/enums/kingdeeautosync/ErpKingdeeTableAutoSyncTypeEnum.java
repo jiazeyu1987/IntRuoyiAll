@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public enum ErpKingdeeTableAutoSyncTypeEnum {
 
-    PRODUCT(ErpKingdeeSyncTypeEnum.PRODUCT.getType(), "ERP 商品 / MES 物料", "kingdeeProductItemSyncJob"),
+    PRODUCT(ErpKingdeeSyncTypeEnum.PRODUCT.getType(), "物料列表", "kingdeeProductItemSyncJob"),
     STOCK(ErpKingdeeSyncTypeEnum.STOCK.getType(), "ERP 库存", "kingdeeStockSyncJob"),
     STOCK_MOVE(ErpKingdeeSyncTypeEnum.STOCK_MOVE.getType(), "金蝶调拨单", "kingdeeStockMoveSyncJob"),
     PURCHASE_ORDER(ErpKingdeeSyncTypeEnum.PURCHASE_ORDER.getType(), "采购订单", "kingdeePurchaseOrderSyncJob"),

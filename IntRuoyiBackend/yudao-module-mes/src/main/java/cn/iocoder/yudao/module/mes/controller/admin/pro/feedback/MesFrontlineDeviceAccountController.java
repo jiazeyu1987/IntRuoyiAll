@@ -34,6 +34,9 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConf
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSopRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
@@ -55,6 +58,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_NOT_EXISTS;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 
 @Tag(name = "管理后台 - MES 一线设备账号工序池")
@@ -69,6 +74,20 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineDeviceAccountContextService contextService;
     @Resource
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSignatureSettingsService signatureSettings;
+
+    @GetMapping("/employee/signature-settings")
+    @Operation(summary = "读取当前生产范围所选员工的签名方式")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSignatureSettingsService.Settings> getEmployeeSignatureSettings(
+            @RequestParam @NotNull Long activeOrderId, @RequestParam @NotNull Long routeId,
+            @RequestParam @NotNull Long routeProcessId, @RequestParam @NotNull Long processId,
+            @RequestParam @NotNull Long actualEmployeeId, @RequestParam String identityDomain) {
+        return success(signatureSettings.get(activeOrderId, routeId, routeProcessId, processId,
+                actualEmployeeId, identityDomain));
+    }
+
     @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEmployeeSignaturePasswordChangeFacade employeeSignatureCredentials;
     @GetMapping("/employee-profile/signature-qualification")
     @Operation(summary="读取当前生产范围员工签名资格")
@@ -77,8 +96,9 @@ public class MesFrontlineDeviceAccountController {
         return success(employeeSignatureCredentials.qualification(activeOrderId,routeId,routeProcessId,processId,employeeProfileId,identityDomain));
     }
     @PostMapping("/employee-profile/signature-password/change")
-    @Operation(summary="员工校验原签名密码并设置个人签名密码")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog(requestEnable=false,sanitizeKeys={"currentPassword","newPassword","newPin"})
+    @Operation(summary="员工修改签名密码、PIN 码和签名方式")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<Boolean> changeEmployeeSignaturePassword(@Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesEmployeeSignaturePasswordChangeReqVO request) {
         employeeSignatureCredentials.change(request);
         return success(Boolean.TRUE);
@@ -91,6 +111,8 @@ public class MesFrontlineDeviceAccountController {
     private MesTeamLeaderActiveOrderService activeOrderService;
     @Resource
     private MesFrontlineActiveOrderProcessService activeOrderProcessService;
+    @Resource
+    private MesProProcessService processService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -123,6 +145,26 @@ public class MesFrontlineDeviceAccountController {
                 .toList());
     }
 
+    @GetMapping("/process-sop")
+    @Operation(summary = "获得当前一线生产工序绑定的 SOP 文件")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<MesProProcessSopRespVO> getProductionProcessSop(
+            @RequestParam("activeOrderId") @NotNull Long activeOrderId,
+            @RequestParam("routeId") @NotNull Long routeId,
+            @RequestParam("routeProcessId") @NotNull Long routeProcessId,
+            @RequestParam("processId") @NotNull Long processId) {
+        Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
+        activeOrderProcessService.requireProcess(leaderUserId, activeOrderId, routeId, routeProcessId, processId);
+        MesProProcessDO process = processService.getProcess(processId);
+        if (process == null) {
+            throw exception(PRO_PROCESS_NOT_EXISTS);
+        }
+        MesProProcessSopRespVO result = new MesProProcessSopRespVO();
+        result.setProcessId(processId);
+        result.setFileUrl(process.getSopFileUrl());
+        return success(result);
+    }
+
     @GetMapping("/employee-candidates")
     @Operation(summary = "获得当前工序可切换员工")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
@@ -151,7 +193,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/switch-employee")
     @Operation(summary = "切换当前工序实际填写员工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesFrontlineSwitchEmployeeRespVO> switchActualEmployee(
             @Valid @RequestBody MesFrontlineSwitchEmployeeReqVO reqVO) {
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
@@ -162,7 +204,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/active-orders")
     @Operation(summary = "获得 PQC 当前活跃订单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<List<MesFrontlineActiveOrderRespVO>> getPqcActiveOrders() {
         return success(pqcContextService.listActiveOrders().stream()
                 .map(MesFrontlineDeviceAccountController::toActiveOrderRespVO)
@@ -171,7 +213,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/active-order/processes")
     @Operation(summary = "获得 PQC 活跃订单所属 DCC 项目的 QA 工序")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<List<MesFrontlinePqcProcessRespVO>> getPqcActiveOrderProcesses(
             @RequestParam("activeOrderId") @NotNull Long activeOrderId,
             @RequestParam(value = "actualEmployeeId", required = false) Long actualEmployeeId) {
@@ -181,16 +223,63 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/personnel")
     @Operation(summary = "获得 PQC 员工和 PQC 组长")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<List<MesFrontlineEmployeeCandidateRespVO>> getPqcPersonnel() {
         return success(pqcContextService.listPqcEmployeeCandidates(getLoginUserId()).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
                 .toList());
     }
 
+    @PostMapping("/pqc/patrol-round")
+    @Operation(summary = "新建一次巡检，按订单连续编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
+    public CommonResult<Integer> createPatrolRound(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCreatePatrolReqVO reqVO) {
+        return success(pqcContextService.createPatrolRound(getLoginUserId(), reqVO.getActiveOrderId(),
+                reqVO.getExpectedPreviousRoundNo()));
+    }
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolPqcInspectionCorrectionService pqcCorrectionService;
+
+    @PostMapping("/pqc/patrol-round/cancel")
+    @Operation(summary = "撤销整轮未提交巡检")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
+    public CommonResult<Boolean> cancelPatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCancelPatrolReqVO req) {
+        pqcContextService.cancelPatrolRound(getLoginUserId(), req.getActiveOrderId(), req.getRoundNo());
+        return success(true);
+    }
+
+    @PostMapping("/pqc/patrol-round/restore")
+    @Operation(summary = "恢复已撤销巡检轮次")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
+    public CommonResult<Boolean> restorePatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcRestorePatrolReqVO req) {
+        pqcContextService.restorePatrolRound(getLoginUserId(), req.getActiveOrderId(), req.getRoundNo());
+        return success(true);
+    }
+
+    @PostMapping("/pqc/final-inspection")
+    @Operation(summary = "为开启末检的工序新建末检")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
+    public CommonResult<Boolean> createFinalInspection(@RequestParam("activeOrderId") @NotNull Long activeOrderId) {
+        pqcContextService.createFinalInspection(getLoginUserId(), activeOrderId);
+        return success(true);
+    }
+
+    @PostMapping("/pqc/patrol-round/correct")
+    @Operation(summary = "签名更正已提交巡检的所属轮次")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
+    public CommonResult<Long> correctPatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCorrectRoundReqVO req) {
+        pqcContextService.requirePqcEmployee(getLoginUserId(), getLoginUserId());
+        return success(pqcCorrectionService.correctPatrolRound(getLoginUserId(), req));
+    }
+
     @PostMapping("/pqc/switch-employee")
     @Operation(summary = "PQC 切换实际填写员工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("isAuthenticated() and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<MesFrontlinePqcSwitchEmployeeRespVO> switchPqcActualEmployee(
             @Valid @RequestBody MesFrontlinePqcSwitchEmployeeReqVO reqVO) {
         MesFrontlinePqcEmployeeSwitchResult result = pqcContextService.switchPqcActualEmployee(getLoginUserId(),
@@ -201,7 +290,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/submit-receipt")
     @Operation(summary = "只读确认 PQC 正式提交回执")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<MesFrontlinePqcSubmitRespVO> getPqcSubmitReceipt(
             @RequestParam("pqcTaskId") @NotNull Long pqcTaskId) {
         return success(pqcContextService.getSubmittedPqcInspection(getLoginUserId(), pqcTaskId)
@@ -211,7 +300,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/pqc/submit")
     @Operation(summary = "PQC 检验提交到工序池")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("isAuthenticated() and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission')")
     public CommonResult<MesFrontlinePqcSubmitRespVO> submitPqcInspection(
             @Valid @RequestBody MesFrontlinePqcSubmitReqVO reqVO) {
         Long loginUserId = getLoginUserId();
@@ -243,6 +332,8 @@ public class MesFrontlineDeviceAccountController {
 
     private static MesFrontlineActiveOrderRespVO toActiveOrderRespVO(MesFrontlineActiveOrderCandidate candidate) {
         MesFrontlineActiveOrderRespVO respVO = new MesFrontlineActiveOrderRespVO();
+        respVO.setReadBlocked(candidate.readBlocked());
+        respVO.setReadBlockReason(candidate.readBlockReason());
         respVO.setActiveOrderId(candidate.activeOrderId());
         respVO.setWorkOrderId(candidate.workOrderId());
         respVO.setWorkOrderCode(candidate.workOrderCode());
@@ -301,7 +392,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setWorkstationId(process.workstationId());
         respVO.setWorkstationCode(process.workstationCode());
         respVO.setWorkstationName(process.workstationName());
-        respVO.setProductionQuantityFactor(process.productionQuantityFactor());
+        respVO.setLossCoefficient(process.lossCoefficient());
         respVO.setTargetQuantity(process.targetQuantity());
         respVO.setSubmittedQuantity(process.submittedQuantity());
         return respVO;

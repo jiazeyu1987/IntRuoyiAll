@@ -70,5 +70,3 @@ application-my.yaml
 **/__pycache__/
 **/.pytest_cache/
 doc/tasks/*/*
-!doc/tasks/*/task.md
-!doc/tasks/*/execution-log.md

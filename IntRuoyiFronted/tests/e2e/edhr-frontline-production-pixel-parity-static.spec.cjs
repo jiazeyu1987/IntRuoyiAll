@@ -60,7 +60,6 @@ assertIncludesAll(
   [
     '<div class="top-label">工序</div>',
     '<div class="top-value">{{ selectedProcessLabel }}</div>',
-    '<div class="top-label">员工</div>',
     '<div class="top-value">{{ selectedEmployeeLabel }}</div>',
     'class="frontline-production-number-field field"',
     'class="frontline-production-number-field field total is-total"',

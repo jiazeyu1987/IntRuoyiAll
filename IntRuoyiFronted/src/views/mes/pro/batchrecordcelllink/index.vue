@@ -316,7 +316,7 @@ import {
 } from '@/api/mes/pro/batchrecordcelllink'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
+  getProjectCodeOptions,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
@@ -955,15 +955,13 @@ async function loadWorkbenchContext() {
 const loadProcessPoolDccProjectCodeOptions = async (keyword = '') => {
   processPoolDccProjectCodeLoading.value = true
   try {
-    const page = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 20,
+    const page = await getProjectCodeOptions({
       keyword: keyword.trim() || undefined,
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       routeConfigured: true,
       mainBatchRecordConfigured: true
     })
-    processPoolDccProjectCodeOptions.value = page.list || []
+    processPoolDccProjectCodeOptions.value = page
   } catch (error) {
     message.error(resolveErrorMessage(error, '加载DCC项目代码失败。'))
     throw error

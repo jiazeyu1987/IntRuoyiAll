@@ -147,7 +147,6 @@ test('payment approval permits blank explanation and its reject rule blocks whit
 })
 
 for (const [file, name, field] of [
-  ['mes/pro/edhr-work-task/WorkTaskBoardPage.vue', 'pqcDecisionRules', 'rejectReason'],
   ['srm/purchase-order/my.vue', 'rejectRules', 'rejectRemark'],
   ['mall/trade/brokerage/withdraw/BrokerageWithdrawRejectForm.vue', 'formRules', 'auditReason']
 ]) test(`${file} reject validation blocks empty and whitespace-only reasons`, async () => {

@@ -3,9 +3,9 @@
     <section class="showroom-version-diff-panel__surface">
       <div class="showroom-version-diff-panel__section-head">
         <div>
-          <h3 class="showroom-version-diff-panel__title">当前内容 Diff</h3>
+          <h3 class="showroom-version-diff-panel__title">当前内容差异</h3>
           <p class="showroom-version-diff-panel__tip">
-            固定比较“所选版本 vs 当前内容版本”，不混用当前线上版本。
+            比较所选版本与当前内容版本。
           </p>
         </div>
         <el-tag v-if="currentContentVersion" type="primary">
@@ -28,17 +28,17 @@
             {{ fieldDiff.changed ? '已变更' : '一致' }}
           </el-tag>
         </div>
-        <p class="showroom-version-diff-panel__diff-label">{{ fieldDiff.labelEn }}</p>
+        <details v-if="fieldDiff.labelEn"><summary>英文字段名称</summary>{{ fieldDiff.labelEn }}</details>
         <div class="showroom-version-diff-panel__diff-columns">
           <div>
             <span class="showroom-version-diff-panel__column-label">所选版本</span>
             <p>中文：{{ fieldDiff.selectedValueZh || '未填写' }}</p>
-            <p>English：{{ fieldDiff.selectedValueEn || 'Not filled' }}</p>
+            <p>英文：{{ fieldDiff.selectedValueEn || '未填写' }}</p>
           </div>
           <div>
             <span class="showroom-version-diff-panel__column-label">当前内容</span>
             <p>中文：{{ fieldDiff.currentContentValueZh || '未填写' }}</p>
-            <p>English：{{ fieldDiff.currentContentValueEn || 'Not filled' }}</p>
+            <p>英文：{{ fieldDiff.currentContentValueEn || '未填写' }}</p>
           </div>
         </div>
       </article>
@@ -50,41 +50,33 @@
         <el-tag type="success">V{{ currentPublicVersion?.revisionNo }}</el-tag>
       </div>
       <p class="showroom-version-diff-panel__summary-text">
-        当前线上版本和当前内容版本不一致，因此这里单独保留 live 摘要，避免和右侧主 diff 混淆。
+        当前线上版本与当前内容版本不同。以下为线上版本摘要。
       </p>
       <p class="showroom-version-diff-panel__summary-text">
         {{ currentPublicVersion?.title || '当前线上标题未记录' }}
       </p>
       <p class="showroom-version-diff-panel__summary-text">
-        {{ currentPublicVersion?.titleEn || 'Current public English title not recorded' }}
+        {{ currentPublicVersion?.titleEn || '线上版本的英文标题未记录' }}
       </p>
     </section>
 
     <section class="showroom-version-diff-panel__surface">
       <div class="showroom-version-diff-panel__section-head">
-        <h4>当前 release 摘要</h4>
+        <h4>当前发布信息</h4>
         <el-tag :type="currentRelease ? 'info' : 'warning'">
-          {{ currentRelease ? currentRelease.releaseId : '未发布' }}
+          {{ currentRelease ? '已有发布记录' : '未发布' }}
         </el-tag>
       </div>
       <el-descriptions :column="1" border size="small">
-        <el-descriptions-item label="Manifest Hash">
-          {{ currentRelease?.manifestHash || '未记录' }}
-        </el-descriptions-item>
         <el-descriptions-item label="发布时间">
           {{ formatDateTimeValue(currentRelease?.publishedAt, '未发布') }}
         </el-descriptions-item>
-        <el-descriptions-item label="公司线上 Revision">
-          {{ currentRelease ? `#${currentRelease.companyRevisionId}` : '未记录' }}
-        </el-descriptions-item>
-        <el-descriptions-item v-if="currentRelease?.productCurrentReleaseRevisionId !== null" label="产品线上 Revision">
-          {{
-            currentRelease?.productCurrentReleaseRevisionId
-              ? `#${currentRelease.productCurrentReleaseRevisionId}`
-              : '未记录'
-          }}
-        </el-descriptions-item>
       </el-descriptions>
+      <details v-if="currentRelease"><summary>发布标识与校验信息</summary>
+        <p>发布标识：{{ currentRelease.releaseId }}</p><p>清单校验码：{{ currentRelease.manifestHash }}</p>
+        <p>公司线上修订编号：{{ currentRelease.companyRevisionId }}</p>
+        <p v-if="currentRelease.productCurrentReleaseRevisionId != null">产品线上修订编号：{{ currentRelease.productCurrentReleaseRevisionId }}</p>
+      </details>
     </section>
 
     <section class="showroom-version-diff-panel__surface">
@@ -92,7 +84,7 @@
         <div>
           <h4>发布为当前线上版本</h4>
           <p class="showroom-version-diff-panel__tip">
-            这是一步到位发布，但最终会触发全局 showroom release 重建。
+            发布后将更新当前线上版本，并重新构建整个展厅发布包。
           </p>
         </div>
       </div>
@@ -110,12 +102,13 @@
         :closable="false"
         show-icon
         type="error"
-        title="当前存在 republish blocker"
+        title="存在发布阻塞项"
       >
         <template #default>
           <ul class="showroom-version-diff-panel__blockers">
             <li v-for="blocker in republishReadiness.blockers" :key="`${blocker.scope}-${blocker.blockerCode}`">
-              {{ formatVersionCenterBlocker(blocker) }}
+              <p>{{ blocker.message }}</p>
+              <details><summary>阻塞项技术详情</summary><p>{{ formatVersionCenterBlocker(blocker) }}</p></details>
             </li>
           </ul>
         </template>
@@ -172,19 +165,21 @@ const showCurrentPublicSummary = computed(
 
 const disabledReason = computed(() => {
   if (!props.permissions.canRepublish) {
-    return props.permissions.republishDisabledReason || '当前用户没有 republish 权限'
+    return props.permissions.republishDisabledReason || '当前用户没有发布权限'
   }
   if (props.interactionsDisabled) {
     return '版本切换中，当前暂不可执行发布操作'
   }
   if (!props.republishReadiness.ready) {
-    return '当前存在 blocker，无法执行一步到位发布'
+    return '请先处理发布阻塞项，再发布此版本'
   }
   return ''
 })
 </script>
 
 <style scoped>
+.showroom-version-diff-panel details { overflow-wrap: anywhere; }
+.showroom-version-diff-panel summary { cursor: pointer; color: var(--el-text-color-secondary); }
 .showroom-version-diff-panel {
   display: flex;
   flex-direction: column;

@@ -19,15 +19,15 @@ public class MesProProcessCreationService {
     private MesProProcessMapper processMapper;
 
     @Transactional(rollbackFor = Exception.class)
-    public Long create(MesProProcessDO process) {
+    public Long create(MesProProcessDO process, Long projectId) {
         TenantContextHolder.getRequiredTenantId();
         if (process.getId() != null) {
             throw new IllegalArgumentException("新增工序不能指定已有工序 ID");
         }
-        String code = autoCodeRecordService.generateAutoCode(
-                MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.getCode(), null);
-        if (code == null || !code.matches("GX-[0-9]{4,}") || code.matches("GX-0+")) {
-            throw new IllegalStateException("工序编码规则必须生成 GX-0001 起的递增编号");
+        String code = autoCodeRecordService.generateProjectCode(
+                MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.getCode(), projectId);
+        if (code == null || code.isBlank()) {
+            throw new IllegalStateException("项目工序编码生成结果为空");
         }
         process.setCode(code);
         processMapper.insert(process);

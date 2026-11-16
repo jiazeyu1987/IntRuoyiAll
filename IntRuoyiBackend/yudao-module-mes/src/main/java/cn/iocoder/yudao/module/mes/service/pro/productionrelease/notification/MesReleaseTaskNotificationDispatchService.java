@@ -24,6 +24,7 @@ public class MesReleaseTaskNotificationDispatchService {
     @Resource private MesReleaseTaskNotificationTransactionService transactionService;
     @Resource private MesReleaseTaskNotificationPlatformSender platformSender;
     @Resource private PermissionApi permissionApi;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
     public void dispatchAssigned(Long tenantId, Long workTaskId) {
         MesReleaseTaskNotificationContract.tenant(tenantId);
@@ -45,8 +46,18 @@ public class MesReleaseTaskNotificationDispatchService {
         MesReleaseTaskNotifyDeliveryDO row = deliveryMapper.selectDelivery(tenantId, deliveryId);
         if (row == null) { throw new IllegalArgumentException("当前租户的正式通知投递不存在"); }
         MesProEdhrWorkTaskDO task = workTaskMapper.selectById(row.getWorkTaskId());
-        MesReleaseTaskNotificationContract.access(permissionApi, tenantId, actorId, task);
-        if (!Objects.equals(row.getUserId(), actorId)) {
+        boolean handoverNotice=row.getEventRevision()!=null && row.getEventRevision()>0;
+        if(MesReleaseTaskNotificationContract.outcome(row.getEventType())) {
+            MesReleaseTaskNotificationContract.outcomeAccess(permissionApi,tenantId,actorId,row);
+        } else if(handoverNotice) {
+            if(task==null || task.getBatchExecutionId()==null) throw new IllegalArgumentException("正式交接任务不存在");
+            var scope=marketReleaseAccess.get(task.getBatchExecutionId(),actorId);
+            if(!scope.original() || !Objects.equals(scope.handoverId(),row.getEventRevision())
+                    || !(scope.active() ? "HANDED_OVER" : "RECALLED").equals(row.getEventType())
+                    || !permissionApi.hasAnyPermissions(actorId,MesReleaseTaskNotificationContract.QUERY_PERMISSION))
+                throw new ServiceException(403,"仅原办理人可补发当前交接或回收通知");
+        } else MesReleaseTaskNotificationContract.access(permissionApi, tenantId, actorId, task);
+        if (!handoverNotice && !Objects.equals(row.getUserId(), actorId)) {
             throw new ServiceException(1_076_040_002, "仅原冻结候选收件人可重试本人的通知");
         }
         if (!Objects.equals(expectedVersion, row.getRowVersion())
@@ -60,6 +71,12 @@ public class MesReleaseTaskNotificationDispatchService {
         MesReleaseTaskNotifyDeliveryDO attempt = transactionService.recordAttempt(
                 frozen.getTenantId(), frozen.getId(), frozen.getRowVersion(), actor, reason, retry);
         try {
+            if(!"RECALLED".equals(attempt.getEventType())
+                    && !MesReleaseTaskNotificationContract.outcome(attempt.getEventType())) {
+                var currentTask=workTaskMapper.selectById(attempt.getWorkTaskId());
+                if(currentTask==null || !MesReleaseTaskNotificationContract.candidates(currentTask.getCandidateUserSnapshot()).contains(attempt.getUserId()))
+                    throw new ServiceException(403,"通知对应的办理授权已经变化，禁止投递过期待办通知");
+            }
             NotifySendSingleToUserIdempotentReqDTO request = new NotifySendSingleToUserIdempotentReqDTO();
             request.setUserId(attempt.getUserId()); request.setTemplateCode(attempt.getTemplateCode());
             request.setBusinessKey(attempt.getBusinessKey());

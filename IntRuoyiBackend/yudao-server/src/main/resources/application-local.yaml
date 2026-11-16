@@ -5,17 +5,10 @@ showroom:
   release:
     public-website-origin: "${SHOWROOM_RELEASE_PUBLIC_WEBSITE_ORIGIN:http://127.0.0.1:${server.port}}"
 
-mes:
-  pro:
-    edhr:
-      independent-receipt:
-        issuer-system: ${MES_EDHR_INDEPENDENT_RECEIPT_ISSUER_SYSTEM}
-        signing-secret: ${MES_EDHR_INDEPENDENT_RECEIPT_SIGNING_SECRET}
-
 --- #################### 数据库相关配置 ####################
 spring:
   config:
-    import: optional:file:D:/ProjectPackage/Int/IntPP/backend/.env[.properties]
+    import: optional:file:.runtime/config/intpp-backend.env[.properties]
   autoconfigure:
     # noinspection SpringBootApplicationYaml
     exclude:
@@ -270,9 +263,7 @@ signature:
 
 # 瑛泰配置项，设置当前项目所有自定义的配置
 yudao:
-  gxp-audit:
-    # 显式本地调试开关；仅允许 local profile 和本机 MySQL，默认关闭。
-    local-development-policy: ${INTRUOYI_LOCAL_DEVELOPMENT_AUDIT_POLICY:false}
+  # GxP 模式统一从基础配置 system.gxp.audit-mode 读取，修改后重启生效。
   local-job-control:
     enabled: true
     quartz-auto-run-handler-whitelist:
@@ -290,14 +281,14 @@ yudao:
       open-ai-api-key: ${SHOWROOM_CODEX_IMAGE_OPENAI_API_KEY:}
       open-ai-base-url: ${SHOWROOM_CODEX_IMAGE_OPENAI_BASE_URL:}
   codex-test:
-    artifact-temp-dir: ${CODEX_TEST_ARTIFACT_TEMP_DIR:${INTRUOYI_RUNTIME_ARTIFACT_DIR:E:/IntRuoyi/output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts}}
+    artifact-temp-dir: ${CODEX_TEST_ARTIFACT_TEMP_DIR:${INTRUOYI_RUNTIME_ARTIFACT_DIR:.runtime/output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts}}
     artifact-retention-hours: ${CODEX_TEST_ARTIFACT_RETENTION_HOURS:24}
     runner:
       token: ${CODEX_TEST_RUNNER_TOKEN:}
       heartbeat-timeout-seconds: ${CODEX_TEST_RUNNER_HEARTBEAT_TIMEOUT_SECONDS:60}
       on-demand:
         enabled: ${CODEX_TEST_RUNNER_ON_DEMAND_ENABLED:true}
-        starter-script: ${CODEX_TEST_RUNNER_STARTER_SCRIPT:E:/IntRuoyi/IntRuoyiFronted/scripts/start-codex-test-runner.ps1}
+        starter-script: ${CODEX_TEST_RUNNER_STARTER_SCRIPT:../IntRuoyiFronted/scripts/start-codex-test-runner.ps1}
         api-base: ${CODEX_TEST_API_BASE:http://127.0.0.1:48081/admin-api}
         frontend-base-url: ${CODEX_TEST_FRONTEND_BASE_URL:http://127.0.0.1:8081}
         management-tenant-id: ${CODEX_TEST_TENANT_ID:1}
@@ -313,7 +304,7 @@ yudao:
     int-auth:
       base-url: http://127.0.0.1:8020
       internal-service-token: ${INTERNAL_SERVICE_TOKEN:}
-      db-path: D:/ProjectPackage/Int/IntAuth/data/auth.db
+      db-path: .runtime/data/int-auth/auth.db
     preview:
       onlyoffice:
         base-url: ${DCC_ONLYOFFICE_BASE_URL:http://127.0.0.1:8080}
@@ -342,7 +333,7 @@ yudao:
       assistant-port: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PORT:18733}
       assistant-root-dir: ${INVOICE_VOUCHER_PRINT_ASSISTANT_ROOT_DIR:E:/ProjectPackage/erp-invoice-voucher-print-assistant}
       assistant-script: ${INVOICE_VOUCHER_PRINT_ASSISTANT_SCRIPT:server.js}
-      node-command: ${INVOICE_VOUCHER_PRINT_ASSISTANT_NODE_COMMAND:D:/Programs/node.exe}
+      node-command: ${INVOICE_VOUCHER_PRINT_ASSISTANT_NODE_COMMAND:.runtime/tools/node.exe}
       ticket-validate-url: ${INVOICE_VOUCHER_PRINT_TICKET_VALIDATE_URL:http://127.0.0.1:48081/admin-api/system/auth/invoice-voucher-print-ticket/validate}
       session-ttl-seconds: ${INVOICE_VOUCHER_PRINT_SESSION_TTL_SECONDS:14400}
       startup-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
@@ -353,7 +344,7 @@ yudao:
       assistant-port: ${FENBEITONG_ASSISTANT_PORT:18734}
       assistant-root-dir: ${FENBEITONG_ASSISTANT_ROOT_DIR:E:/ProjectPackage/fenbeitong/student-collaboration-kit}
       assistant-script: ${FENBEITONG_ASSISTANT_SCRIPT:server.js}
-      node-command: ${FENBEITONG_ASSISTANT_NODE_COMMAND:D:/Programs/node.exe}
+      node-command: ${FENBEITONG_ASSISTANT_NODE_COMMAND:.runtime/tools/node.exe}
       ticket-validate-url: ${FENBEITONG_ASSISTANT_TICKET_VALIDATE_URL:http://127.0.0.1:48081/admin-api/system/auth/fenbeitong-assistant-ticket/validate}
       session-ttl-seconds: ${FENBEITONG_ASSISTANT_SESSION_TTL_SECONDS:14400}
       startup-timeout-seconds: ${FENBEITONG_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
@@ -394,8 +385,8 @@ yudao:
     miniprogram-state: developer # 跳转小程序类型：开发版为 “developer”；体验版为 “trial”为；正式版为 “formal”
   tencent-lbs-key: TVDBZ-TDILD-4ON4B-PFDZA-RNLKH-VVF6E # QQ 地图的密钥 https://lbs.qq.com/service/staticV2/staticGuide/staticDoc
   runtime-control:
-    repo-root: ${INTRUOYI_RUNTIME_CONTROL_REPO_ROOT:D:/ProjectPackage/Int/IntRuoyi/ruoyi-vue-pro}
-    state-dir: ${INTRUOYI_RUNTIME_CONTROL_STATE_DIR:E:/Int/CacheData/IntRuoyi/runtime-control}
+    repo-root: ${INTRUOYI_RUNTIME_CONTROL_REPO_ROOT:.}
+    state-dir: ${INTRUOYI_RUNTIME_CONTROL_STATE_DIR:.runtime/runtime-control}
     environments:
       test:
         host: ${INTRUOYI_RUNTIME_CONTROL_TEST_HOST:172.30.30.58}

@@ -8,6 +8,8 @@ import java.util.List;
 
 @Data
 public class DccControlledFileRespVO {
+    /** A fixed reference occupies one row of the same database-paged folder list. */
+    private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.ReferenceListView referenceProjection;
     /** Server digest of this exact saved ordinary-attachment manifest; never a client-supplied digest. */
     private String ordinaryAttachmentManifestHash;
     private LocalDateTime delayedEffectiveTime;

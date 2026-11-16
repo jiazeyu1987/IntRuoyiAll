@@ -11,14 +11,12 @@
       label-width="68px"
     >
       <el-form-item label="发起人" prop="startUserId">
-        <el-select v-model="queryParams.startUserId" placeholder="请选择发起人" class="!w-240px">
-          <el-option
-            v-for="user in userList"
-            :key="user.id"
-            :label="user.nickname"
-            :value="user.id"
-          />
-        </el-select>
+        <UserSelectV2 allow-inactive
+          v-model="queryParams.startUserId"
+          placeholder="请选择发起人"
+          class="!w-240px"
+          :user-options="userList"
+        />
       </el-form-item>
       <el-form-item label="流程名称" prop="name">
         <el-input
@@ -157,6 +155,7 @@
   </ContentWrap>
 </template>
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'

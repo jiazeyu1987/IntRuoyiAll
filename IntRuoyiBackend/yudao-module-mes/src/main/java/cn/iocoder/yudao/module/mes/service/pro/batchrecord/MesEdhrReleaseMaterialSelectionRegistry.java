@@ -37,7 +37,7 @@ public class MesEdhrReleaseMaterialSelectionRegistry {
         }
         var fact=materials.getCreationVerifiedByReceiptId(tenant,tx.getBatchExecutionId(),receipt,source);
         if(!Objects.equals(fact.provenance().sourceRowId(),rowId)||!Objects.equals(fact.provenance().sourceHash(),hash)
-                ||!Objects.equals(fact.provenance().creationEventId(),eventId)||!Objects.equals(fact.provenance().creationEventHash(),eventHash))
+                ||(!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && (!Objects.equals(fact.provenance().creationEventId(),eventId)||!Objects.equals(fact.provenance().creationEventHash(),eventHash))))
             throw new IllegalStateException("MATERIAL_SELECTION_PROVENANCE_MISMATCH");
         return new MesEdhrVerifiedMaterialSelection(isManaged?"MANAGED":"GENERAL",tx.getId(),task.getId(),precheck,fact,null);
     }

@@ -40,7 +40,6 @@ class EdhrReleaseActualCompletionPortTest {
             assertEquals(4,prepared.attachments().size());
             assertEquals(prepared.contentHash(),f.resolver.lockAndAuthorize(2L,prepared.identity()).contentHash());
             verify(f.receiptMapper,atLeastOnce()).selectByIdAndTenantId(80L,1L);
-            verifyNoInteractions(f.independent);
         }
     }
     @Test void missingOrForeignFrozenBindingCannotBeReplacedByCurrentOwnerOrAnEmptyList() throws Exception {
@@ -88,7 +87,6 @@ class EdhrReleaseActualCompletionPortTest {
         final MesEdhrSourceCreationVerificationService creation=mock(MesEdhrSourceCreationVerificationService.class);
         final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completion=new MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl(receiptMapper,creation);
         final MesProcessPoolActiveOrderCompletionReceiptDO owner=ownerReceipt();
-        final MesIndependentBatchPrerequisiteReceiptService independent=mock(MesIndependentBatchPrerequisiteReceiptService.class);
         final MesProEdhrFourMaterialGateService materials=mock(MesProEdhrFourMaterialGateService.class);
         final FileService files=mock(FileService.class);
         final EdhrReleaseContentSemanticValidator semantic=new EdhrReleaseContentSemanticValidator(new EdhrReleaseContentPolicy());
@@ -104,7 +102,7 @@ class EdhrReleaseActualCompletionPortTest {
             replaceSourceHash(root,owner.getSourceSnapshotHash());
             when(receiptMapper.selectByIdAndTenantId(80L,1L)).thenReturn(owner);
             when(creation.requireCompletionCreation(1L,80L)).thenAnswer(invocation -> {
-                new MesEdhrSourceOwnerIntegrity("", "").completion(owner);
+                new MesEdhrSourceOwnerIntegrity().completion(owner);
                 return new MesEdhrSourceCreationEvidence("COMPLETION_MAIN_V1",80L,"80","1",owner.getReceiptHash(),81L,H);
             });
             when(creation.requireCompletionTransactionId(1L,80L)).thenReturn("actual-completion-transaction");
@@ -140,7 +138,7 @@ class EdhrReleaseActualCompletionPortTest {
                 when(files.presignGetUrl(file.getUrl(),900)).thenReturn("https://files.invalid/signed-"+index++);
             }
             when(materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,H,attachments));
-            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,independent,materials,files);
+            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,materials,files);
         }
     }
 }

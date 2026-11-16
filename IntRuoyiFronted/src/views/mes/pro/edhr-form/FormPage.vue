@@ -76,7 +76,7 @@
               <template #default="{ row }">
                 <div class="edhr-form-page__actions">
                   <el-button link type="primary" @click="openDetailDrawer(row)">详情</el-button>
-                  <el-button link type="primary" @click="openEventDrawer(row)">事件</el-button>
+                  
                 </div>
               </template>
             </el-table-column>
@@ -165,7 +165,7 @@
                   >
                     启用
                   </el-button>
-                  <el-button link type="primary" @click="openEventDrawer(row)">事件</el-button>
+                  
                 </div>
               </template>
             </el-table-column>
@@ -448,33 +448,7 @@
     </template>
   </el-drawer>
 
-  <el-drawer v-model="eventDrawerVisible" title="事件" size="720px" destroy-on-close>
-    <el-alert
-      v-if="eventError"
-      :title="eventError"
-      type="error"
-      :closable="false"
-      show-icon
-      class="edhr-form-page__dialog-alert"
-    />
-    <el-table v-loading="eventLoading" :data="eventList" stripe :show-overflow-tooltip="true">
-      <el-table-column label="事件类型" prop="eventType" min-width="150" />
-      <el-table-column label="结果" prop="resultStatus" width="110" />
-      <el-table-column label="操作者" prop="operatorUsername" min-width="130" />
-      <el-table-column label="发生时间" width="180">
-        <template #default="{ row }">
-          {{ formatDateTime(row.occurredAt) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="失败原因" prop="failureReason" min-width="180" />
-    </el-table>
-    <Pagination
-      :total="eventTotal"
-      v-model:page="eventQueryParams.pageNo"
-      v-model:limit="eventQueryParams.pageSize"
-      @pagination="loadEventList"
-    />
-  </el-drawer>
+  
 </template>
 
 <script setup lang="ts">
@@ -488,13 +462,13 @@ import {
   activateEdhrFormTemplate,
   createEdhrFormInstance,
   createEdhrFormTemplate,
-  getEdhrFormEventPage,
+  
   getEdhrFormInstance,
   getEdhrFormInstancePage,
   getEdhrFormTemplatePage,
   saveEdhrFormInstanceDraft,
   submitEdhrFormInstance,
-  type EdhrFormEventRespVO,
+  
   type EdhrFormFieldSpec,
   type EdhrFormFieldType,
   type EdhrFormInstanceRespVO,
@@ -529,7 +503,7 @@ const loadError = ref('')
 const templateError = ref('')
 const instanceError = ref('')
 const detailError = ref('')
-const eventError = ref('')
+
 
 const templateLoading = ref(false)
 const instanceLoading = ref(false)
@@ -538,22 +512,22 @@ const templateSubmitting = ref(false)
 const instanceSubmitting = ref(false)
 const detailLoading = ref(false)
 const detailSubmitting = ref(false)
-const eventLoading = ref(false)
+
 
 const templateDialogVisible = ref(false)
 const instanceDialogVisible = ref(false)
 const detailDrawerVisible = ref(false)
-const eventDrawerVisible = ref(false)
+
 
 const templateList = ref<EdhrFormTemplateRespVO[]>([])
 const instanceList = ref<EdhrFormInstanceRespVO[]>([])
 const activeTemplateOptions = ref<EdhrFormTemplateRespVO[]>([])
-const eventList = ref<EdhrFormEventRespVO[]>([])
+
 const detailInstance = ref<EdhrFormInstanceRespVO>()
 const detailFieldSchema = ref<EdhrFormFieldSpec[]>([])
 const templateTotal = ref(0)
 const instanceTotal = ref(0)
-const eventTotal = ref(0)
+
 const detailRemark = ref('')
 
 const detailValues = reactive<Record<string, string | number | null | undefined>>({})
@@ -576,12 +550,7 @@ const instanceQueryParams = reactive({
   businessObjectCode: ''
 })
 
-const eventQueryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  instanceId: undefined as number | undefined,
-  templateId: undefined as number | undefined
-})
+
 
 const templateForm = reactive({
   templateCode: '',
@@ -812,26 +781,7 @@ const loadActiveTemplateOptions = async () => {
   }
 }
 
-const loadEventList = async () => {
-  eventLoading.value = true
-  eventError.value = ''
-  try {
-    const data = await getEdhrFormEventPage({
-      pageNo: eventQueryParams.pageNo,
-      pageSize: eventQueryParams.pageSize,
-      instanceId: eventQueryParams.instanceId,
-      templateId: eventQueryParams.templateId
-    })
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    eventList.value = []
-    eventTotal.value = 0
-    eventError.value = resolveErrorMessage(error, '事件加载失败。')
-  } finally {
-    eventLoading.value = false
-  }
-}
+
 
 const handleTabChange = async (name: string | number) => {
   loadError.value = ''
@@ -1124,19 +1074,7 @@ const isFormInstanceRow = (
   return 'instanceCode' in row || 'templateId' in row
 }
 
-const openEventDrawer = async (row: EdhrFormInstanceRespVO | EdhrFormTemplateRespVO) => {
-  eventDrawerVisible.value = true
-  eventQueryParams.pageNo = 1
-  eventQueryParams.pageSize = 10
-  if (isFormInstanceRow(row)) {
-    eventQueryParams.instanceId = row.id
-    eventQueryParams.templateId = row.templateId
-  } else {
-    eventQueryParams.instanceId = undefined
-    eventQueryParams.templateId = row.id
-  }
-  await loadEventList()
-}
+
 
 const resolveTemplateOptionLabel = (template: EdhrFormTemplateRespVO) => {
   return [template.templateCode, template.templateName, template.templateVersion].filter(Boolean).join(' / ')

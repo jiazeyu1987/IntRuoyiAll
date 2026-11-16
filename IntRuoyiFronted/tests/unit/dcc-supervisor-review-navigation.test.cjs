@@ -40,7 +40,8 @@ test('preview entry and attachment status live in its toolbar with controlled hi
   assert.match(viewer, /reviewToolbar && resolvedWatermarkText/)
   for (const action of ['缩小', '放大', '旋转', '复原', '放大预览']) assert.ok(viewer.includes(action))
   assert.match(attachments, /v-else-if="file"[^>]*>无附件/)
-  assert.match(attachments, /<ControlledFileAttachments :file="file" :body-read-context="bodyReadContext"/)
+  assert.match(attachments, /<ControlledFileAttachments\b[^>]*:file="file"[^>]*:body-read-context="bodyReadContext"/)
+  assert.match(attachments, /<ControlledFileAttachments\b[^>]*:checkout-download-allowed="checkoutDownloadAllowed"/)
   assert.match(attachments, /listVisible.value = false/)
 })
 

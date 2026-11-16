@@ -118,30 +118,7 @@
     </el-descriptions>
 
     <!-- 操作日志 -->
-    <el-descriptions title="售后日志">
-      <el-descriptions-item labelClassName="no-colon">
-        <el-timeline>
-          <el-timeline-item
-            v-for="saleLog in formData.logs"
-            :key="saleLog.id"
-            :timestamp="formatDate(saleLog.createTime)"
-            placement="top"
-          >
-            <div class="el-timeline-right-content">
-              <span>{{ saleLog.content }}</span>
-            </div>
-            <template #dot>
-              <span
-                :style="{ backgroundColor: getUserTypeColor(saleLog.userType) }"
-                class="dot-node-style"
-              >
-                {{ getDictLabel(DICT_TYPE.USER_TYPE, saleLog.userType)[0] || '系' }}
-              </span>
-            </template>
-          </el-timeline-item>
-        </el-timeline>
-      </el-descriptions-item>
-    </el-descriptions>
+    
   </ContentWrap>
 
   <!-- 各种操作的弹窗 -->
@@ -150,7 +127,7 @@
 <script lang="ts" setup>
 import * as AfterSaleApi from '@/api/mall/trade/afterSale/index'
 import { fenToYuan } from '@/utils'
-import { DICT_TYPE, getDictLabel, getDictObj } from '@/utils/dict'
+import { DICT_TYPE,  getDictObj } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import UpdateAuditReasonForm from '@/views/mall/trade/afterSale/form/AfterSaleDisagreeForm.vue'
 import { createImageViewer } from '@/components/ImageViewer'

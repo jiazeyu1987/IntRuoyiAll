@@ -68,4 +68,6 @@ public class MesProWorkOrderPageReqVO extends PageParam {
     @Schema(description = "快速过滤")
     private QuickFilter quickFilter;
 
+
+    private String syncCode;
 }

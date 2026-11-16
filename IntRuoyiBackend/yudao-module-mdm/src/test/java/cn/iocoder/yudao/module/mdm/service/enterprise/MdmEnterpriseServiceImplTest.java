@@ -316,6 +316,106 @@ class MdmEnterpriseServiceImplTest {
     }
 
     @Test
+    void createEnabledOwnedCompanyGeneratesNextTenantCompanyCodeAfterLockingTenant() {
+        when(enterpriseMapper.lockTenantForCompanyCodeGeneration(TENANT_ID)).thenReturn(TENANT_ID);
+        when(enterpriseMapper.selectCompanyCodesForGeneration(TENANT_ID))
+                .thenReturn(List.of("HIST-REG-ENT-1", "Company-001", "Company-009", "Company-X", "company-010"));
+        doAnswer(invocation -> {
+            MdmEnterpriseDO enterprise = invocation.getArgument(0);
+            enterprise.setId(301L);
+            return 1;
+        }).when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
+
+        Long enterpriseId = enterpriseService.createEnabledOwnedCompany("  新公司  ");
+
+        assertEquals(301L, enterpriseId);
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).insert(captor.capture());
+        assertEquals("Company-011", captor.getValue().getEnterpriseCode());
+        assertEquals("新公司", captor.getValue().getName());
+        assertEquals(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), captor.getValue().getType());
+        assertEquals(MdmEnterpriseStatusEnum.ENABLE.getStatus(), captor.getValue().getStatus());
+        assertEquals(1, captor.getValue().getRevision());
+        assertEquals(List.of("lockTenantForCompanyCodeGeneration", "selectCompanyCodesForGeneration", "insert"),
+                mapperInvocationNames());
+    }
+
+    @Test
+    void createEnabledOwnedCompanyContinuesAfterAnExistingCode() {
+        when(enterpriseMapper.lockTenantForCompanyCodeGeneration(TENANT_ID)).thenReturn(TENANT_ID);
+        when(enterpriseMapper.selectCompanyCodesForGeneration(TENANT_ID)).thenReturn(List.of("Company-001"));
+        doAnswer(invocation -> {
+            invocation.<MdmEnterpriseDO>getArgument(0).setId(301L);
+            return 1;
+        }).when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
+
+        enterpriseService.createEnabledOwnedCompany("公司甲");
+
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).insert(captor.capture());
+        assertEquals("Company-002", captor.getValue().getEnterpriseCode());
+    }
+
+    @Test
+    void createEnabledOwnedCompanyRejectsMissingTenantLockBeforeReadingCodes() {
+        when(enterpriseMapper.lockTenantForCompanyCodeGeneration(TENANT_ID)).thenReturn(null);
+
+        assertServiceException(() -> enterpriseService.createEnabledOwnedCompany("公司甲"),
+                cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TENANT_MISMATCH);
+
+        assertEquals(List.of("lockTenantForCompanyCodeGeneration"), mapperInvocationNames());
+    }
+
+    @Test
+    void updateOwnedCompanyNamePreservesCodeTypeAndStatusWhileAdvancingRevision() {
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID,
+                "Company-001", "原名称", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                MdmEnterpriseStatusEnum.DISABLE.getStatus(), 2, false));
+        when(enterpriseMapper.updateById(any(MdmEnterpriseDO.class))).thenReturn(1);
+
+        enterpriseService.updateOwnedCompanyName(301L, " 新名称 ");
+
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).updateById(captor.capture());
+        MdmEnterpriseDO update = captor.getValue();
+        assertEquals(301L, update.getId());
+        assertEquals("新名称", update.getName());
+        assertEquals(null, update.getEnterpriseCode());
+        assertEquals(null, update.getType());
+        assertEquals(null, update.getStatus());
+        assertEquals(3, update.getRevision());
+    }
+
+    @Test
+    void updateOwnedCompanyStatusRequiresOwnedCompanyAndAdvancesRevision() {
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID,
+                "Company-001", "名称", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 4, false));
+        when(enterpriseMapper.updateById(any(MdmEnterpriseDO.class))).thenReturn(1);
+
+        enterpriseService.updateOwnedCompanyStatus(301L, MdmEnterpriseStatusEnum.DISABLE.getStatus());
+
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).updateById(captor.capture());
+        assertEquals(301L, captor.getValue().getId());
+        assertEquals(MdmEnterpriseStatusEnum.DISABLE.getStatus(), captor.getValue().getStatus());
+        assertEquals(null, captor.getValue().getName());
+        assertEquals(null, captor.getValue().getEnterpriseCode());
+        assertEquals(5, captor.getValue().getRevision());
+    }
+
+    @Test
+    void updateOwnedCompanyNameRejectsEntrustedParty() {
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID,
+                "TRUST-001", "受托企业", ENTRUSTED_PARTY, MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false));
+
+        assertServiceException(() -> enterpriseService.updateOwnedCompanyName(301L, "新名称"),
+                cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_MISMATCH);
+
+        verify(enterpriseMapper, never()).updateById(any(MdmEnterpriseDO.class));
+    }
+
+    @Test
     void createEnterpriseMapsOnlyNamedTenantCodeDuplicateCauseToBusinessConflict() {
         MdmEnterpriseSaveReqVO request = new MdmEnterpriseSaveReqVO();
         request.setEnterpriseCode("COMP-001");

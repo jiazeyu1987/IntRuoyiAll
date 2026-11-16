@@ -220,21 +220,21 @@ test('a stale revision command with different effective mode or distribution ref
 
 test('revision confirmation reads the controlled baseline current relations actually frozen by submission', async () => {
   const shown = []
-  const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(text) })
+  const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)) })
   try {
     await panel.state.open(); await panel.state.selectIteration('12')
     const command = revision.buildRevisionCommand('10', '12', 'PARTIAL', '修订', 'key', panel.state.applicationFacts)
     await panel.state.submitRevision(command)
-    assert.match(shown[0], /正式冻结关联.pdf · B\/1/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
+    assert.match(shown[0], /正式冻结关联.pdf（版本 B\/1）/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
     assert.deepEqual(panel.relationReads, [{ mode: 'current', id: '10' }])
   } finally { panel.app.unmount() }
 })
 
 test('initial rework confirmation reads saved draft relations even when its detail DTO omits them', async () => {
-  const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text) })
+  const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)) })
   try {
     await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
-    assert.match(shown[0], /正式冻结关联.pdf · B\/1/)
+    assert.match(shown[0], /正式冻结关联.pdf（版本 B\/1）/)
     assert.deepEqual(panel.relationReads, [{ mode: 'history', id: '12' }])
     assert.equal(panel.requests.length, 1)
     assert.equal(panel.requests[0].payload.relatedFiles, undefined)
@@ -243,7 +243,7 @@ test('initial rework confirmation reads saved draft relations even when its deta
 
 test('unavailable or incomplete saved relations block confirmation instead of displaying an empty set', async () => {
   for (const response of [undefined, [{ fileName: 'missing-version.pdf' }], new Error('relation access denied')]) {
-    const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+    const shown = [], panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)),
       readRelations: async () => { if (response instanceof Error) throw response; return response } })
     try {
       await panel.state.open(); panel.state.selectedDepartments = ['50']; await panel.state.submitInitial()
@@ -255,7 +255,7 @@ test('unavailable or incomplete saved relations block confirmation instead of di
 
 test('a saved relation response for a former draft cannot open a confirmation in another file context', async () => {
   const pending = deferred(), started = deferred(), shown = []
-  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(text),
+  const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, confirm: async text => shown.push(typeof text === 'string' ? text : JSON.stringify(text.props.sections)),
     readRelations: () => { started.resolve(); return pending.promise } })
   try {
     await panel.state.open(); panel.state.selectedDepartments = ['50']

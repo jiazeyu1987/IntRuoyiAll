@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
@@ -91,7 +90,7 @@ class MesProEdhrBatchExecutionControllerTest {
     }
 
     @Test
-    void listGetOpenTaskAndClose_delegateToService() {
+    void listGetOpenTask_delegateToService() {
         EdhrBatchExecutionRespVO batch = new EdhrBatchExecutionRespVO().setId(1L).setBatchCode("BATCH-1");
         when(batchExecutionService.getPage(any())).thenReturn(new PageResult<>(List.of(batch), 1L));
         when(batchExecutionService.get(1L)).thenReturn(batch);
@@ -100,7 +99,6 @@ class MesProEdhrBatchExecutionControllerTest {
                 .setMainStage("IN_FILLING");
         when(batchWorkbenchService.getWorkbench(1L)).thenReturn(workbench);
         when(batchExecutionService.openOrCreate(any())).thenReturn(batch);
-        when(batchExecutionService.close(any())).thenReturn(batch);
         when(batchExecutionService.getReviewTimeline(1L)).thenReturn(new EdhrBatchExecutionReviewTimelineRespVO()
                 .setBatchExecutionId(1L));
         EdhrBatchExecutionTaskOpenRespVO taskOpen = new EdhrBatchExecutionTaskOpenRespVO()
@@ -119,11 +117,22 @@ class MesProEdhrBatchExecutionControllerTest {
         assertSame(batch, controller.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()).getData());
         assertSame(taskOpen, controller.openTask(new EdhrBatchExecutionTaskOpenReqVO()).getData());
         assertSame(taskPreview, controller.previewTask(1L, 11L).getData());
-        assertSame(batch, controller.close(new EdhrBatchExecutionCloseReqVO()).getData());
         assertEquals(1L, controller.reviewTimeline(1L).getData().getBatchExecutionId());
 
-        verify(batchExecutionService).close(any());
         verify(batchExecutionService).getReviewTimeline(1L);
+    }
+
+    @Test
+    void batchMutationsExposeNeitherManualCloseNorDirectBulkVoid() {
+        for (Method method : MesProEdhrBatchExecutionController.class.getDeclaredMethods()) {
+            PostMapping mapping = method.getAnnotation(PostMapping.class);
+            if (mapping != null) {
+                assertFalse(java.util.Arrays.asList(mapping.value()).contains("/close"));
+                assertFalse(java.util.Arrays.asList(mapping.value()).contains("/golden-finger/bulk-void"));
+            }
+        }
+        assertFalse(java.util.Arrays.stream(MesProEdhrBatchExecutionService.class.getMethods())
+                .anyMatch(method -> java.util.Set.of("close", "goldenFingerBulkVoid").contains(method.getName())));
     }
 
     @Test
@@ -204,12 +213,6 @@ class MesProEdhrBatchExecutionControllerTest {
                 previewTask.getParameters()[1].getAnnotation(RequestParam.class).value());
         assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution:query')",
                 previewTask.getAnnotation(PreAuthorize.class).value());
-
-        Method close = MesProEdhrBatchExecutionController.class.getDeclaredMethod("close",
-                EdhrBatchExecutionCloseReqVO.class);
-        assertArrayEquals(new String[]{"/close"}, close.getAnnotation(PostMapping.class).value());
-        assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution:close')",
-                close.getAnnotation(PreAuthorize.class).value());
 
         Method localStateSample = MesProEdhrBatchExecutionController.class.getDeclaredMethod("createLocalStateSample",
                 EdhrLocalStateSampleReqVO.class);

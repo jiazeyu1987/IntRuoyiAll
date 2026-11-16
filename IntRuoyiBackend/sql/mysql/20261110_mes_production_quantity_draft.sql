@@ -1,0 +1,38 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+-- Non-formal submissions blocked by the frozen production-quantity ceiling.
+-- Creates an empty table only; no production, tenant, permission or historical data is changed.
+CREATE TABLE mes_pro_production_quantity_draft (
+ id BIGINT NOT NULL,
+ tenant_id BIGINT NOT NULL,
+ operator_user_id BIGINT NOT NULL,
+ employee_id BIGINT NOT NULL,
+ identity_domain VARCHAR(32) NOT NULL,
+ leader_user_id BIGINT NOT NULL,
+ active_order_id BIGINT NOT NULL,
+ work_order_id BIGINT NOT NULL,
+ route_process_id BIGINT NOT NULL,
+ process_id BIGINT NOT NULL,
+ submit_key_hash CHAR(64) NOT NULL,
+ request_hash CHAR(64) NOT NULL,
+ request_json LONGTEXT NOT NULL,
+ requested_quantity DECIMAL(24,6) NOT NULL,
+ previous_quantity DECIMAL(24,6) NOT NULL,
+ upper_quantity DECIMAL(24,6) NOT NULL,
+ status VARCHAR(24) NOT NULL,
+ version INT NOT NULL DEFAULT 0,
+ decision VARCHAR(32) NULL,
+ review_reason VARCHAR(1000) NULL,
+ review_signature_id BIGINT NULL,
+ reviewed_at DATETIME NULL,
+ submitted_event_id BIGINT NULL,
+ resubmitted_request_hash CHAR(64) NULL,
+ creator VARCHAR(64) DEFAULT '',
+ create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updater VARCHAR(64) DEFAULT '',
+ update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ deleted BIT(1) NOT NULL DEFAULT b'0',
+ PRIMARY KEY (id),
+ UNIQUE KEY uk_mes_quantity_draft_request (tenant_id, operator_user_id, submit_key_hash),
+ KEY idx_mes_quantity_draft_leader (tenant_id, leader_user_id, status, id),
+ KEY idx_mes_quantity_draft_operator (tenant_id, operator_user_id, status, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Blocked production drafts; excluded from formal quantities and release';

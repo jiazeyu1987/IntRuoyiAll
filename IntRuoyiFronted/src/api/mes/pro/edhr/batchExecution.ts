@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
 import type { FormRecognizedFieldVO } from '@/api/form-center/template'
@@ -62,6 +63,9 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  listFilters?: string
+  /** Omit task details, current fillers and close/archive capabilities from list rows. */
+  summaryOnly?: boolean
   batchExecutionIds?: number[]
   batchExecutionCode?: string
   workOrderCode?: string
@@ -74,6 +78,11 @@ export interface EdhrBatchExecutionPageReqVO extends PageParam {
   excludeReleased?: boolean
   releasedOnly?: boolean
   completedTraceOnly?: boolean
+  tracePerson?: string
+  traceEquipment?: string
+  traceMaterial?: string
+  traceMaterialLot?: string
+  traceBusinessTime?: string[]
   createTime?: string[]
   releaseApprovedTime?: string[]
   quickFilter?: TableQuickFilterValue
@@ -301,13 +310,6 @@ export interface EdhrBatchExecutionCurrentProcessFillerRespVO {
   displayName?: string
 }
 
-export interface EdhrBatchExecutionCloseReqVO {
-  id: EdhrRouteId
-  comment: string
-  password: string
-  signatureTime?: EdhrSignatureTimeReqVO
-}
-
 export interface EdhrBatchExecutionQualityRejectReqVO {
   id: EdhrRouteId
   reason: string
@@ -321,29 +323,6 @@ export interface EdhrBatchExecutionReexecuteReqVO {
   remark?: string
 }
 
-export interface EdhrBatchExecutionGoldenFingerBulkVoidReqVO {
-  filter: EdhrBatchExecutionPageReqVO
-  reasonCategory: string
-  reasonText: string
-  password: string
-  comment?: string
-}
-
-export interface EdhrBatchExecutionGoldenFingerBulkVoidItem {
-  batchExecutionId?: number
-  batchExecutionCode?: string
-  status?: number
-  result?: string
-  message?: string
-  changeEventId?: number
-}
-
-export interface EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
-  matchedCount?: number
-  voidedCount?: number
-  skippedCount?: number
-  items?: EdhrBatchExecutionGoldenFingerBulkVoidItem[]
-}
 export interface EdhrBatchExecutionArchiveGenerateReqVO {
   batchExecutionId: EdhrRouteId
   artifactType: string
@@ -434,6 +413,7 @@ export interface EdhrBatchExecutionTaskRespVO {
 }
 
 export interface EdhrBatchExecutionRespVO {
+  marketReleaseAccess?: import('./marketReleaseHandover').MarketReleaseAccess
   id: number
   batchExecutionCode?: string
   workOrderId?: number
@@ -852,6 +832,29 @@ const resolveBatchArchiveDownloadName = (
   return `edhr-batch-archive-${batchExecutionId}.${suffix}`
 }
 
+export interface EdhrBatchHistoryRowRespVO {
+  id: number
+  batchExecutionCode: string
+  workOrderCode: string
+  batchCode: string
+  productName: string
+  status: number
+  startedAt?: string
+  pqcReleasedAt?: string
+  createTime?: string
+  updateTime?: string
+  releaseTransactionId?: number
+  releaseStatus?: string
+  releaseApprovedAt?: string
+}
+
+export const getEdhrBatchHistoryPage = async (params: EdhrBatchExecutionPageReqVO) => {
+  return await request.get<PageResult<EdhrBatchHistoryRowRespVO[]>>({
+    url: `${BATCH_EXECUTION_BASE_URL}/history-page`,
+    params
+  })
+}
+
 export const getEdhrBatchExecutionPage = async (
   params: EdhrBatchExecutionPageReqVO,
   options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }
@@ -870,6 +873,17 @@ export const getEdhrBatchExecution = async (id: EdhrRouteId, options?: { ignoreE
     isRequestContextCurrent: options?.isRequestContextCurrent,
     isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_EXECUTION_BASE_URL}/get?id=${id}`
+  })
+}
+
+export const getEdhrBatchActiveOrderProductionMaterialLists = async (params: {
+  batchExecutionId?: EdhrRouteId
+  activeOrderId?: EdhrRouteId
+}) => {
+  return await request.get<ErpProductionMaterialListVO[]>({
+    url: `${BATCH_EXECUTION_BASE_URL}/active-order-production-material-lists`,
+    params,
+    ignoreErrorMessage: true
   })
 }
 
@@ -1093,13 +1107,6 @@ export const syncEdhrBatchExecutionStatus = async (id: EdhrRouteId) => {
   })
 }
 
-export const closeEdhrBatchExecution = async (data: EdhrBatchExecutionCloseReqVO) => {
-  return await request.post<EdhrBatchExecutionRespVO>({
-    url: `${BATCH_EXECUTION_BASE_URL}/close`,
-    data
-  })
-}
-
 export const qualityRejectEdhrBatchExecution = async (data: EdhrBatchExecutionQualityRejectReqVO) => {
   return await request.post<EdhrBatchExecutionRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/quality-reject`,
@@ -1114,14 +1121,6 @@ export const reexecuteRejectedEdhrBatchExecution = async (data: EdhrBatchExecuti
   })
 }
 
-export const goldenFingerBulkVoidEdhrBatchExecutions = async (
-  data: EdhrBatchExecutionGoldenFingerBulkVoidReqVO
-) => {
-  return await request.post<EdhrBatchExecutionGoldenFingerBulkVoidRespVO>({
-    url: `${BATCH_EXECUTION_BASE_URL}/golden-finger/bulk-void`,
-    data
-  })
-}
 export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchReviewTimelineRespVO>({
     ignoreErrorMessage: options?.ignoreErrorMessage,
@@ -1137,6 +1136,44 @@ export const generateEdhrBatchArchive = async (data: EdhrBatchExecutionArchiveGe
     url: `${BATCH_ARCHIVE_BASE_URL}/generate`,
     data
   })
+}
+
+const renderEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId) => {
+  return await request.download<Blob>({
+    method: 'POST',
+    url: `${BATCH_ARCHIVE_BASE_URL}/print-pdf`,
+    // A cold render validates the frozen records, signatures and PDF/A before returning the file.
+    timeout: 120000,
+    data: { batchExecutionId }
+  })
+}
+
+export const downloadEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId, fileName: string) => {
+  const blob = await renderEdhrBatchPrintPdf(batchExecutionId)
+  downloadByData(blob, fileName, 'application/pdf')
+}
+
+export const printEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId) => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    throw new Error('正式记录PDF打印窗口打开失败。')
+  }
+  let objectUrl: string | undefined
+  try {
+    const blob = await renderEdhrBatchPrintPdf(batchExecutionId)
+    objectUrl = URL.createObjectURL(blob)
+    const pdfUrl = objectUrl
+    printWindow.addEventListener('load', () => {
+      printWindow.focus()
+      printWindow.print()
+      URL.revokeObjectURL(pdfUrl)
+    }, { once: true })
+    printWindow.location.href = objectUrl
+  } catch (error) {
+    printWindow.close()
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+    throw error
+  }
 }
 
 export const getLatestEdhrBatchArchive = async (batchExecutionId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {

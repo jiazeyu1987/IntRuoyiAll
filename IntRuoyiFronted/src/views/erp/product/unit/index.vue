@@ -46,6 +46,14 @@
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
         <el-button
+          type="warning"
+          plain
+          @click="openImport"
+          v-hasPermi="['erp:product-unit:create']"
+        >
+          <Icon icon="ep:upload" class="mr-5px" /> 导入
+        </el-button>
+        <el-button
           type="success"
           plain
           @click="handleExport"
@@ -106,6 +114,40 @@
 
   <!-- 表单弹窗：添加/修改 -->
   <ProductUnitForm ref="formRef" @success="getList" />
+  <Dialog
+    v-model="importVisible"
+    title="导入产品单位"
+    width="420"
+    :close-on-click-modal="!importLoading"
+    :close-on-press-escape="!importLoading"
+    :before-close="beforeImportClose"
+  >
+    <el-upload
+      v-model:file-list="importFiles"
+      :auto-upload="false"
+      :limit="1"
+      :disabled="importLoading"
+      accept=".xls,.xlsx"
+      :on-exceed="handleImportExceed"
+      action="none"
+      drag
+    >
+      <Icon icon="ep:upload" />
+      <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+      <template #tip>
+        <div class="el-upload__tip text-center">
+          支持 .xls、.xlsx 文件。
+          <el-button link type="primary" :loading="templateLoading" @click="downloadTemplate">
+            下载导入模板
+          </el-button>
+        </div>
+      </template>
+    </el-upload>
+    <template #footer>
+      <el-button type="primary" :loading="importLoading" @click="handleImport">确 定</el-button>
+      <el-button :disabled="importLoading" @click="importVisible = false">取 消</el-button>
+    </template>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -133,6 +175,51 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
+const importVisible = ref(false)
+const importLoading = ref(false)
+const templateLoading = ref(false)
+const importFiles = ref<import('element-plus').UploadUserFile[]>([])
+
+const openImport = () => {
+  importFiles.value = []
+  importVisible.value = true
+}
+
+const beforeImportClose = (done: () => void) => {
+  if (!importLoading.value) done()
+}
+
+const handleImportExceed = () => message.warning('每次只能导入一个 Excel 文件，请先移除已选文件')
+
+const downloadTemplate = async () => {
+  templateLoading.value = true
+  try {
+    const data = await ProductUnitApi.getImportTemplate()
+    download.excel(data, '产品单位导入模板.xlsx')
+  } finally {
+    templateLoading.value = false
+  }
+}
+
+const handleImport = async () => {
+  if (importLoading.value) return
+  const file = importFiles.value[0]?.raw
+  if (!file || !/\.(xls|xlsx)$/i.test(file.name)) {
+    message.warning('请选择 .xls 或 .xlsx 格式的 Excel 文件')
+    return
+  }
+  importLoading.value = true
+  try {
+    const result = await ProductUnitApi.importProductUnits(file)
+    message.success(`新增 ${result.importedCount} 条产品单位，跳过重复 ${result.skippedCount} 条`)
+    importVisible.value = false
+    importFiles.value = []
+    queryParams.pageNo = 1
+    await getList()
+  } finally {
+    importLoading.value = false
+  }
+}
 
 /** 查询列表 */
 const getList = async () => {
@@ -183,14 +270,12 @@ const handleDelete = async (id: number) => {
 
 /** 导出按钮操作 */
 const handleExport = async () => {
+  await message.exportConfirm()
   try {
-    // 导出的二次确认
-    await message.exportConfirm()
     // 发起导出
     exportLoading.value = true
     const data = await ProductUnitApi.exportProductUnit(queryParams)
-    download.excel(data, '产品单位.xls')
-  } catch {
+    download.excel(data, '产品单位.xlsx')
   } finally {
     exportLoading.value = false
   }

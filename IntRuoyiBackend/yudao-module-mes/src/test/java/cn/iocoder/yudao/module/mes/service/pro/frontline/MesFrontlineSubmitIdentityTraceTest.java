@@ -35,6 +35,7 @@ class MesFrontlineSubmitIdentityTraceTest {
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
                 contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     }
 
     @Test

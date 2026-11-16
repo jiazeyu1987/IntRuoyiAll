@@ -76,11 +76,19 @@ assert.match(
   'Removing the visible refresh button must not remove list pagination refresh behavior.'
 )
 
-const pqcPersonnelBlock = sliceContentWrapByMarker('data-pqc-leader-personnel-tab')
-assert.match(
-  pqcPersonnelBlock,
-  /<div\s+v-if="showPqcModuleTabs"\s+class="team-leader-workbench__embedded-header">/,
-  'PQC leader header is outside the requested deletion scope and must remain.'
-)
+for (const marker of [
+  'data-pqc-leader-personnel-tab',
+  'data-team-leader-report-workbench',
+  'data-pqc-leader-detail-tab',
+  'data-role-matrix-daily-close'
+]) {
+  const block = sliceContentWrapByMarker(marker)
+  assert.doesNotMatch(
+    block,
+    /team-leader-workbench__embedded-header/,
+    `${marker} must not render the redundant PQC leader title and subtitle.`
+  )
+  assert.match(block, /data-pqc-leader-module-tabs/, `${marker} must keep PQC module tabs.`)
+}
 
 console.log('PASS: production leader redundant header content removal static contract')

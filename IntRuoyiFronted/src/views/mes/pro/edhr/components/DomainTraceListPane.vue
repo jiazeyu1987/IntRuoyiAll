@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-domain-trace-pane">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       table-key="mes.pro.edhr.traceDrawer.domainTrace"
       :query-model="queryParams"
       :filter-definitions="domainTraceQuickFilterDefinitions"
@@ -18,6 +20,9 @@
       @quick-filter-query="domainTraceQuickFilter.applyQuickFilter"
       @column-change="saveDomainTraceColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #extra-filters>
         <el-form-item label="校验时间">
@@ -32,12 +37,7 @@
         </el-form-item>
       </template>
 
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">查询</el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
-
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -51,7 +51,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.traceDrawer.domainTrace"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="executionId"
@@ -174,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   EDHR_DOMAIN_TRACE_QUERY_PERMISSION,
@@ -232,6 +234,7 @@ const normalizeText = (value: unknown) => {
 }
 
 const queryParams = reactive<EdhrDomainTracePageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   executionId: parsePositiveNumber(props.executionId),
@@ -306,6 +309,7 @@ const syncExternalContext = () => {
 const buildQuery = (): EdhrDomainTracePageReqVO => {
   syncExternalContext()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     executionId: parsePositiveNumber(queryParams.executionId),
@@ -373,32 +377,35 @@ const resolveFirstItemSource = (row: EdhrDomainTracePageRowVO) => {
     .join(' / ')
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   if (!hasPermission([EDHR_DOMAIN_TRACE_QUERY_PERMISSION])) {
     list.value = []
     total.value = 0
     loadError.value = '当前账号没有主数据追溯查询权限。'
-    return
+    return false
   }
   loading.value = true
   loadError.value = ''
   try {
     const pageData = await getEdhrDomainTracePage(buildQuery())
+    if (!isCurrent()) return false
     list.value = pageData.list || []
     total.value = pageData.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '主数据追溯列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
 
 const resetQuery = async () => {
   queryParams.pageNo = 1
@@ -439,6 +446,38 @@ watch(
 )
 
 defineExpose({ reload: getList })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'traceSummary',
+    label: '追溯概况',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.executionCode || row.executionId || '--',
+        row.workOrderCode || '未关联工单',
+        row.batchCode || '未关联批次'
+      ].join(' ')
+  },
+  {
+    key: 'status',
+    label: '追溯状态',
+    type: 'text',
+    getValue: (row) => [resolveTraceStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'blockerSummary',
+    label: '阻塞摘要',
+    type: 'text',
+    getValue: (row) => [resolveBlockerSummary(row), resolveBlockerCount(row)].join(' ')
+  },
+  {
+    key: 'itemCount',
+    label: '追溯项',
+    type: 'text',
+    getValue: (row) => [resolveItemCount(row)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

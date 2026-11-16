@@ -42,7 +42,7 @@
           <MdClientSelect v-model="queryParams.clientId" class="!w-220px" />
         </el-form-item>
         <el-form-item label="检查员">
-          <UserSelectV2 v-model="queryParams.inspectorUserId" class="!w-220px" />
+          <UserSelectV2 allow-inactive v-model="queryParams.inspectorUserId" class="!w-220px" />
         </el-form-item>
         <el-form-item>
           <el-button @click="handleQuery">

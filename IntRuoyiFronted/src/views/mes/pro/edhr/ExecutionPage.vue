@@ -998,10 +998,8 @@
                   </div>
                   <div class="edhr-fill-workspace__submit-sign-row">
                     <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
-                    <el-input
+                    <SignatureCredentialInput
                       v-model="submitForm.password"
-                      type="password"
-                      show-password
                       @keyup.enter="handleSubmitExecution"
                     />
                   </div>
@@ -1485,12 +1483,9 @@
         </el-descriptions-item>
       </el-descriptions>
       <el-form label-width="90px" class="edhr-page-shell__signature-form">
-        <el-form-item label="签名密码" required>
-          <el-input
+        <el-form-item label="签名凭据" required>
+          <SignatureCredentialInput
             v-model="formReviewSignForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前账号密码"
             @keyup.enter="handleFormReviewSign"
           />
         </el-form-item>
@@ -1525,12 +1520,9 @@
         <el-form-item label="归档格式">
           <el-input :model-value="archiveArtifactType" disabled />
         </el-form-item>
-        <el-form-item label="封存密码" required>
-          <el-input
+        <el-form-item label="签名凭据" required>
+          <SignatureCredentialInput
             v-model="archiveForm.sealPassword"
-            type="password"
-            show-password
-            placeholder="请输入电子签名密码"
             @keyup.enter="handleGenerateArchive"
           />
         </el-form-item>
@@ -1558,6 +1550,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import {
   EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF,
   EDHR_EXECUTION_ARCHIVE_STATUS_FAILED,
@@ -4121,12 +4114,13 @@ const isReadonly = computed(() => {
   if (!hasFillTaskContext.value || isInactiveRevisionDraft.value) {
     return true
   }
-  if (execution.value?.status === EDHR_EXECUTION_STATUS.DRAFT || isPreReleaseEditable.value) {
+  if (execution.value?.status === EDHR_EXECUTION_STATUS.DRAFT || execution.value?.status === EDHR_EXECUTION_STATUS.REOPENED || isPreReleaseEditable.value) {
     return false
   }
   return true
 })
 const executionStatusText = computed(() => {
+  if (execution.value?.status === EDHR_EXECUTION_STATUS.REOPENED) return '已获批重开（按修改待办追加审计后重新提交）'
   if (execution.value?.status === EDHR_EXECUTION_STATUS.SUBMITTED) {
     return '待审批（审批关闭后才可归档）'
   }
@@ -4834,7 +4828,7 @@ const handleFormReviewSign = async () => {
     return
   }
   if (!formReviewSignForm.password.trim()) {
-    formReviewSignError.value = '签名密码不能为空。'
+    formReviewSignError.value = '签名凭据不能为空。'
     return
   }
 

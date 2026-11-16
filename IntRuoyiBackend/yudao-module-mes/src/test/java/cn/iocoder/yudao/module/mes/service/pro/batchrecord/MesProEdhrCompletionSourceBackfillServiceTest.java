@@ -337,8 +337,8 @@ class MesProEdhrCompletionSourceBackfillServiceTest {
         verify(singleExecution, never()).openOrCreateForCompletionSource(argThat(req -> req.getTaskId().equals(201L)));
         persistedOpens = List.of(openEvidence("APPLIED"));
         when(routeVersions.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
-        assertThrows(IllegalStateException.class, () -> service.preview(batch, memberTask));
-        verify(routeVersions).selectSnapshotIdentityEnforcementReady();
+        assertThrows(ServiceException.class, () -> service.preview(batch, memberTask));
+        verify(routeVersions, never()).selectSnapshotIdentityEnforcementReady();
         verifyNoInteractions(operationAudits);
     }
 
@@ -474,22 +474,23 @@ class MesProEdhrCompletionSourceBackfillServiceTest {
         assertEquals(0, preview.evidence().getExecutionStatus());
         verifyNoInteractions(backfill, taskMapper);
         verify(routeVersions, never()).selectSnapshotIdentityEnforcementReady();
-        assertEquals("route snapshot consumer enforcement is not ready",
-                assertThrows(IllegalStateException.class, () -> routes.resolveVersion(749L)).getMessage());
+        assertEquals(749L, routes.resolveVersion(749L).routeVersionId());
     }
 
-    @Test void traditionalMaterializeStillRequiresGlobalReadinessAndDoesNotSwitchToQuantityOnFailure() {
+    @Test void traditionalMaterializeRejectsInvalidExactVersionWithoutSwitchingToQuantity() {
         when(routeVersions.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
-        assertEquals("route snapshot consumer enforcement is not ready",
+        publishedVersion.setRouteSnapshotSha256(null);
+        assertEquals("route snapshot identity is not ready: 749",
                 assertThrows(IllegalStateException.class, () -> service.materialize(batch, task)).getMessage());
-        verify(routeVersions, never()).selectById(any());
+        verify(routeVersions, never()).selectSnapshotIdentityEnforcementReady();
         verifyNoInteractions(backfill, auditService, singleExecution);
     }
 
-    @Test void existingTraditionalAuditPreviewStillRequiresItsOriginalGlobalContract() {
+    @Test void existingTraditionalAuditPreviewStillRequiresExactSnapshotIntegrity() {
         service.materialize(batch, task);
         when(routeVersions.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
-        assertEquals("route snapshot consumer enforcement is not ready",
+        publishedVersion.setRouteSnapshotSha256("0".repeat(64));
+        assertEquals("route snapshot hash mismatch: 749",
                 assertThrows(IllegalStateException.class, () -> service.preview(batch, task)).getMessage());
     }
 
@@ -525,8 +526,10 @@ class MesProEdhrCompletionSourceBackfillServiceTest {
         assertEquals("PENDING", preview.evidence().getStatus());
         assertEquals("[]", preview.cellValuesJson());
         assertNull(preview.evidence().getAuditBatchId());
-        verify(routeVersions).selectSnapshotIdentityEnforcementReady();
+        verify(routeVersions, never()).selectSnapshotIdentityEnforcementReady();
         when(routeVersions.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
+        assertEquals("PENDING", service.preview(batch, task).evidence().getStatus());
+        publishedVersion.setRouteSnapshotSha256(null);
         assertThrows(IllegalStateException.class, () -> service.preview(batch, task));
         verifyNoInteractions(backfill, auditService, taskMapper);
     }
@@ -714,6 +717,8 @@ class MesProEdhrCompletionSourceBackfillServiceTest {
         assertEquals("PENDING", service.preview(batch, task).evidence().getStatus());
         verifyNoInteractions(operationAudits);
         when(routeVersions.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
+        assertEquals("PENDING", service.preview(batch, task).evidence().getStatus());
+        publishedVersion.setRouteSnapshotSha256(null);
         assertThrows(IllegalStateException.class, () -> service.preview(batch, task));
         verifyNoInteractions(operationAudits);
     }

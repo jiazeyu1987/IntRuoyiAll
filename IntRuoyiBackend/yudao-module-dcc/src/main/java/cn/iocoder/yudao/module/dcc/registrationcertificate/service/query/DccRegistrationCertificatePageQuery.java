@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.query;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,6 +14,8 @@ public class DccRegistrationCertificatePageQuery {
     private Integer pageNo = 1;
     @Builder.Default
     private Integer pageSize = 10;
+    private String listFilters;
+    private QueryWrapper<Object> listFilterWrapper;
     private String certificateType;
     private java.util.Map<String,String> fieldFilters;
     private String ceCertificateNo;

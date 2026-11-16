@@ -74,9 +74,7 @@
         >
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
-        <el-button type="info" plain @click="handleJobLog()" v-hasPermi="['infra:job:query']">
-          <Icon icon="ep:zoom-in" class="mr-5px" /> 执行日志
-        </el-button>
+        
       </el-form-item>
     </el-form>
   </ContentWrap>
@@ -134,9 +132,7 @@
                 <el-dropdown-item command="openDetail" v-if="checkPermi(['infra:job:query'])">
                   任务详细
                 </el-dropdown-item>
-                <el-dropdown-item command="handleJobLog" v-if="checkPermi(['infra:job:query'])">
-                  调度日志
-                </el-dropdown-item>
+                
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -294,9 +290,7 @@ const handleCommand = (command, row) => {
     case 'openDetail':
       openDetail(row.id)
       break
-    case 'handleJobLog':
-      handleJobLog(row?.id)
-      break
+    
     default:
       break
   }
@@ -324,15 +318,6 @@ const handleRun = async (row: JobApi.JobVO) => {
 const detailRef = ref()
 const openDetail = (id: number) => {
   detailRef.value.open(id)
-}
-
-/** 跳转执行日志 */
-const handleJobLog = (id?: number) => {
-  if (id && id > 0) {
-    push('/job/job-log?id=' + id)
-  } else {
-    push('/job/job-log')
-  }
 }
 
 /** 初始化 **/

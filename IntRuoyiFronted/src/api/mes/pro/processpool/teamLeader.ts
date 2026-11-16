@@ -18,6 +18,7 @@ export type DeviceParameterValueType =
 const STAGE1_SIMULATION_REQUEST_TIMEOUT = 120000
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
+  listFilters?: string
   leaderType: TeamLeaderType
   pqcFormView?: 'CURRENT' | 'HISTORY'
 }
@@ -144,13 +145,13 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
-  workOrderId: number
+  workOrderId: number | string
 }
 
 export type TeamLeaderActiveOrderCandidateState = 'ADDABLE' | 'REUSABLE' | 'RECOVERABLE' | 'BLOCKED'
 
 export interface TeamLeaderActiveOrderCandidateRespVO {
-  workOrderId: number
+  workOrderId: number | string
   workOrderCode: string
   candidateState: TeamLeaderActiveOrderCandidateState
   eligible: boolean
@@ -498,11 +499,14 @@ export type TeamLeaderActiveOrderReleaseApplicationStatus =
   | 'REPORT_UPLOAD_PENDING'
   | 'MANAGER_RELEASE_PENDING'
   | 'RELEASED'
+  | 'NONCONFORMANCE_VOID'
+  | 'NONCONFORMANCE_REWORK'
 
 export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number
   processId?: number
   plannedQuantity?: number | string
+  upperQuantity?: number | string
   allocatedQuantity?: number | string
   remainingQuantity?: number | string
   quantityConflict?: boolean
@@ -569,8 +573,16 @@ export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   clearanceConfirmations?: TeamLeaderActiveOrderClearanceConfirmationRespVO[]
 }
 
+export interface TeamLeaderActiveOrderLossDetail {
+  reasonId: number | string
+  reasonCode: string
+  reasonName: string
+  quantity: number | string
+}
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
+  lossDetails?: TeamLeaderActiveOrderLossDetail[]
   eventId: number
+  originalBusinessIdentityJson?: string
   submittedQuantity: number | string
   submitterName: string
   reviewerName?: string
@@ -641,6 +653,7 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskIds?: number[]
   submittedEventId?: number
   submittedEventIds?: number[]
+  originalBusinessIdentities?: string[]
   productionEventId?: number | string
   productionEventIds?: Array<number | string>
   productionSubmitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
@@ -724,6 +737,9 @@ export interface TeamLeaderActiveOrderReworkSourceRespVO {
 }
 
 export interface TeamLeaderActiveOrderOperationFactRespVO {
+  handoverFromName?: string
+  handoverToName?: string
+  handoverReason?: string
   id: number
   operationType: string
   operationName?: string
@@ -768,6 +784,7 @@ export interface ActiveOrderDossierFilesRespVO {
   activeOrderId: number
   applicationId?: number
   categories: ActiveOrderDossierFileCategoryVO[]
+  uploadTasks?: { workTaskId: string; categoryKey: string; label: string }[]
 }
 
 export interface ActiveOrderDossierFilesReqVO {
@@ -778,6 +795,7 @@ export interface ActiveOrderDossierFilesReqVO {
 export interface ActiveOrderDossierFileUploadReqVO extends ActiveOrderDossierFilesReqVO {
   categoryKey: string
   file: File | Blob
+  workTaskId?: number | string
 }
 
 export interface ActiveOrderDossierFileDeleteReqVO extends ActiveOrderDossierFilesReqVO {
@@ -807,6 +825,12 @@ export interface TeamLeaderActiveOrderRespVO {
   inspectionProgressPercent: number | string
   activeStatus: string
   businessStatus?: string
+  pendingNonconformanceReviews?: {
+    reviewId: string
+    reviewCode: string
+    qaReviewerUserId: string | null
+    qaReviewerName: string | null
+  }[]
   joinedAt?: number
   removedAt?: number
   version?: number
@@ -816,6 +840,7 @@ export interface TeamLeaderActiveOrderRespVO {
   releaseApplicationId?: string
   pqcReleaseWorkTaskId?: string
   releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
+  releaseCorrectionReceivable?: boolean
   releaseSourceSnapshotHash?: string
   releaseApplicationVersion?: number
   quantityConflict?: boolean
@@ -1011,7 +1036,7 @@ const requireReviewSignaturePayload = (
   data: Pick<TeamLeaderSubmissionReviewReqVO, 'signaturePassword'>
 ) => {
   if (!data.signaturePassword?.trim()) {
-    throw new Error('请输入电子签名密码')
+    throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   }
 }
 
@@ -1151,6 +1176,7 @@ export const uploadActiveOrderDossierFile = async (
     formData.append('applicationId', String(data.applicationId))
   }
   formData.append('categoryKey', data.categoryKey)
+  if (data.workTaskId !== undefined) formData.append('workTaskId', String(data.workTaskId))
   formData.append('file', data.file)
   const response = await request.upload<ActiveOrderDossierFileUploadApiResp>({
     url: '/mes/pro/process-pool/team-leader/active-order/dossier-files/upload',
@@ -1206,7 +1232,18 @@ export const getTeamLeaderActiveOrderTransferTrace = async (activeOrderId: numbe
 export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => {
   return await request.get<TeamLeaderActiveOrderCandidateRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/candidates',
+    ignoreErrorMessage: true,
     params: { keyword }
+  })
+}
+
+export const syncTeamLeaderProductionOrder = async (code: string) => {
+  return await request.post<{ code: string; syncedCount: number }>({
+    url: '/mes/erp-code-sync/production-order',
+    data: { code },
+    timeout: 180000,
+    ignoreErrorMessage: true,
+    skipAuthRefreshReplay: true
   })
 }
 
@@ -1335,9 +1372,32 @@ export const pushGeneratedTeamLeaderActiveOrderRelease = async (
   })
 }
 
+export interface TeamLeaderTestDataRespVO {
+  workOrderCode: string
+  documents: Array<{ name: string; createdCount: number; deletedCount: number; skippedCount: number; repairedCount: number }>
+}
+
+export const prepareFixedTestOrderData = async () => {
+  return await request.post<TeamLeaderTestDataRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-data',
+    timeout: 150000,
+    ignoreErrorMessage: true
+  })
+}
+
+export const prepareSecondFixedTestOrderData = async () => {
+  return await request.post<TeamLeaderTestDataRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-data-2',
+    timeout: 150000,
+    ignoreErrorMessage: true
+  })
+}
+
 export const resetFixedSimulationActiveOrder = async () => {
   return await request.post<TeamLeaderActiveOrderTestResetRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
+    // Formal writes may exceed the default 30s; do not retry automatically.
+    timeout: 150000,
     ignoreErrorMessage: true
   })
 }
@@ -1365,6 +1425,13 @@ export const getProductionPersonnelList = async (params?: TeamProductionPersonne
   return await request.get<TeamProductionEmployeeRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/employee-profile/list',
     params
+  })
+}
+
+export const deleteTeamProductionEmployee = async (employeeProfileId: number) => {
+  return await request.delete<boolean>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/delete',
+    params: { employeeProfileId }
   })
 }
 

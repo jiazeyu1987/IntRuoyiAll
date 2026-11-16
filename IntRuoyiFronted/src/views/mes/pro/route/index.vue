@@ -5,8 +5,9 @@
     url="https://doc.iocoder.cn/mes/pro/process-route/"
   />
 
-  <ContentWrap>
+  <ContentWrap class="route-list-page">
     <UnifiedListTemplate
+      single-line-toolbar
       :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
       label-width="88px"
@@ -17,7 +18,7 @@
       :operator-options="routeQuickFilter.operatorOptions.value"
       :columns="routeColumns"
       :column-saving="routeColumnSaving"
-      :show-column-settings="false"
+      :show-column-reset="false"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
@@ -25,52 +26,56 @@
       @quick-filter-query="routeQuickFilter.applyQuickFilter"
       @column-change="saveRouteColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #extra-filters>
-        <el-form-item class="route-list__create-action">
-          <el-button
-            type="primary"
-            plain
-            @click="openForm('create')"
-            v-hasPermi="['mes:pro-route:create']"
-          >
-            <Icon icon="ep:plus" class="mr-5px" /> 新增
-          </el-button>
-        </el-form-item>
-        <el-form-item class="route-list__column-settings">
-          <UserTableColumnSettings
-            :columns="routeColumns"
-            :saving="routeColumnSaving"
-            :show-reset="false"
-            @change="saveRouteColumnConfig"
-          />
-        </el-form-item>
-      </template>
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          @click="handleRouteWorkbookExcelImport"
-          v-hasPermi="['mes:pro-route:create']"
+        <el-dropdown
+          v-if="checkPermi(['mes:pro-route:create', 'mes:pro-route:export', 'mes:pro-edhr-work-task-rule:query'])"
+          trigger="click"
         >
-          <Icon icon="ep:document-add" class="mr-5px" /> 导入
-        </el-button>
-        <el-button
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['mes:pro-route:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
-        </el-button>
+          <el-button type="primary" plain :loading="exportLoading">
+            高级 <Icon icon="ep:arrow-down" class="ml-5px" />
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:pro-route:create'])"
+                @click="openForm('create')"
+              >
+                <Icon icon="ep:plus" class="mr-5px" /> 新增
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:pro-route:create'])"
+                @click="handleRouteWorkbookExcelImport"
+              >
+                <Icon icon="ep:document-add" class="mr-5px" /> 导入
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:pro-route:export'])"
+                :disabled="exportLoading"
+                @click="handleExport"
+              >
+                <Icon icon="ep:download" class="mr-5px" /> 导出
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:pro-edhr-work-task-rule:query'])"
+                @click="taskDeadlinesRef?.open()"
+              >
+                <Icon icon="ep:timer" class="mr-5px" /> 业务处理时限
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           :data-user-table-key="ROUTE_LIST_TABLE_KEY"
-          :data="list"
+          :data="resolveRows(list)"
+          height="100%"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -86,7 +91,7 @@
             v-bind="sortColumnAttrs('code')"
           >
             <template #default="scope">
-              <el-button link type="primary" @click="openForm('detail', scope.row.id)">
+              <el-button link type="primary" @click="openEditPage(scope.row.id, 'flow')">
                 {{ scope.row.code }}
               </el-button>
             </template>
@@ -195,13 +200,26 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isRouteColumnVisible('productCodes')"
+            v-if="isRouteColumnVisible('productCount')"
             label="关联产品"
             align="center"
-            prop="productCodes"
-            :min-width="getRouteColumnMinWidthString('productCodes', 220)"
-            v-bind="sortColumnAttrs('productCodes')"
+            prop="productCount"
+            :min-width="getRouteColumnMinWidthString('productCount', 110)"
+            v-bind="sortColumnAttrs('productCount')"
           />
+          <el-table-column
+            v-if="isRouteColumnVisible('dccProjectCode')"
+            label="关联项目"
+            align="center"
+            prop="dccProjectCode"
+            :min-width="getRouteColumnMinWidthString('dccProjectCode', 180)"
+            v-bind="sortColumnAttrs('dccProjectCode')"
+            show-overflow-tooltip
+          >
+            <template #default="scope">
+              {{ scope.row.dccProjectCode || '未关联' }}
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isRouteColumnVisible('createTime')"
             label="创建时间"
@@ -247,14 +265,6 @@
               </el-button>
               <el-button
                 link
-                type="primary"
-                @click="openRouteProcessTemplateDialog(scope.row)"
-                v-hasPermi="['mes:pro-route:update']"
-              >
-                工序模板
-              </el-button>
-              <el-button
-                link
                 type="danger"
                 @click="handleDelete(scope.row.id)"
                 v-hasPermi="['mes:pro-route:delete']"
@@ -276,12 +286,14 @@
   />
   <!-- 多 Sheet 路线 Excel 导入对话框 -->
   <RouteWorkbookExcelImportForm ref="routeWorkbookExcelImportFormRef" @success="getList" />
-  <!-- 员工工序模板导入对话框 -->
-  <RouteProcessTemplateImportForm ref="routeProcessTemplateImportFormRef" @success="getList" />
+  <RouteTaskDeadlinesDialog ref="taskDeadlinesRef" />
   <Dialog v-model="copyDialogVisible" title="复制工艺路线" width="520px">
     <el-form label-width="96px">
       <el-form-item label="源路线">
         <span>{{ copySourceRoute?.code || '-' }} {{ copySourceRoute?.name || '' }}</span>
+      </el-form-item>
+      <el-form-item label="项目代码" required>
+        <RouteProjectSelect v-model="copyForm.dccProjectCodeId" v-if="copyDialogVisible" />
       </el-form-item>
       <el-form-item label="副本编码" required>
         <el-input v-model="copyForm.targetCode" clearable placeholder="请输入副本路线编码" />
@@ -299,62 +311,6 @@
   </Dialog>
   <Dialog v-model="routeVersionDialogVisible" title="工艺路线版本" width="920px">
     <div v-loading="routeVersionLoading" class="route-version-workspace__body">
-      <div class="route-version-workspace__summary">
-        <div>
-          <div class="route-version-workspace__title">
-            {{ routeVersionRoute?.code || '-' }} {{ routeVersionRoute?.name || '' }}
-          </div>
-          <div class="route-version-workspace__active-version">
-            当前 ACTIVE：
-            <el-tag type="success">{{
-              routeVersionRoute?.activeRouteVersionNo || '未生成版本'
-            }}</el-tag>
-            <span
-              v-if="routeVersionRoute?.activeRouteVersionId"
-              class="route-version-workspace__muted"
-            >
-              #{{ routeVersionRoute.activeRouteVersionId }}
-            </span>
-          </div>
-        </div>
-        <div class="route-version-workspace__summary-actions">
-          <el-button
-            type="warning"
-            plain
-            :loading="routeVersionActionLoading"
-            :disabled="routeVersionOpenCandidateCount > 0"
-            data-route-version-action="migrate-production-config"
-            @click="migrateLegacyProductionConfigFromFormalSource"
-            v-hasPermi="['mes:pro-route:version-create']"
-          >
-            迁移现有生产配置
-          </el-button>
-          <el-button
-            type="primary"
-            plain
-            :loading="routeVersionActionLoading"
-            @click="createRouteCandidateFromActive"
-            v-hasPermi="['mes:pro-route:version-create']"
-          >
-            创建候选版本
-          </el-button>
-        </div>
-      </div>
-      <ControlledContentStateStrip
-        v-if="routeVersionRoute"
-        class="route-version-workspace__state-strip"
-        test-id="mes-route-version-workspace-state-strip"
-        title="候选版本工作区"
-        :version-no="routeVersionRoute.activeRouteVersionNo || '未生成版本'"
-        :status-label="routeVersionWorkspaceStatusLabel"
-        :status-type="routeVersionWorkspaceStatusTagType"
-        mode-label="MES 工艺路线"
-        :candidate-count="routeVersionOpenCandidateCount"
-        :hint="routeVersionWorkspaceHint"
-        :blockers="routeVersionWorkspaceBlockers"
-        :readonly="routeVersionOpenCandidateCount > 0 && !routeVersionEditableDraft"
-        :editable="routeVersionEditableDraft"
-      />
       <el-alert
         v-if="routeVersionNoticeMessage"
         class="route-version-workspace__notice"
@@ -385,9 +341,12 @@
             <el-tag v-if="version.active" class="ml-6px" type="success">ACTIVE</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="来源版本" prop="sourceRouteVersionId" min-width="110">
+        <el-table-column label="最后保存" prop="lastSavedUserName" min-width="140">
           <template #default="{ row: version }">
-            {{ version.sourceRouteVersionId || '-' }}
+            {{
+              version.lastSavedUserName ||
+              (version.lastSavedBy ? `未找到用户（${version.lastSavedBy}）` : '-')
+            }}
           </template>
         </el-table-column>
         <el-table-column label="发布时间" prop="publishedTime" min-width="170">
@@ -395,30 +354,7 @@
             {{ formatDateTimeValue(version.publishedTime, '-') }}
           </template>
         </el-table-column>
-        <el-table-column label="发布阻断项" min-width="260">
-          <template #default="{ row: version }">
-            <div
-              v-if="routeVersionBlockersById[version.id]"
-              class="route-version-workspace__blockers"
-            >
-              <el-tag v-if="routeVersionBlockersById[version.id].publishable" type="success">
-                可发布
-              </el-tag>
-              <template v-else>
-                <el-tag
-                  v-for="blocker in routeVersionBlockersById[version.id].blockers"
-                  :key="blocker"
-                  type="danger"
-                  class="route-version-workspace__blocker-tag"
-                >
-                  {{ blocker }}
-                </el-tag>
-              </template>
-            </div>
-            <span v-else class="route-version-workspace__muted">未查询</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="350" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row: version }">
             <el-button
               v-if="canViewRouteVersion(version)"
@@ -435,14 +371,6 @@
               @click="openRouteCandidateVersionEditor(version)"
             >
               编辑
-            </el-button>
-            <el-button
-              link
-              type="primary"
-              :loading="routeVersionBlockerLoadingId === version.id"
-              @click="loadRouteVersionBlockers(version.id)"
-            >
-              查阻断项
             </el-button>
             <el-button
               v-if="canSubmitRouteVersion(version)"
@@ -492,6 +420,9 @@
 </template>
 
 <script setup lang="ts">
+import RouteProjectSelect from './RouteProjectSelect.vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { until } from '@vueuse/core'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
@@ -501,13 +432,10 @@ import download from '@/utils/download'
 import {
   ProRouteApi,
   type ProRouteVO,
-  type ProRouteVersionBlockerVO,
   type ProRouteVersionLifecycleStatus,
   type ProRouteVersionVO
 } from '@/api/mes/pro/route'
-import ControlledContentStateStrip from '@/components/ControlledContent/ControlledContentStateStrip.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import {
   useUserTableColumns,
   type UserTableColumnDefinition
@@ -526,11 +454,10 @@ import {
 defineOptions({ name: 'MesProRoute' })
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
+const RouteTaskDeadlinesDialog = defineAsyncComponent(() => import('./RouteTaskDeadlinesDialog.vue'))
+const taskDeadlinesRef = ref<InstanceType<typeof RouteTaskDeadlinesDialog>>()
 const RouteWorkbookExcelImportForm = defineAsyncComponent(
   () => import('./RouteWorkbookExcelImportForm.vue')
-)
-const RouteProcessTemplateImportForm = defineAsyncComponent(
-  () => import('./RouteProcessTemplateImportForm.vue')
 )
 
 const message = useMessage() // 消息弹窗
@@ -562,93 +489,20 @@ const copySaving = ref(false)
 const copySourceRoute = ref<ProRouteVO>()
 const routeVersionDialogVisible = ref(false)
 const routeVersionLoading = ref(false)
-const routeVersionActionLoading = ref(false)
 const routeVersionActionLoadingId = ref<number>()
-const routeVersionBlockerLoadingId = ref<number>()
 const routeVersionRoute = ref<ProRouteVO>()
 const routeVersions = ref<ProRouteVersionVO[]>([])
-const routeVersionBlockersById = reactive<Record<number, ProRouteVersionBlockerVO>>({})
 const routeVersionNoticeMessage = ref('')
 const routeVersionErrorMessage = ref('')
 const routeCandidateEditLoadingId = ref<number | undefined>()
 const OPEN_CANDIDATE_CONFLICT_NOTICE =
   '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示草稿及已生效历史版本。'
-const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
-  'DRAFT',
-  'PENDING_APPROVAL',
-  'READY_TO_PUBLISH',
-  'REJECTED'
-])
 const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set(['DRAFT', 'ACTIVE', 'SUPERSEDED'])
 const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
   version.active || ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET.has(String(version.lifecycleStatus))
 const visibleRouteVersions = computed(() =>
   routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
 )
-const routeVersionOpenCandidates = computed(() =>
-  routeVersions.value.filter(
-    (version) =>
-      !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
-  )
-)
-const routeVersionOpenCandidateCount = computed(() => {
-  if (routeVersionOpenCandidates.value.length > 0) {
-    return routeVersionOpenCandidates.value.length
-  }
-  return routeVersionRoute.value?.pendingRouteVersionCount || 0
-})
-const routeVersionEditableDraft = computed(() =>
-  routeVersionOpenCandidates.value.some((version) => version.lifecycleStatus === 'DRAFT')
-)
-const routeVersionPrimaryOpenCandidate = computed(() => routeVersionOpenCandidates.value[0])
-const routeVersionWorkspaceStatusLabel = computed(() => {
-  if (routeVersionOpenCandidateCount.value > 1) {
-    return '需关闭冲突候选'
-  }
-  const candidate = routeVersionPrimaryOpenCandidate.value
-  if (candidate?.lifecycleStatus) {
-    return resolveRouteVersionStatusLabel(candidate.lifecycleStatus)
-  }
-  return routeVersionRoute.value?.activeRouteVersionId ? '无打开候选' : '未生成版本'
-})
-const routeVersionWorkspaceStatusTagType = computed(() => {
-  if (routeVersionOpenCandidateCount.value > 1) {
-    return 'danger'
-  }
-  const candidate = routeVersionPrimaryOpenCandidate.value
-  if (candidate?.lifecycleStatus) {
-    return resolveRouteVersionStatusTagType(candidate.lifecycleStatus)
-  }
-  return routeVersionRoute.value?.activeRouteVersionId ? 'success' : 'warning'
-})
-const routeVersionWorkspaceHint = computed(() => {
-  if (routeVersionOpenCandidateCount.value > 1) {
-    return OPEN_CANDIDATE_CONFLICT_NOTICE
-  }
-  const status = String(routeVersionPrimaryOpenCandidate.value?.lifecycleStatus || '')
-  if (status === 'DRAFT') {
-    return '仅草稿候选可编辑；请通过待发布版本或编辑入口打开，提交后进入审核。'
-  }
-  if (status === 'PENDING_APPROVAL') {
-    return '候选版本正在审核中，仅允许查看；需要修改请通过待发布版本入口撤回后再编辑。'
-  }
-  if (status === 'READY_TO_PUBLISH') {
-    return '候选版本已通过审核，系统正在发布生效；该状态不需要人工签名发布。'
-  }
-  if (status === 'REJECTED') {
-    return '候选版本已驳回，按意见修改会回到草稿后再编辑。'
-  }
-  if (!routeVersionRoute.value?.activeRouteVersionId) {
-    return '当前路线暂无生效版本，请先完成路线配置并创建首版。'
-  }
-  return '当前只有一个生效版本；修改生产配置请先创建候选版本。'
-})
-const routeVersionWorkspaceBlockers = computed(() => {
-  if (routeVersionOpenCandidateCount.value > 1) {
-    return [`打开中的候选版本 ${routeVersionOpenCandidateCount.value} 个`]
-  }
-  return []
-})
 const ROUTE_LIST_TABLE_KEY = 'mes.pro.route.main.admin-layout-v1'
 const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '路线编码', minWidth: 180 },
@@ -659,7 +513,8 @@ const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'flowGraphConfigured', label: '关系图', visible: false, width: 100 },
   { key: 'activeRouteVersionNo', label: '当前生效版本', minWidth: 140 },
   { key: 'pendingRouteVersionNo', label: '待发布版本', minWidth: 160 },
-  { key: 'productCodes', label: '关联产品', minWidth: 220 },
+  { key: 'productCount', label: '关联产品', minWidth: 110 },
+  { key: 'dccProjectCode', label: '关联项目', minWidth: 180 },
   { key: 'createTime', label: '创建时间', width: 180 },
   { key: 'actions', label: '操作', width: 280, hideable: false, business: false }
 ]
@@ -680,14 +535,14 @@ const resetRouteQueryState = (pageSize = 10) => ({
   name: undefined as string | undefined,
   status: undefined as number | undefined
 })
-const queryParams = reactive(resetRouteQueryState())
+const queryParams = reactive({ ...resetRouteQueryState(), listFilters: undefined as string | undefined })
 const copyForm = reactive({
+  dccProjectCodeId: undefined as number | undefined,
   targetCode: '',
   targetName: ''
 })
 const formRef = ref() // 表单弹窗
 const routeWorkbookExcelImportFormRef = ref()
-const routeProcessTemplateImportFormRef = ref()
 
 const routeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -734,14 +589,18 @@ const loadListFromRoute = async () => {
 }
 
 /** 查询列表 */
+let routeListRequestSequence = 0
 async function getList() {
+  const requestId = ++routeListRequestSequence
   loading.value = true
   try {
-    const data = await ProRouteApi.getRoutePage(queryParams)
+    const data = await ProRouteApi.getRoutePage({ ...queryParams })
+    if (requestId !== routeListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === routeListRequestSequence) loading.value = false
   }
 }
 
@@ -883,6 +742,7 @@ const openCopyRouteDialog = (row: ProRouteVO) => {
     throw new Error('复制工艺路线失败：缺少源路线编号')
   }
   copySourceRoute.value = row
+  copyForm.dccProjectCodeId = undefined
   copyForm.targetCode = `${row.code}-COPY`
   copyForm.targetName = `${row.name}-副本`
   copyDialogVisible.value = true
@@ -896,10 +756,15 @@ const submitCopyRoute = async () => {
     message.warning('请填写副本编码和副本名称')
     return
   }
+  if (!copyForm.dccProjectCodeId) {
+    message.warning('请选择尚无工艺流程的项目代码')
+    return
+  }
   copySaving.value = true
   try {
     await ProRouteApi.copyRoute(
       {
+        dccProjectCodeId: copyForm.dccProjectCodeId,
         sourceRouteId: copySourceRoute.value.id,
         targetCode: copyForm.targetCode.trim(),
         targetName: copyForm.targetName.trim()
@@ -952,36 +817,6 @@ const loadRouteVersions = async (routeId = routeVersionRoute.value?.id) => {
   }
 }
 
-const createRouteCandidateFromActive = async () => {
-  const currentRoute = routeVersionRoute.value
-  if (!currentRoute?.id) {
-    throw new Error('创建候选版本失败：缺少路线编号')
-  }
-  routeVersionActionLoading.value = true
-  routeVersionNoticeMessage.value = ''
-  routeVersionErrorMessage.value = ''
-  try {
-    await ensureSameSourceDraftCandidateForProductionConfig({
-      routeId: currentRoute.id,
-      actionName: '创建候选版本',
-      changeReason: '前端版本工作区创建候选版本',
-      success: (content) => message.success(content),
-      existingSuccessMessage: '已存在草稿候选版本，请从待发布版本或编辑入口继续编辑',
-      createdSuccessMessage: '候选版本已创建，请从待发布版本或编辑入口继续编辑'
-    })
-    await loadRouteVersions(currentRoute.id)
-  } catch (error) {
-    if (isRouteCandidateConfirmCancel(error)) return
-    routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(
-      error,
-      '创建候选版本失败，请查看后端返回错误'
-    )
-    message.error(routeVersionErrorMessage.value)
-  } finally {
-    routeVersionActionLoading.value = false
-  }
-}
-
 const openRouteVersionViewer = async (version: ProRouteVersionVO) => {
   const currentRoute = routeVersionRoute.value
   if (!currentRoute?.id) {
@@ -1004,22 +839,6 @@ const openRouteVersionViewer = async (version: ProRouteVersionVO) => {
 
 const canViewRouteVersion = (version: ProRouteVersionVO) =>
   version.active || version.lifecycleStatus !== 'DRAFT'
-
-const loadRouteVersionBlockers = async (id: number) => {
-  routeVersionBlockerLoadingId.value = id
-  routeVersionErrorMessage.value = ''
-  try {
-    routeVersionBlockersById[id] = await ProRouteApi.getRouteVersionBlockers(id)
-  } catch (error) {
-    routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(
-      error,
-      '查询发布阻断项失败，请查看后端返回错误'
-    )
-    message.error(routeVersionErrorMessage.value)
-  } finally {
-    routeVersionBlockerLoadingId.value = undefined
-  }
-}
 
 const withdrawRouteCandidateVersion = async (id: number) => {
   await runRouteVersionAction(id, '撤回候选版本审核', async () => {
@@ -1120,62 +939,6 @@ const deleteRouteDraftVersion = async (version: ProRouteVersionVO) => {
   })
 }
 
-const migrateLegacyProductionConfigFromFormalSource = async () => {
-  const currentRoute = routeVersionRoute.value
-  if (!currentRoute?.id || !currentRoute.activeRouteVersionId) {
-    throw new Error('迁移生产配置失败：当前路线缺少生效版本')
-  }
-  try {
-    await message.confirm(
-      '系统将从现有生产组长正式配置迁移全部工序的超量比例、损耗原因、设备组和参数，' +
-        '只创建草稿候选版本，不会直接发布；缺少任何正式配置时将阻止迁移。是否继续？',
-      '从现有生产组长正式配置迁移'
-    )
-  } catch (error) {
-    if (isUserCancel(error)) return
-    throw error
-  }
-  let missingOveragePercent: number
-  try {
-    const result = await message.prompt(
-      '请输入 0 到 100 之间的数值；该值只补入正式配置中缺失的允许超量比例，已有值保持不变。',
-      '缺失超量比例统一补值',
-      {
-        inputPlaceholder: '请输入比例，例如 0',
-        inputPattern: /^(?:100(?:\.0{1,2})?|(?:\d|[1-9]\d)(?:\.\d{1,2})?)$/,
-        inputErrorMessage: '请输入 0 到 100 之间、最多两位小数的比例'
-      }
-    )
-    missingOveragePercent = Number(result.value)
-  } catch (error) {
-    if (isUserCancel(error)) return
-    throw error
-  }
-  routeVersionActionLoading.value = true
-  routeVersionNoticeMessage.value = ''
-  routeVersionErrorMessage.value = ''
-  try {
-    const candidate = await ProRouteApi.createRouteCandidateVersion({
-      routeId: currentRoute.id,
-      sourceRouteVersionId: currentRoute.activeRouteVersionId,
-      changeReason: '前端版本工作区显式迁移现有生产组长正式配置',
-      migrateLegacyProductionConfig: true,
-      missingOveragePercent
-    })
-    routeVersionNoticeMessage.value = `生产配置已迁移到草稿候选版本 ${candidate.versionNo}`
-    message.success(routeVersionNoticeMessage.value)
-    await loadRouteVersions(currentRoute.id)
-  } catch (error) {
-    routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(
-      error,
-      '迁移生产配置失败，请查看后端返回错误'
-    )
-    message.error(routeVersionErrorMessage.value)
-  } finally {
-    routeVersionActionLoading.value = false
-  }
-}
-
 const runRouteVersionAction = async (
   id: number,
   actionName: string,
@@ -1225,12 +988,7 @@ const openRouteCandidateVersionEditor = async (version: ProRouteVersionVO) => {
   await router.push({
     name: 'MesProRouteEdit',
     params: { id: currentRoute.id },
-    query: {
-      tab: 'flow',
-      routeVersionId: String(version.id),
-      routeVersionNo: version.versionNo,
-      routeVersionStatus: version.lifecycleStatus
-    }
+    query: buildRouteCandidateEditQuery(version, { tab: 'flow' })
   })
   routeVersionDialogVisible.value = false
 }
@@ -1330,11 +1088,6 @@ const handleRouteWorkbookExcelImport = () => {
   routeWorkbookExcelImportFormRef.value.open()
 }
 
-/** 员工工序模板 */
-const openRouteProcessTemplateDialog = (row: ProRouteVO) => {
-  routeProcessTemplateImportFormRef.value.open(row)
-}
-
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
@@ -1417,9 +1170,57 @@ onMounted(async () => {
   }
   await loadListFromRoute()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'flowGraphConfigured',
+    label: '关系图',
+    type: 'text',
+    getValue: (row) => [row.flowGraphConfigured ? '已设' : '未设'].join(' ')
+  },
+  {
+    key: 'pendingRouteVersionNo',
+    label: '待发布版本',
+    type: 'text',
+    getValue: (row) => [formatPendingRouteVersion(row)].join(' ')
+  }
+])
 </script>
 
 <style scoped>
+.route-list-page {
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  margin-bottom: 0;
+}
+
+.route-list-page :deep(.el-card__body) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+.route-list-page :deep(.unified-list-template),
+.route-list-page :deep(.unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.route-list-page :deep(.unified-list-template__table-shell) {
+  overflow: hidden;
+}
+
+.route-list-page :deep(.el-form),
+.route-list-page :deep(.el-pagination) {
+  flex-shrink: 0;
+}
+
+.route-list-page :deep(.el-pagination) {
+  margin-bottom: 0;
+}
+
 .route-list__muted {
   color: #8a93a3;
 }
@@ -1436,19 +1237,5 @@ onMounted(async () => {
 .route-list__pending-version-tag {
   max-width: 100%;
   cursor: pointer;
-}
-
-.route-version-workspace__summary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-@media (max-width: 720px) {
-  .route-version-workspace__summary-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
 }
 </style>

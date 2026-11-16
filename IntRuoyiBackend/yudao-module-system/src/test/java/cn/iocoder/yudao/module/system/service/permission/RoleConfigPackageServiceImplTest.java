@@ -15,6 +15,12 @@ import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
+import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -26,11 +32,15 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.any;
 
 @Import(RoleConfigPackageServiceImpl.class)
 class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
@@ -48,6 +58,31 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     @MockitoBean
     private PermissionService permissionService;
+
+    @MockitoBean
+    private ApprovalAuthorityApi approvalAuthority;
+
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
+
+    @MockitoBean
+    private TenantService tenantService;
+
+    @BeforeEach
+    void prepareAuthority() {
+        org.mockito.Mockito.when(approvalAuthority.lockTenantApprovalAuthority(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> new ApprovalAuthorityRevisionDTO(call.getArgument(0), 1L));
+        allowTenantMenus(null);
+    }
+
+    private void allowTenantMenus(Set<Long> allowed) {
+        doAnswer(call -> {
+            Set<Long> ids = allowed != null ? allowed : menuMapper.selectList().stream()
+                    .map(MenuDO::getId).collect(java.util.stream.Collectors.toSet());
+            call.<TenantMenuHandler>getArgument(0).handle(ids);
+            return null;
+        }).when(tenantService).handleTenantMenu(any());
+    }
 
     @Test
     void importPackage_shouldReturnBusinessErrorWhenJsonInvalid() {
@@ -69,6 +104,38 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void importPackage_shouldRejectVersionThreeBeforeAuthorityLocksOrWrites() {
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+        payload.setPackageVersion("3");
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_FORMAT_UNSUPPORTED.getCode(), error.getCode());
+        assertEquals("权限角色配置包版本3未区分旧权限标识与精确路由格式，不能安全导入；"
+                + "请从可信来源重新导出版本4配置包，不得仅修改版本号", error.getMessage());
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService, approvalAuthority, gxpAuditService, tenantService);
+    }
+
+    @Test
+    void importPackage_shouldNotResolveAmbiguousPermissionByChangingVersionToFour() {
+        insertBoundaryMenu("system:role:query", "first");
+        insertBoundaryMenu("system:role:query", "second");
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), error.getCode());
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
     void importPackage_shouldReturnBusinessErrorWhenRoleCodeMissing() {
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
         item.setName("排产员");
@@ -77,7 +144,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -137,7 +204,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of("permission:system:role:query", "permission:system:role:update"));
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -178,7 +245,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         Long categoryId = insertCategory("menu", "菜单");
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -230,7 +297,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         reset(permissionService);
         org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId())).thenReturn(Set.of(menu.getId()));
 
-        byte[] data = roleConfigPackageService.exportPackage();
+        byte[] data = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = JsonUtils.parseObject(data, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
         RoleConfigPackageServiceImpl.RoleConfigItem item = payload.getRoles().stream()
                 .filter(current -> "scheduler".equals(current.getCode()))
@@ -239,7 +306,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(List.of("permission:system:role:query"), item.getMenuKeys());
         assertEquals("scheduling", item.getCategoryCode());
-        assertEquals("3", payload.getPackageVersion());
+        assertEquals("4", payload.getPackageVersion());
         assertEquals("scheduling", payload.getCategories().get(0).getCode());
     }
 
@@ -258,7 +325,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of("permission:system:role:query"));
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -299,7 +366,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         Long categoryId = insertCategory("menu", "菜单");
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -325,7 +392,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("menu", "菜单")));
         payload.setRoles(List.of(item));
 
@@ -337,7 +404,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void importPackage_shouldFailFastWhenPackageCategoryMissingInTargetEnv() {
+    void importPackage_shouldCreatePackageCategoryAndReuseItOnRepeatedImport() {
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
         item.setCode("scheduler");
         item.setName("排产员");
@@ -349,15 +416,200 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         item.setMenuKeys(List.of());
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
-        payload.setPackageVersion("3");
+        payload.setPackageVersion("4");
+        var category = categoryItem("scheduling", "排产");
+        category.setSort(30);
+        category.setStatus(CommonStatusEnum.DISABLE.getStatus());
+        category.setRemark("包内分类备注");
+        payload.setCategories(List.of(category));
+        payload.setRoles(List.of(item));
+
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload));
+        RoleCategoryDO created = roleCategoryMapper.selectByCode("scheduling");
+        assertEquals("排产", created.getName());
+        assertEquals(30, created.getSort());
+        assertEquals(CommonStatusEnum.DISABLE.getStatus(), created.getStatus());
+        assertEquals("包内分类备注", created.getRemark());
+        assertEquals(created.getId(), roleMapper.selectByCode("scheduler").getCategoryId());
+
+        category.setName("不覆盖已有分类");
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload));
+        assertEquals(1, roleCategoryMapper.selectList().size());
+        assertEquals(created.getId(), roleCategoryMapper.selectByCode("scheduling").getId());
+        assertEquals("排产", roleCategoryMapper.selectByCode("scheduling").getName());
+    }
+
+    @Test
+    void importPackage_shouldRollbackNewCategoryWhenRoleMenuMissing() {
+        var item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setCode("scheduler");
+        item.setName("排产员");
+        item.setSort(1);
+        item.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        item.setCategoryCode("scheduling");
+        item.setMenuKeys(List.of("permission:system:role:query"));
+        var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
+        payload.setPackageVersion("4");
         payload.setCategories(List.of(categoryItem("scheduling", "排产")));
         payload.setRoles(List.of(item));
 
-        ServiceException exception = assertThrows(ServiceException.class,
+        assertThrows(ServiceException.class,
                 () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
 
-        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), exception.getCode());
-        assertEquals("配置包引用缺失，原因：分类标识【scheduling】在目标环境不存在", exception.getMessage());
+        assertNull(roleCategoryMapper.selectByCode("scheduling"));
+        assertNull(roleMapper.selectByCode("scheduler"));
+    }
+
+    @Test
+    void importPackage_shouldRejectPackageOutsidePermissionBeforeAnyWrite() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("system:role-category:create", "");
+        allowTenantMenus(Set.of(allowed.getId()));
+        var payload = boundaryPayload(List.of("permission:system:role:query",
+                "permission:system:role-category:create"));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_CONTENT_INVALID.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
+    void importPackage_shouldRejectOutsideRouteAndKeepEarlierRoleUnchanged() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("", "outside");
+        allowTenantMenus(Set.of(allowed.getId()));
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+        var invalid = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        invalid.setCode("outside_route"); invalid.setName("套餐外目录"); invalid.setSort(2);
+        invalid.setStatus(0); invalid.setCategoryCode("package_boundary");
+        invalid.setMenuKeys(List.of("route:|3|outside|||套餐边界菜单"));
+        payload.setRoles(List.of(payload.getRoles().get(0), invalid));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        assertNull(roleMapper.selectByCode("outside_route"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void importPackage_shouldFailWhenTenantMenuBoundaryUnavailable() {
+        reset(tenantService);
+        var payload = boundaryPayload(List.of());
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐菜单未提供"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void importPackage_shouldRejectAmbiguousLegacyPermissionBeforeAnyWrite() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("system:role:query", "");
+        allowTenantMenus(Set.of(allowed.getId()));
+
+        assertThrows(ServiceException.class, () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
+                boundaryPayload(List.of("permission:system:role:query")))));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"tenant_admin", "super_admin", "common"})
+    void exportPackage_shouldRoundTripRuntimeGrantsWithinSamePackage(String roleCode) {
+        MenuDO page = insertBoundaryMenu("system:role:query", "");
+        MenuDO button = insertBoundaryMenu("system:role:query", "");
+        MenuDO outsideDuplicate = insertBoundaryMenu("system:role:query", "");
+        MenuDO outside = insertBoundaryMenu("crm:customer:query", "");
+        Set<Long> packageMenus = Set.of(page.getId(), button.getId());
+        allowTenantMenus(packageMenus);
+        RoleDO role = insertExportRole(roleCode);
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(page.getId(), button.getId(), outsideDuplicate.getId(), outside.getId()));
+
+        byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
+        var payload = JsonUtils.parseObject(exported, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
+        assertEquals(2, payload.getRoles().get(0).getMenuKeys().size());
+        org.junit.jupiter.api.Assertions.assertTrue(payload.getRoles().get(0).getMenuKeys().stream()
+                .allMatch(key -> key.startsWith("route:")));
+
+        roleConfigPackageService.importPackage(exported);
+
+        verify(permissionService).assignRoleMenu(eq(role.getId()), eq(packageMenus), anyString(), anyString());
+    }
+
+    @Test
+    void exportedPackage_shouldRejectSmallerTargetPackageBeforeAnyWrite() {
+        MenuDO menu = insertBoundaryMenu("system:role:query", "");
+        RoleDO role = insertExportRole("scheduler");
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(menu.getId()));
+        byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
+        allowTenantMenus(Set.of());
+        reset(permissionService);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(exported));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("permission:system:role:query"));
+        verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
+    void exportPackage_shouldFailWhenTenantMenuBoundaryUnavailable() {
+        RoleDO role = insertExportRole("scheduler");
+        reset(tenantService);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.exportPackage(List.of(role.getCategoryId())));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐菜单未提供"));
+        verifyNoInteractions(permissionService);
+    }
+
+    private RoleDO insertExportRole(String code) {
+        RoleDO role = new RoleDO();
+        role.setCode(code); role.setName("套餐导出角色"); role.setSort(1); role.setStatus(0);
+        role.setType(RoleTypeEnum.CUSTOM.getType()); role.setDataScope(DataScopeEnum.ALL.getScope());
+        role.setCategoryId(insertCategory("export_boundary", "套餐导出"));
+        roleMapper.insert(role);
+        return role;
+    }
+
+    private MenuDO insertBoundaryMenu(String permission, String path) {
+        MenuDO menu = new MenuDO();
+        menu.setName("套餐边界菜单"); menu.setPermission(permission); menu.setType(MenuTypeEnum.BUTTON.getType());
+        menu.setSort(1); menu.setParentId(0L); menu.setPath(path); menu.setComponent("");
+        menu.setComponentName(""); menu.setStatus(0); menu.setVisible(true);
+        menu.setKeepAlive(false); menu.setAlwaysShow(false);
+        if (menuMapper.selectList().stream().anyMatch(existing -> permission.equals(existing.getPermission()))) {
+            menu.setPath("duplicate-" + menuMapper.selectList().size());
+        }
+        menuMapper.insert(menu);
+        return menu;
+    }
+
+    private RoleConfigPackageServiceImpl.RoleConfigPackage boundaryPayload(List<String> menuKeys) {
+        var item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setCode("package_boundary_role"); item.setName("套餐边界角色"); item.setSort(1);
+        item.setStatus(0); item.setCategoryCode("package_boundary"); item.setMenuKeys(menuKeys);
+        var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
+        payload.setPackageVersion("4"); payload.setCategories(List.of(categoryItem("package_boundary", "套餐边界")));
+        payload.setRoles(List.of(item));
+        return payload;
     }
 
     private Long insertCategory(String code, String name) {

@@ -1,253 +1,172 @@
-<!--
-  系统用户选择器 V2：只读输入框 + 点击弹窗选择
-
-  对齐 MdVendorSelect 架构模式
-
-  交互：显示为只读 el-input，点击打开弹窗进行选择
-  Props:
-    modelValue  — 绑定的用户 ID（v-model）
-    defaultCurrentUser — 默认选中当前用户
-    multiple    — 默认 false
-    disabled    — 是否禁用
-    disabledIds — 禁用的用户 ID
-    clearable   — 是否允许清空（鼠标悬停时显示清除图标）
-    placeholder — 占位文字
-    deptId      — 部门 ID
-    userOptions — 业务页已加载的可选用户，传入后弹窗在本地筛选，不再调用通用用户分页接口
-    hideSelectedLabel — 是否隐藏输入框内的已选名称，仅保留外部展示
-  Events:
-    update:modelValue — v-model 更新
-    change(item | items)      — 选中用户变化时触发，传递完整 UserVO（清空时为 undefined | []）
--->
 <template>
-  <div
-    v-bind="attrs"
-    class="w-full"
-    :class="disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-    @click="handleClick"
-    @mouseenter="hovering = true"
-    @mouseleave="hovering = false"
-  >
-    <el-tooltip :disabled="selectedItems.length === 0" placement="top" :show-after="500">
-      <template #content>
-        <div v-if="selectedItems.length > 0" class="flex gap-[10px]">
-          <div v-for="selectedItem in selectedItems" :key="selectedItem.id" class="leading-6">
-            <div>用户名称：{{ selectedItem.username }}</div>
-            <div>用户昵称：{{ selectedItem.nickname }}</div>
-            <div>部门：{{ (selectedItem as any).deptName || '-' }}</div>
-            <div>手机号码：{{ selectedItem.mobile || '-' }}</div>
-          </div>
-        </div>
-      </template>
-      <el-input
-        :model-value="displayLabel"
-        :placeholder="placeholder"
-        :disabled="disabled"
-        readonly
-        :suffix-icon="suffixIcon"
-        :class="disabled ? 'is-select-disabled' : 'is-select-clickable'"
-      />
-    </el-tooltip>
+  <div v-bind="attrs" class="w-full" @click="open">
+    <el-input
+      :model-value="label"
+      :placeholder="placeholder"
+      :disabled="effectiveDisabled"
+      readonly
+      @keydown.enter.prevent="open"
+      @keydown.space.prevent="open"
+    >
+      <template #suffix
+        ><el-icon
+          v-if="clearable && !effectiveDisabled && (ids.length || (allowRelationships && relationships?.length)) && !min"
+          class="cursor-pointer"
+          aria-label="清空人员"
+          @click.stop="clear"
+          ><CircleClose /></el-icon
+        ><el-icon v-else><Search /></el-icon
+      ></template>
+    </el-input>
+    <div v-if="displayError" class="text-12px text-[var(--el-color-danger)]" role="alert">{{
+      displayError
+    }}</div>
   </div>
-  <!-- 弹窗必须放在 div 外部，否则弹窗内的点击事件会冒泡到 div 触发 handleClick -->
-  <!-- Dialog append-to-body 即可-->
   <UserSelectDialogV2
-    ref="dialogRef"
-    :multiple="multiple"
-    :deptId="deptId"
-    :user-options="userOptions"
-    @selected="handleSelected"
+    ref="dialog"
+    v-bind="pickerProps"
+    @selected="onSelected"
+    @visible-change="onVisibilityChange"
   />
 </template>
-
 <script setup lang="ts">
+import { useFormDisabled } from 'element-plus'
+import { CircleClose, Search } from '@element-plus/icons-vue'
 import * as UserApi from '@/api/system/user'
-import { Search, CircleClose } from '@element-plus/icons-vue'
-import UserSelectDialogV2 from './UserSelectDialogV2.vue'
 import { useUserStoreWithOut } from '@/store/modules/user'
-
-// 组件有两个根节点（div + Dialog），Vue 不会自动继承 attrs；
-// 手动透传到外层 div，确保父组件传入的 class / style 等生效
-const attrs = useAttrs()
-
+import UserSelectDialogV2 from './UserSelectDialogV2.vue'
+import { normalizeOptions, USER_RELATIONSHIPS, type UserId, type UserOption, type UserPickerProps, type UserRelationship, type UserPickerSelection } from './userPicker'
 defineOptions({ name: 'UserSelectV2', inheritAttrs: false })
-
 const props = withDefaults(
-  defineProps<{
-    modelValue?: number | number[] // 绑定的用户 ID
-    defaultCurrentUser?: boolean // 默认选中当前用户
-    multiple?: boolean // 是否多选
-    disabled?: boolean // 是否禁用
-    disabledIds?: number[] // 禁用的用户 ID
-    clearable?: boolean // 是否允许清空
-    placeholder?: string // 占位文字
-    deptId?: number // 部门 ID
-    hideSelectedLabel?: boolean // 是否隐藏输入框内的已选名称
-    userOptions?: UserApi.UserVO[] // 由业务页面预加载的用户选项
-  }>(),
-  {
-    defaultCurrentUser: false,
-    disabled: false,
-    clearable: true,
-    placeholder: '请选择用户'
-  }
+  defineProps<
+    UserPickerProps & {
+      modelValue?: UserId | UserId[]
+      defaultCurrentUser?: boolean
+      disabled?: boolean
+      clearable?: boolean
+      placeholder?: string
+      hideSelectedLabel?: boolean
+    }
+  >(),
+  { clearable: true, placeholder: '请选择人员', multiple: false }
 )
-
 const emit = defineEmits<{
-  'update:modelValue': [value: number | number[] | undefined]
-  change: [item: UserApi.UserVO | UserApi.UserVO[] | undefined]
+  'update:modelValue': [value: any]
+  change: [value: any]
+  'visible-change': [visible: boolean]
+  'update:relationships': [value: UserRelationship[]]
+  'selection-change': [value: UserPickerSelection]
 }>()
-
-const dialogRef = ref() // 弹窗 Ref
-const hovering = ref(false) // 鼠标是否悬停
-
-// ==================== 名称回显 ====================
-const selectedItems = ref<UserApi.UserVO[]>([]) // 当前选中的用户
-
-/** 输入框显示文本：展示用户昵称，保持简洁 */
-const displayLabel = computed(() => {
-  if (props.hideSelectedLabel) {
-    return ''
-  }
-  return selectedItems.value.map((item) => item.nickname || item.username).join('、')
-})
-
-const normalizeUserId = (id: number | string) => Number(id)
-
-/** 是否显示清除图标 */
-const showClear = computed(() => {
-  return props.clearable && !props.disabled && hovering.value && props.modelValue != null
-})
-
-/** 后缀图标：悬停且有值时显示清除，否则显示搜索 */
-const suffixIcon = computed(() => {
-  return showClear.value ? CircleClose : Search
-})
-
-/** 根据 ID 查询用户信息（用于编辑回显） */
-const resolveItemById = async (id: number | number[] | undefined) => {
-  if (id === null || id === undefined) {
-    selectedItems.value = []
-    return
-  }
-  const ids: number[] = Array.isArray(id) ? id : [id]
-  const normalizedIds = ids.map((currentId) => normalizeUserId(currentId))
-  if (
-    selectedItems.value.length === normalizedIds.length &&
-    selectedItems.value.every((item) => normalizedIds.includes(normalizeUserId(item.id)))
-  ) {
+const effectiveDisabled = useFormDisabled()
+const attrs = useAttrs()
+const dialog = ref<InstanceType<typeof UserSelectDialogV2>>()
+const selected = ref<UserOption[]>([])
+const displayError = ref('')
+const ids = computed<UserId[]>(() =>
+  props.modelValue == null || props.modelValue === ''
+    ? []
+    : Array.isArray(props.modelValue)
+      ? props.modelValue
+      : [props.modelValue]
+)
+const pickerProps = computed(() => ({
+  allowRelationships: props.allowRelationships,
+  relationships: props.relationships,
+  multiple: props.multiple,
+  deptId: props.deptId,
+  scopeRoleId: props.scopeRoleId,
+  scopePostId: props.scopePostId,
+  max: props.max,
+  disabledIds: props.disabledIds,
+  excludeCurrentUser: props.excludeCurrentUser,
+  allowInactive: props.allowInactive,
+  userOptions: props.userOptions,
+  loadUserOptions: props.loadUserOptions,
+  optionMapper: props.optionMapper,
+  candidateLoading: props.candidateLoading,
+  candidateError: props.candidateError,
+  departmentOptions: props.departmentOptions,
+  roleOptions: props.roleOptions,
+  postOptions: props.postOptions,
+  min: props.clearable === false ? Math.max(props.min ?? 0, 1) : props.min,
+  selectedUsers: [...(props.selectedUsers || []), ...selected.value]
+}))
+const label = computed(() =>
+  props.hideSelectedLabel
+    ? ''
+    : ids.value
+        .map((id) => {
+          const row = selected.value.find((item) => String(item.id) === String(id))
+          return row?.nickname || row?.username || `人员 ${id}`
+        })
+        .concat(props.allowRelationships ? (props.relationships || []).map(value => USER_RELATIONSHIPS.find(option => option.value === value)?.label || '未识别关系') : [])
+        .join('、')
+)
+let resolveVersion = 0
+const resolve = async () => {
+  const version = ++resolveVersion
+  displayError.value = ''
+  if (!ids.value.length) {
+    selected.value = []
     return
   }
   try {
-    const simpleUsers = props.userOptions ?? (await UserApi.getSimpleUserList())
-    selectedItems.value = normalizedIds
-      .map((currentId) => simpleUsers.find((item) => normalizeUserId(item.id) === currentId))
-      .filter((item): item is UserApi.UserVO => Boolean(item))
-  } catch (e) {
-    console.error('[UserSelectV2] resolveItemById failed:', e)
+    const businessMode = props.userOptions !== undefined || props.loadUserOptions !== undefined
+    let known = [...(props.selectedUsers || []), ...selected.value]
+    if (props.userOptions !== undefined)
+      known = [...normalizeOptions(props.userOptions, props.optionMapper), ...known]
+    const missing = ids.value.filter((id) => !known.some((row) => String(row.id) === String(id)))
+    if (missing.length && !businessMode)
+      known = [...known, ...(await UserApi.getSelectionList(missing))]
+    if (version !== resolveVersion) return
+    selected.value = ids.value.flatMap((id) => {
+      const row = known.find((item) => String(item.id) === String(id))
+      return row ? [{ ...row, id }] : []
+    })
+    if (selected.value.length !== ids.value.length)
+      displayError.value = '部分已选人员信息尚未提供，请打开选择器重新选择'
+  } catch (cause) {
+    if (version === resolveVersion)
+      displayError.value = cause instanceof Error ? cause.message : '已选人员信息加载失败'
   }
 }
-
-/** 监听 modelValue 变化，触发回显 */
-watch(
-  () => [props.modelValue, props.userOptions],
-  ([modelValue]) => {
-    resolveItemById(modelValue as number | number[] | undefined)
-  },
-  { deep: true, immediate: true }
-)
-
-// ==================== 点击交互 ====================
-
-/** 点击组件：清除或打开弹窗 */
-const handleClick = (e: MouseEvent) => {
-  if (props.disabled) {
-    return
-  }
-  // 点击清除图标：清空选中
-  const target = e.target as HTMLElement
-  if (showClear.value && target.closest('.el-input__suffix')) {
-    e.stopPropagation()
-    selectedItems.value = []
-    if (props.multiple) {
-      emit('update:modelValue', [])
-      emit('change', [])
-    } else {
-      emit('update:modelValue', undefined)
-      emit('change', undefined)
-    }
-    return
-  }
-  // 打开弹窗，传入当前选中 ID 用于预选高亮
-  const selectedIds = props.multiple
-    ? props.modelValue || []
-    : props.modelValue !== null && props.modelValue !== undefined
-      ? [props.modelValue]
-      : []
-  dialogRef.value.open(selectedIds, props.disabledIds)
-}
-
-/** 弹窗选中回调 */
-const handleSelected = (rows: UserApi.UserVO[]) => {
-  if (!rows || rows.length === 0) {
-    return
-  }
-  selectedItems.value = rows
-  if (props.multiple) {
-    emit(
-      'update:modelValue',
-      rows.map((item) => normalizeUserId(item.id))
-    )
-    emit('change', rows)
-  } else {
-    const item = rows[0]
-    emit('update:modelValue', normalizeUserId(item.id))
-    emit('change', item)
-  }
-}
-
-/** 检查是否有有效的预设值 */
-const hasValidPresetValue = (): boolean => {
-  const value = props.modelValue as any
-  if (value === undefined || value === null || value === '') {
-    return false
-  }
-  if (Array.isArray(value)) {
-    return value.length > 0
-  }
-  return true
-}
-
-onMounted(() => {
-  /** 默认选中当前用户 */
-  if (props.defaultCurrentUser && !hasValidPresetValue()) {
-    const userStore = useUserStoreWithOut()
-    const user = userStore.getUser
-    const currentUserId = user?.id
-    if (currentUserId) {
-      if (props.multiple) {
-        emit('update:modelValue', [currentUserId])
-      } else {
-        emit('update:modelValue', currentUserId)
-      }
-    }
-  }
+watch(() => [props.modelValue, props.userOptions, props.selectedUsers], resolve, {
+  deep: true,
+  immediate: true
 })
+const onSelected = (rows: UserOption[], _activityId?: unknown, relationships: UserRelationship[] = []) => {
+  const rules = props.allowRelationships ? relationships : []
+  if (effectiveDisabled.value || (!(rows.length + rules.length) && (props.clearable === false || (props.min ?? 0) > 0))) return
+  selected.value = rows
+  displayError.value = ''
+  emit('update:modelValue', props.multiple ? rows.map((row) => row.id) : rows[0]?.id)
+  emit('change', props.multiple ? rows : rows[0])
+  emit('update:relationships', rules)
+  emit('selection-change', { users: rows, relationships: rules })
+}
+const onVisibilityChange = (value: boolean) => {
+  if (!value) emit('visible-change', false)
+}
+const clear = () => { if (!effectiveDisabled.value && props.clearable !== false && !props.min) onSelected([]) }
+const open = async () => {
+  if (effectiveDisabled.value) return
+  emit('visible-change', true)
+  await nextTick()
+  await dialog.value?.open(ids.value, props.disabledIds, undefined, selected.value)
+}
+onMounted(() => {
+  if (!props.defaultCurrentUser || ids.value.length || props.relationships?.length || props.excludeCurrentUser) return
+  const id = useUserStoreWithOut().getUser.id
+  if (!id || props.disabledIds?.some((value) => String(value) === String(id))) return
+  const businessMode = props.userOptions !== undefined || props.loadUserOptions !== undefined
+  if (
+    businessMode &&
+    !props.userOptions?.some(
+      (row) => String((props.optionMapper ? props.optionMapper(row) : row).id) === String(id)
+    )
+  )
+    return
+  emit('update:modelValue', props.multiple ? [id] : id)
+})
+defineExpose({ open })
 </script>
-
-<style lang="scss" scoped>
-/* :deep 用于穿透 el-input 内部元素的 cursor 样式，UnoCSS 无法直接处理组件内部 DOM */
-.is-select-clickable {
-  :deep(.el-input__wrapper),
-  :deep(.el-input__inner) {
-    cursor: pointer;
-  }
-}
-
-.is-select-disabled {
-  :deep(.el-input__wrapper),
-  :deep(.el-input__inner) {
-    cursor: not-allowed;
-  }
-}
-</style>

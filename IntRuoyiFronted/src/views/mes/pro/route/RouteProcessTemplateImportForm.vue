@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+import { showImportResult } from '@/utils/importResult'
 import { ProRouteApi } from '@/api/mes/pro/route'
 import type {
   ProRouteProcessTemplateImportMode,
@@ -116,7 +117,7 @@ const downloadTemplate = async () => {
     const data = await ProRouteApi.exportRouteProcessTemplate(selectedRoute.value.id)
     download.excel(data, `${selectedRoute.value.code}-工序模板.xlsx`)
   } catch (error) {
-    message.error(getErrorMessage(error, '下载工序模板失败，请查看后端返回错误'))
+    message.error(getErrorMessage(error, '下载工序模板失败，请根据错误提示处理；仍无法下载时，请联系管理员。'))
   } finally {
     downloadLoading.value = false
   }
@@ -134,15 +135,21 @@ const submitForm = async () => {
     uploadFormData.append('importMode', importMode.value)
 
     const result = await ProRouteApi.importRouteProcessTemplate(uploadFormData)
-    const processNames = result.processNames?.length ? result.processNames.join('、') : '无'
-    const modeText = result.importMode === 'UPGRADE' ? '升版候选' : '重建'
-    message.alert(
-      `${modeText}完成；工序数：${result.routeProcessCount}；版本：${result.routeVersionNo || '-'}；工序：${processNames}`
-    )
+    showImportResult({
+      title: '工序模板导入完成',
+      summary: result.importMode === 'UPGRADE'
+        ? `已生成或更新路线版本草稿，共处理 ${result.routeProcessCount} 道工序。当前生效版本未变更。`
+        : `已重建路线工序，共处理 ${result.routeProcessCount} 道工序。`,
+      stats: [{ label: '工序数量', value: result.routeProcessCount }],
+      sections: [
+        { title: '版本信息', columns: ['版本'], rows: result.routeVersionNo ? [[String(result.routeVersionNo)]] : [] },
+        { title: '工序明细', columns: ['工序名称'], rows: (result.processNames ?? []).map((name: string) => [name]) }
+      ]
+    })
     dialogVisible.value = false
     emits('success')
   } catch (error) {
-    message.error(getErrorMessage(error, '工序模板导入失败，请根据后端提示修正 Excel'))
+    message.error(getErrorMessage(error, '工序模板导入失败，请根据错误提示检查并修改 Excel 文件'))
   } finally {
     formLoading.value = false
   }

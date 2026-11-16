@@ -18,8 +18,8 @@ export const buildFolderFileRows = (
   const owned = files.map((file) => ({
     key: `file:${file.controlledFileId}`,
     file,
-    projectCount: usage[file.masterId]?.referenceProjectCount,
-    referenced: usage[file.masterId]?.referenced === true
+    projectCount: usage[file.controlledFileId]?.referenceProjectCount,
+    referenced: usage[file.controlledFileId]?.referenced === true
   }))
   const entries = references
     .filter(

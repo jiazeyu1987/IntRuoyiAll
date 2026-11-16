@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 public class ErpKingdeeSyncContext {
 
+    Long runId;
     ErpKingdeeSyncTypeEnum syncType;
     ErpKingdeeSyncTriggerTypeEnum triggerType;
     boolean initialSync;

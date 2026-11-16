@@ -38,6 +38,7 @@ public class MesMdAutoCodeRecordServiceImpl implements MesMdAutoCodeRecordServic
 
     @Resource
     private MesMdAutoCodeRuleService ruleService;
+    @Resource private MesProjectAutoCodeService projectCodes;
     @Resource
     private MesMdAutoCodePartService partService;
 
@@ -53,11 +54,24 @@ public class MesMdAutoCodeRecordServiceImpl implements MesMdAutoCodeRecordServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String generateAutoCode(String ruleCode, String inputChar) {
+        if (MesProjectAutoCodeService.supports(ruleCode)) {
+            throw new IllegalArgumentException("此编码规则必须指定所属项目");
+        }
         // 1.1 查询规则
         MesMdAutoCodeRuleDO rule = ruleService.getAutoCodeRuleByCode(ruleCode);
         if (rule == null) {
             throw exception(AUTO_CODE_RULE_NOT_EXISTS);
         }
+        return generate(rule, inputChar);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String generateProjectCode(String ruleCode, Long projectId) {
+        return generate(projectCodes.ensure(projectId, ruleCode), null);
+    }
+
+    private String generate(MesMdAutoCodeRuleDO rule, String inputChar) {
         // 1.2 查询规则组成
         List<MesMdAutoCodePartDO> parts = partService.getAutoCodePartListByRuleId(rule.getId());
         if (CollUtil.isEmpty(parts)) {

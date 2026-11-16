@@ -56,6 +56,25 @@ class ReleaseWorkflowRecoveryTest {
     }
 
     @Test
+    void manualRecoveryStateIsNotRewrittenAfterRestartOrFurtherTimeouts() {
+        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        ReleaseWorkflowService service = new ReleaseWorkflowService(properties);
+        ReleaseWorkflowRecord workflow = service.create("routine release", "approved-source");
+        workflow = service.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.PREFLIGHTING, "PREFLIGHTING", true, false);
+        workflow = service.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "BUILD_DISPATCH", false, false);
+        long version = workflow.stateVersion();
+        int journalSize = service.readJournal(workflow.workflowId()).size();
+
+        ReleaseWorkflowService restarted = new ReleaseWorkflowService(properties);
+        assertEquals(java.util.List.of(), restarted.recoverStaleWorkflows(Instant.now().plusSeconds(60)));
+        assertEquals(version, restarted.require(workflow.workflowId()).stateVersion());
+        assertEquals(journalSize, restarted.readJournal(workflow.workflowId()).size());
+    }
+
+    @Test
     void cancelDuringWriteStageMustRequireRecovery() {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
         ReleaseWorkflowService service = new ReleaseWorkflowService(properties);

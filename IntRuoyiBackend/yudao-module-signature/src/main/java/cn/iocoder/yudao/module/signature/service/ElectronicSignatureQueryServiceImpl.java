@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Comparator;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID;
@@ -43,9 +44,13 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
                 .eq(ElectronicSignatureRecordDO::getTenantId, TenantContextHolder.getRequiredTenantId())
                 .eq(ElectronicSignatureRecordDO::getModuleCode, moduleCode)
                 .eq(ElectronicSignatureRecordDO::getSubjectType, subjectType)
-                .eq(ElectronicSignatureRecordDO::getSubjectId, subjectId)
-                .orderByAsc(ElectronicSignatureRecordDO::getSignedAt).orderByAsc(ElectronicSignatureRecordDO::getId))
-                .stream().map(this::toEvidence).toList();
+                .eq(ElectronicSignatureRecordDO::getSubjectId, subjectId))
+                // Approval records include the complete dossier JSON. MySQL filesort can exhaust
+                // its sort buffer even for one large record; sort the already selected facts here.
+                .stream().sorted(Comparator.comparing(ElectronicSignatureRecordDO::getSignedAt,
+                                Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(ElectronicSignatureRecordDO::getId))
+                .map(this::toEvidence).toList();
     }
 
     @Override

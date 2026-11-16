@@ -90,21 +90,14 @@
         </el-table-column>
         <el-table-column label="候选对象" min-width="220">
           <template #default="{ row }">
-            <el-select
+            <UserSelectV2
               v-if="row.candidateSourceType === 'USER'"
               v-model="row.candidateSourceId"
               class="w-full"
               clearable
-              filterable
               placeholder="请选择用户"
-            >
-              <el-option
-                v-for="item in users"
-                :key="item.id"
-                :label="formatDccSimpleUserLabel(item)"
-                :value="item.id"
-              />
-            </el-select>
+              :user-options="users"
+            />
             <el-select
               v-else-if="row.candidateSourceType === 'POSITION'"
               v-model="row.candidateSourceId"
@@ -177,6 +170,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type { FormRules } from 'element-plus'
 import {
   saveApprovalRoute,
@@ -193,7 +187,6 @@ import {
   ROUTE_ACTION_TYPE_OPTIONS,
   ROUTE_CANDIDATE_SOURCE_OPTIONS
 } from '../../shared/options'
-import { formatDccSimpleUserLabel } from '../../shared/utils'
 import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileRouteForm' })

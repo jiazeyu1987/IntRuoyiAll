@@ -282,17 +282,37 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     }
 
     @Override
-    public void assertActionSupported(Long releaseTransactionId, String action) {
-        if (releaseTransactionId == null || !(Objects.equals("REJECT", action) || Objects.equals("WITHDRAW", action))) {
-            return;
+    @Transactional(rollbackFor = Exception.class)
+    public MesProductionReleaseManagerApprovalResult prepareNegativeDecision(
+            cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand command) {
+        var application = applicationMapper.selectByReleaseTransactionIdForUpdate(command.getReleaseTransactionId());
+        var transaction = releaseTransactionMapper.selectByIdForUpdate(command.getReleaseTransactionId());
+        if (application == null || command.getWorkTaskId() == null || command.getExpectedVersion() == null)
+            throw new IllegalArgumentException("上市负向决定必须关联原申请、任务及事务版本");
+        requirePendingState(application, transaction, new MesProEdhrReleaseApproveReqVO()
+                .setReleaseTransactionId(command.getReleaseTransactionId()).setWorkTaskId(command.getWorkTaskId())
+                .setExpectedVersion(command.getExpectedVersion()));
+        var task = workTaskMapper.selectByIdForUpdate(command.getWorkTaskId());
+        var batch = batchExecutionMapper.selectById(application.getBatchExecutionId());
+        MesProductionReleaseSignoffService.requireBinding(task, application, transaction, batch);
+        if (command.getAction() == cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction.REJECT) {
+            requireManagerCandidate(application, task, command.getActorUserId(), transaction.getId());
+            if (!command.isPasswordReauthenticated() || command.getQaReviewerUserId() == null)
+                throw new IllegalArgumentException("不予上市放行必须完成电子签名并指定QA评审责任人");
+        } else if (!Objects.equals(application.getAppliedBy(), command.getActorUserId()) || !isProcessable(task.getStatus())) {
+            throw new IllegalArgumentException("仅原申请人可撤回尚未决定的上市放行申请");
         }
-        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
-                applicationMapper.selectListByReleaseTransactionId(releaseTransactionId);
-        if (!applications.isEmpty()) {
-            throw blocker(applications.get(0), MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
-                    "production release manager tasks do not support " + action.toLowerCase(),
-                    "approve the final release or leave the task pending for an authorized manager representative");
-        }
+        return new MesProductionReleaseManagerApprovalResult().setApplication(application)
+                .setWorkTask(task).setReleaseTransaction(transaction).setBatchExecution(batch);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeNegativeDecision(MesProductionReleaseManagerApprovalResult prepared, String status) {
+        var app = prepared.getApplication();
+        if (!Set.of("MARKET_RELEASE_REJECTED", "MARKET_RELEASE_WITHDRAWN").contains(status)
+                || applicationMapper.compareAndSetStatus(app.getId(), app.getVersion(),
+                MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, status) != 1) throw versionConflict(app);
     }
 
     private void requireCommand(Long actorUserId, MesProEdhrReleaseApproveReqVO command) {

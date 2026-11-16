@@ -73,17 +73,42 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
                 "APPROVAL_VIEW_TYPE_REQUIRED");
         queryWindowSize(safeQuery);
         var context=ApprovalTaskQueryContext.of(loginUserId,viewType,safeQuery.getModuleCode(),safeQuery.getKeyword(),
-                safeQuery.getPageNo(),safeQuery.getPageSize(),globalView);
-        List<ApprovalTaskProvider> providers;
-        if(safeQuery.getModuleCode()!=null) {
-            var provider=providerRegistry.requireProvider(safeQuery.getModuleCode());
-            assertProviderVisible(provider,loginUserId);assertViewSupported(provider,viewType);providers=List.of(provider);
-        } else {
-            providers=providerRegistry.listProviders().stream().filter(p->p.isVisibleTo(loginUserId))
-                    .filter(p->p.getSupportedViewTypes().contains(viewType)).toList();
-            if(providers.isEmpty()) throw exception(APPROVAL_VIEW_TYPE_UNSUPPORTED,"全部可见模块",viewType);
+                safeQuery.getPageNo(),safeQuery.getPageSize(),globalView).setListFilters(safeQuery.getListFilters());
+        return enrichTaskUserNames(ApprovalTaskWindowMerge.read(
+                visibleProviders(loginUserId, viewType, safeQuery.getModuleCode()), context, ApprovalQueryWindow.from(context)));
+    }
+
+    @Override
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public long getTodoCount(Long loginUserId) {
+        Objects.requireNonNull(loginUserId, "APPROVAL_LOGIN_USER_REQUIRED");
+        boolean globalView = hasApprovalAdminRole(loginUserId);
+        var view = ApprovalTaskViewType.TODO;
+        var countOnly = new ApprovalQueryWindow(0, 0);
+        long total = 0;
+        for (var provider : visibleProviders(loginUserId, view, null)) {
+            var context = ApprovalTaskQueryContext.of(loginUserId, view, provider.getModuleCode(), null, 1, 10, globalView);
+            var count = requirePage(provider.window(context, countOnly));
+            if (count.getTotal() < 0 || !count.getList().isEmpty()) {
+                throw new IllegalStateException("APPROVAL_QUERY_COUNT_INVALID: " + provider.getModuleCode());
+            }
+            total = Math.addExact(total, count.getTotal());
         }
-        return enrichTaskUserNames(ApprovalTaskWindowMerge.read(providers,context,ApprovalQueryWindow.from(context)));
+        return total;
+    }
+
+    private List<ApprovalTaskProvider> visibleProviders(Long loginUserId, ApprovalTaskViewType viewType,
+                                                       ApprovalModuleCode moduleCode) {
+        if (moduleCode != null) {
+            var provider = providerRegistry.requireProvider(moduleCode);
+            assertProviderVisible(provider, loginUserId);
+            assertViewSupported(provider, viewType);
+            return List.of(provider);
+        }
+        var providers = providerRegistry.listProviders().stream().filter(p -> p.isVisibleTo(loginUserId))
+                .filter(p -> p.getSupportedViewTypes().contains(viewType)).toList();
+        if (providers.isEmpty()) throw exception(APPROVAL_VIEW_TYPE_UNSUPPORTED, "全部可见模块", viewType);
+        return providers;
     }
 
     @Override
@@ -155,7 +180,7 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
     private static ApprovalTaskQueryContext toContext(Long loginUserId, ApprovalTaskProvider provider,
                                                       ApprovalTaskQuery query, boolean globalView) {
         return ApprovalTaskQueryContext.of(loginUserId, query.getViewType(), provider.getModuleCode(),
-                query.getKeyword(), query.getPageNo(), query.getPageSize(), globalView);
+                query.getKeyword(), query.getPageNo(), query.getPageSize(), globalView).setListFilters(query.getListFilters());
     }
 
     private boolean hasApprovalAdminRole(Long loginUserId) {

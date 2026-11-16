@@ -26,20 +26,13 @@
           />
         </el-form-item>
         <el-form-item label="产品" prop="productId">
-          <el-select
+          <RemoteProductSelect
             v-model="queryParams.productId"
             clearable
             filterable
             placeholder="请选择产品"
             class="!w-160px"
-          >
-            <el-option
-              v-for="item in productList"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
+           />
         </el-form-item>
         <el-form-item label="订单时间" prop="orderTime">
           <el-date-picker
@@ -135,7 +128,7 @@ import { ElTable } from 'element-plus'
 import { SaleOrderApi, SaleOrderVO } from '@/api/erp/sale/order'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { erpCountTableColumnFormatter, erpPriceTableColumnFormatter } from '@/utils'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 
 defineOptions({ name: 'SaleOrderReturnEnableList' })
 
@@ -152,7 +145,6 @@ const queryParams = reactive({
   returnEnable: true
 })
 const queryFormRef = ref() // 搜索的表单
-const productList = ref<ProductVO[]>([]) // 产品列表
 
 /** 选中行 */
 const currentRowValue = ref<any>(undefined) // 选中行的 value
@@ -168,7 +160,6 @@ const open = async () => {
   // 加载可退货的订单列表
   await resetQuery()
   // 加载产品列表
-  productList.value = await ProductApi.getProductSimpleList()
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 

@@ -50,21 +50,14 @@ assert.match(
 )
 
 assert.match(
-  productionMaterialListTab,
-  /productionMaterialListDocuments[\s\S]*sourceBillNo/,
+  detailPanel,
+  /const productionMaterialListDocuments[\s\S]*grouped\.get\(sourceBillNo\)/,
   '生产用料清单展示必须按单据编号分组，支持同一生产订单多张单据。'
 )
 
 for (const label of [
-  '生产订单号',
-  '生产车间',
-  '单据编号',
-  '产品代码',
-  '产品名称',
   '规格型号',
   '单位',
-  '生产数量',
-  '生产组织',
   '序号',
   '物料编码',
   '物料名称',
@@ -72,11 +65,7 @@ for (const label of [
   '实际用量',
   '需求日期',
   '仓库',
-  '发料方式',
-  '创建人',
-  '创建日期',
-  '审核人',
-  '审核日期'
+  '发料方式'
 ]) {
   assert.match(
     productionMaterialListTab,

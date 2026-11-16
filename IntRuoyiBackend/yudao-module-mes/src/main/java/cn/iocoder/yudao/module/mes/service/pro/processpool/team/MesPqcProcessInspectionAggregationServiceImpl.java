@@ -170,7 +170,7 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         if (activeOrderId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcProcessInspectionAggregation.activeOrderId");
         }
-        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(activeOrderId);
+        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectEffectiveListByActiveOrderIdForUpdate(activeOrderId);
         if (tasks == null || tasks.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, activeOrderId);
         }

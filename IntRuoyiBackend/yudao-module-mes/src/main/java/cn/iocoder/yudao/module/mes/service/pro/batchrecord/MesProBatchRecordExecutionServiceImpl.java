@@ -123,7 +123,6 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -163,6 +162,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 
 @Service
 public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordExecutionService {
+    @Resource @org.springframework.context.annotation.Lazy private MesEdhrRecordChangeEditGuard recordChangeEditGuard;
 
     private static final int EXECUTION_STATUS_DRAFT = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT;
     private static final int EXECUTION_STATUS_SUBMITTED = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_SUBMITTED;
@@ -195,7 +195,6 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
     private static final String CANDIDATE_SOURCE_TYPE_DEPT = "DEPT";
     private static final String CANDIDATE_SOURCE_TYPE_DEPT_GROUP = "DEPT_GROUP";
-    private static final int APPROVAL_FILTER_SCAN_PAGE_SIZE = 100;
 
     @Resource
     private MesProBatchRecordExecutionMapper executionMapper;
@@ -561,9 +560,14 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Transactional(rollbackFor = Exception.class)
     public void submitBatchRecordExecution(MesProBatchRecordExecutionSubmitReqVO reqVO) {
         MesProBatchRecordExecutionDO execution = getSubmittableExecution(reqVO.getId());
+        boolean reopenedExecution = Objects.equals(execution.getStatus(), 5);
+        if (reopenedExecution) {
+            recordChangeEditGuard.requireReopened(execution, reqVO.getWorkTaskId());
+            workTaskService.validateWritableFillTaskForExecution(reqVO.getWorkTaskId(), execution.getId());
+        }
         boolean preReleaseResubmit = Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED);
         Long userId = requireLoginUserId();
-        if (goldenFingerPermissionService.hasGoldenFingerPermission(userId)) {
+        if (!reopenedExecution && goldenFingerPermissionService.hasGoldenFingerPermission(userId)) {
             if (preReleaseResubmit) {
                 preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(execution, reqVO.getWorkTaskId());
             } else {
@@ -1025,36 +1029,21 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_REWORK_REQUIRED));
     }
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.approval.MesLegacyApprovalPageQuery legacyApprovalPages;
+
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<MesProBatchRecordExecutionApprovalRespVO> getApprovalPendingPage(MesProBatchRecordExecutionApprovalPageReqVO pageReqVO) {
-        Long userId = requireLoginUserId();
-        if (hasApprovalPageFilter(pageReqVO)) {
-            return getFilteredApprovalPage(pageReqVO,
-                    bpmReqVO -> bpmTaskService.getTaskTodoPage(userId, bpmReqVO),
-                    this::buildPendingApprovalResp);
-        }
-        PageResult<Task> taskPage = bpmTaskService.getTaskTodoPage(userId,
-                buildApprovalBpmPageReqVO(pageReqVO.getPageNo(), pageReqVO.getPageSize()));
-        List<MesProBatchRecordExecutionApprovalRespVO> list = taskPage.getList().stream()
-                .map(this::buildPendingApprovalResp)
-                .toList();
-        return new PageResult<>(list, taskPage.getTotal());
+        var taskPage=legacyApprovalPages.todo(requireLoginUserId(),pageReqVO);
+        return new PageResult<>(taskPage.getList().stream().map(this::buildPendingApprovalResp).toList(),taskPage.getTotal());
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<MesProBatchRecordExecutionApprovalRespVO> getApprovalDonePage(MesProBatchRecordExecutionApprovalPageReqVO pageReqVO) {
-        Long userId = requireLoginUserId();
-        if (hasApprovalPageFilter(pageReqVO)) {
-            return getFilteredApprovalPage(pageReqVO,
-                    bpmReqVO -> bpmTaskService.getTaskDonePage(userId, bpmReqVO),
-                    this::buildDoneApprovalResp);
-        }
-        PageResult<HistoricTaskInstance> taskPage = bpmTaskService.getTaskDonePage(userId,
-                buildApprovalBpmPageReqVO(pageReqVO.getPageNo(), pageReqVO.getPageSize()));
-        List<MesProBatchRecordExecutionApprovalRespVO> list = taskPage.getList().stream()
-                .map(this::buildDoneApprovalResp)
-                .toList();
-        return new PageResult<>(list, taskPage.getTotal());
+        var taskPage=legacyApprovalPages.done(requireLoginUserId(),pageReqVO);
+        return new PageResult<>(taskPage.getList().stream().map(this::buildDoneApprovalResp).toList(),taskPage.getTotal());
     }
 
     @Override
@@ -1103,26 +1092,13 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
 
     @Override
     public PageResult<MesProBatchRecordExecutionTrackingRespVO> getTrackingPage(MesProBatchRecordExecutionTrackingPageReqVO pageReqVO) {
-        List<Long> routeProcessIds = resolveRouteProcessIds(pageReqVO.getProcessId());
-        if (routeProcessIds != null && routeProcessIds.isEmpty()) {
-            return new PageResult<>(Collections.emptyList(), 0L);
-        }
-        List<Long> actorMatchedExecutionIds = resolveExecutionIdsByActorName(pageReqVO.getActorName());
-        if (actorMatchedExecutionIds != null && actorMatchedExecutionIds.isEmpty()) {
-            return new PageResult<>(Collections.emptyList(), 0L);
-        }
-        PageResult<MesProBatchRecordExecutionDO> pageResult =
-                executionMapper.selectTrackingPage(pageReqVO, routeProcessIds, actorMatchedExecutionIds);
+        PageResult<MesProBatchRecordExecutionDO> pageResult = executionMapper.selectTrackingPage(pageReqVO);
         return new PageResult<>(pageResult.getList().stream().map(this::buildTrackingResp).toList(), pageResult.getTotal());
     }
 
     @Override
     public PageResult<MesProBatchRecordExecutionSignatureRespVO> getSignaturePage(MesProBatchRecordExecutionSignaturePageReqVO pageReqVO) {
-        List<Long> executionIds = resolveExecutionIdsByExecutionCode(pageReqVO.getExecutionCode());
-        if (executionIds != null && executionIds.isEmpty()) {
-            return new PageResult<>(Collections.emptyList(), 0L);
-        }
-        PageResult<MesProBatchRecordExecutionSignatureDO> pageResult = signatureMapper.selectPage(pageReqVO, executionIds);
+        PageResult<MesProBatchRecordExecutionSignatureDO> pageResult = signatureMapper.selectPage(pageReqVO);
         return new PageResult<>(pageResult.getList().stream().map(this::buildSignatureResp).toList(), pageResult.getTotal());
     }
 
@@ -1154,122 +1130,6 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .toList();
     }
 
-    private List<Long> resolveRouteProcessIds(Long processId) {
-        if (processId == null) {
-            return null;
-        }
-        return routeProcessMapper.selectListByProcessId(processId).stream()
-                .map(MesProRouteProcessDO::getId)
-                .toList();
-    }
-
-    private List<Long> resolveExecutionIdsByActorName(String actorName) {
-        if (StrUtil.isBlank(actorName)) {
-            return null;
-        }
-        return signatureMapper.selectExecutionIdsByActorName(actorName);
-    }
-
-    private List<Long> resolveExecutionIdsByExecutionCode(String executionCode) {
-        if (StrUtil.isBlank(executionCode)) {
-            return null;
-        }
-        return executionMapper.selectIdsByExecutionCode(executionCode);
-    }
-
-    private <T> PageResult<MesProBatchRecordExecutionApprovalRespVO> getFilteredApprovalPage(
-            MesProBatchRecordExecutionApprovalPageReqVO pageReqVO,
-            Function<BpmTaskPageReqVO, PageResult<T>> pageLoader,
-            Function<T, MesProBatchRecordExecutionApprovalRespVO> rowMapper) {
-        int scanPageSize = Math.max(APPROVAL_FILTER_SCAN_PAGE_SIZE, safePageSize(pageReqVO.getPageSize()));
-        int scanPageNo = 1;
-        Long expectedTotal = null;
-        List<MesProBatchRecordExecutionApprovalRespVO> filteredRows = new ArrayList<>();
-        while (true) {
-            PageResult<T> taskPage = pageLoader.apply(buildApprovalBpmPageReqVO(scanPageNo, scanPageSize));
-            Objects.requireNonNull(taskPage, "EDHR_APPROVAL_BPM_PAGE_REQUIRED");
-            Objects.requireNonNull(taskPage.getList(), "EDHR_APPROVAL_BPM_PAGE_LIST_REQUIRED");
-            if (taskPage.getTotal() == null) {
-                throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_CONTEXT_INVALID);
-            }
-            if (expectedTotal == null) {
-                expectedTotal = taskPage.getTotal();
-            } else if (!Objects.equals(expectedTotal, taskPage.getTotal())) {
-                throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_CONTEXT_INVALID);
-            }
-            taskPage.getList().stream()
-                    .map(rowMapper)
-                    .filter(respVO -> matchesApprovalPageFilter(respVO, pageReqVO))
-                    .forEach(filteredRows::add);
-            if (taskPage.getList().isEmpty() || (long) scanPageNo * scanPageSize >= expectedTotal) {
-                break;
-            }
-            scanPageNo++;
-        }
-        return new PageResult<>(sliceApprovalPageRows(filteredRows, pageReqVO.getPageNo(), pageReqVO.getPageSize()),
-                (long) filteredRows.size());
-    }
-
-    private BpmTaskPageReqVO buildApprovalBpmPageReqVO(Integer pageNo, Integer pageSize) {
-        BpmTaskPageReqVO bpmReqVO = new BpmTaskPageReqVO();
-        bpmReqVO.setPageNo(safePageNo(pageNo));
-        bpmReqVO.setPageSize(safePageSize(pageSize));
-        bpmReqVO.setProcessDefinitionKey(EDHR_PROCESS_DEFINITION_KEY);
-        return bpmReqVO;
-    }
-
-    private List<MesProBatchRecordExecutionApprovalRespVO> sliceApprovalPageRows(
-            List<MesProBatchRecordExecutionApprovalRespVO> rows, Integer pageNo, Integer pageSize) {
-        int safePageNo = safePageNo(pageNo);
-        int safePageSize = safePageSize(pageSize);
-        int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
-        int toIndex = Math.min(fromIndex + safePageSize, rows.size());
-        return rows.subList(fromIndex, toIndex);
-    }
-
-    private int safePageNo(Integer pageNo) {
-        return pageNo == null || pageNo < 1 ? 1 : pageNo;
-    }
-
-    private int safePageSize(Integer pageSize) {
-        return pageSize == null || pageSize < 1 ? 10 : pageSize;
-    }
-
-    private boolean hasApprovalPageFilter(MesProBatchRecordExecutionApprovalPageReqVO pageReqVO) {
-        return StrUtil.isNotBlank(pageReqVO.getExecutionCode())
-                || StrUtil.isNotBlank(pageReqVO.getWorkOrderCode())
-                || StrUtil.isNotBlank(pageReqVO.getBatchCode())
-                || pageReqVO.getSubmittedBy() != null
-                || pageReqVO.getSubmittedAtStart() != null
-                || pageReqVO.getSubmittedAtEnd() != null;
-    }
-
-    private boolean matchesApprovalPageFilter(MesProBatchRecordExecutionApprovalRespVO respVO,
-                                              MesProBatchRecordExecutionApprovalPageReqVO pageReqVO) {
-        if (!containsIgnoreCase(respVO.getExecutionCode(), pageReqVO.getExecutionCode())) {
-            return false;
-        }
-        if (!containsIgnoreCase(respVO.getWorkOrderCode(), pageReqVO.getWorkOrderCode())) {
-            return false;
-        }
-        if (!containsIgnoreCase(respVO.getBatchCode(), pageReqVO.getBatchCode())) {
-            return false;
-        }
-        if (pageReqVO.getSubmittedBy() != null && !Objects.equals(pageReqVO.getSubmittedBy(), respVO.getSubmittedBy())) {
-            return false;
-        }
-        if (pageReqVO.getSubmittedAtStart() != null
-                && (respVO.getSubmittedAt() == null || respVO.getSubmittedAt().isBefore(pageReqVO.getSubmittedAtStart()))) {
-            return false;
-        }
-        return pageReqVO.getSubmittedAtEnd() == null
-                || (respVO.getSubmittedAt() != null && !respVO.getSubmittedAt().isAfter(pageReqVO.getSubmittedAtEnd()));
-    }
-
-    private boolean containsIgnoreCase(String value, String filter) {
-        return StrUtil.isBlank(filter) || StrUtil.containsIgnoreCase(StrUtil.nullToEmpty(value), StrUtil.trim(filter));
-    }
-
     private MesProBatchRecordExecutionDO getDraftExecution(Long id) {
         MesProBatchRecordExecutionDO execution = executionMapper.selectById(id);
         if (execution == null) {
@@ -1287,6 +1147,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
         }
         if (!Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT)
+                && !Objects.equals(execution.getStatus(), 5)
                 && !Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }

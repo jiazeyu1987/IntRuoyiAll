@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.*;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.*;
@@ -72,7 +73,14 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
         Page<DccPublicationFollowupBatchDO> page = batchMapper.selectManagementPage(
                 new Page<>(request.getPageNo(), request.getPageSize()), tenantId, request.getFileNumber(),
                 request.getVersionNo(), request.getBatchStatus(), request.getTaskStatus(),
-                request.getNotificationStatus(), parseAssigneeUserId(request.getAssigneeUserId()));
+                request.getNotificationStatus(), parseAssigneeUserId(request.getAssigneeUserId()),
+                ListFilterQueryUtils.wrapper(request, Map.of(
+                        "fileNumber", ListFilterQueryUtils.text("b.file_number_snapshot"),
+                        "fileName", ListFilterQueryUtils.text("b.file_name_snapshot"),
+                        "versionNo", ListFilterQueryUtils.text("b.version_no_snapshot"),
+                        "status", ListFilterQueryUtils.text("CASE b.status WHEN 'PENDING' THEN '待处理' WHEN 'PROCESSING' THEN '通知发送中' WHEN 'READY' THEN '待影响评估' WHEN 'PARTIAL_FAILED' THEN '部分通知失败' WHEN 'COMPLETED' THEN '已完成' ELSE CONCAT('未知状态（',b.status,'）') END"),
+                        "notificationDeliveries", ListFilterQueryUtils.text("(SELECT COUNT(*) FROM dcc_publication_notification_delivery d WHERE d.batch_id=b.id AND d.tenant_id=b.tenant_id AND d.deleted=0)"),
+                        "impactTasks", ListFilterQueryUtils.text("(SELECT COUNT(*) FROM dcc_publication_impact_task t WHERE t.batch_id=b.id AND t.tenant_id=b.tenant_id AND t.deleted=0)"))));
         return new PageResult<>(hydrate(tenantId, page.getRecords()), page.getTotal());
     }
 

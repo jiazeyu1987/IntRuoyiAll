@@ -2,9 +2,12 @@
 <template>
   <doc-alert title="MES 生产工单" url="https://doc.iocoder.cn/mes/pro/work-order/" />
 
-  <ContentWrap>
+  <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
+      :reset-filters="resetQuery"
       table-key="mes.pro.workorder.main"
+      single-line-toolbar
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="workOrderQuickFilterDefinitions"
@@ -13,7 +16,6 @@
       :operator-options="workOrderQuickFilter.operatorOptions.value"
       :columns="workOrderColumns"
       :column-saving="workOrderColumnSaving"
-      :show-column-settings="false"
       :show-column-reset="false"
       :total="total"
       v-model:page="queryParams.pageNo"
@@ -22,20 +24,25 @@
       @quick-filter-query="workOrderQuickFilter.applyQuickFilter"
       @column-change="saveWorkOrderColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #extra-filters>
-        <el-form-item class="work-order-column-settings">
-          <UserTableColumnSettings
-            button-label="列筛选"
-            :columns="workOrderColumns"
-            :saving="workOrderColumnSaving"
-            :show-reset="false"
-            @change="saveWorkOrderColumnConfig"
-          />
-        </el-form-item>
-      </template>
       <template #actions>
         <el-button
+          v-if="testModeEnabled"
+          class="app-test-button"
+          type="primary"
+          plain
+          data-local-test-data-open
+          v-hasPermi="['mes:pro-work-order:create']"
+          @click="openLocalTestData"
+        >准备本轮虚拟数据</el-button>
+        <SyncByCodeButton sync-type="PRODUCTION_ORDER" code-label="工单编号" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
+        <RecentFullSyncButton sync-type="PRODUCTION_ORDER" />
+        <el-button
+          v-show="false"
           v-if="isAdminUser"
           type="success"
           plain
@@ -45,33 +52,25 @@
           ><Icon icon="ep:download" class="mr-5px" /> 导出</el-button
         >
         <el-button
-          v-if="isAdminUser"
-          type="warning"
-          plain
-          @click="handleSyncKingdeeWorkOrders"
-          :loading="kingdeeSyncLoading"
-          data-work-order-sync-kingdee
-          v-hasPermi="['mes:pro-work-order:create']"
-          ><Icon icon="ep:refresh" class="mr-5px" /> 增量同步</el-button
-        >
-        <el-button class="app-test-button"
-          v-if="testModeEnabled && (isAdminUser)"
+          v-show="false"
+          class="app-test-button"
+          v-if="testModeEnabled && isAdminUser"
           type="primary"
           plain
           @click="openAiE2eDialog"
           data-edhr-ai-e2e-open-global
           v-hasPermi="['mes:pro-work-order:create-erp']"
-        >AI E2E固定订单</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+          >AI E2E固定订单</el-button
+        >
+
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.workorder.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
-          :max-height="workOrderTableMaxHeight"
           :stripe="true"
           :show-overflow-tooltip="true"
           row-key="id"
@@ -80,183 +79,270 @@
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           @header-dragend="handleWorkOrderHeaderDragend"
           @sort-change="handleTemplateSortChange"
-        >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('code')"
-        label="工单编号"
-        prop="code"
-        width="340"
-        fixed="left"
-          v-bind="sortColumnAttrs('code')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <el-button
-              link
-              type="primary"
-              class="work-order-key-text"
-              data-work-order-code
-              @click="openForm('detail', scope.row.id)"
-              >{{ scope.row.code }}</el-button
-            >
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productCode')"
-        label="产品编码"
-        align="center"
-        prop="productCode"
-        width="260"
-          v-bind="sortColumnAttrs('productCode')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productCode }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productName')"
-        label="产品名称"
-        align="center"
-        prop="productName"
-        min-width="340"
-          v-bind="sortColumnAttrs('productName')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productName }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('demandBillNo')"
-        label="需求单据"
-        align="center"
-        prop="demandBillNo"
-        min-width="220"
-          v-bind="sortColumnAttrs('demandBillNo')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productSpecification')"
-        label="规格型号"
-        align="center"
-        prop="productSpecification"
-        min-width="360"
-          v-bind="sortColumnAttrs('productSpecification')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productSpecification }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('quantity')"
-        label="计划数量"
-        align="center"
-        prop="quantity"
-        width="180"
-          v-bind="sortColumnAttrs('quantity')"
-        ><template #default="scope">
-          <div class="work-order-key-cell work-order-key-cell--number">
-            <span class="work-order-key-text" data-work-order-quantity>{{ scope.row.quantity }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column v-if="isWorkOrderColumnVisible('batchCode')" label="批次号" align="center" prop="batchCode" width="160" v-bind="sortColumnAttrs('batchCode')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('workshopName')" label="生产车间" align="center" prop="workshopName" :width="getWorkOrderColumnWidthString('workshopName', 120)" v-bind="sortColumnAttrs('workshopName')" />
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('plannedStartTime')"
-        label="计划开工时间"
-        align="center"
-        prop="plannedStartTime"
-        :formatter="dateFormatter2"
-        :width="getWorkOrderColumnWidthString('plannedStartTime', 180)"
-        v-bind="sortColumnAttrs('plannedStartTime')"
-      />
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('plannedEndTime')"
-        label="计划完工时间"
-        align="center"
-        prop="plannedEndTime"
-        :formatter="dateFormatter"
-        :width="getWorkOrderColumnWidthString('plannedEndTime', 180)"
-        v-bind="sortColumnAttrs('plannedEndTime')"
-      />
-      <el-table-column v-if="isWorkOrderColumnVisible('businessStatus')" label="业务状态" align="center" prop="businessStatus" :width="getWorkOrderColumnWidthString('businessStatus', 100)" v-bind="sortColumnAttrs('businessStatus')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('drawingNumber')" label="图号" align="center" prop="drawingNumber" :width="getWorkOrderColumnWidthString('drawingNumber', 140)" v-bind="sortColumnAttrs('drawingNumber')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('refNo')" label="REF.NO." align="center" prop="refNo" :width="getWorkOrderColumnWidthString('refNo', 140)" v-bind="sortColumnAttrs('refNo')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('auxiliaryCode')" label="备注1助记码" align="center" prop="auxiliaryCode" :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)" v-bind="sortColumnAttrs('auxiliaryCode')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('scheduleStatus')" label="排产状态" align="center" prop="scheduleStatus" :width="getWorkOrderColumnWidthString('scheduleStatus', 110)" v-bind="sortColumnAttrs('scheduleStatus')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('quantityProduced')" label="已生产数量" align="center" prop="quantityProduced" :width="getWorkOrderColumnWidthString('quantityProduced', 110)" v-bind="sortColumnAttrs('quantityProduced')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('status')" label="工单状态" align="center" prop="status" :width="getWorkOrderColumnWidthString('status', 100)"
-          v-bind="sortColumnAttrs('status')"
-        ><template #default="scope"
-          ><dict-tag :type="DICT_TYPE.MES_PRO_WORK_ORDER_STATUS" :value="scope.row.status" />
-        </template>
-      </el-table-column>
-      <el-table-column v-if="isWorkOrderColumnVisible('clientName')" label="客户名称" align="center" prop="clientName" :width="getWorkOrderColumnWidthString('clientName', 120)" v-bind="sortColumnAttrs('clientName')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('productionMaterialList')" label="生产用料清单" align="center" prop="productionMaterialList" :min-width="getWorkOrderColumnMinWidthString('productionMaterialList', 220)" v-bind="sortColumnAttrs('productionMaterialList')">
-        <template #default="scope">
-          <el-link
-            v-if="scope.row.productionMaterialListCount > 0"
-            type="primary"
-            @click="handleOpenProductionMaterialList(scope.row)"
+         height="100%">
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('code')"
+            label="工单编号"
+            prop="code"
+            width="340"
+            fixed="left"
+            v-bind="sortColumnAttrs('code')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <el-button
+                  link
+                  type="primary"
+                  class="work-order-key-text"
+                  data-work-order-code
+                  @click="openForm('detail', scope.row.id)"
+                  >{{ scope.row.code }}</el-button
+                >
+                <el-tag v-if="scope.row.orderSourceCode?.startsWith('LOCAL_TEST_RUN:')" type="warning" size="small">本地虚拟来源</el-tag>
+              </div></template
+            ></el-table-column
           >
-            {{ scope.row.productionMaterialListSummary || `共 ${scope.row.productionMaterialListCount} 张` }}
-          </el-link>
-          <span v-else>无</span>
-        </template>
-      </el-table-column>
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('createTime')"
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        :formatter="dateFormatter"
-        :width="getWorkOrderColumnWidthString('createTime', 180)"
-        v-bind="sortColumnAttrs('createTime')"
-      />
-      <el-table-column
-        v-if="isAdminUser && isWorkOrderColumnVisible('operation')"
-        label="操作"
-        prop="operation"
-        align="center"
-        width="220"
-        fixed="right"
-      >
-        <template #default="scope">
-          <el-button class="app-test-button"
-          v-if="testModeEnabled"
-            link
-            type="primary"
-            :loading="erpCreateLoadingId === scope.row.id"
-            @click="handleCreateKingdeeProductionOrder(scope.row)"
-            v-hasPermi="['mes:pro-work-order:create-erp']"
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productCode')"
+            label="产品编码"
+            align="center"
+            prop="productCode"
+            width="260"
+            v-bind="sortColumnAttrs('productCode')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productCode }}</span>
+              </div></template
+            ></el-table-column
           >
-            <Icon icon="ep:plus" class="mr-5px" /> 测试添加
-          </el-button>
-          <el-button class="app-test-button"
-          v-if="testModeEnabled"
-            link
-            type="primary"
-            @click="openAiE2eDialog(scope.row)"
-            data-edhr-ai-e2e-open
-            v-hasPermi="['mes:pro-work-order:create-erp']"
-          >AI E2E</el-button>
-          <el-button
-            link
-            type="primary"
-            @click="handleOpenBatchRecord(scope.row)"
-            v-hasPermi="['mes:pro-edhr-batch-execution:create']"
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productName')"
+            label="产品名称"
+            align="center"
+            prop="productName"
+            min-width="340"
+            v-bind="sortColumnAttrs('productName')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productName }}</span>
+              </div></template
+            ></el-table-column
           >
-            批记录
-          </el-button>
-        </template>
-      </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('demandBillNo')"
+            label="需求单据"
+            align="center"
+            prop="demandBillNo"
+            min-width="220"
+            v-bind="sortColumnAttrs('demandBillNo')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productSpecification')"
+            label="规格型号"
+            align="center"
+            prop="productSpecification"
+            min-width="360"
+            v-bind="sortColumnAttrs('productSpecification')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productSpecification }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isWorkOrderColumnVisible('quantity')"
+            label="计划数量"
+            align="center"
+            prop="quantity"
+            width="180"
+            v-bind="sortColumnAttrs('quantity')"
+            ><template #default="scope">
+              <div class="work-order-key-cell work-order-key-cell--number">
+                <span class="work-order-key-text" data-work-order-quantity>{{
+                  formatErpListInteger(scope.row.quantity)
+                }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('batchCode')"
+            label="批次号"
+            align="center"
+            prop="batchCode"
+            width="160"
+            v-bind="sortColumnAttrs('batchCode')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('workshopName')"
+            label="生产车间"
+            align="center"
+            prop="workshopName"
+            :width="getWorkOrderColumnWidthString('workshopName', 120)"
+            v-bind="sortColumnAttrs('workshopName')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('plannedStartTime')"
+            label="计划开工时间"
+            align="center"
+            prop="plannedStartTime"
+            :formatter="dateFormatter2"
+            :width="getWorkOrderColumnWidthString('plannedStartTime', 180)"
+            v-bind="sortColumnAttrs('plannedStartTime')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('plannedEndTime')"
+            label="计划完工时间"
+            align="center"
+            prop="plannedEndTime"
+            :formatter="dateFormatter"
+            :width="getWorkOrderColumnWidthString('plannedEndTime', 180)"
+            v-bind="sortColumnAttrs('plannedEndTime')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('businessStatus')"
+            label="业务状态"
+            align="center"
+            prop="businessStatus"
+            :width="getWorkOrderColumnWidthString('businessStatus', 100)"
+            v-bind="sortColumnAttrs('businessStatus')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('drawingNumber')"
+            label="图号"
+            align="center"
+            prop="drawingNumber"
+            :width="getWorkOrderColumnWidthString('drawingNumber', 140)"
+            v-bind="sortColumnAttrs('drawingNumber')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('refNo')"
+            label="REF.NO."
+            align="center"
+            prop="refNo"
+            :width="getWorkOrderColumnWidthString('refNo', 140)"
+            v-bind="sortColumnAttrs('refNo')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('auxiliaryCode')"
+            label="备注1助记码"
+            align="center"
+            prop="auxiliaryCode"
+            :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)"
+            v-bind="sortColumnAttrs('auxiliaryCode')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('scheduleStatus')"
+            label="排产状态"
+            align="center"
+            prop="scheduleStatus"
+            :width="getWorkOrderColumnWidthString('scheduleStatus', 110)"
+            v-bind="sortColumnAttrs('scheduleStatus')"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isWorkOrderColumnVisible('quantityProduced')"
+            label="已生产数量"
+            align="center"
+            prop="quantityProduced"
+            :width="getWorkOrderColumnWidthString('quantityProduced', 110)"
+            v-bind="sortColumnAttrs('quantityProduced')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('status')"
+            label="工单状态"
+            align="center"
+            prop="status"
+            :width="getWorkOrderColumnWidthString('status', 100)"
+            v-bind="sortColumnAttrs('status')"
+            ><template #default="scope"
+              ><dict-tag :type="DICT_TYPE.MES_PRO_WORK_ORDER_STATUS" :value="scope.row.status" />
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('clientName')"
+            label="客户名称"
+            align="center"
+            prop="clientName"
+            :width="getWorkOrderColumnWidthString('clientName', 120)"
+            v-bind="sortColumnAttrs('clientName')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productionMaterialList')"
+            label="生产用料清单"
+            align="center"
+            prop="productionMaterialList"
+            :min-width="getWorkOrderColumnMinWidthString('productionMaterialList', 220)"
+            v-bind="sortColumnAttrs('productionMaterialList')"
+          >
+            <template #default="scope">
+              <el-link
+                v-if="scope.row.productionMaterialListCount > 0"
+                type="primary"
+                @click="handleOpenProductionMaterialList(scope.row)"
+              >
+                {{
+                  scope.row.productionMaterialListSummary ||
+                  `共 ${scope.row.productionMaterialListCount} 张`
+                }}
+              </el-link>
+              <span v-else>无</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('createTime')"
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            :formatter="dateFormatter"
+            :width="getWorkOrderColumnWidthString('createTime', 180)"
+            v-bind="sortColumnAttrs('createTime')"
+          />
+          <el-table-column
+            v-if="false"
+            label="操作"
+            prop="operation"
+            align="center"
+            width="220"
+            fixed="right"
+          >
+            <template #default="scope">
+              <el-button
+                v-show="false"
+                class="app-test-button"
+                v-if="testModeEnabled"
+                link
+                type="primary"
+                :loading="erpCreateLoadingId === scope.row.id"
+                @click="handleCreateKingdeeProductionOrder(scope.row)"
+                v-hasPermi="['mes:pro-work-order:create-erp']"
+              >
+                <Icon icon="ep:plus" class="mr-5px" /> 测试添加
+              </el-button>
+              <el-button
+                class="app-test-button"
+                v-if="testModeEnabled"
+                link
+                type="primary"
+                @click="openAiE2eDialog(scope.row)"
+                data-edhr-ai-e2e-open
+                v-hasPermi="['mes:pro-work-order:create-erp']"
+                >AI E2E</el-button
+              >
+              <el-button
+                link
+                type="primary"
+                @click="handleOpenBatchRecord(scope.row)"
+                v-hasPermi="['mes:pro-edhr-batch-execution:create']"
+              >
+                批记录
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </template>
     </UnifiedListTemplate>
@@ -264,32 +350,126 @@
 
   <WorkOrderForm ref="formRef" @success="getList" />
 
-  <el-dialog v-if="testModeEnabled" v-model="aiE2eDialog.visible" title="创建 AI E2E 测试生产订单" width="520px">
+  <el-dialog v-if="testModeEnabled" v-model="localTestDialog.visible" title="准备本轮虚拟数据" width="900px" :close-on-click-modal="false">
+    <el-alert title="本地虚拟来源，不计入 ERP 同步。只准备本轮输入，不自动提交、审批或办理生产业务。相同 RUN 与槽位复用原 ID、保留原状态；新 RUN 独立。" type="warning" :closable="false" class="mb-16px" />
+    <el-form label-width="120px" :disabled="localTestDialog.busy">
+      <el-form-item label="本轮 RUN" required>
+        <el-input v-model="localTestDialog.runId" data-local-test-run placeholder="输入本轮唯一 RUN，复用时填写原 RUN" />
+      </el-form-item>
+      <el-form-item label="正式申请" required>
+        <el-select v-model="localTestDialog.requestId" filterable :loading="localTestDialog.loadingProducts" placeholder="选择已完成的正式申请精确 ID" style="width: 100%" data-local-test-request>
+          <el-option v-for="product in localTestProducts" :key="product.requestId" :value="product.requestId" :label="`申请 ${product.requestId} · ${product.projectCode} · ${product.productCode} · ${product.productName}`" />
+        </el-select>
+        <span v-if="!localTestDialog.loadingProducts && !localTestDialog.error && !localTestProducts.length" class="text-red-500">暂无已完成申请，请先完成项目产品申请。</span>
+        <el-button link type="primary" @click="router.push('/mdm/product-catalog')">处理正式项目产品申请</el-button>
+      </el-form-item>
+      <el-descriptions v-if="localTestProduct" :column="2" border class="mb-16px">
+        <el-descriptions-item label="申请 ID">{{ localTestProduct.requestId }}</el-descriptions-item>
+        <el-descriptions-item label="项目 ID">{{ localTestProduct.projectId }}</el-descriptions-item>
+        <el-descriptions-item label="产品目录 ID">{{ localTestProduct.catalogId }}</el-descriptions-item>
+        <el-descriptions-item label="关系 ID">{{ localTestProduct.relationId }}</el-descriptions-item>
+        <el-descriptions-item label="MES 产品 ID">{{ localTestProduct.mesProductId ?? '缺失，预检后处理' }}</el-descriptions-item>
+        <el-descriptions-item label="产品">{{ localTestProduct.productCode }} · {{ localTestProduct.productName }}</el-descriptions-item>
+      </el-descriptions>
+      <el-form-item label="本轮槽位"><span data-local-test-slot>A、B 两槽，共用所选正式申请及产品关系</span></el-form-item>
+      <el-table :data="localTestInputOrders" border>
+        <el-table-column prop="slot" label="槽位" width="70" />
+        <el-table-column label="数量" width="180"><template #default="{ row }"><el-input-number v-model="row.quantity" :min="0.01" :precision="2" :max="999999999999.99" :disabled="localTestDialog.busy" /></template></el-table-column>
+        <el-table-column label="生产批号"><template #default="{ row }"><el-input v-model="row.batchCode" :maxlength="64" :disabled="localTestDialog.busy" /></template></el-table-column>
+        <el-table-column label="包含补料" width="110"><template #default="{ row }"><el-switch v-model="row.includeReplenishment" :disabled="localTestDialog.busy" /></template></el-table-column>
+      </el-table>
+    </el-form>
+    <el-alert v-if="localTestDialog.error" :title="localTestDialog.error" type="error" :closable="false" class="mt-12px" />
+    <template v-if="localTestPreflight">
+      <el-alert :title="localTestPreflight.ready ? '预检可用，可以准备本轮输入。' : '预检发现缺口，完成处理后重新预检。'" :type="localTestPreflight.ready ? 'success' : 'error'" :closable="false" class="mt-12px" />
+      <el-table :data="localTestPreflight.checks" border class="mt-12px" empty-text="未返回依赖检查项">
+        <el-table-column prop="code" label="检查项" /><el-table-column label="可用状态" width="100"><template #default="{ row }"><el-tag :type="row.ready ? 'success' : 'danger'">{{ row.ready ? '可用' : '缺失' }}</el-tag></template></el-table-column><el-table-column prop="message" label="检查说明" />
+        <el-table-column label="处理入口"><template #default="{ row }"><el-button v-if="row.path" link type="primary" @click="router.push(row.path)">前往处理</el-button><span v-else>请联系配置维护人员</span></template></el-table-column>
+      </el-table>
+    </template>
+    <template v-if="localTestPreflight || localTestResult">
+      <p>本地虚拟来源：LOCAL_TEST_RUN · RUN：{{ localTestResult?.runId || localTestDialog.runId }} · 源键：RUN + 槽位</p>
+      <el-table :data="localTestResult?.orders || localTestPreflight?.orders || []" border>
+        <el-table-column prop="slot" label="槽位" width="70" /><el-table-column prop="workOrderId" label="工单 ID" />
+        <el-table-column prop="manifestId" label="来源 ID" />
+        <el-table-column prop="workOrderCode" label="工单编号" /><el-table-column prop="status" label="当前状态" />
+        <el-table-column label="处理结果"><template #default="{ row }">{{ row.reused ? '复用原记录，状态不变' : localTestResult ? '本轮新建' : '待准备' }}</template></el-table-column>
+      </el-table>
+    </template>
+    <template #footer>
+      <el-button :disabled="localTestDialog.busy" @click="localTestDialog.visible = false">关闭</el-button>
+      <el-button :loading="localTestDialog.busy" @click="preflightLocalTestData" data-local-test-preflight>预检</el-button>
+      <el-button type="primary" :loading="localTestDialog.busy" :disabled="!localTestCanPrepare" @click="prepareLocalTestData" data-local-test-prepare>确认准备本轮输入</el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-if="testModeEnabled"
+    v-model="aiE2eDialog.visible"
+    title="创建 AI E2E 测试生产订单"
+    width="520px"
+  >
     <el-form label-width="110px">
       <el-form-item label="运行编号">
-        <el-input data-edhr-ai-e2e-run-id v-model="aiE2eDialog.runId" placeholder="AI-EDHR-20260915T120000-A1B2" />
+        <el-input
+          data-edhr-ai-e2e-run-id
+          v-model="aiE2eDialog.runId"
+          placeholder="AI-EDHR-20260915T120000-A1B2"
+        />
       </el-form-item>
       <el-form-item label="订单槽位">
         <el-select data-edhr-ai-e2e-slot v-model="aiE2eDialog.slot" style="width: 100%">
-          <el-option v-for="slot in ['O01', 'O02', 'O03', 'O04', 'O05']" :key="slot" :label="slot" :value="slot" />
+          <el-option
+            v-for="slot in ['O01', 'O02', 'O03', 'O04', 'O05']"
+            :key="slot"
+            :label="slot"
+            :value="slot"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="固定数量">
-        <el-input-number data-edhr-ai-e2e-quantity v-model="aiE2eDialog.quantity" :min="100" :max="100" :step="1" controls-position="right" />
+        <el-input-number
+          data-edhr-ai-e2e-quantity
+          v-model="aiE2eDialog.quantity"
+          :min="100"
+          :max="100"
+          :step="1"
+          controls-position="right"
+        />
         <span class="ml-8px">100件</span>
       </el-form-item>
       <el-form-item label="生产批号">
-        <el-input data-edhr-ai-e2e-batch-number v-model="aiE2eDialog.batchNumber" :placeholder="`${aiE2eDialog.runId}-B01`" />
+        <el-input
+          data-edhr-ai-e2e-batch-number
+          v-model="aiE2eDialog.batchNumber"
+          :placeholder="`${aiE2eDialog.runId}-B01`"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="aiE2eDialog.visible = false">取消</el-button>
-      <el-button class="app-test-button" data-edhr-ai-e2e-submit type="primary" :loading="aiE2eDialog.loading" @click="submitAiE2eOrder">创建</el-button>
+      <el-button
+        class="app-test-button"
+        data-edhr-ai-e2e-submit
+        type="primary"
+        :loading="aiE2eDialog.loading"
+        @click="submitAiE2eOrder"
+        >创建</el-button
+      >
     </template>
   </el-dialog>
 </template>
-
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter, formatErpListInteger } from '@/views/erp/utils/integerDisplay'
 import { useTestMode } from '@/store/modules/testMode'
 
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -299,15 +479,15 @@ import download from '@/utils/download'
 import { handleTree } from '@/utils/tree'
 import {
   ProWorkOrderApi,
-  type ProWorkOrderVO
+  type ProWorkOrderVO,
+  type LocalTestApprovedProductVO, type LocalTestDataRequest, type LocalTestOrderInput,
+  type LocalTestPreflightVO, type LocalTestDataResultVO
 } from '@/api/mes/pro/workorder'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import WorkOrderForm from './WorkOrderForm.vue'
 import { useTreeTableExpand } from '@/utils/treeExpand'
-import { checkRole } from '@/utils/permission'
+import { checkRole, checkPermi } from '@/utils/permission'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
@@ -321,7 +501,114 @@ defineOptions({ name: 'MesProWorkOrder' })
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
-const workOrderTableMaxHeight = 'calc(100vh - 240px)'
+const localTestProducts = ref<LocalTestApprovedProductVO[]>([])
+const localTestPreflight = ref<LocalTestPreflightVO>()
+const localTestResult = ref<LocalTestDataResultVO>()
+const localTestCheckedPayload = ref('')
+const localTestDialog = reactive({
+  visible: false, busy: false, loadingProducts: false, runId: '', requestId: '',
+  error: '',
+  orders: [
+    { slot: 'A', quantity: 100, batchCode: '', includeReplenishment: false },
+    { slot: 'B', quantity: 100, batchCode: '', includeReplenishment: false }
+  ] as LocalTestOrderInput[]
+})
+const localTestProduct = computed(() => localTestProducts.value.find(row => row.requestId === localTestDialog.requestId))
+const localTestInputOrders = computed(() => localTestDialog.orders)
+const buildLocalTestPayload = (): LocalTestDataRequest => {
+  const product = localTestProduct.value
+  if (!product) throw new Error('请选择已完成的正式申请精确 ID')
+  const runId = localTestDialog.runId.trim()
+  if (!runId) throw new Error('请输入本轮 RUN')
+  const orders = localTestInputOrders.value.map(row => ({ ...row, batchCode: row.batchCode.trim() }))
+  if (orders.some(row => !row.batchCode || !Number.isFinite(row.quantity) || row.quantity <= 0)) {
+    throw new Error('每个槽位必须填写有效数量和生产批号')
+  }
+  return {
+    source: 'LOCAL_TEST_RUN', runId, requestId: product.requestId, projectId: product.projectId,
+    catalogId: product.catalogId, relationId: product.relationId, mesProductId: product.mesProductId, orders
+  }
+}
+const localTestCanPrepare = computed(() => Boolean(localTestPreflight.value?.ready)
+  && !localTestPreflight.value?.missing.length && !localTestDialog.busy && !localTestResult.value)
+const assertLocalTestAccess = () => {
+  if (!testModeEnabled.value || !checkPermi(['mes:pro-work-order:create'])) {
+    throw new Error('仅测试模式且具备生产工单创建权限时可准备虚拟数据')
+  }
+}
+const localTestError = (error: unknown) => error instanceof Error ? error.message : String(error)
+const openLocalTestData = async () => {
+  assertLocalTestAccess()
+  localTestDialog.visible = true
+  localTestDialog.error = ''
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+  localTestProducts.value = []
+  localTestDialog.requestId = ''
+  localTestDialog.loadingProducts = true
+  try {
+    localTestProducts.value = await ProWorkOrderApi.getLocalTestApprovedProducts()
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.loadingProducts = false
+  }
+}
+const preflightLocalTestData = async () => {
+  localTestDialog.error = ''
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+  try {
+    assertLocalTestAccess()
+    const payload = buildLocalTestPayload()
+    const fingerprint = JSON.stringify(payload)
+    localTestDialog.busy = true
+    const result = await ProWorkOrderApi.preflightLocalTestData(payload)
+    if (JSON.stringify(buildLocalTestPayload()) !== fingerprint) throw new Error('输入已变化，请重新预检')
+    localTestPreflight.value = result
+    localTestCheckedPayload.value = fingerprint
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.busy = false
+  }
+}
+const prepareLocalTestData = async () => {
+  localTestDialog.error = ''
+  try {
+    assertLocalTestAccess()
+    const payload = buildLocalTestPayload()
+    const fingerprint = JSON.stringify(payload)
+    if (!localTestCanPrepare.value || fingerprint !== localTestCheckedPayload.value) {
+      throw new Error('必须先对当前输入完成可用预检，缺失项禁止创建')
+    }
+    localTestDialog.busy = true
+    const confirmed = await message.confirm(`确认准备本地虚拟输入？来源 LOCAL_TEST_RUN，RUN ${payload.runId}，正式申请 ${payload.requestId}，槽位 ${payload.orders.map(row => row.slot).join('、')}。不计 ERP 同步，不自动办理业务。相同参数复用原 ID/原状态；相同 RUN 参数不同将报冲突。`).then(() => true, (reason: unknown) => {
+      if (reason === 'cancel' || reason === 'close') return false
+      throw reason
+    })
+    if (!confirmed) return
+    if (JSON.stringify(buildLocalTestPayload()) !== fingerprint || !testModeEnabled.value) throw new Error('输入或测试模式已变化，请重新预检')
+    assertLocalTestAccess()
+    localTestResult.value = await ProWorkOrderApi.prepareLocalTestData(payload)
+    message.success('本轮虚拟输入已准备，当前状态见结果表')
+    await getList()
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.busy = false
+  }
+}
+watch(() => [localTestDialog.runId, localTestDialog.requestId, JSON.stringify(localTestDialog.orders)], () => {
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+}, { flush: 'sync' })
 const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工单编号', width: 340 },
   { key: 'productCode', label: '产品编码', width: 260 },
@@ -343,7 +630,6 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'clientName', label: '客户名称', width: 120 },
   { key: 'productionMaterialList', label: '生产用料清单', minWidth: 220 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'operation', label: '操作', width: 220, hideable: false, business: false }
 ]
 const {
   columns: workOrderColumns,
@@ -364,6 +650,8 @@ const loading = ref(true) // 列表的加载中
 const list = ref<WorkOrderTreeRow[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -373,7 +661,6 @@ const queryParams = reactive({
   quickFilter: undefined as any
 })
 const exportLoading = ref(false) // 导出的加载中
-const kingdeeSyncLoading = ref(false) // 金蝶同步加载中
 const erpCreateLoadingId = ref<number | null>(null) // 行级创建 ERP 订单加载中
 const aiE2eDialog = reactive({
   visible: false,
@@ -386,14 +673,18 @@ const aiE2eDialog = reactive({
 const openedRouteDetailId = ref('')
 const formRef = ref<any>()
 const { isExpandAll, refreshTable } = useTreeTableExpand(true)
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await ProWorkOrderApi.getWorkOrderPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = handleTree(data.list, 'id', 'parentId') as WorkOrderTreeRow[]
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 type ProductSuggestion = MdItemVO & {
@@ -492,16 +783,6 @@ const loadListFromRoute = async () => {
   openedRouteDetailId.value = openId
   openForm('detail', Number(openId))
 }
-const handleSyncKingdeeWorkOrders = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_ORDER')
-    message.success('生产工单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 const handleCreateKingdeeProductionOrder = async (row: WorkOrderTreeRow) => {
   await message.confirm(`确认根据生产工单 ${row.code} 创建 ERP 测试生产订单？`)
   erpCreateLoadingId.value = row.id
@@ -561,6 +842,27 @@ watch(
   }
 )
 onMounted(loadListFromRoute)
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'quantity',
+    label: '计划数量',
+    type: 'text',
+    getValue: (row) => [formatErpListInteger(row.quantity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '工单状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_PRO_WORK_ORDER_STATUS)
+  }
+])
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, workOrderQuickFilter.state, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>
 
 <style scoped>

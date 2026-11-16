@@ -215,6 +215,34 @@ class DccApprovalPositionAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(99L, rows.get(0).getUserId());
     }
 
+    @Test
+    void replaceAssignments_persistsRelationshipWithoutConvertingItToAnAccount() {
+        DccApprovalPositionDO position = createPosition("RELATION-RULE", "动态审核", "LOCAL", true);
+        DccPositionAssignmentSaveReqVO relation = new DccPositionAssignmentSaveReqVO();
+        relation.setAssignmentType("DIRECT_SUPERVISOR");
+        relation.setActive(true);
+        positionAdminService.replaceAssignments(position.getId(), List.of(relation));
+        List<DccPositionAssignmentDO> saved = assignmentMapper.selectList(DccPositionAssignmentDO::getPositionId, position.getId());
+        assertEquals(1, saved.size());
+        assertEquals("DIRECT_SUPERVISOR", saved.get(0).getAssignmentType());
+        org.junit.jupiter.api.Assertions.assertNull(saved.get(0).getUserId());
+        org.junit.jupiter.api.Assertions.assertNull(saved.get(0).getSystemPostId());
+    }
+
+    @Test
+    void relationshipWithFixedUserFailsBeforeReplacingExistingConfiguration() {
+        DccApprovalPositionDO position = createPosition("RELATION-INVALID", "动态审核", "LOCAL", true);
+        positionAdminService.replaceAssignments(position.getId(), List.of(DccPositionAssignmentSaveReqVOBuilder.user(99L)));
+        DccPositionAssignmentSaveReqVO relation = DccPositionAssignmentSaveReqVOBuilder.user(99L);
+        relation.setAssignmentType("DEPT_LEADER");
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                () -> positionAdminService.replaceAssignments(position.getId(), List.of(relation)));
+        List<DccPositionAssignmentDO> saved = assignmentMapper.selectList(DccPositionAssignmentDO::getPositionId, position.getId());
+        assertEquals(1, saved.size());
+        assertEquals("USER", saved.get(0).getAssignmentType());
+        assertEquals(99L, saved.get(0).getUserId());
+    }
+
     private static final class DccPositionAssignmentSaveReqVOBuilder {
         private static DccPositionAssignmentSaveReqVO user(Long userId) {
             DccPositionAssignmentSaveReqVO reqVO = new DccPositionAssignmentSaveReqVO();

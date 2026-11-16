@@ -78,6 +78,9 @@ public class SignatureGovernanceRecordRespVO {
     @Schema(description = "证据状态")
     private String evidenceStatus;
 
+    @Schema(description = "导出时的证据核验范围")
+    private String verificationSummary;
+
     @Schema(description = "签名图片 ID")
     private Long signatureImageId;
 

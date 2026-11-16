@@ -57,6 +57,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
 
     private ErpKingdeeProperties kingdeeProperties;
     private MesKingdeeProductionOrderCreateServiceImpl createService;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard localTestRunSourceGuard;
 
     @BeforeEach
     void setUp() {
@@ -71,6 +72,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
         createService = new MesKingdeeProductionOrderCreateServiceImpl(
                 productionOrderClient, kingdeeConfigService, workOrderService, itemService,
                 unitMeasureService, syncRecordMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(createService, "localTestRunSourceGuard", localTestRunSourceGuard);
     }
 
     @Test
@@ -114,15 +116,17 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
     }
 
     @Test
-    void createAndSubmitProductionOrder_rejectsWhenExternalWriteDisabledBeforeLoadingWorkOrder() {
+    void createAndSubmitProductionOrder_rejectsWhenExternalWriteDisabledAfterCheckingLocalProvenance() {
         doThrow(new RuntimeException("ERP写权限已关闭")).when(kingdeeConfigService).assertExternalWriteEnabled();
+        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(buildQualifiedWorkOrder());
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> createService.createAndSubmitProductionOrder(100L));
 
         org.assertj.core.api.Assertions.assertThat(exception.getMessage()).contains("ERP写权限已关闭");
         verify(kingdeeConfigService).assertExternalWriteEnabled();
-        verifyNoInteractions(workOrderService, itemService, unitMeasureService, productionOrderClient, syncRecordMapper);
+        verify(workOrderService).validateWorkOrderExists(100L);
+        verifyNoInteractions(itemService, unitMeasureService, productionOrderClient, syncRecordMapper);
     }
 
     @Test

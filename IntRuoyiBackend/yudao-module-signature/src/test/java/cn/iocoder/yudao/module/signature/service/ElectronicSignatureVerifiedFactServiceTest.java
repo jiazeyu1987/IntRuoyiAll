@@ -72,6 +72,8 @@ class ElectronicSignatureVerifiedFactServiceTest {
         users = mock(AdminUserApi.class);
         adapter = mock(ElectronicSignatureSubjectAdapter.class, CALLS_REAL_METHODS);
         when(adapter.moduleCode()).thenReturn("MES");
+        when(adapter.serverTimeResolution(any(), any())).thenCallRealMethod();
+        when(adapter.bindServerSignedAt(any(), any(), any())).thenCallRealMethod();
         when(adapter.supportedActions()).thenReturn(Set.of(
                 new SignatureActionDefinition("MES", "APPROVE", "TYPE", "APPROVE", "批准", "p1")));
         snapshot("{\"value\":\"中文事实\",\"list\":[1,2]}", null, null, null);
@@ -101,7 +103,13 @@ class ElectronicSignatureVerifiedFactServiceTest {
         when(policyMapper.selectByPolicyVersionForUpdate(1L, "audit-p1", "signature.record.create"))
                 .thenReturn(policy);
 
+        var auditUsers = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var auditActor = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
+        auditActor.setId(7L); auditActor.setTenantId(1L); auditActor.setStatus(0);
+        auditActor.setUsername("operator"); auditActor.setNickname("设备操作员");
+        when(auditUsers.selectGxpAuditActor(1L, 7L)).thenReturn(auditActor);
         var auditWriter = new GxpAuditServiceImpl();
+        ReflectionTestUtils.setField(auditWriter, "adminUserMapper", auditUsers);
         ReflectionTestUtils.setField(auditWriter, "auditEventMapper", audits);
         ReflectionTestUtils.setField(auditWriter, "ledgerSequenceMapper", ledgerMapper);
         ReflectionTestUtils.setField(auditWriter, "policyActivationMapper", activationMapper);
@@ -114,6 +122,11 @@ class ElectronicSignatureVerifiedFactServiceTest {
         when(directory.selectGxpAuditActor(1L, 7L)).thenReturn(account);
         ReflectionTestUtils.setField(auditWriter, "adminUserMapper", directory);
         writer = new ElectronicSignatureServiceImpl();
+        var systemIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        var employeeIdentity=mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        when(systemIdentity.identityDomain()).thenReturn("SYSTEM_USER"); when(employeeIdentity.identityDomain()).thenReturn("MES_EMPLOYEE_PROFILE");
+        when(systemIdentity.credentialType(anyLong())).thenReturn("PASSWORD"); when(employeeIdentity.credentialType(anyLong())).thenReturn("PASSWORD");
+        ReflectionTestUtils.setField(writer,"authenticationProviders",List.of(systemIdentity,employeeIdentity));
         ReflectionTestUtils.setField(writer, "signatureRecordMapper", records);
         ReflectionTestUtils.setField(writer, "adminUserApi", users);
         ReflectionTestUtils.setField(writer, "gxpAuditService", auditWriter);
@@ -170,6 +183,27 @@ class ElectronicSignatureVerifiedFactServiceTest {
         verify(records, never()).insert(any(ElectronicSignatureRecordDO.class));
         verify(audits, never()).insert(any(GxpAuditEventDO.class));
         verifyNoInteractions(adapter, users);
+    }
+
+    @Test
+    void developmentDisablesOnlyAuditBindingAndStillRejectsTamperedSignature() {
+        sign("SYSTEM_USER", "批准");
+        var env = new org.springframework.mock.env.MockEnvironment()
+                .withProperty("spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.1/test");
+        env.setActiveProfiles("local");
+        try {
+            new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);
+            clearInvocations(audits);
+            var fact=service.requireVerifiedFact(10L);
+            assertEquals("CONSISTENT", fact.verification().digestStatus());
+            assertEquals("CONSISTENT", fact.verification().timeConsistencyStatus());
+            assertEquals("DEVELOPMENT_DISABLED", fact.verification().auditBindingStatus());
+            assertTrue(fact.auditEventId()<0);
+            verifyNoInteractions(audits);
+            record.setCanonicalContentJson("{\"tampered\":true}");
+            assertThrows(ServiceException.class, ()->service.requireVerifiedFact(10L));
+            verifyNoInteractions(audits);
+        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL); }
     }
 
     @Test
@@ -712,4 +746,14 @@ class ElectronicSignatureVerifiedFactServiceTest {
         audit.setCanonicalEventJson(JsonUtils.toJsonString(sortedOracle(original)));
         audit.setEventHash(DigestUtil.sha256Hex(audit.getCanonicalEventJson()));
     }
+    @ParameterizedTest @ValueSource(strings={"ordinary","SYSTEM_USER","MES_EMPLOYEE_PROFILE"})
+    void pinEvidenceRetainsIdentityBindingAndVerifiesAgainstOriginalAudit(String domain) {
+        var providers=(java.util.List<cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi>)ReflectionTestUtils.getField(writer,"authenticationProviders");
+        providers.forEach(provider->when(provider.credentialType(anyLong())).thenReturn("PIN"));
+        sign(domain,"批准");
+        assertTrue(record.getAuthenticationMethod().endsWith("_PIN"));
+        var token=service.requireVerifiedFact(10L);
+        assertValid(token.verification(), "ordinary".equals(domain) ? List.of("IDENTITY_SNAPSHOT_MISSING") : List.of());
+    }
+
 }

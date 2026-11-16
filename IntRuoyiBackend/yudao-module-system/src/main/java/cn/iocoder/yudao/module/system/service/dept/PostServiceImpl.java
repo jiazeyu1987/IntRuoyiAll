@@ -12,9 +12,11 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -41,10 +43,11 @@ public class PostServiceImpl implements PostService {
     public Long createPost(PostSaveReqVO createReqVO) {
         var authority = approvalAuthority.lockGlobalRoleTenants();
         // 校验正确性
-        validatePostForCreateOrUpdate(null, createReqVO.getName(), createReqVO.getCode());
+        validatePostForCreateOrUpdate(null, createReqVO.getName());
 
         // 插入岗位
         PostDO post = BeanUtils.toBean(createReqVO, PostDO.class);
+        post.setCode(generatePostCode());
         if (postMapper.insert(post) != 1) throw new IllegalStateException("APPROVAL_POST_CREATE_ROW_COUNT");
         approvalAuthority.incrementLockedTenants(authority);
         return post.getId();
@@ -55,7 +58,7 @@ public class PostServiceImpl implements PostService {
     public void updatePost(PostSaveReqVO updateReqVO) {
         var authority = approvalAuthority.lockGlobalRoleTenants();
         // 校验正确性
-        validatePostForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getName(), updateReqVO.getCode());
+        validatePostForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getName());
 
         // 更新岗位
         PostDO updateObj = BeanUtils.toBean(updateReqVO, PostDO.class);
@@ -85,13 +88,24 @@ public class PostServiceImpl implements PostService {
         approvalAuthority.incrementLockedTenants(authority);
     }
 
-    private void validatePostForCreateOrUpdate(Long id, String name, String code) {
+    private String generatePostCode() {
+        // 全局审批权限锁已串行化岗位创建/导入；FOR UPDATE 使用当前读，避免等待锁后读取旧快照。
+        BigInteger next = postMapper.selectGeneratedCodesForUpdate().stream()
+                .filter(code -> code.matches("(?i)GW-[0-9]+"))
+                .map(code -> new BigInteger(code.substring(3)))
+                .max(BigInteger::compareTo).orElse(BigInteger.ZERO).add(BigInteger.ONE);
+        String code = String.format(Locale.ROOT, "GW-%03d", next);
+        if (code.length() > 64) {
+            throw new IllegalStateException("岗位编码流水号已超出数据库长度限制");
+        }
+        return code;
+    }
+
+    private void validatePostForCreateOrUpdate(Long id, String name) {
         // 校验自己存在
         validatePostExists(id);
         // 校验岗位名的唯一性
         validatePostNameUnique(id, name);
-        // 校验岗位编码的唯一性
-        validatePostCodeUnique(id, code);
     }
 
     private void validatePostNameUnique(Long id, String name) {
@@ -105,20 +119,6 @@ public class PostServiceImpl implements PostService {
         }
         if (!post.getId().equals(id)) {
             throw exception(POST_NAME_DUPLICATE);
-        }
-    }
-
-    private void validatePostCodeUnique(Long id, String code) {
-        PostDO post = postMapper.selectByCode(code);
-        if (post == null) {
-            return;
-        }
-        // 如果 id 为空，说明不用比较是否为相同 id 的岗位
-        if (id == null) {
-            throw exception(POST_CODE_DUPLICATE);
-        }
-        if (!post.getId().equals(id)) {
-            throw exception(POST_CODE_DUPLICATE);
         }
     }
 

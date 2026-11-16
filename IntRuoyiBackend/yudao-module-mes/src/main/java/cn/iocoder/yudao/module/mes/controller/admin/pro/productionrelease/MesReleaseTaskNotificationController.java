@@ -29,7 +29,7 @@ public class MesReleaseTaskNotificationController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-work-task:query')")
     public CommonResult<List<MesReleaseTaskNotifyDeliveryRespVO>> list(@RequestParam @Positive Long workTaskId) {
         return success(notificationService.listForTask(TenantContextHolder.getRequiredTenantId(), getLoginUserId(), workTaskId)
-                .stream().map(MesReleaseTaskNotifyDeliveryRespVO::from).toList());
+                .stream().map(row -> { var value=MesReleaseTaskNotifyDeliveryRespVO.from(row); value.setRetryAllowed(notificationService.canRetry(getLoginUserId(),row)); return value; }).toList());
     }
 
     @PostMapping("/retry")
@@ -38,5 +38,27 @@ public class MesReleaseTaskNotificationController {
         dispatchService.retryDelivery(TenantContextHolder.getRequiredTenantId(), getLoginUserId(),
                 request.getDeliveryId(), request.getExpectedVersion(), request.getReason());
         return success(true);
+    }
+
+    @GetMapping("/my-pending-outcomes")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-work-task:query')")
+    public CommonResult<List<MesReleaseOutcomeRecoveryRespVO>> myPendingOutcomes() {
+        return success(notificationService.listOwnPendingOutcomes(TenantContextHolder.getRequiredTenantId(), getLoginUserId())
+                .stream().map(MesReleaseOutcomeRecoveryRespVO::from).toList());
+    }
+
+    public record MesReleaseOutcomeRecoveryRespVO(String id, String workTaskId, String workOrderCode,
+                                                  String batchCode, String eventType) {
+        static MesReleaseOutcomeRecoveryRespVO from(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.productionrelease.MesReleaseTaskNotifyDeliveryDO row) {
+            var params = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(row.getTemplateParamsJson());
+            if (params == null || !params.path("workOrderCode").isTextual() || !params.path("batchCode").isTextual())
+                throw new IllegalStateException("放行结果通知缺少原订单或批号");
+            String order = params.get("workOrderCode").textValue();
+            String batch = params.get("batchCode").textValue();
+            if (order.isBlank() || batch.isBlank()) throw new IllegalStateException("放行结果通知缺少原订单或批号");
+            return new MesReleaseOutcomeRecoveryRespVO(row.getId().toString(), row.getWorkTaskId().toString(),
+                    order, batch, row.getEventType());
+        }
     }
 }

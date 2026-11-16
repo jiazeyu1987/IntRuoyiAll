@@ -55,6 +55,11 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
         } else if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
             reqVO.setEventIds(null);
+            if (!"HISTORY".equals(reqVO.getAllocationView())) {
+                Set<Long> employees = scopeService.listResponsibleEmployeeIds(leaderUserId, leaderType);
+                if (employees.isEmpty()) return PageResult.empty();
+                reqVO.setEmployeeUserIds(employees);
+            }
             Set<Long> processIds = listAuthorizedProcessIds(leaderUserId);
             if (processIds.isEmpty()) {
                 return PageResult.empty();

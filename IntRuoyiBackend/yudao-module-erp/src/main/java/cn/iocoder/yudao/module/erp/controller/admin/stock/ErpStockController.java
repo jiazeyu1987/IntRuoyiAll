@@ -117,7 +117,7 @@ public class ErpStockController {
         Map<Long, ErpWarehouseDO> warehouseMap = warehouseService.getWarehouseMap(
                 convertSet(pageResult.getList(), ErpStockDO::getWarehouseId));
         return BeanUtils.toBean(pageResult, ErpStockRespVO.class, stock -> {
-            MapUtils.findAndThen(productMap, stock.getProductId(), product -> stock.setProductName(product.getName())
+            MapUtils.findAndThen(productMap, stock.getProductId(), product -> stock.setProductBarCode(product.getBarCode()).setProductName(product.getName())
                     .setCategoryName(product.getCategoryName()).setUnitName(product.getUnitName()));
             MapUtils.findAndThen(warehouseMap, stock.getWarehouseId(), warehouse -> stock.setWarehouseName(warehouse.getName()));
         });

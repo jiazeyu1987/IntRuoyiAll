@@ -12,20 +12,13 @@
       label-width="68px"
     >
       <el-form-item label="产品" prop="productId">
-        <el-select
+        <RemoteProductSelect
           v-model="queryParams.productId"
           clearable
           filterable
           placeholder="请选择产品"
           class="!w-240px"
-        >
-          <el-option
-            v-for="item in productList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
+         />
       </el-form-item>
       <el-form-item label="仓库" prop="warehouseId">
         <el-select
@@ -152,7 +145,7 @@ import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { StockRecordApi, StockRecordVO } from '@/api/erp/stock/record'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
 import { erpCountTableColumnFormatter } from '@/utils'
 
@@ -176,7 +169,6 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
 
 /** 查询列表 */
@@ -250,7 +242,6 @@ onActivated(() => {
 onMounted(async () => {
   await getList()
   // 加载产品、仓库列表
-  productList.value = await ProductApi.getProductSimpleList()
   warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
 })
 </script>

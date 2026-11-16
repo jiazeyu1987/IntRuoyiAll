@@ -33,12 +33,15 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
     @Mock
     private ErpKingdeeSyncRunMapper runMapper;
 
+    @Mock
+    private ErpKingdeeSyncCancellation cancellation;
+
     private ErpKingdeeSyncRuntimeServiceImpl runtimeService;
 
     @BeforeEach
     void setUp() {
         runtimeService = new ErpKingdeeSyncRuntimeServiceImpl(
-                new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper));
+                new ErpKingdeeSyncRuntimeTransactionService(watermarkMapper, runMapper), cancellation);
     }
 
     @Test
@@ -184,6 +187,19 @@ class ErpKingdeeSyncRuntimeServiceImplTest {
         assertEquals(ErpKingdeeSyncRunStatusEnum.FAILED.getStatus(), runUpdateCaptor.getValue().getStatus());
         assertEquals(1000, runUpdateCaptor.getValue().getFailureMessage().length());
         assertEquals(longMessage.substring(0, 1000), runUpdateCaptor.getValue().getFailureMessage());
+    }
+
+    @Test
+    void cancellationNeverAdvancesWatermarkAndReleasesExecutionOwnership() {
+        org.mockito.Mockito.doThrow(new java.util.concurrent.CancellationException("stop"))
+                .when(cancellation).check(any());
+        when(cancellation.isRequested(any())).thenReturn(true);
+        assertThrows(java.util.concurrent.CancellationException.class, () -> runtimeService.executeSync(
+                buildCommand(), context -> ErpKingdeeSyncRunResult.success(context.getWindowEnd(), 1, 0, 0, 0)));
+        verify(watermarkMapper, never()).insert(any(ErpKingdeeSyncWatermarkDO.class));
+        verify(watermarkMapper, never()).updateById(any(ErpKingdeeSyncWatermarkDO.class));
+        verify(cancellation).unregister(any());
+        verify(cancellation).unlock(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER.getType());
     }
 
     private static ErpKingdeeSyncCommand buildCommand() {

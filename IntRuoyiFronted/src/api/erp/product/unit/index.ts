@@ -9,6 +9,22 @@ export interface ProductUnitVO {
 
 // ERP 产品单位 API
 export const ProductUnitApi = {
+  getImportTemplate: async () => {
+    return await request.download({ url: '/erp/product-unit/import-template' })
+  },
+
+  importProductUnits: async (
+    file: File
+  ): Promise<{ importedCount: number; skippedCount: number }> => {
+    const data = new FormData()
+    data.append('file', file)
+    return await request.post({
+      url: '/erp/product-unit/import',
+      data,
+      headersType: 'multipart/form-data'
+    })
+  },
+
   // 查询产品单位分页
   getProductUnitPage: async (params: any) => {
     return await request.get({ url: `/erp/product-unit/page`, params })

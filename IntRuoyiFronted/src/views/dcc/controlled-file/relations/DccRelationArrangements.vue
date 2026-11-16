@@ -4,12 +4,13 @@
     <el-table :data="relations" row-key="masterId">
       <el-table-column label="整改" width="64"><template #default="{ row }"><el-checkbox :disabled="readonly" :model-value="Boolean(arrangement(row.masterId))" @change="value => toggle(row.masterId, Boolean(value))" /></template></el-table-column>
       <el-table-column prop="fileName" label="关联文件" /><el-table-column prop="versionNo" label="受控版本" width="110" />
-      <el-table-column label="整改负责人"><template #default="{ row }"><el-select v-if="arrangement(row.masterId)" :disabled="readonly" :model-value="arrangement(row.masterId)?.assigneeUserId" placeholder="请选择负责人" @update:model-value="value => change(row.masterId, { assigneeUserId: value })"><el-option v-for="user in assignees" :key="user.id" :label="user.name" :value="user.id" /></el-select></template></el-table-column>
+      <el-table-column label="整改负责人"><template #default="{ row }"><UserSelectV2 v-if="arrangement(row.masterId)" :disabled="readonly" :model-value="arrangement(row.masterId)?.assigneeUserId" placeholder="请选择负责人" @update:model-value="value => change(row.masterId, { assigneeUserId: value })" :clearable="false" :user-options="assignees.map(user => ({ ...user, nickname: user.name }))" /></template></el-table-column>
       <el-table-column label="整改期限"><template #default="{ row }"><el-date-picker v-if="arrangement(row.masterId)" :disabled="readonly" :model-value="arrangement(row.masterId)?.dueAt" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="请选择期限" @update:model-value="value => change(row.masterId, { dueAt: value })" /></template></el-table-column>
     </el-table>
   </div>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type { FileCandidate } from './selector-state'
 import { validateArrangementForm } from './arrangement-form'
 import type { ArrangementForm } from './arrangement-form'

@@ -2,20 +2,13 @@
   <Dialog v-model="dialogVisible" title="按人反查查看矩阵" width="1180px">
     <div v-loading="loading">
       <div class="view-lookup-toolbar">
-        <el-select
+        <UserSelectV2 allow-inactive
           v-model="selectedUserId"
           class="view-lookup-toolbar__user"
           clearable
-          filterable
           placeholder="请选择用户"
-        >
-          <el-option
-            v-for="item in users"
-            :key="item.id"
-            :label="formatUserLabel(item)"
-            :value="item.id"
-          />
-        </el-select>
+          :user-options="users"
+        />
         <el-button type="primary" @click="loadLookup">
           <Icon icon="ep:search" class="mr-5px" />
           查询
@@ -105,13 +98,13 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   getViewMatrixUserLookup,
   type ControlledFileCapabilityStatus,
   type ControlledFileCategoryViewMatrixUserLookupVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
-import { formatDccSimpleUserLabel } from '../../shared/utils'
 
 defineOptions({ name: 'CategoryViewMatrixUserLookupDialog' })
 
@@ -123,7 +116,6 @@ const selectedUserId = ref<number>()
 const errorMessage = ref('')
 const message = useMessage()
 
-const formatUserLabel = (user: UserVO) => formatDccSimpleUserLabel(user)
 
 const capabilityLabel = (status: ControlledFileCapabilityStatus) => {
   if (status === 'YES') {

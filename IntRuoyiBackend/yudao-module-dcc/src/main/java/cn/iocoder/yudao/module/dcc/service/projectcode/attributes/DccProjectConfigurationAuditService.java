@@ -10,7 +10,7 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 public class DccProjectConfigurationAuditService {
     @Resource private GxpAuditService auditService;
     public void validateReason(String reason) {
-        if (reason == null || reason.isBlank() || reason.length() > 500) throw fail(INVALID);
+        if (reason == null || reason.isBlank() || reason.length() > 500) throw fail(CHANGE_REASON_INVALID);
     }
     public void append(String operation, Long id, String version, String reason, String before, String after) {
         validateReason(reason);

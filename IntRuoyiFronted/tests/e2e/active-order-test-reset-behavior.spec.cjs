@@ -14,9 +14,54 @@ const extract = name => {
   return page.slice(start, end)
 }
 const receipt = { workOrderCode: 'FIXED-TEST-01', activeOrderId: '9007199254741001', workOrderId: 42 }
+const createDataHarness = (api) => {
+  const successes = [], errors = []
+  const context = {
+    activeOrderTestResetBlocked: ref(false), activeOrderTestResetSubmitting: ref(false),
+    activeOrderTestDataSubmitting: ref(false), activeOrderTestDataReceipt: ref(undefined),
+    activeOrderTestDataSet: ref(1),
+    prepareFixedTestOrderData: api,
+    ElMessage: { success: value => successes.push(value), error: value => errors.push(value) },
+    resolveErrorMessage: error => error.message
+  }
+  context.activeOrderTestResetBlocked = { get value() { return context.activeOrderTestResetSubmitting.value } }
+  vm.createContext(context)
+  vm.runInContext(ts.transpileModule(extract('handlePrepareFixedTestOrderData') + '\nglobalThis.run = handlePrepareFixedTestOrderData', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  return { context, successes, errors, run: context.run }
+}
+
+test('data preparation displays actual created/skipped counts and sends one request while busy', async () => {
+  let resolve, calls = 0
+  const h = createDataHarness(() => { calls++; return new Promise(done => { resolve = done }) })
+  const first = h.run()
+  await h.run()
+  assert.equal(h.context.activeOrderTestDataSubmitting.value, true)
+  assert.equal(calls, 1)
+  resolve({ workOrderCode: 'FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, deletedCount: 0, skippedCount: 2, repairedCount: 0 })) })
+  await first
+  assert.equal(h.context.activeOrderTestDataReceipt.value.success, true)
+  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、移除旧模拟数据0条、跳过已有2条、修复关联0条/)
+  assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+})
+
+test('data preparation failures and invalid receipts never report success and release the mutation lock', async () => {
+  for (const api of [async () => { throw new Error('单据缺失') }, async () => ({ workOrderCode: 'FIXED', documents: [] }),
+    async () => ({ workOrderCode: 'FIXED', documents: Array.from({ length: 4 }, () => ({ name: '领料单', createdCount: 1, deletedCount: 0, skippedCount: 0, repairedCount: -1 })) })]) {
+    const h = createDataHarness(api)
+    await h.run()
+    assert.equal(h.successes.length, 0)
+    assert.equal(h.errors.length, 1)
+    assert.equal(h.context.activeOrderTestDataReceipt.value.success, false)
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+    assert.equal(h.context.activeOrderTestDataSubmitting.value, false)
+  }
+})
+
 const createHarness = (overrides = {}) => {
   const calls = [], successes = [], errors = [], warnings = []
   const context = {
+    testModeEnabled: ref(true),
+    activeOrderTestResetReceipt: ref(undefined),
     activeOrderTestResetSubmitting: ref(false), maintenanceSubmitting: ref(false),
     activeOrderSimulationSubmittingId: ref(undefined), teamLeaderDataCleanupSubmitting: ref(false),
     activeOrderRebuildSubmittingId: ref(undefined),
@@ -25,6 +70,7 @@ const createHarness = (overrides = {}) => {
     activeOrderWorkOrderKeyword: ref('OLD-ORDER'), activeOrderQuery: { pageNo: 8, pageSize: 10 },
     activeOrderOptions: ref([]),
     computed: getter => ({ get value() { return getter() } }),
+    ElMessageBox: { confirm: async () => {} },
     resetFixedSimulationActiveOrder: async (...args) => { calls.push(args); return receipt },
     loadActiveOrders: async () => { context.activeOrderOptions.value = [{ id: receipt.activeOrderId, workOrderCode: receipt.workOrderCode }] },
     ElMessage: { success: message => successes.push(message), error: message => errors.push(message), warning: message => warnings.push(message) },
@@ -36,6 +82,13 @@ const createHarness = (overrides = {}) => {
   vm.runInContext(ts.transpileModule(busy + '\n' + extract('handleResetFixedSimulationActiveOrder') + '\nglobalThis.run = handleResetFixedSimulationActiveOrder', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return { context, calls, successes, errors, warnings, run: context.run }
 }
+
+test('disabled test mode blocks the reset handler even if it is invoked directly', async () => {
+  const h = createHarness({ testModeEnabled: ref(false) })
+  await h.run()
+  assert.equal(h.calls.length, 0)
+  assert.equal(h.successes.length, 0)
+})
 
 test('reset keeps the no-argument API and focuses the returned fixed order on page one', async () => {
   const h = createHarness()
@@ -51,13 +104,53 @@ test('reset keeps the no-argument API and focuses the returned fixed order on pa
 
 test('a repeated click while reset is pending sends only one request', async () => {
   let count = 0
+  let markStarted
+  const started = new Promise(resolve => { markStarted = resolve })
   const resolvers = []
-  const h = createHarness({ resetFixedSimulationActiveOrder: () => { count++; return new Promise(done => { resolvers.push(done) }) } })
+  const h = createHarness({ resetFixedSimulationActiveOrder: () => {
+    count++
+    markStarted()
+    return new Promise(done => { resolvers.push(done) })
+  } })
   const pending = h.run()
+  await started
   const repeated = h.run()
   for (const resolve of resolvers) resolve(receipt)
   await Promise.all([pending, repeated])
   assert.equal(count, 1)
+})
+
+test('cancelling reset confirmation preserves the receipt, skips the write and releases the lock', async () => {
+  for (const reason of ['cancel', 'close']) {
+    const previousReceipt = { state: 'success', message: 'previous reset' }
+    const h = createHarness({
+      activeOrderTestResetReceipt: ref(previousReceipt),
+      ElMessageBox: { confirm: async () => { throw reason } }
+    })
+    await h.run()
+    assert.equal(h.calls.length, 0)
+    assert.equal(h.errors.length, 0)
+    assert.equal(h.successes.length, 0)
+    assert.equal(h.context.activeOrderTestResetReceipt.value, previousReceipt)
+    assert.equal(h.context.activeOrderWorkOrderKeyword.value, 'OLD-ORDER')
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  }
+})
+
+test('a pending confirmation blocks repeated clicks and writes only after approval', async () => {
+  let approve, confirmCalls = 0
+  const h = createHarness({ ElMessageBox: { confirm: () => {
+    confirmCalls++
+    return new Promise(resolve => { approve = resolve })
+  } } })
+  const pending = h.run()
+  await h.run()
+  assert.equal(confirmCalls, 1)
+  assert.equal(h.calls.length, 0)
+  approve()
+  await pending
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.successes.length, 1)
 })
 
 test('a completed reset unlocks the same button for the next deliberate reset', async () => {
@@ -84,6 +177,21 @@ test('request failure remains visible, preserves current filter and unlocks rese
   assert.match(h.errors[0], /reset refused/)
   assert.equal(h.context.activeOrderWorkOrderKeyword.value, 'OLD-ORDER')
   assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'unknown')
+})
+
+test('missing tenant orders, project QA and route prerequisites and cleanup rejections report a definite rollback', async () => {
+  for (const code of [1040760394, 1040502000, '1040502000', 1040506111, 1040760324, '1040760324']) {
+    const h = createHarness({ resetFixedSimulationActiveOrder: async () => {
+      throw Object.assign(new Error('production order missing or cleanup refused'), { code })
+    } })
+    await h.run()
+    assert.equal(h.successes.length, 0)
+    assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'rejected')
+    assert.match(h.errors[0], /重置已拒绝.*本次未完成重置/)
+    assert.equal(h.context.activeOrderWorkOrderKeyword.value, 'OLD-ORDER')
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  }
 })
 
 test('refresh failure reports that reset already succeeded and does not repeat the write', async () => {
@@ -109,11 +217,11 @@ test('missing reset identity or a refreshed list without that identity is not sh
   assert.match(h.errors[0], /未找到.*活跃订单/)
 })
 
-test('visible reset and mutation controls prevent concurrent work and retain original reset semantics', () => {
+test('visible reset identifies test orders and mutation controls prevent concurrent work', () => {
   const resetButton = page.match(/<el-button\s[^>]*data-team-leader-reset-fixed-active-order[\s\S]*?<\/el-button>/)?.[0]
   assert.ok(resetButton)
   assert.match(resetButton, /:disabled="activeOrderTestResetBlocked"/)
-  assert.match(resetButton, /重置指定测试订单/)
+  assert.match(resetButton, /\n\s+重置测试订单\s*\n/)
   assert.match(resetButton, /清理.*本轮.*测试/)
   for (const marker of ['data-team-leader-simulate-active-order-stage1-p1', 'data-team-leader-active-order-release-apply', 'data-team-leader-data-cleanup']) {
     const index = page.indexOf(marker)

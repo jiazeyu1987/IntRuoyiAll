@@ -37,7 +37,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         if (tables == null || tables.isEmpty()) {
             throw new IllegalArgumentException("parsed Word tables are required");
         }
-        Product product = new Product(extractProductName(tables), extractProductCode(sourceFileName));
+        Product product = new Product(extractProductName(tables), extractProductCode(sourceFileName, tables));
         Map<String, MesProBatchRecordProcessMaterialExtractor.ProcessMaterialMapping> materialMappings =
                 new LinkedHashMap<>();
         for (MesProBatchRecordProcessMaterialExtractor.ProcessMaterialMapping mapping
@@ -89,12 +89,37 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         return "";
     }
 
-    private String extractProductCode(String sourceFileName) {
-        Matcher matcher = PRODUCT_CODE_PATTERN.matcher(sourceFileName.toUpperCase(Locale.ROOT));
-        if (!matcher.find()) {
-            throw new IllegalStateException("product code was not found in source file name: " + sourceFileName);
+    private String extractProductCode(String sourceFileName, List<MesProBatchRecordParsedTable> tables) {
+        // 文件名和文档内容都是编码证据；不按优先级覆盖，存在冲突时拒绝解析。
+        Set<String> codes = new LinkedHashSet<>();
+        collectProductCodes(sourceFileName, codes);
+        for (MesProBatchRecordParsedTable table : tables) {
+            collectProductCodes(safeRows(table), codes);
+            MesProBatchRecordDocumentFrame frame = table.getDocumentFrame();
+            if (frame != null) {
+                collectProductCodes(frame.getHeaderRows(), codes);
+                collectProductCodes(frame.getFooterRows(), codes);
+            }
         }
-        return matcher.group(1);
+        if (codes.isEmpty()) {
+            throw new IllegalStateException("未找到产品编码，请在文档或文件名中提供记录编号（如 RE-PP-IDI-01）");
+        }
+        if (codes.size() != 1) {
+            throw new IllegalStateException("文档与文件名中的产品编码不一致：" + String.join("、", codes));
+        }
+        return codes.iterator().next();
+    }
+
+    private void collectProductCodes(List<List<MesProBatchRecordParsedCell>> rows, Set<String> codes) {
+        if (rows == null) return;
+        for (List<MesProBatchRecordParsedCell> row : rows) {
+            collectProductCodes(rowText(row), codes);
+        }
+    }
+
+    private void collectProductCodes(String text, Set<String> codes) {
+        Matcher matcher = PRODUCT_CODE_PATTERN.matcher(normalized(text).toUpperCase(Locale.ROOT));
+        while (matcher.find()) codes.add(matcher.group(1));
     }
 
     private List<Material> convertMaterials(
@@ -299,7 +324,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                     throw new IllegalStateException("parameter values cannot be uniquely aligned: " + entry.getKey());
                 }
                 String referenceValue = values.size() == 1 ? values.get(0) : values.get(groupIndex);
-                groupParameters.add(toParameter(processName, entry.getKey(), referenceValue));
+                groupParameters.add(toParameter(entry.getKey(), referenceValue));
             }
             result.add(new EquipmentGroup(equipmentGroups.get(groupIndex), groupParameters,
                     selectionMode(processName)));
@@ -317,7 +342,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             String domain = parameterDomain(entry.getKey());
             parametersByDomain.computeIfAbsent(domain, ignored -> new ArrayList<>())
-                    .add(toParameter(processName, entry.getKey(), entry.getValue().get(0)));
+                    .add(toParameter(entry.getKey(), entry.getValue().get(0)));
         }
 
         if (equipmentByDomain.size() == 1) {
@@ -551,25 +576,15 @@ public class MesProBatchRecordTotalRecognitionExtractor {
     public record EquipmentOption(String code, String name) {
     }
 
-    private Parameter toParameter(String processName, String name, String referenceValue) {
-        String effectiveReference = referenceValue;
-        if ("粗洗工序".equals(processName) && "清洗介质".equals(name)) {
-            effectiveReference = "自来水";
-        }
-        if ("清洗温度".equals(name) && "室温".equals(referenceValue)) {
-            effectiveReference = "20-30℃";
-        }
-        Ui ui = resolveUi(processName, name, effectiveReference);
-        return new Parameter(name, effectiveReference, ACTUAL_VALUE_PLACEHOLDER, ui);
+    private Parameter toParameter(String name, String referenceValue) {
+        Ui ui = resolveUi(name, referenceValue);
+        return new Parameter(name, referenceValue, ACTUAL_VALUE_PLACEHOLDER, ui);
     }
 
-    private Ui resolveUi(String processName, String name, String referenceValue) {
+    private Ui resolveUi(String name, String referenceValue) {
         if ("清洗介质".equals(name)) {
             return new Ui("select", referenceValue, null, null, null, null, null,
-                    "自来水".equals(referenceValue) ? List.of("自来水", "纯化水") : List.of(referenceValue));
-        }
-        if ("清洗温度".equals(name) && "20-30℃".equals(referenceValue)) {
-            return new Ui("number", BigDecimal.valueOf(26), BigDecimal.ONE, BigDecimal.valueOf(20), BigDecimal.valueOf(30), "℃", null, null);
+                    List.of(referenceValue));
         }
         String unit = unit(name, referenceValue);
         Matcher plusMinus = Pattern.compile("(-?\\d+(?:\\.\\d+)?)±(\\d+(?:\\.\\d+)?)").matcher(referenceValue);

@@ -21,90 +21,20 @@
       @column-change="saveProjectCodeColumnConfig"
       @sort-change="handleSortChange"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <CatalogWorkbookActions import-label="导入产品信息" import-only @success="getList" />
         <el-button
 data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
-          type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
+          type="primary" plain @click="openProjectRequestEntry('create')">新建项目及产品</el-button>
         <el-button
 data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
           @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-product-onboarding-open"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openProductOnboardingDialog"
-          v-hasPermi="['dcc:project-code:create', 'dcc:project-code:update']"
-        >
-          <Icon icon="ep:connection" class="mr-5px" />
-          产品建档申请
-        </el-button>
-        <el-button
-          v-if="canRunProjectCodeListNameAutoClassify"
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-project-code-list-auto-classify-unclassified"
-          :loading="listUnclassifiedAutoClassifyRunning"
-          :disabled="
-            loading ||
-            exportLoading ||
-            previewLoading ||
-            confirmLoading ||
-            aiCategoryRunning ||
-            batchAiCategoryRunning ||
-            listUnclassifiedAutoClassifyRunning ||
-            unclassifiedAutoClassifyRunning
-          "
-          @click="handleListAutoClassifyUnclassifiedProjectCodes"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" />
-          按文件名归类未分类
-        </el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--primary"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openImportDialog"
-          v-hasPermi="['dcc:project-code:import']"
-        >
-          <Icon icon="ep:upload" class="mr-5px" />
-          导入
-        </el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--warning"
-          :loading="exportLoading"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="handleExport"
-          v-hasPermi="['dcc:project-code:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          导出
-        </el-button>
-        <el-button
-          v-if="canRunBatchAiCategory"
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-project-code-batch-ai-category"
-          :loading="batchAiCategoryRunning"
-          :disabled="
-            loading ||
-            exportLoading ||
-            previewLoading ||
-            confirmLoading ||
-            aiCategoryRunning ||
-            listUnclassifiedAutoClassifyRunning ||
-            unclassifiedAutoClassifyRunning
-          "
-          @click="handleBatchAiCategoryProjectCodes"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" />
-          批量AI分类
-        </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div
           v-if="listUnclassifiedAutoClassifyProgressVisible"
           class="dcc-project-code-batch-ai-category-progress"
@@ -212,7 +142,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.projectCode.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -280,7 +210,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           </el-table-column>
           <el-table-column
             v-if="isProjectCodeColumnVisible('batchRecordTotalRecognitionJson')"
-            label="批记录识别JSON"
+            label="批记录识别资料"
             prop="batchRecordTotalRecognitionJson"
             :width="getProjectCodeColumnWidthString('batchRecordTotalRecognitionJson', 140)"
           >
@@ -293,7 +223,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 data-testid="dcc-project-code-copy-recognition-json"
                 @click="copyBatchRecordTotalRecognitionJson(row)"
               >
-                复制JSON
+                复制资料
               </el-button>
               <el-button
                 link
@@ -303,7 +233,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 @click="openRecognitionJsonImport(row)"
                 v-hasPermi="['mes:pro-batch-record-template:update']"
               >
-                导入JSON
+                导入识别文件
               </el-button>
             </template>
           </el-table-column>
@@ -448,7 +378,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 详情
               </el-button>
               <el-button
-                v-if="row.productMasterId"
+                v-if="row.productMasterId && canOpenLinkedPage('/mes/md/showroom-product', 'mdm:product:query')"
                 link
                 class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
@@ -460,6 +390,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 link
                 class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
+                v-if="canOpenLinkedPage('/mdm/registration-certificate', 'dcc:registration-certificate:query-current')"
                 @click="openLinkedRegistrationCertificateManagement(row)"
               >
                 注册证
@@ -474,7 +405,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
   <el-dialog
     v-model="recognitionJsonImportVisible"
     class="scheme-d-form-control"
-    title="导入批记录识别 JSON"
+    title="导入批记录识别资料"
     width="520px"
     destroy-on-close
   >
@@ -604,6 +535,58 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       <el-form-item label="项目代码" prop="projectCode">
         <el-input v-model="formData.projectCode" placeholder="请输入项目代码" />
       </el-form-item>
+      <el-form-item label="关联MDM产品" prop="productMasterId">
+        <div class="w-full">
+          <div class="flex gap-8px">
+            <el-select
+              v-model="formData.productMasterId"
+              class="flex-1"
+              filterable
+              clearable
+              :value-on-clear="null"
+              :loading="bindingProductsLoading"
+              :disabled="!canQueryBindingProducts || bindingProductsLoading || bindingProductsFailed"
+              placeholder="请选择与当前项目对应的产品"
+              no-data-text="暂无产品，请先到产品主数据新增或导入"
+            >
+              <el-option
+                v-if="formData.productMasterId && !bindingProducts.some((product) => product.id === formData.productMasterId)"
+                :value="formData.productMasterId"
+                :label="`当前关联产品（ID：${formData.productMasterId}）`"
+                disabled
+              />
+              <el-option
+                v-for="product in bindingProducts"
+                :key="product.id"
+                :value="product.id"
+                :label="`${product.productCode} / ${product.nameCn}${product.modelSpecification ? ' / ' + product.modelSpecification : ''}${product.status !== MDM_PRODUCT_STATUS_ENABLE ? '（已停用）' : ''}`"
+                :disabled="product.status !== MDM_PRODUCT_STATUS_ENABLE"
+              />
+            </el-select>
+            <el-button
+              :disabled="!canQueryBindingProducts || bindingProductsLoading"
+              @click="loadBindingProducts"
+            >刷新</el-button>
+            <el-link
+              v-if="canQueryBindingProducts"
+              :href="router.resolve({ name: 'MdmProduct' }).href"
+              target="_blank"
+              rel="noopener"
+              type="primary"
+              :underline="false"
+            >产品主数据</el-link>
+          </div>
+          <div v-if="!canQueryBindingProducts" class="text-12px text-warning mt-4px">
+            需要产品主数据查询权限才能选择产品；当前关联保留。
+          </div>
+          <div v-else-if="bindingProductsFailed" class="text-12px text-danger mt-4px">
+            产品列表加载失败，请点击刷新重试。
+          </div>
+          <div v-else class="text-12px text-secondary mt-4px">
+            此关联用于展厅产品展示，可选填。生产与 QA 检验规程按项目代码关联。
+          </div>
+        </div>
+      </el-form-item>
       <el-form-item label="类别" prop="category">
         <el-input v-model="formData.category" placeholder="请输入类别" />
       </el-form-item>
@@ -634,7 +617,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
         <el-button
           class="scheme-d-btn scheme-d-btn--success"
           type="primary"
-          :disabled="formLoading"
+          :disabled="formLoading || bindingProductsLoading || bindingProductsFailed"
           @click="submitForm"
         >
           确定
@@ -964,7 +947,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           >
             分配记录
           </el-button>
-          <el-tag class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
+          <el-tag v-if="canQueryAssociatedFiles && !associatedFilesError" class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
         </div>
       </div>
       <div
@@ -972,7 +955,9 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
         class="dcc-project-code-associated-files"
         data-testid="dcc-project-code-associated-files"
       >
-        <template v-if="associatedNavigationFiles.length > 0">
+        <el-alert v-if="!canQueryAssociatedFiles" title="当前账号无受控文件查询权限，无法查看关联文档。" type="info" :closable="false" />
+        <el-alert v-else-if="associatedFilesError" :title="associatedFilesError" type="error" :closable="false" />
+        <template v-else-if="associatedNavigationFiles.length > 0">
           <div class="dcc-project-code-associated-layout">
             <section class="dcc-project-code-associated-panel">
               <div class="dcc-project-code-associated-panel-title">阶段</div>
@@ -1090,20 +1075,14 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
   <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="920px">
     <el-form label-width="96px">
       <el-form-item label="被分配人">
-        <el-select
+        <UserSelectV2
           v-model="assignmentForm.assigneeUserId"
           class="!w-full"
-          filterable
-          :loading="assignmentUsersLoading"
+          :candidate-loading="assignmentUsersLoading"
           placeholder="请选择用户"
-        >
-          <el-option
-            v-for="user in assignmentUsers"
-            :key="user.id"
-            :label="`${user.nickname || user.username} / ${user.username}`"
-            :value="user.id"
-          />
-        </el-select>
+          :clearable="false"
+          :user-options="assignmentUsers"
+        />
       </el-form-item>
       <el-form-item label="分配范围">
         <el-radio-group v-model="assignmentForm.scopeMode">
@@ -1253,15 +1232,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button
-            link
-            class="scheme-d-row-action scheme-d-row-action--primary"
-            type="primary"
-            @click="goAssignmentAudit(row)"
-            v-hasPermi="['dcc:project-code-assignment:audit:query']"
-          >
-            追溯
-          </el-button>
+          
           <el-button
             link
             class="scheme-d-row-action scheme-d-row-action--danger"
@@ -1337,20 +1308,14 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
         </el-table-column>
         <el-table-column label="授权主体" min-width="220">
           <template #default="{ row }">
-            <el-select
+            <UserSelectV2
               v-if="row.subjectType === 'USER'"
               v-model="row.subjectId"
               class="!w-full"
-              filterable
-              :loading="projectAccessRuleUsersLoading"
-            >
-              <el-option
-                v-for="user in projectAccessRuleUsers"
-                :key="user.id"
-                :label="`${user.nickname || user.username} / ${user.username}`"
-                :value="user.id"
-              />
-            </el-select>
+              :candidate-loading="projectAccessRuleUsersLoading"
+              :clearable="false"
+              :user-options="projectAccessRuleUsers"
+            />
             <el-input-number
               v-else
               v-model="row.subjectId"
@@ -1399,7 +1364,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
             />
           </template>
         </el-table-column>
-        <el-table-column label="变更原因" min-width="220">
+        <el-table-column label="变更原因（选填）" min-width="220">
           <template #default="{ row }">
             <el-input
               v-model="row.changeReason"
@@ -1442,6 +1407,9 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { onActivated } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { checkPermi, checkRole } from '@/utils/permission'
@@ -1455,7 +1423,6 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import {
-  createControlledFileBatchRecognitionTask,
   exportControlledFileRecognitionRecordExcel,
   getControlledFileBatchRecognitionTask,
   getLatestControlledFileBatchRecognitionTask,
@@ -1464,10 +1431,8 @@ import {
   type ControlledFileMetadataUpdateReqVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
-import {
-  getFileTypeTaxonomyList,
-  type DccFileTypeTaxonomyVO
-} from '@/api/dcc/controlledFile/fileTypeTaxonomies'
+import type { DccFileTypeTaxonomyVO } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
+import { canOpenProjectLinkedPage } from './project-linked-navigation'
 import type {
   DccProjectCodeAssociatedFileAiCategoryRespVO,
   DccProjectAccessRuleRespVO,
@@ -1491,11 +1456,11 @@ import {
   DCC_PROJECT_CODE_STATUS_DISABLE,
   DCC_PROJECT_CODE_STATUS_ENABLE,
   deleteProjectCode,
-  exportProjectCodeExcel,
   getProjectCodeAssociatedFileAiCategoryCandidates,
   getProjectCodeAccessRules,
   getProjectCode,
   getProjectCodeControlledFilesPage,
+  getProjectCodeFileTaxonomies,
   getProjectCodeFileTemplate,
   getProjectCodeImportTemplate,
   getPendingProductOnboardingRequests,
@@ -1508,6 +1473,7 @@ import {
 import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
 import ProjectAttributeConfigurationDialog from './ProjectAttributeConfigurationDialog.vue'
 import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
+import CatalogWorkbookActions from './CatalogWorkbookActions.vue'
 import ProjectFolderTreePanel from './ProjectFolderTreePanel.vue'
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
 import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
@@ -1580,7 +1546,7 @@ type ProjectAccessRuleFormRow = Omit<DccProjectAccessRuleSaveReqVO, 'subjectId'>
 type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
 
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
-const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
+
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
 const DCC_REGISTRATION_CERTIFICATE_SOURCE_TYPE = 'DCC_REGISTRATION_CERTIFICATE'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
@@ -1698,7 +1664,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
   { key: 'associatedFileCount', label: '关联文件数', width: 120, sortable: 'custom' },
-  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
+  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别资料', width: 140 },
   { key: 'routeStatus', label: '工艺路线', width: 140 },
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
@@ -1719,11 +1685,14 @@ const {
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
+const canOpenLinkedPage = (path: string, permission: string) => canOpenProjectLinkedPage(router, path, permission)
+const canQueryAssociatedFiles = computed(() => checkPermi(['dcc:project-code:query']) && checkPermi(['dcc:controlled-file:query']))
+const associatedFilesError = ref('')
 const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
   path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
 })
 const loading = ref(false)
-const exportLoading = ref(false)
+
 const previewLoading = ref(false)
 const confirmLoading = ref(false)
 const detailLoading = ref(false)
@@ -1736,6 +1705,10 @@ const recognitionJsonImportFile = ref<File | null>(null)
 const detailDrawerVisible = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
+const bindingProducts = ref<MdmProductSimpleRespVO[]>([])
+const bindingProductsLoading = ref(false)
+const bindingProductsFailed = ref(false)
+const canQueryBindingProducts = computed(() => checkPermi(['mdm:product:query']))
 const formType = ref<'create' | 'update'>('create')
 const formRef = ref()
 const hasLoaded = ref(false)
@@ -1911,10 +1884,6 @@ const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | 
     }
     if (row.active) activeSubjects.add(subjectKey)
     const changeReason = row.changeReason?.trim()
-    if (!changeReason) {
-      message.error('正式权限规则必须填写变更原因')
-      return null
-    }
     rules.push({
       subjectType: row.subjectType,
       subjectId,
@@ -1926,7 +1895,7 @@ const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | 
     })
   }
   if (!rules.some((rule) => rule.active && rule.accessLevel === 'OWNER')) {
-    message.error('正式权限规则至少需要一名启用的负责人 OWNER')
+    message.error('应先分配这个项目的正式负责人')
     return null
   }
   return rules
@@ -1972,6 +1941,7 @@ const assignmentRecordQuery = reactive({
 const assignmentCandidateQuery = reactive({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   keyword: ''
 })
 const aiCategoryProgressPercent = computed(() =>
@@ -1983,10 +1953,8 @@ const canRunAiCategory = computed(
     checkPermi(['dcc:controlled-file:update'])
 )
 const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:controlled-file:update']))
-const canRunProjectCodeListNameAutoClassify = computed(
-  () => canRunAssociatedNameAutoClassify.value
-)
-const canCreateProductOnboardingRequest = computed(() => checkPermi(['dcc:project-code:create']))
+
+
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
 )
@@ -2602,7 +2570,9 @@ const resolveDccProjectGovernanceTagType = (status?: string) => {
   return 'info'
 }
 
+let governanceStatusLoadSerial = 0
 const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
+  const serial = ++governanceStatusLoadSerial
   const projectNames = rows.map((row) => row.projectName).filter(Boolean)
   if (projectNames.length === 0) {
     dccProjectGovernanceByProjectName.value = {}
@@ -2613,6 +2583,7 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
     mainBatchRecordStatusRequired: true,
     formSlotStatusRequired: false
   })
+  if (serial !== governanceStatusLoadSerial) return
   dccProjectGovernanceByProjectName.value = Object.fromEntries(
     statuses.map((item) => [item.projectName, item])
   )
@@ -2685,6 +2656,10 @@ const openQaRegulation = (row: DccProjectCodeRespVO) => {
 }
 
 const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
+  if (!canOpenLinkedPage('/mes/md/showroom-product', 'mdm:product:query')) {
+    message.error('当前账号未获产品页面查询授权')
+    return
+  }
   if (!row.productMasterId) {
     return
   }
@@ -2695,48 +2670,36 @@ const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
 }
 
 const openLinkedRegistrationCertificateManagement = (row: DccProjectCodeRespVO) => {
+  if (!canOpenLinkedPage('/mdm/registration-certificate', 'dcc:registration-certificate:query-current')) {
+    message.error('当前账号未获注册证页面查询授权')
+    return
+  }
   router.push({
     path: '/mdm/registration-certificate',
     query: { projectCodeId: String(row.id) }
   })
 }
 
-const loadFileTypeTaxonomies = async () => {
-  fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
-}
-
+let projectListRequestGeneration = 0
 const getList = async () => {
+  const generation = ++projectListRequestGeneration
   loading.value = true
   try {
-    const data = await getProjectCodePage(queryParams)
+    const data = await getProjectCodePage({ ...queryParams })
+    if (generation !== projectListRequestGeneration) return false
     list.value = data.list
     total.value = data.total
     await Promise.all([
       loadDccProjectGovernanceStatus(data.list),
       loadQaRegulationStatuses(data.list)
     ])
+    return generation === projectListRequestGeneration
   } finally {
-    loading.value = false
+    if (generation === projectListRequestGeneration) loading.value = false
   }
 }
 
-const fetchAllFilteredProjectCodes = async () => {
-  const fetchProjectCodePage = (pageNo: number) =>
-    getProjectCodePage({
-      ...queryParams,
-      pageNo,
-      pageSize: DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE
-    })
-  const firstPage = await fetchProjectCodePage(1)
-  const projectCodes = [...firstPage.list]
-  const total = firstPage.total
-  const pageCount = Math.ceil(total / DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE)
-  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
-    const data = await fetchProjectCodePage(pageNo)
-    projectCodes.push(...data.list)
-  }
-  return { projectCodes, total, pageCount }
-}
+
 
 const projectCodeQuickFilter = useTableQuickFilter(
   'dcc.projectCode.main',
@@ -2749,10 +2712,7 @@ const ensureLoaded = async () => {
   if (hasLoaded.value) {
     return
   }
-  await Promise.all([
-    getList(),
-    checkPermi(['dcc:controlled-file:category:manage']) ? loadFileTypeTaxonomies() : Promise.resolve()
-  ])
+  await getList()
   hasLoaded.value = true
 }
 
@@ -2779,7 +2739,7 @@ const copyBatchRecordTotalRecognitionJson = async (row: DccProjectCodeRespVO) =>
   }
   await copy()
   if (unref(copied)) {
-    message.success('批记录识别 JSON 已复制')
+    message.success('批记录识别资料已复制')
   }
 }
 
@@ -2806,7 +2766,7 @@ const submitRecognitionJsonImport = async () => {
   recognitionJsonImporting.value = true
   try {
     await BatchRecordReportApi.importTotalRecognitionJson(project.id, file)
-    message.success('批记录识别 JSON 已导入，设备参数已同步')
+    message.success('批记录识别资料已导入，设备参数已同步')
     recognitionJsonImportVisible.value = false
     await getList()
   } finally {
@@ -2814,10 +2774,25 @@ const submitRecognitionJsonImport = async () => {
   }
 }
 
-const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
+const loadBindingProducts = async () => {
+  bindingProductsLoading.value = true
+  bindingProductsFailed.value = false
+  try {
+    bindingProducts.value = await getProductSimpleList()
+  } catch (error) {
+    bindingProductsFailed.value = true
+    throw error
+  } finally {
+    bindingProductsLoading.value = false
+  }
+}
+
+const openForm = async (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
   formVisible.value = true
   formType.value = type
   resetFormData()
+  bindingProducts.value = []
+  bindingProductsFailed.value = false
   if (type === 'update' && row) {
     formData.value = {
       id: row.id,
@@ -2833,6 +2808,9 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
       priority: row.priority || '',
       status: row.status
     }
+  }
+  if (canQueryBindingProducts.value) {
+    await loadBindingProducts()
   }
 }
 
@@ -2851,6 +2829,9 @@ const buildSavePayload = (): DccProjectCodeSaveReqVO => ({
 })
 
 const submitForm = async () => {
+  if (formLoading.value || bindingProductsLoading.value || bindingProductsFailed.value) {
+    return
+  }
   const valid = await formRef.value?.validate()
   if (!valid) {
     return
@@ -2874,60 +2855,15 @@ const submitForm = async () => {
   }
 }
 
-const resetProductOnboardingFormData = () => {
-  Object.assign(productOnboardingFormData, {
-    productMasterId: undefined,
-    productCode: '',
-    dccProductCode: '',
-    productNameCn: '',
-    productNameEn: '',
-    modelSpecification: '',
-    productCategory: '',
-    docControlNo: '',
-    projectName: '',
-    projectCode: '',
-    category: '',
-    commissionedProduction: '',
-    projectLeader: '',
-    projectEngineer: '',
-    storageLocation: '',
-    priority: ''
-  })
-  productOnboardingCreatedRequestId.value = null
-  productOnboardingPendingRequests.value = []
-  productOnboardingFormRef.value?.resetFields()
-}
 
-const loadProductOnboardingProducts = async () => {
-  productOnboardingProductLoading.value = true
-  try {
-    productOnboardingProducts.value = await getProductSimpleList({
-      status: MDM_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true
-    })
-  } finally {
-    productOnboardingProductLoading.value = false
-  }
-}
+
+
 
 const loadPendingProductOnboardingRequests = async () => {
   productOnboardingPendingRequests.value = await getPendingProductOnboardingRequests()
 }
 
-const openProductOnboardingDialog = async () => {
-  productOnboardingVisible.value = true
-  productOnboardingLoading.value = true
-  resetProductOnboardingFormData()
-  try {
-    const loaders = [loadPendingProductOnboardingRequests()]
-    if (canCreateProductOnboardingRequest.value) {
-      loaders.push(loadProductOnboardingProducts())
-    }
-    await Promise.all(loaders)
-  } finally {
-    productOnboardingLoading.value = false
-  }
-}
+
 
 const applyPendingProductOnboardingRequest = (request: DccProductOnboardingRespVO) => {
   productOnboardingCreatedRequestId.value = request.id
@@ -3008,12 +2944,7 @@ const approveProductOnboardingCreatedRequest = async () => {
   }
 }
 
-const openImportDialog = () => {
-  importVisible.value = true
-  importFileList.value = []
-  importFile.value = null
-  previewResult.value = null
-}
+
 
 const handleImportFileChange = (uploadFile: any) => {
   importFile.value = uploadFile.raw || null
@@ -3057,15 +2988,7 @@ const handleImportConfirm = async () => {
   }
 }
 
-const handleExport = async () => {
-  exportLoading.value = true
-  try {
-    const data = await exportProjectCodeExcel(queryParams)
-    download.excel(data, '项目代码.xlsx')
-  } finally {
-    exportLoading.value = false
-  }
-}
+
 
 const handleDelete = async (row: DccProjectCodeRespVO) => {
   try {
@@ -3084,6 +3007,7 @@ const handleDelete = async (row: DccProjectCodeRespVO) => {
 }
 
 const resetAssociatedFilesState = () => {
+  associatedFilesError.value = ''
   associatedNavigationFiles.value = []
   showHiddenAssociatedFolders.value = false
   associatedFilesTotal.value = 0
@@ -3137,17 +3061,21 @@ const getAssociatedFiles = async (
   const canApplyDetailResult = () =>
     typeof requestToken === 'undefined' || requestToken === detailRequestSequence
   const projectCodeId = projectCodeIdOverride ?? selectedProjectCode.value?.id
-  if (!projectCodeId) {
+  if (!projectCodeId || !canQueryAssociatedFiles.value) {
     if (canApplyDetailResult()) {
       resetAssociatedFilesState()
+      associatedFilesLoading.value = false
     }
     return
   }
   if (canApplyDetailResult()) {
     associatedFilesLoading.value = true
+    associatedFilesError.value = ''
   }
   try {
-    await loadFileTypeTaxonomies()
+    const taxonomies = await getProjectCodeFileTaxonomies(projectCodeId)
+    if (!canApplyDetailResult()) return
+    fileTypeTaxonomies.value = taxonomies
     const navigationFiles: ControlledFileVO[] = []
     const fetchNavigationPage = (pageNo: number) =>
       getProjectCodeControlledFilesPage(
@@ -3176,6 +3104,9 @@ const getAssociatedFiles = async (
     if (!applyAssociatedRouteFocus()) {
       ensureAssociatedSelection()
     }
+  } catch (error) {
+    if (canApplyDetailResult()) associatedFilesError.value = `关联文档加载失败：${resolveAiCategoryErrorMessage(error)}`
+    throw error
   } finally {
     if (canApplyDetailResult()) {
       associatedFilesLoading.value = false
@@ -3183,24 +3114,7 @@ const getAssociatedFiles = async (
   }
 }
 
-const fetchProjectCodeAssociatedFiles = async (projectCodeId: number | string) => {
-  const associatedFiles: ControlledFileVO[] = []
-  const fetchAssociatedPage = (pageNo: number) =>
-    getProjectCodeControlledFilesPage(projectCodeId, {
-      pageNo,
-      pageSize: DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE,
-      keyword: undefined,
-      status: undefined
-    })
-  const firstPage = await fetchAssociatedPage(1)
-  associatedFiles.push(...firstPage.list)
-  const pageCount = Math.ceil(firstPage.total / DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE)
-  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
-    const data = await fetchAssociatedPage(pageNo)
-    associatedFiles.push(...data.list)
-  }
-  return associatedFiles
-}
+
 
 const loadAssociatedFilesForDetail = async (projectCodeId: number | string, requestToken: number) => {
   await getAssociatedFiles(projectCodeId, requestToken)
@@ -3312,17 +3226,7 @@ const submitAssignmentDialog = async () => {
   }
 }
 
-const goAssignmentAudit = (row: DccProjectCodeAssignmentRespVO) => {
-  assignmentRecordsVisible.value = false
-  router.push({
-    path: '/dcc/controlled-file/logs',
-    query: {
-      logType: 'PROJECT_CODE_CHANGE',
-      assignmentId: row.id,
-      projectCodeId: row.projectCodeId
-    }
-  })
-}
+
 
 const loadAssignmentRecords = async () => {
   const projectCodeId = selectedProjectCode.value?.id
@@ -3496,32 +3400,7 @@ const restoreLatestBatchAiCategoryTask = async () => {
   }
 }
 
-const handleBatchAiCategoryProjectCodes = async () => {
-  if (
-    !canRunBatchAiCategory.value ||
-    batchAiCategoryRunning.value ||
-    aiCategoryRunning.value ||
-    listUnclassifiedAutoClassifyRunning.value
-  ) {
-    return
-  }
-  const task = await createControlledFileBatchRecognitionTask({
-    recognitionType: 'FILE_CATEGORY',
-    scope: 'GLOBAL',
-    overwriteExisting: false,
-    existingRecordPolicy: 'RETRY_FAILED',
-    syncFileNameTitle: false,
-    workerCount: 5
-  })
-  batchAiCategoryTask.value = task
-  batchAiCategoryDismissedTaskId.value = null
-  batchAiCategoryTerminalHandledTaskId = null
-  if (isBatchAiCategoryTaskActive(task)) {
-    startBatchAiCategoryPolling(task.taskId)
-    return
-  }
-  await handleBatchAiCategoryTaskTerminal(task, true)
-}
+
 
 const handleAiCategoryAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
@@ -3576,101 +3455,11 @@ const handleAiCategoryAssociatedFiles = async () => {
   }
 }
 
-const autoClassifyUnclassifiedFilesForProjectCode = async (
-  projectCode: DccProjectCodeRespVO,
-  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
-) => {
-  const associatedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
-  const filesToClassify = associatedFiles.filter(isAssociatedFileUnclassified)
-  let processedFileCount = 0
-  for (const file of filesToClassify) {
-    const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
-    if (!target) {
-      throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
-    }
-    const payload = buildDccAssociatedFileAutoClassifyPayload(file, target, projectCode)
-    await updateControlledFileMetadata(file.id, payload)
-    processedFileCount += 1
-  }
-  if (processedFileCount > 0) {
-    const refreshedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
-    const remainingCount = refreshedFiles.filter(isAssociatedFileUnclassified).length
-    if (remainingCount > 0) {
-      throw new Error(
-        `项目代码 ${projectCode.projectCode || projectCode.id} 自动归类后仍有 ${remainingCount} 份文件停留在未分类`
-      )
-    }
-  }
-  return processedFileCount
-}
 
-const resetListUnclassifiedAutoClassifyProgress = () => {
-  listUnclassifiedAutoClassifyTotalProjects.value = 0
-  listUnclassifiedAutoClassifyProcessedProjects.value = 0
-  listUnclassifiedAutoClassifyProcessedFiles.value = 0
-}
 
-const handleListAutoClassifyUnclassifiedProjectCodes = async () => {
-  if (
-    !canRunProjectCodeListNameAutoClassify.value ||
-    listUnclassifiedAutoClassifyRunning.value ||
-    aiCategoryRunning.value ||
-    batchAiCategoryRunning.value ||
-    unclassifiedAutoClassifyRunning.value
-  ) {
-    return
-  }
-  resetListUnclassifiedAutoClassifyProgress()
-  listUnclassifiedAutoClassifyRunning.value = true
-  try {
-    await loadFileTypeTaxonomies()
-    const targetOptions = associatedAutoClassifyTargetOptions.value
-    if (targetOptions.length === 0) {
-      message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
-      return
-    }
-    const { projectCodes, total } = await fetchAllFilteredProjectCodes()
-    listUnclassifiedAutoClassifyTotalProjects.value = total
-    if (projectCodes.length === 0) {
-      message.info('当前筛选条件下没有项目代码')
-      return
-    }
-    try {
-      await message.confirm(
-        `将按当前筛选条件处理 ${total} 个全部项目代码，包括未加载分页；系统会按文件名相似度归类每个项目代码下的未分类文件，不会只处理当前页。是否继续？`,
-        '按文件名归类未分类'
-      )
-    } catch (error) {
-      if (isCancelError(error)) {
-        return
-      }
-      throw error
-    }
 
-    for (const projectCode of projectCodes) {
-      const classifiedFileCount = await autoClassifyUnclassifiedFilesForProjectCode(
-        projectCode,
-        targetOptions
-      )
-      listUnclassifiedAutoClassifyProcessedFiles.value += classifiedFileCount
-      listUnclassifiedAutoClassifyProcessedProjects.value += 1
-    }
-    await getList()
-    if (detailDrawerVisible.value && selectedProjectCode.value?.id) {
-      await getAssociatedFiles()
-    }
-    message.success(
-      `已按当前筛选条件处理 ${listUnclassifiedAutoClassifyProcessedProjects.value} 个项目代码，归类 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份未分类文件`
-    )
-  } catch (error) {
-    message.error(
-      `列表批量按文件名归类失败：已处理项目 ${listUnclassifiedAutoClassifyProcessedProjects.value}/${listUnclassifiedAutoClassifyTotalProjects.value}，已归类文件 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份，后端错误：${resolveAiCategoryErrorMessage(error)}`
-    )
-    throw error
-  } finally {
-    listUnclassifiedAutoClassifyRunning.value = false
-  }
-}
+
+
 
 const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
@@ -3754,22 +3543,22 @@ const syncDetailFromRoute = async () => {
     resetProjectFileTemplateState()
     detailLoading.value = true
   }
-  let projectCodeLoaded = false
   try {
     const projectCode = await getProjectCode(id)
     if (requestToken !== detailRequestSequence) {
       return
     }
     selectedProjectCode.value = projectCode
-    projectCodeLoaded = true
   } finally {
     if (requestToken === detailRequestSequence) {
       detailLoading.value = false
-      if (projectCodeLoaded) {
-        void loadAssociatedFilesForDetail(id, requestToken)
-        void loadProjectFileTemplateForDetail(id, requestToken)
-      }
     }
+  }
+  if (requestToken === detailRequestSequence) {
+    await Promise.all([
+      loadAssociatedFilesForDetail(id, requestToken),
+      loadProjectFileTemplateForDetail(id, requestToken)
+    ])
   }
 }
 
@@ -3897,6 +3686,52 @@ watch(
     }
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  { key: 'primaryCode', label: '主编码', type: 'text', getValue: () => '无' },
+  {
+    key: 'associatedFileCount',
+    label: '关联文件数',
+    type: 'text',
+    getValue: (row) => [row.associatedFileCount ?? 0].join(' ')
+  },
+  {
+    key: 'routeStatus',
+    label: '工艺路线',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.routeStatus),
+        formatDccProjectGovernanceVersions(
+          getDccProjectGovernance(row.projectName)?.routeVersionNos
+        )
+      ].join(' ')
+  },
+  {
+    key: 'mainBatchRecordStatus',
+    label: '主批记录',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatDccProjectGovernanceStatus(
+          getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus
+        ),
+        formatDccProjectGovernanceVersions(
+          getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos
+        )
+      ].join(' ')
+  },
+  {
+    key: 'qaRegulationStatus',
+    label: 'QA规程',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatQaRegulationStatus(getQaRegulationProjectStatus(row.id)),
+        formatQaRegulationPublishedVersion(getQaRegulationProjectStatus(row.id))
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

@@ -122,7 +122,8 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
         verify(submitAuthorizationService).authorize(any());
         verify(lossReasonValidator, never()).requireEnabledLossReason(any(), any(), any());
         verify(feedbackService, never()).createFrontlineFeedback(any());
-        verifyNoInteractions(processPoolSubmitEventService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test

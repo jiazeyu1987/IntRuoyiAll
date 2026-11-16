@@ -2,9 +2,10 @@
 <template>
   <doc-alert title="【生产】工序设置、工艺流程" url="https://doc.iocoder.cn/mes/pro/process-route/" />
 
-  <ContentWrap>
+  <ContentWrap class="process-list-page">
     <UnifiedListTemplate
       table-key="mes.pro.process.main"
+      single-line-toolbar
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="processQuickFilterDefinitions"
@@ -23,9 +24,11 @@
       @column-change="saveProcessColumnConfig"
       @column-reset="resetProcessColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         <el-button
           type="primary"
           plain
@@ -34,24 +37,15 @@
         >
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
-        <el-button
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['mes:pro-process:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
-        </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="process-main-table"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.process.main"
-          :data="list"
-          :height="processMainTableHeight"
+          :data="resolveRows(list)"
+          height="100%"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -225,9 +219,11 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
-import download from '@/utils/download'
 import {
   ProProcessApi,
   ProProcessMachineryVO,
@@ -254,7 +250,6 @@ const router = useRouter()
 type ProcessQuickFilterFieldKey = 'code' | 'name' | 'routeId' | 'status'
 
 const PROCESS_ROUTE_PATH = '/mes/pro/process'
-const processMainTableHeight = 'max(360px, calc(100vh - 300px))'
 
 const processDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工序编码', width: 150 },
@@ -279,7 +274,6 @@ const {
 const loading = ref(true) // 列表的加载中
 const list = ref<ProProcessVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
-const exportLoading = ref(false) // 导出的加载中
 const openedProcessDetailId = ref('')
 const lastAppliedProcessRouteQuerySignature = ref('')
 const processRouteQuickFilterApplied = ref(false)
@@ -302,6 +296,7 @@ const formatProcessWorkstation = (workstation: ProProcessWorkstationVO) => {
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -381,6 +376,7 @@ const applyProcessQuickFilterToQueryParams = () => {
 const buildProcessPageParams = () => {
   applyProcessQuickFilterToQueryParams()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     code: queryParams.code,
@@ -395,14 +391,18 @@ const loadRouteOptions = async () => {
 }
 
 /** 查询列表 */
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await ProProcessApi.getProcessPage(buildProcessPageParams())
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 const processQuickFilter = useTableQuickFilter(
@@ -411,12 +411,6 @@ const processQuickFilter = useTableQuickFilter(
   queryParams,
   getList
 )
-
-/** 重置按钮操作 */
-const resetQuery = () => {
-  Object.assign(queryParams, resetProcessQueryState())
-  processQuickFilter.resetQuickFilter()
-}
 
 /** 添加/修改操作 */
 const openForm = (type: string, id?: number, row?: ProProcessVO) => {
@@ -511,21 +505,6 @@ const handleDelete = async (id: number) => {
   } catch {}
 }
 
-/** 导出按钮操作 */
-const handleExport = async () => {
-  try {
-    // 导出的二次确认
-    await message.exportConfirm()
-    // 发起导出
-    exportLoading.value = true
-    const data = await ProProcessApi.exportProcess(buildProcessPageParams())
-    download.excel(data, '生产工序.xls')
-  } catch {
-  } finally {
-    exportLoading.value = false
-  }
-}
-
 /** 初始化 **/
 onMounted(async () => {
   await loadRouteOptions()
@@ -552,9 +531,57 @@ watch(
   }
 )
 
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productionQuantityFactor',
+    label: '生产系数',
+    type: 'text',
+    getValue: (row) => [formatCapacity(row.productionQuantityFactor)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>
+.process-list-page {
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  margin-bottom: 0;
+}
+
+.process-list-page :deep(.el-card__body) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+.process-list-page :deep(.unified-list-template),
+.process-list-page :deep(.unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.process-list-page :deep(.unified-list-template__table-shell) {
+  overflow: hidden;
+}
+
+.process-list-page :deep(.el-form),
+.process-list-page :deep(.el-pagination) {
+  flex-shrink: 0;
+}
+
+.process-list-page :deep(.el-pagination) {
+  margin-bottom: 0;
+}
+
 .process-main-table {
   width: 100%;
 }

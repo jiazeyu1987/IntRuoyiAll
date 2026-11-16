@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconforma
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -241,11 +242,15 @@ public class MesFrontlineReturnCorrectionService {
                     && d.getItemCode()!=null && d.getSampleNo()!=null && d.getMeasuredValue()!=null,"ownReturn.pqcPieces");
             byItem.computeIfAbsent(d.getItemCode(),k->new ArrayList<>()).add(d);
         }
+        Map<String,Integer> actualQuantities=new LinkedHashMap<>();
+        byItem.forEach((code,item)->actualQuantities.put(code,item.size()));
+        require(MesPqcInspectionItemPlan.matchesActualQuantities(task,actualQuantities,
+                task.getActualInspectionQuantity()),"ownReturn.pqcPieceCount");
         List<PqcItem> result=new ArrayList<>();
         for(var entry:byItem.entrySet()){
             var item=entry.getValue();item.sort(Comparator.comparing(d->d.getSampleNo()));
             var first=item.get(0);
-            require(item.size()==task.getActualInspectionQuantity(),"ownReturn.pqcPieceCount");
+            // Each item keeps its own actual sample range; task quantity is their maximum.
             for(int i=0;i<item.size();i++)require(item.get(i).getSampleNo()==i+1,"ownReturn.pqcPieceOrder");
             result.add(new PqcItem(first.getItemCode(),first.getItemName(),first.getResultType(),first.getStandardText(),
                     first.getStandardLowerLimit(),first.getStandardUpperLimit(),first.getStandardUnit(),first.getStandardPrecision(),

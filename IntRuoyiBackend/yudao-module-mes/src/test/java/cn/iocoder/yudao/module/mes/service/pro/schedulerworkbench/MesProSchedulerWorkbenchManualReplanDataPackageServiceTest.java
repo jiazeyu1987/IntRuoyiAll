@@ -32,10 +32,48 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
     @Mock
     private MesProWorkOrderMapper workOrderMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper projectBindingMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper routeMapper;
+
+    @Test
+    void importPackage_shouldRejectRoutesWithoutProjectsBeforeWriting() {
+        byte[] payload = manualReplanDataPackageJson("[]").replace("\"routes\":[]", "\"routes\":[{\"id\":10}]")
+                .getBytes(StandardCharsets.UTF_8);
+        assertServiceException(() -> service.importPackage(payload), CONFIG_PACKAGE_CONTENT_INVALID,
+                "数据包存在缺少项目代码的工艺流程，请补齐关联后重新导出");
+        org.mockito.Mockito.verifyNoInteractions(routeMapper, workOrderMapper, scheduleOrderMapper);
+    }
+
+    @Test
+    void importPackage_shouldRejectTwoRoutesForSameProjectBeforeWriting() {
+        byte[] payload = manualReplanDataPackageJson("[]")
+                .replace("\"routes\":[]", "\"routes\":[{\"id\":10},{\"id\":11}]")
+                .replace("\"routeProjectBindings\":[]", "\"routeProjectBindings\":[{\"routeId\":10,\"dccProjectCodeId\":42},{\"routeId\":11,\"dccProjectCodeId\":42}]")
+                .getBytes(StandardCharsets.UTF_8);
+        assertServiceException(() -> service.importPackage(payload), CONFIG_PACKAGE_CONTENT_INVALID,
+                "数据包项目关联无效：每条流程必须且只能关联一个独占项目");
+        org.mockito.Mockito.verifyNoInteractions(routeMapper, workOrderMapper, scheduleOrderMapper);
+    }
+
+    @Test
+    void importPackage_shouldRejectOccupiedProjectBeforeWriting() {
+        byte[] payload = manualReplanDataPackageJson("[]")
+                .replace("\"routes\":[]", "\"routes\":[{\"id\":10}]")
+                .replace("\"routeProjectBindings\":[]", "\"routeProjectBindings\":[{\"routeId\":10,\"dccProjectCodeId\":42}]")
+                .getBytes(StandardCharsets.UTF_8);
+        org.mockito.Mockito.doThrow(new IllegalStateException("已有工艺流程")).when(projectGuard).requireAvailable(42L,10L);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> service.importPackage(payload));
+        org.mockito.Mockito.verifyNoInteractions(routeMapper, workOrderMapper, scheduleOrderMapper);
+    }
+
     @Test
     void importPackage_shouldFailFastWhenRequiredListMissing() {
         byte[] invalid = """
-                {"packageVersion":"scheduler-manual-replan-data.v1"}
+                {"packageVersion":"scheduler-manual-replan-data.v2"}
                 """.getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(invalid),
@@ -91,10 +129,11 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
     private static String manualReplanDataPackageJson(String scheduleOrders, String workOrders) {
         return """
                 {
-                  "packageVersion":"scheduler-manual-replan-data.v1",
+                  "packageVersion":"scheduler-manual-replan-data.v2",
                   "items":[],
                   "processes":[],
                   "routes":[],
+                  "routeProjectBindings":[],
                   "routeVersions":[],
                   "routeProducts":[],
                   "routeProcesses":[],

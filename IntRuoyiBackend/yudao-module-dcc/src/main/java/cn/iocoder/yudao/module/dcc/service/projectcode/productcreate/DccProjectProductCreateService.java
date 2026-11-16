@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface DccProjectProductCreateService {
 
+    String DIRECT_CREATE_CONTRACT = "DIRECT_CREATE_V1";
+
     Long createRequest(Long applicantUserId, DccProjectProductCreateReqVO reqVO);
 
     Long resubmitRejectedRequest(Long applicantUserId, Long rejectedRequestId, DccProjectProductCreateReqVO reqVO);

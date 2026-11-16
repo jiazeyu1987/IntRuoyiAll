@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-product">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 展厅主数据</span>
-    </div>
     <UnifiedListTemplate
       table-key="mdm.product.main"
       :query-model="queryParams"
@@ -21,6 +18,9 @@
       @quick-filter-query="handleQuery"
       @column-change="saveProductColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -50,13 +50,13 @@
           导出
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="mdm-product-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="mdm.product.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :allow-drag-last-column="true"
           :show-overflow-tooltip="true"
@@ -323,6 +323,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules, UploadFile, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
@@ -401,7 +404,8 @@ const {
 
 const message = useMessage()
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const exportLoading = ref(false)
 const total = ref(0)
 const list = ref<MdmProductRespVO[]>([])
@@ -411,6 +415,7 @@ type MdmProductPageQuery = ProductApi.MdmProductPageReqVO & {
 }
 
 const queryParams = reactive<MdmProductPageQuery>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   productMasterId: undefined,
@@ -495,14 +500,10 @@ const syncProductQueryFromRoute = () => {
 }
 
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await ProductApi.getProductPage(queryParams)
+  return await listRequest.run(() => ProductApi.getProductPage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const productQuickFilter = useTableQuickFilter(
@@ -704,6 +705,15 @@ watch(
     await getList()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatStatus(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

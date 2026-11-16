@@ -89,7 +89,7 @@
                       <div class="edhr-field-audit__evidence-card edhr-field-audit__evidence-card--wide">
                         <div class="edhr-field-audit__label">字段名称</div>
                         <div class="edhr-field-audit__value">{{ row.fieldLabel || row.fieldKey || '--' }}</div>
-                        <div class="edhr-field-audit__muted">{{ row.fieldPath || '未提供字段路径' }}</div>
+                        <details class="edhr-field-audit__muted"><summary>字段技术路径</summary><div style="overflow-wrap: anywhere">{{ row.fieldPath || '未提供字段路径' }}</div></details>
                       </div>
                       <div class="edhr-field-audit__evidence-card">
                         <div class="edhr-field-audit__label">当前填写</div>
@@ -190,7 +190,7 @@
               <el-table-column label="字段" min-width="220">
                 <template #default="{ row }">
                   <div class="edhr-field-audit__strong">{{ row.fieldLabel || row.fieldKey }}</div>
-                  <div class="edhr-field-audit__muted">{{ row.fieldPath || '--' }}</div>
+                  <details class="edhr-field-audit__muted"><summary>字段技术路径</summary><div style="overflow-wrap: anywhere">{{ row.fieldPath || '--' }}</div></details>
                 </template>
               </el-table-column>
               <el-table-column label="当前值 / 来源" min-width="220">
@@ -400,7 +400,7 @@
               <el-table-column label="字段" min-width="210">
                 <template #default="{ row }">
                   <div class="edhr-field-audit__strong">{{ row.fieldLabel || row.fieldKey }}</div>
-                  <div class="edhr-field-audit__muted">{{ row.fieldPath }}</div>
+                  <details class="edhr-field-audit__muted"><summary>字段技术路径</summary><div style="overflow-wrap: anywhere">{{ row.fieldPath }}</div></details>
                 </template>
               </el-table-column>
               <el-table-column label="变更值" min-width="210">
@@ -412,9 +412,8 @@
                     <div class="edhr-field-audit__change-value">{{ row.batchRecordValueDisplay ?? '--' }}</div>
                   </template>
                   <template v-else>
-                    <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
-                    <div class="edhr-field-audit__change-arrow">→</div>
-                    <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+                    <div class="edhr-field-audit__change-value">修改前：{{ row.oldValueDisplay || '--' }}</div>
+                    <div class="edhr-field-audit__change-value">修改后：{{ row.newValueDisplay || '--' }}</div>
                   </template>
                 </template>
               </el-table-column>
@@ -430,7 +429,7 @@
                   <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.changedAt) }}</div>
                 </template>
               </el-table-column>
-              <el-table-column label="hash 状态" width="110">
+              <el-table-column label="完整性校验" width="110">
                 <template #default="{ row }">
                   <el-tag :type="resolveHashStatusType(row.hashVerification?.status)">
                     {{ resolveHashStatusLabel(row.hashVerification?.status) }}
@@ -479,9 +478,8 @@
                 <div class="edhr-field-audit__change-value">{{ row.batchRecordValueDisplay ?? '--' }}</div>
               </template>
               <template v-else>
-                <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
-                <div class="edhr-field-audit__change-arrow">→</div>
-                <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+                <div class="edhr-field-audit__change-value">修改前：{{ row.oldValueDisplay || '--' }}</div>
+                    <div class="edhr-field-audit__change-value">修改后：{{ row.newValueDisplay || '--' }}</div>
               </template>
             </template>
           </el-table-column>
@@ -824,8 +822,9 @@ const openResponsibilityAuditDetail = async (row: EdhrFieldResponsibilityItemRes
     return
   }
   await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit/detail',
+    path: '/system/log/operate-log',
     query: {
+      logSource: 'field-detail',
       executionId: String(responsibilityQueryParams.executionId),
       auditItemId: String(row.latestAuditItemId)
     }
@@ -912,8 +911,9 @@ const handleVerify = async () => {
 
 const openDetail = async (row: EdhrFieldAuditEntryVO) => {
   await router.push({
-    path: '/mes/pro/feedback/edhr-field-audit/detail',
+    path: '/system/log/operate-log',
     query: {
+      logSource: 'field-detail',
       executionId: String(row.executionId),
       auditBatchId: row.auditBatchId ? String(row.auditBatchId) : undefined,
       auditItemId: String(row.id)

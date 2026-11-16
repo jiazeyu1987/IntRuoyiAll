@@ -41,8 +41,15 @@ class PasswordRequestLogMetadataFilterTest {
     private final UserProfileController profiles = new UserProfileController();
     private final DefaultListableBeanFactory beans = controllerBeans();
 
+    @org.junit.jupiter.api.BeforeEach
+    void initializeWebProperties() {
+        new cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils(new WebProperties());
+    }
+
     @Test
-    void bothPasswordPaths_receiveActualBeanAndMethodBeforeTheChain() throws Exception {
+    void passwordAndSignatureSettingsPaths_receiveActualBeanAndMethodBeforeTheChain() throws Exception {
+        assertMapped("PUT", "/admin-api/system/user/profile/signature-settings", "", new WebProperties(), profiles,
+                "updateSignatureSettings");
         assertMapped("PUT", "/admin-api/system/user/update-password", "", new WebProperties(), users,
                 "updateUserPassword");
         assertMapped("PUT", "/admin-api/system/user/profile/update-password", "", new WebProperties(), profiles,
@@ -123,7 +130,7 @@ class PasswordRequestLogMetadataFilterTest {
     @Test
     void beforeMvcRejection_actualAccessFilterOmitsNormalAndMalformedPasswordParameters() throws Exception {
         for (String path : List.of("/admin-api/system/user/update-password",
-                "/admin-api/system/user/profile/update-password")) {
+                "/admin-api/system/user/profile/update-password", "/admin-api/system/user/profile/signature-settings")) {
             for (String body : List.of("{\"oldPassword\":\"old-fixture-secret\",\"newPassword\":\"new-fixture-secret\","
                     + "\"password\":\"reset-fixture-secret\"}", "{\"newPassword\":\"new-fixture-secret\"")) {
                 ApiAccessLogCommonApi logApi = mock(ApiAccessLogCommonApi.class);
@@ -207,6 +214,7 @@ class PasswordRequestLogMetadataFilterTest {
             assertFalse(privacy.requestEnable());
             String canonical = context + properties.getAdminApi().getPrefix()
                     + (methodName.equals("updateUserPassword") ? "/system/user/update-password"
+                    : methodName.equals("updateSignatureSettings") ? "/system/user/profile/signature-settings"
                     : "/system/user/profile/update-password");
             assertEquals(canonical, request.getAttribute(ATTRIBUTE_PROTECTED_REQUEST_URI));
             assertEquals(canonical, getLogRequestUri(request));

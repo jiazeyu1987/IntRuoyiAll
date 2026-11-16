@@ -23,13 +23,16 @@
       @column-change="saveMesProcessColumnConfig"
       @column-reset="resetMesProcessColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.mesProcess.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :allow-drag-last-column="true"
           :stripe="true"
@@ -153,6 +156,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { MesProcessApi, type MesProcessVO } from '@/api/mes/pro/mes-process'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -189,6 +194,7 @@ const loading = ref(true)
 const list = ref<MesProcessVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 50,
   keyword: undefined as string | undefined
@@ -204,14 +210,18 @@ const mesProcessQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(
   }
 ])
 
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await MesProcessApi.getMesProcessPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 
@@ -225,4 +235,80 @@ const formatSourceText = (value?: string | number | null) => {
 onMounted(() => {
   getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.productName)].join(' ')
+  },
+  {
+    key: 'sourceMachineryCodes',
+    label: '设备编码',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.sourceMachineryCodes)].join(' ')
+  },
+  {
+    key: 'mesProcessName',
+    label: '工序名称',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.mesProcessName)].join(' ')
+  },
+  {
+    key: 'sourceMachineryName',
+    label: '设备名称',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.sourceMachineryName)].join(' ')
+  },
+  {
+    key: 'sourceMachineryQuantity',
+    label: '设备数量',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.sourceMachineryQuantity)].join(' ')
+  },
+  {
+    key: 'dailyCapacity10_5',
+    label: '10.5小时日产能',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.dailyCapacity10_5)].join(' ')
+  },
+  {
+    key: 'dailyWorkerQuantity',
+    label: '日常工序人力',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.dailyWorkerQuantity)].join(' ')
+  },
+  {
+    key: 'mesProcessCode',
+    label: '工序编码',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.mesProcessCode)].join(' ')
+  },
+  {
+    key: 'processPrice',
+    label: '工序单价',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.processPrice)].join(' ')
+  },
+  {
+    key: 'feedbackFlag',
+    label: '工序是否报工',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.feedbackFlag)].join(' ')
+  },
+  {
+    key: 'batchRecordFlag',
+    label: '工序是否形成批记录',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.batchRecordFlag)].join(' ')
+  },
+  {
+    key: 'batchRecordProcessName',
+    label: '批记录工序名称',
+    type: 'text',
+    getValue: (row) => [formatSourceText(row.batchRecordProcessName)].join(' ')
+  }
+])
 </script>

@@ -48,7 +48,7 @@ public class IotDeviceRespVO {
     private String productName; // 只有部分接口返回，例如 getDeviceLocationList
 
     @Schema(description = "产品标识", requiredMode = Schema.RequiredMode.REQUIRED)
-    @ExcelProperty("产品 Key")
+    @ExcelProperty("产品标识")
     private String productKey;
 
     @Schema(description = "设备类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")

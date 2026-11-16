@@ -420,14 +420,14 @@ def test_all_profile_worktree_ports_are_unique_through_slot_100(tmp_path: Path) 
 
     assert result.returncode == 0, result.stderr
     rows = json.loads(result.stdout)
-    assert len(rows) == 500
-    assert len({row["frontendPort"] for row in rows}) == 500
-    assert len({row["backendPort"] for row in rows}) == 500
+    assert len(rows) == 400
+    assert len({row["frontendPort"] for row in rows}) == 400
+    assert len({row["backendPort"] for row in rows}) == 400
     assert {row["frontendPort"] for row in rows}.isdisjoint(
-        {8021, 8041, 8061, 8081, 8101}
+        {8021, 8041, 8061, 8081}
     )
     assert {row["backendPort"] for row in rows}.isdisjoint(
-        {48021, 48041, 48061, 48081, 48101}
+        {48021, 48041, 48061, 48081}
     )
 
     by_profile_slot = {
@@ -440,56 +440,48 @@ def test_all_profile_worktree_ports_are_unique_through_slot_100(tmp_path: Path) 
         "int_batch": ((8132, 48132), (8142, 48142)),
         "int_qms": ((8143, 48143), (8153, 48153)),
         "int_main": ((8154, 48154), (8164, 48164)),
-        "int_main_d": ((8165, 48165), (8175, 48175)),
     }
     expected_second_extension_ports = {
         "int_shedule": (8185, 48185),
         "int_batch": (8195, 48195),
         "int_qms": (8205, 48205),
         "int_main": (8215, 48215),
-        "int_main_d": (8225, 48225),
     }
     expected_third_extension_ports = {
         "int_shedule": (8235, 48235),
         "int_batch": (8245, 48245),
         "int_qms": (8255, 48255),
         "int_main": (8265, 48265),
-        "int_main_d": (8275, 48275),
     }
     expected_fourth_extension_ports = {
         "int_shedule": (8285, 48285),
         "int_batch": (8295, 48295),
         "int_qms": (8305, 48305),
         "int_main": (8315, 48315),
-        "int_main_d": (8325, 48325),
     }
     expected_fifth_extension_ports = {
         "int_shedule": (8335, 48335),
         "int_batch": (8345, 48345),
         "int_qms": (8355, 48355),
         "int_main": (8365, 48365),
-        "int_main_d": (8375, 48375),
     }
     expected_sixth_extension_ports = {
         "int_shedule": (8385, 48385),
         "int_batch": (8395, 48395),
         "int_qms": (8405, 48405),
         "int_main": (8415, 48415),
-        "int_main_d": (8425, 48425),
     }
     expected_seventh_extension_ports = {
         "int_shedule": (8435, 48435),
         "int_batch": (8445, 48445),
         "int_qms": (8455, 48455),
         "int_main": (8465, 48465),
-        "int_main_d": (8475, 48475),
     }
     expected_eighth_extension_ports = {
         "int_shedule": (8485, 48485),
         "int_batch": (8495, 48495),
         "int_qms": (8505, 48505),
         "int_main": (8515, 48515),
-        "int_main_d": (8525, 48525),
     }
     for profile, (slot_20_ports, slot_30_ports) in expected_extension_ranges.items():
         assert by_profile_slot[(profile, 20)] == slot_20_ports
@@ -597,7 +589,7 @@ def test_int_main_resolves_from_arbitrary_computer_path(tmp_path: Path) -> None:
     assert '"BackendPort":  48081' in result.stdout
 
 
-def test_explicit_runtime_profile_selects_int_main_d_without_path_marker(tmp_path: Path) -> None:
+def test_retired_runtime_profile_is_rejected(tmp_path: Path) -> None:
     registry_path = _write_registry(tmp_path, [])
     portable_root = tmp_path / "checkout" / "IntRuoyiAll"
     command = (
@@ -611,10 +603,8 @@ def test_explicit_runtime_profile_selects_int_main_d_without_path_marker(tmp_pat
 
     result = _run_powershell(command, registry_path)
 
-    assert result.returncode == 0, result.stderr
-    assert '"Name":  "int_main_d"' in result.stdout
-    assert '"FrontendPort":  8101' in result.stdout
-    assert '"BackendPort":  48101' in result.stdout
+    assert result.returncode != 0
+    assert "Unknown INTRUOYI_RUNTIME_PROFILE 'int_main_d'" in result.stderr
 
 
 def test_slot_allocator_accepts_configured_portable_worktree_root(tmp_path: Path) -> None:

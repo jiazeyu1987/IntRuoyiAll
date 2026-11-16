@@ -136,7 +136,7 @@ onMounted(() => {
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
   border: 1px solid #24283b;
   overflow: hidden;
-  font-family: 'Fira Code', 'JetBrains Mono', Consolas, Monaco, monospace;
+  font-family: var(--app-font-family);
 }
 
 .terminal-header {

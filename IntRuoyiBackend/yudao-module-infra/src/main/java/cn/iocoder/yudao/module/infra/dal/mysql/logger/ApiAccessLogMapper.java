@@ -20,7 +20,21 @@ import java.time.LocalDateTime;
 public interface ApiAccessLogMapper extends BaseMapperX<ApiAccessLogDO> {
 
     default PageResult<ApiAccessLogDO> selectPage(ApiAccessLogPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<ApiAccessLogDO>()
+        return selectPage(reqVO, pageQuery(reqVO));
+    }
+
+    /** List columns only. Request/response bodies remain available through the authorized detail/export queries. */
+    default PageResult<ApiAccessLogDO> selectSummaryPage(ApiAccessLogPageReqVO reqVO) {
+        return selectPage(reqVO, pageQuery(reqVO).select(
+                ApiAccessLogDO::getId, ApiAccessLogDO::getUserId, ApiAccessLogDO::getUserType,
+                ApiAccessLogDO::getApplicationName, ApiAccessLogDO::getRequestMethod, ApiAccessLogDO::getRequestUrl,
+                ApiAccessLogDO::getBeginTime, ApiAccessLogDO::getDuration, ApiAccessLogDO::getResultCode,
+                ApiAccessLogDO::getResultMsg, ApiAccessLogDO::getOperateModule,
+                ApiAccessLogDO::getOperateName, ApiAccessLogDO::getOperateType));
+    }
+
+    private LambdaQueryWrapperX<ApiAccessLogDO> pageQuery(ApiAccessLogPageReqVO reqVO) {
+        return new LambdaQueryWrapperX<ApiAccessLogDO>()
                 .eqIfPresent(ApiAccessLogDO::getUserId, reqVO.getUserId())
                 .eqIfPresent(ApiAccessLogDO::getUserType, reqVO.getUserType())
                 .eqIfPresent(ApiAccessLogDO::getApplicationName, reqVO.getApplicationName())
@@ -28,8 +42,7 @@ public interface ApiAccessLogMapper extends BaseMapperX<ApiAccessLogDO> {
                 .betweenIfPresent(ApiAccessLogDO::getBeginTime, reqVO.getBeginTime())
                 .geIfPresent(ApiAccessLogDO::getDuration, reqVO.getDuration())
                 .eqIfPresent(ApiAccessLogDO::getResultCode, reqVO.getResultCode())
-                .orderByDesc(ApiAccessLogDO::getId)
-        );
+                .orderByDesc(ApiAccessLogDO::getId);
     }
 
     /**

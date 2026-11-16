@@ -1,9 +1,10 @@
 import type { DirectSupervisorRelation, DirectSupervisorSave } from '@/api/system/user/directSupervisor'
 export interface SupervisorCandidate { id: number | string; username: string; nickname: string }
+export const SUPERVISOR_SAVE_CANCELLED = Symbol('supervisor save cancelled')
 export interface SupervisorPort {
   get(userId: string): Promise<DirectSupervisorRelation>
   candidates(): Promise<SupervisorCandidate[]>
-  save(value: DirectSupervisorSave): Promise<DirectSupervisorRelation>
+  save(value: DirectSupervisorSave): Promise<DirectSupervisorRelation | typeof SUPERVISOR_SAVE_CANCELLED>
 }
 export const createSupervisorState = () => ({ visible: false, loading: false, saving: false, ready: false, error: '', sequence: 0,
   userId: '', tenantId: '', relation: undefined as DirectSupervisorRelation | undefined, candidates: [] as SupervisorCandidate[],
@@ -71,6 +72,7 @@ export const submitSupervisor = async (state: SupervisorState, port: SupervisorP
   state.saving = true
   try {
     const response = await port.save(payload)
+    if (response === SUPERVISOR_SAVE_CANCELLED) return // Confirmation cancelled before any request.
     // The original server command may have committed. Its result belongs only to its original visible generation.
     if (sequence !== state.sequence || !state.visible) return
     const saved = validate(response, tenant, user)

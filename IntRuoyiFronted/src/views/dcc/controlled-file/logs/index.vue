@@ -19,8 +19,15 @@
       @quick-filter-query="logQuickFilter.applyQuickFilter"
       @column-change="saveLogColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :query-loading="loading"
+      :list-rows="list"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template
+        #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+      >
         <el-alert
           v-if="loadError"
           class="logs-load-error"
@@ -32,7 +39,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.logs"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :empty-text="controlledFileLogEmptyText"
@@ -171,10 +178,15 @@
       data-testid="dcc-controlled-file-log-detail"
       class="dcc-log-detail"
       :column="2"
+      :label-width="96"
       border
     >
       <el-descriptions-item label="发生时间">
-        {{ currentLog.occurredAt ? dateFormatter(currentLog, undefined as any, currentLog.occurredAt) : '-' }}
+        {{
+          currentLog.occurredAt
+            ? dateFormatter(currentLog, undefined as any, currentLog.occurredAt)
+            : '-'
+        }}
       </el-descriptions-item>
       <el-descriptions-item label="日志类型">
         {{ getLogTypeLabel(currentLog.logType) }}
@@ -188,8 +200,14 @@
       <el-descriptions-item label="文件编号">
         {{ displayText(currentLog.fileNumber) }}
       </el-descriptions-item>
-      <el-descriptions-item label="版本">
-        {{ getDccVersionDisplayText(currentLog.versionNo) }}
+      <el-descriptions-item
+        :label="currentLog.versionNo?.startsWith('INFRA_FILE:') ? '来源文件' : '版本'"
+      >
+        {{
+          currentLog.versionNo?.startsWith('INFRA_FILE:')
+            ? `文件编号 ${currentLog.versionNo.slice('INFRA_FILE:'.length)}`
+            : getDccVersionDisplayText(currentLog.versionNo)
+        }}
       </el-descriptions-item>
       <el-descriptions-item label="操作人">
         {{ displayOperator(currentLog) }}
@@ -212,22 +230,32 @@
       <el-descriptions-item label="原因" :span="2">
         {{ displayText(currentLog.reason) }}
       </el-descriptions-item>
-      <el-descriptions-item label="详情 JSON" :span="2">
-        <pre class="log-detail-json">{{ displayText(currentLog.detailJson) }}</pre>
+      <el-descriptions-item label="操作明细" :span="2">
+        <ReadableData title="操作记录" :source="currentLog.detailJson ?? undefined" />
       </el-descriptions-item>
     </el-descriptions>
   </Dialog>
 </template>
 
 <script lang="ts" setup>
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import {
   getControlledFileLogPage,
   type DccControlledFileLogPageReqVO,
   type DccControlledFileLogRespVO
 } from '@/api/dcc/controlledFile/logs'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
 import { getDccVersionDisplayText } from '../shared/version-display'
 
@@ -298,7 +326,8 @@ const queryParams = reactive<DccControlledFileLogPageReqVO & { pageNo: number; p
   controlledFileId: getFirstQueryValue(route.query.controlledFileId)
 })
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<DccControlledFileLogRespVO[]>([])
 const loadError = ref('')
@@ -412,20 +441,20 @@ const resolveLogPageErrorMessage = (error: unknown) => {
 }
 
 const getList = async () => {
-  loading.value = true
   loadError.value = ''
   try {
-    const data = await getControlledFileLogPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    return await listRequest.run(
+      () => getControlledFileLogPage({ ...queryParams }),
+      (data) => {
+        list.value = data.list
+        total.value = data.total
+      }
+    )
   } catch (error) {
     const errorMessage = resolveLogPageErrorMessage(error)
     loadError.value = errorMessage
-    list.value = []
-    total.value = 0
     message.error(errorMessage)
-  } finally {
-    loading.value = false
+    throw error
   }
 }
 
@@ -437,6 +466,58 @@ const openLogDetail = (row: DccControlledFileLogRespVO) => {
 onMounted(() => {
   getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'logType',
+    label: '日志类型',
+    type: 'text',
+    getValue: (row) => [getLogTypeLabel(row.logType)].join(' ')
+  },
+  {
+    key: 'actionLabel',
+    label: '动作',
+    type: 'text',
+    getValue: (row) => [displayText(row.actionLabel)].join(' ')
+  },
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    type: 'text',
+    getValue: (row) => [displayText(row.fileNumber)].join(' ')
+  },
+  {
+    key: 'fileName',
+    label: '文件名称',
+    type: 'text',
+    getValue: (row) => [displayText(row.fileName)].join(' ')
+  },
+  {
+    key: 'operatorName',
+    label: '操作人',
+    type: 'text',
+    getValue: (row) => [displayOperator(row)].join(' ')
+  },
+  {
+    key: 'relatedObject',
+    label: '关联对象',
+    type: 'text',
+    getValue: (row) => [displayText(row.relatedObject)].join(' ')
+  },
+  {
+    key: 'summary',
+    label: '摘要',
+    type: 'text',
+    getValue: (row) => [displayText(row.summary)].join(' ')
+  },
+  {
+    key: 'resultLabel',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [displayText(row.resultLabel)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

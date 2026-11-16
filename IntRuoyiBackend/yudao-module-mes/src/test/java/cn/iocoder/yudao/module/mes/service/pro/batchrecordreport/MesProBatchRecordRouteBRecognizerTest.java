@@ -23,7 +23,7 @@ class MesProBatchRecordRouteBRecognizerTest {
 
     private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\\u6279\u8bb0\u5f55\u6a21\u677f.doc");
+            "../../resource/\u6279\u8bb0\u5f55\u6a21\u677f.doc");
     private static final Path PRESS_BALLOON_PUMP_SAMPLE = Path.of(
             "E:\\\u6279\u8BB0\u5F55\\RE-PP-IDPR-01\uFF08A 1\uFF09 \u6309\u538B\u5F0F\u7403\u56CA\u6269\u5F20\u538B\u529B\u6CF5\u751F\u4EA7\u8BB0\u5F55--2026.02.02\u751F\u6548.doc");
 
@@ -85,6 +85,31 @@ class MesProBatchRecordRouteBRecognizerTest {
     );
 
     private final MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+
+    @Test
+    void recognizeDocxPressurePumpRecord_alignsOoxmlVisualGridsAfterWordCom() throws Exception {
+        Path source = Path.of(System.getProperty("mes.test.route-b.docx",
+                "../../resource/按压式球囊扩充压力泵IDI-001/RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.docx"));
+        assertTrue(Files.isRegularFile(source), "DOCX production-record fixture must be available");
+        byte[] bytes = Files.readAllBytes(source);
+        List<MesProBatchRecordParsedTable> expected = new MesProBatchRecordDocParser()
+                .parseWord(bytes, source.getFileName().toString());
+
+        List<MesProBatchRecordParsedTable> actual = recognizer.recognize(
+                source, bytes, source.getFileName().toString());
+
+        assertEquals(16, actual.size());
+        assertIterableEquals(expected.stream().map(MesProBatchRecordParsedTable::getTableTitle).toList(),
+                actual.stream().map(MesProBatchRecordParsedTable::getTableTitle).toList());
+        assertIterableEquals(expected.stream().map(MesProBatchRecordParsedTable::getRowCount).toList(),
+                actual.stream().map(MesProBatchRecordParsedTable::getRowCount).toList());
+        assertTrue(actual.stream().allMatch(table -> table.getColumnWidths() != null
+                && table.getColumnWidths().size() == table.getColumnCount()
+                && table.getColumnWidths().stream().allMatch(width -> width > 0)));
+        assertContainsText(actual.get(0), "产品信息");
+        assertTrue(actual.stream().allMatch(table -> Boolean.TRUE.equals(table.getRouteBSource())));
+        assertTrue(actual.stream().allMatch(table -> table.getDocumentFrame() != null));
+    }
 
     @Test
     void recognizePilotSample_returnsFifteenBusinessTemplatesViaWordCom() throws Exception {

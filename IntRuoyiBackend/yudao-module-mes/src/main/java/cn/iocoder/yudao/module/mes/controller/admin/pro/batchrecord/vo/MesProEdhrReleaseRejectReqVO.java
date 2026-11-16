@@ -9,6 +9,12 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesProEdhrReleaseRejectReqVO {
 
+    private Long workTaskId;
+    private Integer expectedVersion;
+    @lombok.ToString.Exclude
+    private String password;
+    private Long qaReviewerUserId;
+
     @NotNull(message = "放行事务不能为空")
     private Long releaseTransactionId;
 

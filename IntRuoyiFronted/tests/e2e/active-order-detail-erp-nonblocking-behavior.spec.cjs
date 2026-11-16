@@ -118,9 +118,9 @@ test('material failure visible and existing retry event reloads successfully', a
   assert.match(tab, /@click="\$emit\('retry'\)"[\s\S]*重新加载生产用料清单/)
   assert.match(source, /@retry="loadDetail"/)
   assert.match(tab, /v-else-if="productionMaterialListDocuments.length"[\s\S]*<el-empty\s+v-else/)
-  assert.match(
+  assert.doesNotMatch(
     tab,
-    /data-active-order-production-material-list-scope[\s\S]*当前活跃订单生产用料清单 · 生产工单：\{\{ detail\.workOrderCode \}\}/
+    /data-active-order-production-material-list-scope|team-leader-workbench__production-material-list-head/
   )
   assert.match(
     tab,

@@ -19,10 +19,11 @@ test('Menu mounts the release info dock at the sidebar footer', () => {
 test('ReleaseInfoDock reads release-info.json and exposes git diff changes only', () => {
   const source = readText('src/components/ReleaseInfoDock/ReleaseInfoDock.vue')
 
-  assert.match(source, /\/release-info\.json/)
+  assert.match(source, /import\.meta\.env\.BASE_URL\}release-info\.json/)
+  assert.match(source, /readReleaseInfo\(response\)/)
   assert.match(source, /releaseTag/)
   assert.match(source, /changeSet/)
-  assert.match(source, /版本信息未生成/)
+  assert.match(source, /版本信息读取失败/)
   assert.match(source, /gitChangeItems/)
   assert.match(source, /gitChanges/)
   assert.match(source, /slice\(0,\s*10\)/)

@@ -211,6 +211,7 @@ export const buildRouteCandidateEditQuery = (
   })
   return {
     ...nextQuery,
+    routeEditMode: 'edit',
     routeVersionId: String(candidate.id),
     routeVersionNo: candidate.versionNo,
     routeVersionStatus: candidate.lifecycleStatus

@@ -53,7 +53,8 @@ for (const field of [
   'flowGraphConfigured',
   'activeRouteVersionNo',
   'pendingRouteVersionNo',
-  'productCodes',
+  'productCount',
+  'dccProjectCode',
   'createTime'
 ]) {
   assert.match(source, new RegExp(`key:\\s*'${field}'`), `${field} 必须注册到工艺流程列表列配置。`)

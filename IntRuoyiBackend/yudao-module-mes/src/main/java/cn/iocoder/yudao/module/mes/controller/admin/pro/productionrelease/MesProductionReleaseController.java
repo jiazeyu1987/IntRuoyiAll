@@ -8,7 +8,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.Mes
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowExceptionAdvice;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
@@ -102,6 +101,7 @@ public class MesProductionReleaseController {
                 SecurityFrameworkUtils.getLoginUserId(), new MesPqcProductionReleasePageQuery()
                         .setPageNo(reqVO.getPageNo())
                         .setPageSize(reqVO.getPageSize())
+                        .setListFilters(reqVO.getListFilters())
                         .setViewStatus(reqVO.getViewStatus())
                         .setWorkOrderCode(reqVO.getWorkOrderCode())
                         .setBatchCode(reqVO.getBatchCode())
@@ -156,14 +156,6 @@ public class MesProductionReleaseController {
                 .setLossReportFormCenterInstanceIds(result.getLossReportFormCenterInstanceIds())
                 .setLossReportFieldAuditIds(result.getLossReportFieldAuditIds())
                 .setLossReportFieldAuditHeadHashes(result.getLossReportFieldAuditHeadHashes())
-                .setReportUploadTasks(result.getReportUploadTasks().stream()
-                        .map(item -> new MesProductionReleaseReportUploadTaskRespVO()
-                                .setNodeType(item.getNodeType())
-                                .setBatchTaskId(item.getBatchTaskId())
-                                .setWorkTaskId(item.getWorkTaskId())
-                                .setCandidateUserIds(item.getCandidateUserIds())
-                                .setStatus(item.getStatus()))
-                        .toList())
                 .setSourceSnapshotHash(result.getSourceSnapshotHash())
                 .setReportSnapshotHash(result.getReportSnapshotHash())
                 .setVersion(result.getVersion())

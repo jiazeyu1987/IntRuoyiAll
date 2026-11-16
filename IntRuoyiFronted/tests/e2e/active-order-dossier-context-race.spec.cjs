@@ -36,6 +36,9 @@ const createHarness = ({ mutations = false, confirm = () => Promise.resolve() } 
   }
   const context = {
     props,
+    uploadOnly: { value: false },
+    activeTab: { value: '' },
+    buildDossierFileTabName: key => `dossierFile:${key}`,
     computed: (fn) => ({ get value() { return fn() } }),
     useRouter: () => ({}),
     onBeforeUnmount: (callback) => lifecycle.push(callback),
@@ -252,6 +255,35 @@ test('同订单上传成功后可以刷新资料并清理上传 loading', async 
   assert.deepEqual(harness.messages.success, ['资料文件已上传'])
 })
 
+test('上传角色自动打开待办类别并携带独立任务编号上传', async () => {
+  const harness = createHarness({ mutations: true })
+  harness.uploadOnly.value = true
+  harness.props.readOnly = true
+  harness.activeTab.value = 'production'
+  const initial = harness.loadDossierFiles()
+  await Promise.resolve()
+  harness.pendingLoads[0].resolve({ applicationId: 'APP-A', uploadTasks: [
+    { workTaskId: '201', categoryKey: 'FINISHED_PRODUCT_FILE', label: '成品检报告' },
+    { workTaskId: '202', categoryKey: 'FINISHED_PRODUCT_FILE', label: '成品检记录' }
+  ] })
+  await initial
+  assert.equal(harness.activeTab.value, 'dossierFile:FINISHED_PRODUCT_FILE')
+  const upload = harness.uploadDossierFile('FINISHED_PRODUCT_FILE', {
+    file: { name: 'report.pdf' }, onSuccess: () => {}, onError: error => assert.fail(String(error))
+  }, '201')
+  await Promise.resolve()
+  assert.equal(harness.pendingUploads[0].request.workTaskId, '201')
+  assert.equal(harness.pendingUploads[0].request.applicationId, 'APP-A')
+  assert.equal(harness.refs.dossierFileUploadingKey.value, '201')
+  harness.pendingUploads[0].resolve()
+  await new Promise(resolve => setImmediate(resolve))
+  harness.pendingLoads[1].resolve({ applicationId: 'APP-A', uploadTasks: [
+    { workTaskId: '202', categoryKey: 'FINISHED_PRODUCT_FILE', label: '成品检记录' }
+  ] })
+  await upload
+  assert.equal(harness.refs.dossierFiles.value.uploadTasks[0].workTaskId, '202')
+})
+
 test('同订单并发刷新不会让上传回调被误判为旧上下文', async () => {
   const harness = createHarness({ mutations: true })
   const initial = harness.loadDossierFiles()
@@ -350,8 +382,8 @@ test('已办只读入口同时禁用资料控件并拒绝直接上传和删除�
     await harness.deleteDossierFile('OTHER_FILE', { attachmentId: 'ATT-A', fileName: 'a.pdf' })
     assert.equal(harness.pendingUploads.length, 0)
     assert.equal(harness.pendingDeletes.length, 0)
-    assert.match(uploadError.message, /已办任务详情仅可查看/)
-    assert.match(harness.refs.dossierFileError.value, /已办任务详情仅可查看/)
+    assert.match(uploadError.message, /详情仅可查看/)
+    assert.match(harness.refs.dossierFileError.value, /详情仅可查看/)
     assert.deepEqual(harness.messages.success, [])
   }
 })
@@ -393,7 +425,7 @@ test('删除确认期间切换为已办只读入口时不提交删除', async ()
   confirmResolve()
   await deletion
   assert.equal(harness.pendingDeletes.length, 0)
-  assert.match(harness.refs.dossierFileError.value, /已办任务详情仅可查看/)
+  assert.match(harness.refs.dossierFileError.value, /详情仅可查看/)
   assert.deepEqual(harness.messages.success, [])
 })
 

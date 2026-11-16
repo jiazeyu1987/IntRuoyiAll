@@ -66,12 +66,15 @@ export function useLoginState() {
   }
 }
 
-export function useFormValid<T extends Object = any>(formRef: Ref<any>) {
+export function useFormValid(formRef: Ref<any>) {
   async function validForm() {
     const form = unref(formRef)
     if (!form) return
-    const data = await form.validate()
-    return data as T
+    // Element Plus reports invalid fields through the callback. Keep those
+    // inline messages instead of sending its field-error object to the API error renderer.
+    let valid = false
+    await form.validate((isValid: boolean) => { valid = isValid })
+    return valid
   }
 
   return {

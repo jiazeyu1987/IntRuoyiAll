@@ -39,7 +39,7 @@ class DccLifecycleAutomaticRosterCallerTest extends DccLifecycleDistributionOutb
     @BeforeEach void formalPortFixture()throws Exception {
         for(String ddl:new ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(StandardCharsets.UTF_8).split(";"))
             if(!ddl.isBlank())jdbc.execute(ddl);
-        jdbc.update("DELETE FROM system_notify_message");
+        jdbc.update("DELETE FROM system_tenant_notify_message");
         for(String op:List.of("dcc.distribution.batch.prepare","dcc.distribution.attempt.start","dcc.distribution.attempt.finish"))policy(op);
         providers=mock(ObjectProvider.class);source=mock(DccDistributionRosterSource.class);
         when(providers.orderedStream()).thenAnswer(ignored->Stream.of(source));
@@ -56,7 +56,7 @@ class DccLifecycleAutomaticRosterCallerTest extends DccLifecycleDistributionOutb
                 "messageJobMapper",jobs,"messageDeliveryService",delivery);
         wire(batches,"distributionService",distribution,"messageDeliveryService",delivery);
     }
-    @AfterEach void cleanupPlatform(){if(jdbc!=null)jdbc.update("DELETE FROM system_notify_message");}
+    @AfterEach void cleanupPlatform(){if(jdbc!=null)jdbc.update("DELETE FROM system_tenant_notify_message");}
 
     @Test void readyFormalSourceCreatesActualPlatformNotificationsOnlyAfterActivationCommit() {
         readySource();
@@ -113,9 +113,9 @@ class DccLifecycleAutomaticRosterCallerTest extends DccLifecycleDistributionOutb
         assertEquals("SENT",batchRows.selectList().get(0).getStatus());assertEquals(2,notifyRows.selectList().size());
     }
     @Test void frozenRecoveryNeverCallsTodaysProviderOrCreatesDuplicatePlatformMessages(){
-        readySource();control();var batch=batchRows.selectList().get(0);var before=jdbc.queryForList("SELECT * FROM system_notify_message ORDER BY id");
+        readySource();control();var batch=batchRows.selectList().get(0);var before=jdbc.queryForList("SELECT * FROM system_tenant_notify_message ORDER BY id");
         doThrow(new AssertionError("must not reload a frozen roster")).when(source).resolve(any());
-        assertEquals("SENT",batches.processAutomaticBatch(batch.getId()).status());assertEquals(before,jdbc.queryForList("SELECT * FROM system_notify_message ORDER BY id"));
+        assertEquals("SENT",batches.processAutomaticBatch(batch.getId()).status());assertEquals(before,jdbc.queryForList("SELECT * FROM system_tenant_notify_message ORDER BY id"));
         verify(source,times(1)).resolve(any());assertEquals(2,recipients.selectList().size());
     }
     @org.junit.jupiter.params.ParameterizedTest

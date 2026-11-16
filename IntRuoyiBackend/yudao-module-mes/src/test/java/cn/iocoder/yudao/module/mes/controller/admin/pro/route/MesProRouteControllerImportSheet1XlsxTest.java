@@ -43,20 +43,20 @@ class MesProRouteControllerImportSheet1XlsxTest {
         result.setProcessCreatedCount(33);
         result.setProcessReusedCount(0);
         result.setRouteProcessCount(50);
-        when(sheet1RouteExcelImportService.importExcel(eq(file), eq(0))).thenReturn(result);
+        when(sheet1RouteExcelImportService.importExcel(eq(file), eq(0), eq(10L))).thenReturn(result);
 
-        CommonResult<Sheet1RouteExcelImportResult> response = controller.importSheet1Xlsx(file, 0);
+        CommonResult<Sheet1RouteExcelImportResult> response = controller.importSheet1Xlsx(file, 0, 10L);
 
         assertEquals(0, response.getCode());
         assertTrue(response.isSuccess());
         assertSame(result, response.getData());
-        verify(sheet1RouteExcelImportService).importExcel(eq(file), eq(0));
+        verify(sheet1RouteExcelImportService).importExcel(eq(file), eq(0), eq(10L));
     }
 
     @Test
     void importSheet1Xlsx_exposesExpectedMappingPermissionAndRequestParams() throws Exception {
         Method method = MesProRouteController.class.getDeclaredMethod("importSheet1Xlsx",
-                org.springframework.web.multipart.MultipartFile.class, Integer.class);
+                org.springframework.web.multipart.MultipartFile.class, Integer.class, Long.class);
 
         PostMapping postMapping = method.getAnnotation(PostMapping.class);
         assertArrayEquals(new String[]{"/import-sheet1-xlsx"}, postMapping.value());
@@ -70,5 +70,8 @@ class MesProRouteControllerImportSheet1XlsxTest {
         RequestParam statusParam = method.getParameters()[1].getAnnotation(RequestParam.class);
         assertEquals("processStatus", statusParam.value());
         assertTrue(statusParam.required());
+        RequestParam projectParam = method.getParameters()[2].getAnnotation(RequestParam.class);
+        assertEquals("dccProjectCodeId", projectParam.value());
+        assertTrue(projectParam.required());
     }
 }

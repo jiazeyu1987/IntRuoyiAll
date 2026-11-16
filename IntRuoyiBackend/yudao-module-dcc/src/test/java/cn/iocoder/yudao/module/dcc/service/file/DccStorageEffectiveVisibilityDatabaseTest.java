@@ -22,6 +22,7 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
     @jakarta.annotation.Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper masters;
     org.springframework.jdbc.core.JdbcTemplate jdbc;
     DccControlledFileQueryServiceImpl query;
+    DccStorageBrowserProjectionFixture projection;
 
     @BeforeEach void storageFixture() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
@@ -41,6 +42,8 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=?,current_active_controlled_file_id=? WHERE id=10", ACTIVE, ACTIVE);
         var access=(DccProjectAccessService)ReflectionTestUtils.getField(query,"projectAccessService");
         when(access.listReadableProjectIds(99L)).thenReturn(List.of(5L));
+        projection = new DccStorageBrowserProjectionFixture(query, files);
+        projection.rows(ACTIVE);
     }
     @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
     private DccControlledFilePageReqVO request(String status, boolean latest) {
@@ -57,7 +60,9 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
     void pendingVersionsCannotEnterStorageThroughStatusFilterOrAllVersions(String status) {
         add(300,status,false,false);
         for(boolean latest:List.of(true,false)) {
+            projection.rows();
             assertTrue(query.getControlledFileBrowserPage(99L,request(status,latest)).getList().isEmpty());
+            projection.rows(ACTIVE);
             var page=query.getControlledFileBrowserPage(99L,request(null,latest));
             assertEquals(1,page.getTotal());assertEquals(ACTIVE,page.getList().get(0).getId());
             assertTrue(page.getList().get(0).getVersionHistory().stream().noneMatch(v->v.getId()==300L));
@@ -66,6 +71,7 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
     @Test void storageRequiresBothControlledAndActivationFacts() {
         for(boolean controlled:List.of(true,false))for(boolean activated:List.of(true,false)) {
             jdbc.update("UPDATE dcc_controlled_file SET controlled_time="+(controlled?"CURRENT_TIMESTAMP":"NULL")+",activated_time="+(activated?"CURRENT_TIMESTAMP":"NULL")+" WHERE id=?",ACTIVE);
+            if (controlled && activated) projection.rows(ACTIVE); else projection.rows();
             assertEquals(controlled&&activated?1:0,query.getControlledFileBrowserPage(99L,request("ACTIVE",true)).getTotal());
         }
     }
@@ -84,7 +90,9 @@ class DccStorageEffectiveVisibilityDatabaseTest extends cn.iocoder.yudao.framewo
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_REWORK',controlled_time=NULL,activated_time=NULL WHERE id=?",ACTIVE);
         jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=NULL WHERE id=10");
         var request=request(null,true);request.setWorkingFileId(ACTIVE);request.setWorkingMasterId(10L);
+        projection.rows();
         assertEquals(0,query.getControlledFileBrowserPage(99L,request).getTotal());
+        projection.rows(ACTIVE);
         assertEquals(1,query.getControlledFileWorkingBrowserPage(99L,request).getTotal());
         assertThrows(IllegalArgumentException.class,()->query.getControlledFileWorkingBrowserPage(99L,request(null,true)));
     }

@@ -121,6 +121,39 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    public List<StaleEmployeeScope> listStaleEmployeeScopes(Long leaderUserId) {
+        var tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var bindings = listEmployeeProfiles(leaderUserId, true);
+        return scopeMapper.selectActiveScopesByLeader(leaderUserId, "PRODUCTION").stream()
+                .filter(s -> Objects.equals(tenantId, s.getTenantId())
+                        && Objects.equals(leaderUserId, s.getLeaderUserId()) && "EMPLOYEE".equals(s.getScopeType()))
+                .filter(s -> bindings.stream().noneMatch(p -> Objects.equals(tenantId, p.getTenantId())
+                        && Objects.equals(s.getEmployeeUserId(), resolveProductionEmployeeUserId(p))))
+                .map(s -> new StaleEmployeeScope(s.getId(), s.getEmployeeUserId())).toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void disableStaleEmployeeScope(Long leaderUserId, Long scopeId) {
+        var tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var revision = qualificationAuthority.lockTenantApprovalAuthority(tenantId);
+        var scope = scopeMapper.selectOne(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getId, scopeId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getTenantId, tenantId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId, leaderUserId).last("FOR UPDATE"));
+        if (scope == null || !Boolean.TRUE.equals(scope.getEnabled())
+                || listStaleEmployeeScopes(leaderUserId).stream().noneMatch(s -> Objects.equals(s.id(), scopeId))) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "仅可停用当前班组没有启用人员档案的遗留责任，请刷新核对");
+        }
+        if (scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder().id(scopeId).enabled(false).build()) != 1) {
+            throw new IllegalStateException("STALE_EMPLOYEE_SCOPE_DISABLE_FAILED");
+        }
+        qualificationAuthority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, leaderUserId, "DISABLE_STALE_EMPLOYEE_SCOPE",
+                "TEAM_LEADER_SCOPE", scopeId, scope.toString(), "enabled=false; retainedEmployeeProfiles=true");
+    }
+
+    @Override
     public List<MesProcessPoolTeamEmployeeProfileDO> listEmployeeProfiles(Long leaderUserId, Boolean enabled) {
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfileLeader");
@@ -262,6 +295,39 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 actionType, "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 actionName + resolveProfileDisplayName(profile), profile.toString(), update.toString());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteEmployee(Long leaderUserId, Long employeeProfileId) {
+        if (leaderUserId == null || employeeProfileId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deleteEmployee");
+        }
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        MesProcessPoolTeamEmployeeProfileDO profile = employeeProfileMapper.selectSignatureIdentityForUpdate(
+                tenantId, employeeProfileId);
+        if (profile == null || !Objects.equals(profile.getTenantId(), tenantId)
+                || !Objects.equals(profile.getLeaderUserId(), leaderUserId)) {
+            throw exception(PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS, employeeProfileId);
+        }
+        var revision = qualificationAuthority.lockTenantApprovalAuthority(tenantId);
+        // Release active owner/name keys and archive the unique code for repeated re-add/delete.
+        MesProcessPoolTeamEmployeeProfileDO update = MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(profile.getId()).enabled(false).disabledAt(LocalDateTime.now())
+                .employeeCode("DELETED-" + profile.getId()).build();
+        if (employeeProfileMapper.updateById(update) != 1) {
+            throw new IllegalStateException("EMPLOYEE_PROFILE_DELETE_PREPARE_FAILED");
+        }
+        syncProductionEmployeeScopeEnabled(profile, false);
+        // Logical deletion retains the identity and historical report/signature references.
+        if (employeeProfileMapper.deleteById(profile.getId()) != 1) {
+            throw new IllegalStateException("EMPLOYEE_PROFILE_DELETE_FAILED");
+        }
+        qualificationAuthority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, leaderUserId, leaderUserId,
+                "DELETE_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
+                "删除生产人员：" + resolveProfileDisplayName(profile), profile.toString(),
+                "deleted=true;enabled=false;scopeEnabled=false;archivedEmployeeCode=" + update.getEmployeeCode());
     }
 
     @Override

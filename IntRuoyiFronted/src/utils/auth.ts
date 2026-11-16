@@ -10,9 +10,8 @@ export const authContextRevision = readonly(contextRevision)
 
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
+const AuthSessionIdKey = 'AUTH_SESSION_ID'
 const LegacyLoginTenantNameMap = new Map([['瑛泰源码', '芋道源码']])
-const LegacyDefaultLoginUsernames = new Set(['aoteman', 'admin'])
-const LegacyDefaultLoginPasswords = new Set(['', 'admin123'])
 const LoginFormCacheExpireSeconds = 30 * 24 * 60 * 60
 const LoginTenantHistoryLimit = 10
 
@@ -34,10 +33,22 @@ export const getRefreshToken = () => {
   return wsCache.get(RefreshTokenKey)
 }
 
+// A non-secret login incarnation survives reloads without persisting a token in UI snapshots.
+export const getAuthSessionId = (): string | undefined => {
+  if (!getAccessToken()) return undefined
+  let sessionId = wsCache.get(AuthSessionIdKey) as string | undefined
+  if (!sessionId) {
+    sessionId = crypto.randomUUID()
+    wsCache.set(AuthSessionIdKey, sessionId)
+  }
+  return sessionId
+}
+
 // 设置token
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
   setRefreshedToken(token)
+  wsCache.set(AuthSessionIdKey, crypto.randomUUID())
   contextRevision.value += 1
 }
 
@@ -51,6 +62,7 @@ export const setRefreshedToken = (token: TokenType) => {
 export const removeToken = () => {
   wsCache.delete(AccessTokenKey)
   wsCache.delete(RefreshTokenKey)
+  wsCache.delete(AuthSessionIdKey)
   contextRevision.value += 1
 }
 
@@ -92,7 +104,9 @@ const cacheSafeLoginForm = (loginForm: LoginFormType) => {
   }
 }
 
-const decryptLoginForm = (loginForm?: Partial<LoginFormType>) => {
+function decryptLoginForm(loginForm: Partial<LoginFormType>): LoginFormType
+function decryptLoginForm(loginForm?: Partial<LoginFormType>): LoginFormType | undefined
+function decryptLoginForm(loginForm?: Partial<LoginFormType>): LoginFormType | undefined {
   if (!loginForm) {
     return undefined
   }
@@ -103,16 +117,6 @@ const decryptLoginForm = (loginForm?: Partial<LoginFormType>) => {
       ? (decrypt(normalizedLoginForm.password) as string)
       : normalizedLoginForm.password
   }
-}
-
-const isLegacyDefaultLoginForm = (loginForm?: Partial<LoginFormType>) => {
-  if (!loginForm) {
-    return false
-  }
-  return (
-    LegacyDefaultLoginUsernames.has(loginForm.username || '') &&
-    LegacyDefaultLoginPasswords.has(loginForm.password || '')
-  )
 }
 
 const setEncryptedLoginForm = (loginForm: LoginFormType) => {
@@ -140,15 +144,11 @@ export const getLoginForm = () => {
   const loginForm: LoginFormType = wsCache.get(CACHE_KEY.LoginForm)
   if (loginForm) {
     const decryptedLoginForm = decryptLoginForm(loginForm)
-    if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
-      wsCache.delete(CACHE_KEY.LoginForm)
-    } else {
-      if (decryptedLoginForm.password) {
-        decryptedLoginForm.password = ''
-        setEncryptedLoginForm(decryptedLoginForm)
-      }
-      return decryptedLoginForm
+    if (decryptedLoginForm.password) {
+      decryptedLoginForm.password = ''
+      setEncryptedLoginForm(decryptedLoginForm)
     }
+    return decryptedLoginForm
   }
   const loginHistory = getLoginFormHistory()
   return loginHistory.length ? normalizeLoginForm(loginHistory[0]) : undefined
@@ -164,10 +164,6 @@ export const getLoginFormHistory = () => {
     .map((item) => {
       const decryptedLoginForm = decryptLoginForm(item)
       if (!decryptedLoginForm) {
-        return undefined
-      }
-      if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
-        updatedLegacyLoginCache = true
         return undefined
       }
       if (decryptedLoginForm.password) {

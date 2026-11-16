@@ -40,6 +40,7 @@ class AuthTemporaryPermissionProjectionTest {
    var result=controller.getPermissionInfo().getData();boolean allowed=Set.of("active","tempAdmin").contains(state);
    assertEquals(allowed,result.getPermissions().contains("mes:pro-edhr-work-task:handle"));
    assertEquals(allowed?1:0,result.getMenus().size());assertTrue(result.getRoles().isEmpty());
+   if(allowed)assertFalse(result.getMenus().get(0).getVisible(),"A temporary button grant must not expose its parent page in navigation");
    verify(roles,never()).hasAnySuperAdmin(anyCollection());
    verify(menus,never()).getMenuList();
   }finally{TenantContextHolder.clear();}

@@ -29,14 +29,26 @@ function harness() {
     messages = [],
     unmount = []
   const scope = vue.effectScope()
+  const route = vue.reactive({ name: 'test', query: {}, fullPath: '/review' })
   const context = {
+    useApprovalCenterInvalidationStore: () => ({
+      syncSession: () => ({ key: 'test-session' }),
+      isCurrent: key => key === 'test-session',
+      captureHandoffSourceSuccess: () => ({ session: { key: 'test-session' } }),
+      publishEdhrSuccess() {}
+    }),
+    useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
+    useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
+    useUserStore: () => ({ getUser: { id: 12 } }),
     ...vue,
     Error,
+    hasPermission: () => true,
     defineOptions: () => {},
-    useRoute: () => ({ name: 'test', query: {} }),
+    useRoute: () => route,
     useMessage: () => ({
       success: (v) => messages.push(['success', v]),
-      error: (v) => messages.push(['error', v])
+      error: (v) => messages.push(['error', v]),
+      warning: (v) => messages.push(['warning', v])
     }),
     onMounted: () => {},
     onBeforeUnmount: (fn) => unmount.push(fn),
@@ -79,7 +91,7 @@ function harness() {
     vm.runInNewContext(
       ts.transpileModule(
         script +
-          '\nglobalThis.api={openCreateDialog,closeCreateDialog,createDialogVisible,createLoading,activeOrderCandidatesLoading,submitCreateReview,entryForm,selectedActiveOrderId,openReviewDialog,reviewDialogVisible,selectedReview,disposeForm,disposeLoading,errorText,handleDispose,loadReviews,reviews,listLoading,handleMaterialUpload,materialUploadsPending};',
+          '\nglobalThis.api={openCreateDialog,closeCreateDialog,createDialogVisible,createLoading,activeOrderCandidatesLoading,submitCreateReview,entryForm,selectedActiveOrderId,openReviewTab,reviewTabOpen,selectedReview,disposeForm,disposeLoading,errorText,handleDispose,loadReviews,reviews,listLoading,handleMaterialUpload,materialUploadsPending};',
         { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }
       ).outputText,
       context
@@ -87,6 +99,7 @@ function harness() {
   )
   return {
     ...context.api,
+    route,
     creates,
     candidates,
     dispositions,
@@ -101,13 +114,16 @@ function harness() {
 }
 const review = (id) => ({
   id,
+  qaReviewerUserId: 12,
   reviewStatus: 'PENDING_REVIEW',
   reviewMaterialsJson: JSON.stringify({
     activeMaterials: [{ url: 'file/' + id, fileId: id, fileName: 'evidence.pdf' }]
   })
 })
 async function open(h, id) {
-  h.openReviewDialog(review(id))
+  // A route change may leave a busy workspace; in-page review switching stays blocked.
+  if (h.disposeLoading.value) h.route.fullPath += '/' + id
+  h.openReviewTab(review(id))
   await vue.nextTick()
   h.disposeForm.reviewOpinion = 'approved ' + id
   h.disposeForm.signaturePassword = 'secret'
@@ -121,7 +137,7 @@ async function settle(h, index = 0) {
   if (h.pages.length) h.pages.at(-1).resolve({ list: [], total: 0 })
 }
 // BDD: Given A is submitting, When B opens or A is reopened, Then obsolete callbacks cannot write the current dialog.
-test('A success cannot replace B or refresh its list', async () => {
+test('A success after route navigation cannot replace B or refresh its list', async () => {
   const h = harness()
   await open(h, 1)
   const p = h.handleDispose('REWORK')
@@ -137,7 +153,7 @@ test('close and reopen same A invalidates former request', async () => {
   const h = harness()
   await open(h, 1)
   const p = h.handleDispose('REWORK')
-  h.reviewDialogVisible.value = false
+  h.reviewTabOpen.value = false
   await open(h, 1)
   await settle(h)
   await p
@@ -221,9 +237,9 @@ test('old list error cannot set current page error', async () => {
 test('upload callbacks preserve B materials and pending counter', async () => {
   const h = harness()
   await open(h, 1)
-  const a = h.handleMaterialUpload({ target: { files: [{}], value: 'x' } })
+  const a = h.handleMaterialUpload([{ name: 'evidence.pdf', size: 10 }])
   await open(h, 2)
-  const b = h.handleMaterialUpload({ target: { files: [{}], value: 'y' } })
+  const b = h.handleMaterialUpload([{ name: 'evidence.pdf', size: 10 }])
   h.uploads[0].reject(Error('old upload'))
   await a
   assert.equal(h.materialUploadsPending.value, 1)
@@ -249,6 +265,7 @@ test('creation completion cannot replace a subsequently opened review or clear i
   const h = harness()
   h.createDialogVisible.value = true
   h.selectedActiveOrderId.value = 10
+  h.entryForm.qaReviewerUserId = 12
   h.entryForm.nonconformanceReason = 'reason'
   const p = h.submitCreateReview()
   await open(h, 2)
@@ -293,8 +310,8 @@ test('disposition-triggered refresh is invalidated on switch', async () => {
 test('upload from closed and reopened A cannot append material', async () => {
   const h = harness()
   await open(h, 1)
-  const p = h.handleMaterialUpload({ target: { files: [{}], value: 'x' } })
-  h.reviewDialogVisible.value = false
+  const p = h.handleMaterialUpload([{ name: 'evidence.pdf', size: 10 }])
+  h.reviewTabOpen.value = false
   await open(h, 1)
   h.uploads[0].resolve({ url: 'obsolete', fileId: 33, fileName: 'old.pdf' })
   await p
@@ -316,6 +333,7 @@ test('old creation failure cannot write B error or toast', async () => {
   const h = harness()
   h.createDialogVisible.value = true
   h.selectedActiveOrderId.value = 10
+  h.entryForm.qaReviewerUserId = 12
   h.entryForm.nonconformanceReason = 'reason'
   const p = h.submitCreateReview()
   await open(h, 2)
@@ -329,6 +347,7 @@ test('current creation failure remains visible', async () => {
   const h = harness()
   h.createDialogVisible.value = true
   h.selectedActiveOrderId.value = 10
+  h.entryForm.qaReviewerUserId = 12
   h.entryForm.nonconformanceReason = 'reason'
   const p = h.submitCreateReview()
   h.creates[0].reject(Error('current create failure'))
@@ -341,6 +360,7 @@ test('current creation success refreshes list and reports success', async () => 
   const h = harness()
   h.createDialogVisible.value = true
   h.selectedActiveOrderId.value = 10
+  h.entryForm.qaReviewerUserId = 12
   h.entryForm.nonconformanceReason = 'reason'
   const p = h.submitCreateReview()
   h.creates[0].resolve(review(1))
@@ -357,6 +377,7 @@ async function newCreate(h, id) {
   const p = h.openCreateDialog()
   h.candidates.at(-1).resolve([{ id }])
   await p
+  h.entryForm.qaReviewerUserId = 12
   h.entryForm.nonconformanceReason = 'reason ' + id
 }
 test('old create success cannot close reopened creation or clear B busy', async () => {
@@ -439,7 +460,7 @@ test('normal successful creation clears loading after its own close', async () =
   assert.equal(h.reviews.value.length, 1)
   h.unmount()
 })
-test('creation close does not invalidate a pending disposition', async () => {
+test('opening creation invalidates the previous review disposition', async () => {
   const h = harness()
   await open(h, 1)
   const p = h.handleDispose('REWORK')
@@ -447,8 +468,25 @@ test('creation close does not invalidate a pending disposition', async () => {
   h.closeCreateDialog()
   await settle(h)
   await p
-  assert.equal(h.selectedReview.value.reviewStatus, 'CLOSED')
+  assert.equal(h.selectedReview.value, undefined)
   assert.equal(h.disposeLoading.value, false)
-  assert.equal(h.messages[0][0], 'success')
+  assert.equal(h.messages.length, 0)
+  h.unmount()
+})
+
+
+test('in-page review switching is blocked until the current disposition finishes', async () => {
+  const h = harness()
+  await open(h, 1)
+  const pending = h.handleDispose('REWORK')
+  h.openReviewTab(review(2))
+  assert.equal(h.selectedReview.value.id, 1)
+  assert.equal(h.disposeLoading.value, true)
+  assert.equal(h.dispositions.length, 1)
+  await settle(h)
+  await pending
+  h.openReviewTab(review(2))
+  assert.equal(h.selectedReview.value.id, 2)
+  assert.equal(h.disposeLoading.value, false)
   h.unmount()
 })

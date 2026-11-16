@@ -24,12 +24,12 @@ Out of scope:
 - `script/srm/check_srm_w0_freeze_gate.py`
 - `script/srm/check_srm_blocker_manifest.py`
 - `script/tests/test_srm_w0_freeze_gate.py`
-- `D:\ProjectPackage\Int\IntRuoyi\doc\tasks\20260621-srm9-worktree-delivery\w0-freeze-ledger.md`
-- `D:\ProjectPackage\Int\IntRuoyi\doc\tasks\20260621-srm-current-state-plan-refresh\implementation-readiness-ledger.md`
-- `D:\ProjectPackage\Int\IntRuoyi\doc\tasks\20260621-srm-requirements-conformance-refresh\nonconformance-list.md`
-- `D:\ProjectPackage\Int\IntRuoyi\docs\integrations\kingdee-erp-official-docs.md`
-- `D:\ProjectPackage\Int\IntRuoyi\docs\worktree-memory.md`
-- `D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md`
+- `./doc/tasks/20260621-srm9-worktree-delivery/w0-freeze-ledger.md`
+- `./doc/tasks/20260621-srm-current-state-plan-refresh/implementation-readiness-ledger.md`
+- `./doc/tasks/20260621-srm-requirements-conformance-refresh/nonconformance-list.md`
+- `./docs/integrations/kingdee-erp-official-docs.md`
+- `./docs/worktree-memory.md`
+- `./docs/login-access.md`
 - 2026-06-21 主系统 `/system/nas` admin 只读发现证据：真实登录 `芋道源码/admin`，NAS 配置完整且根目录可读；未记录任何密码、token、外部端点或 NAS 账号明文。
 - 2026-06-21 主系统 `/erp/kingdee-config` admin 只读发现证据：金蝶基础连接、账套、用户名、密码、LCID 和产品/生产/BOM/采购/销售同步配置均存在；证据已脱敏。
 - 2026-06-21 真实库只读聚合证据：admin 租户已有 `98` 条金蝶供应商映射、`297` 条 `PUR_PurchaseOrder` 同步记录，以及多类金蝶读同步运行/水位记录。

@@ -1,30 +1,17 @@
 <template>
-  <ContentWrap>
-    <div class="edhr-ncr" data-edhr-ncr-page>
-      <EdhrBatchRecordTabs active-tab="nonconformanceReview" />
+  <ContentWrap :class="{ 'edhr-record-viewport': !orderDetailVisible && activeTab !== 'review', 'edhr-ncr-review-viewport': !orderDetailVisible && activeTab === 'review' }">
+    <ActiveOrderDetailLayout v-if="orderDetailVisible" data-edhr-ncr-active-order-detail>
+      <el-button data-edhr-ncr-active-order-detail-back @click="closeOrderDetail">返回</el-button>
+      <ActiveOrderSubmissionDetailPanel
+        :detail="orderDetail"
+        :loading="orderDetailLoading"
+        :error="orderDetailError"
+        read-only
+        @retry="retryOrderDetail"
+      />
+    </ActiveOrderDetailLayout>
+    <div v-show="!orderDetailVisible" class="edhr-ncr" data-edhr-ncr-page>
 
-      <div v-if="canConfigureQaAssignment" class="edhr-ncr__assignments">
-        <QaHandoffAssignmentConfig v-if="canConfigureQaAssignment" />
-        <PqcHandoffAssignmentConfig v-if="canConfigurePqcAssignment" />
-      </div>
-
-      <div class="edhr-ncr__header">
-        <div>
-          <div class="edhr-ncr__title">不合格评审</div>
-          <div class="edhr-ncr__subtitle">冻结后禁止报工、PQC提交、PQC放行</div>
-        </div>
-        <div class="edhr-ncr__header-actions">
-          <el-button
-            v-if="canCreateReview"
-            type="primary"
-            data-edhr-ncr-open-create
-            @click="openCreateDialog"
-          >
-            新建
-          </el-button>
-          <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
-        </div>
-      </div>
 
       <el-alert v-if="errorText" :title="errorText" type="error" :closable="false" show-icon />
 
@@ -32,86 +19,143 @@
         v-model="activeTab"
         data-edhr-ncr-review-tabs
         @tab-change="handleTabChange"
+        @tab-remove="closeReviewTab"
       >
-        <el-tab-pane label="全部" name="all" />
-        <el-tab-pane label="进行中" name="pending" />
+        <el-tab-pane label="全部" name="all" :disabled="disposeLoading || assigningReviewer" />
+        <el-tab-pane label="进行中" name="pending" :disabled="disposeLoading || assigningReviewer" />
+        <el-tab-pane v-if="reviewTabOpen" :label="reviewTabTitle" name="review" :closable="!disposeLoading && !assigningReviewer">
+          <NonconformanceReviewWorkspace
+            v-if="selectedReview"
+            :review="selectedReview"
+            :source-label="resolveSourceTypeLabel(selectedReview.sourceType)"
+            :status-label="resolveReviewStatusLabel(selectedReview.reviewStatus)"
+            :frozen-at="formatDateTime(selectedReview.frozenAt)"
+            :closed-at="formatDateTime(selectedReview.closedAt)"
+            :disposition-label="resolveDispositionLabel(selectedReview.disposition)"
+            :disposition-note="resolveDispositionNote(selectedReview.disposition)"
+            :can-dispose="canDisposeSelectedReview"
+            :read-only="selectedReviewReadOnly"
+            :can-assign="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !selectedReview.qaReviewerUserId && canCreateReview && !selectedReviewReadOnly"
+            v-model:reviewer-id="unassignedReviewerId"
+            :assigning-reviewer="assigningReviewer"
+            :submitting="disposeLoading"
+            :materials="reviewWorkspaceMaterials"
+            :attempts="materialUploadAttempts"
+            :uploading-count="materialUploadsPending"
+            v-model:opinion="disposeForm.reviewOpinion"
+            v-model:signature="disposeForm.signaturePassword"
+            :errors="reviewValidationErrors"
+            @back="closeReviewTab"
+            @assign="assignSelectedReviewer"
+            @dispose="handleDispose"
+            @upload="handleMaterialUpload"
+            @remove-material="removeReviewMaterial"
+            @dismiss-attempt="dismissMaterialUploadAttempt"
+          />
+        </el-tab-pane>
       </el-tabs>
 
-      <div class="edhr-ncr__section">
-        <div class="edhr-ncr__section-head">
-          <div class="edhr-ncr__section-title">
-            {{ activeTab === 'pending' ? '进行中的不合格评审' : '全部不合格评审' }}
-          </div>
-          <el-tag type="warning">{{ total }} 条</el-tag>
-        </div>
+      <UnifiedListTemplate
+        v-show="activeTab !== 'review'"
+        single-line-toolbar
+        :table-key="REVIEW_TABLE_KEY"
+        :query-model="queryParams"
+        :filter-definitions="reviewFilterDefinitions"
+        :quick-filter-state="reviewQuickFilter.state"
+        :selected-filter-definition="reviewQuickFilter.selectedDefinition.value"
+        :operator-options="reviewQuickFilter.operatorOptions.value"
+        :columns="reviewColumns"
+        :column-saving="columnSaving"
+        :total="total"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @update:quick-filter-state="reviewQuickFilter.updateState"
+        @quick-filter-query="reviewQuickFilter.applyQuickFilter"
+        @column-change="saveColumnConfig"
+        @pagination="loadReviews"
+        server-filter
+        :server-filter-query="loadReviews"
+        :column-filter-definitions="listColumnFilterDefinitions0"
+      >
+        <template #actions>
+          <el-button v-if="canCreateReview" type="primary" plain data-edhr-ncr-open-create @click="openCreateDialog">
+            <Icon icon="ep:plus" class="mr-5px" /> 新建
+          </el-button>
+          <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
+        </template>
+        <template #table="{ resolveRows }">
+          <el-table height="100%"
+            v-loading="listLoading"
+            :data="resolveRows(reviews)"
+            border
+            data-user-table-column-explicit
+            :data-user-table-key="REVIEW_TABLE_KEY"
+            @header-dragend="handleHeaderDragend"
+            stripe
+            :show-overflow-tooltip="true"
+            empty-text="暂无不合格评审"
+          >
+            <el-table-column v-if="isColumnVisible('reviewCode')" label="评审单" prop="reviewCode" :width="getColumnWidth('reviewCode')" :min-width="220">
+              <template #default="{ row }">
+                <div class="edhr-ncr__strong">{{ row.reviewCode || '--' }}</div>
+                <div class="edhr-ncr__muted">{{ resolveSourceTypeLabel(row.sourceType) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('workOrderCode')" label="生产工单" prop="workOrderCode" :width="getColumnWidth('workOrderCode')" :min-width="210">
+              <template #default="{ row }">
+                <div>{{ row.workOrderCode || '--' }}</div>
+                <div class="edhr-ncr__muted">{{ row.batchCode || '--' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('nonconformanceReason')" label="不合格原因" prop="nonconformanceReason" :width="getColumnWidth('nonconformanceReason')" :min-width="220" />
+            <el-table-column v-if="isColumnVisible('reviewStatus')" label="状态" prop="reviewStatus" :width="getColumnWidth('reviewStatus')" :min-width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? 'warning' : 'success'">
+                  {{ resolveReviewStatusLabel(row.reviewStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('disposition')" label="处置结论" prop="disposition" :width="getColumnWidth('disposition')" :min-width="120">
+              <template #default="{ row }">{{ resolveDispositionLabel(row.disposition) }}</template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('frozenAt')" label="冻结时间" prop="frozenAt" :width="getColumnWidth('frozenAt')" :min-width="170">
+              <template #default="{ row }">{{ formatDateTime(row.frozenAt) }}</template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('actions')" label="操作" prop="actions" :width="getColumnWidth('actions')" :min-width="150" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" data-edhr-ncr-review-detail @click.stop="openActiveOrderDetail(row)">
+                  详情
+                </el-button>
+                <el-button
+                  v-if="canDisposeReview(row)"
+                  link
+                  type="primary"
+                  data-edhr-ncr-review-process
+                  @click.stop="openReviewTab(row)"
+                >
+                  处理
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
 
-        <el-table
-          v-loading="listLoading"
-          :data="reviews"
-          stripe
-          :show-overflow-tooltip="true"
-          empty-text="暂无不合格评审"
-        >
-          <el-table-column label="评审单" min-width="220">
-            <template #default="{ row }">
-              <div class="edhr-ncr__strong">{{ row.reviewCode || '--' }}</div>
-              <div class="edhr-ncr__muted">{{ resolveSourceTypeLabel(row.sourceType) }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="生产工单" min-width="210">
-            <template #default="{ row }">
-              <div>{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-ncr__muted">{{ row.batchCode || '--' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="不合格原因" min-width="220" prop="nonconformanceReason" />
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <el-tag :type="row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? 'warning' : 'success'">
-                {{ resolveReviewStatusLabel(row.reviewStatus) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="处置结论" width="120">
-            <template #default="{ row }">{{ resolveDispositionLabel(row.disposition) }}</template>
-          </el-table-column>
-          <el-table-column label="冻结时间" width="170">
-            <template #default="{ row }">{{ formatDateTime(row.frozenAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="110" fixed="right">
-            <template #default="{ row }">
-              <el-button
-                link
-                type="primary"
-                data-edhr-ncr-review-process
-                @click.stop="openReviewDialog(row)"
-              >
-                {{ row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? '处理' : '查看' }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <Pagination
-          :total="total"
-          v-model:page="queryParams.pageNo"
-          v-model:limit="queryParams.pageSize"
-          @pagination="loadReviews"
-        />
-      </div>
+        </template>
+      </UnifiedListTemplate>
     </div>
 
     <el-dialog
       v-model="createDialogVisible"
       title="新建不合格评审"
       width="720px"
+      class="edhr-ncr-create-dialog"
+      top="8vh"
       destroy-on-close
       data-edhr-ncr-create-dialog
       :data-entry-active-order-id="entryActiveOrderId || ''"
       :data-selected-active-order-id="selectedActiveOrderId || ''"
     >
-      <el-form label-width="110px" :model="entryForm">
-        <el-form-item label="活跃订单" required>
+      <el-form label-position="top" :model="entryForm">
+        <el-form-item v-if="!entryActiveOrderId" label="活跃订单" required>
           <el-select
             v-model="selectedActiveOrderId"
             data-edhr-ncr-active-order
@@ -129,20 +173,22 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="selectedActiveOrder" label="订单信息">
-          <div class="edhr-ncr__source-summary">
-            <div><span class="edhr-ncr__label">生产工单</span>{{ selectedActiveOrder.workOrderCode || '--' }}</div>
-            <div><span class="edhr-ncr__label">批号</span>{{ selectedActiveOrder.batchCode || '--' }}</div>
-            <div><span class="edhr-ncr__label">订单状态</span>{{ selectedActiveOrder.businessStatus || selectedActiveOrder.activeStatus || '--' }}</div>
-          </div>
+        <section v-if="selectedActiveOrder" class="edhr-ncr-create-dialog__order" aria-label="订单信息">
+          <dl>
+            <div><dt>生产工单</dt><dd>{{ selectedActiveOrder.workOrderCode || '--' }}</dd></div>
+            <div><dt>批号</dt><dd>{{ selectedActiveOrder.batchCode || '--' }}</dd></div>
+          </dl>
+        </section>
+        <el-form-item label="QA评审责任人" required>
+          <QaReviewerSelect v-model="entryForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" data-edhr-ncr-create-reviewer />
         </el-form-item>
         <el-form-item label="不合格原因" required>
           <el-input
             v-model="entryForm.nonconformanceReason"
             data-edhr-ncr-create-reason
             type="textarea"
-            :rows="3"
-            placeholder="请输入不合格原因"
+            :rows="4"
+            placeholder="请描述不合格现象、发生环节及相关情况"
           />
         </el-form-item>
       </el-form>
@@ -159,115 +205,26 @@
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="reviewDialogVisible"
-      :title="reviewDialogTitle"
-      width="820px"
-      destroy-on-close
-      data-edhr-ncr-review-dialog
-    >
-      <template v-if="selectedReview">
-        <div class="edhr-ncr__summary">
-          <div><span class="edhr-ncr__label">评审单号</span><span>{{ selectedReview.reviewCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">来源</span><span>{{ resolveSourceTypeLabel(selectedReview.sourceType) }}</span></div>
-          <div><span class="edhr-ncr__label">生产工单</span><span>{{ selectedReview.workOrderCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">批号</span><span>{{ selectedReview.batchCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">不合格原因</span><span>{{ selectedReview.nonconformanceReason || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">冻结时间</span><span>{{ formatDateTime(selectedReview.frozenAt) }}</span></div>
-        </div>
 
-        <el-alert v-if="selectedReviewReadOnly" title="此交接仅供查看原轮次结果，不能再次处置。" type="info" :closable="false" />
-        <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !selectedReviewReadOnly">
-          <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
-            <el-form-item label="评审材料" required data-edhr-ncr-review-material>
-              <div>
-                <input type="file" multiple aria-label="上传评审材料" :disabled="disposeLoading" @change="handleMaterialUpload" />
-                <p v-if="materialUploadsPending">正在上传 {{ materialUploadsPending }} 份材料…</p>
-                <ul>
-                  <li v-for="url in disposeForm.reviewMaterialUrls" :key="url">
-                    {{ disposeForm.reviewMaterialNames[url] }}
-                    <el-button link type="danger" :disabled="disposeLoading" @click="removeReviewMaterial(url)">移除</el-button>
-                  </li>
-                </ul>
-              </div>
-            </el-form-item>
-            <el-form-item label="评审意见" required>
-              <el-input
-                v-model="disposeForm.reviewOpinion"
-                data-edhr-ncr-review-opinion
-                type="textarea"
-                :rows="4"
-                placeholder="请输入评审意见"
-              />
-            </el-form-item>
-            <el-form-item label="电子签名密码" required>
-              <el-input
-                v-model="disposeForm.signaturePassword"
-                data-edhr-ncr-signature-password
-                type="password"
-                show-password
-                autocomplete="new-password"
-                placeholder="请输入本人电子签名密码"
-              />
-            </el-form-item>
-            <el-form-item>
-              <div class="edhr-ncr__buttons">
-                <el-button
-                  type="success"
-                  :loading="disposeLoading"
-                  data-edhr-ncr-concession-release
-                  @click="handleDispose(DISPOSITION_CONCESSION_RELEASE)"
-                >
-                  让步放行
-                </el-button>
-                <el-button
-                  type="warning"
-                  :loading="disposeLoading"
-                  @click="handleDispose(DISPOSITION_REWORK)"
-                >
-                  返工
-                </el-button>
-                <el-button
-                  type="danger"
-                  :loading="disposeLoading"
-                  @click="handleDispose(DISPOSITION_VOID)"
-                >
-                  作废
-                </el-button>
-              </div>
-            </el-form-item>
-          </el-form>
-        </template>
-
-        <template v-else>
-          <el-result
-            icon="success"
-            data-edhr-ncr-disposition-result
-            :title="resolveDispositionLabel(selectedReview.disposition)"
-            :sub-title="resolveDispositionNote(selectedReview.disposition)"
-          />
-          <div class="edhr-ncr__summary edhr-ncr__summary--readonly">
-            <div><span class="edhr-ncr__label">评审材料</span><span>{{ resolveReviewMaterialDisplay(selectedReview) }}</span></div>
-            <div><span class="edhr-ncr__label">评审意见</span><span>{{ selectedReview.reviewOpinion || '--' }}</span></div>
-            <div><span class="edhr-ncr__label">电子签名</span><span data-edhr-ncr-qa-signature>{{ selectedReview.qaSignature || '--' }}</span></div>
-            <div><span class="edhr-ncr__label">完成时间</span><span>{{ formatDateTime(selectedReview.closedAt) }}</span></div>
-          </div>
-        </template>
-      </template>
-      <template #footer>
-        <el-button @click="reviewDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import '@/views/mes/pro/edhr-batch/record-viewport.css'
+import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
+import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
+import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+import { useUserStore } from '@/store/modules/user'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import NonconformanceReviewWorkspace from './NonconformanceReviewWorkspace.vue'
+import type { ReviewUploadAttempt } from './reviewWorkspace'
+import { useUserTableColumns } from '@/hooks/web/useUserTableColumns'
+import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
-import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
-import QaHandoffAssignmentConfig from '../handoff/QaHandoffAssignmentConfig.vue'
-import PqcHandoffAssignmentConfig from '../handoff/PqcHandoffAssignmentConfig.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
   DISPOSITION_REWORK,
@@ -278,9 +235,11 @@ import {
   SOURCE_TYPE_PQC_RELEASE,
   SOURCE_TYPE_PQC_SUBMISSION,
   createNonconformanceReview,
+  assignNonconformanceReviewer,
   disposeNonconformanceReview,
   uploadNonconformanceReviewMaterial,
   getNonconformanceReviewActiveOrderList,
+  getNonconformanceReviewActiveOrderDetail,
   getNonconformanceReviewPage,
   getNonconformanceReview,
   type EdhrNonconformanceReviewActiveOrderRespVO,
@@ -301,6 +260,47 @@ defineOptions({ name: 'MesProFeedbackEdhrNonconformanceReview' })
 const route = useRoute()
 const message = useMessage()
 const selectedReviewReadOnly = ref(false)
+const orderDetailVisible = ref(false)
+const orderDetailLoading = ref(false)
+const orderDetailError = ref('')
+const orderDetail = ref<Awaited<ReturnType<typeof getNonconformanceReviewActiveOrderDetail>>>()
+const orderDetailReview = ref<EdhrNonconformanceReviewRespVO>()
+let orderDetailSequence = 0
+
+const closeOrderDetail = () => {
+  orderDetailSequence++
+  orderDetailVisible.value = false
+  orderDetailLoading.value = false
+  orderDetail.value = undefined
+  orderDetailReview.value = undefined
+  orderDetailError.value = ''
+}
+
+const openActiveOrderDetail = async (review: EdhrNonconformanceReviewRespVO) => {
+  closeOrderDetail()
+  const sequence = orderDetailSequence
+  const sessionKey = approvalInvalidation.syncSession().key
+  const current = () => sequence === orderDetailSequence && sessionKey === approvalInvalidation.syncSession().key
+  orderDetailReview.value = review
+  orderDetailVisible.value = true
+  orderDetailLoading.value = true
+  try {
+    const result = await getNonconformanceReviewActiveOrderDetail(review.id, {
+      ignoreErrorMessage: true, isRequestContextCurrent: current
+    })
+    if (!current()) return
+    if (!result) throw new Error('关联活跃工单详情为空。')
+    orderDetail.value = result
+  } catch (error) {
+    if (current()) orderDetailError.value = resolveErrorMessage(error, '活跃工单详情加载失败。')
+  } finally {
+    if (current()) orderDetailLoading.value = false
+  }
+}
+
+const retryOrderDetail = () => {
+  if (orderDetailReview.value) void openActiveOrderDetail(orderDetailReview.value)
+}
 
 const listLoading = ref(false)
 const createLoading = ref(false)
@@ -309,17 +309,45 @@ const errorText = ref('')
 const reviews = ref<EdhrNonconformanceReviewRespVO[]>([])
 const selectedReview = ref<EdhrNonconformanceReviewRespVO>()
 const total = ref(0)
-const activeTab = ref<'all' | 'pending'>('all')
+const activeTab = ref<'all' | 'pending' | 'review'>('all')
+const listTab = ref<'all' | 'pending'>('all')
 const createDialogVisible = ref(false)
-const reviewDialogVisible = ref(false)
+const reviewTabOpen = ref(false)
 const activeOrderCandidates = ref<EdhrNonconformanceReviewActiveOrderRespVO[]>([])
 const activeOrderCandidatesLoading = ref(false)
 const selectedActiveOrderId = ref<number>()
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10
 })
+
+const REVIEW_TABLE_KEY = 'mes-pro-edhr-nonconformance-review'
+const {
+  columns: reviewColumns,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidth,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns(REVIEW_TABLE_KEY, [
+  { key: 'reviewCode', label: '评审单', minWidth: 220 },
+  { key: 'workOrderCode', label: '生产工单', minWidth: 210 },
+  { key: 'nonconformanceReason', label: '不合格原因', minWidth: 220 },
+  { key: 'reviewStatus', label: '状态', minWidth: 110 },
+  { key: 'disposition', label: '处置结论', minWidth: 120 },
+  { key: 'frozenAt', label: '冻结时间', minWidth: 170 },
+  { key: 'actions', label: '操作', minWidth: 110, hideable: false },
+])
+const reviewFilterDefinitions: TableQuickFilterDefinition[] = [
+  { key: 'reviewCode', label: '评审单号', type: 'text', queryParamKey: 'reviewCode', operators: ['contains'] },
+  { key: 'workOrderCode', label: '生产工单', type: 'text', queryParamKey: 'workOrderCode', operators: ['contains'] },
+  { key: 'batchCode', label: '批次号', type: 'text', queryParamKey: 'batchCode', operators: ['contains'] }
+]
+const reviewQuickFilter = useTableQuickFilter(
+  REVIEW_TABLE_KEY, reviewFilterDefinitions, queryParams, () => loadReviews()
+)
 
 const entryActiveOrderId = computed<number | undefined>(() => {
   const routeId = parsePositiveRouteQueryId(route.query.activeOrderId)
@@ -327,15 +355,24 @@ const entryActiveOrderId = computed<number | undefined>(() => {
 })
 const autoCreate = computed(() => route.query.autoCreate === '1')
 const canCreateReview = computed(() => hasPermission(['mes:pro-edhr-nonconformance-review:create']))
-const canConfigureQaAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
-const canConfigurePqcAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
-const entryForm = reactive({ nonconformanceReason: '' })
+const entryForm = reactive({ nonconformanceReason: '', qaReviewerUserId: undefined as string | number | undefined })
+const unassignedReviewerId = ref<string | number>()
+const assigningReviewer = ref(false)
+const isAssignedQaReviewer = (review?: EdhrNonconformanceReviewRespVO) => {
+  const userId = useUserStore().getUser.id
+  return userId != null && review?.qaReviewerUserId != null &&
+    String(review.qaReviewerUserId) === String(userId)
+}
+const canDisposeReview = (review?: EdhrNonconformanceReviewRespVO) =>
+  isAssignedQaReviewer(review) && review?.reviewStatus === REVIEW_STATUS_PENDING_REVIEW &&
+  hasPermission(['mes:pro-edhr-nonconformance-review:dispose'])
+const canDisposeSelectedReview = computed(() => canDisposeReview(selectedReview.value))
 
 const selectedActiveOrder = computed(() =>
   activeOrderCandidates.value.find((order) => order.id === selectedActiveOrderId.value)
 )
-const reviewDialogTitle = computed(() =>
-  selectedReview.value?.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? '处理不合格评审' : '评审详情'
+const reviewTabTitle = computed(() =>
+  canDisposeSelectedReview.value && !selectedReviewReadOnly.value ? '处理不合格评审' : '评审详情'
 )
 const formatActiveOrderLabel = (order: EdhrNonconformanceReviewActiveOrderRespVO) =>
   (order.workOrderCode || '活跃订单 ' + order.id) + ' · ' + (order.batchCode || '--')
@@ -363,6 +400,7 @@ const invalidateCreateContext = () => {
 }
 const invalidateReviewContext = () => {
   selectedReviewReadOnly.value = false
+  assigningReviewer.value = false
   invalidateCreateContext()
   reviewContextGeneration++
   materialContextGeneration++
@@ -370,6 +408,9 @@ const invalidateReviewContext = () => {
   disposeLoading.value = false
   listLoading.value = false
   materialUploadsPending.value = 0
+  materialUploadAttempts.value = []
+  materialSelectionError.value = ''
+  reviewValidationRequested.value = false
 }
 const materialUploadsPending = ref(0)
 
@@ -457,22 +498,43 @@ const buildReviewMaterials = (): EdhrNonconformanceReviewMaterial[] =>
     return { fileId, url, fileName, sortNo: index + 1 }
   })
 
-const handleMaterialUpload = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
-  input.value = ''
+const materialUploadAttempts = ref<ReviewUploadAttempt[]>([])
+let materialUploadSequence = 0
+const materialSelectionError = ref('')
+const reviewValidationRequested = ref(false)
+const reviewValidationErrors = computed(() => ({
+  materials: materialSelectionError.value,
+  opinion: reviewValidationRequested.value && !disposeForm.reviewOpinion.trim() ? '请输入评审意见。' : '',
+  signature: reviewValidationRequested.value && !disposeForm.signaturePassword.trim() ? '请输入本人签名凭据。' : ''
+}))
+const reviewWorkspaceMaterials = computed(() => {
+  const materials = canDisposeSelectedReview.value && !selectedReviewReadOnly.value
+    ? disposeForm.reviewMaterialUrls.map((url) => ({ url, fileName: disposeForm.reviewMaterialNames[url] }))
+    : parseReviewMaterialsJson(selectedReview.value)
+  return materials.map((material) => ({ url: material.url, fileName: resolveReviewMaterialName(material) }))
+})
+const dismissMaterialUploadAttempt = (key: number) => {
+  if (disposeLoading.value) return
+  materialUploadAttempts.value = materialUploadAttempts.value.filter((attempt) => attempt.key !== key || attempt.status === 'uploading')
+}
+const handleMaterialUpload = async (files: File[]) => {
   const reviewId = selectedReview.value?.id
-  if (!reviewId || !reviewDialogVisible.value || disposeLoading.value || selectedReviewReadOnly.value) return
+  if (!files.length || !reviewId || !reviewTabOpen.value || !canDisposeSelectedReview.value || disposeLoading.value || selectedReviewReadOnly.value) return
+  materialSelectionError.value = ''
   if (disposeForm.reviewMaterialUrls.length + materialUploadsPending.value + files.length > 5) {
-    message.error('最多上传 5 份评审材料。')
+    materialSelectionError.value = '最多上传5份评审材料，请减少本次选择的文件。'
+    message.error(materialSelectionError.value)
     return
   }
   const generation = materialContextGeneration
   const isCurrent = () => generation === materialContextGeneration
-    && selectedReview.value?.id === reviewId && reviewDialogVisible.value
+    && selectedReview.value?.id === reviewId && reviewTabOpen.value
+  const uploads = files.map((file) => ({ file, key: ++materialUploadSequence }))
+  materialUploadAttempts.value.push(...uploads.map(({ file, key }) => ({ key, fileName: file.name, status: 'uploading' as const })))
   materialUploadsPending.value += files.length
-  await Promise.all(files.map(async (file) => {
+  await Promise.all(uploads.map(async ({ file, key }) => {
     try {
+      if (file.size === 0) throw new Error('文件为空，请选择有内容的评审材料。')
       const material = await uploadNonconformanceReviewMaterial(reviewId, file, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       if (!material.fileId || !material.url || !material.fileName?.trim()) {
@@ -484,8 +546,14 @@ const handleMaterialUpload = async (event: Event) => {
       disposeForm.reviewMaterialIds[material.url] = material.fileId
       disposeForm.reviewMaterialNames[material.url] = material.fileName
       disposeForm.reviewMaterialUrls.push(material.url)
+      materialUploadAttempts.value = materialUploadAttempts.value.filter((attempt) => attempt.key !== key)
     } catch (error) {
-      if (isCurrent()) message.error(`${file.name}：${resolveErrorMessage(error, '上传失败，请重试。')}`)
+      if (isCurrent()) {
+        const reason = resolveErrorMessage(error, '上传失败，请重新选择文件。')
+        const attempt = materialUploadAttempts.value.find((item) => item.key === key)
+        if (attempt) { attempt.status = 'failed'; attempt.error = reason }
+        message.error(`${file.name}：${reason}`)
+      }
     } finally {
       if (isCurrent()) materialUploadsPending.value--
     }
@@ -500,6 +568,9 @@ const removeReviewMaterial = (url: string) => {
 }
 
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
+  materialUploadAttempts.value = []
+  materialSelectionError.value = ''
+  reviewValidationRequested.value = false
   materialContextGeneration++
   materialUploadsPending.value = 0
   const materials = parseReviewMaterialsJson(review)
@@ -523,7 +594,7 @@ const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
 
 const buildReviewQuery = (): EdhrNonconformanceReviewPageReqVO => {
   const query: EdhrNonconformanceReviewPageReqVO = { ...queryParams }
-  if (activeTab.value === 'pending') query.reviewStatus = REVIEW_STATUS_PENDING_REVIEW
+  if (listTab.value === 'pending') query.reviewStatus = REVIEW_STATUS_PENDING_REVIEW
   return query
 }
 
@@ -535,24 +606,28 @@ const loadReviews = async () => {
   errorText.value = ''
   try {
     const data = await getNonconformanceReviewPage(buildReviewQuery(), { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     reviews.value = data.list || []
     total.value = data.total || 0
     if (selectedReview.value?.id && route.query.reviewId === undefined) {
       const refreshed = reviews.value.find((review) => review.id === selectedReview.value?.id)
       if (refreshed) selectedReview.value = refreshed
     }
+    return true
   } catch (error) {
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     reviews.value = []
     total.value = 0
     errorText.value = resolveErrorMessage(error, '不合格评审列表加载失败。')
+    throw error
   } finally {
     if (isCurrent()) listLoading.value = false
   }
 }
 
 const handleTabChange = () => {
+  if (activeTab.value === 'review') return
+  listTab.value = activeTab.value
   queryParams.pageNo = 1
   void loadReviews()
 }
@@ -562,7 +637,7 @@ const openCreateDialog = async () => {
     errorText.value = '没有创建不合格评审的权限。'
     return
   }
-  reviewDialogVisible.value = false
+  reviewTabOpen.value = false
   selectedReview.value = undefined
   invalidateReviewContext()
   invalidateCreateContext()
@@ -595,20 +670,33 @@ const closeCreateDialog = () => {
   createDialogVisible.value = false
   selectedActiveOrderId.value = undefined
   entryForm.nonconformanceReason = ''
+  entryForm.qaReviewerUserId = undefined
 }
 
-const openReviewDialog = (review: EdhrNonconformanceReviewRespVO) => {
+const closeReviewTab = () => {
+  if (disposeLoading.value || assigningReviewer.value) return
+  reviewTabOpen.value = false
+}
+
+const openReviewTab = (review: EdhrNonconformanceReviewRespVO) => {
+  if (disposeLoading.value || assigningReviewer.value) return
   invalidateReviewContext()
   errorText.value = ''
   selectedReview.value = review
+  unassignedReviewerId.value = undefined
   fillDisposeForm(review)
-  reviewDialogVisible.value = true
+  reviewTabOpen.value = true
+  activeTab.value = 'review'
 }
 
 const submitCreateReview = async () => {
   if (createLoading.value || !createDialogVisible.value) return
   if (!selectedActiveOrderId.value) {
     message.error('请选择活跃订单后再发起不合格评审。')
+    return
+  }
+  if (!entryForm.qaReviewerUserId) {
+    message.error('请选择QA评审责任人。')
     return
   }
   const reason = entryForm.nonconformanceReason.trim()
@@ -627,6 +715,7 @@ const submitCreateReview = async () => {
   try {
     const review = await createNonconformanceReview({
       activeOrderId: selectedActiveOrderId.value,
+      qaReviewerUserId: entryForm.qaReviewerUserId,
       nonconformanceReason: reason
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     writeSucceeded = true
@@ -648,9 +737,32 @@ const submitCreateReview = async () => {
   }
 }
 
+const assignSelectedReviewer = async () => {
+  const review = selectedReview.value
+  const reviewer = unassignedReviewerId.value
+  if (!review || !review.activeOrderId || !reviewer || assigningReviewer.value) return
+  const generation = reviewContextGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const isCurrent = () => generation === reviewContextGeneration && reviewTabOpen.value && approvalInvalidation.isCurrent(sessionKey)
+  const event = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', review.activeOrderId)
+  assigningReviewer.value = true
+  try {
+    const receipt = await assignNonconformanceReviewer(review.id, reviewer, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(sessionKey) })
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
+    selectedReview.value = receipt
+    message.success('QA评审责任已指派，已生成评审待办。')
+    await loadReviews()
+  } catch (error) {
+    if (isCurrent()) message.error(resolveErrorMessage(error, 'QA指派失败。'))
+  } finally {
+    if (isCurrent()) assigningReviewer.value = false
+  }
+}
+
 const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) => {
-  if (disposeLoading.value || !reviewDialogVisible.value) return
-  if (selectedReviewReadOnly.value) {
+  if (disposeLoading.value || !reviewTabOpen.value) return
+  if (!canDisposeSelectedReview.value || selectedReviewReadOnly.value) {
     message.error('原轮次交接只允许查看，不能再次处置。')
     return
   }
@@ -658,7 +770,7 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
   const generation = reviewContextGeneration
   const isCurrent = () =>
     generation === reviewContextGeneration &&
-    reviewDialogVisible.value && selectedReview.value?.id === reviewId
+    reviewTabOpen.value && selectedReview.value?.id === reviewId
   if (materialUploadsPending.value) {
     message.error('请等待材料上传完成后再处置。')
     return
@@ -667,12 +779,12 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     message.error('请选择待处置评审单。')
     return
   }
+  reviewValidationRequested.value = true
   if (
-    disposeForm.reviewMaterialUrls.length === 0 ||
     !disposeForm.reviewOpinion.trim() ||
     !disposeForm.signaturePassword.trim()
   ) {
-    message.error('评审材料、评审意见和电子签名密码均不能为空。')
+    message.error('评审意见和电子签名凭据（PIN 码或密码）均不能为空。')
     return
   }
   disposeLoading.value = true
@@ -750,25 +862,29 @@ watch(createDialogVisible, (visible) => {
   if (!visible) invalidateCreateContext()
 }, { flush: 'sync' })
 
-watch(reviewDialogVisible, (visible) => {
+watch(reviewTabOpen, (visible) => {
   if (!visible) {
+    if (activeTab.value === 'review') activeTab.value = listTab.value
     invalidateReviewContext()
   }
 }, { flush: 'sync' })
 
 watch(() => approvalInvalidation.syncSession().key, () => {
+  closeOrderDetail()
   invalidateReviewContext()
   createDialogVisible.value = false
-  reviewDialogVisible.value = false
+  reviewTabOpen.value = false
 }, { flush: 'sync' })
 
 watch(() => route.fullPath, () => {
+  closeOrderDetail()
   invalidateReviewContext()
   createDialogVisible.value = false
-  reviewDialogVisible.value = false
+  reviewTabOpen.value = false
 }, { flush: 'sync' })
 
 onBeforeUnmount(() => {
+  closeOrderDetail()
   invalidateReviewContext()
   invalidateCreateContext()
 })
@@ -780,7 +896,7 @@ const requireReviewIdentity = (value: unknown): string => {
 }
 
 const loadReviewEntry = async () => {
-  reviewDialogVisible.value = false
+  reviewTabOpen.value = false
   closeCreateDialog()
   invalidateReviewContext()
   selectedReview.value = undefined
@@ -802,9 +918,6 @@ const loadReviewEntry = async () => {
   total.value = 0
   listLoading.value = true
   try {
-    if (!hasPermission(['mes:pro-edhr-nonconformance-review:query'])) {
-      throw new Error('没有查询关联不合格评审的权限。')
-    }
     const reviewId = requireReviewIdentity(query.reviewId)
     let readOnly = false
     let handoffActiveOrderId: string | undefined
@@ -883,7 +996,8 @@ const loadReviewEntry = async () => {
     fillDisposeForm(review)
     selectedReviewReadOnly.value = readOnly
     selectedReview.value = review
-    reviewDialogVisible.value = true
+    reviewTabOpen.value = true
+    activeTab.value = 'review'
     void loadReviews()
   } catch (error) {
     if (isCurrent()) errorText.value = resolveErrorMessage(error, '关联不合格评审加载失败。')
@@ -901,68 +1015,68 @@ watch(
 )
 
 onMounted(() => { void loadReviewEntry() })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'reviewCode',
+    label: '评审单',
+    type: 'text',
+    getValue: (row) => [row.reviewCode || '--', resolveSourceTypeLabel(row.sourceType)].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产工单',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'reviewStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveReviewStatusLabel(row.reviewStatus)].join(' ')
+  },
+  {
+    key: 'disposition',
+    label: '处置结论',
+    type: 'text',
+    getValue: (row) => [resolveDispositionLabel(row.disposition)].join(' ')
+  }
+])
 </script>
 
 <style scoped>
-.edhr-ncr__assignments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+.edhr-ncr-review-viewport {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-height: 0;
+  margin-bottom: 0;
 }
-
-@media (max-width: 1050px) {
-  .edhr-ncr__assignments {
-    grid-template-columns: 1fr;
-  }
+.edhr-ncr-review-viewport :deep(.el-card__body),
+.edhr-ncr-review-viewport .edhr-ncr,
+.edhr-ncr-review-viewport :deep(.el-tabs),
+.edhr-ncr-review-viewport :deep(.el-tabs__content),
+.edhr-ncr-review-viewport :deep(#pane-review) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
-
+.edhr-ncr-review-viewport :deep(.el-tabs__header),
+.edhr-ncr-review-viewport .edhr-ncr > .el-alert { flex-shrink: 0; }
+.edhr-ncr-review-viewport :deep(.el-tabs__content) { overflow: hidden; }
 .edhr-ncr {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.edhr-ncr__header,
-.edhr-ncr__section {
-  padding: 16px;
-  background: #fff;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-}
-
-.edhr-ncr__header,
-.edhr-ncr__section-head,
-.edhr-ncr__buttons {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.edhr-ncr__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.edhr-ncr__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #172033;
-}
-
-.edhr-ncr__subtitle,
 .edhr-ncr__muted {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.5;
   color: #4b5563;
-}
-
-.edhr-ncr__section-title {
-  margin-bottom: 12px;
-  font-weight: 700;
-  color: #172033;
 }
 
 .edhr-ncr__strong {
@@ -979,36 +1093,68 @@ onMounted(() => { void loadReviewEntry() })
   font-size: 13px;
 }
 
-.edhr-ncr__summary {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: #263247;
-}
-
-.edhr-ncr__summary--readonly {
-  margin-top: 8px;
-}
-
-.edhr-ncr__label {
-  display: inline-block;
-  min-width: 86px;
-  color: #4b5563;
-}
-
-.edhr-ncr__dispose-form {
-  margin-top: 12px;
-}
-
-.edhr-ncr__buttons {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-}
-
 @media (width <= 960px) {
   .edhr-ncr__source-summary {
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<style>
+.el-dialog.edhr-ncr-create-dialog {
+  width: min(720px, calc(100vw - 32px));
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.edhr-ncr-create-dialog .el-dialog__header {
+  margin: 0;
+  padding: 26px 32px 22px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.edhr-ncr-create-dialog .el-dialog__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.edhr-ncr-create-dialog .el-dialog__headerbtn { top: 12px; right: 12px; }
+.edhr-ncr-create-dialog .el-dialog__body {
+  max-height: 68vh;
+  overflow-y: auto;
+  padding: 28px 32px 32px;
+}
+.edhr-ncr-create-dialog .el-form-item { margin-bottom: 30px; }
+.edhr-ncr-create-dialog .el-form-item:last-child { margin-bottom: 0; }
+.edhr-ncr-create-dialog .el-form-item__label {
+  height: auto;
+  margin-bottom: 12px;
+  line-height: 22px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.edhr-ncr-create-dialog .el-form-item__content { min-width: 0; }
+.edhr-ncr-create-dialog .el-select { width: 100%; }
+.edhr-ncr-create-dialog .el-select__wrapper,
+.edhr-ncr-create-dialog .el-input__wrapper { min-height: 40px; border-radius: 6px; }
+.edhr-ncr-create-dialog .el-textarea__inner { padding: 12px 14px; line-height: 1.7; border-radius: 6px; }
+.edhr-ncr-create-dialog__order {
+  margin: 0 0 32px;
+  padding: 22px 24px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+.edhr-ncr-create-dialog__order dl { display: grid; gap: 22px; margin: 0; }
+.edhr-ncr-create-dialog__order dl > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; font-size: 14px; line-height: 1.8; }
+.edhr-ncr-create-dialog__order dt { color: var(--el-text-color-secondary); }
+.edhr-ncr-create-dialog__order dd { margin: 0; overflow-wrap: anywhere; color: var(--el-text-color-primary); font-variant-numeric: tabular-nums; }
+.edhr-ncr-create-dialog .el-dialog__footer { padding: 20px 32px; border-top: 1px solid var(--el-border-color-lighter); }
+.edhr-ncr-create-dialog .el-dialog__footer .el-button { height: 38px; min-width: 84px; border-radius: 6px; }
+@media (width <= 520px) {
+  .edhr-ncr-create-dialog .el-dialog__header { padding: 20px; }
+  .edhr-ncr-create-dialog .el-dialog__body { padding: 18px 20px 22px; }
+  .edhr-ncr-create-dialog .el-dialog__footer { padding: 14px 20px; }
+  .edhr-ncr-create-dialog__order { padding: 14px; }
+  .edhr-ncr-create-dialog__order dl > div { grid-template-columns: 1fr; gap: 2px; }
 }
 </style>

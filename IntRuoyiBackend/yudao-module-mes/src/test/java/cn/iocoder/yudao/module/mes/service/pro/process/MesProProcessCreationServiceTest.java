@@ -25,40 +25,40 @@ class MesProProcessCreationServiceTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test void ignoresIncomingCodeForEveryNewProcess() {
-        when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
-                .thenReturn("GX-0001", "GX-0002");
+        when(autoCodeRecordService.generateProjectCode("PRO_PROCESS_GX_CODE", 42L))
+                .thenReturn("P42-GX-0001", "P42-GX-0002");
         MesProProcessDO first = MesProProcessDO.builder().code("ER-OLD").name("A").build();
         MesProProcessDO second = MesProProcessDO.builder().code("GX-9999").name("B").build();
-        service.create(first);
-        service.create(second);
-        assertEquals("GX-0001", first.getCode());
-        assertEquals("GX-0002", second.getCode());
+        service.create(first, 42L);
+        service.create(second, 42L);
+        assertEquals("P42-GX-0001", first.getCode());
+        assertEquals("P42-GX-0002", second.getCode());
         verify(processMapper).insert(first);
         verify(processMapper).insert(second);
     }
 
     @Test void invalidRuleStopsInsert() {
-        when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null)).thenReturn("ER0001");
-        assertThrows(IllegalStateException.class, () -> service.create(new MesProProcessDO()));
+        when(autoCodeRecordService.generateProjectCode("PRO_PROCESS_GX_CODE", 42L)).thenReturn("");
+        assertThrows(IllegalStateException.class, () -> service.create(new MesProProcessDO(), 42L));
         verifyNoInteractions(processMapper);
     }
 
     @Test void missingRuleStopsInsert() {
-        when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
+        when(autoCodeRecordService.generateProjectCode("PRO_PROCESS_GX_CODE", 42L))
                 .thenThrow(new IllegalStateException("missing rule"));
-        assertThrows(IllegalStateException.class, () -> service.create(new MesProProcessDO()));
+        assertThrows(IllegalStateException.class, () -> service.create(new MesProProcessDO(), 42L));
         verifyNoInteractions(processMapper);
     }
 
     @Test void missingTenantStopsAllocation() {
         TenantContextHolder.clear();
-        assertThrows(NullPointerException.class, () -> service.create(new MesProProcessDO()));
+        assertThrows(NullPointerException.class, () -> service.create(new MesProProcessDO(), 42L));
         verifyNoInteractions(autoCodeRecordService, processMapper);
     }
 
     @Test void existingIdIsNotAnInsert() {
         assertThrows(IllegalArgumentException.class,
-                () -> service.create(MesProProcessDO.builder().id(12L).build()));
+                () -> service.create(MesProProcessDO.builder().id(12L).build(), 42L));
         verifyNoInteractions(autoCodeRecordService, processMapper);
     }
 }

@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 import { cloneDeep, omit } from 'lodash-es'
 import qs from 'qs'
 import { isUrl } from '@/utils/is'
+import { edhrDirectoryIcons, edhrPageIcons } from '@/utils/edhrNavigationIcons'
 
 const modules = import.meta.glob('../views/**/*.{vue,tsx}')
 
@@ -57,7 +58,11 @@ const MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS = new Set([
 ])
 const MES_FEEDBACK_ROUTE_COMPONENTS = new Set(['mes/pro/feedback', 'mes/pro/feedback/index'])
 const MES_FEEDBACK_ROUTE_PATHS = new Set(['mes/pro/feedback', 'pro/feedback'])
-const FORM_CENTER_PARSER_ROUTE_COMPONENT = 'form-center/parser/index'
+const FORM_CENTER_PARSER_ROUTE_COMPONENTS = new Set([
+  'form-center/parser/ProductionParserPage',
+  'form-center/simple-parser/index',
+  'form-center/parser/InspectionParserPage'
+])
 const APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS = new Set([
   'mes/pro/edhr/ApprovalPage',
   'dcc/controlled-file/approval-tasks',
@@ -103,10 +108,16 @@ const applyRouteMetaOverrides = (
   const componentPath = normalizeInternalComponentPath(route.component)
   const configActiveMenus: Record<string, string> = {
     'mes/pro/edhr-config/index': '/mes/pro/edhr-config',
-    'erp/sync/config/index': '/erp/sync/config',
+    'erp/sync/config/index': '/erp/kingdee-sync',
     'dcc/registration-certificate/config/index': '/dcc/registration-certificate/config',
     'infra/config/basic/index': '/infra/config/basic'
   }
+  const edhrIcon = route.component
+    ? edhrPageIcons[componentPath]
+    : edhrDirectoryIcons[routePath]
+  if (edhrIcon) meta.icon = edhrIcon
+  if (routePath === 'mes/edhr-process-routes') meta.title = '工艺路线'
+  if (routePath === 'mes/edhr-process-settings') meta.title = '工序管理'
   if (configActiveMenus[componentPath]) {
     meta.activeMenu = configActiveMenus[componentPath]
     meta.noCache = true
@@ -156,8 +167,19 @@ const applyRouteMetaOverrides = (
   ) {
     meta.hideFooter = true
   }
-  if (FORM_CENTER_PARSER_ROUTE_COMPONENT === componentPath) {
+  if (FORM_CENTER_PARSER_ROUTE_COMPONENTS.has(componentPath)) {
     meta.hideFooter = true
+  }
+  const simpleParserCacheNames: Record<string, string> = {
+    'form-center/simple-parser/index': 'FormCenterSimpleParser',
+    'form-center/simple-pqc-parser/index': 'FormCenterSimplePqcParser',
+    'form-center/simple-common-parser/index': 'FormCenterSimpleCommonParser'
+  }
+  if (simpleParserCacheNames[componentPath]) {
+    // 未发布的解析及试填内容随页签保留，关闭页签时由 TagsView 释放。
+    meta.noCache = false
+    meta.keepAliveName = simpleParserCacheNames[componentPath]
+    meta.tagsViewKeyMode = 'path'
   }
 }
 

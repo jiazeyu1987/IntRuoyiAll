@@ -14,6 +14,7 @@ class MesEdhrBatchLifecycleGuardTest {
     private final MesProEdhrBatchExecutionMapper batches = mock(MesProEdhrBatchExecutionMapper.class);
     private final MesEdhrBatchLifecycleGuard guard = new MesEdhrBatchLifecycleGuard();
     MesEdhrBatchLifecycleGuardTest() {
+        ReflectionTestUtils.setField(guard, "marketReleaseAccess", mock(MesMarketReleaseAccess.class));
         ReflectionTestUtils.setField(guard, "reviewMapper", reviews);
         ReflectionTestUtils.setField(guard, "changeMapper", changes);
         ReflectionTestUtils.setField(guard, "batchMapper", batches);
@@ -36,6 +37,13 @@ class MesEdhrBatchLifecycleGuardTest {
         assertTrue(ex.getMessage().contains("QA"));
         assertThrows(ServiceException.class, () -> guard.requireVoidEffectState(batch(), event("30"), null));
         verifyNoInteractions(changes, batches);
+    }
+    @Test void assignedUploaderBypassesApproverOwnershipButStillHonorsBatchAndReviewLocks() {
+        when(batches.selectById(10L)).thenReturn(batch());
+        assertDoesNotThrow(() -> guard.requireAssignedDossierMutable(10L));
+        verifyNoInteractions((MesMarketReleaseAccess) ReflectionTestUtils.getField(guard, "marketReleaseAccess"));
+        when(reviews.selectPendingCountByWorkOrderId(20L)).thenReturn(1L);
+        assertThrows(ServiceException.class, () -> guard.requireAssignedDossierMutable(10L));
     }
     @Test void workOrderNcrAlsoBlocksBatchEvenBeforeBatchAssociation() {
         when(reviews.selectPendingCountByWorkOrderId(20L)).thenReturn(1L);

@@ -9,6 +9,7 @@ export const EDHR_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-execution/deta
 export const EDHR_EXECUTION_FORM_PATH = '/mes/pro/feedback/edhr-execution/form'
 export const EDHR_APPROVAL_DETAIL_PATH = '/mes/pro/feedback/edhr-approval/detail'
 export const PQC_PRODUCTION_RELEASE_PATH = '/mes/production-release/pqc'
+export const PRODUCTION_RELEASE_MENU_PATH = '/mes/pro/production-release/pqc'
 export const EDHR_FILL_CARRIER_FORM = 'FORM'
 export const EDHR_RECORD_CATEGORY_BATCH_RECORD = 'BATCH_RECORD'
 export const EDHR_FORM_SLOT_TYPE_MAIN = 'MAIN'
@@ -19,7 +20,13 @@ export const EDHR_WORK_TASK_NOTIFY_PATHS = new Set([
   EDHR_EXECUTION_DETAIL_PATH,
   EDHR_EXECUTION_FORM_PATH,
   EDHR_APPROVAL_DETAIL_PATH,
-  PQC_PRODUCTION_RELEASE_PATH
+  PQC_PRODUCTION_RELEASE_PATH,
+  PRODUCTION_RELEASE_MENU_PATH,
+  '/mes/pro/feedback/edhr-deviation',
+  '/mes/pro/feedback/edhr-change',
+  '/mes/pro/feedback/edhr-dossier-completion',
+  '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+  '/user/profile'
 ])
 
 export type EdhrWorkTaskRouteLike = {
@@ -135,7 +142,28 @@ const resolveMarketReleaseTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL, orig
 
 const resolveTaskNavigationUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
   if (item.actionUrl) {
-    return resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin)
+    const url = resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin)
+    if (isRouteValuePresent(item.id)) {
+      const workTaskId = requireTaskIdentity(item.id, '工作任务编号')
+      const existing = url.searchParams.getAll('workTaskId')
+      if (existing.length > 1 || (existing.length === 1 && existing[0] !== workTaskId)) {
+        throw new Error('工作任务入口与正式任务编号不一致。')
+      }
+      url.searchParams.set('workTaskId', workTaskId)
+    }
+    if (normalizeTaskType(item.taskType) === 'PQC_PRODUCTION_RELEASE') {
+      const applicationId = requireTaskIdentity(item.businessScopeId, '生产放行申请编号')
+      if (item.businessScopeType !== 'RELEASE_APPLICATION' ||
+        ![PQC_PRODUCTION_RELEASE_PATH, PRODUCTION_RELEASE_MENU_PATH].includes(url.pathname) ||
+        url.searchParams.getAll('applicationId').length !== 1 || url.searchParams.get('applicationId') !== applicationId) {
+        throw new Error('生产放行入口与正式申请身份不一致。')
+      }
+    }
+    // Task action URLs must open the same route/tab as the production release menu.
+    if (url.pathname === PQC_PRODUCTION_RELEASE_PATH) {
+      url.pathname = PRODUCTION_RELEASE_MENU_PATH
+    }
+    return url
   }
   if (isFillTask(item.taskType) && hasStructuredBatchFillTaskContext(item)) {
     return buildStructuredBatchFillTaskUrl(item, origin)
@@ -166,7 +194,8 @@ const toPositiveNumber = (value?: number | string | null) => {
 }
 
 const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
-  (isFillOrReworkTask(item.taskType) || url.pathname === EDHR_BATCH_EXECUTION_DETAIL_PATH) &&
+  (isFillOrReworkTask(item.taskType) || (!item.taskType && url.pathname === EDHR_BATCH_EXECUTION_DETAIL_PATH &&
+    !url.searchParams.has('nodeType') && !url.searchParams.has('action'))) &&
   !resolveExecutionId(item, url) &&
   Boolean(resolveBatchExecutionId(item, url)) &&
   Boolean(resolveBatchTaskId(item, url))

@@ -98,6 +98,7 @@ public class PermissionCommandProtocol {
         // Same ordering as the writer; all lookups below are current reads, not RR snapshots.
         audit.acquireLedgerLock();
         cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO policy;
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
         if (localDevelopmentPolicy != null) {
             policy = localDevelopmentPolicy.findOperation(tenant, operation);
         } else {
@@ -107,8 +108,9 @@ public class PermissionCommandProtocol {
         }
         require(policy != null && Boolean.TRUE.equals(policy.getActive()) && "GXP".equals(policy.getApplicability()),
                 "active-operation-required");
+        }
         var saved = receipts.selectForUpdate(tenant, operation, digest(originalKey));
-        var event = events.selectByIdempotencyKeyForUpdate(tenant, key);
+        var event = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() ? null : events.selectByIdempotencyKeyForUpdate(tenant, key);
         PermissionCommandReceiptDO draft = new PermissionCommandReceiptDO();
         draft.setTenantId(tenant); draft.setOperationId(operation); draft.setSubjectId(subjectType + ":" + subject);
         draft.setSourceKey(originalKey); draft.setSourceKeySha256(digest(originalKey));
@@ -120,7 +122,7 @@ public class PermissionCommandProtocol {
         }
         require(event == null, "event-without-receipt");
         // A legacy event cannot be silently upgraded or supplied a missing success receipt.
-        require(events.selectByIdempotencyKeyForUpdate(tenant, sourceKey) == null, "legacy-event-without-receipt");
+        require(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() || events.selectByIdempotencyKeyForUpdate(tenant, sourceKey) == null, "legacy-event-without-receipt");
         draft.setId(IdWorker.getId());
         draft.setCreatedAtUtc(LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS));
         return new Command(draft, key, reason, false, targetTenant, management);
@@ -140,6 +142,12 @@ public class PermissionCommandProtocol {
         var receipt = command.receipt();
         String beforeJson = canonical(before), afterJson = canonical(after);
         String beforeVersion = "sha256:" + hash(beforeJson), afterVersion = "sha256:" + hash(afterJson);
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
+            receipt.setAuditEventId(-receipt.getId());
+            receipt.setAuditEventHash(digest("DEVELOPMENT_DISABLED".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            require(receipts.insert(receipt) == 1, "receipt-insert-failed");
+            return;
+        }
         var result = audit.append(GxpAuditCommand.builder()
                 .operationId(receipt.getOperationId()).subjectId(receipt.getSubjectId())
                 .subjectVersion(afterVersion)
@@ -170,6 +178,7 @@ public class PermissionCommandProtocol {
                 && tree(saved.getIdentityJson()).equals(tree(expected.getIdentityJson()))
                 && tree(saved.getSourceJson()).equals(tree(expected.getSourceJson()))
                 && tree(saved.getResultJson()).equals(tree(RESULT)), "receipt-binding-conflict");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         require(event != null && Objects.equals(saved.getAuditEventId(), event.getId())
                 && Objects.equals(event.getTenantId(), expected.getTenantId())
                 && Objects.equals(event.getOperationId(), expected.getOperationId())

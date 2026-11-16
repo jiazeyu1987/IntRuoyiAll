@@ -150,7 +150,7 @@ const handlePrint = () => {
     <title>打印条码</title>
     <style>
       * { margin: 0; padding: 0; }
-      body { font-family: Arial, sans-serif; padding: 20px; }
+      body { font-family: "Microsoft YaHei"; padding: 20px; }
       .print-container { text-align: center; }
       .barcode-img { max-width: 100%; margin: 20px 0; }
       .info { margin-top: 20px; text-align: left; font-size: 12px; }

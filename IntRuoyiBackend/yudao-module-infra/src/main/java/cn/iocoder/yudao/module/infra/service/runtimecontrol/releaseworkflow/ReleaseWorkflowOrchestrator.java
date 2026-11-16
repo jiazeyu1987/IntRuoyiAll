@@ -406,8 +406,9 @@ public class ReleaseWorkflowOrchestrator {
     /**
      * Reconciles heartbeat-expired workflows after first terminating any
      * still-running low-level operation. Recovery is fail-closed: a workflow
-     * is not advanced while its operation remains running or cannot be
-     * verified as terminated.
+     * cannot continue automatically while its operation remains running or cannot
+     * be verified as terminated. Unconfirmed termination is durably isolated for
+     * manual recovery before surfacing the failure to the scheduler.
      */
     public synchronized List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
         List<ReleaseWorkflowRecord> stale = workflowService.list().stream()
@@ -438,17 +439,29 @@ public class ReleaseWorkflowOrchestrator {
                     continue;
                 }
                 if (!runtimeControlService.cancelOperation(workflow.operationId())) {
-                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                    throw isolateUnconfirmedTermination(workflow);
                 }
                 RuntimeControlOperationRespVO terminated = operationStore.findById(workflow.operationId());
                 if (terminated != null && "running".equals(terminated.getStatus())) {
-                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                    throw isolateUnconfirmedTermination(workflow);
                 }
             }
         }
         List<ReleaseWorkflowRecord> recovered = workflowService.recoverStaleWorkflows(now);
         recovered.forEach(this::releaseLeasesForState);
         return recovered;
+    }
+
+    private IllegalStateException isolateUnconfirmedTermination(ReleaseWorkflowRecord workflow) {
+        IllegalStateException failure = new IllegalStateException(
+                "RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED: workflowId=" + workflow.workflowId()
+                        + ", operationId=" + workflow.operationId());
+        try {
+            workflowService.isolateUnconfirmedTermination(workflow.workflowId(), workflow.stateVersion());
+        } catch (RuntimeException persistenceFailure) {
+            failure.addSuppressed(persistenceFailure);
+        }
+        return failure;
     }
 
     private Instant recentOperationLogProgressAt(String operationId, Instant now) {

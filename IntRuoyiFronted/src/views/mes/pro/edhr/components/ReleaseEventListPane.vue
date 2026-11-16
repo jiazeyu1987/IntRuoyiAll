@@ -1,6 +1,9 @@
 <template>
   <div class="edhr-release-event-pane">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
+      single-line-toolbar
       table-key="mes.pro.edhr.traceDrawer.releaseEvents"
       :query-model="queryParams"
       :filter-definitions="releaseEventQuickFilterDefinitions"
@@ -18,13 +21,12 @@
       @quick-filter-query="releaseEventQuickFilter.applyQuickFilter"
       @column-change="saveReleaseEventColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">查询</el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -37,7 +39,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.traceDrawer.releaseEvents"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="id"
@@ -122,6 +124,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getEdhrReleaseEventPage,
@@ -156,6 +160,7 @@ const list = ref<EdhrReleaseEventRespVO[]>([])
 const total = ref(0)
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   eventType: '' as EdhrReleaseEventType | ''
@@ -223,37 +228,40 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   const releaseTransactionId = currentReleaseTransactionId.value
   if (!releaseTransactionId) {
     list.value = []
     total.value = 0
     loadError.value = ''
-    return
+    return false
   }
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrReleaseEventPage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       releaseTransactionId,
       eventType: queryParams.eventType || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '放行事务事件加载失败。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
-}
-
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
 }
 
 const resetQuery = async () => {
@@ -275,6 +283,28 @@ watch(
 )
 
 defineExpose({ reload: getList })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'eventType',
+    label: '事件',
+    type: 'text',
+    getValue: (row) => [resolveReleaseEventLabel(row.eventType)].join(' ')
+  },
+  {
+    key: 'statusChange',
+    label: '状态变化',
+    type: 'text',
+    getValue: (row) =>
+      [resolveReleaseStatusLabel(row.fromStatus), resolveReleaseStatusLabel(row.toStatus)].join(' ')
+  },
+  {
+    key: 'reasonOpinion',
+    label: '原因/意见',
+    type: 'text',
+    getValue: (row) => [row.reason || row.opinion || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

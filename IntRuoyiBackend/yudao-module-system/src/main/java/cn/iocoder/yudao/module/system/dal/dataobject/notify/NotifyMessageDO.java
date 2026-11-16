@@ -19,7 +19,8 @@ import java.util.Map;
  *
  * @author xrcoder
  */
-@TableName(value = "system_notify_message", autoResultMap = true)
+@cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated
+@TableName(value = "system_tenant_notify_message", autoResultMap = true)
 @KeySequence("system_notify_message_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -64,6 +65,11 @@ public class NotifyMessageDO extends BaseDO {
      * 关联 {@link NotifyTemplateDO#getId()}
      */
     private Long templateId;
+    /**
+     * 迁移前的原始模板编号；与当前租户模板编号属于不同的编号空间。
+     * 原始模板已删除时保留此编号及消息快照，templateId 为空。
+     */
+    private Long sourceTemplateId;
     /**
      * 模版编码
      *

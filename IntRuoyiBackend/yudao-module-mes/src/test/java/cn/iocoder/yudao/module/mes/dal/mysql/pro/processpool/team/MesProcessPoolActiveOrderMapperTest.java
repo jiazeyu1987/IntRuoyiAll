@@ -63,6 +63,20 @@ class MesProcessPoolActiveOrderMapperTest {
                 .build();
     }
 
+    @Test
+    void admissionHistoryIncludesClosedOrdersForBothCandidateAndLockedReads() {
+        MesProcessPoolActiveOrderMapper mapper = mock(MesProcessPoolActiveOrderMapper.class, CALLS_REAL_METHODS);
+        doReturn(List.of()).when(mapper).selectList(any(Wrapper.class));
+        mapper.selectHistoryByWorkOrderIds(List.of(980019L));
+        mapper.selectHistoryByWorkOrderIdForUpdate(980019L);
+        ArgumentCaptor<Wrapper> captured = ArgumentCaptor.forClass(Wrapper.class);
+        verify(mapper, times(2)).selectList(captured.capture());
+        for (Wrapper<?> wrapper : captured.getAllValues()) {
+            assertTrue(!wrapper.getSqlSegment().contains("active_status"), wrapper.getSqlSegment());
+        }
+        assertTrue(captured.getAllValues().get(1).getSqlSegment().contains("FOR UPDATE"));
+    }
+
     private static void assertSqlContainsInOrder(Wrapper<?> wrapper, String... fragments) {
         String sqlSegment = wrapper.getSqlSegment().replace("`", "").replaceAll("\\s+", " ").trim();
         int cursor = 0;

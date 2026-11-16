@@ -129,6 +129,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
+    private final cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
 
     public MesTeamLeaderActiveOrderSimulationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -156,7 +157,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesReportAllocationCommandService reportAllocationCommandService,
             MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService,
             MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService,
-            MesProBatchRecordExecutionSignatureService signatureService) {
+            MesProBatchRecordExecutionSignatureService signatureService,
+            cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
@@ -183,6 +185,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.pqcProcessInspectionAggregationService = pqcProcessInspectionAggregationService;
         this.orderProcessCompletionService = orderProcessCompletionService;
         this.signatureService = signatureService;
+        this.pqcCoverageService = pqcCoverageService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -207,8 +210,15 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 snapshotIdentities);
         Set<ProcessIdentity> formalIdentitySet = new LinkedHashSet<>(formalIdentities);
         List<MesPqcInspectionTaskDO> pqcTasks =
-                pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
+                pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).stream()
+                        .filter(task -> task == null || !"CANCELLED".equals(task.getTaskStatus()))
+                        .toList();
         validatePqcTasksBeforeWrite(activeOrder, formalIdentitySet, pqcTasks);
+        var missingCoverage = pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, pqcTasks);
+        if (!missingCoverage.isEmpty()) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "请先在一线PQC按规程创建巡检轮次及适用的末检，再执行模拟完成：" + String.join("；", missingCoverage));
+        }
 
         ProductionSimulationSummary productionSummary =
                 simulateProductionSubmissions(activeOrder, routeVersion, snapshots, leaderUserId, simulationStage,
@@ -262,6 +272,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "活跃订单缺少固定 PQC 任务，activeOrderId=" + activeOrder.getId());
         }
         for (MesPqcInspectionTaskDO task : pqcTasks) {
+            if (task != null && "CANCELLED".equals(task.getTaskStatus())) continue;
             validatePqcTask(activeOrder, formalIdentitySet, task);
         }
     }
@@ -307,7 +318,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         int reviewCount = 0;
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             ProcessIdentity process = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
-            BigDecimal plannedQuantity = requirePlannedQuantity(activeOrder, snapshot);
+            BigDecimal plannedQuantity = requireProductionTargetQuantity(activeOrder, snapshot);
             BigDecimal allocatedQuantity = allocatedByProcess.getOrDefault(process, BigDecimal.ZERO);
             BigDecimal remainingQuantity = plannedQuantity.subtract(allocatedQuantity);
             if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1080,11 +1091,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .routeId(task.getRouteId())
                 .qaProcessId(task.getQaProcessId())
                 .actualEmployeeId(leaderUserId)
-                .deviceAccountId(pieceBuildResult.selectedEquipment() == null ? null : leaderUserId)
-                .deviceId(pieceBuildResult.selectedEquipment() == null ? null
-                        : pieceBuildResult.selectedEquipment().equipmentId())
-                .workstationId(pieceBuildResult.selectedEquipment() == null ? null
-                        : pieceBuildResult.selectedEquipment().workstationId())
+                // Task-based PQC keeps inspection equipment in item evidence, independently of production workstations.
                 .templateType(SIMULATION_TEMPLATE_TYPE_PQC)
                 .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .feedbackSourceId(task.getId())
@@ -1204,12 +1211,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private PqcEquipment resolveDefaultPqcEquipment(MesProcessPoolActiveOrderDO activeOrder,
                                                     MesPqcInspectionTaskDO task,
                                                     MesQaInspectionRegulationItemDO item) {
-        Long dccProjectCodeId = resolvePqcTaskDccProjectCodeId(task);
         String itemCode = item.getItemCode().trim();
-        List<MesPqcItemEquipmentOption> options = pqcItemEquipmentConfigService
-                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(dccProjectCodeId,
-                        task.getRegulationVersionId(), List.of(itemCode))
-                .getOrDefault(itemCode, List.of()).stream()
+        List<MesPqcItemEquipmentOption> options = resolvePqcTaskEquipmentOptions(task, itemCode).stream()
                 .sorted(Comparator.comparing((MesPqcItemEquipmentOption option) ->
                                 Boolean.TRUE.equals(option.defaultFlag()) ? 0 : 1)
                         .thenComparing(MesPqcItemEquipmentOption::sort,
@@ -1231,8 +1234,36 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "PQC任务检验设备配置不完整，taskId=" + task.getId());
         }
         return new PqcEquipment(selected.equipmentId(), selected.equipmentCode().trim(),
-                selected.equipmentName().trim(), selected.equipmentNumber().trim(),
-                null);
+                selected.equipmentName().trim(), selected.equipmentNumber().trim());
+    }
+
+    private List<MesPqcItemEquipmentOption> resolvePqcTaskEquipmentOptions(MesPqcInspectionTaskDO task, String itemCode) {
+        MesQaInspectionRegulationVersionDO version = inspectionRegulationVersionMapper.selectById(task.getRegulationVersionId());
+        MesQaInspectionRegulationDO regulation = version == null ? null
+                : inspectionRegulationMapper.selectById(version.getRegulationId());
+        if (regulation != null && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())) {
+            if (!Objects.equals(version.getId(), task.getRegulationVersionId())
+                    || !Objects.equals(regulation.getId(), task.getQaRegulationId())
+                    || StrUtil.isBlank(version.getSnapshotJson())) {
+                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED, "通用PQC任务锁定规程版本不完整，taskId=" + task.getId());
+            }
+            var snapshot = JSON.parseObject(version.getSnapshotJson(),
+                    cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO.class);
+            var matches = snapshot.getProcesses() == null ? List.<cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO.InspectionItem>of()
+                    : snapshot.getProcesses().stream().filter(process -> process.getItems() != null)
+                        .flatMap(process -> process.getItems().stream())
+                        .filter(candidate -> itemCode.equals(candidate.getItemCode())).toList();
+            if (matches.size() != 1) {
+                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED, "通用PQC任务锁定版本缺少唯一检验项：" + itemCode);
+            }
+            var equipment = matches.get(0).getEquipmentOptions();
+            return equipment == null ? List.of() : equipment.stream().map(option -> new MesPqcItemEquipmentOption(
+                    itemCode, option.getEquipmentId(), option.getEquipmentCode(), option.getEquipmentName(),
+                    option.getEquipmentNumber(), option.getDefaultFlag(), option.getSort())).toList();
+        }
+        Long projectId = resolvePqcTaskDccProjectCodeId(task);
+        return pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                projectId, task.getRegulationVersionId(), List.of(itemCode)).getOrDefault(itemCode, List.of());
     }
 
     private Long resolvePqcTaskDccProjectCodeId(MesPqcInspectionTaskDO task) {
@@ -1309,6 +1340,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("qaProcessId", task.getQaProcessId());
         payload.put("qaItemCode", task.getQaItemCode());
         payload.put("inspectionType", task.getInspectionType());
+        payload.put("inspectionItemPlan", MesPqcInspectionItemPlan.require(task));
+        payload.put("inspectionSamplingPlan", MesPqcInspectionItemPlan.requireSampling(task));
         payload.put("businessDate", task.getBusinessDate());
         payload.put("shiftCode", task.getShiftCode());
         payload.put("roundNo", task.getRoundNo());
@@ -1417,13 +1450,16 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
         Map<PqcSimulationTaskIdentity, Boolean> confirmedByIdentity = new LinkedHashMap<>();
         for (MesPqcInspectionTaskDO task : pqcTasks) {
+            if (task != null && "CANCELLED".equals(task.getTaskStatus())) continue;
             validatePqcTask(activeOrder, formalIdentitySet, task);
             PqcSimulationTaskIdentity identity = PqcSimulationTaskIdentity.of(task);
             boolean confirmed = MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
             confirmedByIdentity.merge(identity, confirmed, Boolean::logicalOr);
         }
         long confirmedTaskCount = confirmedByIdentity.values().stream().filter(Boolean::booleanValue).count();
-        return toProgressPercent(confirmedTaskCount, confirmedByIdentity.size());
+        var effectiveTasks = pqcTasks.stream().filter(task -> !"CANCELLED".equals(task.getTaskStatus())).toList();
+        int missing = pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, effectiveTasks).size();
+        return toProgressPercent(confirmedTaskCount, confirmedByIdentity.size() + missing);
     }
 
     private Map<ProcessIdentity, BigDecimal> aggregateAllocatedByProcess(Long activeOrderId) {
@@ -1448,7 +1484,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         Map<ProcessIdentity, BigDecimal> targets = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             targets.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                    requirePlannedQuantity(activeOrder, snapshot));
+                    requireProductionTargetQuantity(activeOrder, snapshot));
         }
         return targets;
     }
@@ -1543,13 +1579,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return List.copyOf(distinctIdentities);
     }
 
-    private static BigDecimal requirePlannedQuantity(MesProcessPoolActiveOrderDO activeOrder,
+    private static BigDecimal requireProductionTargetQuantity(MesProcessPoolActiveOrderDO activeOrder,
                                                      MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
-        BigDecimal plannedQuantity = snapshot.getPlannedQuantitySnapshot();
-        if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
-        }
-        return plannedQuantity;
+        return MesProductionQuantityRange.of(snapshot).lower();
     }
 
     private static BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {
@@ -1681,8 +1713,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private record SimulationDevice(Long deviceId, String deviceCode, String deviceName) {
     }
 
-    private record PqcEquipment(Long equipmentId, String equipmentCode, String equipmentName, String equipmentNumber,
-                                Long workstationId) {
+    private record PqcEquipment(Long equipmentId, String equipmentCode, String equipmentName, String equipmentNumber) {
     }
 
     private record PqcPieceBuildResult(List<MesPqcInspectionPieceDetailDO> pieceDetails,

@@ -1,6 +1,7 @@
 <template>
   <ContentWrap>
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="form.center.effect"
       :query-model="queryParams"
       label-width="88px"
@@ -15,26 +16,19 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @update:quick-filter-state="quickFilter.updateState"
-      @quick-filter-query="handleQuery"
+      @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveEffectColumnConfig"
       @column-reset="resetEffectColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button @click="resetQuery">
-          <Icon class="mr-5px" icon="ep:refresh" />
-          重置
-        </el-button>
-        <el-button type="primary" @click="getList">
-          <Icon class="mr-5px" icon="ep:search" />
-          查询
-        </el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -115,6 +109,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getPendingEffects,
@@ -128,10 +125,12 @@ import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/we
 defineOptions({ name: 'FormCenterEffectPending' })
 
 const message = useMessage()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<FormEffectExecutionVO[]>([])
 const queryParams = reactive<FormEffectPendingPageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   instanceId: undefined
@@ -168,26 +167,17 @@ const quickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
 ])
 
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await getPendingEffects(queryParams)
+  return await listRequest.run(() => getPendingEffects({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
-
-const quickFilter = useTableQuickFilter('form.center.effect', quickFilterDefinitions, queryParams, handleQuery)
+const quickFilter = useTableQuickFilter('form.center.effect', quickFilterDefinitions, queryParams, getList)
 
 const resetQuery = () => {
   queryParams.instanceId = undefined
-  quickFilter.resetQuickFilter()
+  return quickFilter.resetQuickFilter()
 }
 
 const handleRetry = async (row: FormEffectExecutionVO) => {
@@ -197,4 +187,13 @@ const handleRetry = async (row: FormEffectExecutionVO) => {
 }
 
 onMounted(getList)
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.status === 'FAILED_PENDING' ? '生效失败待处理' : '已生效'].join(' ')
+  }
+])
 </script>

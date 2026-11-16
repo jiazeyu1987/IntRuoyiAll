@@ -13,9 +13,11 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -30,12 +32,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_ROW_KEY_INVALID;
 
@@ -52,7 +56,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private static final String NODE_TYPE_CATEGORY_LEVEL2 = "categoryLevel2";
     private static final String NODE_TYPE_PRODUCT = "product";
     private static final String NODE_TYPE_DETAIL = "detail";
-    private static final Set<String> SUPPORTED_DATA_SOURCES = Set.of("瑛泰产品");
+    private static final Set<String> SUPPORTED_DATA_SOURCES = Set.of("瑛泰产品", "子公司产品");
     private static final Pattern EXPIRY_DATE_PATTERN = Pattern.compile(
             "(?:有效期至|有效期)\\s*[:：]?\\s*([0-9]{4})\\s*[./\\-/年]\\s*([0-9]{1,2})\\s*[./\\-/月]\\s*([0-9]{1,2})\\s*(?:日)?");
     private static final DateTimeFormatter NORMALIZED_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -70,7 +74,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private DccProductCatalogRegistrationSyncService registrationProjection;
 
     @Resource
-    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper projectProductRelationMapper;
+    private DccProjectProductRelationMapper projectProductRelationMapper;
 
     @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
@@ -214,9 +218,9 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
         }
         Map<Long, DccDataRelationDO> latestRelationByCatalogId = new HashMap<>();
         Map<Long, Long> approvedProjects = new HashMap<>();
-        for (var relation : projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
+        for (DccProjectProductRelationDO relation : projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
             Long previous = approvedProjects.putIfAbsent(relation.getProductCatalogId(), relation.getProjectCodeId());
-            if (previous != null && !previous.equals(relation.getProjectCodeId())) {
+            if (previous != null) {
                 throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT);
             }
         }
@@ -238,6 +242,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             row.setProjectCodeId(relation.getProjectCodeId());
             row.setRegistrationCertificateId(relation.getRegistrationCertificateId());
         }
+
     }
 
     private DccProductCatalogTreeNodeRespVO branchNode(String treeNodeId, String nodeType, int treeLevel,

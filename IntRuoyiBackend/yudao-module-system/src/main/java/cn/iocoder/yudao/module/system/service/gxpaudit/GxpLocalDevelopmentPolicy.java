@@ -4,10 +4,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOper
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -15,11 +12,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /** Explicit local-only policy source. Never creates approval or activation records. */
-@Component
-@Lazy(false)
-@ConditionalOnProperty(name = GxpLocalDevelopmentPolicy.PROPERTY, havingValue = "true")
 public class GxpLocalDevelopmentPolicy {
-    public static final String PROPERTY = "yudao.gxp-audit.local-development-policy";
     private static final Logger LOG = LoggerFactory.getLogger(GxpLocalDevelopmentPolicy.class);
     private static final Pattern LOCAL_MYSQL = Pattern.compile(
             "^jdbc:mysql://(?:localhost|127\\.0\\.0\\.[12]|\\[::1\\])(?::[0-9]+)?/[^/?]+(?:\\?.*)?$");
@@ -27,10 +20,8 @@ public class GxpLocalDevelopmentPolicy {
     private final Map<String, JsonNode> operations;
 
     public GxpLocalDevelopmentPolicy(Environment environment, GxpAuditPolicyBundleLoader loader) {
-        String[] profiles = environment.getActiveProfiles();
-        if (!Arrays.equals(profiles, new String[]{"local"})
-                && !Arrays.equals(profiles, new String[]{"dcc-local-development"})) {
-            throw new IllegalStateException(PROPERTY + " requires only local or dcc-local-development Spring profile");
+        if (!Arrays.equals(environment.getActiveProfiles(), new String[]{"local"})) {
+            throw new IllegalStateException("LOCAL_POLICY requires only the local Spring profile");
         }
         requireLocalDatabase(environment, "master", true);
         requireLocalDatabase(environment, "slave", false);
@@ -49,7 +40,7 @@ public class GxpLocalDevelopmentPolicy {
         if ((!required && url == null)) return;
         if (url == null || !LOCAL_MYSQL.matcher(url).matches()) {
             // Do not expose JDBC options, which can contain credentials.
-            throw new IllegalStateException(PROPERTY + " requires a loopback MySQL " + name + " datasource");
+            throw new IllegalStateException("LOCAL_POLICY requires a loopback MySQL " + name + " datasource");
         }
     }
 

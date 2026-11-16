@@ -564,10 +564,7 @@
             <Icon icon="ep:connection" class="mr-5px" />
             关联文档入口
           </el-button>
-          <el-button plain :disabled="!fileDetail" @click="openDccProjectCodeTrace">
-            <Icon icon="ep:document" class="mr-5px" />
-            修正追溯入口
-          </el-button>
+          
         </div>
       </div>
       <div class="detail-project-code-linkage-grid">
@@ -826,6 +823,7 @@
     <ContentWrap class="dcc-detail-surface" data-testid="dcc-detail-route-snapshot-section">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.routeSnapshot"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -839,15 +837,17 @@
         v-model:limit="routeSnapshotListState.pageSize"
         @column-change="saveRouteSnapshotColumnConfig"
         @column-reset="resetRouteSnapshotColumnConfig"
+        :filter-rows="routeSnapshotRows"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <div class="text-15px font-600">审批路线快照</div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         data-user-table-column-explicit
         data-user-table-key="dcc.controlledFile.detail.routeSnapshot"
-        :data="pagedRouteSnapshotRows"
+        :data="resolveRows(pagedRouteSnapshotRows)"
         border
         :stripe="true"
         :show-overflow-tooltip="true"
@@ -968,6 +968,7 @@
     <ContentWrap class="dcc-detail-surface" v-if="isVersionHistoryVisibleToReader(fileDetail?.status)">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.versionHistory"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -981,15 +982,17 @@
         v-model:limit="versionHistoryListState.pageSize"
         @column-change="saveVersionHistoryColumnConfig"
         @column-reset="resetVersionHistoryColumnConfig"
+        :filter-rows="versionHistoryRows"
+        :column-filter-definitions="listColumnFilterDefinitions1"
       >
         <template #actions>
           <div class="text-15px font-600">版本历史</div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         data-user-table-column-explicit
         data-user-table-key="dcc.controlledFile.detail.versionHistory"
-        :data="pagedVersionHistoryRows"
+        :data="resolveRows(pagedVersionHistoryRows)"
         border
         :stripe="true"
         :show-overflow-tooltip="true"
@@ -1161,6 +1164,7 @@
     <ContentWrap class="dcc-detail-surface">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.distributionStatus"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1174,6 +1178,8 @@
         v-model:limit="distributionStatusListState.pageSize"
         @column-change="saveDistributionStatusColumnConfig"
         @column-reset="resetDistributionStatusColumnConfig"
+        :filter-rows="distributionStatusRows"
+        :column-filter-definitions="listColumnFilterDefinitions2"
       >
         <template #actions>
           <div class="mb-12px flex items-center justify-between gap-12px">
@@ -1200,7 +1206,7 @@
             </div>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-alert
             v-if="fileDetail?.distributionCompleted"
             class="mb-12px"
@@ -1214,7 +1220,7 @@
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.distributionStatus"
-            :data="pagedDistributionStatusRows"
+            :data="resolveRows(pagedDistributionStatusRows)"
             data-testid="dcc-detail-distribution-section"
             border
             :stripe="true"
@@ -1339,6 +1345,7 @@
     <ContentWrap class="dcc-detail-surface" data-testid="dcc-controlled-print-records">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.controlledPrintRecords"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1352,6 +1359,8 @@
         v-model:limit="controlledPrintRecordListState.pageSize"
         @column-change="saveControlledPrintRecordColumnConfig"
         @column-reset="resetControlledPrintRecordColumnConfig"
+        :filter-rows="controlledPrintRecordRows"
+        :column-filter-definitions="listColumnFilterDefinitions3"
       >
         <template #actions>
           <div class="detail-table-header">
@@ -1374,7 +1383,7 @@
             </el-button>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-alert
             class="mb-12px"
             data-testid="dcc-controlled-print-policy-hint"
@@ -1396,7 +1405,7 @@
             ref="controlledPrintRecordsTableRef"
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.controlledPrintRecords"
-            :data="pagedControlledPrintRecordRows"
+            :data="resolveRows(pagedControlledPrintRecordRows)"
             :loading="controlledPrintRecordsLoading"
             :row-key="(row) => row.id"
             :row-class-name="getControlledPrintRecordRowClassName"
@@ -1528,6 +1537,7 @@
     <ContentWrap class="dcc-detail-surface" data-testid="dcc-detail-training-section">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.trainingStatus"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1541,6 +1551,8 @@
         v-model:limit="trainingStatusListState.pageSize"
         @column-change="saveTrainingStatusColumnConfig"
         @column-reset="resetTrainingStatusColumnConfig"
+        :filter-rows="trainingStatusRows"
+        :column-filter-definitions="listColumnFilterDefinitions4"
       >
         <template #actions>
           <div class="flex items-center gap-12px">
@@ -1550,7 +1562,7 @@
             </el-tag>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="detail-training-overview" data-testid="dcc-detail-training-completion-overview">
             <div class="detail-training-overview__item">
               <div class="detail-training-overview__label">完成进度</div>
@@ -1585,7 +1597,7 @@
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.trainingStatus"
-            :data="pagedTrainingStatusRows"
+            :data="resolveRows(pagedTrainingStatusRows)"
             border
             :stripe="true"
             :show-overflow-tooltip="true"
@@ -1659,9 +1671,10 @@
     <ContentWrap class="dcc-detail-surface" data-testid="dcc-detail-signature-trace-section" data-source="fileDetail?.signatureSummaries">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.signatureTrace"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
-        :show-query-form="false"
+        :show-query-form="true"
         :show-quick-filter="false"
         :quick-filter-state="detailListQuickFilterState"
         :operator-options="detailListOperatorOptions"
@@ -1669,12 +1682,13 @@
         :total="signatureTraceRows.length"
         v-model:page="signatureTraceListState.pageNo"
         v-model:limit="signatureTraceListState.pageSize"
+        :filter-rows="signatureTraceRows"
       >
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.signatureTrace"
-            :data="pagedSignatureTraceRows"
+            :data="resolveRows(pagedSignatureTraceRows)"
             border
             :stripe="true"
             :show-overflow-tooltip="true"
@@ -2070,16 +2084,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="actionDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="actionDialog.form.password"
             name="dcc-actionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!actionDialog.passwordFocused"
-            @focus="actionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
-            show-password
-            type="password"
           />
         </el-form-item>
 
@@ -2294,16 +2302,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="taskActionDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="taskActionDialog.form.password"
             name="dcc-taskActionDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!taskActionDialog.passwordFocused"
-            @focus="taskActionDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
-            show-password
-            type="password"
           />
         </el-form-item>
       </el-form>
@@ -2381,16 +2383,10 @@
           />
         </el-form-item>
         <el-form-item label="电子签名" required :error="electronicReceiptDialog.fieldErrors.password">
-          <el-input
+          <SignatureCredentialInput
             v-model="electronicReceiptDialog.form.password"
             name="dcc-electronicReceiptDialog-signature-password"
-            autocomplete="new-password"
-            :readonly="!electronicReceiptDialog.passwordFocused"
-            @focus="electronicReceiptDialog.passwordFocused = true"
             clearable
-            placeholder="请输入当前登录密码"
-            show-password
-            type="password"
           />
         </el-form-item>
       </el-form>
@@ -2810,12 +2806,14 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
 import ReviewDocumentPreview from './ReviewDocumentPreview.vue'
-import { attachmentPurposeText, attachmentUploaderText, attachmentUploadTimeText, attachmentRoundText, assertAttachmentBelongsToVersion } from './attachment-facts'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
 import SupervisorReviewActions from './SupervisorReviewActions.vue'
@@ -2960,12 +2958,7 @@ import { normalizeDccBodyReadContext, readDccBodyReadContextRoute, serializeDccB
 import { resolveDetailReadSelection } from './detail-read-context'
 import { resolveDccApprovalBodyReadContext } from '@/views/bpm/processInstance/detail/dcc-business-identity'
 import { getDccSignatureOpinionLabel } from '../shared/signature-evidence'
-import {
-  buildControlledFileViewerPath,
-  buildControlledFileTraceabilityPath,
-  isControlledFileViewerMode,
-  resolveControlledFileTraceabilityScope
-} from '../view/presentation'
+import { buildControlledFileViewerPath, isControlledFileViewerMode, resolveControlledFileTraceabilityScope } from '../view/presentation';
 import {
   flattenTrainingAssignments,
   formatControlledFileDate,
@@ -5436,18 +5429,7 @@ const resolveUserNames = (userIds: number[]) => {
   return userIds.map((item) => userNameMap.value.get(item) || `用户#${item}`).join('、')
 }
 
-const formatAttachmentFileSize = (fileSize: number | null | undefined) => {
-  if (!fileSize || fileSize < 0) {
-    return '-'
-  }
-  if (fileSize < 1024) {
-    return `${fileSize} B`
-  }
-  if (fileSize < 1024 * 1024) {
-    return `${(fileSize / 1024).toFixed(1)} KB`
-  }
-  return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
-}
+
 
 const ensureCurrentDetailContext = () => {
   if (String(fileDetail.value?.id || '') === controlledFileId.value
@@ -5535,13 +5517,7 @@ const detailBodyPreviewState = computed(() => {
   catch (error) { return { source: undefined, error: error instanceof Error ? error.message : String(error) } }
 })
 
-const openAttachmentPreview = (attachment: ControlledFileAttachmentVO) => {
-  if (!ensureCurrentDetailContext()) return
-  try { assertAttachmentBelongsToVersion(attachment, controlledFileId.value) }
-  catch (error) { message.error(error instanceof Error ? error.message : String(error)); return }
-  selectedAttachmentPreview.value = attachment
-  attachmentPreviewDialogVisible.value = true
-}
+
 
 const openMetadataDialog = () => {
   if (!canEditMetadata.value) {
@@ -5594,21 +5570,7 @@ const openDccProjectCode = (projectCodeId: number) => {
   })
 }
 
-const openDccProjectCodeTrace = () => {
-  if (!fileDetail.value?.id) {
-    return
-  }
-  router.push({
-    path: '/dcc/controlled-file/logs',
-    query: {
-      logType: 'PROJECT_CODE_CHANGE',
-      controlledFileId: String(fileDetail.value.id),
-      projectCodeId: fileDetail.value.dccProjectCodeId
-        ? String(fileDetail.value.dccProjectCodeId)
-        : undefined
-    }
-  })
-}
+
 
 const handleMetadataSaved = async () => {
   await reloadAll()
@@ -6842,7 +6804,7 @@ const closeElectronicReceiptDialog = () => {
 const validateElectronicReceiptDialog = () => {
   const errors: Record<string, string> = {}
   if (!electronicReceiptDialog.form.password.trim()) {
-    errors.password = '请输入登录密码完成电子签名'
+    errors.password = '请输入所选签名方式的六位 PIN 码或密码'
   }
   electronicReceiptDialog.fieldErrors = errors
   electronicReceiptDialog.inlineError = Object.values(errors)[0] || ''
@@ -6984,7 +6946,7 @@ const buildDistributionReceiptPrintHtml = () => {
   <meta charset="utf-8" />
   <title>DCC发放回执</title>
   <style>
-    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    body { font-family: "Microsoft YaHei"; color: #1f2329; margin: 24px; }
     h1 { font-size: 20px; margin: 0 0 16px; }
     table { border-collapse: collapse; width: 100%; font-size: 12px; }
     th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
@@ -7171,7 +7133,7 @@ const buildProcessPrintHtml = (printData: unknown) => {
   <meta charset="utf-8" />
   <title>DCC流程打印</title>
   <style>
-    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    body { font-family: "Microsoft YaHei"; color: #1f2329; margin: 24px; }
     h1 { font-size: 20px; margin: 0 0 16px; }
     table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 18px; }
     th, td { border: 1px solid #333; padding: 7px 9px; text-align: left; vertical-align: top; }
@@ -7488,7 +7450,7 @@ const submitActionDialog = async () => {
     if (request.external) {
       if (!request.form.password.trim()) {
         actionDialog.fieldErrors = { password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE }
-        actionDialog.inlineError = '请输入登录密码完成电子签名'
+        actionDialog.inlineError = '请输入所选签名方式的六位 PIN 码或密码'
         return
       }
       if (!isClickedForm()) throw new Error('签名任务或填写内容已变化，请重新提交确认')
@@ -7644,7 +7606,7 @@ const validateTaskActionDialog = () => {
   const password = taskActionDialog.form.password.trim()
   const reason = taskActionDialog.form.reason.trim()
   if (!password) {
-    errors.password = '请输入登录密码完成电子签名'
+    errors.password = '请输入所选签名方式的六位 PIN 码或密码'
   }
   if (!reason) {
     errors.reason = '请输入处理意见'
@@ -7805,6 +7767,123 @@ watch(
   },
   { flush: 'sync' }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'stageDisplayName',
+    label: '阶段',
+    type: 'text',
+    getValue: (row) => [row.stageDisplayName, row.stageMetaText].join(' ')
+  },
+  {
+    key: 'candidateText',
+    label: '候选摘要',
+    type: 'text',
+    getValue: (row) =>
+      [row.candidateSourceLabel, row.candidateText, row.candidateSourceLabel].join(' ')
+  },
+  {
+    key: 'approvalRequirementText',
+    label: '审批要求',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.approvalStatusLabel,
+        row.approveMethodLabel,
+        row.approveRatioText,
+        row.approvalProgressText,
+        row.approvalHint
+      ].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [getDccVersionDisplayText(row.versionNo)].join(' ')
+  },
+  {
+    key: 'changeReasonText',
+    label: '升版原因/变更说明',
+    type: 'text',
+    getValue: (row) => [getVersionChangeReasonText(row)].join(' ')
+  },
+  {
+    key: 'distributionMedium',
+    label: '发放方式',
+    type: 'text',
+    getValue: (row) => [getDistributionMediumLabel(row.distributionMedium)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [getDetailStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'successorVersionSummary',
+    label: '后继版本',
+    type: 'text',
+    getValue: (row) => [getSuccessorVersionSummary(row)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'distributionSummaryText',
+    label: '分发摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getDistributionStatusLabel(row.status, fileDetail.value),
+        getDistributionMediumLabel(row.distributionMedium),
+        getDistributionAckUserSummary(row, userNameMap.value),
+        formatControlledFileDateTime(row.acknowledgedAt)
+      ].join(' ')
+  },
+  {
+    key: 'recoverySummaryText',
+    label: '回收摘要',
+    type: 'text',
+    getValue: (row) =>
+      [getDistributionRecoverUserSummary(row), formatControlledFileDateTime(row.recoveredAt)].join(
+        ' '
+      )
+  }
+])
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [getDccVersionDisplayText(row.versionNo)].join(' ')
+  },
+  {
+    key: 'approvalStatus',
+    label: '审批/打印状态',
+    type: 'text',
+    getValue: (row) => [row.approvalStatusText].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'trainingSummaryText',
+    label: '培训摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.trainingSummary.statusLabel,
+        row.trainingSummary.progressText,
+        row.trainingSummary.eligibilityLabel,
+        row.trainingSummary.departmentStatusLabel,
+        row.trainingSummary.acknowledgedAtText
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -8590,7 +8669,7 @@ watch(
 }
 
 .signature-hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   color: var(--el-text-color-regular);
 }

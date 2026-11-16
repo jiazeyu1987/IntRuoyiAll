@@ -35,5 +35,9 @@ public interface MesProductionReleaseManagerApprovalService {
     @Deprecated
     MesProductionReleaseManagerApprovalResult approve(Long actorUserId, MesProEdhrReleaseApproveReqVO command);
 
-    void assertActionSupported(Long releaseTransactionId, String action);
+    MesProductionReleaseManagerApprovalResult prepareNegativeDecision(
+            cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand command);
+
+    void completeNegativeDecision(MesProductionReleaseManagerApprovalResult prepared, String status);
+
 }

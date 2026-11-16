@@ -25,7 +25,7 @@ export interface ProcessPoolEventRevisionUpdateReqVO {
 }
 
 export interface ProcessPoolProductionReportCorrectionLossDetailReqVO {
-  reasonId: number
+  reasonId: number | string
   quantity: number
 }
 

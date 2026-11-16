@@ -98,7 +98,9 @@ public class MesCorrectionSignatureEvidenceReader {
         var evidence = signatures.getById(revision.getRevisionSignatureId());
         check(evidence != null && Objects.equals(evidence.id(), revision.getRevisionSignatureId())
                 && Objects.equals(evidence.actorId(), revision.getModifiedByUserId()) && evidence.signedAt() != null
-                && "MES".equals(evidence.moduleCode()) && "FIELD_CHANGE".equals(evidence.actionCode())
+                && "MES".equals(evidence.moduleCode()) && ("FIELD_CHANGE".equals(evidence.actionCode())
+                    || !production && "PQC_PATROL_ROUND_CORRECTION".equals(evidence.actionCode())
+                    && changes.size() == 2 && changes.stream().allMatch(d -> Set.of("PQC.PATROL_ROUND", "PQC.TASK_ID").contains(d.getFieldCode())))
                 && "MES_BATCH_RECORD".equals(evidence.subjectType())
                 && Objects.equals(evidence.reason(), revision.getChangeReason().trim())
                 && text(evidence.contentHash()) && text(evidence.evidenceHash()), "修订统一签名不一致");
@@ -111,6 +113,16 @@ public class MesCorrectionSignatureEvidenceReader {
                 && Objects.equals(evidence.evidenceHash(), verified.calculatedEvidenceHash()), "修订签名完整性核验失败");
         var frozenIdentity = verifiedContent(evidence.id()).identity();
         if (frozenIdentity != null) check(Objects.equals(frozenIdentity.displayName(), snapshot.getActorName()), "修订冻结签名姓名不一致");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
+            String[] subjectParts = new String(java.util.Base64.getUrlDecoder().decode(evidence.subjectId()), java.nio.charset.StandardCharsets.UTF_8).split("\n", -1);
+            check(subjectParts.length == 17, "修订签名业务主题无效");
+            String challenge = subjectParts[16];
+            String expectedChallenge = cn.iocoder.yudao.module.mes.service.pro.processpool.MesCorrectionBaselineGuard.challenge(event.getId(), revision.getBeforePayload(), revision.getAfterPayload(), revision.getChangeReason());
+            check(Objects.equals(challenge, expectedChallenge), "修订签名挑战与修订正文不一致");
+            var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(evidence.actorId(), "MES", evidence.actionCode(), "MES_BATCH_RECORD", evidence.subjectId(), evidence.subjectVersion(), evidence.reason()));
+            check(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson())), "修订规范签名正文不一致");
+            return new Verified(evidence, verified, snapshot.getActorName(), List.copyOf(changes));
+        }
         String operation = production ? "mes.production-report.correct" : "mes.pqc-inspection.correct";
         String request = (production ? "MES-PRODUCTION-CORRECTION:" : "MES-PQC-CORRECTION:") + revision.getId();
         var rows = audits.selectList(new LambdaQueryWrapperX<GxpAuditEventDO>().eq(GxpAuditEventDO::getTenantId, tenant)
@@ -163,12 +175,12 @@ public class MesCorrectionSignatureEvidenceReader {
                 new GxpAuditRelation("SIGNATURE", "SIGNATURE", evidence.id().toString(), null, null));
         check(relations != null && new HashSet<>(relations).size() == relations.size()
                 && new HashSet<>(relations).containsAll(core), "修订审计业务关联不一致");
-        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "FIELD_CHANGE", null, null,
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, evidence.actionCode(), null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, challenge);
         check(Objects.equals(subject, evidence.subjectId())
                 && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(subject), evidence.subjectVersion()), "修订签名属于另一业务挑战");
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
-                evidence.actorId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
+                evidence.actorId(), "MES", evidence.actionCode(), "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
         check(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson())), "修订规范签名正文不一致");
         return new Verified(evidence, verified, snapshot.getActorName(), List.copyOf(changes));
     }

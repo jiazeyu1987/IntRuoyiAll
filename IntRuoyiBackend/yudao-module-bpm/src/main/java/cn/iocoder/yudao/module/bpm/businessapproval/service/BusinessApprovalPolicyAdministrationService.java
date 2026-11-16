@@ -66,6 +66,24 @@ public class BusinessApprovalPolicyAdministrationService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void deleteDraftPolicy(Long policyId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        var scope = com.baomidou.mybatisplus.core.toolkit.Wrappers.<BusinessApprovalPolicyDO>lambdaQuery()
+                .eq(BusinessApprovalPolicyDO::getId, policyId)
+                .eq(BusinessApprovalPolicyDO::getTenantId, tenantId);
+        BusinessApprovalPolicyDO policy = policyMapper.selectOne(scope);
+        if (policy == null) {
+            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND,
+                    "审批策略不存在");
+        }
+        if (!"DRAFT".equals(policy.getStatus()) || policyMapper.delete(scope
+                .eq(BusinessApprovalPolicyDO::getStatus, "DRAFT")) != 1) {
+            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_STATUS_INVALID,
+                    "仅允许删除草稿策略，请刷新后重试");
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void publishPolicy(Long policyId) {
         BusinessApprovalPolicyDO policy = requirePolicy(policyId);
         BusinessApprovalPolicyMode mode = parseMode(policy.getPolicyMode());

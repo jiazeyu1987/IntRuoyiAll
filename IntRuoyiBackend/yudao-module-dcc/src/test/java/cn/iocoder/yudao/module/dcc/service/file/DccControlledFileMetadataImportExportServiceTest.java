@@ -60,7 +60,7 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
                 .thenReturn(true);
         DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setKeyword("SOP");
-        when(controlledFileQueryService.listControlledFileBrowserCandidates(99L, reqVO)).thenReturn(List.of(
+        when(controlledFileQueryService.listControlledFileBrowserExportFiles(99L, reqVO)).thenReturn(List.of(
                 controlledFile(900L, "SOP-A", "DOC-001"),
                 controlledFile(901L, " ", "DOC-002"),
                 controlledFile(902L, "SOP-C", null)));
@@ -80,7 +80,7 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
         DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setDirectoryId(31L);
         reqVO.setIncludeDescendantDirectories(true);
-        when(controlledFileQueryService.listControlledFileBrowserCandidates(99L, reqVO)).thenReturn(List.of(
+        when(controlledFileQueryService.listControlledFileBrowserExportFiles(99L, reqVO)).thenReturn(List.of(
                 controlledFile(900L, "SOP-A", "DOC-001"),
                 controlledFile(901L, "SOP-B", "DOC-002")));
         when(directoryMapper.selectList()).thenReturn(List.of(
@@ -141,7 +141,7 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
         reqVO.setDirectoryId(31L);
         reqVO.setIncludeDescendantDirectories(true);
         reqVO.setBatchRecognitionTaskId(300L);
-        when(controlledFileQueryService.listControlledFileBrowserCandidates(99L, reqVO)).thenReturn(List.of());
+        when(controlledFileQueryService.listControlledFileBrowserExportFiles(99L, reqVO)).thenReturn(List.of());
         when(controlledFileMapper.selectBatchIds(List.of(900L))).thenReturn(List.of(
                 controlledFile(900L, "SOP-A", "DOC-001")));
         when(directoryMapper.selectList()).thenReturn(List.of(
@@ -179,7 +179,7 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
                 .thenReturn(true);
         DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setBatchRecognitionTaskId(300L);
-        when(controlledFileQueryService.listControlledFileBrowserCandidates(99L, reqVO)).thenReturn(List.of());
+        when(controlledFileQueryService.listControlledFileBrowserExportFiles(99L, reqVO)).thenReturn(List.of());
         when(controlledFileMapper.selectBatchIds(List.of(900L, 901L))).thenReturn(List.of(
                 controlledFile(900L, "SOP-A", "DOC-001"),
                 controlledFile(901L, "SOP-B", "DOC-002")));

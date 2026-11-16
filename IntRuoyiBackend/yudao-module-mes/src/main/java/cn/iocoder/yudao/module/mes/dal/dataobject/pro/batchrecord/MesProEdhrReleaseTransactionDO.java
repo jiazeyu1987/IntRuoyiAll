@@ -28,6 +28,8 @@ public class MesProEdhrReleaseTransactionDO extends BaseDO {
     @TableId
     private Long id;
 
+    private Long tenantId;
+
     private String releaseCode;
 
     private Long batchExecutionId;

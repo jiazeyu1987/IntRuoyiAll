@@ -10,5 +10,7 @@ public class MesEmployeeSignaturePasswordChangeReqVO {
     @NotNull @Positive private Long processId;
     @NotBlank private String identityDomain;
     @NotBlank @lombok.ToString.Exclude private String currentPassword;
-    @NotBlank @lombok.ToString.Exclude private String newPassword;
+    @lombok.ToString.Exclude private String newPassword;
+    @NotBlank @Pattern(regexp="PIN|PASSWORD") private String credentialType;
+    @Pattern(regexp="[0-9]{6}",message="PIN 码必须为六位数字") @lombok.ToString.Exclude private String newPin;
 }

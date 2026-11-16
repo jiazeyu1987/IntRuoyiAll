@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
@@ -109,10 +110,9 @@ public class MesProductionSignatureEvidenceService {
                 .eq(MesProProcessPoolEventDO::getSignatureId, event.getSignatureId())
                 .eq(MesProProcessPoolEventDO::getSignatureUserId, event.getSignatureUserId()));
         require(events != null && events.size() == 1 && sameEvent(events.get(0), event));
-        requireProductionAudit(event, activeOrderId, evidence);
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) requireProductionAudit(event, activeOrderId, evidence);
         if (StrUtil.isNotBlank(event.getSignatureSnapshot())) {
-            require(JsonUtils.parseTree(event.getSignatureSnapshot())
-                    .equals(JsonUtils.parseTree(JsonUtils.toJsonString(evidence))));
+            require(snapshotMatches(event.getSignatureSnapshot(), evidence));
         }
         return true;
     }
@@ -201,8 +201,8 @@ public class MesProductionSignatureEvidenceService {
                 && MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE.equals(evidence.subjectType())
                 && evidence.signedAt() != null && "VALID".equals(evidence.verificationStatus())
                 && "SHA-256".equals(evidence.algorithm())
-                && Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD",
-                    "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD").contains(evidence.authenticationMethod())
+                && Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_PIN", "SESSION_PLUS_SELECTED_USER_PASSWORD", "SESSION_PLUS_SELECTED_USER_PIN",
+                    "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD", "SESSION_PLUS_EMPLOYEE_PROFILE_PIN").contains(evidence.authenticationMethod())
                 && !StrUtil.hasBlank(evidence.subjectId(), evidence.subjectVersion(), evidence.canonicalContentJson(),
                 evidence.contentHash(), evidence.evidenceHash(), evidence.keyVersion(), evidence.policyVersion()));
         String[] subject = new String(Base64.getUrlDecoder().decode(evidence.subjectId()), StandardCharsets.UTF_8)
@@ -241,13 +241,23 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(evidence.evidenceHash(), verification.calculatedEvidenceHash())
                 && Objects.equals(evidence.algorithm(), verification.algorithm())
                 && Objects.equals(evidence.keyVersion(), verification.keyVersion()));
-        require(identity == null ? "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
-                : Objects.equals(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
+        require(identity == null ? SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD")
+                : SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
                     ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : Objects.equals(identity.getLong("signerId"),identity.getLong("operatorId")) && "V2".equals(trusted.verification().evidenceFormatVersion()) ? "SESSION_PLUS_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD"));
-        var audit = requireUnifiedSignatureAudit(evidence);
+        var audit = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() ? null : requireUnifiedSignatureAudit(evidence);
         return new Snapshot(identity != null && "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
                 ? "UNIFIED_EMPLOYEE_PROFILE" : "UNIFIED_SYSTEM_USER", signatureId, actorId, evidence.signedAt().toString(),
-                evidence.contentHash(), evidence.evidenceHash(), evidence.canonicalContentJson(), audit.getTransactionId());
+                evidence.contentHash(), evidence.evidenceHash(), evidence.canonicalContentJson(), audit == null ? null : audit.getTransactionId());
+    }
+
+    private boolean snapshotMatches(String saved, Snapshot current) {
+        var stored = JsonUtils.parseTree(saved);
+        var observed = JsonUtils.parseTree(JsonUtils.toJsonString(current));
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && stored instanceof com.fasterxml.jackson.databind.node.ObjectNode old
+                && observed instanceof com.fasterxml.jackson.databind.node.ObjectNode now) {
+            old.remove("signatureTransactionId"); now.remove("signatureTransactionId");
+        }
+        return java.util.Objects.equals(stored, observed);
     }
 
     private GxpAuditEventDO requireUnifiedSignatureAudit(ElectronicSignatureEvidenceDTO evidence) {

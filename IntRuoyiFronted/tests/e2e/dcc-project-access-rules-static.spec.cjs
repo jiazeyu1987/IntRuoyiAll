@@ -77,8 +77,8 @@ assert.match(
   '正式权限保存必须规范化变更原因，不能把空白交给数据库约束或默认文案'
 )
 assert.ok(
-  normalizePayload.includes('正式权限规则必须填写变更原因'),
-  '正式权限保存必须在前端明确阻断空白变更原因'
+  !normalizePayload.includes('正式权限规则必须填写变更原因'),
+  '正式权限保存允许不填写变更原因'
 )
 assert.match(
   normalizePayload,

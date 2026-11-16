@@ -682,7 +682,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
             case "secondMember"->request.getExpectedReviews().get(1).setPayloadHash("stale-other-member");
             default->throw new IllegalArgumentException(change);
         }
-        var failure=assertThrows(IllegalStateException.class,()->service.reviewSubmission(request));
+        var failure=assertThrows(ServiceException.class,()->service.reviewSubmission(request));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED.getCode(), failure.getCode());
         assertTrue(failure.getMessage().contains("刷新"));
         org.mockito.Mockito.verifyNoInteractions(signatureService,processInspectionAggregationService);
         verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));

@@ -10,7 +10,6 @@ This contract keeps local branch runtimes independent while code can still merge
 
 | Runtime profile | Branch/workspace | Frontend base port | Backend base port | Frontend env mode |
 | --- | --- | ---: | ---: | --- |
-| `int_main_d` | `int_main`, explicit `INTRUOYI_RUNTIME_PROFILE=int_main_d` | `8101` | `48101` | `branch-main-d` |
 | `int_main` | `int_main`, default profile | `8081` | `48081` | `env.local` |
 | `int_batch` | `int_batch`, default profile | `8041` | `48041` | `branch-batch` |
 | `int_shedule` | `int_shedule` or `int_schedule`, default profile | `8021` | `48021` | `branch-shedule` |
@@ -35,13 +34,13 @@ This contract keeps local branch runtimes independent while code can still merge
 | `int_batch` | `8042-8060` / `48042-48060` | `8132-8142` / `48132-48142` | `8186-8195` / `48186-48195` | `8236-8245` / `48236-48245` | `8286-8295` / `48286-48295` | `8336-8345` / `48336-48345` | `8386-8395` / `48386-48395` | `8436-8445` / `48436-48445` | `8486-8495` / `48486-48495` |
 | `int_qms` | `8062-8080` / `48062-48080` | `8143-8153` / `48143-48153` | `8196-8205` / `48196-48205` | `8246-8255` / `48246-48255` | `8296-8305` / `48296-48305` | `8346-8355` / `48346-48355` | `8396-8405` / `48396-48405` | `8446-8455` / `48446-48455` | `8496-8505` / `48496-48505` |
 | `int_main` | `8082-8100` / `48082-48100` | `8154-8164` / `48154-48164` | `8206-8215` / `48206-48215` | `8256-8265` / `48256-48265` | `8306-8315` / `48306-48315` | `8356-8365` / `48356-48365` | `8406-8415` / `48406-48415` | `8456-8465` / `48456-48465` | `8506-8515` / `48506-48515` |
-| `int_main_d` | `8102-8120` / `48102-48120` | `8165-8175` / `48165-48175` | `8216-8225` / `48216-48225` | `8266-8275` / `48266-48275` | `8316-8325` / `48316-48325` | `8366-8375` / `48366-48375` | `8416-8425` / `48416-48425` | `8466-8475` / `48466-48475` | `8516-8525` / `48516-48525` |
 
 ## Protected Rules
 
+- The default `int_main` profile uses `8081/48081` on every computer.
+
 - Runtime identity is based on the current Git branch plus an optional explicit `INTRUOYI_RUNTIME_PROFILE`; it must not depend on a drive letter or absolute checkout path.
-- The default `int_main` profile remains `8081/48081`; `int_main_d` must be selected explicitly and remains `8101/48101`.
-- The five base profiles must retain unique port pairs: Main-D 8101/48101, Main 8081/48081, Batch 8041/48041, Shedule 8021/48021, QMS 8061/48061.
+- The four base profiles must retain unique port pairs: Main 8081/48081, Batch 8041/48041, Shedule 8021/48021, QMS 8061/48061.
 - Base workspaces must use `slot = 0`; they may not request additional worktree slots.
 - Additional worktrees may not use `slot >= 101`, any base port, or any active registry slot/port owned by another worktree.
 - Do not make branch-specific runtime ports by editing shared `IntRuoyiFronted\.env` or backend `application-local.yaml`.

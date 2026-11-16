@@ -22,6 +22,7 @@ public class MesQaInspectionRegulationParseRespVO {
     private String regulationName;
     private String versionNo;
     private String effectiveDate;
+    private String ruleSourceText;
     private List<InspectionProcess> processes;
 
     @Data
@@ -50,6 +51,7 @@ public class MesQaInspectionRegulationParseRespVO {
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
-        private BigDecimal patrolInspectionRatio;
+        private String inspectionLevel;
+        private BigDecimal aql;
     }
 }

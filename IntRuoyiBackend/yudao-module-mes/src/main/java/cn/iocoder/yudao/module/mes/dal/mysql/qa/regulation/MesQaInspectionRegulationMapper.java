@@ -8,6 +8,9 @@ import org.apache.ibatis.annotations.Mapper;
 import java.util.Collection;
 import java.util.List;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_SNAPSHOT_INVALID;
+
 @Mapper
 public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspectionRegulationDO> {
 
@@ -37,6 +40,19 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
                         MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .orderByAsc(MesQaInspectionRegulationDO::getDccProjectCodeId)
                 .orderByDesc(MesQaInspectionRegulationDO::getId));
+    }
+
+    default MesQaInspectionRegulationDO selectCommonByCode(String regulationCode) {
+        List<MesQaInspectionRegulationDO> matches = selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
+                .eq(MesQaInspectionRegulationDO::getOwnerModule,
+                        MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .eq(MesQaInspectionRegulationDO::getRegulationCode, regulationCode));
+        if (matches.size() > 1) {
+            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                    "文件编号 " + regulationCode + " 对应多份通用规程，请先确认重复记录，规程ID："
+                            + matches.stream().map(MesQaInspectionRegulationDO::getId).toList());
+        }
+        return matches.isEmpty() ? null : matches.get(0);
     }
 
     default List<MesQaInspectionRegulationDO> selectCommonList() {

@@ -45,6 +45,9 @@ public class MesMdItemImportExcelVO {
     @NotNull(message = "物料分类编号不能为空")
     private Long itemTypeId;
 
+    @ExcelProperty("物料分类")
+    private String itemTypeName;
+
     @ExcelProperty(value = "状态", converter = DictConvert.class)
     @DictFormat(DictTypeConstants.COMMON_STATUS)
     private Integer status;

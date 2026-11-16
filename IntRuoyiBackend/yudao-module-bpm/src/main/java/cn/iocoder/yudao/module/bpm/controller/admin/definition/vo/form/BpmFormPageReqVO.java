@@ -13,4 +13,6 @@ public class BpmFormPageReqVO extends PageParam {
     @Schema(description = "表单名称", example = "瑛泰")
     private String name;
 
+    private Integer status;
+
 }

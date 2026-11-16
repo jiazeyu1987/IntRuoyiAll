@@ -70,9 +70,16 @@ public class ErpKingdeeStockMoveListServiceImpl implements ErpKingdeeStockMoveLi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeStockMoveSyncResult syncAllSkipExisting() {
+        return syncAllSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeStockMoveSyncResult syncAllSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncMoves(stockMoveClient.fetchStockMoves(properties), true);
+        return syncMoves((windowStart == null ? stockMoveClient.fetchStockMoves(properties)
+                : stockMoveClient.fetchStockMovesModifiedBetween(properties, windowStart, windowEnd)), true);
     }
 
     @Override

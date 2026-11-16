@@ -93,6 +93,7 @@ class MesFrontlineDeviceAccountContextServiceTest {
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi,
                 routeService, workstationService, workstationMachineService, machineryService, employeeProfileMapper,
                 activeOrderProcessService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(contextService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     }
 
     @Test

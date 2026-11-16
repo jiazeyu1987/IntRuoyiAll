@@ -41,6 +41,9 @@ public class MesProRouteVersionDO extends BaseDO {
 
     private Long sourceRouteVersionId;
 
+    /** 最后一次成功保存草稿的用户，生命周期操作不修改。 */
+    private Long lastSavedBy;
+
     private String routeSnapshotJson;
 
     private String routeSnapshotSha256;

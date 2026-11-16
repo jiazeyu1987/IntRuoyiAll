@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Task: 20260522-batch-cover-fail-showroom-cover-refresh
 
 ## Goal
@@ -23,22 +25,22 @@ Create one square premium medical-device showroom cover image for the product fa
 
 ## Expected Verification
 - Final artifact path:
-  - `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png`
+  - `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-fail-showroom-cover-20260522-refresh.png`
 - Verification commands:
-  - `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'`
-  - `Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'); try { Write-Output ($img.Width.ToString() + 'x' + $img.Height.ToString()) } finally { $img.Dispose() }`
+  - `Test-Path './IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-fail-showroom-cover-20260522-refresh.png'`
+  - `Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('./IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-fail-showroom-cover-20260522-refresh.png'); try { Write-Output ($img.Width.ToString() + 'x' + $img.Height.ToString()) } finally { $img.Dispose() }`
 
 ## Completed Work
 - Ran exactly one native image generation request using the provided product facts only.
-- Copied the freshly generated PNG from `C:\Users\BJB110\.codex\generated_images\019e4ba2-8846-7853-86fa-1ff6097e705a\ig_01f0785300c6cfac016a0f4489be3c8197902aaa74e54ffd8b.png` to the workspace artifact path.
+- Copied the freshly generated PNG from `历史外部材料（引用已移除）` to the workspace artifact path.
 - Verified the saved artifact exists and is square.
 - Ran closeout cleanup preview and confirmed the final PNG and task records are preserved with no deletions.
 
 ## Verification Evidence
-- `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'` returned `True`.
+- `Test-Path './IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-fail-showroom-cover-20260522-refresh.png'` returned `True`.
 - The saved PNG dimensions are `1254x1254`.
 - The saved artifact timestamp is `2026-05-22 01:45:44`.
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260522-batch-cover-fail-showroom-cover-refresh --mode preview` returned `status: ready` with `delete: <none>`, `blocked: <none>`, and `warnings: <none>`.
+- `python 会话技能：task-closeout-cleanup --task-id 20260522-batch-cover-fail-showroom-cover-refresh --mode preview` returned `status: ready` with `delete: <none>`, `blocked: <none>`, and `warnings: <none>`.
 
 ## Current Status
 - Status: Completed

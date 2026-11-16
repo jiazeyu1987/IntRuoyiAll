@@ -24,8 +24,6 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionPort =
             mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
-    private final MesIndependentBatchPrerequisiteReceiptService independentService =
-            mock(MesIndependentBatchPrerequisiteReceiptService.class);
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper =
             mock(MesProcessPoolActiveOrderPickListBindingMapper.class);
     private final MesBatchExecutionAuthoritativeContextResolver resolver =
@@ -204,7 +202,6 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
                         .setReceiptId("ind-1").setBatchCode("FORGED"));
 
         assertThrows(RuntimeException.class, () -> resolver.resolve(request, 1L));
-        verifyNoInteractions(independentService);
     }
 
     @Test
@@ -215,7 +212,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
                             .setEntryBusinessId(entryType).setSourceCredentialId("ind-1"), 1L));
             assertEquals("批次只能通过活跃订单正式流程生成，不支持独立或手动创建", error.getMessage());
         }
-        verifyNoInteractions(completionPort, independentService, pickListBindingMapper);
+        verifyNoInteractions(completionPort, pickListBindingMapper);
     }
 
     private MesFlow6CompletionBackfillReceipt validActiveReceipt(Long receiptId, Long activeOrderId,

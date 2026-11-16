@@ -445,18 +445,50 @@ class MesProductionReleaseManagerApprovalServiceTest {
     }
 
     @Test
-    void targetReleaseRejectAndWithdrawAreExplicitlyUnsupported() {
-        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(List.of(fixture().application()));
+    void negativeDecisionAllowsSignedManagerRejectionWithoutRequiringPassingQualityEvidence() {
+        Fixture fixture = fixture(); stubApproval(fixture);
+        var command = negativeCommand(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction.REJECT);
+        var prepared = service.prepareNegativeDecision(command);
+        assertEquals(701L, prepared.getApplication().getId());
+        verifyNoInteractions(businessReadinessService, auditRecorder);
+    }
 
-        MesReleaseFlowBlockerException reject = assertThrows(MesReleaseFlowBlockerException.class,
-                () -> service.assertActionSupported(1001L, "REJECT"));
-        MesReleaseFlowBlockerException withdraw = assertThrows(MesReleaseFlowBlockerException.class,
-                () -> service.assertActionSupported(1001L, "WITHDRAW"));
+    @Test
+    void negativeDecisionRejectsUnsignedOrUnassignedQaDecision() {
+        Fixture fixture = fixture(); stubApproval(fixture);
+        var command = negativeCommand(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction.REJECT)
+                .setPasswordReauthenticated(false);
+        assertThrows(IllegalArgumentException.class, () -> service.prepareNegativeDecision(command));
+        command.setPasswordReauthenticated(true).setQaReviewerUserId(null);
+        assertThrows(IllegalArgumentException.class, () -> service.prepareNegativeDecision(command));
+    }
 
-        assertEquals(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
-                reject.getFailure().getBlockers().get(0).getBlockerType());
-        assertEquals(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
-                withdraw.getFailure().getBlockers().get(0).getBlockerType());
+    @Test
+    void withdrawalRequiresOriginalApplicantAndUndecidedVersion() {
+        Fixture fixture = fixture(); fixture.application().setAppliedBy(999L); stubApproval(fixture);
+        var command = negativeCommand(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction.WITHDRAW);
+        assertThrows(IllegalArgumentException.class, () -> service.prepareNegativeDecision(command));
+        fixture.application().setAppliedBy(ACTOR_USER_ID);
+        assertEquals(701L, service.prepareNegativeDecision(command).getApplication().getId());
+        command.setExpectedVersion(2);
+        assertThrows(MesReleaseFlowBlockerException.class, () -> service.prepareNegativeDecision(command));
+    }
+
+    @Test
+    void negativeDecisionCannotUndoReleasedApplication() {
+        Fixture fixture = fixture(); fixture.application().setApplicationStatus(MesReleaseFlowStatus.RELEASED);
+        when(applicationMapper.selectByReleaseTransactionIdForUpdate(1001L)).thenReturn(fixture.application());
+        when(releaseTransactionMapper.selectByIdForUpdate(1001L)).thenReturn(fixture.releasedTransaction());
+        assertThrows(MesReleaseFlowBlockerException.class, () -> service.prepareNegativeDecision(
+                negativeCommand(cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction.WITHDRAW)));
+    }
+
+    private cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand negativeCommand(
+            cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction action) {
+        return new cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand()
+                .setAction(action).setActorUserId(ACTOR_USER_ID).setReleaseTransactionId(1001L)
+                .setWorkTaskId(2001L).setExpectedVersion(3).setPasswordReauthenticated(true)
+                .setQaReviewerUserId(9001L).setDecisionReason("证据不满足放行要求");
     }
 
     private void stubApproval(Fixture fixture) {

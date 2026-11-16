@@ -7,6 +7,9 @@ package cn.iocoder.yudao.module.infra.api.config;
  */
 public interface ConfigApi {
 
+    /** Initialize independent configuration inside a new tenant's creation transaction/context. */
+    void initializeTenantConfiguration();
+
 
     /**
      * 根据参数键查询参数值

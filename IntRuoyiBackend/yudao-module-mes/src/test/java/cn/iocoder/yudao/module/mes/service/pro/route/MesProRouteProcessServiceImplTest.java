@@ -51,6 +51,49 @@ class MesProRouteProcessServiceImplTest {
     private MesMdWorkstationService workstationService;
 
     @Test
+    void routeSummaryShouldDisplayAllKeyProcessesInOrder() {
+        var service = new MesProRouteServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "routeProcessMapper", routeProcessMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "processMapper", processMapper);
+        var ids = java.util.Set.of(1001L);
+        when(routeProcessMapper.selectListByRouteIds(ids)).thenReturn(List.of(
+                MesProRouteProcessDO.builder().id(22L).routeId(1001L).processId(2002L).sort(2).keyFlag(true).build(),
+                MesProRouteProcessDO.builder().id(21L).routeId(1001L).processId(2001L).sort(1).keyFlag(true).build()));
+        when(processMapper.selectListByIds(java.util.Set.of(2001L, 2002L))).thenReturn(List.of(
+                MesProProcessDO.builder().id(2001L).name("First").build(),
+                MesProProcessDO.builder().id(2002L).name("Second").build()));
+        Map<Long, String> result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "buildKeyProcessByRouteId", ids);
+        assertEquals("First、Second", result.get(1001L));
+    }
+
+    @Test
+    void createAndUpdateShouldAllowMultipleKeyProcesses() {
+        when(routeService.getRoute(1001L)).thenReturn(MesProRouteDO.builder().id(1001L).build());
+        when(processService.getProcess(2001L)).thenReturn(MesProProcessDO.builder().id(2001L).build());
+        when(processService.getProcess(2002L)).thenReturn(MesProProcessDO.builder().id(2002L).build());
+        var first = buildRouteProcessSaveReqVO();
+        first.setKeyFlag(true);
+        var second = buildRouteProcessSaveReqVO();
+        second.setProcessId(2002L);
+        second.setSort(2);
+        second.setKeyFlag(true);
+        routeProcessService.createRouteProcess(first);
+        routeProcessService.createRouteProcess(second);
+        second.setId(22L);
+        when(routeProcessMapper.selectById(22L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(22L).routeId(1001L).processId(2002L).keyFlag(true).build());
+        routeProcessService.updateRouteProcess(second);
+        var inserted = ArgumentCaptor.forClass(MesProRouteProcessDO.class);
+        verify(routeProcessMapper, times(2)).insert(inserted.capture());
+        assertEquals(List.of(true, true), inserted.getAllValues().stream()
+                .map(MesProRouteProcessDO::getKeyFlag).toList());
+        verify(routeProcessMapper).updateById(argThat((MesProRouteProcessDO row) ->
+                row.getId().equals(22L) && Boolean.TRUE.equals(row.getKeyFlag())));
+        verify(routeProcessMapper, never()).selectKeyProcessByRouteId(any());
+    }
+
+    @Test
     void createRouteProcess_shouldPersistBoundWorkstationWhenProcessMatches() {
         MesProRouteProcessSaveReqVO reqVO = buildRouteProcessSaveReqVO();
         reqVO.setWorkstationId(3001L);

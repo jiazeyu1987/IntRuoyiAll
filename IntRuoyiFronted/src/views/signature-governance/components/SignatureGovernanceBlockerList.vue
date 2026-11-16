@@ -18,12 +18,13 @@
     @column-change="saveBlockerColumnConfig"
     @column-reset="resetBlockerColumnConfig"
     @pagination="handlePagination"
+    :filter-rows="filteredRows"
   >
-    <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+    <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         data-user-table-column-explicit
         :data-user-table-key="tableKey"
-        :data="pagedRows"
+        :data="resolveRows(pagedRows)"
         :empty-text="emptyText"
         :show-overflow-tooltip="true"
         @header-dragend="handleBlockerHeaderDragend"
@@ -143,4 +144,6 @@ watch(
   () => props.rows,
   () => handlePagination()
 )
+
+
 </script>
