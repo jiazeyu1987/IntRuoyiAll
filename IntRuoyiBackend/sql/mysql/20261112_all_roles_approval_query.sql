@@ -45,7 +45,7 @@ BEGIN
     JOIN system_tenant t ON t.id=r.tenant_id AND t.deleted=0 WHERE r.deleted=0;
   IF EXISTS (SELECT 1 FROM system_tenant t JOIN tmp_approval_query_role r ON r.tenant_id=t.id
       LEFT JOIN system_tenant_package p ON p.id=t.package_id AND p.deleted=0 AND p.status=0
-      WHERE NOT(t.id=1 AND t.package_id=0) AND t.package_id<>-1
+      WHERE t.package_id<>0 AND t.package_id<>-1
         AND (p.id IS NULL OR NOT JSON_VALID(p.menu_ids))) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing valid target tenant menu package';
   END IF;

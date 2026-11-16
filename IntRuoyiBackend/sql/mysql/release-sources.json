@@ -1379,6 +1379,30 @@
         "with-data"
       ],
       "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261111_test1_dcc_project_menu_initialization.sql",
+      "sha256": "095c2b67bd0571c6ea471fbce0ab4e4974522e98a6e69840ed53d23148b45daf",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "User confirmed on 2026-11-16: local Test1-only menu/permission/history repair is excluded from application deployment to existing server tenants. Preserve original SQL for separately authorized local data repair."
+    },
+    {
+      "file": "20261112_test1_frontline_pqc_query_permission.sql",
+      "sha256": "3a8fb48a71e8a092ebf0ca27f0b7793b885a180b6a8639d65bce387095dc3fea",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "User confirmed on 2026-11-16: local Test1-only menu/permission/history repair is excluded from application deployment to existing server tenants. Preserve original SQL for separately authorized local data repair."
+    },
+    {
+      "file": "20261112_test1_historical_sms_log_owner.sql",
+      "sha256": "c7d7f39f8bf3875a92f7ceb5795104a6b2a97290cc2612020c17e4e09dd12040",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "User confirmed on 2026-11-16: local Test1-only menu/permission/history repair is excluded from application deployment to existing server tenants. Preserve original SQL for separately authorized local data repair."
     }
   ],
   "excludedSources": [

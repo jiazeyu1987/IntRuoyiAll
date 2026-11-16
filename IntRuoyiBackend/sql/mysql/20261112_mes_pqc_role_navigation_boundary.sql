@@ -1,5 +1,5 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260806_mes_pqc_leader_role_permission_tab,20261026_edhr_lifecycle_directories,20261112_test1_frontline_pqc_query_permission; type=permission; riskLevel=medium
--- Existing inspector/leader roles in tenants 1 and 186 only. No user-role assignment changes.
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261023_mes_team_leader_permission_identity,20260806_mes_pqc_leader_role_permission_tab,20261026_edhr_lifecycle_directories,20260805_mes_edhr_frontline_pqc_menu; type=permission; riskLevel=medium
+-- Existing active inspector/leader roles in active server tenants only. No user-role assignment changes.
 -- Both roles retain approval-center query access, frontline PQC and the existing hidden test page.
 -- Leader adds only its workbench. No approval update or global approval administrator role is granted.
 -- Shared button permissions are cloned beneath the leader page, so parent expansion cannot expose other jobs.
@@ -9,18 +9,27 @@ DROP PROCEDURE IF EXISTS fix_mes_pqc_role_navigation_boundary;
 DELIMITER $$
 CREATE PROCEDURE fix_mes_pqc_role_navigation_boundary()
 BEGIN
-  DECLARE current_revision BIGINT;
   DECLARE pqc_query_menu BIGINT;
   DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
   START TRANSACTION;
-  IF (SELECT COUNT(*) FROM system_role WHERE tenant_id IN(1,186)
-      AND code IN('pqc_permission','pqc_leader_permission') AND deleted=0 AND status=0)<>4
-    OR (SELECT COUNT(*) FROM system_tenant WHERE id IN(1,186) AND deleted=0 AND status=0)<>2
-    OR (SELECT COUNT(*) FROM system_approval_authority_revision WHERE tenant_id IN(1,186))<>2 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing active inspector/leader roles, tenants or authority revisions';
+  DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_role;
+  CREATE TEMPORARY TABLE tmp_pqc_navigation_role (id BIGINT PRIMARY KEY,tenant_id BIGINT,code VARCHAR(100));
+  INSERT INTO tmp_pqc_navigation_role SELECT r.id,r.tenant_id,r.code FROM system_role r
+    JOIN system_tenant t ON t.id=r.tenant_id AND t.deleted=0 AND t.status=0
+    WHERE r.code IN('pqc_permission','pqc_leader_permission') AND r.deleted=0 AND r.status=0;
+  IF NOT EXISTS (SELECT 1 FROM tmp_pqc_navigation_role) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing active inspector or leader roles';
   END IF;
-  SELECT revision INTO current_revision FROM system_approval_authority_revision WHERE tenant_id=1 FOR UPDATE;
-  SELECT revision INTO current_revision FROM system_approval_authority_revision WHERE tenant_id=186 FOR UPDATE;
+  IF EXISTS (SELECT 1 FROM tmp_pqc_navigation_role GROUP BY tenant_id,code HAVING COUNT(*)>1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Duplicate active PQC role in tenant';
+  END IF;
+  IF EXISTS (SELECT 1 FROM tmp_pqc_navigation_role r LEFT JOIN system_approval_authority_revision a
+      ON a.tenant_id=r.tenant_id WHERE a.tenant_id IS NULL) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing target tenant authority revision';
+  END IF;
+  UPDATE system_approval_authority_revision a JOIN
+    (SELECT DISTINCT tenant_id FROM tmp_pqc_navigation_role) r ON r.tenant_id=a.tenant_id
+    SET a.revision=a.revision;
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_button;
   CREATE TEMPORARY TABLE tmp_pqc_navigation_button (id BIGINT PRIMARY KEY, source_id BIGINT, permission VARCHAR(100));
   INSERT INTO tmp_pqc_navigation_button VALUES
@@ -28,9 +37,9 @@ BEGIN
     (9915802,5551,'mes:pro-feedback:query'),
     (9915803,5552,'mes:pro-feedback:create'),
     (9915804,5631,'mes:qc-template:query'),
-    (9915805,900312,'mes:pro-process-pool-team-leader:review'),
-    (9915806,900313,'mes:pro-process-pool-team-leader:abnormal'),
-    (9915807,900314,'mes:pro-process-pool-team-leader:maintain'),
+    (9915805,991611,'mes:pro-process-pool-team-leader:review'),
+    (9915806,991612,'mes:pro-process-pool-team-leader:abnormal'),
+    (9915807,991613,'mes:pro-process-pool-team-leader:maintain'),
     (9915808,9008301,'mes:pro-edhr-nonconformance-review:query'),
     (9915809,9008302,'mes:pro-edhr-nonconformance-review:create');
   IF (SELECT COUNT(*) FROM system_menu m JOIN tmp_pqc_navigation_button b ON b.source_id=m.id
@@ -55,6 +64,17 @@ BEGIN
         OR (id=2713 AND parent_id=1200 AND path='cc' AND permission='bpm:process-instance-cc:query')))<>6 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing approval center task query menu';
   END IF;
+  -- General frontline query permission, independent of local Test1 repair.
+  IF EXISTS (SELECT 1 FROM system_menu WHERE parent_id=900438
+      AND permission='mes:pro-feedback:query' AND deleted=0 AND (type<>3 OR status<>0)) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid existing frontline PQC query permission';
+  END IF;
+  INSERT INTO system_menu (name,permission,type,sort,parent_id,path,status,visible,keep_alive,always_show,
+      creator,create_time,updater,update_time,deleted)
+    SELECT 'PQC任务查询','mes:pro-feedback:query',3,1,900438,'',0,b'0',b'1',b'0',
+      'pqc-navigation-boundary',NOW(),'pqc-navigation-boundary',NOW(),b'0'
+    WHERE NOT EXISTS (SELECT 1 FROM system_menu WHERE parent_id=900438
+      AND permission='mes:pro-feedback:query' AND deleted=0);
   IF (SELECT COUNT(*) FROM system_menu WHERE parent_id=900438
       AND permission='mes:pro-feedback:query' AND type=3 AND deleted=0 AND status=0)<>1 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing unique frontline PQC task query permission';
@@ -67,10 +87,6 @@ BEGIN
       0,b'0',b'1',b'0','pqc-navigation-boundary',NOW(),'pqc-navigation-boundary',NOW(),b'0'
     FROM tmp_pqc_navigation_button b JOIN system_menu m ON m.id=b.source_id
     WHERE NOT EXISTS (SELECT 1 FROM system_menu existing WHERE existing.id=b.id);
-  DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_role;
-  CREATE TEMPORARY TABLE tmp_pqc_navigation_role (id BIGINT PRIMARY KEY,tenant_id BIGINT,code VARCHAR(100));
-  INSERT INTO tmp_pqc_navigation_role SELECT id,tenant_id,code FROM system_role
-    WHERE tenant_id IN(1,186) AND code IN('pqc_permission','pqc_leader_permission') AND deleted=0 AND status=0;
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_grant;
   CREATE TEMPORARY TABLE tmp_pqc_navigation_grant (role_id BIGINT,tenant_id BIGINT,menu_id BIGINT,
     PRIMARY KEY(role_id,menu_id));
@@ -83,15 +99,15 @@ BEGIN
     CROSS JOIN tmp_pqc_navigation_button b WHERE r.code='pqc_leader_permission';
   -- Only the already selected tenants' packages receive the same exact menus; no other role is granted them.
   IF EXISTS (SELECT 1 FROM system_tenant t LEFT JOIN system_tenant_package p
-      ON p.id=t.package_id AND p.deleted=0 AND p.status=0 WHERE t.id IN(1,186)
-      AND NOT(t.id=1 AND t.package_id=0) AND t.package_id<>-1
+      ON p.id=t.package_id AND p.deleted=0 AND p.status=0 WHERE EXISTS (SELECT 1 FROM tmp_pqc_navigation_role r WHERE r.tenant_id=t.id)
+      AND t.package_id<>0 AND t.package_id<>-1
       AND (p.id IS NULL OR NOT JSON_VALID(p.menu_ids))) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing valid PQC tenant package';
   END IF;
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_package;
   CREATE TEMPORARY TABLE tmp_pqc_navigation_package (id BIGINT PRIMARY KEY);
   INSERT INTO tmp_pqc_navigation_package SELECT DISTINCT p.id FROM system_tenant t
-    JOIN system_tenant_package p ON p.id=t.package_id AND p.deleted=0 WHERE t.id IN(1,186);
+    JOIN system_tenant_package p ON p.id=t.package_id AND p.deleted=0 WHERE EXISTS (SELECT 1 FROM tmp_pqc_navigation_role r WHERE r.tenant_id=t.id);
   DROP TEMPORARY TABLE IF EXISTS tmp_pqc_navigation_package_menu;
   CREATE TEMPORARY TABLE tmp_pqc_navigation_package_menu (package_id BIGINT,menu_id BIGINT,
     PRIMARY KEY(package_id,menu_id));
@@ -99,7 +115,8 @@ BEGIN
     JOIN tmp_pqc_navigation_package target ON target.id=p.id
     JOIN JSON_TABLE(p.menu_ids,'$[*]' COLUMNS(id BIGINT PATH '$')) j;
   INSERT IGNORE INTO tmp_pqc_navigation_package_menu SELECT p.id,g.menu_id FROM tmp_pqc_navigation_package p
-    CROSS JOIN tmp_pqc_navigation_grant g;
+    JOIN system_tenant t ON t.package_id=p.id AND t.deleted=0 AND t.status=0
+    JOIN tmp_pqc_navigation_grant g ON g.tenant_id=t.id;
   UPDATE system_tenant_package p JOIN (SELECT package_id,JSON_ARRAYAGG(menu_id) ids
     FROM tmp_pqc_navigation_package_menu GROUP BY package_id) merged ON merged.package_id=p.id
     SET p.menu_ids=merged.ids,p.updater='pqc-navigation-boundary',p.update_time=NOW();
@@ -111,7 +128,9 @@ BEGIN
     SELECT g.role_id,g.menu_id,'pqc-navigation-boundary',NOW(),'pqc-navigation-boundary',NOW(),b'0',g.tenant_id
     FROM tmp_pqc_navigation_grant g WHERE NOT EXISTS (SELECT 1 FROM system_role_menu rm
       WHERE rm.role_id=g.role_id AND rm.tenant_id=g.tenant_id AND rm.menu_id=g.menu_id AND rm.deleted=0);
-  UPDATE system_approval_authority_revision SET revision=revision+1,updated_at=NOW() WHERE tenant_id IN(1,186);
+  UPDATE system_approval_authority_revision a JOIN
+    (SELECT DISTINCT tenant_id FROM tmp_pqc_navigation_role) r ON r.tenant_id=a.tenant_id
+    SET a.revision=a.revision+1,a.updated_at=NOW();
   COMMIT;
   DROP TEMPORARY TABLE tmp_pqc_navigation_package_menu;
   DROP TEMPORARY TABLE tmp_pqc_navigation_package;
