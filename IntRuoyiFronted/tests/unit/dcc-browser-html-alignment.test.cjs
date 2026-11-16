@@ -17,9 +17,17 @@ const load = (file) => {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
     }).outputText
   )(exports, (id) => {
+    if (id.endsWith('controlledFile/bodyReadContext')) {
+      const api = {}
+      new Function('exports', ts.transpileModule(fs.readFileSync(path.join(root, 'src/api/dcc/controlledFile/bodyReadContext.ts'), 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+      }).outputText)(api)
+      return api
+    }
     if (id.endsWith('relation-contract')) return load('detail/relation-contract.ts')
     if (id.endsWith('project-reference-contract'))
       return load('relations/project-reference-contract.ts')
+    if (id.endsWith('detail-read-context')) return load('detail/detail-read-context.ts')
     throw Error(`Unexpected import ${id}`)
   })
   return exports
@@ -95,6 +103,16 @@ test('no current controlled source stays unavailable instead of borrowing the se
     undefined
   )
 })
+test('pending latest controlled metadata remains visible before any execution version becomes active', async () => {
+  const api = readers({ getPermissions: async id => id === file.id
+    ? { ...selected, hasCurrentControlledSource: false, currentActiveControlledFileId: null }
+    : { ...latest, hasCurrentControlledSource: false, currentActiveControlledFileId: null } })
+  const result = await load('detail/browse-records.ts').loadBrowseMetadata(file, '1', api)
+  assert.equal(result.latest.controlledFileId, latest.controlledFileId)
+  assert.equal(result.latest.pendingEffect, true)
+  assert.equal(result.selected.currentActiveControlledFileId, null)
+})
+
 test('wrong tenant, Master, selected version and uncontrolled latest fail explicitly', async () => {
   const model = load('detail/browse-records.ts')
   for (const changed of [
@@ -166,7 +184,7 @@ test('complete readonly records live in detail while body keeps only the content
     '文件编号',
     '查看版本',
     '最新受控版本',
-    '文件负责人',
+    '文件编制人',
     '受控日期',
     '生效方式',
     '下发日期',
@@ -466,6 +484,7 @@ function mountRecords(getPermissions = async (id) => (id === file.id ? selected 
         })
       }
     if (id === './browse-records') return load('detail/browse-records.ts')
+    if (id === './detail-read-context') return load('detail/detail-read-context.ts')
     if (id === './relation-contract') return load('detail/relation-contract.ts')
     if (id === './presentation')
       return {
@@ -550,6 +569,7 @@ test('actual basic info hides iteration label without changing its original vers
   const file = { id: '9007199254740993', currentActiveVersionNo: 'A/1-2' }
   const component = compileComponent('shared/ControlledFileBasicInfoPanel.vue', id => {
     if (id === 'vue') return vue
+    if (id.endsWith('effective-facts')) return load('workflow/effective-facts.ts')
     if (id.endsWith('version-display')) return load('shared/version-display.ts')
     if (id.endsWith('presentation')) return { formatControlledFileDateTime: value => value || '未记录' }
     throw Error(id)

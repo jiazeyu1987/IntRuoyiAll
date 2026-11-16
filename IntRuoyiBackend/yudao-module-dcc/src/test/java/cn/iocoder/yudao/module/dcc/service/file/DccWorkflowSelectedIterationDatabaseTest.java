@@ -139,6 +139,8 @@ class DccWorkflowSelectedIterationDatabaseTest extends BaseDbUnitTest {
         wire(bodies,"fileConfigService",configs);
         files.insert(working(20L,null,"A/1"));
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+        when(permissions.hasFilePermission(any(),any(),any())).thenAnswer(c -> permissions.hasCategoryPermission(
+                c.<DccControlledFileDO>getArgument(0).getCategoryId(),c.getArgument(1),c.getArgument(2)));
         scope=new DccControlledFileAssignmentScopeService();defaults(scope);wire(scope,"assignmentFileMapper",assignmentFiles,"distributionRecipientMapper",recipients);
         related=new DccControlledFileRelatedFileServiceImpl();defaults(related);wire(related,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"relatedFileMapper",relations);
         jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation(tenant_id BIGINT NOT NULL,source_master_id BIGINT NOT NULL,related_master_id BIGINT NOT NULL,PRIMARY KEY(tenant_id,source_master_id,related_master_id))");

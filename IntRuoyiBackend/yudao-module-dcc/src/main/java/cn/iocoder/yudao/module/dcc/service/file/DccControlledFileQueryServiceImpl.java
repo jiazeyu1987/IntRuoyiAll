@@ -1633,16 +1633,32 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             folderId=folder.getId();folderName=folder.getName();
         }
         boolean controlled=file.getControlledTime()!=null && DccControlledFileVersionPolicy.isCurrentControlledStatus(file.getStatus());
+        var latestControlled = resolveLatestControlledRelationSource(file, master, project.getId());
         boolean hasCurrentControlledSource = hasCurrentControlledRelationSource(file, master, project.getId())
                 && canViewFileName(userId, controlledFileMapper.selectById(master.getCurrentActiveControlledFileId()));
         return new DccFileRelationPermissions(file.getId(),canEdit,canPreview,file.getTenantId(),file.getMasterId(),project.getId(),project.getProjectName(),
                 folderId,folderName,file.getFileNumber(),file.getFileName(),file.getVersionNo(),file.getStatus(),controlled,
                 "CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus()),"ACTIVE".equals(file.getStatus()) && file.getActivatedTime()!=null,
                 hasCurrentControlledSource,
-                master.getLatestControlledFileId() != null
-                        && canViewFileName(userId, controlledFileMapper.selectById(master.getLatestControlledFileId()))
-                        ? master.getLatestControlledFileId() : null,
+                latestControlled != null && canViewFileName(userId, latestControlled) ? latestControlled.getId() : null,
                 hasCurrentControlledSource ? master.getCurrentActiveControlledFileId() : null);
+    }
+
+    private DccControlledFileDO resolveLatestControlledRelationSource(DccControlledFileDO selected,
+            DccControlledFileMasterDO master, Long projectId) {
+        if (master.getLatestControlledFileId() == null) return null;
+        var latest = controlledFileMapper.selectById(master.getLatestControlledFileId());
+        var version = latest == null ? null : versionPolicy.parseStored(latest);
+        if (latest == null || !Objects.equals(latest.getId(), master.getLatestControlledFileId())
+                || !Objects.equals(latest.getTenantId(), selected.getTenantId())
+                || !Objects.equals(latest.getMasterId(), master.getId())
+                || !Objects.equals(latest.getDccProjectCodeId(), projectId) || Boolean.TRUE.equals(latest.getDeleted())
+                || latest.getControlledTime() == null || version == null || version.isWorkingIteration()
+                || !(DccControlledFileVersionPolicy.isCurrentControlledStatus(latest.getStatus())
+                    || "OBSOLETE".equals(latest.getStatus()) && latest.getObsoletedTime() != null)) {
+            throw new IllegalStateException("latest controlled relation source pointer or formal control facts are invalid");
+        }
+        return "OBSOLETE".equals(latest.getStatus()) ? null : latest;
     }
 
     /** Source existence is distinct from selected-version state and its content/edit grants. No reads create relations. */
