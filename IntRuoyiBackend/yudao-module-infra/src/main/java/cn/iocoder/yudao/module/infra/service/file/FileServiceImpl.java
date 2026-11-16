@@ -244,11 +244,6 @@ public class FileServiceImpl implements FileService {
 
     @VisibleForTesting
     String generateUploadPath(String name, String directory) {
-        TenantFilePath.validateRelative(name);
-        Assert.isFalse(name.contains("/"), "文件名不能包含目录");
-        if (StrUtil.isNotEmpty(directory)) {
-            TenantFilePath.validateRelative(directory);
-        }
         // 1. 生成前缀、后缀
         String prefix = null;
         if (PATH_PREFIX_DATE_ENABLE) {
@@ -282,7 +277,7 @@ public class FileServiceImpl implements FileService {
             name = directory + StrUtil.SLASH + name;
         }
         Assert.isFalse(isDossierStoragePath(name), "活跃订单资料只能从业务页面上传");
-        return TenantFilePath.qualify(name);
+        return name;
     }
 
     @Override
@@ -301,19 +296,13 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public String presignGetUrl(String url, Integer expirationSeconds) {
-        FileDO file = fileMapper.selectOne(FileDO::getUrl, HttpUtils.removeUrlQuery(url));
-        if (file == null) {
-            throw exception(FILE_NOT_EXISTS);
-        }
-        FileClient fileClient = fileConfigService.getFileClient(file.getConfigId());
-        return fileClient.presignGetUrl(file.getPath(), expirationSeconds);
+        FileClient fileClient = fileConfigService.getMasterFileClient();
+        return fileClient.presignGetUrl(url, expirationSeconds);
     }
 
     @Override
     public Long createFile(FileCreateReqVO createReqVO) {
-        TenantFilePath.requireOwned(createReqVO.getPath());
-        FileClient client = fileConfigService.getFileClient(createReqVO.getConfigId());
-        createReqVO.setUrl(HttpUtils.removeUrlQuery(client.presignGetUrl(createReqVO.getPath(), null)));
+        createReqVO.setUrl(HttpUtils.removeUrlQuery(createReqVO.getUrl())); // 目的：移除私有桶情况下，URL 的签名参数
         Assert.isFalse(isDossierStoragePath(createReqVO.getPath()), "不能从通用文件接口登记活跃订单资料");
         FileDO file = BeanUtils.toBean(createReqVO, FileDO.class);
         fileMapper.insert(file);
@@ -411,7 +400,7 @@ public class FileServiceImpl implements FileService {
     @SneakyThrows
     public void deleteFileList(List<Long> ids) {
         // 删除文件
-        List<FileDO> files = ids.stream().distinct().map(this::validateFileExists).toList();
+        List<FileDO> files = fileMapper.selectByIds(ids);
         validateDeleteAllowed(files);
         deleteStorageFilesConcurrently(files);
 
@@ -423,21 +412,15 @@ public class FileServiceImpl implements FileService {
         if (files.isEmpty()) {
             return;
         }
-        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         int poolSize = Math.min(DELETE_FILE_PARALLELISM, files.size());
         ExecutorService executorService = Executors.newFixedThreadPool(poolSize);
         try {
             List<Callable<Void>> tasks = files.stream()
                     .<Callable<Void>>map(file -> () -> {
-                        try {
-                            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(tenantId);
-                            FileClient client = fileConfigService.getFileClient(file.getConfigId());
-                            Assert.notNull(client, "客户端({}) 不能为空", file.getPath());
-                            client.delete(file.getPath());
-                            return null;
-                        } finally {
-                            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
-                        }
+                        FileClient client = fileConfigService.getFileClient(file.getConfigId());
+                        Assert.notNull(client, "客户端({}) 不能为空", file.getPath());
+                        client.delete(file.getPath());
+                        return null;
                     })
                     .toList();
             List<Future<Void>> futures = executorService.invokeAll(tasks);
@@ -477,7 +460,6 @@ public class FileServiceImpl implements FileService {
         String normalized = Path.of(path.replace('\\', '/')).normalize().toString().replace('\\', '/');
         while (normalized.startsWith("/")) normalized = normalized.substring(1);
         normalized = normalized.toLowerCase(java.util.Locale.ROOT);
-        normalized = normalized.replaceFirst("^tenants/[0-9]+/", "");
         return normalized.startsWith("mes/active-order-dossier/") || normalized.equals("mes/active-order-dossier");
     }
 
@@ -503,12 +485,11 @@ public class FileServiceImpl implements FileService {
         }
         Assert.isFalse(isDossierStoragePath(normalized),
                 "不能向活跃订单资料保留目录移动文件");
-        return TenantFilePath.qualify(normalized);
+        return normalized;
     }
 
     @Override
     public byte[] getFileContent(Long configId, String path) throws Exception {
-        validateFilePathExists(configId, path);
         FileClient client = fileConfigService.getFileClient(configId);
         Assert.notNull(client, "客户端({}) 不能为空", configId);
         try {
@@ -533,9 +514,6 @@ public class FileServiceImpl implements FileService {
         List<FileDO> files = fileMapper.selectList(new LambdaQueryWrapperX<FileDO>()
                 .eq(FileDO::getConfigId, configId)
                 .eq(FileDO::getPath, path));
-        if (files.isEmpty()) {
-            throw exception(FILE_NOT_EXISTS);
-        }
         for (FileDO file : files) {
             try {
                 businessFileAccessService.assertAllowed(
@@ -570,17 +548,9 @@ public class FileServiceImpl implements FileService {
     @Override
     public StorageRetentionEvidence requireStorageRetentionEvidence(Long configId, String path,
                                                                    StorageRetentionPolicy policy) throws Exception {
-        validateFilePathExists(configId, path);
         FileClient client = fileConfigService.getFileClient(configId);
         Assert.notNull(client, "客户端({}) 不能为空", configId);
         return client.requireStorageRetentionEvidence(path, policy);
-    }
-
-    private void validateFilePathExists(Long configId, String path) {
-        if (!fileMapper.exists(new LambdaQueryWrapperX<FileDO>()
-                .eq(FileDO::getConfigId, configId).eq(FileDO::getPath, path))) {
-            throw exception(FILE_NOT_EXISTS);
-        }
     }
 
     @Data

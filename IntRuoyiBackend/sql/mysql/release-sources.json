@@ -1199,8 +1199,6 @@
     "20261112_mes_workflow_interaction_operate_logs.sql",
     "20261112_operation_log_admin_auditor_only.sql",
     "20261112_tenant_dictionaries.sql",
-    "20261112_tenant_file_configuration.sql",
-    "20261112_tenant_file_ownership.sql",
     "20261112_tenant_kingdee_configuration.sql",
     "20261112_tenant_notification_resources.sql",
     "20261112_tenant_scoped_business_configuration.sql",

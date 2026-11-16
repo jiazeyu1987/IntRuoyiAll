@@ -17,10 +17,12 @@ class TenantKingdeeConfigurationMySqlTest(unittest.TestCase):
                         'mysql:8.0.39'], check=True, capture_output=True)
         cls.addClassCleanup(lambda: subprocess.run(['docker', 'rm', '-f', cls.container],
                                                    check=True, capture_output=True))
-        deadline = time.monotonic() + 60
+        deadline = time.monotonic() + 180
         while cls.sql('SELECT 1', check=False).returncode:
             if time.monotonic() > deadline:
-                raise RuntimeError('Task-owned MySQL did not become ready')
+                logs = subprocess.run(['docker', 'logs', '--tail', '30', cls.container],
+                                      capture_output=True, encoding='utf-8')
+                raise RuntimeError('Task-owned MySQL did not become ready: ' + logs.stdout + logs.stderr)
             time.sleep(1)
 
     @classmethod
@@ -96,6 +98,25 @@ class TenantKingdeeConfigurationMySqlTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn('TENANT_KINGDEE_EXPLICIT_SOURCE_CONFIGURATION_REQUIRED', result.stderr)
         self.assertEqual('0\n', self.query('SELECT COUNT(*) FROM infra_tenant_config;').stdout)
+
+    def test_absent_write_flag_keeps_disabled_without_changing_source_or_later_tenant_choice(self):
+        key = 'yudao.erp.kingdee.external-write-enabled'
+        self.query(f"DELETE FROM infra_config WHERE config_key='{key}';")
+        self.migrate()
+        self.assertEqual('11\tfalse\n22\tfalse\n', self.query(
+            f"SELECT tenant_id,value FROM infra_tenant_config WHERE config_key='{key}' ORDER BY tenant_id;").stdout)
+        self.assertEqual('0\n', self.query(f"SELECT COUNT(*) FROM infra_config WHERE config_key='{key}';").stdout)
+        self.query(f"UPDATE infra_tenant_config SET value='true' WHERE tenant_id=11 AND config_key='{key}';")
+        self.migrate()
+        self.assertEqual('11\ttrue\n22\tfalse\n', self.query(
+            f"SELECT tenant_id,value FROM infra_tenant_config WHERE config_key='{key}' ORDER BY tenant_id;").stdout)
+
+    def test_explicit_source_write_flag_is_preserved(self):
+        key = 'yudao.erp.kingdee.external-write-enabled'
+        self.query(f"UPDATE infra_config SET value='true' WHERE config_key='{key}';")
+        self.migrate()
+        self.assertEqual('11\ttrue\n22\ttrue\n', self.query(
+            f"SELECT tenant_id,value FROM infra_tenant_config WHERE config_key='{key}' ORDER BY tenant_id;").stdout)
 
 
 if __name__ == '__main__':

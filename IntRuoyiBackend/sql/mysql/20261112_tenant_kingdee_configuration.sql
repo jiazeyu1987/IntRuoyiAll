@@ -30,7 +30,7 @@ CREATE PROCEDURE seed_tenant_kingdee_configuration()
 BEGIN
   IF (SELECT COUNT(DISTINCT config_key) FROM infra_config WHERE deleted=b'0'
       AND config_key IN ('yudao.erp.kingdee.config', 'yudao.erp.kingdee.connection.production',
-                        'yudao.erp.kingdee.connection.active', 'yudao.erp.kingdee.external-write-enabled')) <> 4 THEN
+                        'yudao.erp.kingdee.connection.active')) <> 3 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='TENANT_KINGDEE_EXPLICIT_SOURCE_CONFIGURATION_REQUIRED';
   END IF;
   IF EXISTS (SELECT config_key FROM infra_config WHERE deleted=b'0'
@@ -48,6 +48,19 @@ BEGIN
                         'yudao.erp.kingdee.connection.active', 'yudao.erp.kingdee.external-write-enabled')
     AND NOT EXISTS (SELECT 1 FROM infra_tenant_config x
                     WHERE x.tenant_id=t.id AND BINARY x.config_key=BINARY c.config_key);
+  -- Existing application semantics: an absent external-write flag means disabled.
+  -- Materialize that state without changing the source or enabling external writes.
+  INSERT INTO infra_tenant_config
+    (tenant_id, category, type, name, config_key, value, visible, remark, creator, updater)
+  SELECT t.id, 'erp', 2, 'Kingdee external write enabled',
+         'yudao.erp.kingdee.external-write-enabled', 'false', b'0',
+         'Preserved disabled state of absent source flag', 'release-migration', 'release-migration'
+  FROM system_tenant t
+  WHERE t.deleted=b'0'
+    AND NOT EXISTS (SELECT 1 FROM infra_config c WHERE c.deleted=b'0'
+                    AND BINARY c.config_key=BINARY 'yudao.erp.kingdee.external-write-enabled')
+    AND NOT EXISTS (SELECT 1 FROM infra_tenant_config x WHERE x.tenant_id=t.id
+                    AND BINARY x.config_key=BINARY 'yudao.erp.kingdee.external-write-enabled');
 END//
 DELIMITER ;
 CALL seed_tenant_kingdee_configuration();
