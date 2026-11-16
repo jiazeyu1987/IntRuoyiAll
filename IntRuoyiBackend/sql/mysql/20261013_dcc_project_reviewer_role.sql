@@ -8,8 +8,9 @@ CREATE PROCEDURE configure_dcc_project_reviewer_role()
 BEGIN
   DECLARE query_menu BIGINT;
   DECLARE review_menu BIGINT;
-  DECLARE mdm_menu BIGINT;
   DECLARE catalog_menu BIGINT;
+  DECLARE invalid_navigation INT;
+  DECLARE rooted_pages INT;
   DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
   IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()
       AND TABLE_NAME IN ('system_tenant','system_role','system_menu','system_role_menu') AND ENGINE='InnoDB')<>4 THEN
@@ -19,23 +20,31 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Project reviewer requires exact existing project query menu';
   END IF;
   SELECT id INTO query_menu FROM system_menu WHERE permission='dcc:project-code:query' AND deleted=0 AND status=0;
-  -- The 20260626 migration places both actual pages directly below the /mdm root, without fixed-ID inference.
-  IF (SELECT COUNT(*) FROM system_menu WHERE path='/mdm' AND parent_id=0 AND type=1
-      AND permission='' AND deleted=0 AND status=0 AND visible=1)<>1 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Project reviewer MDM root navigation missing or drift';
-  END IF;
-  SELECT id INTO mdm_menu FROM system_menu WHERE path='/mdm' AND parent_id=0 AND type=1 AND deleted=0 AND status=0 AND visible=1;
-  IF (SELECT COUNT(*) FROM system_menu WHERE id=query_menu AND parent_id=mdm_menu AND type=2
-      AND path='project-code' AND component='dcc/controlled-file/basic-data/project-code/index'
+  -- Later menu migrations can move a page. Resolve its stable permission/component and actual ancestors.
+  IF (SELECT COUNT(*) FROM system_menu WHERE id=query_menu AND type=2
+      AND component='dcc/controlled-file/basic-data/project-code/index'
       AND component_name='DccProjectCodeBasicDataPage' AND visible=1)<>1
-     OR (SELECT COUNT(*) FROM system_menu WHERE parent_id=mdm_menu AND type=2 AND path='product-catalog'
+     OR (SELECT COUNT(*) FROM system_menu WHERE type=2
       AND component='dcc/controlled-file/basic-data/product-catalog/index' AND component_name='DccProductCatalogBasicDataPage'
       AND permission='' AND deleted=0 AND status=0 AND visible=1)<>1 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Project reviewer query/catalog page hierarchy or component drift';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Project reviewer query/catalog page identity drift';
   END IF;
-  SELECT id INTO catalog_menu FROM system_menu WHERE parent_id=mdm_menu AND type=2 AND path='product-catalog'
+  SELECT id INTO catalog_menu FROM system_menu WHERE type=2
       AND component='dcc/controlled-file/basic-data/product-catalog/index' AND component_name='DccProductCatalogBasicDataPage'
       AND permission='' AND deleted=0 AND status=0 AND visible=1;
+  CREATE TEMPORARY TABLE release_project_reviewer_navigation(page_id BIGINT NOT NULL,id BIGINT NOT NULL,parent_id BIGINT NOT NULL,PRIMARY KEY(page_id,id));
+  INSERT INTO release_project_reviewer_navigation(page_id,id,parent_id)
+    WITH RECURSIVE ancestors(page_id,id,parent_id) AS (
+      SELECT id,id,parent_id FROM system_menu WHERE id IN (query_menu,catalog_menu)
+      UNION DISTINCT
+      SELECT a.page_id,m.id,m.parent_id FROM system_menu m JOIN ancestors a ON m.id=a.parent_id
+    ) SELECT page_id,id,parent_id FROM ancestors;
+  SELECT COUNT(*) INTO invalid_navigation FROM release_project_reviewer_navigation n JOIN system_menu m ON m.id=n.id
+      WHERE m.deleted<>0 OR m.status<>0 OR m.visible<>1;
+  SELECT COUNT(DISTINCT page_id) INTO rooted_pages FROM release_project_reviewer_navigation WHERE parent_id=0;
+  IF invalid_navigation<>0 OR rooted_pages<>2 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Project reviewer actual navigation is incomplete';
+  END IF;
   IF (SELECT COUNT(*) FROM system_menu WHERE permission='dcc:project-code:review' AND deleted=0)>1
      OR EXISTS(SELECT 1 FROM system_menu WHERE permission='dcc:project-code:review' AND deleted=0
           AND (type<>3 OR status<>0 OR parent_id<>query_menu)) THEN
@@ -59,10 +68,11 @@ BEGIN
        AND NOT EXISTS(SELECT 1 FROM system_role r WHERE r.tenant_id=t.id AND r.code='dcc_project_reviewer' AND r.deleted=0);
   INSERT INTO system_role_menu(role_id,menu_id,creator,updater,deleted,tenant_id)
     SELECT r.id,m.id,'dcc-role-migration','dcc-role-migration',0,r.tenant_id
-      FROM system_role r JOIN system_menu m ON m.id IN (mdm_menu,catalog_menu,query_menu,review_menu)
+      FROM system_role r JOIN system_menu m ON m.id=review_menu OR m.id IN (SELECT id FROM release_project_reviewer_navigation)
      WHERE r.code='dcc_project_reviewer' AND r.deleted=0 AND r.status=0
        AND NOT EXISTS(SELECT 1 FROM system_role_menu x WHERE x.tenant_id=r.tenant_id AND x.role_id=r.id AND x.menu_id=m.id AND x.deleted=0);
   COMMIT;
+  DROP TEMPORARY TABLE release_project_reviewer_navigation;
 END//
 DELIMITER ;
 CALL configure_dcc_project_reviewer_role();

@@ -227,7 +227,7 @@ conflicting_metering_valid AS (
 SELECT CASE WHEN
   (SELECT table_count FROM schema_tables) = 4
   AND (SELECT column_count FROM schema_columns) = 7
-  AND (SELECT source_scope_count FROM source_scopes) >= 0
+  AND (SELECT source_scope_count FROM source_scopes) > 0
   AND (SELECT legacy_metering_count FROM legacy_metering) = 0
   AND (SELECT conflicting_a05059_device_count FROM conflicting_a05059_device) = 0
   AND (SELECT disabled_a05059_binding_count FROM disabled_a05059_binding) = 0

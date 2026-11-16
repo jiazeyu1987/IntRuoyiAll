@@ -13,7 +13,8 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS tmp_edhr_device_resources;
   CREATE TEMPORARY TABLE tmp_edhr_device_resources (
     id BIGINT PRIMARY KEY, old_parent BIGINT, old_path VARCHAR(200),
-    path VARCHAR(200), component VARCHAR(255), sort INT);
+    path VARCHAR(200), component VARCHAR(255), sort INT)
+    DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
   INSERT INTO tmp_edhr_device_resources VALUES
     (5170,5101,'workstation','/mes/md/workstation','mes/md/workstation/index',80),
     (5160,5101,'workstation/workshop','/mes/md/workstation/workshop','mes/md/workstation/workshop/index',90),

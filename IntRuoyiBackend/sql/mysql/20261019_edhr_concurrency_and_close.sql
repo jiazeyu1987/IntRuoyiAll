@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=high; requiresTargetPreflight=true
 -- eDHR edit generations and attributable deviation closure. Apply once before new binaries.
 ALTER TABLE mes_qa_inspection_regulation_version
   ADD COLUMN draft_revision BIGINT NOT NULL DEFAULT 0 COMMENT '草稿编辑修订号，独立于业务版本号';
@@ -21,4 +22,3 @@ CREATE TABLE mes_dossier_upload_intent (
  INDEX idx_dossier_upload_cleanup (state, expires_at),
  UNIQUE KEY uk_dossier_upload_path (config_id,storage_path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260802_mes_qa_inspection_regulation,20260924_mes_edhr_deviation_management,20260917_mes_active_order_dossier_file; type=schema; riskLevel=medium

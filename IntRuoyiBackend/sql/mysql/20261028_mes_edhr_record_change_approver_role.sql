@@ -26,7 +26,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Tenant 1 requires reviewed system package 0; no package expansion allowed';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM system_role_category
-                 WHERE id=5 AND tenant_id=1 AND name='eDHR批记录' AND status=0 AND deleted=b'0') THEN
+                 WHERE id=5 AND tenant_id=1 AND name='批记录' AND status=0 AND deleted=b'0') THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing tenant 1 eDHR business role category 5';
   END IF;
 

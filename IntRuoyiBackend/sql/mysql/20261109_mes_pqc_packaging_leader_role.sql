@@ -59,8 +59,10 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Eligible tenant missing unique enabled menu role category';
   END IF;
   IF EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
-      WHERE r.code='pqc_packaging_leader_permission' GROUP BY r.tenant_id HAVING COUNT(*)>1)
-    OR EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
+      WHERE r.code='pqc_packaging_leader_permission' GROUP BY r.tenant_id HAVING COUNT(*)>1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Existing packaging role is duplicate, deleted or disabled';
+  END IF;
+  IF EXISTS (SELECT 1 FROM system_role r JOIN tmp_pqc_packaging_tenant t ON t.id=r.tenant_id
       WHERE r.code='pqc_packaging_leader_permission' AND (r.deleted<>b'0' OR r.status<>0)) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Existing packaging role is duplicate, deleted or disabled';
   END IF;

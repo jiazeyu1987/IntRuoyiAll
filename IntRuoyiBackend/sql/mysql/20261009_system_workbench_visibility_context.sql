@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260727_system_profile_workbench_task_visibility; type=schema; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260727_system_profile_workbench_task_visibility; type=schema; riskLevel=high; requiresTargetPreflight=true; sessionProfile=workbench-s3-maintenance
 -- Candidate only. MySQL 8.0. DDL implicitly commits; no claim of schema rollback.
 -- Requires approved maintenance, exact schema backup and no concurrent old/new workbench writes.
 DELIMITER $$
