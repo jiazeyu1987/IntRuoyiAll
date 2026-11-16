@@ -572,7 +572,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 && Objects.equals(review.getLeaderUserId(), review.getReviewSignatureUserId())
                 && Objects.equals(feedback.getApproveUserId(), review.getReviewSignatureUserId())
                 && Objects.equals(allocation.getLeaderUserId(), review.getLeaderUserId())
-                && Objects.equals(allocation.getConfirmedAt(), review.getReviewedAt());
+                && MesReportAllocationReviewBinding.matches(allocation, review);
     }
 
     private boolean validNonNegativeQuantities(MesProFeedbackDO feedback) {

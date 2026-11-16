@@ -86,7 +86,6 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private final ApplicationEventPublisher eventPublisher;
     private final MesProEdhrBatchTraceTransactionService traceTransactions;
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
-    private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
     private final MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
 
     @Resource
@@ -363,11 +362,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
             bindings = List.copyOf(loadedBindings);
             items = List.copyOf(loadedItems);
         } else {
-            String credentialId = requireText(metadata, "sourceCredentialId");
-            MesIndependentBatchPrerequisiteReceipt receipt = independentReceiptPort.getVerifiedByReceiptId(
-                    tenantId, credentialId, entryType, metadata.getString("sourceSnapshotHash"));
-            evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveIndependent(tenantId, receipt, metadata, evidence);
-            requireLong(metadata, "workOrderId");
+            throw blocked("FORMAL_ACTIVE_SOURCE_REQUIRED", "独立凭证功能已删除，请使用活跃订单完工来源");
         }
         Map<String, Object> fingerprintPayload = new LinkedHashMap<>();
         fingerprintPayload.put("auditHash", audit.getAuditHash());

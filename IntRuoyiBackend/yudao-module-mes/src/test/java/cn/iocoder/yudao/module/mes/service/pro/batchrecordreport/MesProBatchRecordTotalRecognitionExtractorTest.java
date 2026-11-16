@@ -10,11 +10,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordTotalRecognitionExtractorTest {
@@ -49,7 +51,7 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
         Files.writeString(Path.of("target", "idi-total-recognition-actual.json"),
                 objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actualJson), StandardCharsets.UTF_8);
 
-        JsonNode expectedJson = objectMapper.readTree(Files.readString(EXPECTED_JSON, StandardCharsets.UTF_8));
+        JsonNode expectedJson = expectedJsonWithOriginalReferences(objectMapper);
         assertJsonSemanticallyEquals(expectedJson, actualJson, "$");
     }
 
@@ -70,8 +72,79 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
         Files.writeString(Path.of("target", "idi-total-recognition-doc-actual.json"),
                 objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actualJson), StandardCharsets.UTF_8);
 
-        JsonNode expectedJson = objectMapper.readTree(Files.readString(EXPECTED_JSON, StandardCharsets.UTF_8));
+        JsonNode expectedJson = expectedJsonWithOriginalReferences(objectMapper);
         assertJsonSemanticallyEquals(expectedJson, actualJson, "$");
+    }
+
+    @Test
+    void extractRealIdiDocumentsPreservesWaterAndRoomTemperatureReferences() throws Exception {
+        for (Path source : List.of(REAL_IDI_DOCX, REAL_IDI_DOC)) {
+            assertTrue(Files.exists(source), "real IDI production record fixture is required: " + source);
+            String filename = source.getFileName().toString();
+            var actual = new MesProBatchRecordTotalRecognitionExtractor().extract(filename,
+                    new MesProBatchRecordDocParser().parseWord(Files.readAllBytes(source), filename));
+            assertEquals(15, actual.processes().size());
+            for (String processName : List.of("粗洗工序", "精洗工序", "清洗工序")) {
+                var temperature = parameter(actual, processName, "清洗温度");
+                assertEquals("室温", temperature.referenceValue(), filename + ": " + processName);
+                assertEquals("text", temperature.ui().control());
+                assertEquals("室温", temperature.ui().defaultValue());
+                assertNull(temperature.ui().min(), "room temperature has no numeric limit in the source");
+                assertNull(temperature.ui().max());
+                assertNull(temperature.ui().step());
+                assertNull(temperature.ui().unit());
+                var medium = parameter(actual, processName, "清洗介质");
+                String water = "粗洗工序".equals(processName) ? "纯化水" : "注射用水";
+                assertEquals(water, medium.referenceValue());
+                assertEquals(water, medium.ui().defaultValue());
+                assertEquals(List.of(water), medium.ui().options());
+            }
+            // Preserve the existing interpretation of explicit numeric ranges and tolerances.
+            var power = parameter(actual, "粗洗工序", "清洗功率");
+            assertEquals("20-30%", power.referenceValue());
+            assertEquals(BigDecimal.valueOf(25), power.ui().defaultValue());
+            assertEquals(BigDecimal.valueOf(20), power.ui().min());
+            assertEquals(BigDecimal.valueOf(30), power.ui().max());
+            var drying = parameter(actual, "清洗工序", "烘干温度℃");
+            assertEquals("60±4", drying.referenceValue());
+            assertEquals(BigDecimal.valueOf(60), drying.ui().defaultValue());
+            assertEquals(BigDecimal.valueOf(56), drying.ui().min());
+            assertEquals(BigDecimal.valueOf(64), drying.ui().max());
+        }
+    }
+
+    private static MesProBatchRecordTotalRecognitionExtractor.Parameter parameter(
+            MesProBatchRecordTotalRecognitionExtractor.RecognitionResult result, String processName, String name) {
+        return result.processes().stream().filter(process -> processName.equals(process.name()))
+                .flatMap(process -> process.equipmentGroups().stream())
+                .flatMap(group -> group.parameters().stream())
+                .filter(parameter -> name.equals(parameter.name())).findFirst().orElseThrow();
+    }
+
+    private static JsonNode expectedJsonWithOriginalReferences(ObjectMapper objectMapper) throws Exception {
+        JsonNode expected = objectMapper.readTree(Files.readString(EXPECTED_JSON, StandardCharsets.UTF_8));
+        // The historical JSON snapshot substituted tap water and a numeric room-temperature range.
+        // Correct only those source contradictions; retain its coverage of all other extracted data.
+        for (JsonNode process : expected.path("processes")) {
+            for (JsonNode group : process.path("equipmentGroups")) {
+                for (JsonNode node : group.path("parameters")) {
+                    ObjectNode parameter = (ObjectNode) node;
+                    if ("清洗温度".equals(parameter.path("name").asText())) {
+                        parameter.put("referenceValue", "室温");
+                        parameter.set("ui", objectMapper.createObjectNode()
+                                .put("control", "text").put("defaultValue", "室温"));
+                    } else if ("粗洗工序".equals(process.path("name").asText())
+                            && "清洗介质".equals(parameter.path("name").asText())) {
+                        parameter.put("referenceValue", "纯化水");
+                        ObjectNode ui = objectMapper.createObjectNode()
+                                .put("control", "select").put("defaultValue", "纯化水");
+                        ui.putArray("options").add("纯化水");
+                        parameter.set("ui", ui);
+                    }
+                }
+            }
+        }
+        return expected;
     }
 
     @Test

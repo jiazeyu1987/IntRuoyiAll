@@ -25,6 +25,9 @@ public class UserRespVO{
     @ExcelProperty("用户名称")
     private String username;
 
+    @Schema(description = "是否为获准使用 admin 账号的瑛泰集团正式管理员")
+    private boolean yintaiAdminUsernameAllowed;
+
     @Schema(description = "用户昵称", requiredMode = Schema.RequiredMode.REQUIRED, example = "芋艿")
     @ExcelProperty("用户昵称")
     private String nickname;

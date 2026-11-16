@@ -24,6 +24,7 @@
       ref="contentRef"
       mode="page"
       :basic-readonly="true"
+      :page-editing="isRouteEditing"
       :target-route-process-id="targetRouteProcessId"
       :route-version-edit-context="routeVersionEditContext"
       :route-version-action-loading="routeVersionActionLoading"
@@ -31,6 +32,7 @@
       @request-candidate-edit="handleEditProductionConfig"
       @request-route-version-submit="handleSubmitRouteCandidateVersion"
       @success="handleSaved"
+      @name-draft-saved="handleNameDraftSaved"
     />
     <div
       v-if="!routeEditBlockingError && !['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)"
@@ -39,7 +41,7 @@
       <el-button
         type="primary"
         :disabled="contentRef?.formLoading"
-        @click="contentRef?.submitForm()"
+        @click="contentRef?.handleSubmitRequest()"
       >
         保 存
       </el-button>
@@ -73,6 +75,7 @@ const message = useMessage()
 const tagsViewStore = useTagsViewStore()
 const contentRef = ref<InstanceType<typeof RouteFormContent>>()
 const loadedRouteRequestKey = ref<string>()
+let loadedRouteContent: InstanceType<typeof RouteFormContent> | undefined
 const routeVersionActionLoading = ref(false)
 const routeLoadError = ref('')
 const LIST_EDIT_ROUTE_DRAFT_ORIGIN = 'list-edit'
@@ -92,6 +95,7 @@ const normalizeRouteQueryText = (value: unknown) => {
   return value ? String(value) : ''
 }
 const routeDraftOrigin = computed(() => normalizeRouteQueryText(route.query.routeDraftOrigin))
+const isRouteEditing = computed(() => normalizeRouteQueryText(route.query.routeEditMode) === 'edit')
 const discardOnUnsavedExit = computed(() => normalizeRouteQueryText(route.query.discardOnUnsavedExit))
 const targetRouteProcessId = computed(() => {
   const value = Number(route.query.routeProcessId)
@@ -143,15 +147,21 @@ const hasRouteCandidateDraftChanges = () =>
 const shouldPromptUnsavedCandidateDraftBeforeExit = computed(() => {
   const context = routeVersionEditContext.value
   return (
-    context?.lifecycleStatus === 'DRAFT' &&
-    ((isListEditCandidateDraftExitGuardEnabled.value &&
-      !listEditCandidateDraftSaved.value &&
-      !listEditCandidateDraftDiscarded.value) ||
-      hasRouteCandidateDraftChanges())
+    isRouteEditing.value && context?.lifecycleStatus === 'DRAFT' &&
+    hasRouteCandidateDraftChanges()
+  )
+})
+const shouldDiscardListEditCandidateDraftBeforeExit = computed(() => {
+  const context = routeVersionEditContext.value
+  return (
+    isRouteEditing.value && context?.lifecycleStatus === 'DRAFT' &&
+    isListEditCandidateDraftExitGuardEnabled.value &&
+    !listEditCandidateDraftSaved.value &&
+    !listEditCandidateDraftDiscarded.value
   )
 })
 const buildRouteRequestKey = () =>
-  `${routeId.value}:${initialTab.value}:${routeVersionEditContextKey.value}`
+  `${routeId.value}:${initialTab.value}:${routeVersionEditContextKey.value}:${isRouteEditing.value}`
 
 const hasRouteEditTopTag = () => {
   const routeEditIdentity = tagsViewStore.getViewIdentity(route)
@@ -193,6 +203,7 @@ const resolveRoutePublishSuccessMessage = (version: ProRouteVersionVO | undefine
 
 const buildPostSubmitPublishQuery = (version: ProRouteVersionVO) => {
   const nextQuery = { ...route.query }
+  delete nextQuery.routeEditMode
   delete nextQuery.routeDraftOrigin
   delete nextQuery.discardOnUnsavedExit
   if (version.lifecycleStatus === 'ACTIVE') {
@@ -226,7 +237,10 @@ const loadRoute = async () => {
     return
   }
   const nextRouteRequestKey = buildRouteRequestKey()
-  if (loadedRouteRequestKey.value === nextRouteRequestKey) {
+  if (
+    loadedRouteRequestKey.value === nextRouteRequestKey &&
+    loadedRouteContent === contentRef.value
+  ) {
     return
   }
   routeLoadError.value = ''
@@ -239,7 +253,12 @@ const loadRoute = async () => {
   }
   try {
     await content.open('update', routeId.value, initialTab.value)
+    loadedRouteContent = content
     loadedRouteRequestKey.value = nextRouteRequestKey
+    // 热更新期间表单可能已重建，旧实例完成加载不能代表新实例已初始化。
+    if (contentRef.value && contentRef.value !== content) {
+      await loadRoute()
+    }
   } catch (error) {
     const errorMessage = resolveRouteOperationErrorMessage(
       error,
@@ -321,6 +340,14 @@ const handleSaved = async () => {
   await clearListEditDraftExitQuery()
 }
 
+const handleNameDraftSaved = async (candidate: ProRouteVersionVO) => {
+  await router.replace({
+    name: 'MesProRouteEdit',
+    params: { id: routeId.value },
+    query: buildRouteCandidateEditQuery(candidate, { ...route.query, tab: 'basic' })
+  })
+}
+
 const handleEditProductionConfig = async () => {
   if (!routeId.value) {
     message.error('进入候选版本失败：缺少有效路线编号')
@@ -349,7 +376,7 @@ const handleEditProductionConfig = async () => {
       params: { id: routeId.value },
       query: buildRouteCandidateEditQuery(candidateResult.candidate, {
         ...route.query,
-        tab: activeRouteTab.value || initialTab.value || 'flow'
+        tab: contentRef.value?.isProductTabActive ? 'product' : activeRouteTab.value || initialTab.value || 'flow'
       })
     })
   } catch (error) {
@@ -367,8 +394,33 @@ const handleSubmitRouteCandidateVersion = async () => {
   })
 }
 
+const discardListEditCandidateDraft = async (notify = true) => {
+  const context = routeVersionEditContext.value
+  if (!context) {
+    message.error('退出候选版本失败：缺少路线版本上下文')
+    return false
+  }
+  routeVersionActionLoading.value = true
+  try {
+    await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId)
+    listEditCandidateDraftDiscarded.value = true
+    if (notify) message.success('未保存的候选版本草稿已丢弃')
+    return true
+  } catch (error) {
+    message.error(resolveRouteOperationErrorMessage(error, '丢弃候选版本草稿失败，请查看后端返回错误'))
+    return false
+  } finally {
+    routeVersionActionLoading.value = false
+  }
+}
+
 const confirmUnsavedCandidateDraftBeforeExit = async () => {
-  if (!shouldPromptUnsavedCandidateDraftBeforeExit.value) return undefined
+  if (!shouldPromptUnsavedCandidateDraftBeforeExit.value) {
+    if (shouldDiscardListEditCandidateDraftBeforeExit.value) {
+      return await discardListEditCandidateDraft(false)
+    }
+    return undefined
+  }
   const context = routeVersionEditContext.value
   const content = contentRef.value
   if (!context) {
@@ -381,13 +433,13 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
   }
   try {
     await ElMessageBox.confirm(
-      isListEditCandidateDraftExitGuardEnabled.value
-        ? '当前候选版本还没有保存，是否保存草稿？选择“不保存草稿”会自动丢弃本次列表编辑创建的候选版本。'
-        : '当前草稿有未保存修改，是否保存草稿？选择“不保存草稿”会放弃当前页面未保存的修改，已有草稿会保留。',
+      shouldDiscardListEditCandidateDraftBeforeExit.value
+        ? '当前候选版本还没有保存，是否保存？选择“不保存”会自动丢弃本次列表编辑创建的候选版本。'
+        : '当前草稿有未保存修改，是否保存？选择“不保存”会放弃当前页面未保存的修改，已有草稿会保留。',
       '退出确认',
       {
-        confirmButtonText: '保存草稿',
-        cancelButtonText: '不保存草稿',
+        confirmButtonText: '保存',
+        cancelButtonText: '不保存',
         distinguishCancelAndClose: true,
         type: 'warning'
       }
@@ -397,19 +449,8 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
     return true
   } catch (error) {
     if (error === 'cancel') {
-      if (isListEditCandidateDraftExitGuardEnabled.value) {
-        routeVersionActionLoading.value = true
-        try {
-          await ProRouteApi.cancelRouteCandidateVersion(context.routeVersionId)
-          listEditCandidateDraftDiscarded.value = true
-          message.success('未保存的候选版本草稿已丢弃')
-          return true
-        } catch (cancelError) {
-          message.error(resolveRouteOperationErrorMessage(cancelError, '丢弃候选版本草稿失败，请查看后端返回错误'))
-          return false
-        } finally {
-          routeVersionActionLoading.value = false
-        }
+      if (shouldDiscardListEditCandidateDraftBeforeExit.value) {
+        return await discardListEditCandidateDraft()
       } else {
         content.discardRouteCandidateDraftChanges?.()
         message.success('未保存的草稿修改已放弃')
@@ -485,11 +526,21 @@ watch(
 )
 
 watch(
-  () => [isCurrentRouteEditPage.value, routeId.value, initialTab.value, routeVersionEditContextKey.value],
+  () => [isCurrentRouteEditPage.value, routeId.value, initialTab.value, routeVersionEditContextKey.value, isRouteEditing.value],
   async () => {
     await loadRoute()
   },
   { immediate: true }
+)
+
+watch(
+  contentRef,
+  (content) => {
+    if (content && loadedRouteRequestKey.value && content !== loadedRouteContent) {
+      void loadRoute()
+    }
+  },
+  { flush: 'post' }
 )
 </script>
 

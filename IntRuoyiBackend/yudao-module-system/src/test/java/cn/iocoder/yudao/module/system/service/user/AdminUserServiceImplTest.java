@@ -114,6 +114,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private ApprovalAuthorityApi approvalAuthority;
     @MockitoBean
+    private cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi signatureAuthorization;
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
     @MockitoBean
     private TenantService tenantService;
@@ -132,6 +134,43 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         when(approvalAuthority.lockTenantApprovalAuthority(1L))
                 .thenReturn(new ApprovalAuthorityRevisionDTO(1L, 1L));
+    }
+
+    @Test
+    public void testImportExportedUsers_persistsTargetDepartmentAndHonorsUpdateSupport() throws Exception {
+        var controller = new cn.iocoder.yudao.module.system.controller.admin.user.UserController();
+        ReflectionTestUtils.setField(controller, "userService", userService);
+        ReflectionTestUtils.setField(controller, "deptService", deptService);
+        DeptDO targetDept = new DeptDO();
+        targetDept.setId(80L);
+        targetDept.setName("生产部");
+        when(deptService.getDeptList(any(cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO.class)))
+                .thenReturn(List.of(targetDept));
+        when(passwordEncoder.encode(TEST_INIT_PASSWORD)).thenReturn("encoded-password");
+        var output = new java.io.ByteArrayOutputStream();
+        cn.idev.excel.FastExcelFactory.write(output).sheet("数据").doWrite(List.of(
+                List.of("用户名称", "用户昵称", "部门名称"),
+                List.of("departmentuser01", "操作员", "生产部")));
+        var file = new org.springframework.mock.web.MockMultipartFile("file", output.toByteArray());
+
+        var created = controller.importExcel(file, false).getData();
+        assertEquals(List.of("departmentuser01"), created.getCreateUsernames());
+        AdminUserDO stored = userMapper.selectByUsername("departmentuser01");
+        assertEquals(80L, stored.getDeptId());
+        assertEquals("操作员", stored.getNickname());
+        // BaseDbUnitTest 未安装生产环境的租户插入拦截器，补齐本条测试记录的租户归属。
+        stored.setTenantId(1L);
+        userMapper.updateById(stored);
+
+        targetDept.setId(81L);
+        var rejected = controller.importExcel(file, false).getData();
+        assertEquals(USER_USERNAME_EXISTS.getMsg(), rejected.getFailureUsernames().get("departmentuser01"));
+        assertEquals(80L, userMapper.selectById(stored.getId()).getDeptId());
+
+        var updated = controller.importExcel(file, true).getData();
+        assertEquals(List.of("departmentuser01"), updated.getUpdateUsernames());
+        assertEquals(81L, userMapper.selectById(stored.getId()).getDeptId());
+        verify(deptService, atLeastOnce()).validateDeptList(argThat(ids -> ids.contains(81L)));
     }
 
     @Test
@@ -174,6 +213,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertNotNull(user.getPasswordUpdateTime());
         assertEquals("RESET_REQUIRED", user.getPasswordCredentialStatus());
         assertEquals(CommonStatusEnum.ENABLE.getStatus(), user.getStatus());
+        verify(signatureAuthorization).authorizeProvisionedUser(userId, "新建用户自动授予电子签名授权");
         // 断言关联岗位
         List<UserPostDO> userPosts = userPostMapper.selectListByUserId(user.getId());
         assertEquals(1L, userPosts.get(0).getPostId());
@@ -411,6 +451,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_badCredentialCountsFailure() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(0);
             o.setLoginLocked(0);
@@ -432,6 +473,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_successResetsFailures() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(2);
             o.setLoginFailureWindowStartTime(LocalDateTime.now().minusMinutes(5));
@@ -456,6 +498,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_activeLockRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(1);
             o.setLoginLockedTime(LocalDateTime.now().minusMinutes(10));
@@ -473,6 +516,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_expiredLockAllowsRetry() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginFailureCount(5);
             o.setLoginFailureWindowStartTime(LocalDateTime.now().minusMinutes(40));
@@ -496,6 +540,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_changeRequiredRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(0);
             o.setPasswordCredentialStatus("RESET_REQUIRED");
@@ -512,6 +557,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testReauthenticateForSignature_expiredPasswordRejected() {
         AdminUserDO user = randomAdminUserDO(o -> {
             o.setPassword("encode:old");
+            o.setSignatureCredentialType("PASSWORD");
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
             o.setLoginLocked(0);
             o.setPasswordCredentialStatus("ACTIVE");
@@ -524,6 +570,22 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
                 ESIGN_CREDENTIAL_EXPIRED);
         when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
         assertEquals(user.getId(), userService.reauthenticateForSignature(user.getId(), "old").getId());
+    }
+
+    @Test
+    public void testReauthenticateForSignature_pinDoesNotLockOrRequirePasswordChange() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setPassword("encode:old"); o.setSignatureCredentialType("PIN"); o.setSignaturePinHash("encode:pin");
+            o.setStatus(CommonStatusEnum.ENABLE.getStatus()); o.setLoginLocked(1); o.setLoginLockedTime(LocalDateTime.now());
+            o.setLoginFailureCount(5); o.setPasswordCredentialStatus("INITIAL"); o.setPasswordUpdateTime(null);
+        });
+        userMapper.insert(user);
+        when(passwordEncoder.matches("000001","encode:pin")).thenReturn(true);
+        for(int attempt=0;attempt<7;attempt++) assertServiceException(()->userService.reauthenticateForSignature(user.getId(),"123456"),ESIGN_IDENTITY_BAD_CREDENTIALS);
+        assertEquals(user.getId(),userService.reauthenticateForSignature(user.getId(),"000001").getId());
+        assertEquals(5,userMapper.selectById(user.getId()).getLoginFailureCount());
+        assertEquals(1,userMapper.selectById(user.getId()).getLoginLocked());
+        verify(passwordEncoder,never()).matches(anyString(),eq("encode:old"));
     }
 
     @Test
@@ -648,6 +710,53 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         when(passwordEncoder.matches(eq(reqVO.getOldPassword()), eq(dbUser.getPassword()))).thenReturn(true);
 
         assertServiceException(() -> userService.updateUserPassword(dbUser.getId(), reqVO),
+                USER_PASSWORD_STRENGTH_INVALID);
+    }
+
+    @Test
+    public void yintaiAdministratorCanUseOnlyTheApprovedAccountAndPassword() {
+        TenantContextHolder.setTenantId(165L);
+        AdminUserDO user = randomAdminUserDO(o -> o.setUsername("yintaigroupadmin"));
+        user.setId(YintaiAdminAccountPolicy.ADMIN_USER_ID);
+        user.setTenantId(165L);
+        userMapper.insert(user);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("瑛泰集团").contactUserId(user.getId()).build());
+        assertDoesNotThrow(() -> userService.validateGenericAccountUsername(user, "admin"));
+        assertServiceException(() -> userService.validateGenericAccountUsername(user, "admin1"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin1");
+        assertServiceException(() -> userService.validateGenericAccountUsername(null, "admin"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin");
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        user.setUsername("admin");
+        userMapper.updateById(user);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        assertDoesNotThrow(() -> userService.validatePasswordStrength("Int@2025"));
+    }
+
+    @Test
+    public void yintaiExceptionDoesNotApplyToOtherUsersTenantsOrUnverifiedIdentity() {
+        AdminUserDO user = randomAdminUserDO(o -> o.setUsername("admin"));
+        userMapper.insert(user);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        TenantContextHolder.setTenantId(165L);
+        user.setTenantId(165L);
+        userMapper.updateById(user);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("瑛泰集团").contactUserId(user.getId() + 1).build());
+        assertServiceException(() -> userService.validateGenericAccountUsername(user, "admin"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin");
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("其他公司").contactUserId(user.getId()).build());
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        when(tenantService.getTenant(165L)).thenReturn(null);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
                 USER_PASSWORD_STRENGTH_INVALID);
     }
 
@@ -1107,8 +1216,9 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(latestMember);
 
-        when(deptService.getDeptList(argThat((Collection<Long> ids) -> ids != null && ids.size() == 1 && ids.contains(1L))))
-                .thenReturn(singletonList(new DeptDO().setId(1L).setLeaderUserId(deptLeader.getId())));
+        DeptDO persistedDept = new DeptDO().setId(1L).setName("选定部门").setStatus(0).setLeaderUserId(deptLeader.getId());
+        persistedDept.setTenantId(1L);
+        deptMapper.insert(persistedDept);
 
         PageResult<AdminUserDO> pageResult = userService.getUserPage(reqVO);
 
@@ -1148,12 +1258,12 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         });
         userMapper.insert(childDeptMember);
 
-        when(deptService.getDeptList(argThat((Collection<Long> ids) ->
-                ids != null && ids.size() == 2 && ids.containsAll(Arrays.asList(1L, 2L)))))
-                .thenReturn(Arrays.asList(
-                        new DeptDO().setId(1L).setLeaderUserId(selectedDeptLeader.getId()),
-                        new DeptDO().setId(2L).setLeaderUserId(childDeptLeader.getId())
-                ));
+        DeptDO persistedDept = new DeptDO().setId(1L).setName("选定部门").setStatus(0).setLeaderUserId(selectedDeptLeader.getId());
+        persistedDept.setTenantId(1L);
+        deptMapper.insert(persistedDept);
+        DeptDO childDept = new DeptDO().setId(2L).setName("子部门").setStatus(0).setLeaderUserId(childDeptLeader.getId());
+        childDept.setTenantId(1L);
+        deptMapper.insert(childDept);
 
         PageResult<AdminUserDO> pageResult = userService.getUserPage(reqVO);
 
@@ -1335,15 +1445,18 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testImportUserList_04() {
         // mock 数据
-        AdminUserDO dbUser = randomAdminUserDO();
+        AdminUserDO dbUser = randomAdminUserDO(o -> {
+            o.setEmail(randomEmail());
+            o.setMobile(randomMobile());
+        });
         userMapper.insert(dbUser);
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
-            o.setEmail(randomEmail());
-            o.setMobile(randomMobile());
+            o.setEmail(dbUser.getEmail());
+            o.setMobile(dbUser.getMobile());
         });
         // mock deptService 的方法
         DeptDO dept = randomPojo(DeptDO.class, o -> {
@@ -1472,6 +1585,57 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportDingTalkUserList_reimportAuthorizesExistingWithoutResettingUser() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("original-password-hash");
+        var rows = List.of(buildDingTalkUser("董李娜", "donglina@example.test", "E001", "",
+                "测试公司", "dept-quality", "质量部", null, null, null, null, null));
+        var first = userService.importDingTalkUserList(rows);
+        AdminUserDO user = userMapper.selectByUsername("donglina");
+        assertEquals(List.of("donglina"), first.getCreateUsernames());
+        assertEquals(List.of("donglina"), first.getAuthorizedUsernames());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "钉钉导入新用户自动授予电子签名授权");
+        var originalPasswordTime = user.getPasswordUpdateTime();
+        clearInvocations(signatureAuthorization, passwordEncoder);
+
+        var second = userService.importDingTalkUserList(rows);
+        assertTrue(second.getCreateUsernames().isEmpty());
+        assertTrue(second.getFailureUsernames().isEmpty());
+        assertEquals(List.of("donglina"), second.getExistingUsernames());
+        assertEquals(List.of("donglina"), second.getAuthorizedUsernames());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "钉钉重复导入自动授予电子签名授权");
+        verify(passwordEncoder, never()).encode(anyString());
+        AdminUserDO unchanged = userMapper.selectByUsername("donglina");
+        assertEquals(user.getId(), unchanged.getId());
+        assertEquals("original-password-hash", unchanged.getPassword());
+        assertEquals(originalPasswordTime, unchanged.getPasswordUpdateTime());
+        assertEquals(user.getPasswordCredentialStatus(), unchanged.getPasswordCredentialStatus());
+        assertEquals(1L, userMapper.selectCount());
+    }
+
+    @Test
+    public void testImportDingTalkUserList_authorizationFailureRollsBackUsersAndDepartments() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("hash");
+        doThrow(new IllegalStateException("AUTHORIZATION_AUDIT_FAILED"))
+                .when(signatureAuthorization).authorizeProvisionedUser(anyLong(), anyString());
+        var rows = List.of(buildDingTalkUser("董李娜", "donglina@example.test", "E001", "",
+                "测试公司", "dept-quality", "质量部", null, null, null, null, null));
+        assertThrows(IllegalStateException.class, () -> userService.importDingTalkUserList(rows));
+        assertEquals(0L, userMapper.selectCount());
+        assertEquals(0L, deptMapper.selectCount());
+    }
+
+    @Test
+    public void testCreateUser_authorizationFailureRollsBackUser() {
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        doThrow(new IllegalStateException("AUTHORIZATION_WRITE_FAILED"))
+                .when(signatureAuthorization).authorizeProvisionedUser(anyLong(), anyString());
+        var request = new UserSaveReqVO().setUsername("operator01").setNickname("操作员")
+                .setPassword("Create@2026").setPostIds(Set.of());
+        assertThrows(IllegalStateException.class, () -> userService.createUser(request));
+        assertEquals(0L, userMapper.selectCount());
+    }
+
+    @Test
     public void testImportDingTalkUserList_duplicatePinyinAndExistingUsername() {
         when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
         userMapper.insert(randomAdminUserDO(o -> {
@@ -1492,7 +1656,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
         assertTrue(respVO.getCreateUsernames().contains("liming2"));
         assertTrue(respVO.getCreateUsernames().contains("liming3"));
-        assertEquals(USER_USERNAME_EXISTS.getMsg(), respVO.getFailureUsernames().get("liming"));
+        assertEquals("账号已存在，但姓名、部门或邮箱不匹配，无法自动授予电子签名授权", respVO.getFailureUsernames().get("liming"));
+        verify(signatureAuthorization, never()).authorizeProvisionedUser(eq(userMapper.selectByUsername("liming").getId()), anyString());
         assertNotNull(userMapper.selectByUsername("liming2"));
         assertNotNull(userMapper.selectByUsername("liming3"));
     }
@@ -1549,6 +1714,25 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
                 List.of("姓名", "邮箱"),
                 List.of(List.of("张三", "zhangsan@example.test"))
         ))), USER_DING_TALK_IMPORT_HEADERS_MISSING);
+    }
+
+    @Test
+    public void testImportDingTalkUserList_withoutSourceDepartmentIds() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
+        var users = List.of(
+                buildDingTalkUser("张三", "", "", "张三", "测试公司", "", "质量部", null, null, null, null, null),
+                buildDingTalkUser("李四", "", "", "李四", "测试公司", "", "生产部", null, null, null, null, null));
+        var result = userService.importDingTalkUserList(users);
+        assertEquals(List.of("zhangsan", "lisi"), result.getCreateUsernames());
+        assertTrue(result.getFailureUsernames().isEmpty());
+        var company = deptMapper.selectByParentIdAndName(DeptDO.PARENT_ID_ROOT, "测试公司");
+        var quality = deptMapper.selectByParentIdAndName(company.getId(), "质量部");
+        var production = deptMapper.selectByParentIdAndName(company.getId(), "生产部");
+        assertNotEquals(quality.getId(), production.getId());
+        assertEquals(quality.getId(), userMapper.selectByUsername("zhangsan").getDeptId());
+        assertEquals(production.getId(), userMapper.selectByUsername("lisi").getDeptId());
+        assertEquals(userMapper.selectByUsername("zhangsan").getId(), quality.getLeaderUserId());
+        assertEquals(userMapper.selectByUsername("lisi").getId(), production.getLeaderUserId());
     }
 
     @Test
@@ -1831,6 +2015,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
             o.setLoginFailureCount(0);
             o.setLoginLocked(0);
             o.setLoginLockedTime(null);
+            o.setSignatureCredentialType("PASSWORD");
             o.setTenantId(1L);
             o.setLifecycleDocumentType(null);
             o.setLifecycleDocumentNo(null);

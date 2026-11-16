@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.subject.main"
       :query-model="queryParams"
       label-width="100px"
@@ -22,6 +23,9 @@
       @column-change="saveSubjectColumnConfig"
       @column-reset="resetSubjectColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -43,13 +47,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="subject-standard-list-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.subject.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -148,6 +152,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { DvSubjectApi, DvSubjectVO } from '@/api/mes/dv/subject'
@@ -190,6 +197,7 @@ const loading = ref(true) // 列表的加载中
 const list = ref<DvSubjectVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -237,14 +245,18 @@ const subjectQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() 
 ])
 
 /** 查询列表 */
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await DvSubjectApi.getSubjectPage(queryParams)
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 
@@ -293,6 +305,22 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '项目类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_SUBJECT_TYPE)
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

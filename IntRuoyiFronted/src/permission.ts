@@ -8,6 +8,7 @@ import { usePageLoading } from '@/hooks/web/usePageLoading'
 import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
+import { canAccessOperationLogs, isOperationLogPath } from '@/utils/operationLogAccess'
 
 const { start, done } = useNProgress()
 
@@ -56,6 +57,13 @@ const whiteList = [
   '/oauthLogin/gitee'
 ]
 
+// These existing management entries are removed from the dynamic menu when unauthorized.
+// Report an explicit access denial instead of letting the catch-all render a missing page.
+const managementEntryPermissions: Record<string, string> = {
+  '/system/user': 'system:user:query',
+  '/system/role/organization-role': 'system:post:query'
+}
+
 // 路由加载前
 router.beforeEach(async (to, from, next) => {
   start()
@@ -73,11 +81,25 @@ router.beforeEach(async (to, from, next) => {
         dictStore.setDictMap().then()
       }
       if (!userStore.getIsSetUser) {
+        permissionStore.initializationError = ''
         isRelogin.show = true
-        await userStore.setUserInfoAction()
-        isRelogin.show = false
-        // 后端过滤菜单
-        await permissionStore.generateRoutes()
+        try {
+          await userStore.setUserInfoAction()
+          // 菜单生成失败必须回到登录页，不能保留已完成用户初始化的状态。
+          await permissionStore.generateRoutes()
+        } catch (error) {
+          permissionStore.initializationError = error instanceof Error
+            ? error.message
+            : '系统菜单初始化失败，请联系管理员后重新登录。'
+          console.error('系统初始化失败', error)
+          userStore.clearSession()
+          done()
+          loadDone()
+          next({ path: '/login', query: { redirect: to.fullPath }, replace: true })
+          return
+        } finally {
+          isRelogin.show = false
+        }
         // 移除已由业务菜单接管的静态外壳，避免相同地址仍匹配空白布局。
         permissionStore.staticRouteNamesToRemove.forEach((name) => router.removeRoute(name))
         permissionStore.getAddRouters.forEach((route) => {
@@ -89,11 +111,31 @@ router.beforeEach(async (to, from, next) => {
             : from.query.redirect || to.fullPath
         // 修复跳转时不带参数的问题
         const redirect = decodeURIComponent(redirectPath as string)
-        const { paramsObject: query } = parseURL(redirect)
-        const nextData = to.path === redirect ? { path: redirect, query, replace: true } : { path: redirect, query }
+        const { basePath, paramsObject: query } = parseURL(redirect)
+        // 登录回到默认入口时统一进入个人中心，保留业务页面的登录回跳。
+        const path = basePath === '/' || basePath === '/index' ? '/user/profile' : basePath
+        const nextData = to.path === path ? { path, query, replace: true } : { path, query }
         next(nextData)
       } else {
-        next()
+        if (isOperationLogPath(to.path) && !canAccessOperationLogs(userStore.getRoles)) {
+          next({ path: '/403', query: { redirect: to.fullPath }, replace: true })
+          return
+        }
+        const requiredPermission = managementEntryPermissions[to.path]
+        if (
+          requiredPermission &&
+          // A granted organization-role page permits reading; action buttons keep their own permissions.
+          !(
+            to.path === '/system/role/organization-role' &&
+            router.getRoutes().some((route) => route.path === to.path)
+          ) &&
+          !userStore.getPermissions.has('*:*:*') &&
+          !userStore.getPermissions.has(requiredPermission)
+        ) {
+          next({ path: '/403', query: { redirect: to.fullPath }, replace: true })
+        } else {
+          next()
+        }
       }
     }
   } else {
@@ -108,5 +150,11 @@ router.beforeEach(async (to, from, next) => {
 router.afterEach((to) => {
   useTitle(to?.meta?.title as string)
   done() // 结束Progress
+  loadDone()
+})
+
+// 路由组件等其他加载错误也必须结束全局加载状态；错误仍由路由及调用方处理。
+router.onError(() => {
+  done()
   loadDone()
 })

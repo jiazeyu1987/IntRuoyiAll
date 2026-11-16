@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.service.user;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjUtil;
@@ -85,6 +86,10 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Resource
     private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
+    @Resource
+    @Lazy
+    private cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi signatureAuthorization;
 
     private AdminUserDO lockSignatureIdentity(Long userId) {
         AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
@@ -174,6 +179,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // 3. 记录操作日志上下文
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        signatureAuthorization.authorizeProvisionedUser(user.getId(), "新建用户自动授予电子签名授权");
         LogRecordContext.putVariable("user", user);
         return user.getId();
     }
@@ -454,6 +460,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (CommonStatusEnum.isDisable(user.getStatus())) {
             throw exception(ESIGN_IDENTITY_DISABLED);
         }
+        if (SignatureCredentialPolicy.isPin(user.getSignatureCredentialType())) {
+            if (!SignatureCredentialPolicy.validPin(rawPassword)
+                    || !isPasswordMatch(rawPassword, SignatureCredentialPolicy.credentialHash("PIN", user.getSignaturePinHash(), null)))
+                throw exception(ESIGN_IDENTITY_BAD_CREDENTIALS);
+            return user;
+        }
         if (isLoginLockActive(user, LocalDateTime.now())) {
             throw exception(ESIGN_IDENTITY_LOCKED);
         }
@@ -729,19 +741,59 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
         }
 
-        Set<Long> deptIds = getDeptCondition(reqVO.getDeptId());
-        if (reqVO.getDeptId() == null) {
-            return userMapper.selectPage(reqVO, deptIds, userIds);
+        if (reqVO.getPostId() != null) {
+            Set<Long> postUserIds = convertSet(userPostMapper.selectListByPostIds(singleton(reqVO.getPostId())), UserPostDO::getUserId);
+            if (userIds == null) userIds = postUserIds;
+            else { userIds = new HashSet<>(userIds); userIds.retainAll(postUserIds); }
+            if (CollUtil.isEmpty(userIds)) return PageResult.empty();
         }
-
-        List<AdminUserDO> matchedUsers = userMapper.selectListForPage(reqVO, deptIds, userIds);
-        if (CollUtil.isEmpty(matchedUsers)) {
-            return PageResult.empty();
+        List<Set<Long>> fixedUserScopes = new ArrayList<>();
+        if (reqVO.getScopeRoleId() != null) fixedUserScopes.add(permissionService.getUserRoleIdListByRoleId(singleton(reqVO.getScopeRoleId())));
+        if (reqVO.getScopePostId() != null) fixedUserScopes.add(convertSet(userPostMapper.selectListByPostIds(singleton(reqVO.getScopePostId())), UserPostDO::getUserId));
+        if (reqVO.getIds() != null) fixedUserScopes.add(new HashSet<>(reqVO.getIds()));
+        for (Set<Long> scope : fixedUserScopes) {
+            if (userIds == null) userIds = new HashSet<>(scope);
+            else { userIds = new HashSet<>(userIds); userIds.retainAll(scope); }
+            if (userIds.isEmpty()) return PageResult.empty();
         }
-
-        Map<Long, DeptDO> deptMap = CollectionUtils.convertMap(deptService.getDeptList(deptIds), DeptDO::getId);
-        List<AdminUserDO> sortedUsers = sortUsersByDeptLeader(matchedUsers, deptMap, reqVO.getDeptId());
-        return buildPagedResult(reqVO, sortedUsers);
+        Set<Long> deptIds = reqVO.getDeptId() != null && Boolean.FALSE.equals(reqVO.getIncludeChildDepts())
+                ? new HashSet<>(singleton(reqVO.getDeptId())) : getDeptCondition(reqVO.getDeptId());
+        boolean hasDepartmentFilter = reqVO.getDeptId() != null;
+        if (CollUtil.isNotEmpty(reqVO.getDeptIds())) {
+            Set<Long> selectedDeptIds = new HashSet<>();
+            for (Long selectedDeptId : reqVO.getDeptIds()) {
+                if (Boolean.FALSE.equals(reqVO.getIncludeChildDepts())) selectedDeptIds.add(selectedDeptId);
+                else selectedDeptIds.addAll(getDeptCondition(selectedDeptId));
+            }
+            if (hasDepartmentFilter) deptIds.retainAll(selectedDeptIds);
+            else deptIds = selectedDeptIds;
+            if (deptIds.isEmpty()) return PageResult.empty();
+            hasDepartmentFilter = true;
+        }
+        if (reqVO.getScopeDeptId() != null) {
+            Set<Long> scope = getDeptCondition(reqVO.getScopeDeptId());
+            if (!hasDepartmentFilter) deptIds = scope;
+            else deptIds.retainAll(scope);
+            if (deptIds.isEmpty()) return PageResult.empty();
+        }
+        Set<Long> excludedUserIds = Collections.emptySet();
+        if (hasDepartmentFilter && ("LEADER".equals(reqVO.getDeptLeaderMode())
+                || "MEMBER".equals(reqVO.getDeptLeaderMode()))) {
+            Set<Long> leaderIds = new HashSet<>(convertSet(deptService.getDeptList(deptIds), DeptDO::getLeaderUserId));
+            leaderIds.remove(null);
+            if ("LEADER".equals(reqVO.getDeptLeaderMode())) {
+                if (userIds == null) userIds = leaderIds;
+                else { userIds = new HashSet<>(userIds); userIds.retainAll(leaderIds); }
+                if (CollUtil.isEmpty(userIds)) return PageResult.empty();
+                // Department heads may belong to a different home department. Only the fixed business scope still applies.
+                Set<Long> leaderHomeDeptScope = reqVO.getScopeDeptId() == null
+                        ? Collections.emptySet() : getDeptCondition(reqVO.getScopeDeptId());
+                return userMapper.selectPage(reqVO, leaderHomeDeptScope, userIds);
+            }
+            excludedUserIds = leaderIds;
+        }
+        return excludedUserIds.isEmpty() ? userMapper.selectPage(reqVO, deptIds, userIds)
+                : userMapper.selectPage(reqVO, deptIds, userIds, excludedUserIds);
     }
 
     @Override
@@ -756,6 +808,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO user = lockUserForPostEdit(id);
         UserPostSnapshot snapshot = lockAndValidateUserPosts(user, Collections.emptySet());
         UserEditRespVO response = UserConvert.INSTANCE.convertForUpdate(user, snapshot.assignedPosts());
+        response.setYintaiAdminUsernameAllowed(isYintaiAdministrator(user));
         DeptDO dept = deptService.getDept(user.getDeptId());
         if (dept != null) {
             response.setDeptName(dept.getName());
@@ -838,60 +891,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         return deptIds;
     }
 
-    private List<AdminUserDO> sortUsersByDeptLeader(List<AdminUserDO> users, Map<Long, DeptDO> deptMap,
-                                                    Long priorityDeptId) {
-        Map<Long, List<AdminUserDO>> deptUsers = new LinkedHashMap<>();
-        List<AdminUserDO> detachedUsers = new ArrayList<>();
-        for (AdminUserDO user : users) {
-            if (user.getDeptId() == null) {
-                detachedUsers.add(user);
-                continue;
-            }
-            deptUsers.computeIfAbsent(user.getDeptId(), key -> new ArrayList<>()).add(user);
-        }
-
-        List<AdminUserDO> sortedUsers = new ArrayList<>(users.size());
-        if (priorityDeptId != null && deptUsers.containsKey(priorityDeptId)) {
-            DeptDO priorityDept = deptMap.get(priorityDeptId);
-            Long priorityLeaderUserId = priorityDept != null ? priorityDept.getLeaderUserId() : null;
-            appendDeptUsersWithLeaderFirst(sortedUsers, deptUsers.get(priorityDeptId), priorityLeaderUserId);
-        }
-        for (Map.Entry<Long, List<AdminUserDO>> entry : deptUsers.entrySet()) {
-            if (priorityDeptId != null && priorityDeptId.equals(entry.getKey())) {
-                continue;
-            }
-            DeptDO dept = deptMap.get(entry.getKey());
-            Long leaderUserId = dept != null ? dept.getLeaderUserId() : null;
-            appendDeptUsersWithLeaderFirst(sortedUsers, entry.getValue(), leaderUserId);
-        }
-        sortedUsers.addAll(detachedUsers);
-        return sortedUsers;
-    }
-
-    private void appendDeptUsersWithLeaderFirst(List<AdminUserDO> sortedUsers, List<AdminUserDO> deptUsers,
-                                                Long leaderUserId) {
-        if (leaderUserId == null) {
-            sortedUsers.addAll(deptUsers);
-            return;
-        }
-        for (AdminUserDO user : deptUsers) {
-            if (leaderUserId.equals(user.getId())) {
-                sortedUsers.add(user);
-            }
-        }
-        for (AdminUserDO user : deptUsers) {
-            if (!leaderUserId.equals(user.getId())) {
-                sortedUsers.add(user);
-            }
-        }
-    }
-
-    private PageResult<AdminUserDO> buildPagedResult(UserPageReqVO reqVO, List<AdminUserDO> users) {
-        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), users.size());
-        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), users.size());
-        return new PageResult<>(new ArrayList<>(users.subList(fromIndex, toIndex)), (long) users.size());
-    }
-
     private AdminUserDO validateUserForCreateOrUpdate(Long id, String username, String mobile, String email,
                                                Long deptId, Set<Long> postIds) {
         // 关闭数据权限，避免因为没有数据权限，查询不到数据，进而导致唯一校验不正确
@@ -899,7 +898,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             // 校验用户存在
             AdminUserDO user = validateUserExists(id);
             // 校验用户名不是通用账户
-            validateGenericAccountUsername(username);
+            validateGenericAccountUsername(user, username);
             // 校验用户名唯一
             validateUsernameUnique(id, username);
             // 校验手机号唯一
@@ -931,6 +930,21 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (AdminUserGenericAccountPolicy.isGenericUsername(username)) {
             throw exception(USER_GENERIC_ACCOUNT_FORBIDDEN, StrUtil.trim(username));
         }
+    }
+
+    @VisibleForTesting
+    void validateGenericAccountUsername(AdminUserDO user, String username) {
+        if ("admin".equals(username) && isYintaiAdministrator(user)) {
+            return;
+        }
+        validateGenericAccountUsername(username);
+    }
+
+    private boolean isYintaiAdministrator(AdminUserDO user) {
+        return user != null && YintaiAdminAccountPolicy.TENANT_ID.equals(TenantContextHolder.getTenantId())
+                && YintaiAdminAccountPolicy.TENANT_ID.equals(user.getTenantId())
+                && YintaiAdminAccountPolicy.isAdministrator(user,
+                        tenantService.getTenant(YintaiAdminAccountPolicy.TENANT_ID));
     }
 
     @VisibleForTesting
@@ -1037,6 +1051,20 @@ public class AdminUserServiceImpl implements AdminUserService {
         return Normalizer.normalize(StrUtil.trim(username), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = SYSTEM_USER_TYPE, subType = "锁定用户", bizNo = "{{#id}}",
+            success = "锁定了用户【{{#user.nickname}}】30分钟，原因：{{#reason}}")
+    public void lockUser(Long id, String reason) {
+        if (StrUtil.isBlank(reason)) {
+            throw new IllegalArgumentException("锁定原因不能为空");
+        }
+        AdminUserDO user = lockSignatureIdentity(id);
+        userMapper.updateById(new AdminUserDO().setId(id)
+                .setLoginLocked(1).setLoginLockedTime(LocalDateTime.now()));
+        LogRecordContext.putVariable("user", user);
+    }
+
     public static boolean isLoginLockActive(AdminUserDO user, LocalDateTime now) {
         return Objects.equals(user.getLoginLocked(), 1)
                 && user.getLoginLockedTime() != null
@@ -1101,10 +1129,13 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(key, ex.getMessage());
                 return;
             }
+            AdminUserDO existUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                    TenantContextHolder.getTenantId(), canonicalizeUsername(importUser.getUsername()));
             // 2.1.2 校验，判断是否有不符合的原因
             try {
                 validateGenericAccountUsername(importUser.getUsername());
-                validateUserForCreateOrUpdate(null, null, importUser.getMobile(), importUser.getEmail(),
+                validateUserForCreateOrUpdate(existUser != null && !Boolean.TRUE.equals(existUser.getDeleted())
+                                && isUpdateSupport ? existUser.getId() : null, null, importUser.getMobile(), importUser.getEmail(),
                         importUser.getDeptId(), null);
             } catch (ServiceException ex) {
                 respVO.getFailureUsernames().put(importUser.getUsername(), ex.getMessage());
@@ -1112,8 +1143,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
 
             // 2.2.1 按规范化账号判断是否已存在，避免大小写、首尾空格、Unicode 表示差异绕过账号唯一性
-            AdminUserDO existUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
-                    TenantContextHolder.getTenantId(), canonicalizeUsername(importUser.getUsername()));
+
             if (existUser != null && Boolean.TRUE.equals(existUser.getDeleted())) {
                 respVO.getFailureUsernames().put(importUser.getUsername(), USER_USERNAME_EXISTS.getMsg());
                 return;
@@ -1162,6 +1192,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         UserDingTalkImportRespVO respVO = UserDingTalkImportRespVO.builder()
                 .createUsernames(new ArrayList<>())
+                .existingUsernames(new ArrayList<>())
+                .authorizedUsernames(new ArrayList<>())
                 .failureUsernames(new LinkedHashMap<>())
                 .createdDeptPaths(new ArrayList<>())
                 .enabledDeptPaths(new ArrayList<>())
@@ -1201,7 +1233,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 parentId = targetDept.getId();
             }
             String targetDeptPath = String.join(" / ", pathParts);
-            if (pathParts.size() > 1) {
+            // 精简员工表按完整路径定位部门；仅在源文件提供正式部门ID时核对其映射。
+            if (pathParts.size() > 1 && StrUtil.isNotBlank(importUser.getSourceDepartmentId())) {
                 String sourceDepartmentId = StrUtil.trim(importUser.getSourceDepartmentId());
                 String existingSourceDeptId = pathSourceDeptIdMap.get(targetDeptPath);
                 if (existingSourceDeptId != null && !StrUtil.equals(existingSourceDeptId, sourceDepartmentId)) {
@@ -1227,6 +1260,26 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(resolveFailureKey(null, importUser, currentRowIndex), ex.getMessage());
                 continue;
             }
+            AdminUserDO existingUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                    TenantContextHolder.getRequiredTenantId(), canonicalizeUsername(username));
+            if (existingUser != null) {
+                // Legacy imports have no persisted DingTalk employee ID. Match all stored identity
+                // fields before granting; a pinyin collision alone is never sufficient.
+                if (Boolean.TRUE.equals(existingUser.getDeleted())
+                        || !Objects.equals(existingUser.getNickname(), StrUtil.trim(importUser.getName()))
+                        || !Objects.equals(existingUser.getDeptId(), targetDept.getId())
+                        || !Objects.equals(StrUtil.trimToEmpty(existingUser.getEmail()),
+                                StrUtil.trimToEmpty(importUser.getEmail()))) {
+                    respVO.getFailureUsernames().put(username, "账号已存在，但姓名、部门或邮箱不匹配，无法自动授予电子签名授权");
+                    continue;
+                }
+                validateGenericAccountUsername(username);
+                signatureAuthorization.authorizeProvisionedUser(existingUser.getId(), "钉钉重复导入自动授予电子签名授权");
+                respVO.getExistingUsernames().add(existingUser.getUsername());
+                respVO.getAuthorizedUsernames().add(existingUser.getUsername());
+                createdUsersByName.computeIfAbsent(StrUtil.trim(importUser.getName()), key -> new ArrayList<>()).add(existingUser);
+                continue;
+            }
             try {
                 validateUserForCreateOrUpdate(null, username, null, importUser.getEmail(), targetDept.getId(), null);
             } catch (ServiceException ex) {
@@ -1247,8 +1300,13 @@ public class AdminUserServiceImpl implements AdminUserService {
                     .passwordUpdateTime(LocalDateTime.now())
                     .passwordCredentialStatus("RESET_REQUIRED")
                     .build();
-            userMapper.insert(user);
+            user.setTenantId(TenantContextHolder.getRequiredTenantId());
+            if (userMapper.insert(user) != 1 || user.getId() == null || user.getId() <= 0) {
+                throw new IllegalStateException("DINGTALK_USER_CREATE_ROW_COUNT");
+            }
+            signatureAuthorization.authorizeProvisionedUser(user.getId(), "钉钉导入新用户自动授予电子签名授权");
             respVO.getCreateUsernames().add(username);
+            respVO.getAuthorizedUsernames().add(username);
             createdUsersByName.computeIfAbsent(StrUtil.trim(importUser.getName()), key -> new ArrayList<>()).add(user);
         }
 

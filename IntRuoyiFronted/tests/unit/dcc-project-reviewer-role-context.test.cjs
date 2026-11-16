@@ -42,6 +42,7 @@ function mount({ roles = ['doc_control'], permissions = ['dcc:project-code:updat
   const model = load('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts', name => { throw new Error(name) })
   const api = load('src/api/dcc/controlledFile/projectProductRequests.ts', name => {
     if (name.endsWith('/project-reviewer')) return model
+    if (name.endsWith('/project-product-role')) return load('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts', id => { if (id === './project-reviewer') return model; throw new Error(id) })
     if (name === '@/config/axios') return { default: { get: async req => { calls.reads.push(req); return read() }, put: async req => { calls.puts.push(req); return save() } } }
     throw new Error(name)
   })
@@ -50,6 +51,7 @@ function mount({ roles = ['doc_control'], permissions = ['dcc:project-code:updat
     const exports = {}, compiled = compileScript(descriptor, { id: 'reviewer-context', inlineTemplate: inline })
     new Function('exports', 'require', 'useMessage', ts.transpileModule(compiled.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(exports, name => {
       if (name === 'vue') return vue
+    if (name === '@/views/system/user/components/UserSelectV2.vue') return { default: { render: () => vue.h('user-selector') } }
       if (name === 'element-plus') return { ElMessageBox: { confirm: async (...args) => { calls.confirmations.push(args); return confirm() } } }
       if (name === '@/utils/permission') return permission
       if (name === '@/store/modules/user') return { useUserStore: () => user }

@@ -48,6 +48,7 @@ class MesCompletionAuditPayloadContractTest {
                 mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class),
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", audits);
         ReflectionTestUtils.setField(service, "affectedStateCollector", affected);

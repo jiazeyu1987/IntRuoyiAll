@@ -68,7 +68,7 @@ class MesPqcLeaderActiveTaskServiceTest {
         when(activeOrderMapper.selectActiveList()).thenReturn(List.of(activeOrder()));
         when(taskMapper.selectListByActiveOrderIdsAndStatuses(
                 List.of(ACTIVE_ORDER_ID), Set.of("PENDING", "SUBMITTED")))
-                .thenReturn(List.of(task(7001L, "PENDING", "PATROL_AM"),
+                .thenReturn(List.of(task(7001L, "PENDING", "PATROL"),
                         task(7002L, "SUBMITTED", "FINAL")));
         stubFormalContext(REGULATION_VERSION_ID);
 
@@ -94,7 +94,7 @@ class MesPqcLeaderActiveTaskServiceTest {
                 List.of(ACTIVE_ORDER_ID), Set.of("PENDING", "SUBMITTED")))
                 .thenReturn(List.of(
                         task(7001L, "PENDING", "FIRST").setRegulationVersionId(9999L),
-                        task(7002L, "PENDING", "PATROL_AM")));
+                        task(7002L, "PENDING", "PATROL")));
         stubFormalContext(REGULATION_VERSION_ID);
 
         org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, service::listActiveTasks);
@@ -151,10 +151,13 @@ class MesPqcLeaderActiveTaskServiceTest {
         return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                 .qaProcessId(QA_PROCESS_ID).qaRegulationId(REGULATION_ID).regulationVersionId(REGULATION_VERSION_ID)
-                .qaItemCode("").inspectionItemPlanJson("{\"A\":4}")
+                .qaItemCode("").inspectionItemPlanJson("{\"A\":1}")
+                .inspectionSamplingPlanJson("PATROL".equals(inspectionType)
+                        ? cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of("A",
+                            cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(java.math.BigDecimal.ONE, "II"))) : null)
                 .inspectionRuleKey(ruleKey).inspectionType(inspectionType)
                 .businessDate(LocalDate.of(2026, 8, 17)).shiftCode(ruleKey).roundNo(1)
-                .plannedInspectionQuantity(4).actualInspectionQuantity(
-                        "SUBMITTED".equals(status) ? 4 : null).taskStatus(status).build();
+                .plannedInspectionQuantity(1).actualInspectionQuantity(
+                        "SUBMITTED".equals(status) ? 1 : null).taskStatus(status).build();
     }
 }

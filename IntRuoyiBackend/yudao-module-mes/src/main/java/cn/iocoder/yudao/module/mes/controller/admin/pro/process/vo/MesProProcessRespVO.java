@@ -26,6 +26,9 @@ public class MesProProcessRespVO {
     @Schema(description = "工艺要求", example = "按照图纸尺寸进行切割")
     private String attention;
 
+    @Schema(description = "工序 SOP 文件地址，未绑定时为空")
+    private String sopFileUrl;
+
     @Schema(description = "状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "0")
     private Integer status;
 

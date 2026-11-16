@@ -27,7 +27,7 @@ public class FenbeitongAssistantProcessStarterImpl implements FenbeitongAssistan
     public Process start() {
         validateLaunchConfiguration();
         List<String> command = List.of(
-                properties.getNodeCommand(),
+                properties.getNodeCommandPath().toString(),
                 properties.getAssistantScriptPath().toString());
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.directory(properties.getAssistantRootDirectoryPath().toFile());
@@ -64,9 +64,9 @@ public class FenbeitongAssistantProcessStarterImpl implements FenbeitongAssistan
         if (StrUtil.isBlank(properties.getNodeCommand())) {
             blockers.add("node-command");
         } else {
-            Path commandPath = Path.of(properties.getNodeCommand());
-            if (commandPath.isAbsolute() && !Files.isRegularFile(commandPath.toAbsolutePath().normalize())) {
-                blockers.add("node-command=" + commandPath.toAbsolutePath().normalize());
+            Path commandPath = properties.getNodeCommandPath();
+            if (!Files.isRegularFile(commandPath)) {
+                blockers.add("node-command=" + commandPath);
             }
         }
         if (StrUtil.isBlank(properties.getTicketValidateUrl())) blockers.add("ticket-validate-url");

@@ -1,5 +1,4 @@
 import { ElSubMenu, ElMenuItem } from 'element-plus'
-import { hasOneShowingChild } from '../helper'
 import { isUrl } from '@/utils/is'
 import { useRenderMenuTitle } from './useRenderMenuTitle'
 import { pathResolve } from '@/utils/routerHelper'
@@ -33,20 +32,19 @@ export const useRenderMenuItem = () =>
         .filter((v) => !v.meta?.hidden)
         .map((v) => {
           const meta = v.meta ?? {}
-          const { oneShowingChild, onlyOneChild } = hasOneShowingChild(v.children, v)
           const fullPath = isUrl(v.path) ? v.path : pathResolve(parentPath, v.path) // getAllParentPath<AppRouteRecordRaw>(allRouters, v.path).join('/')
+          const visibleChildren = (v.children ?? []).filter((child) => !child.meta?.hidden)
 
-          if (
-            oneShowingChild &&
-            (!onlyOneChild?.children || onlyOneChild?.noShowingChildren) &&
-            !meta?.alwaysShow
-          ) {
+          // Collapse each single-child level after permission and visibility filtering.
+          if (visibleChildren.length === 1) {
+            return renderMenuItem(visibleChildren, fullPath)[0]
+          }
+
+          if (visibleChildren.length === 0) {
             return (
-              <ElMenuItem
-                index={onlyOneChild ? pathResolve(fullPath, onlyOneChild.path) : fullPath}
-              >
+              <ElMenuItem index={fullPath}>
                 {{
-                  default: () => renderMenuTitle(onlyOneChild ? onlyOneChild?.meta : meta)
+                  default: () => renderMenuTitle(meta)
                 }}
               </ElMenuItem>
             )
@@ -59,7 +57,7 @@ export const useRenderMenuItem = () =>
                       {renderMenuTitle(meta)}
                     </div>
                   ),
-                  default: () => renderMenuItem(v.children!, fullPath)
+                  default: () => renderMenuItem(visibleChildren, fullPath)
                 }}
               </ElSubMenu>
             )

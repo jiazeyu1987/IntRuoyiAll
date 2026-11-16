@@ -180,7 +180,7 @@ export const buildDelayedEffectiveConfirmationCommand = (context: DelayedEffecti
   if (!context.canConfirm) throw new Error(context.unavailableReason || '当前用户不可办理本轮延迟生效确认')
   if (delayedTimeNanos(selectedEffectiveTime, true) < delayedTimeNanos(context.serverTime, false))
     throw new Error('生效时间不得早于本次确认时间，请重新选择')
-  if (!password || !password.trim()) throw new Error('请输入电子签名密码')
+  if (!password || !password.trim()) throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   if (!reason || !reason.trim() || reason.trim().length > 500) throw new Error('请填写500字符以内的真实电子签名原因')
   exactConfirmationText(idempotencyKey, '幂等身份')
   return { taskId: context.taskId, processInstanceId: context.processInstanceId, attributeRound: context.attributeRound,
@@ -878,6 +878,7 @@ export const getControlledFileRelationPermissions = async (
 }
 
 interface ProjectBrowserRow extends Omit<SelectorRow, 'latestControlledFileId' | 'currentActiveControlledFileId'> {
+  referenceProjection?: unknown
   canEditFile?: boolean
   latestControlledFileId?: Identity | null
   currentActiveControlledFileId?: Identity | null
@@ -892,14 +893,14 @@ export const DCC_PROJECT_BROWSER_STATUSES = [
   'APPROVING', 'APPROVED', 'STAMPING', 'STAMP_FAILED', 'STAMPED'
 ] as const
 export type DccProjectBrowserStatus = (typeof DCC_PROJECT_BROWSER_STATUSES)[number]
-export interface ProjectBrowserOptions { latestVersionOnly?: boolean; status?: DccProjectBrowserStatus }
+export interface ProjectBrowserOptions { latestVersionOnly?: boolean; status?: DccProjectBrowserStatus; listFilters?: string }
 const projectBrowserStatuses = new Set<string>(DCC_PROJECT_BROWSER_STATUSES)
 
 export const loadDccProjectBrowserPage = async (
   tenantId: Identity,
   query: SelectorQuery,
   options: ProjectBrowserOptions = {}
-): Promise<SelectorPage> => {
+): Promise<SelectorPage & { referenceRows: unknown[] }> => {
   const tenant = identity(tenantId)
   if (!options || (options.latestVersionOnly !== undefined && typeof options.latestVersionOnly !== 'boolean') ||
       (options.status !== undefined && (typeof options.status !== 'string' || !projectBrowserStatuses.has(options.status))))
@@ -919,7 +920,7 @@ export const loadDccProjectBrowserPage = async (
       browserScope: directory ? 'PROJECT_FOLDER' : 'GLOBAL',
       ...(projectId === undefined ? {} : { dccProjectCodeId: projectId }),
       ...(directory ? { projectFolderId: folderId } : {}),
-      latestVersionOnly,
+      latestVersionOnly, listFilters: options.listFilters,
       ...(options.status === undefined ? {} : { status: options.status }),
       keyword: query.keyword, pageNo: query.pageNo, pageSize: query.pageSize
     }
@@ -927,7 +928,9 @@ export const loadDccProjectBrowserPage = async (
   if (!response || !Array.isArray(response.list) || !Number.isSafeInteger(response.total) || response.total < 0)
     throw new Error('项目文件响应分页无效')
   const versions = new Set<string>()
-  const list = response.list.map((row): FileCandidate => {
+  const referenceRows = response.list.filter(row => row.referenceProjection != null).map(row => row.referenceProjection)
+  if (!directory && referenceRows.length) throw new Error('全局列表不得包含目标文件夹引用')
+  const list = response.list.filter(row => row.referenceProjection == null).map((row): FileCandidate => {
     const id = identity(row.id), masterId = identity(row.masterId), rowProjectId = identity(row.dccProjectCodeId)
     const rowFolderId = row.projectFolderId == null ? null : identity(row.projectFolderId)
     if (
@@ -957,5 +960,5 @@ export const loadDccProjectBrowserPage = async (
       executable: row.executable, canPreview: row.canPreview, canEditFile: row.canEditFile
     }
   })
-  return { list, total: response.total }
+  return { list, total: response.total, referenceRows }
 }

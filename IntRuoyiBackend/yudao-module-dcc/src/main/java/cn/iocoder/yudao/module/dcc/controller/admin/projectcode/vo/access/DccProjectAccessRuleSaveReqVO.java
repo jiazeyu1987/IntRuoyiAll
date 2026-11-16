@@ -33,7 +33,6 @@ public class DccProjectAccessRuleSaveReqVO {
     @Schema(description = "过期时间")
     private LocalDateTime expireTime;
 
-    @Schema(description = "变更原因", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "变更原因不能为空")
+    @Schema(description = "变更原因（选填）")
     private String changeReason;
 }

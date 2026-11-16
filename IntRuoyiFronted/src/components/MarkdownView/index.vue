@@ -51,7 +51,7 @@ onMounted(async () => {
 
 <style lang="scss">
 .markdown-view {
-  font-family: PingFang SC;
+  font-family: var(--app-font-family);
   font-size: 0.95rem;
   font-weight: 400;
   line-height: 1.6rem;

@@ -21,12 +21,14 @@ public class MesQaInspectionRegulationSaveReqVO {
     @jakarta.validation.constraints.Min(0)
     private Long expectedDraftRevision;
 
-    @Schema(description = "DCC 项目代码 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "DCC 项目代码不能为空")
+    @Schema(description = "DCC 项目代码 ID；产品 QA 必填，通用规程不使用")
     private Long dccProjectCodeId;
 
     @Schema(description = "规程归属模块：MES_QA=产品 QA；MES_QA_COMMON=通用检验规程")
     private String ownerModule;
+
+    @Schema(description = "发布时的通用规程版本列表；空列表解除全部关联，未传则保持正式绑定；保存草稿不保存关联修改")
+    private List<Long> commonRegulationVersionIds;
 
     @Schema(description = "规程编码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "规程编码不能为空")
@@ -41,6 +43,7 @@ public class MesQaInspectionRegulationSaveReqVO {
     private String versionNo;
 
     @Schema(description = "生效日期")
+    @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate effectiveDate;
 
     @Schema(description = "末检是否适用", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -87,6 +90,10 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String itemName;
         private String inspectionMethod;
         private String inspectionTool;
+        @Schema(description = "器具未绑定原因；仅记录待补齐台账，不代表可执行检验")
+        private String equipmentUnboundReason;
+        @Schema(description = "人工确认是否需要设备；false 表示无需设备，保留原文检验要求")
+        private Boolean equipmentRequired;
         private String samplingPlanText;
         private String standardText;
         private BigDecimal standardLowerLimit;
@@ -96,7 +103,9 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
-        private BigDecimal patrolInspectionRatio;
+        private Integer finalInspectionQuantity;
+        private String inspectionLevel;
+        private BigDecimal aql;
         private Boolean critical;
         private String failureRule;
         private String sourceNote;

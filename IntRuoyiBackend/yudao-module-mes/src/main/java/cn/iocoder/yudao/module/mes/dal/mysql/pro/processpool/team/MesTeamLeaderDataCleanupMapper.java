@@ -254,10 +254,22 @@ public interface MesTeamLeaderDataCleanupMapper {
             "SELECT id FROM mes_pro_batch_record_execution",
             "WHERE tenant_id = #{tenantId} AND batch_execution_id IN",
             "<foreach collection='batchExecutionIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE",
             "</script>"
     })
     List<Long> selectBatchRecordExecutionIds(@Param("tenantId") Long tenantId,
                                               @Param("batchExecutionIds") Collection<Long> batchExecutionIds);
+
+    @Select({
+            "<script>",
+            "SELECT id FROM mes_pro_batch_record_execution_field_audit_batch",
+            "WHERE tenant_id = #{tenantId} AND execution_id IN",
+            "<foreach collection='executionIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE",
+            "</script>"
+    })
+    List<Long> selectExecutionFieldAuditBatchIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                         @Param("executionIds") Collection<Long> executionIds);
 
     @Select({
             "<script>",

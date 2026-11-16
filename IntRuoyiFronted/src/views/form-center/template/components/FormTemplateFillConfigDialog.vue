@@ -288,20 +288,14 @@
                 <p>每个填写人拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
               </div>
               <div class="batch-record-cell-rules-editor__assist-filler-add">
-                <el-select
+                <UserSelectV2
                   v-model="pendingAssistFillerUserId"
-                  filterable
-                  clearable
+                  :user-options="availableAssistFillerUserOptions"
+                  :candidate-loading="loading"
+                  :candidate-error="candidateOptionsError"
                   placeholder="选择员工"
                   :disabled="readonlyMode"
-                >
-                  <el-option
-                    v-for="option in availableAssistFillerUserOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
+                />
                 <el-button
                   class="scheme-d-btn scheme-d-btn--success"
                   type="primary"
@@ -581,14 +575,25 @@
                           <el-option label="个人" value="USERS" />
                           <el-option label="角色" value="ROLE" />
                         </el-select>
+                        <UserSelectV2
+                          v-if="assistAssignments[assistRow.rowKey].candidateSourceType === 'USERS'"
+                          v-model="assistAssignments[assistRow.rowKey].candidateSourceIds"
+                          :user-options="assistUserOptions"
+                          :candidate-loading="loading"
+                          :candidate-error="candidateOptionsError"
+                          :disabled="readonlyMode"
+                          multiple
+                          placeholder="选择员工"
+                        />
                         <el-select
+                          v-else
                           v-model="assistAssignments[assistRow.rowKey].candidateSourceIds"
                           :disabled="readonlyMode"
                           multiple
                           filterable
                           collapse-tags
                           collapse-tags-tooltip
-                          placeholder="选择员工或角色"
+                          placeholder="选择角色"
                         >
                           <el-option
                             v-for="option in buildAssignmentTargetOptions(assistAssignments[assistRow.rowKey].candidateSourceType)"
@@ -681,6 +686,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import Dialog from '@/components/Dialog/src/Dialog.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type {
   BatchRecordReportAssistRowVO,
   BatchRecordReportCellRuleVO,
@@ -831,6 +837,7 @@ const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const editableAssistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
 const simpleUserOptions = ref<UserVO[]>([])
+const candidateOptionsError = ref('')
 const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
 const autoDetecting = ref(false)
@@ -1193,6 +1200,8 @@ const parseAssistGridCellKey = (cellKey: string) => parseAssistGridRowKey(cellKe
 
 const assistUserOptions = computed(() =>
   simpleUserOptions.value.map((user) => ({
+    ...user,
+    id: Number(user.id),
     label: user.nickname || user.username || String(user.id),
     value: Number(user.id)
   }))
@@ -1993,6 +2002,9 @@ const normalizedSignatureMarkersForSave = (rules: BatchRecordReportCellRuleVO[])
 const loadCandidateOptions = async () => {
   loading.value = true
   errorMessage.value = ''
+  candidateOptionsError.value = ''
+  simpleUserOptions.value = []
+  simpleRoleOptions.value = []
   try {
     const [users, roles] = await Promise.all([
       getSimpleUserList(),
@@ -2002,6 +2014,7 @@ const loadCandidateOptions = async () => {
     simpleRoleOptions.value = roles
   } catch (error) {
     const resolved = resolveErrorMessage(error, '填写候选人读取失败，请联系管理员。')
+    candidateOptionsError.value = resolved
     errorMessage.value = resolved
     message.error(resolved)
   } finally {

@@ -79,6 +79,12 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
+    @jakarta.annotation.Resource private MesActiveOrderReplenishmentBindingService replenishmentBindings;
+    @jakarta.annotation.Resource private MesLocalTestRunSourceGuard localSources;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
+
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper recordChangeEventMapper;
@@ -105,6 +111,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesMdItemMapper itemMapper;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     private final MesProProcessPoolEventMapper eventMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper businessReviewMapper;
     private final MesProProcessPoolEventRevisionMapper eventRevisionMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
@@ -165,7 +172,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     public MesTeamLeaderActiveOrderDetail getDetail(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
         if (activeOrder == null
-                || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)
+                || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
@@ -210,6 +217,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                                         boolean archivedFormalSource, PqcSignaturePurpose signaturePurpose,
                                                         Long signatureId) {
+        marketReleaseAccess.requireActiveOrderReadable(activeOrderId);
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = archivedFormalSource && "REWORKED".equals(activeOrder.getBusinessStatus())
                 ? detailReadMapper.selectArchivedReworkByActiveOrderId(activeOrderId, activeOrder.getTenantId())
                 : detailReadMapper.selectByActiveOrderId(activeOrderId);
@@ -241,7 +249,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         FormalInputSourceSnapshot inputSourceSnapshot = resolveInputSourceSnapshot(activeOrder, activeOrderId);
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
-        attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
+        attachSupplementMaterials(first.getWorkOrderCode(), activeOrder.getWorkOrderId(), activeOrderId, accumulators);
         var pqcSubmissions = readPqcSubmissions(activeOrder, activeOrderId, signatureId, revisionEventId);
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
@@ -269,6 +277,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setReworkSource(resolveReworkSource(activeOrder));
         attachPickListMetadata(detail, activeOrderId);
         attachPqcProductionRelease(detail, application, signaturePurpose);
+        List<MesTeamLeaderActiveOrderDetail.OperationFact> operationFacts = new ArrayList<>(detail.getOperationFacts());
+        if (signatureId == null) operationFacts.addAll(MesActiveOrderExecutionOperationFacts.project(detail));
+        operationAuditEventMapper.selectListByObject("WORK_ORDER_PREPARATION", String.valueOf(activeOrder.getWorkOrderId()))
+                .forEach(event -> operationFacts.add(toActionOperationFact(event)));
+        detail.setOperationFacts(operationFacts.stream().sorted(Comparator.comparing(
+                MesTeamLeaderActiveOrderDetail.OperationFact::getOccurredAt, Comparator.reverseOrder())).toList());
         return detail;
     }
 
@@ -521,6 +535,14 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private MesTeamLeaderActiveOrderDetail.OperationFact toOperationFact(
             MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        if (event != null && "ACTIVE_ORDER_ACTION".equals(event.getObjectType())) {
+            if (!String.valueOf(activeOrderId).equals(event.getObjectId()))
+                throw new IllegalStateException("操作日志与活跃订单不一致");
+            return toActionOperationFact(event);
+        }
+        if (event != null && "ACTIVE_ORDER_DOSSIER".equals(event.getObjectType())) {
+            return toDossierOperationFact(event, activeOrderId);
+        }
         if (event == null || event.getId() == null || event.getOccurredAt() == null
                 || event.getActorUserId() == null || event.getResultStatus() == null
                 || event.getAfterSummaryHash() == null || event.getAfterSummaryHash().isBlank()
@@ -572,6 +594,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setId(event.getId())
                 .setOperationType(requireTextValue(event.getOperationType(), activeOrderId))
                 .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
+                .setHandoverFromName(metadata.getString("handoverFromName")).setHandoverToName(metadata.getString("handoverToName")).setHandoverReason(metadata.getString("handoverReason"))
                 .setSourceType(requireTextValue(event.getObjectType(), activeOrderId))
                 .setSourceId(requireTextValue(event.getObjectId(), activeOrderId))
                 .setActorUserId(event.getActorUserId())
@@ -588,6 +611,55 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setResultStatus(event.getResultStatus())
                 .setOccurredAt(event.getOccurredAt())
                 .setSourceSnapshotHash(event.getAfterSummaryHash());
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toDossierOperationFact(
+            MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        // Responsibility events carry task/category metadata and an audit-chain hash, not
+        // a production-state snapshot or a signed display-name snapshot. Keep that contract
+        // explicit; do not invent either snapshot from today's order or user directory.
+        JSONObject metadata = JSON.parseObject(event.getMetadataJson());
+        if (event.getId() == null || event.getOccurredAt() == null || event.getActorUserId() == null
+                || event.getActorUserId() <= 0 || !"SUCCESS".equals(event.getResultStatus())
+                || !String.valueOf(activeOrderId).equals(event.getObjectId())
+                || event.getWorkTaskId() == null || event.getWorkTaskId() <= 0
+                || event.getAuditHash() == null || !event.getAuditHash().matches("[a-f0-9]{64}")
+                || !List.of("DOSSIER_ASSIGN", "DOSSIER_REASSIGN", "DOSSIER_COMPLETE").contains(event.getOperationType())
+                || metadata == null || !Objects.equals(activeOrderId, metadata.getLong("activeOrderId"))
+                || metadata.getLong("assigneeUserId") == null || metadata.getLong("assigneeUserId") <= 0
+                || !List.of("INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE")
+                        .contains(metadata.getString("categoryKey"))) {
+            throw new IllegalStateException("ACTIVE_ORDER_DOSSIER_OPERATION_FACT_INCOMPLETE");
+        }
+        if ("DOSSIER_COMPLETE".equals(event.getOperationType())
+                && (metadata.getLong("attachmentId") == null || metadata.getLong("attachmentId") <= 0
+                || !Objects.equals(event.getActorUserId(), metadata.getLong("assigneeUserId")))) {
+            throw new IllegalStateException("ACTIVE_ORDER_DOSSIER_COMPLETION_FACT_INCOMPLETE");
+        }
+        return new MesTeamLeaderActiveOrderDetail.OperationFact().setId(event.getId())
+                .setOperationType(event.getOperationType())
+                .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
+                .setSourceType(event.getObjectType()).setSourceId(event.getObjectId())
+                .setActorUserId(event.getActorUserId()).setActorName(event.getActorUsername() == null
+                        ? "用户ID：" + event.getActorUserId() : event.getActorUsername())
+                .setResultStatus(event.getResultStatus()).setOccurredAt(event.getOccurredAt());
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toActionOperationFact(MesProEdhrOperationAuditEventDO event) {
+        if (event.getId() == null || event.getActorUserId() == null || event.getActorUsername() == null
+                || event.getActorUsername().isBlank() || event.getOccurredAt() == null
+                || event.getAuditHash() == null || !event.getAuditHash().matches("[a-f0-9]{64}")
+                || event.getActionName() == null || !event.getActionName().matches(".*[\\p{IsHan}].*"))
+            throw new IllegalStateException("操作日志缺少操作人、中文动作、时间或审计凭证");
+        var metadata = JSON.parseObject(event.getMetadataJson());
+        String name = event.getActionName();
+        if (metadata != null && metadata.getInteger("roundNo") != null)
+            name += "（第" + metadata.getInteger("roundNo") + "轮）";
+        return new MesTeamLeaderActiveOrderDetail.OperationFact().setId(event.getId())
+                .setSourceType(event.getObjectType()).setSourceId(event.getObjectId())
+                .setOperationType(event.getOperationType()).setOperationName(name)
+                .setActorUserId(event.getActorUserId()).setActorName(event.getActorUsername())
+                .setResultStatus(event.getResultStatus()).setOccurredAt(event.getOccurredAt());
     }
 
     private Long reviewMaterialFileIdOf(JSONObject metadata) {
@@ -847,36 +919,37 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, reason);
     }
 
-    private void attachSupplementMaterials(String workOrderCode, Long activeOrderId,
+    private void attachSupplementMaterials(String workOrderCode, Long workOrderId, Long activeOrderId,
                                            Map<ProcessIdentity, ProcessAccumulator> accumulators) {
         List<ErpKingdeeProductionReplenishmentListItemDO> items = replenishmentListItemMapper
                 .selectListByProductionOrderNo(workOrderCode);
         if (items == null || items.isEmpty()) {
             return;
         }
-        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(activeOrderId, items);
+        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(workOrderId, activeOrderId, items);
         Map<String, MesMdItemDO> materialByCode = loadMaterialByCode(activeOrderId, items);
-        Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> supplementsByMaterialCode =
-                groupSupplementMaterials(activeOrderId, items, headersById, materialByCode);
+        var explicitBindings = replenishmentBindings.read(activeOrderId);
         for (ProcessAccumulator accumulator : accumulators.values()) {
             Set<String> inputMaterialCodes = accumulator.inputMaterials.stream()
                     .map(MesTeamLeaderActiveOrderDetail.InputMaterialDetail::getMaterialCode)
                     .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
-            if (inputMaterialCodes.isEmpty()) {
-                accumulator.setSupplementMaterials(List.of());
-                continue;
-            }
-            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = inputMaterialCodes.stream()
-                    .flatMap(code -> supplementsByMaterialCode.getOrDefault(code, List.of()).stream())
-                    .toList();
+            var matchedItems = items.stream().filter(item -> {
+                var binding = explicitBindings.get(item.getId());
+                return binding != null
+                        ? Objects.equals(binding.routeProcessId(), accumulator.process.getRouteProcessId())
+                        : inputMaterialCodes.contains(trimToNull(item.getMaterialNumber()));
+            }).toList();
+            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = groupSupplementMaterials(
+                    activeOrderId, matchedItems, headersById, materialByCode).values().stream().flatMap(List::stream).toList();
             accumulator.setSupplementMaterials(matched);
         }
     }
 
     private Map<Long, ErpKingdeeProductionReplenishmentListDO> loadReplenishmentHeaders(
-            Long activeOrderId, List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+            Long workOrderId, Long activeOrderId, List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+        boolean localTest = localSources.validateOrderId(workOrderId, false);
         List<Long> headerIds = items.stream()
                 .map(ErpKingdeeProductionReplenishmentListItemDO::getProductionReplenishmentListId)
                 .filter(Objects::nonNull)
@@ -893,7 +966,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         for (ErpKingdeeProductionReplenishmentListDO header : headersById.values()) {
             requireText(header.getSourceBillNo(), activeOrderId);
-            if (!"C".equals(header.getDocumentStatus())) {
+            if (!(localTest ? MesLocalTestRunSourceGuard.STATUS.equals(header.getDocumentStatus())
+                    && MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                    : "C".equals(header.getDocumentStatus())
+                    && !MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId()))) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
         }
@@ -913,10 +989,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         Map<String, MesMdItemDO> result = new LinkedHashMap<>();
         for (String materialCode : materialCodes) {
             MesMdItemDO item = itemMapper.selectByCode(materialCode);
-            if (item == null || item.getId() == null || trimToNull(item.getCode()) == null) {
-                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            // 补料展示以正式补料单为来源，本地主数据仅补充可选的物料 ID。
+            if (item != null && item.getId() != null && trimToNull(item.getCode()) != null) {
+                result.put(materialCode, item);
             }
-            result.put(materialCode, item);
         }
         return result;
     }
@@ -936,11 +1012,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             ErpKingdeeProductionReplenishmentListDO header = headersById.get(item.getProductionReplenishmentListId());
             MesMdItemDO material = materialByCode.get(materialCode);
-            if (header == null || material == null) {
+            if (header == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
             String key = item.getProductionReplenishmentListId() + "|" + materialCode;
-            byMaterialAndSource.computeIfAbsent(key, ignored -> new SupplementAccumulator(material, item, header))
+            byMaterialAndSource.computeIfAbsent(key, ignored -> new SupplementAccumulator(material, item))
                     .add(item, header);
         }
         Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> byMaterialCode =
@@ -1438,6 +1514,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private static final class SupplementAccumulator {
         private final MesMdItemDO material;
+        private final String materialCode;
         private final String materialName;
         private final String materialSpecification;
         private final LinkedHashSet<String> batchCodes = new LinkedHashSet<>();
@@ -1448,12 +1525,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private BigDecimal actualQuantity = BigDecimal.ZERO;
         private BigDecimal baseActualQuantity = BigDecimal.ZERO;
 
-        private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem,
-                                      ErpKingdeeProductionReplenishmentListDO firstHeader) {
+        private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem) {
             this.material = material;
+            this.materialCode = trimToNull(firstItem.getMaterialNumber());
             this.materialName = trimToNull(firstItem.getMaterialName());
             this.materialSpecification = trimToNull(firstItem.getMaterialSpecification());
-            add(firstItem, firstHeader);
         }
 
         private void add(ErpKingdeeProductionReplenishmentListItemDO item,
@@ -1469,8 +1545,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
         private MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail toDetail() {
             return new MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail()
-                    .setMaterialId(material.getId())
-                    .setMaterialCode(trimToNull(material.getCode()))
+                    .setMaterialId(material == null ? null : material.getId())
+                    .setMaterialCode(materialCode)
                     .setMaterialName(materialName)
                     .setMaterialSpecification(materialSpecification)
                     .setBatchCodes(batchCodes.stream().filter(Objects::nonNull).sorted().toList())
@@ -1567,6 +1643,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final String qaProcessDisplayName;
         private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
+        private final Map<Long, String> originalBusinessIdentities = new LinkedHashMap<>();
         private final LinkedHashSet<Long> productionEventIds = new LinkedHashSet<>();
         private final LinkedHashSet<String> submitterNames = new LinkedHashSet<>();
         private final LinkedHashSet<String> reviewerNames = new LinkedHashSet<>();
@@ -1606,6 +1683,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 if (eventParty == null) {
                     throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
                 }
+                originalBusinessIdentities.put(task.getSubmittedEventId(), new MesSubmissionBusinessIdentityReader(eventMapper, businessReviewMapper).read(
+                        task.getSubmittedEventId(), eventParty.getReviewerSignatureId()));
                 submitterNames.add(trimToNull(eventParty.getSubmitterName()));
                 reviewerNames.add(trimToNull(eventParty.getReviewerName()));
                 if (eventParty.getSubmitterSignatureId() != null && submitterSignatures.stream()
@@ -1652,6 +1731,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setPqcTaskIds(taskIds)
                     .setSubmittedEventId(eventIds.isEmpty() ? null : eventIds.get(0))
                     .setSubmittedEventIds(eventIds)
+                    .setOriginalBusinessIdentities(eventIds.stream().map(originalBusinessIdentities::get).toList())
                     .setProductionEventId(productionIds.isEmpty() ? null : productionIds.get(0))
                     .setProductionEventIds(productionIds)
                     .setProductionSubmitterSignatures(productionSignatures)
@@ -1780,6 +1860,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             submissions.add(new MesTeamLeaderActiveOrderDetail.SubmissionDetail()
                     .setEventId(row.getEventId())
+                    .setOriginalBusinessIdentityJson(new MesSubmissionBusinessIdentityReader(eventMapper, businessReviewMapper).read(row.getEventId(), row.getReviewerSignatureId()))
                     .setSubmittedQuantity(row.getSubmittedQuantity())
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
@@ -1791,7 +1872,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setDevices(resolveSubmissionDevices(row, activeOrderId))
                     .setDeviceParameters(resolveSubmissionDeviceParameters(row, activeOrderId))
                     .setClearanceConfirmations(resolveClearanceConfirmations(row, activeOrderId))
-                    .setMaterials(resolveSubmissionMaterials(row, activeOrderId)));
+                    .setMaterials(resolveSubmissionMaterials(row, activeOrderId))
+                    .setLossDetails(resolveSubmissionLossDetails(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
         }
 
@@ -1851,6 +1933,28 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
         return List.copyOf(devices.values());
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.LossDetail> resolveSubmissionLossDetails(
+            MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload == null || payload.get("lossDetails") == null) return List.of();
+        if (!(payload.get("lossDetails") instanceof List<?> details))
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        List<MesTeamLeaderActiveOrderDetail.LossDetail> result = new ArrayList<>();
+        for (Object raw : details) {
+            if (!(raw instanceof Map<?, ?> detail))
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            BigDecimal quantity = bigDecimalValue(detail.get("quantity"), activeOrderId);
+            if (quantity == null || quantity.signum() < 0)
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            result.add(new MesTeamLeaderActiveOrderDetail.LossDetail()
+                    .setReasonId(requirePositiveLongValue(detail.get("reasonId"), activeOrderId))
+                    .setReasonCode(requireStringValue(detail.get("reasonCode"), activeOrderId))
+                    .setReasonName(requireStringValue(detail.get("reasonName"), activeOrderId))
+                    .setQuantity(quantity));
+        }
+        return result;
     }
 
     private static List<MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail> resolveSubmissionMaterials(

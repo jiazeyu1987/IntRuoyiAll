@@ -28,6 +28,20 @@ class DccFolderTemplateServiceTest extends BaseDbUnitTest {
         assertTrue(history.selectList().isEmpty());
     }
     @BeforeEach void permissions() { when(permissions.hasAnyPermissions(7L, "dcc:project-code:update")).thenReturn(true); }
+    @Test void invalidDeletionReasonReportsReasonErrorAndLeavesTemplateAndHistoryUnchanged() {
+        Long id = service.save(7L, new DccFolderTemplateService.Save(null, "保留模板", null, true, structure("文件"), "创建模板"));
+        clearInvocations(audit);
+        for (String reason : java.util.Arrays.asList(null, "", "   ", "原".repeat(501))) {
+            var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> service.delete(7L, id, reason));
+            var expected = cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.CHANGE_REASON_INVALID;
+            assertEquals(expected.getCode(), failure.getCode());
+            assertEquals(expected.getMsg(), failure.getMessage());
+            assertNotNull(templates.selectById(id));
+            assertEquals(1, history.selectList().size());
+        }
+        verifyNoInteractions(audit);
+    }
     @Test void clearingDescriptionPersistsNullAndAuditMatchesSavedRow() {
         Long id = service.save(7L, new DccFolderTemplateService.Save(null, "清空说明", "原说明", true, structure("文件"), "创建模板"));
         service.save(7L, new DccFolderTemplateService.Save(id, "清空说明", null, true, structure("文件"), "清空旧说明"));

@@ -133,10 +133,10 @@ class MesProProcessServiceImplTest {
     @Test
     void createProcess_delegatesAllocationAndDoesNotValidateIncomingCode() {
         MesProProcessSaveReqVO reqVO = baseReq("Balloon", "OLD-CODE", "清洗");
-        when(processCreationService.create(org.mockito.ArgumentMatchers.any())).thenReturn(10L);
+        when(processCreationService.create(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(10L);
         assertEquals(10L, processService.createProcess(reqVO));
         ArgumentCaptor<MesProProcessDO> captor = ArgumentCaptor.forClass(MesProProcessDO.class);
-        verify(processCreationService).create(captor.capture());
+        verify(processCreationService).create(captor.capture(), org.mockito.ArgumentMatchers.any());
         assertEquals("清洗", captor.getValue().getName());
         org.mockito.Mockito.verifyNoInteractions(processMapper);
     }
@@ -144,7 +144,7 @@ class MesProProcessServiceImplTest {
     @Test
     void createProcess_acceptsMissingCode() {
         MesProProcessSaveReqVO reqVO = baseReq("Balloon", null, "终检");
-        when(processCreationService.create(org.mockito.ArgumentMatchers.any())).thenReturn(11L);
+        when(processCreationService.create(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(11L);
         assertEquals(11L, processService.createProcess(reqVO));
         org.mockito.Mockito.verifyNoInteractions(processMapper);
     }

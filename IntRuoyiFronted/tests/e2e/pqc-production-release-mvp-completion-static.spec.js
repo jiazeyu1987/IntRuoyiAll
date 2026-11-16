@@ -17,7 +17,7 @@ assert.match(api, /approvalBlockerReason\?:\s*string/)
 assert.match(api, /url:\s*'\/mes\/pro\/production-release\/pqc\/page'/)
 
 const page = read('src/views/mes/pro/production-release/PqcProductionReleasePage.vue')
-for (const label of ['待放行', '已放行', '已作废', '已返工', '已让步放行']) {
+for (const label of ['待放行', '已处理']) {
   assert.match(page, new RegExp(`label="${label}"`))
 }
 assert.match(page, />\s*放行\s*</)
@@ -36,9 +36,14 @@ assert.doesNotMatch(page, /MesProEdhrBatchExecutionDetail/)
 assert.match(page, /:disabled="row\.underReview \|\| row\.approvalReady === false"/)
 assert.match(page, /row\.approvalBlockerReason/)
 assert.match(page, /releaseIdempotencyKeys/)
-assert.match(page, /getPqcProductionRelease\(row\.applicationId\)/)
+assert.match(page, /getPqcProductionRelease\(request\.applicationId,/)
 assert.match(page, /releaseOutcomeUncertain/)
 assert.match(page, /PQC_RELEASE_VIEW_CONCESSION_RELEASED/)
 assert.doesNotMatch(page, /确认拒绝|rejectPqcProductionRelease/)
 
 console.log('pqc-production-release-mvp-completion-static: PASS')
+
+assert.equal((page.match(/<el-tab-pane/g) || []).length, 2)
+assert.ok(page.includes(':name="PQC_RELEASE_VIEW_COMPLETED"'))
+assert.ok(page.includes("'放行结果' : '状态'"))
+assert.ok(page.includes('activeView.value = PQC_RELEASE_VIEW_COMPLETED'))

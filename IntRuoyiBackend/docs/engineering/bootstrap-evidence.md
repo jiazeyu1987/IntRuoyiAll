@@ -42,7 +42,7 @@
 
 ## Current Verification
 
-- `sync-int-ruoyi-worktree-ports.ps1 -Json` wrote local registry `D:\ProjectPackage\Int\IntRuoyi\worktrees\.ports\worktree-ports.json`.
+- `sync-int-ruoyi-worktree-ports.ps1 -Json` wrote local registry `./worktrees/.ports/worktree-ports.json`.
 - Current assignments:
   - `int_main`: `8081/48081`
   - `automation-2-ebr-visual-fidelity-20260524-review`: `8083/48083`

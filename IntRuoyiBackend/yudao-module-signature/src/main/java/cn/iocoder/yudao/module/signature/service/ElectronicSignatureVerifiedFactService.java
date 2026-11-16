@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.signature.service;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -53,12 +54,12 @@ public class ElectronicSignatureVerifiedFactService {
         if (!"VALID".equals(verification.verificationStatus())
                 || !"CONSISTENT".equals(verification.digestStatus())
                 || !"CONSISTENT".equals(verification.timeConsistencyStatus())
-                || !"CONSISTENT".equals(verification.auditBindingStatus())
+                || !cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.auditBindingAccepted(verification.auditBindingStatus())
                 || !Objects.equals(verification.storedContentHash(), verification.calculatedContentHash())
                 || !Objects.equals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash())
-                || !positive(evaluation.auditEventId()))
+                || (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && !positive(evaluation.auditEventId())))
             throw exception(ESIGN_COMMAND_INVALID, "签名事实未通过完整核验");
-        return new VerifiedSignatureFact(fact, verification, evaluation.auditEventId());
+        return new VerifiedSignatureFact(fact, verification, cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() ? -fact.id() : evaluation.auditEventId());
     }
 
     private FrozenFact load(Long signatureId) {
@@ -196,13 +197,16 @@ public class ElectronicSignatureVerifiedFactService {
     private static Long operator(FrozenFact record, JsonNode content, List<String> reasons) {
         JsonNode identity = content == null ? null : content.get("signatureIdentity");
         if (identity == null || identity.isNull()) {
-            if ("SESSION_PLUS_PASSWORD".equals(record.authenticationMethod()) && positive(record.actorId())) return record.actorId();
+            if ((SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_PASSWORD")
+                    || "SESSION_CONFIRMATION".equals(record.authenticationMethod()) && "MES".equals(record.moduleCode())
+                    && "MES_BATCH_RECORD".equals(record.subjectType()) && "PQC_PATROL_ROUND_CORRECTION".equals(record.actionCode()))
+                    && positive(record.actorId())) return record.actorId();
         } else if (identity.isObject()) {
             String domain = text(identity, "domain");
             Long signer = strictId(identity.get("signerId")), tenant = strictId(identity.get("tenantId")), operator = strictId(identity.get("operatorId"));
             if (Objects.equals(record.actorId(), signer) && Objects.equals(record.tenantId(), tenant) && operator != null
-                    && ("SYSTEM_USER".equals(domain) && "SESSION_PLUS_SELECTED_USER_PASSWORD".equals(record.authenticationMethod())
-                    || "MES_EMPLOYEE_PROFILE".equals(domain) && "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD".equals(record.authenticationMethod()))) return operator;
+                    && ("SYSTEM_USER".equals(domain) && SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD")
+                    || "MES_EMPLOYEE_PROFILE".equals(domain) && SignatureCredentialPolicy.matchesMethod(record.authenticationMethod(), "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD"))) return operator;
         }
         reasons.add("IDENTITY_BINDING_MISMATCH"); return null;
     }
@@ -308,14 +312,14 @@ public class ElectronicSignatureVerifiedFactService {
             Long actor = v2Id(identity.get("signerId")), tenant = v2Id(identity.get("tenantId")); operator = v2Id(identity.get("operatorId"));
             if (!Objects.equals(actor, r.getActorId()) || !Objects.equals(tenant, r.getTenantId())) throw new IllegalArgumentException();
             String domain = text(identity, "domain"); String method = "MES_EMPLOYEE_PROFILE".equals(domain) ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SYSTEM_USER".equals(domain) ? actor.equals(operator) ? "SESSION_PLUS_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD" : null;
-            if (!Objects.equals(method, r.getAuthenticationMethod())) throw new IllegalArgumentException();
+            if (!SignatureCredentialPolicy.matchesMethod(r.getAuthenticationMethod(), method)) throw new IllegalArgumentException();
             var time = content.get("signatureTime"); keys.clear(); time.fieldNames().forEachRemaining(keys::add);
             if (!keys.equals(java.util.Set.of("localDateTime", "zoneId", "precision", "source")) || !"Asia/Shanghai".equals(text(time,"zoneId")) || !"SECOND".equals(text(time,"precision")) || !"SERVER_CLOCK".equals(text(time,"source")) || !Objects.equals("SERVER_CLOCK:" + text(time,"localDateTime"),r.getTimeEvidenceId())) throw new IllegalArgumentException();
             var image = content.get("signatureImage"); if (image == null || !image.isObject() || image.size()!=2 || !image.has("state") || !image.has("snapshot")) throw new IllegalArgumentException();
             if("NOT_REQUIRED".equals(text(image,"state"))) { if(!image.get("snapshot").isNull()) throw new IllegalArgumentException(); }
             else if("CAPTURED".equals(text(image,"state"))) {
                 var snapshot=image.get("snapshot");
-                if(!snapshot.isObject() || !snapshot.has("imageId") || !snapshot.has("versionNo") || !snapshot.has("fileId") || !snapshot.has("contentType") || !snapshot.has("fileSize") || !snapshot.has("sha256") || !snapshot.has("imageStatus") || !snapshot.has("verifiedStatus") || !"ACTIVE".equals(text(snapshot,"imageStatus")) || !"VERIFIED".equals(text(snapshot,"verifiedStatus")) || !text(snapshot,"sha256").matches("[0-9a-f]{64}")) throw new IllegalArgumentException();
+                if(!snapshot.isObject() || !snapshot.has("imageId") || !snapshot.has("versionNo") || !snapshot.has("fileId") || !snapshot.has("contentType") || !snapshot.has("fileSize") || !snapshot.has("sha256") || !snapshot.has("imageStatus") || !snapshot.has("verifiedStatus") || !"ACTIVE".equals(text(snapshot,"imageStatus")) || !"VALID".equals(text(snapshot,"verifiedStatus")) || !text(snapshot,"sha256").matches("[0-9a-f]{64}")) throw new IllegalArgumentException();
                 for(String idKey:java.util.Set.of("imageId","versionNo","fileId","fileSize")) if(!text(snapshot,idKey).matches("[1-9][0-9]*")) throw new IllegalArgumentException();
             } else throw new IllegalArgumentException();
             var position = content.get("nodePosition"); if (position == null || !position.isObject() || position.size()!=4 || !Objects.equals(text(position,"applicability"),r.getTaskId()==null?"NOT_APPLICABLE":"TASK_CONTEXT") || !Objects.equals(text(position,"taskId"),r.getTaskId()) || !Objects.equals(text(position,"nodeCode"),r.getNodeCode()) || !Objects.equals(text(position,"processInstanceId"),r.getProcessInstanceId())) throw new IllegalArgumentException();
@@ -328,7 +332,7 @@ public class ElectronicSignatureVerifiedFactService {
             var audit = signatureCreationVerificationService.verifySignatureCreation(new SignatureAuditExpectation(r.getTenantId(),r.getId(),"V2",r.getSubjectType()+":"+r.getSubjectId(),r.getSubjectVersion(),operator,r.getReason(),r.getContentHash(),"SIGNATURE:"+DigestUtil.sha256Hex(r.getIdempotencyKey()),ElectronicSignatureTransactionExecutor.afterState(r)));
             auditStatus = audit.auditBindingStatus(); auditId = audit.auditEventId(); reasons.addAll(audit.reasonCodes());
         }
-        String status = "CONSISTENT".equals(digest) && "CONSISTENT".equals(time) && "CONSISTENT".equals(auditStatus) ? "VALID" : "MISMATCH";
+        String status = "CONSISTENT".equals(digest) && "CONSISTENT".equals(time) && cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.auditBindingAccepted(auditStatus) ? "VALID" : "MISMATCH";
         return new Evaluation(new ElectronicSignatureVerificationDTO(r.getId(),status,r.getContentHash(),calculatedContent,r.getEvidenceHash(),calculatedEvidence,r.getAlgorithm(),r.getKeyVersion(),SCOPE,digest,time,"SERVER_CLOCK","NOT_BOUND",auditStatus,reasons,LocalDateTime.now(ZoneId.of("Asia/Shanghai")),"V2"),auditId);
     }
     private static Long v2Id(JsonNode value) {

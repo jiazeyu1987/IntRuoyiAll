@@ -14,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -40,6 +41,7 @@ public class DictDataServiceImpl implements DictDataService {
             .thenComparingInt(DictDataDO::getSort);
 
     @Resource
+    @org.springframework.context.annotation.Lazy
     private DictTypeService dictTypeService;
 
     @Resource
@@ -63,6 +65,7 @@ public class DictDataServiceImpl implements DictDataService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createDictData(DictDataSaveReqVO createReqVO) {
         // 校验字典类型有效
         validateDictTypeExists(createReqVO.getDictType());
@@ -72,10 +75,12 @@ public class DictDataServiceImpl implements DictDataService {
         // 插入字典类型
         DictDataDO dictData = BeanUtils.toBean(createReqVO, DictDataDO.class);
         dictDataMapper.insert(dictData);
+        TenantDictionaryCache.invalidateAfterCommit();
         return dictData.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateDictData(DictDataSaveReqVO updateReqVO) {
         // 校验自己存在
         validateDictDataExists(updateReqVO.getId());
@@ -87,20 +92,26 @@ public class DictDataServiceImpl implements DictDataService {
         // 更新字典类型
         DictDataDO updateObj = BeanUtils.toBean(updateReqVO, DictDataDO.class);
         dictDataMapper.updateById(updateObj);
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteDictData(Long id) {
         // 校验是否存在
         validateDictDataExists(id);
 
         // 删除字典数据
         dictDataMapper.deleteById(id);
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteDictDataList(List<Long> ids) {
+        ids.forEach(this::validateDictDataExists);
         dictDataMapper.deleteByIds(ids);
+        TenantDictionaryCache.invalidateAfterCommit();
     }
 
     @Override

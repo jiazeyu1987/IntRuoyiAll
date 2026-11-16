@@ -233,7 +233,7 @@ export const clearFrontlinePqcSelectionIfUnavailable = (
   }
   const selectedActiveOrder = state.selectedActiveOrder
   const stillAvailable = activeOrders.some((activeOrder) =>
-    activeOrder.activeOrderId === selectedActiveOrder.activeOrderId
+    !activeOrder.readBlocked && activeOrder.activeOrderId === selectedActiveOrder.activeOrderId
   )
   if (stillAvailable) {
     return
@@ -251,7 +251,8 @@ const pruneFrontlinePqcProcessCache = (
   state: FrontlineDeviceEmployeeState,
   activeOrders: FrontlineActiveOrderVO[]
 ) => {
-  const activeOrderIds = new Set(activeOrders.map((activeOrder) => String(activeOrder.activeOrderId)))
+  const activeOrderIds = new Set(activeOrders.filter((order) => !order.readBlocked)
+    .map((activeOrder) => String(activeOrder.activeOrderId)))
   for (const cacheKey of state.pqcProcessOptionsCache.keys()) {
     if (!activeOrderIds.has(cacheKey.split(':')[0])) {
       state.pqcProcessOptionsCache.delete(cacheKey)
@@ -419,6 +420,11 @@ export const selectFrontlinePqcActiveOrder = async (
   activeOrder: FrontlineActiveOrderVO,
   actualEmployeeId?: number
 ) => {
+  if (activeOrder.readBlocked) {
+    const error = new Error(activeOrder.readBlockReason)
+    state.lastError = error.message
+    throw error
+  }
   const requestToken = ++state.pqcActiveOrderSelectionRequestToken
   invalidateFrontlinePqcProcessCacheForActiveOrder(state, activeOrder.activeOrderId)
   const cacheKey = buildFrontlinePqcActiveOrderProcessCacheKey(activeOrder, actualEmployeeId)

@@ -18,7 +18,13 @@ public interface ErpKingdeeProductionPickListService {
     ErpKingdeeProductionPickListSyncResult syncAllSkipExisting(
             LocalDateTime windowStart, LocalDateTime windowEnd);
 
+    ErpKingdeeProductionPickListSyncResult syncRecentSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd);
+
     ErpKingdeeProductionPickListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd);
+
+
+    int syncByCode(String code);
 
 }

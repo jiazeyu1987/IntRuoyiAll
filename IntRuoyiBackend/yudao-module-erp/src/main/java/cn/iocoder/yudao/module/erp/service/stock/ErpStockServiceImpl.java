@@ -38,6 +38,8 @@ public class ErpStockServiceImpl implements ErpStockService {
 
     @Resource
     private ErpStockMapper stockMapper;
+    @Resource
+    private cn.iocoder.yudao.module.erp.dal.mysql.product.ErpProductMapper productMapper;
 
     @Override
     public ErpStockDO getStock(Long id) {
@@ -57,6 +59,11 @@ public class ErpStockServiceImpl implements ErpStockService {
 
     @Override
     public PageResult<ErpStockDO> getStockPage(ErpStockPageReqVO pageReqVO) {
+        if (pageReqVO.getSyncCode() != null && !pageReqVO.getSyncCode().isBlank()) {
+            var product = productMapper.selectByBarCode(pageReqVO.getSyncCode());
+            if (product == null) { return PageResult.empty(); }
+            pageReqVO.setProductId(product.getId());
+        }
         return stockMapper.selectPage(pageReqVO);
     }
 

@@ -146,13 +146,22 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
                 .startRow(0)
                 .limit(properties.getProductionOrder().getQueryLimit())
                 .build();
-        JsonNode rows = executeBillQuery(properties, cookieHeader, querySpec.toQuery(windowStart, windowEnd));
-        if (!rows.isArray()) {
-            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
-        }
-        List<ErpKingdeeProductionOrder> orders = new ArrayList<>(rows.size());
-        for (JsonNode row : rows) {
-            orders.add(buildOrder(row, true));
+        Map<String, Object> query = querySpec.toQuery(windowStart, windowEnd);
+        List<ErpKingdeeProductionOrder> orders = new ArrayList<>();
+        int startRow = 0;
+        while (true) {
+            query.put("StartRow", startRow);
+            JsonNode rows = executeBillQuery(properties, cookieHeader, query);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
+            }
+            for (JsonNode row : rows) {
+                orders.add(buildOrder(row, true));
+            }
+            if (rows.size() < querySpec.getLimit()) {
+                break;
+            }
+            startRow += rows.size();
         }
         return orders;
     }

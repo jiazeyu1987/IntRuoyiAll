@@ -13,6 +13,7 @@ export type EdhrReleaseCheckItemStatus = 'OPEN' | 'SUPERSEDED' | 'RESOLVED'
 export type EdhrReleaseEventType = 'PRECHECK' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'WITHDRAW'
 
 export interface EdhrReleasePageReqVO extends PageParam {
+  listFilters?: string
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string
@@ -126,18 +127,25 @@ export interface EdhrReleaseApproveReqVO {
 }
 
 export interface EdhrReleaseRejectReqVO {
+  workTaskId?: string
+  expectedVersion?: number
+  password?: string
+  qaReviewerUserId?: string | number
   releaseTransactionId: string
   idempotencyKey: string
   rejectReason: string
 }
 
 export interface EdhrReleaseWithdrawReqVO {
+  workTaskId?: string
+  expectedVersion?: number
   releaseTransactionId: string
   idempotencyKey: string
   withdrawReason: string
 }
 
 export interface EdhrReleaseEventPageReqVO extends PageParam {
+  listFilters?: string
   releaseTransactionId: string
   eventType?: EdhrReleaseEventType | ''
 }
@@ -168,8 +176,9 @@ export const getEdhrReleasePage = async (params: EdhrReleasePageReqVO, options?:
   })
 }
 
-export const getEdhrRelease = async (id: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+export const getEdhrRelease = async (id: string, options?: { timeout?: number; ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrReleaseRowVO>({
+    timeout: options?.timeout,
     ignoreErrorMessage: options?.ignoreErrorMessage,
     isRequestContextCurrent: options?.isRequestContextCurrent,
     isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,

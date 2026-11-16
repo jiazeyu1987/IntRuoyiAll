@@ -112,6 +112,16 @@ public class ErpKingdeeProductionReplenishmentListServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeProductionReplenishmentListSyncResult syncRecentSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncReplenishmentLists(productionReplenishmentListClient.fetchProductionReplenishmentListsModifiedBetween(
+                properties, windowStart, windowEnd), true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeProductionReplenishmentListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
@@ -222,6 +232,15 @@ public class ErpKingdeeProductionReplenishmentListServiceImpl
                 .build();
         record.setTenantId(tenantId);
         return record;
+    }
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        var result = syncReplenishmentLists(productionReplenishmentListClient.fetchByCode(properties, code), false);
+        return result.getCreatedCount() + result.getUpdatedCount();
     }
 
 }

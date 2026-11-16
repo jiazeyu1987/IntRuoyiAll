@@ -1,9 +1,9 @@
 package cn.iocoder.yudao.module.system.dal.dataobject.mail;
 
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated;
 import cn.iocoder.yudao.framework.mybatis.core.type.StringListTypeHandler;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.system.enums.mail.MailSendStatusEnum;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -23,7 +23,8 @@ import java.util.Map;
  * @author wangjingyi
  * @since 2022-03-21
  */
-@TableName(value = "system_mail_log", autoResultMap = true)
+@TenantIsolated
+@TableName(value = "system_tenant_mail_log", autoResultMap = true)
 @KeySequence("system_mail_log_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -31,8 +32,7 @@ import java.util.Map;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TenantIgnore
-public class MailLogDO extends BaseDO implements Serializable {
+public class MailLogDO extends TenantBaseDO implements Serializable {
 
     /**
      * 日志编号，自增

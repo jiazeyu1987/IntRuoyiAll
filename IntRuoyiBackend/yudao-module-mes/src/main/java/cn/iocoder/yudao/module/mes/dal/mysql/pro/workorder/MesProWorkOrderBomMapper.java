@@ -37,6 +37,17 @@ public interface MesProWorkOrderBomMapper extends BaseMapperX<MesProWorkOrderBom
                 .in(MesProWorkOrderBomDO::getWorkOrderId, workOrderIds));
     }
 
+    default List<MesProWorkOrderBomDO> selectListByWorkOrderIdsAndItemIds(
+            Collection<Long> workOrderIds, Collection<Long> itemIds) {
+        if (workOrderIds.isEmpty() || itemIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProWorkOrderBomDO>()
+                .in(MesProWorkOrderBomDO::getWorkOrderId, workOrderIds)
+                .in(MesProWorkOrderBomDO::getItemId, itemIds)
+                .orderByAsc(MesProWorkOrderBomDO::getId));
+    }
+
     default void deleteByWorkOrderId(Long workOrderId) {
         delete(MesProWorkOrderBomDO::getWorkOrderId, workOrderId);
     }

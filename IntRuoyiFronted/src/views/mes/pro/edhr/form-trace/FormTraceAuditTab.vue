@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-form-trace-audit">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       table-key="mes.pro.edhr.formTrace.audit"
       :query-model="queryParams"
       :filter-definitions="auditQuickFilterDefinitions"
@@ -18,16 +20,12 @@
       @quick-filter-query="auditQuickFilter.applyQuickFilter"
       @column-change="saveAuditColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -40,7 +38,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.formTrace.audit"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="executionId"
@@ -226,6 +224,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { EDHR_EXECUTION_STATUS } from '@/api/mes/pro/edhr/approval'
 import {
@@ -270,6 +270,7 @@ const ARCHIVE_STATUS_LABELS: Record<NonNullable<EdhrTrackingRowVO['archiveStatus
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   executionCode: typeof route.query.executionCode === 'string' ? route.query.executionCode : '',
@@ -404,11 +405,15 @@ const resolveExecutionDisplay = (row: EdhrTrackingRowVO) =>
 const canOpenDetail = (row: EdhrTrackingRowVO) =>
   Number.isFinite(Number(row.executionId)) && Number(row.executionId) > 0
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrTrackingPage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       executionCode: queryParams.executionCode.trim() || undefined,
@@ -422,20 +427,19 @@ async function getList() {
       processInstanceId: queryParams.processInstanceId.trim() || undefined,
       actorName: queryParams.actorName.trim() || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 追踪列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
-}
-
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
 }
 
 const resetQuery = async () => {
@@ -502,6 +506,57 @@ const openBatch = (row: EdhrTrackingRowVO) => {
 }
 
 onMounted(() => getList())
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'execution',
+    label: '执行编号',
+    type: 'text',
+    getValue: (row) => [resolveExecutionDisplay(row), resolveExecutionDisplay(row)].join(' ')
+  },
+  {
+    key: 'productionContext',
+    label: '生产上下文',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.workOrderCode || '--',
+        row.workOrderCode || '--',
+        row.batchCode || '--',
+        row.batchCode || '--',
+        row.processName || '--',
+        row.workstationName || '--'
+      ].join(' ')
+  },
+  {
+    key: 'stage',
+    label: '当前阶段',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveStatusLabel(row.status),
+        row.currentNodeName || '--',
+        row.currentAssigneeNames?.join('、') || '--'
+      ].join(' ')
+  },
+  {
+    key: 'lastEvent',
+    label: '最后处理',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatTrackingEvent(row.lastEventType),
+        formatTrackingLastEventAt(row.lastEventAt),
+        row.lastEventReason || '--'
+      ].join(' ')
+  },
+  {
+    key: 'archiveStatus',
+    label: '归档状态',
+    type: 'text',
+    getValue: (row) => [formatArchiveStatusLabel(row.archiveStatus)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

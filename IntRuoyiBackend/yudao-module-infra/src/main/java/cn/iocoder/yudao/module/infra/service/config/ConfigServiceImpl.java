@@ -3,11 +3,11 @@ package cn.iocoder.yudao.module.infra.service.config;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigPageReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
-import cn.iocoder.yudao.module.infra.convert.config.ConfigConvert;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
 import cn.iocoder.yudao.module.infra.enums.config.ConfigTypeEnum;
 import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
+import cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -35,27 +35,30 @@ public class ConfigServiceImpl implements ConfigService {
     private static final Pattern POSITIVE_INTEGER_PATTERN = Pattern.compile("^[1-9]\\d*$");
 
     @Resource
-    private ConfigMapper configMapper;
+    private TenantConfigService tenantConfigService;
+
+    @Resource
+    private ConfigMapper platformConfigMapper;
 
     @Override
     public Long createConfig(ConfigSaveReqVO createReqVO) {
+        TenantConfigService.requireTenantKey(createReqVO.getKey());
         validateConfigValue(createReqVO.getKey(), createReqVO.getValue());
         // 校验参数配置 key 的唯一性
         validateConfigKeyUnique(null, createReqVO.getKey());
 
         // 插入参数配置
-        ConfigDO config = ConfigConvert.INSTANCE.convert(createReqVO);
-        config.setType(PasswordMaxAgeConfig.KEY.equals(config.getConfigKey())
-                ? ConfigTypeEnum.SYSTEM.getType() : ConfigTypeEnum.CUSTOM.getType());
-        configMapper.insert(config);
-        return config.getId();
+        Integer type = PasswordMaxAgeConfig.KEY.equals(createReqVO.getKey())
+                ? ConfigTypeEnum.SYSTEM.getType() : ConfigTypeEnum.CUSTOM.getType();
+        return tenantConfigService.createConfig(createReqVO, type);
     }
 
     @Override
     public void updateConfig(ConfigSaveReqVO updateReqVO) {
         // 校验自己存在
         ConfigDO current = validateConfigExists(updateReqVO.getId());
-        if (current != null && PasswordMaxAgeConfig.KEY.equals(current.getConfigKey())
+        TenantConfigService.requireTenantKey(updateReqVO.getKey());
+        if (PasswordMaxAgeConfig.KEY.equals(current.getConfigKey())
                 && !PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
             throw exception(CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE);
         }
@@ -64,14 +67,12 @@ public class ConfigServiceImpl implements ConfigService {
         validateConfigKeyUnique(updateReqVO.getId(), updateReqVO.getKey());
 
         // 更新参数配置
-        ConfigDO updateObj = ConfigConvert.INSTANCE.convert(updateReqVO);
-        if (PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
-            updateObj.setType(ConfigTypeEnum.SYSTEM.getType());
-        }
-        configMapper.updateById(updateObj);
+        Integer type = PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey()) ? ConfigTypeEnum.SYSTEM.getType() : null;
+        tenantConfigService.updateConfig(updateReqVO, type);
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteConfig(Long id) {
         // 校验配置存在
         ConfigDO config = validateConfigExists(id);
@@ -80,44 +81,46 @@ public class ConfigServiceImpl implements ConfigService {
             throw exception(CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
         }
         // 删除
-        configMapper.deleteById(id);
+        tenantConfigService.deleteConfigs(List.of(id));
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteConfigList(List<Long> ids) {
-        // 校验是否有内置配置
-        List<ConfigDO> configs = configMapper.selectByIds(ids);
-        configs.forEach(config -> {
+        if (ids.isEmpty()) return;
+        List<Long> uniqueIds = ids.stream().distinct().toList();
+        for (Long id : uniqueIds) {
+            ConfigDO config = validateConfigExists(id);
             if (ConfigTypeEnum.SYSTEM.getType().equals(config.getType())) {
                 throw exception(CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
             }
-        });
-
-        // 批量删除
-        configMapper.deleteByIds(ids);
+        }
+        tenantConfigService.deleteConfigs(uniqueIds);
     }
 
     @Override
     public ConfigDO getConfig(Long id) {
-        return configMapper.selectById(id);
+        return tenantConfigService.getConfig(id);
     }
 
     @Override
     public ConfigDO getConfigByKey(String key) {
-        return configMapper.selectByKey(key);
+        // Explicit read-only platform definition; never a fallback for missing tenant configuration.
+        if (GxpAuditMode.CONFIG_KEY.equals(key)) return platformConfigMapper.selectByKey(key);
+        return tenantConfigService.getConfigByKey(key);
     }
 
     @Override
     public PageResult<ConfigDO> getConfigPage(ConfigPageReqVO pageReqVO) {
-        return configMapper.selectPage(pageReqVO);
+        return tenantConfigService.getConfigPage(pageReqVO);
     }
 
     @VisibleForTesting
     public ConfigDO validateConfigExists(Long id) {
         if (id == null) {
-            return null;
+            throw exception(CONFIG_NOT_EXISTS);
         }
-        ConfigDO config = configMapper.selectById(id);
+        ConfigDO config = tenantConfigService.getConfig(id);
         if (config == null) {
             throw exception(CONFIG_NOT_EXISTS);
         }
@@ -126,7 +129,7 @@ public class ConfigServiceImpl implements ConfigService {
 
     @VisibleForTesting
     public void validateConfigKeyUnique(Long id, String key) {
-        ConfigDO config = configMapper.selectByKey(key);
+        ConfigDO config = tenantConfigService.getConfigByKey(key);
         if (config == null) {
             return;
         }

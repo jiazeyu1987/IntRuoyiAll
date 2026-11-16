@@ -36,6 +36,15 @@ public class MailTemplateServiceImplTest extends BaseDbUnitTest {
     @Resource
     private MailTemplateServiceImpl mailTemplateService;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.system.dal.mysql.mail.MailAccountMapper mailAccountMapper;
+
+    @org.junit.jupiter.api.BeforeEach
+    void prepareAccount() {
+        org.mockito.Mockito.when(mailAccountMapper.selectById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new cn.iocoder.yudao.module.system.dal.dataobject.mail.MailAccountDO());
+    }
+
     @Resource
     private MailTemplateMapper mailTemplateMapper;
 

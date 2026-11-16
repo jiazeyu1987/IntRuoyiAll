@@ -6,7 +6,6 @@ import { runInNewContext } from 'node:vm'
 import { h } from 'vue'
 import { createFormalActionGuard, createFormalWriteReceiptState, createApprovalInvalidationState } from '../src/store/modules/approvalCenterInvalidationState.ts'
 
-import { applyWithNoReplenishmentConfirmation } from '../src/views/mes/pro/processpool/activeOrderReplenishmentConfirmation.ts'
 
 const ref = value => ({ value })
 const computed = getter => ({ get value() { return getter() } })
@@ -320,7 +319,7 @@ const releaseHarness = () => {
   const runtime = {
     Object, Date, Number, String, Set, Map, h,
     releaseApplicationIdempotencyKeys: new Map([[row.id, 'current-request']]), releaseApplicationLocks: new Map(),
-    releaseApplicationSubmittingId: ref(undefined), releaseApplicationBlockers: ref([]), releaseApplicationUncertainMessage: ref(''), activeOrderTestResetSubmitting: ref(false),
+    releaseApplicationSubmittingId: ref(undefined), releaseApplicationErrorMessage: ref(''), releaseApplicationErrorOrder: ref(undefined), releaseApplicationBlockers: ref([]), releaseApplicationUncertainMessage: ref(''), activeOrderTestResetSubmitting: ref(false),
     approvalInvalidation: {
       syncSession: () => session,
       captureHandoffReceiptSuccess: (scope, type, id) => state.capture(scope, { sourceTaskType: 'ACTIVE_ORDER_HANDOFF', businessSourceType: type, businessSourceId: id }),
@@ -330,49 +329,31 @@ const releaseHarness = () => {
     canApplyActiveOrderRelease: () => true, isActiveOrderReleaseApplicationLocked: id => runtime.releaseApplicationLocks.has(id), resolveActiveOrderReleaseApplyDisabledReason: () => 'locked',
     getTeamLeaderActiveOrderRelease: async id => { reads++; assert.equal(id, '9007199254740993'); return receipt() },
     applyTeamLeaderActiveOrderRelease: async payload => { writes++; payloads.push(payload); return receipt() },
-    loadActiveOrders: async () => { refreshes++ }, activeOrderOptions: ref([]), applyWithNoReplenishmentConfirmation,
+    loadActiveOrders: async () => { refreshes++ }, activeOrderOptions: ref([]),
     requirePositiveNumber: (value, message) => { if (!(typeof value === 'number' && Number.isFinite(value) && value > 0)) throw Error(message); return value },
     resolveErrorMessage: e => e?.message ?? String(e), ElMessageBox: { confirm: async () => {} },
     ElMessage: { success: x => notices.push(x), error: x => notices.push(x), warning: x => notices.push(x) }
   }
   const file = 'processpool/TeamLeaderWorkbenchPage.vue'
-  execute(extract(file, 'getOrCreateActiveOrderReleaseIdempotencyKey', 'leaderReleaseGuard') + extract(file, 'assertActiveOrderReleaseApplicationReceipt', 'submitMoveActiveOrder'), ['freezeActiveOrderReleaseRequest', 'confirmActiveOrderReleaseApplicationReceipt', 'recoverUncertainActiveOrderReleaseApplication', 'submitActiveOrderReleaseApplication', 'requireActiveOrderReleaseIdentity', 'isActiveOrderReleaseTransportTimeout'], runtime)
+  execute(extract(file, 'getOrCreateActiveOrderReleaseIdempotencyKey', 'leaderReleaseGuard') + extract(file, 'assertActiveOrderReleaseApplicationReceipt', 'handleRebuildActiveOrder'), ['freezeActiveOrderReleaseRequest', 'confirmActiveOrderReleaseApplicationReceipt', 'recoverUncertainActiveOrderReleaseApplication', 'submitActiveOrderReleaseApplication', 'requireActiveOrderReleaseIdentity', 'isActiveOrderReleaseTransportTimeout'], runtime)
   return { runtime, row, receipt, events, notices, payloads, state, counts: () => ({ reads, writes, refreshes }), route: () => { routeKey = 'order2'; runtime.leaderReleaseGuard.invalidate() }, account: () => { session = { key: 's2', tenantId: '2', loginUserId: '8' }; state.setSession(session.key) } }
 }
 const transportTimeout = () => ({ isAxiosError: true, code: 'ECONNABORTED', request: {}, message: 'timeout' })
 
-for (const change of ['route', 'session', 'source-version', 'order-version', 'cancel', 'current']) {
-  test(`actual leader secondary no-replenishment confirmation: ${change}`, async () => {
-    const h = releaseHarness(), confirmation = deferred(), confirmationStarted = deferred()
-    let confirms = 0, writes = 0
-    h.runtime.ElMessageBox.confirm = async () => {
-      confirms++
-      if (confirms === 2) { confirmationStarted.resolve(); return confirmation.promise }
-    }
-    h.runtime.applyTeamLeaderActiveOrderRelease = async payload => {
-      writes++; h.payloads.push(payload)
-      if (writes === 1) throw { code: 100, message: 'NO_REPLENISHMENT_CONFIRMATION_REQUIRED' }
-      return h.receipt()
-    }
-    const pending = h.runtime.submitActiveOrderReleaseApplication(h.row)
-    await confirmationStarted.promise
-    if (change === 'route') h.route()
-    if (change === 'session') h.account()
-    if (change === 'source-version') h.row.routeVersionId = '99'
-    if (change === 'order-version') h.row.version = 2
-    if (change === 'cancel') confirmation.reject('cancel'); else confirmation.resolve()
-    await pending
-    assert.equal(writes, change === 'current' ? 2 : 1)
-    assert.equal(confirms, 2)
-    assert.equal(h.events.length, change === 'current' ? 1 : 0)
-    if (change === 'current') assert.equal(h.payloads[1].confirmNoReplenishmentInfo, true)
-    if (!['current', 'cancel'].includes(change)) assert.equal(h.notices.length, 0)
-    if (change === 'cancel') assert.equal(h.runtime.releaseApplicationLocks.has(h.row.id), false)
-  })
-}
+test('actual leader no-replenishment submission needs only the main confirmation', async () => {
+  const h = releaseHarness()
+  let confirms = 0
+  h.runtime.ElMessageBox.confirm = async () => { confirms++ }
+  await h.runtime.submitActiveOrderReleaseApplication(h.row)
+  assert.equal(confirms, 1)
+  assert.equal(h.counts().writes, 1)
+  assert.equal(h.counts().refreshes, 1)
+  assert.equal(h.events.length, 1)
+  assert.equal(h.payloads[0].confirmNoReplenishmentInfo, undefined)
+})
 
 for (const change of ['route', 'session', 'source-version', 'order-version']) {
-  test(`actual leader obsolete first prerequisite opens no second dialog: ${change}`, async () => {
+  test(`actual leader obsolete rejected submission opens no second dialog: ${change}`, async () => {
     const h = releaseHarness(), firstWrite = deferred(), started = deferred()
     let confirms = 0, writes = 0
     h.runtime.ElMessageBox.confirm = async () => { confirms++ }
@@ -383,22 +364,12 @@ for (const change of ['route', 'session', 'source-version', 'order-version']) {
     if (change === 'session') h.account()
     if (change === 'source-version') h.row.routeVersionId = '99'
     if (change === 'order-version') h.row.version = 2
-    firstWrite.reject({ code: 100, message: 'NO_REPLENISHMENT_CONFIRMATION_REQUIRED' })
+    firstWrite.reject({ code: 100, message: 'LOSS_REPLENISHMENT_MATERIAL_UNBOUND' })
     await pending
     assert.equal(writes, 1); assert.equal(confirms, 1)
     assert.equal(h.events.length, 0); assert.equal(h.notices.length, 0)
   })
 }
-
-test('actual replenishment helper checks context before first write and rethrows current failure', async () => {
-  let writes = 0, confirms = 0
-  const apply = async () => { writes++; throw { code: 500, message: 'formal rejected' } }
-  const confirm = async () => { confirms++ }
-  assert.equal(await applyWithNoReplenishmentConfirmation(apply, confirm, e => e.message, () => false), undefined)
-  assert.equal(writes, 0)
-  await assert.rejects(applyWithNoReplenishmentConfirmation(apply, confirm, e => e.message, () => true), e => e.code === 500)
-  assert.equal(writes, 1); assert.equal(confirms, 0)
-})
 
 for (const variant of ['match', 'old-key', 'missing-key', 'empty-key', 'empty-receipt', 'wrong-order', 'wrong-work-order', 'wrong-route', 'wrong-version', 'unknown-status', 'missing-hash', 'missing-p2', 'missing-pqc', 'missing-application', 'missing-formal-version', 'fractional-formal-version', 'missing-applied-at', 'read-failure']) {
   test(`actual release submit timeout receipt: ${variant}`, async () => {

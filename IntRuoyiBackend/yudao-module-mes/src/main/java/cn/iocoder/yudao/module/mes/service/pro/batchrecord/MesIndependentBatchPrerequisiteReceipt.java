@@ -5,7 +5,7 @@ import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
 
-/** Canonical Flow 6 credential for an independent batch entry. */
+/** Historical snapshot shape only. Independent receipt issuing and verification have been retired. */
 @Data
 @Accessors(chain = true)
 public class MesIndependentBatchPrerequisiteReceipt {

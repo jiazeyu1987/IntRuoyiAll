@@ -11,7 +11,10 @@ MAPPER = Path(__file__).resolve().parents[2] / "yudao-module-mes/src/main/resour
 
 
 def detail(base):
-    text = ET.parse(MAPPER).getroot().find("sql[@id='" + base + "']").text
+    # The eDHR base now unites ordinary tasks and handoffs; these fixtures exercise
+    # the ordinary task's REGEXP detail projection.
+    fragment = "ordinaryEdhr" if base == "baseEdhr" else base
+    text = ET.parse(MAPPER).getroot().find("sql[@id='" + fragment + "']").text
     match = re.search(r"(CONCAT_WS\(' · ',.*?\)) AS detail,", text, re.S)
     if match is None:
         raise AssertionError("Actual MES detail projection is missing")
@@ -115,7 +118,7 @@ class MesWorkbenchRegexpCollationTest(unittest.TestCase):
 
     def test_all_actual_patterns_are_explicit_and_source_columns_implicit(self):
         text = MAPPER.read_text(encoding="utf-8-sig")
-        self.assertEqual(18, text.count("COLLATE utf8mb4_unicode_ci"))
+        self.assertEqual(22, text.count("COLLATE utf8mb4_unicode_ci"))
         self.assertEqual(18, len(re.findall(
             r"CONVERT\(UNHEX\('[0-9A-F]+'\) USING utf8mb4\) COLLATE utf8mb4_unicode_ci", text)))
         pattern = re.search(r"CONVERT\(UNHEX\('[0-9A-F]+'\) USING utf8mb4\) COLLATE utf8mb4_unicode_ci", text)

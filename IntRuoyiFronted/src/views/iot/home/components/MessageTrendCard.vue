@@ -124,6 +124,7 @@ const initChart = () => {
   try {
     const chart = echarts.init(messageChartRef.value)
     chart.setOption({
+      textStyle: { fontFamily: 'Microsoft YaHei' },
       tooltip: {
         trigger: 'axis',
         backgroundColor: 'rgba(255, 255, 255, 0.9)',

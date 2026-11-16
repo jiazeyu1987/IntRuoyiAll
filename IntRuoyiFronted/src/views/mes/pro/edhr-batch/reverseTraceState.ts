@@ -86,3 +86,10 @@ export const revokeReverseTraceSnapshot = (request: ReverseTraceQueryRequest, qu
     }
   }
 }
+
+export const revokeReverseTraceStates = () => {
+  const owner = reverseTraceIdentity()
+  for (const [key, entry] of states) {
+    if (entry.owner === owner) states.delete(key)
+  }
+}

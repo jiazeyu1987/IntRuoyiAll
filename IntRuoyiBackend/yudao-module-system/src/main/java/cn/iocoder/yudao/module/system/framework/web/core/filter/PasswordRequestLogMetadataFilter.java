@@ -40,7 +40,9 @@ public final class PasswordRequestLogMetadataFilter extends OncePerRequestFilter
         endpoints = List.of(
                 endpoint(properties, UserController.class, "updateUserPassword", UserUpdatePasswordReqVO.class, users),
                 endpoint(properties, UserProfileController.class, "updateUserProfilePassword",
-                        UserProfileUpdatePasswordReqVO.class, profiles));
+                        UserProfileUpdatePasswordReqVO.class, profiles),
+                endpoint(properties, UserProfileController.class, "updateSignatureSettings",
+                        cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserSignatureSettingsReqVO.class, profiles));
         Assert.state(!endpoints.get(0).pattern().getPatternString().equals(endpoints.get(1).pattern().getPatternString()),
                 "Password log metadata mappings must be distinct");
     }

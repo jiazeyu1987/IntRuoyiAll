@@ -56,7 +56,7 @@ public class MesFrontlinePqcSubmitReqVO {
     private Integer actualInspectionQuantity;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
 
     @Schema(description = "结构化损耗数量")

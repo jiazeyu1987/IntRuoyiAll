@@ -56,9 +56,14 @@
 
   --app-content-bg-color: #f5f7f9;
 
-  --app-footer-height: 50px;
+  --app-footer-height: 0px;
 
   --transition-time-02: 0.2s;
+}
+
+html:root {
+  --app-font-family: "Microsoft YaHei";
+  --el-font-family: var(--app-font-family);
 }
 
 .dark {
@@ -67,6 +72,7 @@
 
 html,
 body {
+  font-family: var(--app-font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

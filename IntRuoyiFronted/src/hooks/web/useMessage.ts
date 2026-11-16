@@ -1,8 +1,23 @@
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import type { VNode } from 'vue'
+import { h, type VNode } from 'vue'
 import { useI18n } from './useI18n'
 
 type MessageContent = string | VNode
+const readableMessage = (content: MessageContent) =>
+  typeof content === 'string'
+    ? h(
+        'div',
+        {
+          style: {
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+            maxHeight: '65vh',
+            overflowY: 'auto'
+          }
+        },
+        content
+      )
+    : content
 type MessageBoxPromptOptions = NonNullable<Parameters<typeof ElMessageBox.prompt>[2]>
 const APP_CONFIRM_MESSAGE_BOX_MODAL_CLASS = 'app-confirm-message-box-overlay'
 
@@ -27,19 +42,19 @@ export const useMessage = () => {
     },
     // 弹出提示
     alert(content: MessageContent) {
-      ElMessageBox.alert(content, t('common.confirmTitle'))
+      ElMessageBox.alert(readableMessage(content), t('common.confirmTitle'))
     },
     // 错误提示
     alertError(content: string) {
-      ElMessageBox.alert(content, t('common.confirmTitle'), { type: 'error' })
+      ElMessageBox.alert(readableMessage(content), t('common.confirmTitle'), { type: 'error' })
     },
     // 成功提示
     alertSuccess(content: string) {
-      ElMessageBox.alert(content, t('common.confirmTitle'), { type: 'success' })
+      ElMessageBox.alert(readableMessage(content), t('common.confirmTitle'), { type: 'success' })
     },
     // 警告提示
     alertWarning(content: string) {
-      ElMessageBox.alert(content, t('common.confirmTitle'), { type: 'warning' })
+      ElMessageBox.alert(readableMessage(content), t('common.confirmTitle'), { type: 'warning' })
     },
     // 通知提示
     notify(content: string) {

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveGenerateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPrintGenerateReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +63,29 @@ class MesProEdhrBatchExecutionArchiveControllerTest {
     }
 
     @Test
+    void printPdf_returnsRenderedBytesWithTheirChecksumWithoutArchiveCreation() {
+        byte[] content = "%PDF-1.4 print".getBytes(StandardCharsets.UTF_8);
+        when(batchExecutionService.renderPrintPdf(1L)).thenReturn(new EdhrBatchExecutionArchiveDownloadRespVO()
+                .setFileName("formal-print.pdf").setContentType("application/pdf")
+                .setFileSize((long) content.length).setContent(content));
+        ResponseEntity<byte[]> response = controller.printPdf(
+                new EdhrBatchExecutionPrintGenerateReqVO().setBatchExecutionId(1L));
+        assertArrayEquals(content, response.getBody());
+        assertEquals(MediaType.APPLICATION_PDF, response.getHeaders().getContentType());
+        assertEquals(content.length, response.getHeaders().getContentLength());
+        assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content),
+                response.getHeaders().getFirst("X-Content-SHA256"));
+        verify(batchExecutionService).renderPrintPdf(1L);
+        org.mockito.Mockito.verifyNoMoreInteractions(batchExecutionService);
+    }
+
+    @Test
     void contractMappings_matchArchiveEndpointsAndPermissions() throws Exception {
+        Method generatePrint = MesProEdhrBatchExecutionArchiveController.class.getDeclaredMethod("printPdf",
+                EdhrBatchExecutionPrintGenerateReqVO.class);
+        assertArrayEquals(new String[]{"/print-pdf"}, generatePrint.getAnnotation(PostMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution-archive:download')",
+                generatePrint.getAnnotation(PreAuthorize.class).value());
         Method generate = MesProEdhrBatchExecutionArchiveController.class.getDeclaredMethod("generate",
                 EdhrBatchExecutionArchiveGenerateReqVO.class);
         assertArrayEquals(new String[]{"/generate"}, generate.getAnnotation(PostMapping.class).value());

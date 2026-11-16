@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.md.workstation.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,6 +23,9 @@
       @column-change="saveWorkstationColumnConfig"
       @column-reset="resetWorkstationColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -43,13 +47,13 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="workstation-main-table"
           data-user-table-column-explicit
           data-user-table-key="mes.md.workstation.main"
-          :data="list"
+          :data="resolveRows(list)"
           :height="workstationMainTableHeight"
           border
           :stripe="true"
@@ -299,6 +303,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { MdWorkstationApi, type MdWorkstationVO } from '@/api/mes/md/workstation'
@@ -369,6 +376,7 @@ const pendingMachineryLedgerId = ref<number | undefined>()
 const routeQuickFilterApplied = ref(false)
 const lastAppliedWorkstationRouteQuerySignature = ref('')
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -447,6 +455,7 @@ const applyWorkstationQuickFilterToQueryParams = () => {
 const buildWorkstationPageParams = () => {
   applyWorkstationQuickFilterToQueryParams()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     code: queryParams.code,
@@ -625,6 +634,54 @@ watch(
     tryOpenDetailFromRoute()
   }
 )
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'configuredWorkerCount',
+    label: '理论配置人数',
+    type: 'text',
+    getValue: (row) => [row.configuredWorkerCount ?? 0].join(' ')
+  },
+  {
+    key: 'currentWorkerCount',
+    label: '当前在岗人数',
+    type: 'text',
+    getValue: (row) => [row.currentWorkerCount ?? 0].join(' ')
+  },
+  {
+    key: 'singleStandardHourlyCapacity',
+    label: '人工标准小时产能',
+    type: 'text',
+    getValue: (row) =>
+      [formatWorkstationIntegerCapacity(row.singleStandardHourlyCapacity, '-')].join(' ')
+  },
+  {
+    key: 'machineryStandardHourlyCapacity',
+    label: '设备标准小时产能',
+    type: 'text',
+    getValue: (row) =>
+      [formatWorkstationIntegerCapacity(row.machineryStandardHourlyCapacity)].join(' ')
+  },
+  {
+    key: 'shiftHours',
+    label: '班次小时',
+    type: 'text',
+    getValue: (row) => [row.shiftHours ?? '-'].join(' ')
+  },
+  {
+    key: 'todayCapacity',
+    label: '班次产能',
+    type: 'text',
+    getValue: (row) => [formatWorkstationIntegerCapacity(row.todayCapacity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

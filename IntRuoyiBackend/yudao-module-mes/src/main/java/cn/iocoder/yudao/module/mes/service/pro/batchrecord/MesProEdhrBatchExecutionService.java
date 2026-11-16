@@ -4,11 +4,9 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveGenerateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchHistoryRowRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
@@ -25,7 +23,12 @@ public interface MesProEdhrBatchExecutionService {
 
     PageResult<EdhrBatchExecutionRespVO> getPage(EdhrBatchExecutionPageReqVO reqVO);
 
+    PageResult<EdhrBatchHistoryRowRespVO> getHistoryPage(EdhrBatchExecutionPageReqVO reqVO);
+
     EdhrBatchExecutionRespVO get(Long id);
+
+    /** Authorize and read the persisted batch without provisioning tasks or synchronizing status. */
+    EdhrBatchExecutionRespVO getReadableBatchSource(Long id);
 
     EdhrBatchExecutionRespVO openOrCreate(EdhrBatchExecutionOpenOrCreateReqVO reqVO);
 
@@ -33,9 +36,6 @@ public interface MesProEdhrBatchExecutionService {
     Long openOrCreateFromProductionRelease(MesProEdhrProductionReleaseBatchCommand command);
 
     EdhrBatchExecutionRespVO reexecuteRejectedBatch(EdhrBatchExecutionReexecuteReqVO reqVO);
-
-    EdhrBatchExecutionGoldenFingerBulkVoidRespVO goldenFingerBulkVoid(
-            EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO);
 
     List<EdhrBatchExecutionRouteOptionRespVO> listRouteOptionsByWorkOrder(Long workOrderId);
 
@@ -77,11 +77,11 @@ public interface MesProEdhrBatchExecutionService {
 
     EdhrBatchExecutionReviewTimelineRespVO getReviewTimeline(Long id);
 
-    EdhrBatchExecutionRespVO close(EdhrBatchExecutionCloseReqVO reqVO);
-
     EdhrBatchExecutionRespVO qualityReject(EdhrBatchExecutionQualityRejectReqVO reqVO);
 
     EdhrBatchExecutionArchiveRespVO generateArchive(EdhrBatchExecutionArchiveGenerateReqVO reqVO);
+
+    EdhrBatchExecutionArchiveDownloadRespVO renderPrintPdf(Long batchExecutionId);
 
     EdhrBatchExecutionArchiveRespVO getLatestArchive(Long batchExecutionId);
 

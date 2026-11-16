@@ -253,29 +253,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
       }
     ]
   },
-  {
-    path: '/job',
-    component: Layout,
-    name: 'JobL',
-    meta: {
-      hidden: true
-    },
-    children: [
-      {
-        path: 'job-log',
-        component: () => import('@/views/infra/job/logger/index.vue'),
-        name: 'InfraJobLog',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: 'ep:edit',
-          title: '调度日志',
-          activeMenu: 'infra/job/index'
-        }
-      }
-    ]
-  },
+
   {
     path: '/login',
     component: () => import('@/views/Login/Login.vue'),
@@ -433,7 +411,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmBusinessApprovalPolicy',
             meta: {
               noCache: true,
-              hidden: true,
+              hidden: false,
               canTo: true,
               title: '业务审批策略',
               activeMenu: '/approval-center/manager/business-approval-policy',
@@ -704,6 +682,33 @@ const remainingRouter: AppRouteRecordRaw[] = [
       hidden: true
     },
     children: [
+      {
+        // 项目申请复用产品目录页面，不依赖申请人拥有产品目录菜单。
+        path: 'product-catalog',
+        component: () => import('@/views/dcc/controlled-file/basic-data/product-catalog/index.vue'),
+        name: 'DccProductCatalogBasicDataPage',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: 'DCC产品目录',
+          activeMenu: '/mes/md/dcc-project-code',
+          permission: ['dcc:project-code:query']
+        }
+      },
+      {
+        path: 'project-code',
+        component: () => import('@/views/dcc/controlled-file/basic-data/project-code/index.vue'),
+        name: 'MdmProjectCodeHidden',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: 'DCC项目代码',
+          activeMenu: '/mdm/product-catalog',
+          permission: ['dcc:project-code:query']
+        }
+      },
       {
         path: 'company-scope',
         component: () => import('@/views/mdm/company-scope/index.vue'),
@@ -1296,19 +1301,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           activeMenu: '/dcc/controlled-file/browser'
         }
       },
-      {
-        path: 'controlled-file/logs',
-        component: () => import('@/views/dcc/controlled-file/logs/index.vue'),
-        name: 'DccControlledFileLogs',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          title: '文控日志',
-          activeMenu: '/dcc/controlled-file/logs',
-          permission: ['dcc:controlled-file:log:query']
-        }
-      },
+
       {
         path: 'controlled-file/positions',
         component: () => import('@/views/dcc/controlled-file/positions/index.vue'),
@@ -1745,20 +1738,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-work-task',
-        component: () => import('@/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue'),
-        name: 'MesProEdhrWorkTaskBoard',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'eDHR 工作任务',
-          activeMenu: '/mes/pro/feedback/edhr-work-task',
-          permission: ['mes:pro-edhr-work-task:query']
-        }
-      },
-      {
         path: 'production-release/pqc',
         component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
         name: 'MesPqcProductionRelease',
@@ -1795,8 +1774,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           canTo: true,
           icon: '',
           title: '不合格评审',
-          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
-          permission: ['mes:pro-edhr-nonconformance-review:query']
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution'
         }
       },
       {
@@ -1857,32 +1835,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
           permission: ['mes:pro-edhr-release:query']
         }
       },
+
+
       {
-        path: 'pro/feedback/edhr-field-audit',
-        component: () => import('@/views/mes/pro/edhr/FieldAuditPage.vue'),
-        name: 'MesProFeedbackEdhrFieldAudit',
+        path: 'pro/feedback/edhr-dossier-completion',
+        component: () => import('@/views/mes/pro/edhr-batch/DossierCompletionPage.vue'),
+        name: 'MesProFeedbackEdhrDossierCompletion',
         meta: {
           noCache: true,
           hidden: true,
           canTo: true,
           icon: '',
-          title: '字段审计链',
-          activeMenu: '/mes/pro/feedback/edhr-field-audit',
-          permission: ['mes:pro-batch-record-execution:field-audit-query']
-        }
-      },
-      {
-        path: 'pro/feedback/edhr-field-audit/detail',
-        component: () => import('@/views/mes/pro/edhr/FieldAuditDetailPage.vue'),
-        name: 'MesProFeedbackEdhrFieldAuditDetail',
-        meta: {
-          noCache: false,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '字段审计详情',
-          activeMenu: '/mes/pro/feedback/edhr-field-audit',
-          permission: ['mes:pro-batch-record-execution:field-audit-query']
+          title: '批记录资料补齐',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-work-task:query']
         }
       },
       {
@@ -1899,20 +1865,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           permission: ['mes:pro-edhr-change:query']
         }
       },
-      {
-        path: 'pro/feedback/edhr-operation-audit',
-        component: () => import('@/views/mes/pro/edhr/OperationAuditPage.vue'),
-        name: 'MesProFeedbackEdhrOperationAudit',
-        meta: {
-          noCache: false,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'eDHR操作审计',
-          activeMenu: '/mes/pro/feedback/edhr-operation-audit',
-          permission: ['mes:pro-edhr-operation-audit:query']
-        }
-      },
+
       {
         path: 'pro/feedback/edhr-permission-matrix',
         component: () => import('@/views/mes/pro/edhr/PermissionMatrixPage.vue'),
@@ -1964,7 +1917,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'eDHR批次执行',
+          title: '上市放行',
           activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2011,20 +1964,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           permission: ['mes:pro-edhr-batch-execution:query']
         }
       },
-      {
-        path: 'pro/feedback/edhr-form-fill-log',
-        component: () => import('@/views/mes/pro/edhr/FormFillLogPage.vue'),
-        name: 'MesProEdhrFormFillLogPage',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '表单日志',
-          activeMenu: '/mes/pro/feedback/edhr-form-fill-log',
-          permission: ['mes:pro-edhr-form-fill-log:query']
-        }
-      },
+
       {
         path: 'pro/feedback/edhr-batch-execution/review',
         component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionReviewPage.vue'),
@@ -2201,8 +2141,22 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'QA 规程配置',
+          title: 'QA检验规程',
           activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:qa-inspection-regulation:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/common-regulation',
+        component: () => import('@/views/mes/pro/processpool/CommonRegulationPage.vue'),
+        name: 'MesProProcessPoolCommonRegulation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '通用检验规程',
+          activeMenu: '/mes/pro/process-pool/common-regulation',
           permission: ['mes:qa-inspection-regulation:query']
         }
       },

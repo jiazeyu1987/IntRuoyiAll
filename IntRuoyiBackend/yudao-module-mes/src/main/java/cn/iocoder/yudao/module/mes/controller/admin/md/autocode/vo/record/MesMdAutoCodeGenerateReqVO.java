@@ -11,6 +11,7 @@ public class MesMdAutoCodeGenerateReqVO {
     @Schema(description = "规则编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "ITEM_CODE")
     @NotEmpty(message = "规则编码不能为空")
     private String ruleCode;
+    private Long projectId;
 
     @Schema(description = "输入字符", example = "A")
     private String inputChar;

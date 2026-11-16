@@ -16,6 +16,9 @@ import java.util.List;
 
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
+    @Update("UPDATE system_users SET signature_credential_type=#{type}, signature_pin_hash=#{hash}, updater=#{userId}, update_time=CURRENT_TIMESTAMP WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    int updateSignatureSettings(@Param("tenantId") Long tenantId, @Param("userId") Long userId, @Param("type") String type, @Param("hash") String hash);
+
     @Select("SELECT id, tenant_id, status, username, nickname FROM system_users "
             + "WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
     AdminUserDO selectGxpAuditActor(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
@@ -97,25 +100,22 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
     }
 
     default PageResult<AdminUserDO> selectPage(UserPageReqVO reqVO, Collection<Long> deptIds, Collection<Long> userIds) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<AdminUserDO>()
-                .likeIfPresent(AdminUserDO::getUsername, reqVO.getUsername())
-                .likeIfPresent(AdminUserDO::getMobile, reqVO.getMobile())
-                .eqIfPresent(AdminUserDO::getStatus, reqVO.getStatus())
-                .betweenIfPresent(AdminUserDO::getCreateTime, reqVO.getCreateTime())
-                .inIfPresent(AdminUserDO::getDeptId, deptIds)
-                .inIfPresent(AdminUserDO::getId, userIds)
-                .orderByDesc(AdminUserDO::getId));
+        return selectPage(reqVO, deptIds, userIds, java.util.Collections.emptySet());
     }
 
-    default List<AdminUserDO> selectListForPage(UserPageReqVO reqVO, Collection<Long> deptIds, Collection<Long> userIds) {
-        return selectList(new LambdaQueryWrapperX<AdminUserDO>()
+    default PageResult<AdminUserDO> selectPage(UserPageReqVO reqVO, Collection<Long> deptIds,
+                                              Collection<Long> userIds, Collection<Long> excludedUserIds) {
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AdminUserDO> query = new LambdaQueryWrapperX<AdminUserDO>()
                 .likeIfPresent(AdminUserDO::getUsername, reqVO.getUsername())
+                .likeIfPresent(AdminUserDO::getNickname, reqVO.getNickname())
                 .likeIfPresent(AdminUserDO::getMobile, reqVO.getMobile())
                 .eqIfPresent(AdminUserDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(AdminUserDO::getCreateTime, reqVO.getCreateTime())
                 .inIfPresent(AdminUserDO::getDeptId, deptIds)
-                .inIfPresent(AdminUserDO::getId, userIds)
-                .orderByDesc(AdminUserDO::getId));
+                .inIfPresent(AdminUserDO::getId, userIds);
+        query.notIn(cn.hutool.core.collection.CollUtil.isNotEmpty(excludedUserIds), AdminUserDO::getId, excludedUserIds);
+        UserListQueryFields.apply(reqVO, query);
+        return selectPage(reqVO, query);
     }
 
     default List<AdminUserDO> selectListByNickname(String nickname) {

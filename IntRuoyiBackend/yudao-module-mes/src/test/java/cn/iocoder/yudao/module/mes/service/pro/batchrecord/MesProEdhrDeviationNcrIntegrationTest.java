@@ -53,6 +53,8 @@ class MesProEdhrDeviationNcrIntegrationTest {
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Mock private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Mock private MesProEdhrWorkTaskService workTaskService;
+    @Mock private MesMarketReleaseAccess marketReleaseAccess;
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
@@ -70,6 +72,9 @@ class MesProEdhrDeviationNcrIntegrationTest {
     void setUp() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(71L);
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(service, "workTaskService", workTaskService);
+        ReflectionTestUtils.setField(service, "deviationReviewTaskService", org.mockito.Mockito.mock(MesProEdhrDeviationReviewTaskService.class));
+        ReflectionTestUtils.setField(service, "marketReleaseAccess", marketReleaseAccess);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "reviewCounterMapper", reviewCounterMapper);
         lenient().when(reviewCounterMapper.selectByTenantIdForUpdate(71L)).thenReturn(
@@ -130,6 +135,12 @@ class MesProEdhrDeviationNcrIntegrationTest {
         verify(signatureService).recordNonconformanceReviewCreateSignature(
                 eq(501L), eq(7001L), eq("signature"), any(), any());
         verify(deviationMapper).closeToNonconformance(any(), eq(9001L), eq(List.of(3001L, 3002L)), eq(7001L), any());
+        for (Long deviationId : List.of(3001L, 3002L)) {
+            verify(workTaskService).completeDeviationTask(deviationId,
+                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "偏差已转不合格评审#7001");
+            verify(workTaskService).completeDeviationTask(deviationId,
+                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT, "偏差已转不合格评审#7001");
+        }
         verify(batchExecutionMapper).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
         var audit = ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
         verify(operationAuditService).recordInCallerTransaction(audit.capture());
@@ -288,7 +299,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
     }
 
     private MesProEdhrDeviationNcrCreateReqVO request(String idempotencyKey) {
-        return new MesProEdhrDeviationNcrCreateReqVO()
+        return new MesProEdhrDeviationNcrCreateReqVO().setQaReviewerUserId(502L)
                 .setBatchExecutionId(9001L).setDeviationIds(List.of(3001L, 3002L))
                 .setNonconformanceReason("关键偏差影响批次，需要立即评审")
                 .setRemark("QA转审").setSignaturePassword("signature")
@@ -298,6 +309,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
     private String payloadHash(MesProEdhrDeviationNcrCreateReqVO request) {
         JSONObject payload = new JSONObject(true);
         payload.put("sourceType", MesProEdhrNonconformanceReviewService.SOURCE_TYPE_DEVIATION);
+        payload.put("qaReviewerUserId", request.getQaReviewerUserId());
         payload.put("batchExecutionId", request.getBatchExecutionId());
         payload.put("deviationIds", request.getDeviationIds());
         payload.put("nonconformanceReason", request.getNonconformanceReason());

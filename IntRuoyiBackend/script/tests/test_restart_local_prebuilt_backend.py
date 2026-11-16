@@ -34,6 +34,9 @@ def write_jar(path, *, defect=None):
     nested = io.BytesIO()
     with zipfile.ZipFile(nested, "w") as archive:
         archive.writestr("fixture/Dependency.class", CLASS_BYTES)
+        for entity in ('FileDO', 'FileContentDO'):
+            marker = b'cn/iocoder/yudao/framework/tenant/core/db/TenantBaseDO' if defect == 'tenant_mapping' else b'BaseDO'
+            archive.writestr('cn/iocoder/yudao/module/infra/dal/dataobject/file/' + entity + '.class', CLASS_BYTES + marker)
     with zipfile.ZipFile(path, "w") as archive:
         if defect != "no_manifest":
             archive.writestr("META-INF/MANIFEST.MF", manifest)
@@ -46,7 +49,7 @@ def write_jar(path, *, defect=None):
             )
         if defect != "no_libs":
             archive.writestr(
-                "BOOT-INF/lib/dependency.jar",
+                "BOOT-INF/lib/yudao-module-infra-fixture.jar",
                 b"not a jar" if defect == "bad_lib" else nested.getvalue(),
                 compress_type=zipfile.ZIP_DEFLATED if defect == "compressed_lib" else zipfile.ZIP_STORED,
             )
@@ -63,7 +66,7 @@ $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($inputData.script, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count -ne 0) { throw 'Launcher parser failed' }
-$functions = @('Start-Backend', 'Get-BackendJarSha256', 'Assert-BackendExecutableJar', 'Assert-BackendLaunchConfiguration')
+$functions = @('Start-Backend', 'Get-BackendJarSha256', 'Assert-BackendExecutableJar', 'Assert-BackendLaunchConfiguration', 'Assert-BackendFileMetadataSchema')
 foreach ($statement in $ast.EndBlock.Statements) {
     if ($statement -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $statement.Name -in $functions) {
         . ([scriptblock]::Create($statement.Extent.Text))
@@ -75,11 +78,17 @@ $script:mavenArgs = @()
 function Fail([string]$Message) { throw $Message }
 function Require-Command([string]$Name) { $script:events.Add("require:$Name") }
 function Ensure-RequiredLocalMySqlSchema { $script:events.Add('schema-stub') }
+function Test-LocalTableExists { param($TableName) return -not $inputData.missingMigrationTable }
+function Test-LocalSqlProbe {
+    param($Sql)
+    $script:events.Add('file-schema-probe')
+    if ($Sql.Contains('information_schema')) { return -not $inputData.missingTenantColumns }
+    return -not $inputData.missingMigrationReceipt
+}
 function Assert-LocalShowroomFileConfigProtected { $script:events.Add('showroom-stub') }
 function Assert-LocalShowroomMediaBucketConsistency { $script:events.Add('minio-stub') }
 function Assert-LocalDockerRuntimePortRoute { param($Name, $Port) }
-function Stop-MatchingProcesses { param($Label, $CommandFragment) $script:events.Add('stop-matching') }
-function Stop-Port { param($Port) $script:events.Add('stop-port') }
+function Stop-OwnedBackendListener { $script:events.Add('stop-owned') }
 function mvn {
     $script:events.Add('build')
     $script:mavenArgs = @($args)
@@ -130,6 +139,7 @@ $DccSignatureEvidenceKeyVersion = 'fixture-v1'
 if ($inputData.missingConfig) { Set-Variable -Name $inputData.missingConfig -Value ' ' }
 $PrebuiltBackendJar = [string]$inputData.jar
 $PrebuiltBackendSha256 = [string]$inputData.sha
+[switch]$LocalDevelopmentAuditPolicy = $false
 $errorMessage = $null
 try { Start-Backend } catch { $errorMessage = $_.Exception.Message }
 @{
@@ -165,8 +175,7 @@ def invoke_launcher(tmp_path, *, jar="valid", sha="valid", defect=None, **option
 
 
 def assert_not_stopped(result):
-    assert "stop-matching" not in result["events"], result["events"]
-    assert "stop-port" not in result["events"], result["events"]
+    assert "stop-owned" not in result["events"], result["events"]
     assert "start" not in result["events"], result["events"]
 
 
@@ -209,8 +218,8 @@ def test_prebuilt_is_copied_verified_and_launched_without_maven(tmp_path, defect
     assert len(runtime_jars) == 1
     assert runtime_jars[0].read_bytes() == fixture.read_bytes()
     assert Path(result["launch"]["jar"][0]) == runtime_jars[0]
-    assert result["events"].index("copy") < result["events"].index("stop-matching")
-    assert result["events"].index("stop-port") < result["events"].index("start")
+    assert result["events"].index("copy") < result["events"].index("stop-owned")
+    assert result["events"].index("stop-owned") < result["events"].index("start")
     assert result["launch"]["configPresent"]
     assert result["launch"]["javaArray"] and result["launch"]["port"]
     assert result["launch"]["parserErrors"] == 0
@@ -221,8 +230,28 @@ def test_normal_build_finishes_and_copies_before_stop(tmp_path):
     result, fixture, workspace = invoke_launcher(tmp_path, jar="", sha="")
     assert result["error"] is None, result["error"]
     assert result["mavenArgs"] == ["-pl", "yudao-server", "-am", "-DskipTests", "package"]
-    assert result["events"].index("build") < result["events"].index("copy") < result["events"].index("stop-matching")
+    assert result["events"].index("build") < result["events"].index("copy") < result["events"].index("stop-owned")
     assert next((workspace / "runtime").glob("*.jar")).read_bytes() == fixture.read_bytes()
+
+
+@pytest.mark.parametrize('missing', ['missingTenantColumns', 'missingMigrationTable', 'missingMigrationReceipt'])
+def test_file_tenant_schema_mismatch_keeps_running_backend(tmp_path, missing):
+    result, _, _ = invoke_launcher(tmp_path, defect='tenant_mapping', **{missing: True})
+    assert result['error'] and 'File tenant ownership migration' in result['error']
+    assert_not_stopped(result)
+
+
+def test_file_tenant_schema_with_completed_migration_can_start(tmp_path):
+    result, _, _ = invoke_launcher(tmp_path, defect='tenant_mapping')
+    assert result['error'] is None, result['error']
+    assert result['events'].count('file-schema-probe') == 2
+    assert result['events'].index('file-schema-probe') < result['events'].index('stop-owned')
+
+
+def test_legacy_file_artifact_does_not_require_unapplied_ownership_migration(tmp_path):
+    result, _, _ = invoke_launcher(tmp_path, missingTenantColumns=True, missingMigrationTable=True)
+    assert result['error'] is None, result['error']
+    assert 'file-schema-probe' not in result['events']
 
 
 @pytest.mark.parametrize("options", [{"buildExit": 1}, {"omitBuiltJar": True}, {"defect": "no_manifest"}])

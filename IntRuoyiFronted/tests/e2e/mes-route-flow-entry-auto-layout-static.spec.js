@@ -62,8 +62,8 @@ const completeGraphLoadViewportHandler = extractConstFunction(
 
 assertIncludes(
   routeFormContent,
-  '@tab-change="handleRouteTabChange"',
-  'route tabs must react to tab entry'
+  '@select-start-setting="handleStartSettingSelect"',
+  'START settings must react to node detail selection'
 )
 assertIncludes(
   routeFormContent,
@@ -115,11 +115,7 @@ assertMatch(
   /let shouldTriggerFlowAutoLayout = false[\s\S]*shouldTriggerFlowAutoLayout = activeTab\.value === 'flow'[\s\S]*finally \{[\s\S]*formLoading\.value = false[\s\S]*\}[\s\S]*if \(shouldTriggerFlowAutoLayout\) \{[\s\S]*triggerFlowAutoLayout\(\)/,
   'existing route open must trigger flow auto layout after form loading clears'
 )
-assertMatch(
-  routeFormContent,
-  /const handleRouteTabChange = \(tabName: string \| number\) => \{[\s\S]*if \(tabName === 'flow'\)[\s\S]*triggerFlowAutoLayout/,
-  'flow tab change handler must only trigger auto layout for flow tab'
-)
+
 assertMatch(
   routeFormContent,
   /const runPendingFlowAutoLayout = async \(\) => \{[\s\S]*if \(!pendingFlowAutoLayout\.value\) return[\s\S]*await nextTick\(\)[\s\S]*if \(activeTab\.value !== 'flow'\) \{[\s\S]*pendingFlowAutoLayout\.value = false[\s\S]*return[\s\S]*if \(formLoading\.value \|\| !formData\.value\.id\) return[\s\S]*const designer = routeFlowGraphDesignerRef\.value[\s\S]*if \(!designer\) return[\s\S]*pendingFlowAutoLayout\.value = false[\s\S]*await designer\.autoLayoutOnEntry\(\)/,

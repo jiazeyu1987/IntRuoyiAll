@@ -8,9 +8,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesOpenWorkTaskVisibility;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.injector.DefaultSqlInjector;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -55,20 +57,54 @@ public class MesEdhrApprovalCenterQueryContractTest {
     }
 
     @Test
-    void assignedApproveAndReleaseApproveIntersectCandidatesOnceAndExactTokensExclude112() throws Exception {
+    void assignedApprovalsIntersectCandidatesOnceAndExactTokensExclude112() throws Exception {
         try (Connection db = fixture()) {
             insert(db, 1, "APPROVE", 12, "12", null, 1, 0);
-            insert(db, 2, "RELEASE_APPROVE", 12, "12,112", null, 1, 0);
+            insert(db, 2, "REVIEW", 12, "12,112", null, 1, 0);
             insert(db, 3, "FILL", 112, "112", null, 1, 0);
             insert(db, 4, "FILL", 112, "12,112", null, 1, 0);
             insert(db, 5, "FILL", 12, "112", null, 1, 0);
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET signature_cell_key='cell-1' WHERE task_type='FILL'");
             assertEquals(List.of(1L, 2L, 4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
             assertEquals(List.of(1L, 2L, 3L, 4L, 5L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, false, "TODO")));
         }
     }
 
     @Test
-    void terminalBatchExclusionArchiveExceptionTenantAndDeletedApplyBeforeUnionCount() throws Exception {
+    void marketReleaseStaysInPersonalWorkbenchAndOutOfAllApprovalCenterViews() throws Exception {
+        try (Connection db = fixture()) {
+            insert(db, 1, "RELEASE_APPROVE", 12, "12,112", null, 1, 0);
+            insert(db, 2, "RELEASE_APPROVE", 112, "12", null, 1, 0);
+            insert(db, 3, "REVIEW", 12, "12", null, 1, 0);
+            // Even a populated signature cell must not turn market release into a center task.
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET signature_cell_key='release-signature' WHERE id=2");
+            for (String status : List.of("TODO", "OVERDUE")) {
+                db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET status='" + status + "'");
+                for (Long actor : Arrays.asList(12L, null)) {
+                    assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                            new MesProEdhrWorkTaskPageReqVO(), actor, 1L, "DONE".equals(status), status)));
+                }
+                var ownRelease = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                        .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, status);
+                assertEquals(List.of(1L, 2L), ids(db, ownRelease));
+            }
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET status='DONE'");
+            assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                    new MesProEdhrWorkTaskPageReqVO(), null, 1L, true, "TODO")));
+            createDoneVisibilityTables(db);
+            assertEquals(List.of(3L), ids(db, work.approvalCenterQuery(
+                    new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, true, "TODO")));
+            AtomicReference<LambdaQueryWrapperX<MesProEdhrWorkTaskDO>> ownDone = new AtomicReference<>();
+            doAnswer(call -> { ownDone.set(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+            work.countMy(12L, "RELEASE_APPROVE", "DONE");
+            assertEquals(List.of(1L), ids(db, ownDone.get()));
+        }
+    }
+
+    @Test
+    void terminalBatchExclusionTenantAndDeletedApplyBeforeApprovalUnionCount() throws Exception {
         try (Connection db = fixture()) {
             db.createStatement().execute("INSERT INTO mes_pro_edhr_batch_execution VALUES (7,1,0,30),(8,1,0,40),(9,2,0,40)");
             insert(db, 1, "REVIEW", 12, "12", 7L, 1, 0);
@@ -77,7 +113,57 @@ public class MesEdhrApprovalCenterQueryContractTest {
             insert(db, 4, "APPROVE", 12, "12", 9L, 1, 0);
             insert(db, 5, "APPROVE", 12, "12", null, 2, 0);
             insert(db, 6, "APPROVE", 12, "12", null, 1, 1);
-            assertEquals(List.of(2L, 4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
+            assertEquals(List.of(4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")),
+                    "ARCHIVE is an execution task, never a candidate approval merely because its batch is closed");
+            var personalArchive = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                    .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                    .apply(MesOpenWorkTaskVisibility.batchSql("ARCHIVE"))
+                    .eq(MesProEdhrWorkTaskDO::getTaskType, "ARCHIVE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, "TODO");
+            assertEquals(List.of(2L), ids(db, personalArchive), "the closed-batch archive exception remains in personal execution tasks");
+        }
+    }
+
+    @Test
+    void onlyExplicitApprovalAndSignatureFillEnterApprovalCenterAndRecordChangeIgnoresBatch30And50ButNot60() throws Exception {
+        try (Connection db = fixture()) {
+            db.createStatement().execute("INSERT INTO mes_pro_edhr_batch_execution VALUES (30,1,0,30),(50,1,0,50),(60,1,0,60)");
+            insertTyped(db, 1, "FILL", null, null);
+            insertTyped(db, 2, "FILL", "cell-1", null);
+            insertTyped(db, 3, "DEVIATION_SIGN", null, null);
+            insertTyped(db, 4, "DEVIATION_CLOSE", null, null);
+            insertTyped(db, 5, "DOSSIER_COMPLETE", null, null);
+            insertTyped(db, 6, "PQC_RELEASE_CORRECTION", null, null);
+            insertTyped(db, 7, "DEVIATION_APPROVE", null, null);
+            insertTyped(db, 8, "RECORD_CHANGE_APPROVE", null, 30L);
+            insertTyped(db, 9, "RECORD_CHANGE_APPROVE", null, 50L);
+            insertTyped(db, 10, "RECORD_CHANGE_APPROVE", null, 60L);
+            insertTyped(db, 11, "FILL", "", null);
+            insertTyped(db, 12, "FILL", "   ", null);
+            insertTyped(db, 13, "RECORD_CHANGE_APPROVE", null, 30L);
+            insertTyped(db, 14, "RECORD_CHANGE_APPROVE", null, 50L);
+            insertTyped(db, 15, "RECORD_CHANGE_APPROVE", null, 60L);
+            insertTyped(db, 16, "DEVIATION_SIGN", "cell-not-an-approval", null);
+            insertTyped(db, 17, "DEVIATION_CLOSE", "cell-not-an-approval", null);
+            insertTyped(db, 18, "DOSSIER_COMPLETE", "cell-not-an-approval", null);
+            insertTyped(db, 19, "PQC_RELEASE_CORRECTION", "cell-not-an-approval", null);
+            insertTyped(db, 20, "PQC_PRODUCTION_RELEASE", null, null);
+            insertTyped(db, 21, "PQC_PRODUCTION_RELEASE", null, null);
+            insertTyped(db, 22, "PQC_PRODUCTION_RELEASE", "cell-not-an-approval", null);
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET assignee_user_id=112 WHERE id=21");
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET assignee_user_id=112 WHERE id IN (13,14,15)");
+
+            assertEquals(List.of(2L, 7L, 8L, 9L, 13L, 14L), ids(db,
+                    work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
+            assertEquals(List.of(2L, 7L, 8L, 9L, 13L, 14L), ids(db,
+                    work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, false, "TODO")),
+                    "the all-users approval view must not reintroduce execution tasks");
+            var personalOpenTasks = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                    .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                    .apply(MesOpenWorkTaskVisibility.batchSql("RECORD_CHANGE_APPROVE"))
+                    .eq(MesProEdhrWorkTaskDO::getTaskType, "RECORD_CHANGE_APPROVE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, "TODO");
+            assertEquals(List.of(8L, 9L, 13L, 14L), ids(db, personalOpenTasks));
         }
     }
 
@@ -133,6 +219,8 @@ public class MesEdhrApprovalCenterQueryContractTest {
         var query = handoffs.approvalCenterQuery(1L, 12L, false, false, "  PQC_%  ");
         String sql = query.getSqlSegment();
         assertTrue(sql.contains("notification_only IS NULL OR notification_only ="));
+        assertTrue(sql.contains("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)"));
+        assertTrue(sql.contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertTrue(sql.contains("FIND_IN_SET("));
         assertTrue(sql.contains("ao.tenant_id = mes_active_order_handoff_task.tenant_id"));
         assertTrue(sql.contains("ao.deleted = 0 AND CAST(ao.active_status AS BINARY) = CAST('ACTIVE' AS BINARY)"));
@@ -143,25 +231,20 @@ public class MesEdhrApprovalCenterQueryContractTest {
         assertTrue(query.getParamNameValuePairs().containsValue("PQC_%"));
         assertFalse(sql.contains("completed_by"));
         var done = handoffs.approvalCenterQuery(1L, 12L, false, true, null);
+        assertTrue(done.getSqlSegment().contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertTrue(done.getSqlSegment().contains("completed_by ="));
         assertTrue(done.getSqlSegment().contains("FIND_IN_SET("));
         assertFalse(done.getSqlSegment().contains("active_status"));
         var global = handoffs.approvalCenterQuery(1L, 12L, true, true, null);
+        assertTrue(global.getSqlSegment().contains("CAST(task_type AS BINARY) NOT IN (CAST('PRODUCTION_REVIEW' AS BINARY), CAST('PQC_REVIEW' AS BINARY))"));
         assertFalse(global.getSqlSegment().contains("completed_by"));
         assertFalse(global.getSqlSegment().contains("FIND_IN_SET"));
         assertTrue(global.getSqlSegment().contains("tenant_id ="));
     }
 
-    @Test void generatedDonePredicateRetainsDisabledFormalPqcAndQaActorsButRejectsTenantAndDeleted() throws Exception {
+    @Test void personalDoneKeepsFormalPqcAndQaActorsWhileApprovalCenterExcludesPqcRelease() throws Exception {
         try (Connection db = fixture()) {
-            for (String column : List.of("business_scope_type VARCHAR","business_scope_id BIGINT","work_order_id BIGINT",
-                    "reason VARCHAR","completed_at TIMESTAMP","review_source_type VARCHAR","review_source_id BIGINT")) {
-                db.createStatement().execute("ALTER TABLE mes_pro_edhr_work_task ADD " + column);
-            }
-            db.createStatement().execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_edhr_release_transaction(id BIGINT,tenant_id BIGINT,deleted INT,batch_execution_id BIGINT,work_order_id BIGINT,release_status VARCHAR,approved_by BIGINT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order_release_application(id BIGINT,tenant_id BIGINT,deleted INT,pqc_release_work_task_id BIGINT,work_order_id BIGINT,active_order_id BIGINT,batch_execution_id BIGINT,pqc_decided_by BIGINT,pqc_decided_at TIMESTAMP,pqc_decision VARCHAR,application_status VARCHAR,pqc_reject_reason VARCHAR,qa_closure_review_id BIGINT)");
-            db.createStatement().execute("CREATE TABLE mes_pro_edhr_nonconformance_review(id BIGINT,tenant_id BIGINT,deleted INT,review_status VARCHAR,active_order_id BIGINT,work_order_id BIGINT,batch_execution_id BIGINT,closed_at TIMESTAMP,qa_user_id BIGINT,disposition VARCHAR)");
+            createDoneVisibilityTables(db);
             db.createStatement().execute("INSERT INTO system_users VALUES(12,1,0,1)");
             db.createStatement().execute("INSERT INTO mes_pro_edhr_work_task(id,tenant_id,deleted,task_type,assignee_user_id,status,business_scope_type,business_scope_id,work_order_id,reason,completed_at,review_source_type,review_source_id) VALUES"
                     + "(1,1,FALSE,'PQC_PRODUCTION_RELEASE',999,'DONE','RELEASE_APPLICATION',91,93,'APPROVE','2026-10-07 10:00:00',NULL,NULL),"
@@ -174,14 +257,34 @@ public class MesEdhrApprovalCenterQueryContractTest {
             db.createStatement().execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES"
                     + "(96,1,0,'closed',180,93,92,'2026-10-07 11:00:00',18,'void'),"
                     + "(97,1,0,'closed',180,93,92,'2026-10-07 10:00:00',12,'void')");
-            assertEquals(List.of(1L,2L,3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(3L),ids(db,personalPqcDoneQuery()));
             db.createStatement().execute("UPDATE system_users SET status=0");
-            assertEquals(List.of(1L,2L,3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(1L,2L,3L),ids(db,personalPqcDoneQuery()));
+            assertEquals(List.of(), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, true, "TODO")));
+            assertEquals(List.of(), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, true, "TODO")));
             db.createStatement().execute("UPDATE system_users SET tenant_id=2");
-            assertEquals(List.of(),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(),ids(db,personalPqcDoneQuery()));
             db.createStatement().execute("UPDATE system_users SET tenant_id=1,deleted=1");
-            assertEquals(List.of(),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(),ids(db,personalPqcDoneQuery()));
         }
+    }
+
+    private void createDoneVisibilityTables(Connection db) throws SQLException {
+        for (String column : List.of("business_scope_type VARCHAR", "business_scope_id BIGINT", "work_order_id BIGINT",
+                "reason VARCHAR", "completed_at TIMESTAMP", "review_source_type VARCHAR", "review_source_id BIGINT")) {
+            db.createStatement().execute("ALTER TABLE mes_pro_edhr_work_task ADD " + column);
+        }
+        db.createStatement().execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_release_transaction(id BIGINT,tenant_id BIGINT,deleted INT,batch_execution_id BIGINT,work_order_id BIGINT,release_status VARCHAR,approved_by BIGINT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order_release_application(id BIGINT,tenant_id BIGINT,deleted INT,pqc_release_work_task_id BIGINT,work_order_id BIGINT,active_order_id BIGINT,batch_execution_id BIGINT,pqc_decided_by BIGINT,pqc_decided_at TIMESTAMP,pqc_decision VARCHAR,application_status VARCHAR,pqc_reject_reason VARCHAR,qa_closure_review_id BIGINT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_nonconformance_review(id BIGINT,tenant_id BIGINT,deleted INT,review_status VARCHAR,active_order_id BIGINT,work_order_id BIGINT,batch_execution_id BIGINT,closed_at TIMESTAMP,qa_user_id BIGINT,disposition VARCHAR)");
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> personalPqcDoneQuery() {
+        AtomicReference<LambdaQueryWrapperX<MesProEdhrWorkTaskDO>> query = new AtomicReference<>();
+        doAnswer(call -> { query.set(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+        work.countMy(12L, "PQC_PRODUCTION_RELEASE", "DONE");
+        return query.get();
     }
 
     @Test
@@ -194,7 +297,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
             counted.set(query); return 500L;
         }).when(handoffs).selectCount(any(Wrapper.class));
         doAnswer(call -> { listed.set(call.getArgument(0)); return List.of(); }).when(handoffs).selectList(any(Wrapper.class));
-        assertEquals(500L, handoffs.selectApprovalCenterPrefix(1L, 12L, false, true, "null", 400L).getTotal());
+        assertEquals(500L, handoffs.selectApprovalCenterPrefix(1L, 12L, false, true, "null", 400L, null).getTotal());
         assertTrue(listed.get().getSqlSegment().startsWith(counted.get().getSqlSegment()));
         assertEquals(counted.get().getParamNameValuePairs(), listed.get().getParamNameValuePairs());
         assertTrue(listed.get().getSqlSegment().endsWith("CAST(id AS BINARY) ASC LIMIT 400"));
@@ -206,19 +309,19 @@ public class MesEdhrApprovalCenterQueryContractTest {
         try (Connection db = fixture()) {
             db.createStatement().execute("CREATE ALIAS FIND_IN_SET FOR 'cn.iocoder.yudao.module.mes.approval.MesEdhrApprovalCenterQueryContractTest.findInSet'");
             db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order(id BIGINT, tenant_id BIGINT, deleted INT, active_status VARCHAR)");
-            db.createStatement().execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT, tenant_id BIGINT, deleted BOOLEAN, notification_only BOOLEAN, candidate_user_snapshot VARCHAR, completed_by BIGINT, active_order_id BIGINT, status VARCHAR)");
+            db.createStatement().execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT, tenant_id BIGINT, deleted BOOLEAN, notification_only BOOLEAN, candidate_user_snapshot VARCHAR, completed_by BIGINT, active_order_id BIGINT, status VARCHAR, task_type VARCHAR)");
             db.createStatement().execute("INSERT INTO mes_pro_process_pool_active_order VALUES (1,1,0,'ACTIVE'),(2,1,0,'SUPERSEDED'),(3,2,0,'ACTIVE'),(4,1,1,'ACTIVE')");
             db.createStatement().execute("INSERT INTO mes_active_order_handoff_task VALUES"
-                    + "(1,1,FALSE,NULL,'12',NULL,1,'TODO'),(2,1,FALSE,FALSE,'12,112',NULL,1,'TODO'),"
-                    + "(3,1,FALSE,TRUE,'12',NULL,1,'TODO'),(4,1,FALSE,NULL,'12',NULL,2,'TODO'),"
-                    + "(5,1,FALSE,NULL,'12',NULL,3,'TODO'),(6,1,FALSE,NULL,'12',NULL,4,'TODO'),"
-                    + "(7,1,TRUE,NULL,'12',NULL,1,'TODO'),(8,2,FALSE,NULL,'12',NULL,3,'TODO'),"
-                    + "(9,1,FALSE,NULL,'112',NULL,1,'TODO'),(10,1,FALSE,NULL,'12',12,2,'DONE'),"
-                    + "(11,1,FALSE,NULL,'12',112,2,'DONE'),(12,1,FALSE,NULL,'112',12,2,'DONE')");
-            assertEquals(List.of(1L, 2L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(1L, 2L, 9L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(10L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,true,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(10L, 11L, 12L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,true,null), "mes_active_order_handoff_task"));
+                    + "(1,1,FALSE,NULL,'12',NULL,1,'TODO','QA_DECISION_HANDOFF'),(2,1,FALSE,FALSE,'12,112',NULL,1,'TODO','PRODUCTION_REVIEW'),"
+                    + "(3,1,FALSE,TRUE,'12',NULL,1,'TODO','QA_DECISION_HANDOFF'),(4,1,FALSE,NULL,'12',NULL,2,'TODO','PQC_HANDOFF'),"
+                    + "(5,1,FALSE,NULL,'12',NULL,3,'TODO','QA_REVIEW'),(6,1,FALSE,NULL,'12',NULL,4,'TODO','PRODUCTION_HANDOFF'),"
+                    + "(7,1,TRUE,NULL,'12',NULL,1,'TODO','PRODUCTION_REVIEW'),(8,2,FALSE,NULL,'12',NULL,3,'TODO','PRODUCTION_REVIEW'),"
+                    + "(9,1,FALSE,NULL,'112',NULL,1,'TODO','PRODUCTION_REVIEW'),(10,1,FALSE,NULL,'12',12,2,'DONE','PRODUCTION_REVIEW'),"
+                    + "(11,1,FALSE,NULL,'12',112,2,'DONE','PQC_REVIEW'),(12,1,FALSE,NULL,'112',12,2,'DONE','QA_REVIEW'),(13,1,FALSE,NULL,'12',NULL,1,'TODO','PQC_REVIEW'),(14,1,FALSE,NULL,'12',12,2,'DONE','PQC_REVIEW')");
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,true,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(12L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,true,null), "mes_active_order_handoff_task"));
         }
     }
 
@@ -231,7 +334,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
         // Propagation only; the read-only MySQL CTE gate separately executes the actual invalid-type count.
         doReturn(1L).when(handoffs).selectCount(any(Wrapper.class));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                () -> handoffs.selectApprovalCenterPrefix(1L, 12L, false, false, "missing", 400L));
+                () -> handoffs.selectApprovalCenterPrefix(1L, 12L, false, false, "missing", 400L, null));
         verify(handoffs, never()).selectList(any(Wrapper.class));
     }
 
@@ -271,9 +374,13 @@ public class MesEdhrApprovalCenterQueryContractTest {
             var handoffCounts = new ArrayList<LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>>();
             var handoffLists = new ArrayList<LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>>();
             // Only capture wrappers from real default prefix methods; returned rows/counts are not DB evidence.
-            doAnswer(call -> { workCounts.add(call.getArgument(0)); return 0L; }).when(work).selectCount(any(Wrapper.class));
+            doAnswer(call -> { workCounts.add(call.getArgument(0)); return 1L; }).when(work).selectCount(any(Wrapper.class));
             doAnswer(call -> { workLists.add(call.getArgument(0)); return List.of(); }).when(work).selectList(any(Wrapper.class));
-            doAnswer(call -> { handoffCounts.add(call.getArgument(0)); return 0L; }).when(handoffs).selectCount(any(Wrapper.class));
+            doAnswer(call -> {
+                LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO> query = call.getArgument(0);
+                handoffCounts.add(query);
+                return query.getSqlSegment().contains("task_type IS NULL") ? 0L : 1L;
+            }).when(handoffs).selectCount(any(Wrapper.class));
             doAnswer(call -> { handoffLists.add(call.getArgument(0)); return List.of(); }).when(handoffs).selectList(any(Wrapper.class));
             int statements = 0;
             for (boolean done : List.of(false, true)) for (boolean global : List.of(false, true)) {
@@ -312,7 +419,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
                 }
                 for (String keyword : Arrays.asList(null, "PQC_%\\Literal")) {
                     handoffCounts.clear(); handoffLists.clear();
-                    handoffs.selectApprovalCenterPrefix(7L, 12L, global, done, keyword, 400L);
+                    handoffs.selectApprovalCenterPrefix(7L, 12L, global, done, keyword, 400L, null);
                     assertEquals(2, handoffCounts.size()); assertEquals(1, handoffLists.size());
                     String invalidSql = assertParsedBoundSql(configuration, tenant, pagination, MesActiveOrderHandoffTaskMapper.class,
                             "selectCount", handoffCounts.get(0), false, done);
@@ -327,8 +434,9 @@ public class MesEdhrApprovalCenterQueryContractTest {
                     assertTrue(Pattern.compile("task_type IS NULL OR CAST\\(task_type AS BINARY\\) NOT IN ")
                             .matcher(invalidSql).find(), "NULL rejection must share the parenthesized invalid-type branch");
                     assertTrue(Pattern.compile("CAST\\(task_type AS BINARY\\) NOT IN \\(CAST\\(\\? AS BINARY\\)"
-                            + "(?:, CAST\\(\\? AS BINARY\\)){7}\\)").matcher(invalidSql).find(),
-                            "all eight formal whitelist values must be bound binary operands");
+                            + "(?:, CAST\\(\\? AS BINARY\\)){"
+                            + (cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.TYPES.size() - 1) + "}\\)").matcher(invalidSql).find(),
+                            "all formal whitelist values must be bound binary operands");
                     var formalTypes = cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.TYPES
                             .stream().sorted().toList();
                     BoundSql invalidBound = configuration.getMappedStatement(MesActiveOrderHandoffTaskMapper.class.getName()
@@ -420,24 +528,36 @@ public class MesEdhrApprovalCenterQueryContractTest {
 
     private Connection fixture() throws SQLException {
         Connection db = DriverManager.getConnection("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL", "sa", "");
-        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR, signature_cell_key VARCHAR)");
         db.createStatement().execute("CREATE TABLE mes_pro_edhr_batch_execution (id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
         return db;
     }
 
     private void insert(Connection db, long id, String type, long owner, String candidates, Long batch, long tenant, int deleted) throws SQLException {
-        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task VALUES (?,?,?,?,?,?,?,?,?,?)")) {
+        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task (id,tenant_id,deleted,task_type,assignee_user_id,candidate_user_snapshot,batch_execution_id,batch_code,batch_task_id,status) VALUES (?,?,?,?,?,?,?,?,?,?)")) {
             sql.setLong(1, id); sql.setLong(2, tenant); sql.setBoolean(3, deleted != 0); sql.setString(4, type);
             sql.setLong(5, owner); sql.setString(6, candidates); sql.setObject(7, batch);
             sql.setString(8, "batch-" + id); sql.setObject(9, null); sql.setString(10, "TODO"); sql.executeUpdate();
         }
     }
 
-    private List<Long> ids(Connection db, LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query) throws SQLException {
+    private void insertTyped(Connection db, long id, String type, String signatureCellKey, Long batch) throws SQLException {
+        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task (id,tenant_id,deleted,task_type,assignee_user_id,candidate_user_snapshot,batch_execution_id,batch_code,batch_task_id,status,signature_cell_key) VALUES (?,?,FALSE,?,12,'12',?, ?,NULL,'TODO',?)")) {
+            sql.setLong(1, id);
+            sql.setLong(2, 1L);
+            sql.setString(3, type);
+            sql.setObject(4, batch);
+            sql.setString(5, "batch-" + id);
+            sql.setString(6, signatureCellKey);
+            sql.executeUpdate();
+        }
+    }
+
+    private List<Long> ids(Connection db, LambdaQueryWrapper<MesProEdhrWorkTaskDO> query) throws SQLException {
         return idsForTable(db, query, "mes_pro_edhr_work_task");
     }
 
-    private List<Long> idsForTable(Connection db, LambdaQueryWrapperX<?> query, String table) throws SQLException {
+    private List<Long> idsForTable(Connection db, LambdaQueryWrapper<?> query, String table) throws SQLException {
         String segment = query.getSqlSegment();
         var matcher = Pattern.compile("#\\{ew\\.paramNameValuePairs\\.(\\w+)\\}").matcher(segment);
         var values = new ArrayList<Object>();

@@ -47,7 +47,6 @@ public class MesPqcProductionReleaseDecisionRespVO {
     private List<Long> lossReportFieldAuditIds;
     private List<String> lossReportFieldAuditHeadHashes;
 
-    private List<MesProductionReleaseReportUploadTaskRespVO> reportUploadTasks;
     private String sourceSnapshotHash;
     private String reportSnapshotHash;
     private Integer version;

@@ -58,6 +58,8 @@ public class OperateLogDO extends BaseDO {
      * 例如说，修改编号为 1 的用户信息，将性别从男改成女，将姓名从瑛泰改成源码。
      */
     private String action;
+    /** 操作是否成功；取消、拦截和失败均为 false。 */
+    private Boolean success;
     /**
      * 拓展字段，有些复杂的业务，需要记录一些字段 ( JSON 格式 )
      *

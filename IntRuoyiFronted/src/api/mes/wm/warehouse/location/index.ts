@@ -21,7 +21,7 @@ export const WmWarehouseLocationApi = {
   },
 
   // 查询库区精简列表
-  getWarehouseLocationSimpleList: async (warehouseId?: number) => {
+  getWarehouseLocationSimpleList: async (warehouseId?: number | string) => {
     return await request.get({
       url: '/mes/wm/warehouse-location/simple-list',
       params: { warehouseId }
@@ -29,7 +29,7 @@ export const WmWarehouseLocationApi = {
   },
 
   // 查询库区详情
-  getWarehouseLocation: async (id: number) => {
+  getWarehouseLocation: async (id: number | string) => {
     return await request.get({ url: '/mes/wm/warehouse-location/get?id=' + id })
   },
 

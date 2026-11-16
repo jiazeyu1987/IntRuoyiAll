@@ -205,16 +205,25 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             for (Map.Entry<String, Object> entry : object.entrySet()) {
                 Object child = entry.getValue();
                 if (isRouteProcessReferenceKey(entry.getKey())) {
-                    if (!(child instanceof Number number)) {
+                    Long sourceRouteProcessId;
+                    try {
+                        sourceRouteProcessId = Long.valueOf(String.valueOf(child));
+                    } catch (NumberFormatException ex) {
                         throw new IllegalArgumentException("route-process reference must be numeric: "
-                                + entry.getKey());
+                                + entry.getKey(), ex);
                     }
-                    MesProRouteProcessDO projected = projectedByReferenceId.get(number.longValue());
+                    MesProRouteProcessDO projected = projectedByReferenceId.get(sourceRouteProcessId);
                     if (projected == null || projected.getId() == null) {
                         throw new IllegalArgumentException("route-process reference cannot be mapped: "
                                 + entry.getKey() + "=" + child);
                     }
                     entry.setValue(projected.getId());
+                } else if ("processId".equals(entry.getKey())) {
+                    try {
+                        entry.setValue(Long.valueOf(String.valueOf(child)));
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("process reference must be numeric: " + child, ex);
+                    }
                 } else {
                     rewriteProjectedRouteProcessIds(child, projectedByReferenceId);
                 }

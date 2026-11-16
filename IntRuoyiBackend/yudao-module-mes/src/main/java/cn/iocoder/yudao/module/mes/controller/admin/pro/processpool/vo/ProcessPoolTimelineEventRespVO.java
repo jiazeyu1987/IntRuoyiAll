@@ -18,6 +18,8 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "工序池提交事件编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
     private Long id;
     private String displayedPayloadHash;
+    /** Independent persisted review and verified signature projection; never request expectations. */
+    private List<cn.iocoder.yudao.module.mes.service.pro.processpool.TimelineReviewEvidenceReader.Evidence> displayedReviewEvidence;
 
     @Schema(description = "工序池编号", example = "10")
     private Long processPoolId;

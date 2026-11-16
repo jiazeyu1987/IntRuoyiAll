@@ -122,8 +122,8 @@ public class DccLegacySourceNameRegistrationService {
         var claim=one("SELECT * FROM dcc_controlled_file_name_claim WHERE tenant_id=? AND id=? AND deleted=0",tenant,e.claimId());
         var master=one("SELECT * FROM dcc_controlled_file_master WHERE tenant_id=? AND id=? AND deleted=0",tenant,e.masterId());
         var file=one("SELECT * FROM dcc_controlled_file WHERE tenant_id=? AND id=? AND deleted=0 FOR UPDATE",tenant,e.fileId());
-        var storage=one("SELECT * FROM infra_file WHERE id=? AND deleted=0",e.sourceFileId());
-        var config=one("SELECT storage,config FROM infra_file_config WHERE id=? AND deleted=0",e.configId());
+        var storage=one("SELECT * FROM infra_file WHERE tenant_id=? AND id=? AND deleted=0",tenant,e.sourceFileId());
+        var config=one("SELECT storage,config FROM infra_tenant_file_config WHERE tenant_id=? AND id=? AND deleted=0",tenant,e.configId());
         var owner=one("SELECT * FROM dcc_controlled_file_source_ownership WHERE tenant_id=? AND controlled_file_id=? AND deleted=0",tenant,e.fileId());
         require(owner,"source_file_id",e.sourceFileId());require(owner,"source_sha256",e.sourceSha256());
         if(checkPreimage && (!e.claimPreimageSha256().equals(DccLegacyNameVerifiedScope.rowHash(claim)) || !e.masterPreimageSha256().equals(DccLegacyNameVerifiedScope.rowHash(master))

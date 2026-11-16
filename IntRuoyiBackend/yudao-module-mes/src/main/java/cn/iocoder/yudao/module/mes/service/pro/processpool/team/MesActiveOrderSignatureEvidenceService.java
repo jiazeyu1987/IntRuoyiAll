@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -56,6 +57,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderSignatureEvidenceService {
+    @Resource private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService centerReceipts;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
         return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
@@ -193,7 +195,7 @@ public class MesActiveOrderSignatureEvidenceService {
         }
         String correctionSignerName = null;
         for (Binding binding : related) {
-            if (binding.pqcReviewer() && "FIELD_CHANGE".equals(evidence.actionCode())) {
+            if (binding.pqcReviewer() && Set.of("FIELD_CHANGE", "PQC_PATROL_ROUND_CORRECTION").contains(evidence.actionCode())) {
                 correctionSignerName = requirePqcCorrection(binding, evidence, subject, detail.getActiveOrderId());
                 continue;
             }
@@ -212,7 +214,7 @@ public class MesActiveOrderSignatureEvidenceService {
         String signerName;
         if (Set.of("PRODUCTION_SUBMIT", "PQC_SUBMIT").contains(evidence.actionCode())) {
             signerName = MesSubmissionSignatureIdentityReader.frozenName(evidence);
-        } else if ("FIELD_CHANGE".equals(evidence.actionCode())) {
+        } else if (Set.of("FIELD_CHANGE", "PQC_PATROL_ROUND_CORRECTION").contains(evidence.actionCode())) {
             // The correction reader has verified the persisted revision/review signature snapshot and audit association.
             signerName = correctionSignerName;
             if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
@@ -311,7 +313,7 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !"MES".equals(evidence.moduleCode()) || !"MES_BATCH_RECORD".equals(evidence.subjectType())
                 || !"PQC_RELEASE".equals(evidence.actionCode())
                 || evidence.authenticationMethod() == null
-                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD").contains(evidence.authenticationMethod()))
+                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_PIN", "SESSION_PLUS_SELECTED_USER_PASSWORD", "SESSION_PLUS_SELECTED_USER_PIN").contains(evidence.authenticationMethod()))
             throw exception(EVIDENCE_INVALID);
         var receipt = JsonUtils.parseTree(application.getDossierSummaryJson());
         if (receipt == null || !receipt.isObject()
@@ -385,7 +387,7 @@ public class MesActiveOrderSignatureEvidenceService {
         if (actual == null || !actual.isObject()) throw exception(EVIDENCE_INVALID);
         var expectedContent = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(expected.canonicalContentJson());
         var identity = actual.get("signatureIdentity");
-        if ("SESSION_PLUS_SELECTED_USER_PASSWORD".equals(evidence.authenticationMethod())) {
+        if (SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_SELECTED_USER_PASSWORD")) {
             if (identity == null || !identity.isObject() || identity.size() != 5
                     || !"SYSTEM_USER".equals(identity.path("domain").asText())
                     || !numericId(identity.get("signerId"), evidence.actorId())
@@ -394,7 +396,7 @@ public class MesActiveOrderSignatureEvidenceService {
                     || !identity.path("displayName").isTextual() || identity.path("displayName").asText().isBlank())
                 throw exception(EVIDENCE_INVALID);
             expectedContent.set("signatureIdentity", identity);
-        } else if (!"SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) || identity != null) {
+        } else if (!SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD") || identity != null) {
             throw exception(EVIDENCE_INVALID);
         }
         if (!expectedContent.equals(actual))
@@ -425,7 +427,7 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !Set.of("V1", "V2", "UNSUPPORTED").contains(verification.evidenceFormatVersion())
                 || verification.timeSource() == null || !Set.of("SERVER_CLOCK", "UNKNOWN").contains(verification.timeSource()))
             throw exception(VERIFICATION_INVALID);
-        List<String> dimensions = Arrays.asList(verification.digestStatus(), verification.timeConsistencyStatus(), verification.auditBindingStatus());
+        List<String> dimensions = Arrays.asList(verification.digestStatus(), verification.timeConsistencyStatus(), (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && "DEVELOPMENT_DISABLED".equals(verification.auditBindingStatus()) ? "CONSISTENT" : verification.auditBindingStatus()));
         if (dimensions.stream().anyMatch(s -> s == null || !Set.of("CONSISTENT", "MISSING", "MISMATCH").contains(s)))
             throw exception(VERIFICATION_INVALID);
         boolean hashesMatch = evidence.contentHash() != null && !evidence.contentHash().isBlank()
@@ -462,13 +464,49 @@ public class MesActiveOrderSignatureEvidenceService {
                     .noneMatch(candidate -> candidate.trim().equals(String.valueOf(evidence.actorId())))
                 || !Objects.equals(transaction.getApprovalSignatureId(), evidence.id())
                 || !Objects.equals(transaction.getApprovedBy(), evidence.actorId())
-                || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), evidence.evidenceHash()))
+            throw exception(EVIDENCE_INVALID);
+        var fact = verifiedSignatureFacts.requireVerifiedFact(evidence.id());
+        if ("V2".equals(fact.verification().evidenceFormatVersion())) {
+            String key = fact.idempotencyKey();
+            if (key == null || !key.startsWith("AC:") || !key.endsWith(":CENTER") || key.length() <= 10)
+                throw exception(EVIDENCE_INVALID);
+            var receipt = centerReceipts.findVerified(evidence.actorId(), key.substring(3, key.length() - 7));
+            requireCenterMarketReleaseBinding(task, transaction, receipt, evidence);
+        } else if (!"V1".equals(fact.verification().evidenceFormatVersion())
                 || !Objects.equals(marketSignoff.findVerifiedSignatureId(task.getId(), transaction.getApprovedBy(),
                         evidence.subjectId(), transaction.getApprovalSignoffEvidenceHash(), transaction.getApprovalOpinion())
                         .orElse(null), evidence.id())) throw exception(EVIDENCE_INVALID);
-        var verification = verifiedSignatureFacts.requireVerifiedFact(evidence.id()).verification();
+        var verification = fact.verification();
         requireVerification(evidence, verification);
         return new Result(detail.getActiveOrderId(), bindings.get(0).signerName(), evidence, verification);
+    }
+
+    /** The center receipt has already verified its signature, signed content and creation evidence. */
+    static void requireCenterMarketReleaseBinding(MesProEdhrWorkTaskDO task,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO transaction,
+            cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO receipt,
+            ElectronicSignatureEvidenceDTO evidence) {
+        if (receipt == null || !Objects.equals(receipt.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(receipt.getActorId(), evidence.actorId())
+                || !Objects.equals(receipt.getCenterSignatureId(), evidence.id())
+                || !Objects.equals(receipt.getCenterEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(receipt.getSubjectVersion(), evidence.subjectVersion())
+                || !"APPROVE".equals(receipt.getActionCode()) || !"APPROVE".equals(receipt.getResultCode())
+                || !"RELEASED".equals(receipt.getResultingStatus())
+                || !Objects.equals(receipt.getReason(), transaction.getApprovalOpinion())
+                || !Objects.equals(evidence.subjectId(), "EDHR_RELEASE:" + transaction.getId())
+                || !Objects.equals(evidence.taskId(), task.getId().toString())) throw exception(EVIDENCE_INVALID);
+        var identity = JsonUtils.parseTree(receipt.getIdentityJson());
+        var links = JsonUtils.parseTree(receipt.getDomainLinksJson());
+        if (identity == null || links == null
+                || !"EDHR".equals(identity.path("ownerCode").asText())
+                || !"EDHR_WORK_TASK".equals(identity.path("sourceTaskType").asText())
+                || !task.getId().toString().equals(identity.path("sourceTaskId").asText())
+                || !"EDHR_RELEASE".equals(identity.path("domainSubjectType").asText())
+                || !transaction.getId().toString().equals(identity.path("domainSubjectId").asText())
+                || !transaction.getId().toString().equals(links.path("releaseId").asText()))
+            throw exception(EVIDENCE_INVALID);
     }
 
     private static void add(List<Binding> bindings, MesTeamLeaderActiveOrderDetail.SignatureDetail signature,
@@ -529,7 +567,8 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !positive(event.getWorkOrderId()) || !Objects.equals(revision.getWorkOrderId(), event.getWorkOrderId())
                 || !positive(event.getRouteId()) || !Objects.equals(revision.getRouteId(), event.getRouteId())
                 || !positive(event.getQaProcessId())
-                || !positive(revision.getRouteProcessId()) || !positive(revision.getProcessId())
+                || event.getRouteProcessId() != null || event.getProcessId() != null
+                || revision.getRouteProcessId() != null || revision.getProcessId() != null
                 || !MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE.equals(revision.getRevisionStatus())
                 || !Objects.equals(revision.getRevisionSignatureId(), evidence.id())
                 || !Objects.equals(revision.getRevisionSignatureUserId(), evidence.actorId())
@@ -562,10 +601,10 @@ public class MesActiveOrderSignatureEvidenceService {
         if (!Objects.equals(payloadHash, snapshot.getString("payloadHash")) || subject[16].isBlank()) {
             throw exception(EVIDENCE_INVALID);
         }
-        String expectedSubject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "FIELD_CHANGE", null, null,
+        String expectedSubject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, evidence.actionCode(), null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, subject[16]);
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
-                evidence.actorId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", expectedSubject,
+                evidence.actorId(), "MES", evidence.actionCode(), "MES_BATCH_RECORD", expectedSubject,
                 evidence.subjectVersion(), evidence.reason()));
         if (!Objects.equals(expectedSubject, evidence.subjectId())
                 || !Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(expectedSubject), evidence.subjectVersion())
@@ -583,6 +622,7 @@ public class MesActiveOrderSignatureEvidenceService {
                                         MesProcessPoolSubmissionReviewDO review, MesProProcessPoolEventRevisionDO revision,
                                         Long previousReviewId, Long activeOrderId, String payloadHash,
                                         String challenge, Long tenantId) {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         String operation = "mes.pqc-inspection.correct";
         String request = "MES-PQC-CORRECTION:" + revision.getId();
         String subject = "MES_PROCESS_POOL_EVENT:" + event.getId();

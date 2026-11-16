@@ -23,5 +23,5 @@ Generate one square PNG showroom cover image for the product facts provided by t
 - Completed: Milestone 2
 - Completed: Milestone 3
 - Latest artifact refresh: `2026-05-22 02:17:36`
-- Final PNG path: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\tmp\imagegen\batch-cover-fail-showroom-cover.png`
+- Final PNG path: `./IntRuoyiBackend/yudao-module-showroom/tmp/imagegen/batch-cover-fail-showroom-cover.png`
 - Status: complete

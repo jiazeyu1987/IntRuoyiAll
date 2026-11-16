@@ -21,6 +21,7 @@
     <template v-else-if="draft">
       <p>{{ draft.row.workOrderCode }} · {{ draft.row.formName }}</p>
       <p>退回原因：{{ draft.row.rejectionReason }}</p>
+      <p data-own-return-formal-identity>原事件：{{ draft.row.eventId }}；原退回轮次：{{ draft.row.rejectedReviewId }}；原修订：{{ draft.row.expectedRevisionId }}</p>
       <p>退回轮次：{{ draft.row.rejectedReviewId }}。修改业务值后由本人签名，组长再次复核。</p>
       <fieldset :disabled="busy" class="return-fields">
         <template v-if="draft.production">
@@ -137,11 +138,8 @@
           >更正原因<textarea v-model="reason" maxlength="500" aria-label="更正原因"></textarea>
         </label>
         <label
-          >本人签名密码<input
+          >本人签名凭据（PIN 码或密码）<SignatureCredentialInput
             v-model="password"
-            type="password"
-            autocomplete="new-password"
-            aria-label="本人签名密码"
         /></label>
       </fieldset>
     </template>
@@ -166,7 +164,6 @@
       <el-button v-if="draft && !result" :disabled="busy" @click="back">返回列表</el-button>
       <el-button
         v-if="draft && !result"
-        v-hasPermi="['mes:pro-feedback:create']"
         type="primary"
         :loading="busy"
         @click="resubmit"
@@ -177,6 +174,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { computed, ref, watch, onBeforeUnmount, onDeactivated } from 'vue'
@@ -361,8 +359,8 @@ const openTask = async (query: Record<string, unknown>) => {
 const resubmit = async () => {
   if (busy.value) return
   errorText.value = ''
-  if (!checkPermi(['mes:pro-feedback:create'])) {
-    errorText.value = '没有本人签名重提的权限'
+  if (!checkPermi(['mes:pro-feedback:query'])) {
+    errorText.value = '没有本人退回表单的访问权限'
     password.value = ''
     return
   }
@@ -377,7 +375,7 @@ const resubmit = async () => {
     return
   }
   if (!reason.value.trim() || !password.value) {
-    errorText.value = '请填写更正原因和本人签名密码'
+    errorText.value = '请填写更正原因和本人签名凭据（PIN 码或密码）'
     password.value = ''
     return
   }

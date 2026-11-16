@@ -8,6 +8,7 @@ import { useUserStoreWithOut } from './user'
 import { cloneDeep } from 'lodash-es'
 
 const TAGS_VIEW_PATH_IDENTITY_PATHS = new Set([
+  'mes/pro/process-pool/common-regulation',
   'mes/md/workstation',
   'md/workstation',
   'approval-center/manager/form-center/template',

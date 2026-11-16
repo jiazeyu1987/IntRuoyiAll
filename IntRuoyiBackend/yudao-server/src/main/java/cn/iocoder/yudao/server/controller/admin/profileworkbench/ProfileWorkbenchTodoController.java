@@ -20,8 +20,9 @@ public class ProfileWorkbenchTodoController {
         strings(body,Set.of("registryRevision","contextEpoch"));
         if(!body.has("sources") || !body.get("sources").isArray())throw INVALID_QUERY.exception();
         body.get("sources").forEach(value->{if(!value.isTextual())throw INVALID_QUERY.exception();});
-        JsonNode spec=body.get("querySpec"); fields(spec,Set.of("visibility","taskType","quickFilter","sort"));
+        JsonNode spec=body.get("querySpec"); fields(spec,Set.of("visibility","taskType","quickFilter","sort","listFilters"));
         strings(spec,Set.of("visibility"));
+        if(spec.hasNonNull("listFilters") && !spec.get("listFilters").isTextual())throw INVALID_QUERY.exception();
         if(spec.hasNonNull("taskType") && !spec.get("taskType").isTextual())throw INVALID_QUERY.exception();
         if(spec.hasNonNull("quickFilter")) { fields(spec.get("quickFilter"),Set.of("fieldKey","operator","value"));strings(spec.get("quickFilter"),Set.of("fieldKey","operator","value")); }
         if(spec.hasNonNull("sort")) { fields(spec.get("sort"),Set.of("key","order"));strings(spec.get("sort"),Set.of("key","order")); }

@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Change Request: Migrate IntPP Automatic Scheduling Into IntRuoyi
 
 ## Request Summary And Source
@@ -12,7 +14,7 @@ Latest scope revision: do not migrate IntPP draft/version/snapshot management. K
 
 - IntRuoyi current production scheduling assessment task: `doc/tasks/20260512-assess-production-scheduling`.
 - IntRuoyi current MES scheduling implementation.
-- IntPP repository at `D:\ProjectPackage\Int\IntPP`.
+- IntPP repository at `历史外部材料（引用已移除）`.
 
 ## Classification
 

@@ -28,6 +28,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesTeamLeaderFifoAllocationService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
@@ -143,7 +145,7 @@ public class MesTeamLeaderFifoAllocationService {
     }
 
     List<MesProcessPoolActiveOrderDO> sortedActiveOrders(Long leaderUserId) {
-        return activeOrderMapper.selectActiveListByLeader(leaderUserId)
+        return (packagingAccess.isPackagingLeader(leaderUserId) ? activeOrderMapper.selectActiveListByLeader(leaderUserId, true) : activeOrderMapper.selectActiveListByLeader(leaderUserId))
                 .stream()
                 .filter(activeOrder -> Objects.equals(activeOrder.getActiveStatus(), "ACTIVE"))
                 .toList();
@@ -161,7 +163,7 @@ public class MesTeamLeaderFifoAllocationService {
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMapper.selectByActiveOrderAndProcess(
                 activeOrder.getId(), target.routeProcessId(), target.processId());
         return MesOutputMaterialProgressCalculator.calculateAvailableAllocationQuantity(
-                activeOrder, snapshot, target.plannedQuantity(), currentEvent, previousEvents, previousAllocations);
+                activeOrder, snapshot, MesProductionQuantityRange.of(snapshot).upper(), currentEvent, previousEvents, previousAllocations);
     }
 
     private void validateReq(MesTeamLeaderFifoAllocationReqBO reqBO) {

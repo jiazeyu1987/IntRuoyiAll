@@ -882,7 +882,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private LambdaQueryWrapperX<DccControlledFileDO> buildBrowserSummaryQuery(DccControlledFilePageReqVO reqVO) {
+    default LambdaQueryWrapperX<DccControlledFileDO> buildBrowserSummaryQuery(DccControlledFilePageReqVO reqVO) {
         LambdaQueryWrapperX<DccControlledFileDO> query = buildWorkflowQuery(reqVO);
         if (Boolean.TRUE.equals(reqVO.getLatestVersionOnly())
                 && (reqVO.getStatus() == null || reqVO.getStatus().isBlank())) {

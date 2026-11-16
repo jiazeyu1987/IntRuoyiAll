@@ -14,7 +14,7 @@ public interface ShowroomWorkbenchTodoMapper {
  @Select("SELECT notify_message_id FROM showroom_field_assignment WHERE tenant_id=#{q.tenantId} AND id=#{id} AND deleted=0 FOR UPDATE")
  Long lockAssignment(@Param("q") QueryContext q,@Param("id") long id);
  @Options(timeout=10)
- @Select("SELECT id FROM system_notify_message WHERE tenant_id=#{q.tenantId} AND id=#{id} AND deleted=0 FOR UPDATE")
+ @Select("SELECT id FROM system_tenant_notify_message WHERE tenant_id=#{q.tenantId} AND id=#{id} AND deleted=0 FOR UPDATE")
  Long lockNotification(@Param("q") QueryContext q,@Param("id") long id);
  default void lockAssignmentIdentity(QueryContext q,long id) {
   q.validate(); Long n=lockAssignment(q,id); if(n==null || lockNotification(q,n)==null)throw WorkbenchFailure.TASK_NOT_ELIGIBLE.exception();

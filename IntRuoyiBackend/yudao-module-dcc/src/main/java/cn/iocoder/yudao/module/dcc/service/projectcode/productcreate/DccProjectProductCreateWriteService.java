@@ -29,6 +29,7 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 
 @Service
 public class DccProjectProductCreateWriteService {
+    @jakarta.annotation.Resource private org.springframework.context.ApplicationEventPublisher projectEvents;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.dcc.registrationcertificate.service.handling.DccRegistrationHandlingTaskService registrationHandlingTasks;
 
@@ -86,14 +87,15 @@ public class DccProjectProductCreateWriteService {
             throw exception(WRITE_INCOMPLETE, "项目代码");
         }
         registrationHandlingTasks.createProjectTask(projectCode.getId());
+        boolean directCreate = DccProjectProductCreateService.DIRECT_CREATE_CONTRACT.equals(request.getReviewContract());
         projectAccessService.initializeApprovedProjectLeaderOwner(projectCode.getId(),
-                request.getProjectLeaderUserId(), "项目申请审批通过（申请ID：" + requestId + "），初始化项目负责人OWNER权限");
+                request.getProjectLeaderUserId(), (directCreate ? "项目直接创建（记录ID：" : "项目申请审批通过（申请ID：") + requestId + "），初始化项目负责人OWNER权限");
+        projectEvents.publishEvent(new cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCreatedEvent(projectCode.getId()));
         String version=productAudit.attemptVersion(request.getWriteAttemptNo());
         productAudit.validateDecisionReason(request.getWriteReason(),true);
         var before=productAudit.snapshot(requestId);
         folderTemplateService.generate(projectCode.getId(), request.getFolderTemplateId(), request.getFolderTemplateSnapshotJson());
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
-                .tenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .dataSource(DATA_SOURCE)
                 .originalRowNo(originalRowNo)
                 .product(request.getProductName())
@@ -103,6 +105,7 @@ public class DccProjectProductCreateWriteService {
                 .classification(request.getClassification())
                 .remark(request.getRemark())
                 .build();
+        productCatalog.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         if (productCatalogMapper.insert(productCatalog) != 1 || productCatalog.getId() == null) {
             throw exception(WRITE_INCOMPLETE, "产品目录");
         }
@@ -124,7 +127,7 @@ public class DccProjectProductCreateWriteService {
         request.setWriteErrorCode(null);
         request.setWriteErrorMessage(null);
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "申请完成状态");
-        productAudit.append("dcc.project-product.complete",requestId,version,request.getWriteReason(),before,"APPROVE");
+        productAudit.append("dcc.project-product.complete",requestId,version,request.getWriteReason(),before,directCreate ? null : "APPROVE");
         return request;
     }
 

@@ -11,6 +11,11 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesProEdhrBatchExecutionRejectReqVO {
 
+    @jakarta.validation.constraints.NotNull(message = "请选择QA评审责任人")
+    @jakarta.validation.constraints.Positive(message = "QA评审责任人编号必须为正数")
+    @Schema(description = "发起人明确选择的QA评审责任人", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long qaReviewerUserId;
+
     @Schema(description = "批次执行 ID", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "批次执行 ID 不能为空")
     private Long batchExecutionId;
@@ -20,6 +25,6 @@ public class MesProEdhrBatchExecutionRejectReqVO {
     private String nonconformanceReason;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
 }

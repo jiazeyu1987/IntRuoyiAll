@@ -5,14 +5,18 @@ const ts = require('typescript')
 const { parse } = require('vue/compiler-sfc')
 const source = parse(fs.readFileSync(path.join(__dirname, '../../src/views/approval-center/index.vue'), 'utf8')).descriptor.scriptSetup.content
 const ast = ts.createSourceFile('approval.ts', source, ts.ScriptTarget.Latest, true)
-const names = ['approvalListRequestSequence', 'isUnfilteredTodoQuery', 'getList']
+const names = ['listUiGeneration', 'approvalListLoader', 'isUnfilteredTodoQuery', 'getList']
 const actual = ast.statements.filter(n => ts.isVariableStatement(n) && n.declarationList.declarations.some(d => names.includes(d.name.text))).map(n => n.getText(ast)).join('\n')
+const loaderExports = {}
+new Function('exports', ts.transpileModule(fs.readFileSync(path.join(__dirname, '../../src/store/modules/approvalCenterInvalidationState.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(loaderExports)
 function host() {
   const pending = [], badges = [], messages = []
-  const c = { list: { value: ['initial'] }, total: { value: 9 }, loading: { value: false }, loadError: { value: '' }, queryParams: { viewType: 'TODO', keyword: '', moduleCode: undefined }, approvalLastLoadedRouteStateKey: undefined,
+  const c = { list: { value: ['initial'] }, total: { value: 9 }, loading: { value: false }, loadError: { value: '' }, queryParams: { viewType: 'TODO', keyword: '', moduleCode: undefined, pageNo: 1, pageSize: 10 }, approvalLastLoadedRouteStateKey: undefined,
+    createApprovalListLoader: loaderExports.createApprovalListLoader,
+    approvalInvalidation: { syncSession: () => ({ key: 'test-session' }), isCurrent: key => key === 'test-session', revision: () => 0 },
     buildApprovalCenterRouteStateKey: () => c.queryParams.keyword || 'unfiltered',
     getApprovalTaskPage: query => new Promise((resolve, reject) => pending.push({ resolve, reject, query: { ...query } })),
-    approvalTodoBadgeStore: { applyTodoTotal: n => badges.push(n) }, resolveErrorMessage: e => e.message, ElMessage: { error: m => messages.push(m) } }
+    approvalTodoBadgeStore: { refreshTodoTotal: async () => badges.push(7) }, resolveErrorMessage: e => e.message, ElMessage: { error: m => messages.push(m) } }
   vm.createContext(c)
   vm.runInContext(ts.transpileModule(actual + '\nglobalThis.run = getList', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, c)
   return { c, pending, badges, messages, run: keyword => { c.queryParams.keyword = keyword; return c.run() } }
@@ -47,11 +51,14 @@ test('latest failure stays visible when stale success arrives', async () => {
   assert.equal(h.c.loadError.value, 'current error'); assert.deepEqual(h.messages, ['current error'])
   assert.equal(h.c.loading.value, false); assert.equal(h.c.approvalLastLoadedRouteStateKey, undefined); assert.deepEqual(h.badges, [])
 })
-test('badge eligibility belongs to request snapshot, not later edited inputs', async () => {
+test('edited query invalidates pending reads; a current unfiltered query refreshes the badge', async () => {
   const h = host(), filtered = h.run('target'); h.c.queryParams.keyword = ''
   h.pending[0].resolve({ list: ['target'], total: 1 }); await filtered
   assert.deepEqual(h.badges, [])
   const unfiltered = h.run(''); h.c.queryParams.keyword = 'editing'
   h.pending[1].resolve({ list: ['all'], total: 7 }); await unfiltered
+  assert.deepEqual(h.badges, [])
+  const current = h.run('')
+  h.pending[2].resolve({ list: ['all'], total: 7 }); await current
   assert.deepEqual(h.badges, [7])
 })

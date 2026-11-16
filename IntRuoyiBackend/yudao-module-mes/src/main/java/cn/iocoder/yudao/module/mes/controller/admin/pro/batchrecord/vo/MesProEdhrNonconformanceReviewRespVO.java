@@ -53,6 +53,8 @@ public class MesProEdhrNonconformanceReviewRespVO {
 
     private Long qaUserId;
 
+    private Long qaReviewerUserId;
+
     private LocalDateTime frozenAt;
 
     private LocalDateTime closedAt;

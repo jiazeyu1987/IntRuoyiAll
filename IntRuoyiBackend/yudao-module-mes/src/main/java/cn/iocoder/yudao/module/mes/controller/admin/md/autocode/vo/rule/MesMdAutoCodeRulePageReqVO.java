@@ -16,6 +16,8 @@ import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class MesMdAutoCodeRulePageReqVO extends PageParam {
+    @Schema(description = "所属产品项目")
+    private Long projectId;
 
     @Schema(description = "规则编码", example = "ITEM_CODE")
     private String code;

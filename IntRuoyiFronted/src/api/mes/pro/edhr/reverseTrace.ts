@@ -44,7 +44,7 @@ export interface ReverseTraceCatalogItem {
   qualifiers?: Record<string, string>
   allowedOperators?: string[]
   allowedValues?: string[]
-  recordedAt?: string
+  recordedAt?: string | number
   recordStatus?: string
   recordedStandard?: string
   parameterStatus?: string
@@ -122,8 +122,8 @@ export interface ReverseTraceEvidenceResponse {
     actualValue?: string
     recordedStandard?: string
     recordStatus?: string
-    occurredAt?: string
-    recordedAt?: string
+    occurredAt?: string | number
+    recordedAt?: string | number
   }>
   total?: number
 }

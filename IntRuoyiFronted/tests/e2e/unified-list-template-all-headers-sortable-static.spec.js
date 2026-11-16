@@ -82,6 +82,10 @@ assert.doesNotMatch(
 )
 
 const explicitlySortableAllowList = new Set([
+  // User management loads its complete authorized result and sorts before local pagination.
+  ...['id', 'username', 'nickname', 'deptName', 'roleNamesText', 'postNamesText', 'mobile',
+    'status', 'loginLocked', 'lifecycleDocumentNo', 'lifecycleEffectiveTime',
+    'lifecycleDeactivatedTime', 'createTime'].map(key => `src/views/system/user/index.vue:${key}:custom`),
   'src/views/dcc/registration-certificate/index/index.vue:certificateNo:custom',
   'src/views/dcc/registration-certificate/index/index.vue:ownerCompanyName:custom',
   'src/views/dcc/registration-certificate/index/index.vue:productName:custom',

@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 
 export interface StockVO {
+  productBarCode: string
   id: number
   productId: number
   warehouseId: number

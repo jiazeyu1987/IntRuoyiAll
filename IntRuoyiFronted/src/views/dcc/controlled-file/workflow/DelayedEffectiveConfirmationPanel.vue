@@ -11,9 +11,8 @@
       <el-form-item label="签名原因" required>
         <el-input v-model="reason" type="textarea" maxlength="500" placeholder="请填写本次确认原因" />
       </el-form-item>
-      <el-form-item label="电子签名密码" required>
-        <el-input v-model="password" name="dcc-delayed-effective-signature-password" type="password" show-password
-          autocomplete="new-password" :readonly="!passwordFocused" @focus="passwordFocused = true" placeholder="当前账号密码" />
+      <el-form-item label="签名凭据" required>
+        <SignatureCredentialInput v-model="password" name="dcc-delayed-effective-signature-password" />
       </el-form-item>
     </el-form>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -23,6 +22,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { generateUUID } from '@/utils'
 import { buildDelayedEffectiveConfirmationCommand, validateDelayedEffectiveConfirmationResult,

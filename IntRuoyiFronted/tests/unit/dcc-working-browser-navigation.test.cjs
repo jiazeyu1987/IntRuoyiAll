@@ -20,7 +20,7 @@ function declaration(source, name, context) {
   }
   assert.ok(selected, 'actual public declaration missing: ' + name)
   const compiled = ts.transpileModule(selected + '\nexports.value=' + name, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  const state = { exports: {}, Error, String, Number, ...context }
+  const state = { exports: {}, Error, String, Number, ensureCurrentDetailContext: () => true, ...context }
   vm.runInNewContext(compiled, state)
   return state.exports.value
 }

@@ -9,10 +9,10 @@ const listPage = fs.readFileSync(
 )
 const changeApi = fs.readFileSync(path.join(root, 'src/api/mes/pro/edhr/change.ts'), 'utf8')
 
-assert.match(
+assert.doesNotMatch(
   listPage,
   /openVoidDialog\(row\)/,
-  '批次执行列表行“作废”必须打开当前行作废确认弹窗，不能跳转到手填或查询页面。'
+  '上市放行列表不得显示行内作废入口。'
 )
 
 assert.doesNotMatch(

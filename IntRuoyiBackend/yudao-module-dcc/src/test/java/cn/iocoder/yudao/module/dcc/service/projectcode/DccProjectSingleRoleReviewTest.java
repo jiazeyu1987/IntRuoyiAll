@@ -27,6 +27,8 @@ class DccProjectSingleRoleReviewTest extends DccApprovedProjectLeaderOwnerTest {
  @MockitoBean NotifyMessageSendApi notices;
  @Resource cn.iocoder.yudao.module.dcc.approval.DccProjectProductTaskDelegate nativeTasks;
  @BeforeEach void roleFixture(){
+  jdbc.update("INSERT INTO gxp_audit_ledger_sequence(tenant_id,next_ledger_sequence) VALUES(1,1)");
+  jdbc.update("INSERT INTO gxp_audit_policy_activation(tenant_id,policy_version,policy_hash,request_id,actor_id,approval_reference,activated_at_utc,effective_after_sequence,canonical_activation_json,activation_hash) VALUES(1,'isolated-owner-test','project-center-policy','project-center-fixture',9,'isolated-test',CURRENT_TIMESTAMP,0,'{}','project-center-activation')");
   jdbc.execute("CREATE TABLE IF NOT EXISTS system_role(id BIGINT PRIMARY KEY,tenant_id BIGINT,code VARCHAR(64),name VARCHAR(64),status INT,deleted INT DEFAULT 0)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id BIGINT PRIMARY KEY,tenant_id BIGINT,user_id BIGINT,role_id BIGINT,deleted INT DEFAULT 0)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id BIGINT PRIMARY KEY,tenant_id BIGINT,username VARCHAR(64),nickname VARCHAR(64),status INT,deleted INT DEFAULT 0)");
@@ -57,7 +59,11 @@ class DccProjectSingleRoleReviewTest extends DccApprovedProjectLeaderOwnerTest {
   var capture=org.mockito.ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);verify(notices,times(2)).sendSingleMessageIdempotentlyToAdmin(capture.capture());assertEquals(Set.of(7L,8L),new HashSet<>(capture.getAllValues().stream().map(NotifySendSingleToUserIdempotentReqDTO::getUserId).toList()));
  }
  @Test void secondRoleMemberAloneCompletesWholeCreationWithoutAdminOrUpdatePermission(){
-  Long id=create("ONE");actor(8L);var done=service.review(8L,id,"核对通过",true);assertEquals("COMPLETED",done.getStatus());
+  Long id=create("ONE");actor(8L);
+  var task=nativeTasks.list(cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext.of(8L,cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType.TODO,cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.DCC,null,1,10)).get(0);
+  assertEquals(Set.of("APPROVE","REJECT"),task.getAvailableActions());assertTrue(task.getRequiresSignature());
+  nativeTasks.review(cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext.of(8L,cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.DCC,task.getSourceTaskType(),task.getSourceTaskId(),id.toString(),null,cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,"核对通过","signature",false));
+  var done=requests.selectById(id);assertEquals("COMPLETED",done.getStatus());
   assertEquals(8L,done.getReviewerUserId());assertNotNull(done.getReviewedTime());assertNull(done.getApproverUserId());assertNull(done.getApprovedTime());
   assertEquals(1,projects.selectList().size());assertEquals(1,products.selectList().size());assertEquals(1,relations.selectList().size());assertEquals(1,folderRows.selectList().size());assertEquals("OWNER",accessRules.selectList().get(0).getAccessLevel());assertEquals(7L,accessRules.selectList().get(0).getSubjectId());
   assertEquals(3,events.selectList().size());verify(permissions,never()).hasAnyPermissions(8L,"dcc:project-code:update");

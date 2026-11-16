@@ -6,12 +6,9 @@
     destroy-on-close
   >
     <el-form label-width="96px">
-      <el-form-item label="登录密码">
-        <el-input
+      <el-form-item label="签名凭据">
+        <SignatureCredentialInput
           v-model="password"
-          show-password
-          type="password"
-          placeholder="请输入当前登录密码"
         />
       </el-form-item>
       <el-form-item :label="mode === 'reject' ? '驳回原因' : '审批意见'">
@@ -32,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 defineOptions({ name: 'ShowroomApprovalSignatureDialog' })
 
 const props = withDefaults(

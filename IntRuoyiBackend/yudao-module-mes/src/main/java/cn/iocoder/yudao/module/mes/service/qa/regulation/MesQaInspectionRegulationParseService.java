@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -39,6 +40,7 @@ public class MesQaInspectionRegulationParseService {
                 .regulationName(parsed.regulationName())
                 .versionNo(parsed.versionNo())
                 .effectiveDate(parsed.effectiveDate().toString())
+                .ruleSourceText(parsed.ruleSourceText())
                 .processes(groupItemsByProcess(parsed))
                 .build();
     }
@@ -55,7 +57,7 @@ public class MesQaInspectionRegulationParseService {
             if (parsedItem.firstInspectionQuantity() != null) {
                 applicableInspectionTypes.add("FIRST");
             }
-            if (parsedItem.patrolInspectionRatio() != null) {
+            if (parsedItem.patrolApplicable()) {
                 applicableInspectionTypes.add("PATROL");
             }
             group.items().add(MesQaInspectionRegulationParseRespVO.InspectionItem.builder()
@@ -69,7 +71,8 @@ public class MesQaInspectionRegulationParseService {
                     .resultType("BOOLEAN")
                     .applicableInspectionTypes(List.copyOf(applicableInspectionTypes))
                     .firstInspectionQuantity(parsedItem.firstInspectionQuantity())
-                    .patrolInspectionRatio(parsedItem.patrolInspectionRatio())
+                    .inspectionLevel(parsedItem.inspectionLevel())
+                    .aql(parsedItem.aql())
                     .build());
         }
 
@@ -94,8 +97,9 @@ public class MesQaInspectionRegulationParseService {
         String originalName = file.getOriginalFilename();
         String normalizedPath = originalName == null ? "" : originalName.replace('\\', '/');
         String fileName = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1).trim();
-        if (fileName.isEmpty() || !fileName.toLowerCase().endsWith(".docx")) {
-            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .docx 文件");
+        String lowerName = fileName.toLowerCase(Locale.ROOT);
+        if (!(lowerName.endsWith(".doc") || lowerName.endsWith(".docx"))) {
+            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .doc 或 .docx 文件");
         }
         return fileName;
     }

@@ -1,69 +1,7 @@
 <template>
-  <doc-alert title="【生产】生产报工" url="https://doc.iocoder.cn/mes/pro/feedback/" />
 
-  <ContentWrap v-if="activeTab === 'import-record'">
-    <el-form
-      class="feedback-import-query-form -mb-15px"
-      :model="importQueryParams"
-      ref="importQueryFormRef"
-      :inline="true"
-      label-width="100px"
-    >
-      <el-form-item label="记录编号" prop="id">
-        <el-input
-          v-model="importQueryParams.id"
-          placeholder="请输入记录编号"
-          clearable
-          @keyup.enter="handleImportQuery"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="正式报工编号" prop="feedbackId">
-        <el-input
-          v-model="importQueryParams.feedbackId"
-          placeholder="请输入正式报工编号"
-          clearable
-          @keyup.enter="handleImportQuery"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="归属状态" prop="attributionStatus">
-        <el-select
-          v-model="importQueryParams.attributionStatus"
-          placeholder="请选择归属状态"
-          clearable
-          class="!w-240px"
-        >
-          <el-option label="待归属" value="PENDING" />
-          <el-option label="已归属" value="ATTRIBUTED" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleImportQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetImportQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
-      </el-form-item>
-      <el-form-item class="feedback-import-toolbar">
-        <el-button
-          type="primary"
-          plain
-          @click="handleThirdPartyImport"
-          v-hasPermi="['mes:pro-feedback:create']"
-        >
-          <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
-        </el-button>
-        <el-button class="app-test-button"
-          v-if="testModeEnabled"
-          type="warning"
-          plain
-          :loading="simulateImportLoading"
-          @click="handleSimulateImport"
-          v-hasPermi="['mes:pro-feedback:create']"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" /> 模拟报工
-        </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
+
+
 
   <ContentWrap v-if="activeTab === 'feedback'">
     <el-alert
@@ -95,6 +33,9 @@
       @column-change="saveFeedbackColumnConfig"
       @column-reset="resetFeedbackColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <div class="feedback-filter-action-relocation">
@@ -102,7 +43,6 @@
             type="primary"
             plain
             @click="handleThirdPartyImport"
-            v-hasPermi="['mes:pro-feedback:create']"
           >
             <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
           </el-button>
@@ -120,14 +60,14 @@
           <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         </div>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="feedback-main-table-scroll-region">
           <el-table
             v-loading="loading"
             class="feedback-main-table"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.feedback.main"
-            :data="list"
+            :data="resolveRows(list)"
             height="100%"
             border
             :stripe="true"
@@ -248,25 +188,7 @@
 
   <ContentWrap v-else>
     <div class="feedback-import-batch-summary mb-12px">
-      <div class="feedback-import-batch-summary__header">
-        <div>
-          <div class="feedback-import-batch-summary__title">当前导入批次</div>
-          <div class="feedback-import-batch-summary__subtitle">
-            归属会按所选订单工序生成草稿正式报工；字段补齐后通过页面顶部确认报工一次性提交本批；提交正式报工后回写排产进度。
-          </div>
-        </div>
-        <div class="feedback-import-batch-summary__actions">
-          <el-button
-            v-hasPermi="['mes:pro-feedback:update']"
-            type="primary"
-            :disabled="!currentImportRecordIds.length"
-            :loading="confirmBatchLoading"
-            @click="handleConfirmBatch"
-          >
-            确认报工
-          </el-button>
-        </div>
-      </div>
+
       <div class="feedback-import-batch-summary__metrics">
         <div class="feedback-import-batch-summary__metric">
           <span>来源文件</span>
@@ -307,151 +229,232 @@
         </template>
       </el-alert>
     </div>
-    <el-table
-      v-loading="importLoading"
-      :data="importRecordList"
-      stripe
-      row-key="id"
-      :cell-class-name="resolveImportRecordCellClassName"
-    >
-      <el-table-column label="工单" prop="workOrderCode" min-width="150" />
-      <el-table-column label="产品编码" prop="itemCode" min-width="140" />
-      <el-table-column label="产品名称" prop="itemName" min-width="160" />
-      <el-table-column label="规格" prop="specification" min-width="120" />
-      <el-table-column label="工序" min-width="180">
-        <template #default="scope">
-          <div class="feedback-import-process">
-            <span class="feedback-import-process__line">{{ scope.row.processCode || '--' }}</span>
-            <span class="feedback-import-process__line">{{ scope.row.processName || '--' }}</span>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工数量" prop="feedbackQuantity" width="100" align="right" />
-      <el-table-column label="缓存池数量" prop="surplusPoolQuantity" width="110" align="right" />
-      <el-table-column
-        label="报工时间"
-        prop="feedbackTime"
-        width="180"
-        :formatter="dateFormatter"
-        align="center"
-      />
-      <el-table-column label="归属结果" min-width="220">
-        <template #default="scope">
-          <div class="feedback-import-result">
-            <strong
-              :class="
-                scope.row.attributionStatus === 'ATTRIBUTED'
-                  ? 'feedback-import-result__status feedback-import-result__status--success'
-                  : 'feedback-import-result__status feedback-import-result__status--warning'
-              "
-            >
-              {{
-                scope.row.attributionStatus === 'ATTRIBUTED'
-                  ? isImportRecordSkippedExternalOtherOrder(scope.row)
-                    ? '其他订单'
-                    : '已归属'
-                  : '待归属'
-              }}
-            </strong>
-            <small v-if="scope.row.feedbackId">正式报工编号 #{{ scope.row.feedbackId }}</small>
-            <small v-if="scope.row.attributionStatus === 'ATTRIBUTED'">
-              归属时间：{{ formatImportAttributionTime(scope.row.attributionTime) }}
-            </small>
-            <small v-if="scope.row.linkedFeedbackCount">
-              关联正式报工：{{ scope.row.linkedFeedbackCount }} 条
-            </small>
-            <small v-if="isImportRecordSkippedExternalOtherOrder(scope.row)">
-              该行未生成正式报工草稿，确认报工时将跳过
-            </small>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工人" min-width="180">
-        <template #default="scope">
-          <UserSelectV2
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.feedbackUserId"
-            placeholder="请选择报工人"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工时间" min-width="210">
-        <template #default="scope">
-          <el-date-picker
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.feedbackTime"
-            type="datetime"
-            value-format="x"
-            placeholder="请选择报工时间"
-            class="!w-1/1"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="当前审批人" min-width="180">
-        <template #default="scope">
-          <UserSelectV2
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.approveUserId"
-            placeholder="请选择当前审批人"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="备注" min-width="220">
-        <template #default="scope">
-          <el-input
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.remark"
-            placeholder="请输入备注"
-            clearable
-          />
-          <span v-else class="text-[#909399]">确认报工时将跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" width="240" fixed="right">
-        <template #default="scope">
-          <el-button
-            v-if="scope.row.attributionStatus === 'PENDING'"
-            v-hasPermi="['mes:pro-feedback:update']"
-            link
-            type="primary"
-            @click="openAttribution(scope.row)"
-          >
-            选择归属
-          </el-button>
-          <el-button
-            v-if="
-              scope.row.attributionStatus === 'ATTRIBUTED' &&
-              scope.row.canModifyAttribution
-            "
-            v-hasPermi="['mes:pro-feedback:update']"
-            link
-            type="warning"
-            @click="openAttribution(scope.row)"
-          >
-            修改归属
-          </el-button>
-          <span
-            v-if="
-              scope.row.attributionStatus === 'ATTRIBUTED' &&
-              !scope.row.canModifyAttribution &&
-              scope.row.modifyBlockedReason
-            "
-            class="text-[#909399]"
-          >
-            {{ scope.row.modifyBlockedReason }}
-          </span>
-        </template>
-      </el-table-column>
-    </el-table>
-    <Pagination
+    <UnifiedListTemplate
+      @query="handleImportQuery"
+      @reset="resetImportQuery"
+      table-key="mes.feedback.importBatch"
+      :query-model="importQueryParams"
       :total="importTotal"
       v-model:page="importQueryParams.pageNo"
       v-model:limit="importQueryParams.pageSize"
       @pagination="getImportRecordList"
-    />
+      server-filter
+      :server-filter-query="getImportRecordList"
+      :columns="listFilterColumns1"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
+    >
+      <template #filters>
+        <el-form
+          class="feedback-import-query-form -mb-15px"
+          :model="importQueryParams"
+          ref="importQueryFormRef"
+          :inline="true"
+          label-width="100px"
+        >
+          <el-form-item label="记录编号" prop="id">
+            <el-input
+              v-model="importQueryParams.id"
+              placeholder="请输入记录编号"
+              clearable
+              @keyup.enter="handleImportQuery"
+              class="!w-180px"
+            />
+          </el-form-item>
+          <el-form-item label="正式报工编号" prop="feedbackId">
+            <el-input
+              v-model="importQueryParams.feedbackId"
+              placeholder="请输入正式报工编号"
+              clearable
+              @keyup.enter="handleImportQuery"
+              class="!w-180px"
+            />
+          </el-form-item>
+          <el-form-item label="归属状态" prop="attributionStatus">
+            <el-select
+              v-model="importQueryParams.attributionStatus"
+              placeholder="请选择归属状态"
+              clearable
+              class="!w-240px"
+            >
+              <el-option label="待归属" value="PENDING" />
+              <el-option label="已归属" value="ATTRIBUTED" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
+
+        <el-button
+          type="primary"
+          plain
+          @click="handleThirdPartyImport"
+        >
+          <Icon icon="ep:upload-filled" class="mr-5px" />
+          第三方导入
+        </el-button>
+        <el-button
+          class="app-test-button"
+          v-if="testModeEnabled"
+          type="warning"
+          plain
+          :loading="simulateImportLoading"
+          @click="handleSimulateImport"
+        >
+          <Icon icon="ep:magic-stick" class="mr-5px" />
+          模拟报工
+        </el-button>
+
+        <el-button
+          v-hasPermi="['mes:pro-feedback:update']"
+          type="primary"
+          :disabled="!currentImportRecordIds.length"
+          :loading="confirmBatchLoading"
+          @click="handleConfirmBatch"
+        >
+          确认报工
+        </el-button>
+      </template>
+      <template #table="{ resolveRows }">
+        <el-table
+          border
+          v-loading="importLoading"
+          :data="resolveRows(importRecordList)"
+          stripe
+          row-key="id"
+          :cell-class-name="resolveImportRecordCellClassName"
+        >
+          <el-table-column label="工单" prop="workOrderCode" min-width="150" />
+          <el-table-column label="产品编码" prop="itemCode" min-width="140" />
+          <el-table-column label="产品名称" prop="itemName" min-width="160" />
+          <el-table-column label="规格" prop="specification" min-width="120" />
+          <el-table-column label="工序" min-width="180">
+            <template #default="scope">
+              <div class="feedback-import-process">
+                <span class="feedback-import-process__line">{{ scope.row.processCode || '--' }}</span>
+                <span class="feedback-import-process__line">{{ scope.row.processName || '--' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工数量" prop="feedbackQuantity" width="100" align="right" />
+          <el-table-column label="缓存池数量" prop="surplusPoolQuantity" width="110" align="right" />
+          <el-table-column
+            label="报工时间"
+            prop="feedbackTime"
+            width="180"
+            :formatter="dateFormatter"
+            align="center"
+          />
+          <el-table-column label="归属结果" min-width="220">
+            <template #default="scope">
+              <div class="feedback-import-result">
+                <strong
+                  :class="
+                    scope.row.attributionStatus === 'ATTRIBUTED'
+                      ? 'feedback-import-result__status feedback-import-result__status--success'
+                      : 'feedback-import-result__status feedback-import-result__status--warning'
+                  "
+                >
+                  {{
+                    scope.row.attributionStatus === 'ATTRIBUTED'
+                      ? isImportRecordSkippedExternalOtherOrder(scope.row)
+                        ? '其他订单'
+                        : '已归属'
+                      : '待归属'
+                  }}
+                </strong>
+                <small v-if="scope.row.feedbackId">正式报工编号 #{{ scope.row.feedbackId }}</small>
+                <small v-if="scope.row.attributionStatus === 'ATTRIBUTED'">
+                  归属时间：{{ formatImportAttributionTime(scope.row.attributionTime) }}
+                </small>
+                <small v-if="scope.row.linkedFeedbackCount">
+                  关联正式报工：{{ scope.row.linkedFeedbackCount }} 条
+                </small>
+                <small v-if="isImportRecordSkippedExternalOtherOrder(scope.row)">
+                  该行未生成正式报工草稿，确认报工时将跳过
+                </small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工人" min-width="180">
+            <template #default="scope">
+              <UserSelectV2
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.feedbackUserId"
+                placeholder="请选择报工人"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工时间" min-width="210">
+            <template #default="scope">
+              <el-date-picker
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.feedbackTime"
+                type="datetime"
+                value-format="x"
+                placeholder="请选择报工时间"
+                class="!w-1/1"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="当前审批人" min-width="180">
+            <template #default="scope">
+              <UserSelectV2
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.approveUserId"
+                placeholder="请选择当前审批人"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" min-width="220">
+            <template #default="scope">
+              <el-input
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.remark"
+                placeholder="请输入备注"
+                clearable
+              />
+              <span v-else class="text-[#909399]">确认报工时将跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" width="240" fixed="right">
+            <template #default="scope">
+              <el-button
+                v-if="scope.row.attributionStatus === 'PENDING'"
+                v-hasPermi="['mes:pro-feedback:update']"
+                link
+                type="primary"
+                @click="openAttribution(scope.row)"
+              >
+                选择归属
+              </el-button>
+              <el-button
+                v-if="scope.row.attributionStatus === 'ATTRIBUTED' && scope.row.canModifyAttribution"
+                v-hasPermi="['mes:pro-feedback:update']"
+                link
+                type="warning"
+                @click="openAttribution(scope.row)"
+              >
+                修改归属
+              </el-button>
+              <span
+                v-if="
+                  scope.row.attributionStatus === 'ATTRIBUTED' &&
+                  !scope.row.canModifyAttribution &&
+                  scope.row.modifyBlockedReason
+                "
+                class="text-[#909399]"
+              >
+                {{ scope.row.modifyBlockedReason }}
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 
   <component
@@ -469,6 +472,9 @@
 </template>
 
 <script setup lang="ts">
+import { showImportResult } from '@/utils/importResult'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import type { Component } from 'vue'
@@ -619,6 +625,7 @@ const total = ref(0)
 const exportLoading = ref(false)
 const simulateImportLoading = ref(false)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   id: undefined as number | undefined,
@@ -647,6 +654,7 @@ const currentImportBatchSummary = reactive<ProFeedbackImportBatchSummaryVO>({
   skippedOtherOrderCount: 0
 })
 const importQueryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   id: undefined as number | undefined,
@@ -739,6 +747,7 @@ const applyFeedbackQuickFilterToQueryParams = () => {
 const buildFeedbackPageParams = () => {
   applyFeedbackQuickFilterToQueryParams()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     id: queryParams.id,
@@ -749,14 +758,18 @@ const buildFeedbackPageParams = () => {
   }
 }
 
+let getListRequestSequence = 0
 const getList = async () => {
+  const requestId = ++getListRequestSequence
   loading.value = true
   try {
     const data = await ProFeedbackApi.getFeedbackPage(buildFeedbackPageParams())
+    if (requestId !== getListRequestSequence) return false
     list.value = data.list
     total.value = data.total
+    return true
   } finally {
-    loading.value = false
+    if (requestId === getListRequestSequence)     loading.value = false
   }
 }
 const feedbackQuickFilter = useTableQuickFilter(
@@ -776,11 +789,14 @@ const applyFeedbackQuickFilterPreset = async (
   feedbackQuickFilter.updateState({ operator, value })
 }
 
+let getImportRecordListRequestSequence = 0
 const getImportRecordList = async () => {
+  const requestId = ++getImportRecordListRequestSequence
   importLoading.value = true
   try {
     persistCurrentPageImportRecordDrafts()
     const data = await ProFeedbackApi.getImportRecordPage(buildImportRecordPageParams())
+    if (requestId !== getImportRecordListRequestSequence) return false
     importRecordList.value = applyImportRecordDrafts(data.list)
     importTotal.value = data.total
     if (currentImportRecordIds.value.length) {
@@ -788,8 +804,9 @@ const getImportRecordList = async () => {
     } else {
       syncCurrentImportBatchSummary(undefined)
     }
+    return true
   } finally {
-    importLoading.value = false
+    if (requestId === getImportRecordListRequestSequence)     importLoading.value = false
   }
 }
 
@@ -871,10 +888,19 @@ const handleSimulateImport = async () => {
     }
     simulateImportLoading.value = true
     const result = await ProFeedbackApi.simulateThirdPartyXlsxImport(processCount)
-    const importRecordIdsText = result.importRecordIds?.length ? result.importRecordIds.join('、') : '无'
-    message.alert(
-      `模拟报工完成；模拟工序数：${processCount}；工作表数：${result.sheetCount}；导入条数：${result.importedCount}；待归属条数：${result.pendingCount}；记录编号：${importRecordIdsText}`
-    )
+    showImportResult({
+      title: '模拟报工完成',
+      summary: `已导入 ${result.importedCount} 条报工记录，其中 ${result.pendingCount} 条需要确认归属。`,
+      stats: [
+        { label: '工作表', value: result.sheetCount },
+        { label: '导入记录', value: result.importedCount },
+        { label: '待确认归属', value: result.pendingCount },
+        { label: '模拟工序', value: processCount }
+      ],
+      warning: result.pendingCount > 0,
+      guidance: result.pendingCount > 0 ? '请在报工记录列表中，为待归属记录确认对应的订单和工序。' : undefined,
+      sections: [{ title: '导入记录', columns: ['记录编号'], rows: (result.importRecordIds ?? []).map((id) => [String(id)]) }]
+    })
     await handleImportSuccess(result, '模拟报工')
   } catch (error) {
     message.error(resolveErrorMessage(error, '模拟报工失败，请检查后端接口。'))
@@ -1226,6 +1252,178 @@ onMounted(async () => {
   await applyRouteQuery()
   await handleTabChange()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'excelProductCode',
+    label: '产品代码',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProductCode(row)].join(' ')
+  },
+  {
+    key: 'excelProductName',
+    label: '产品名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProductName(row)].join(' ')
+  },
+  {
+    key: 'excelProcessCode',
+    label: '工序编码',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProcessCode(row)].join(' ')
+  },
+  {
+    key: 'excelProcessName',
+    label: '工序名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProcessName(row)].join(' ')
+  },
+  {
+    key: 'excelEmployeeName',
+    label: '人员名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackEmployeeName(row)].join(' ')
+  }
+])
+
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'processCode',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processCode || '--', row.processName || '--'].join(' ')
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.attributionStatus === 'ATTRIBUTED'
+          ? isImportRecordSkippedExternalOtherOrder(row)
+            ? '其他订单'
+            : '已归属'
+          : '待归属',
+        row.feedbackId,
+        formatImportAttributionTime(row.attributionTime),
+        row.linkedFeedbackCount
+      ].join(' ')
+  }
+])
+
+const listFilterColumns1 = [
+  {
+    key: 'workOrderCode',
+    label: '工单',
+    visible: true
+  },
+  {
+    key: 'itemCode',
+    label: '产品编码',
+    visible: true
+  },
+  {
+    key: 'itemName',
+    label: '产品名称',
+    visible: true
+  },
+  {
+    key: 'specification',
+    label: '规格',
+    visible: true
+  },
+  {
+    key: 'processCode',
+    label: '工序',
+    visible: true
+  },
+  {
+    key: 'feedbackQuantity',
+    label: '报工数量',
+    visible: true
+  },
+  {
+    key: 'surplusPoolQuantity',
+    label: '缓存池数量',
+    visible: true
+  },
+  {
+    key: 'feedbackTime',
+    label: '报工时间',
+    visible: true
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    visible: true
+  },
+  {
+    key: 'displayColumn9',
+    label: '报工人',
+    visible: true
+  },
+  {
+    key: 'displayColumn10',
+    label: '报工时间',
+    visible: true
+  },
+  {
+    key: 'displayColumn11',
+    label: '当前审批人',
+    visible: true
+  },
+  {
+    key: 'displayColumn12',
+    label: '备注',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn9',
+    label: '报工人',
+    type: 'text',
+    getValue: (row) => row.feedbackUserNickname || row.feedbackUserId
+  },
+  {
+    key: 'displayColumn10',
+    label: '报工时间',
+    type: 'dateRange',
+    getValue: (row) => row.feedbackTime
+  },
+  {
+    key: 'displayColumn11',
+    label: '当前审批人',
+    type: 'text',
+    getValue: (row) => row.approveUserNickname || row.approveUserId
+  },
+  { key: 'displayColumn12', label: '备注', type: 'text', getValue: (row) => row.remark },
+  {
+    key: 'processCode',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processCode || '--', row.processName || '--'].join(' ')
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.attributionStatus === 'ATTRIBUTED'
+          ? isImportRecordSkippedExternalOtherOrder(row)
+            ? '其他订单'
+            : '已归属'
+          : '待归属',
+        row.feedbackId,
+        formatImportAttributionTime(row.attributionTime),
+        row.linkedFeedbackCount
+      ].join(' ')
+  }
+]
 </script>
 
 <style scoped>

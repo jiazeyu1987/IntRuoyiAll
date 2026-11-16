@@ -289,7 +289,7 @@ public class DccG02DelayedFinalizationTransactionTest {
             var electronic=mock(DccElectronicSignatureAuthorizationService.class);
             var images=mock(DccElectronicSignatureImageService.class);
             var image=DccElectronicSignatureImageSnapshot.builder().imageId(1L).versionNo(1).fileId(9L).sha256("a".repeat(64)).contentType("image/png").fileSize(3L).imageStatus("ACTIVE").verifiedStatus("VALID").content(new byte[]{1,2,3}).build();
-            when(images.requireActiveSnapshot(99L)).thenReturn(image);
+            when(images.requireSigningSnapshot(99L)).thenReturn(image);
             when(images.verifySignatureSnapshot(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO.class))).thenReturn(image);
             wire(f.verifier,"signatureImageService",images);
             wire(producer,"adminUserService",users,"deptService",depts,"postService",posts,"permissionService",permissions,"roleService",roles,
@@ -328,7 +328,7 @@ public class DccG02DelayedFinalizationTransactionTest {
             f.jdbc.execute("ALTER TABLE gxp_audit_event ALTER COLUMN subject_id VARCHAR(2048)");
             f.jdbc.execute("ALTER TABLE gxp_audit_event ALTER COLUMN idempotency_key VARCHAR(512)");
             String schema=Files.readString(root.resolve("IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql"));
-            for(String name:List.of("dcc_controlled_file_name_claim","dcc_legacy_source_name_scope","dcc_legacy_source_name_evidence","dcc_source_name_reservation","infra_file_config")) {
+            for(String name:List.of("dcc_controlled_file_name_claim","dcc_legacy_source_name_scope","dcc_legacy_source_name_evidence","dcc_source_name_reservation","infra_tenant_file_config")) {
                 var match=Pattern.compile("CREATE TABLE IF NOT EXISTS \\\"?"+name+"\\\"?\\s*\\(.*?\\);",Pattern.DOTALL).matcher(schema);
                 assertTrue(match.find(),"official support table "+name);
                 f.jdbc.execute(match.group().replaceAll("UNIQUE KEY (\\w+)","CONSTRAINT $1 UNIQUE"));

@@ -18,8 +18,10 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
@@ -30,6 +32,9 @@ import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionLifecycleServiceTest {
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
 
     @Mock
     private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
@@ -92,6 +97,7 @@ class MesProRouteVersionLifecycleServiceTest {
                 snapshotUpdate.getRouteSnapshotFormatVersion());
         assertEquals(activeSnapshot, active.getRouteSnapshotJson());
         assertEquals(activeHashBefore, active.getRouteSnapshotSha256());
+        verify(versionOperateLogService).route("发布", active, candidate, 607L);
     }
 
     @Test
@@ -119,6 +125,7 @@ class MesProRouteVersionLifecycleServiceTest {
         when(publishProjectionService.projectCandidate(candidate)).thenReturn(
                 projection(candidate.getRouteSnapshotJson(), 10L));
 
+        candidate.setLastSavedBy(31L);
         MesProRouteVersionDO published;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(600L);
@@ -129,11 +136,14 @@ class MesProRouteVersionLifecycleServiceTest {
         assertEquals(Boolean.TRUE, published.getActive());
         assertEquals("ACTIVE", published.getLifecycleStatus());
         assertNotNull(published.getPublishedTime());
+        assertEquals(31L, published.getLastSavedBy());
 
         ArgumentCaptor<MesProRouteVersionDO> updateCaptor =
                 ArgumentCaptor.forClass(MesProRouteVersionDO.class);
         verify(routeVersionMapper, times(3)).updateById(updateCaptor.capture());
         List<MesProRouteVersionDO> updates = updateCaptor.getAllValues();
+        assertTrue(updates.stream().allMatch(update -> update.getLastSavedBy() == null),
+                "发布操作不得覆盖草稿最后保存人");
         assertEquals(candidate.getId(), updates.get(0).getId());
         assertNotNull(updates.get(0).getRouteSnapshotSha256());
         assertEquals(active.getId(), updates.get(1).getId());
@@ -207,6 +217,7 @@ class MesProRouteVersionLifecycleServiceTest {
         assertEquals(candidate.getId(), published.getId());
         assertEquals(Boolean.TRUE, published.getActive());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE, published.getLifecycleStatus());
+        org.mockito.Mockito.verifyNoInteractions(versionOperateLogService);
         verify(publishProjectionService, never()).projectCandidate(any(MesProRouteVersionDO.class));
         verify(routeVersionMapper, never()).selectActiveByRouteId(candidate.getRouteId());
         verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));

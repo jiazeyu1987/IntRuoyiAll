@@ -21,7 +21,7 @@ class MesProBatchRecordReportJsonBuilderTest {
 
     private static final String REPORT_CODE = "EBR_TEST_T01";
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc");
+            "../../resource/批记录模板.doc");
     private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path PROCESS_INSPECTION_DOCX_SAMPLE = Path.of(
             "C:\\Users\\BJB110\\Desktop\\文档\\过程检验记录.docx");

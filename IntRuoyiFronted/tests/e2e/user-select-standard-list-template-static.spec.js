@@ -52,8 +52,8 @@ assert.match(
   /<template\s+#table\b[^>]*>[\s\S]*<el-table[\s\S]*data-user-table-column-explicit[\s\S]*data-user-table-key="system\.user\.selectDialog"[\s\S]*@header-dragend="handleUserSelectHeaderDragend"/,
   '人员选择表格必须位于标准模板 table 插槽，并接入列宽拖拽持久化。'
 )
-assert.match(template, /type="selection"[\s\S]*:reserve-selection="true"/, '多选 checkbox 跨页保留逻辑必须保留。')
-assert.match(template, /<el-radio[\s\S]*v-model="selectedRadioId"/, '单选 radio 逻辑必须保留。')
+assert.match(template, /<el-checkbox[\s\S]*:model-value="isSelected\(row.id\)"/, '多选 checkbox 使用独立已选集合，跨页状态由行为测试覆盖。')
+assert.match(template, /<el-radio[\s\S]*:model-value="selected\[0\]\?\.id"/, '单选 radio 必须绑定统一已选集合。')
 
 for (const field of ['id', 'username', 'nickname', 'deptName', 'mobile', 'status', 'createTime']) {
   assert.match(source, new RegExp(`key:\\s*'${field}'`), `${field} 必须注册到人员选择列配置。`)

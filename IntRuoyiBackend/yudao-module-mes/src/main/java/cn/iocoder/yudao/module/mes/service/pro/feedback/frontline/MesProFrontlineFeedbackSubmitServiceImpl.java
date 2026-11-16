@@ -56,6 +56,10 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 @Validated
 public class MesProFrontlineFeedbackSubmitServiceImpl {
     @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService quantityCapacityService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityDraftService quantityDrafts;
+    @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     private static final String GXP_PRODUCTION_SUBMIT_OPERATION = "mes.production.submit";
@@ -175,6 +179,17 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
         authorizeSelectedActiveOrder(reqVO, loginUserId);
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);
+        var quantityDraft = quantityDrafts.requireRetry(reqVO);
+        if (quantityDraft != null && "BLOCKED".equals(quantityDraft.getStatus())) {
+            return quantityDrafts.blocked(quantityDraft, "本次超限填写已保留，请由生产组长核对本次与历史归属并签署处理后重提。");
+        }
+        var quantityCapacity = quantityCapacityService.evaluate(reqVO);
+        if (quantityCapacity.exceeded()) {
+            var blockedDraft = quantityDrafts.capture(reqVO, originalRequestHash, quantityCapacity, quantityDraft);
+            return quantityDrafts.blocked(blockedDraft, "累计生产数量将达到" + quantityCapacity.projected().stripTrailingZeros().toPlainString()
+                    + "，超过生产数量×生产系数的上限" + quantityCapacity.upper().stripTrailingZeros().toPlainString()
+                    + "。本次未形成正式报工，请生产组长核对本次及历史提交归属、更正后重新提交。");
+        }
         MesFrontlineParameterAuditResult parameterAuditResult = resolveParameterAudit(reqVO, materialSubmission);
         attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
@@ -217,6 +232,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
         }
 
         appendProductionSubmitGxpAudit(eventPayload, processPoolEventId, identityTrace, parameterAuditResult, performedBy);
+        quantityDrafts.submitted(quantityDraft, processPoolEventId, originalRequestHash);
         handoffService.productionSubmitted(context.getActiveOrderId(), processPoolEventId, reqVO.getSignatureEmployeeId());
 
         MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()

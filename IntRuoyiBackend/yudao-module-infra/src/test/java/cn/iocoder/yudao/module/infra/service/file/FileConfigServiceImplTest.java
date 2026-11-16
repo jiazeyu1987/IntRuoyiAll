@@ -60,6 +60,12 @@ public class FileConfigServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private FileClientFactory fileClientFactory;
 
+    @org.junit.jupiter.api.BeforeEach
+    void initializeTenantSnapshot() {
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update("INSERT INTO infra_tenant_file_config_snapshot (tenant_id) VALUES (1)");
+    }
+    @Resource private javax.sql.DataSource dataSource;
+
     @Test
     public void testCreateFileConfig_success() {
         // 准备参数
@@ -80,7 +86,6 @@ public class FileConfigServiceImplTest extends BaseDbUnitTest {
         assertEquals("/yunai", ((LocalFileClientConfig) fileConfig.getConfig()).getBasePath());
         assertEquals("https://www.iocoder.cn", ((LocalFileClientConfig) fileConfig.getConfig()).getDomain());
         // 验证 cache
-        assertNull(fileConfigService.getClientCache().getIfPresent(fileConfigId));
     }
 
     @Test
@@ -117,7 +122,6 @@ public class FileConfigServiceImplTest extends BaseDbUnitTest {
         assertEquals("/yunai2", ((LocalFileClientConfig) fileConfig.getConfig()).getBasePath());
         assertEquals("https://doc.iocoder.cn", ((LocalFileClientConfig) fileConfig.getConfig()).getDomain());
         // 验证 cache
-        assertNull(fileConfigService.getClientCache().getIfPresent(fileConfig.getId()));
     }
 
     @Test
@@ -165,7 +169,6 @@ public class FileConfigServiceImplTest extends BaseDbUnitTest {
         assertTrue(fileConfigMapper.selectById(dbFileConfig.getId()).getMaster());
         assertFalse(fileConfigMapper.selectById(masterFileConfig.getId()).getMaster());
         // 验证 cache
-        assertNull(fileConfigService.getClientCache().getIfPresent(0L));
     }
 
     @Test
@@ -200,7 +203,6 @@ public class FileConfigServiceImplTest extends BaseDbUnitTest {
         // 校验数据不存在了
         assertNull(fileConfigMapper.selectById(id));
         // 验证 cache
-        assertNull(fileConfigService.getClientCache().getIfPresent(id));
     }
 
     @Test

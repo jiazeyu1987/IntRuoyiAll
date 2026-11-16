@@ -4,6 +4,8 @@ import type { ActiveOrderAuditIdentity, ActiveOrderAuditScope } from './activeOr
 export interface ActiveOrderCorrection {
   revisionId: number | string
   eventId: number | string
+  supersededReviewId?: number | string
+  signerUserId: number | string
   eventType: 'PRODUCTION_SUBMIT' | 'PQC_INSPECTION'
   processName: string
   revisedAt: number | string

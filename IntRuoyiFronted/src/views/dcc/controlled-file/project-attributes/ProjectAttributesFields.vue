@@ -8,6 +8,7 @@
           <el-checkbox v-for="item in markets" :key="item.value" :value="item.value">{{ item.label }}</el-checkbox>
         </el-checkbox-group>
       </el-form-item>
+      <el-alert v-if="modelValue.targetMarkets.includes('NA')" title="目标市场为“不适用”：新建项目不生成注册证上传任务，也不要求注册证办理配置。" type="info" :closable="false" class="mb-12px" />
       <el-form-item v-if="modelValue.targetMarkets.includes('OTHER')" label="其他市场说明" required>
         <el-input :model-value="modelValue.otherMarket" :disabled="readonly" maxlength="512" @update:model-value="setField('otherMarket', $event)" />
       </el-form-item>

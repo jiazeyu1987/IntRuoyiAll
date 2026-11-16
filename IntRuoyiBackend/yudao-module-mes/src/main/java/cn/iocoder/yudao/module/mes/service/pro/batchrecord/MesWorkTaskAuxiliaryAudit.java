@@ -44,14 +44,14 @@ public class MesWorkTaskAuxiliaryAudit {
         if (ids.stream().anyMatch(Objects::isNull) || new HashSet<>(ids).size() != ids.size()) {
             throw new IllegalStateException("Notification result identities are missing or duplicated");
         }
-        List<Map<String, Object>> messages = rows("system_notify_message", tenant,
+        List<Map<String, Object>> messages = rows("system_tenant_notify_message", tenant,
                 "id IN (" + placeholders(ids.size()) + ")", ids.toArray());
         if (messages.size() != ids.size()) {
             throw new IllegalStateException("Created notifications must belong to the current task tenant");
         }
         append("notify", "notifications", task,
-                JsonUtils.toJsonString(Map.of("system_notify_message", List.of())),
-                JsonUtils.toJsonString(Map.of("system_notify_message", messages)));
+                JsonUtils.toJsonString(Map.of("system_tenant_notify_message", List.of())),
+                JsonUtils.toJsonString(Map.of("system_tenant_notify_message", messages)));
     }
 
     private Long lockTask(MesProEdhrWorkTaskDO task) {

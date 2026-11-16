@@ -49,6 +49,9 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
     @Mock
     private MesMdItemMapper itemMapper;
 
+    @Mock
+    private MesKingdeeProductionMaterialListBatchWriter batchWriter;
+
     private ErpKingdeeProperties properties;
     private MesKingdeeProductionMaterialListSyncServiceImpl syncService;
 
@@ -63,7 +66,7 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
         properties.getProductionOrder().setQueryLimit(500);
         when(configService.getEffectiveProperties()).thenReturn(properties);
         syncService = new MesKingdeeProductionMaterialListSyncServiceImpl(
-                client, configService, materialListMapper, workOrderMapper, workOrderBomMapper, itemMapper);
+                client, configService, materialListMapper, workOrderMapper, workOrderBomMapper, itemMapper, batchWriter);
     }
 
     @Test
@@ -135,53 +138,43 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
     }
 
     @Test
-    void syncAllSkipExisting_doesNotUpdateExistingLine() {
-        ErpKingdeeProductionMaterialList row = buildRow();
-        when(client.fetchProductionMaterialLists(properties)).thenReturn(List.of(row));
-        when(workOrderMapper.selectListByCodes(argThat((Collection<String> codes) ->
-                codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of());
-        when(materialListMapper.selectBySourceLine("PPBOM0030888", "CODXMO20260", 1, "A001.02.014.300"))
-                .thenReturn(new MesKingdeeProductionMaterialListDO()
-                        .setId(77L)
-                        .setDrawingNumber("ZYDG-001")
-                        .setDemandTime(LocalDateTime.of(2026, 6, 12, 0, 0)));
-
-        MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
-
-        assertEquals(1, result.getSkippedCount());
-        assertEquals(0, result.getCreatedCount());
+    void fullSyncProcessesOneMillionRowsInBoundedPagesAndOnlyKeepsCounts() {
+        when(batchWriter.writePage(org.mockito.ArgumentMatchers.eq(91L), any()))
+                .thenReturn(cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(null, 1000, 0, 0, 0));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            java.util.function.Consumer<List<ErpKingdeeProductionMaterialList>> consume = invocation.getArgument(1);
+            for (int pageNo = 0; pageNo < 1000; pageNo++) {
+                consume.accept(java.util.stream.IntStream.range(0, 1000).mapToObj(index -> buildRow()).toList());
+                // Mockito otherwise retains invocation arguments, obscuring the application's memory behavior.
+                org.mockito.Mockito.clearInvocations(batchWriter);
+            }
+            return null;
+        }).when(client).forEachProductionMaterialListPage(org.mockito.ArgumentMatchers.eq(properties), any());
+        var result = syncService.syncAllSkipExisting(91L);
+        assertEquals(1_000_000, result.getCreatedCount());
         assertEquals(0, result.getUpdatedCount());
-        verify(materialListMapper, never()).insert(any(MesKingdeeProductionMaterialListDO.class));
-        verify(materialListMapper, never()).updateById(any(MesKingdeeProductionMaterialListDO.class));
+        assertEquals(0, result.getSkippedCount());
+        org.mockito.Mockito.verifyNoInteractions(materialListMapper, workOrderMapper, workOrderBomMapper, itemMapper);
     }
 
     @Test
-    void syncAllSkipExisting_shouldBackfillNewErpColumnsOnExistingLine() {
-        ErpKingdeeProductionMaterialList row = buildRow();
-        when(client.fetchProductionMaterialLists(properties)).thenReturn(List.of(row));
-        when(workOrderMapper.selectListByCodes(argThat((Collection<String> codes) ->
-                codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of());
-        when(materialListMapper.selectBySourceLine("PPBOM0030888", "CODXMO20260", 1, "A001.02.014.300"))
-                .thenReturn(new MesKingdeeProductionMaterialListDO()
-                        .setId(77L)
-                        .setDrawingNumber(null)
-                        .setDemandTime(null));
-        when(itemMapper.selectByCode("AW.106.03.08.10"))
-                .thenReturn(new MesMdItemDO().setId(20L).setCode("AW.106.03.08.10"));
-        when(itemMapper.selectByCode("A001.02.014.300"))
-                .thenReturn(new MesMdItemDO().setId(30L));
-
-        MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
-
-        assertEquals(0, result.getSkippedCount());
-        assertEquals(0, result.getCreatedCount());
-        assertEquals(1, result.getUpdatedCount());
-        ArgumentCaptor<MesKingdeeProductionMaterialListDO> captor =
-                ArgumentCaptor.forClass(MesKingdeeProductionMaterialListDO.class);
-        verify(materialListMapper).updateById(captor.capture());
-        assertEquals(77L, captor.getValue().getId());
-        assertEquals("ZYDG-001", captor.getValue().getDrawingNumber());
-        assertEquals(LocalDateTime.of(2026, 6, 12, 0, 0), captor.getValue().getDemandTime());
+    void fullSyncFailureReportsOnlyPreviouslyCommittedPagesAndStops() {
+        var page = List.of(buildRow());
+        IllegalStateException failure = new IllegalStateException("write failed");
+        when(batchWriter.writePage(91L, page))
+                .thenReturn(cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(null, 1, 0, 0, 0))
+                .thenThrow(failure);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            java.util.function.Consumer<List<ErpKingdeeProductionMaterialList>> consume = invocation.getArgument(1);
+            consume.accept(page);
+            consume.accept(page);
+            org.junit.jupiter.api.Assertions.fail("must not continue after a failed page");
+            return null;
+        }).when(client).forEachProductionMaterialListPage(org.mockito.ArgumentMatchers.eq(properties), any());
+        var error = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> syncService.syncAllSkipExisting(91L));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("已提交源数据 1 行"));
+        assertEquals(failure, error.getCause());
     }
 
     @Test

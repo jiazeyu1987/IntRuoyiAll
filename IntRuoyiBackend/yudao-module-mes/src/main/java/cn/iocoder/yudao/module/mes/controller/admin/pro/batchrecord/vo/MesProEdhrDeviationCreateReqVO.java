@@ -13,6 +13,9 @@ import java.util.List;
 @Data
 public class MesProEdhrDeviationCreateReqVO {
 
+    // Supplied by the order-scoped entry, never used to infer a batch.
+    private Long activeOrderId;
+
     @NotNull
     private Long batchExecutionId;
 

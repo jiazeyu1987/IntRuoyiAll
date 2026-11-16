@@ -15,23 +15,17 @@ import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClientConfig;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClientFactory;
 import cn.iocoder.yudao.module.infra.framework.file.core.enums.FileStorageEnum;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import jakarta.annotation.Resource;
 import jakarta.validation.Validator;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.framework.common.util.cache.CacheUtils.buildAsyncReloadingCache;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_CONFIG_DELETE_FAIL_MASTER;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_CONFIG_NOT_EXISTS;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_CONFIG_PROTECTED;
@@ -46,26 +40,11 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_CONFIG
 @Slf4j
 public class FileConfigServiceImpl implements FileConfigService {
 
-    private static final Long CACHE_MASTER_ID = 0L;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private List<ProtectedFileClientProvider> protectedFileClientProviders = List.of();
 
-    /**
-     * {@link FileClient} 缓存，通过它异步刷新 fileClientFactory
-     */
-    @Getter
-    private final LoadingCache<Long, FileClient> clientCache = buildAsyncReloadingCache(Duration.ofSeconds(10L),
-            new CacheLoader<Long, FileClient>() {
-
-                @Override
-                public FileClient load(Long id) {
-                    FileConfigDO config = Objects.equals(CACHE_MASTER_ID, id) ?
-                            fileConfigMapper.selectByMaster() : fileConfigMapper.selectById(id);
-                    if (config != null) {
-                        fileClientFactory.createOrUpdateFileClient(config.getId(), config.getStorage(), config.getConfig());
-                    }
-                    return fileClientFactory.getFileClient(null == config ? id : config.getId());
-                }
-
-            });
+    @Resource
+    private cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper fileMapper;
 
     @Resource
     private FileClientFactory fileClientFactory;
@@ -75,6 +54,8 @@ public class FileConfigServiceImpl implements FileConfigService {
 
     @Resource
     private Validator validator;
+
+
 
     @Override
     public Long createFileConfig(FileConfigSaveReqVO createReqVO) {
@@ -96,8 +77,7 @@ public class FileConfigServiceImpl implements FileConfigService {
                 .setConfig(parseClientConfig(config.getStorage(), updateReqVO.getConfig()));
         fileConfigMapper.updateById(updateObj);
 
-        // 清空缓存
-        clearCache(config.getId(), config.getMaster());
+
     }
 
     @Override
@@ -106,13 +86,16 @@ public class FileConfigServiceImpl implements FileConfigService {
         // 校验存在
         validateFileConfigExists(id);
         validateProtectedFileConfigNotTouchedByMasterSwitch();
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (fileConfigMapper.lockTenantConfiguration(tenantId) == null) {
+            throw new IllegalStateException("TENANT_FILE_CONFIGURATION_NOT_INITIALIZED");
+        }
         // 更新其它为非 master
         fileConfigMapper.updateBatch(new FileConfigDO().setMaster(false));
         // 更新
         fileConfigMapper.updateById(new FileConfigDO().setId(id).setMaster(true));
 
-        // 清空缓存
-        clearCache(null, true);
+
     }
 
     private FileClientConfig parseClientConfig(Integer storage, Map<String, Object> config) {
@@ -137,14 +120,14 @@ public class FileConfigServiceImpl implements FileConfigService {
         // 删除
         fileConfigMapper.deleteById(id);
 
-        // 清空缓存
-        clearCache(id, config.getMaster());
+
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteFileConfigList(List<Long> ids) {
         // 校验是否有主配置
-        List<FileConfigDO> configs = fileConfigMapper.selectByIds(ids);
+        List<FileConfigDO> configs = ids.stream().map(this::validateFileConfigExists).toList();
         for (FileConfigDO config : configs) {
             validateNotProtectedFileConfig(config.getId());
             if (Boolean.TRUE.equals(config.getMaster())) {
@@ -155,23 +138,7 @@ public class FileConfigServiceImpl implements FileConfigService {
         // 批量删除
         fileConfigMapper.deleteByIds(ids);
 
-        // 清空缓存
-        ids.forEach(id -> clearCache(id, false));
-    }
 
-    /**
-     * 清空指定文件配置
-     *
-     * @param id     配置编号
-     * @param master 是否主配置
-     */
-    private void clearCache(Long id, Boolean master) {
-        if (id != null) {
-            clientCache.invalidate(id);
-        }
-        if (Boolean.TRUE.equals(master)) {
-            clientCache.invalidate(CACHE_MASTER_ID);
-        }
     }
 
     private FileConfigDO validateFileConfigExists(Long id) {
@@ -210,24 +177,41 @@ public class FileConfigServiceImpl implements FileConfigService {
         validateFileConfigExists(id);
         // 上传文件
         byte[] content = ResourceUtil.readBytes("file/erweima.jpg");
-        return getFileClient(id).upload(content, "public" + StrUtil.SLASH + IdUtil.fastSimpleUUID() + ".jpg", "image/jpeg");
+        String path = TenantFilePath.qualify("storage-test/" + IdUtil.fastSimpleUUID() + ".jpg");
+        String url = getFileClient(id).upload(content, path, "image/jpeg");
+        fileMapper.insert(new cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO()
+                .setConfigId(id).setName("storage-test.jpg").setPath(path).setUrl(url)
+                .setType("image/jpeg").setSize((long) content.length));
+        return url;
     }
 
     @Override
     public FileClient getFileClient(Long id) {
-        return clientCache.getUnchecked(id);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (id != null && id < 0) {
+            List<ProtectedFileClientProvider> providers = protectedFileClientProviders.stream()
+                    .filter(provider -> id.equals(provider.getFileConfigId())).toList();
+            if (providers.size() != 1) throw new IllegalStateException("受保护存储必须有唯一的正式配置来源");
+            return providers.get(0).getFileClient();
+        }
+        return clientFor(validateFileConfigExists(id));
     }
 
     @Override
     public FileClient getMasterFileClient() {
-        return clientCache.getUnchecked(CACHE_MASTER_ID);
+        FileConfigDO config = fileConfigMapper.selectByMaster();
+        if (config == null) throw exception(FILE_CONFIG_NOT_EXISTS);
+        return clientFor(config);
     }
 
     @Override
     public void clearFileClientCache(Long id) {
-        if (id != null) {
-            clientCache.invalidate(id);
-        }
+        getFileClient(id);
+    }
+
+    private FileClient clientFor(FileConfigDO config) {
+        fileClientFactory.createOrUpdateFileClient(config.getId(), config.getStorage(), config.getConfig());
+        return fileClientFactory.getFileClient(config.getId());
     }
 
 }

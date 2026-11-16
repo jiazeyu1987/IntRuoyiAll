@@ -26,10 +26,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,7 +60,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     void setUp() {
         importService = new MesQaInspectionRegulationWordImportService(
                 dccProjectCodeMapper, regulationMapper, versionMapper, parser, regulationService);
-        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        lenient().when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
     }
 
     @Test
@@ -78,14 +81,125 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(1, response.getItemCount());
         assertEquals(0, response.getInheritedItemCount());
         assertFalse(request.getFinalInspectionApplicable());
-        assertEquals("源 QA 模板未规定末检", request.getFinalInspectionNotApplicableReason());
+        assertEquals("导入后按检验工序设置末检，当前均未开启", request.getFinalInspectionNotApplicableReason());
         assertEquals(List.of("FIRST", "PATROL"),
                 request.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.4"),
-                request.getProcesses().get(0).getItems().get(0).getPatrolInspectionRatio());
+                request.getProcesses().get(0).getItems().get(0).getAql());
+        assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
+                request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
         assertTrue(request.getProcesses().get(0).getProcessCode().startsWith("PQC-TEST-001-P"));
         assertTrue(request.getProcesses().get(0).getItems().get(0).getItemCode()
                 .startsWith("PQC-TEST-001-I"));
+    }
+
+    @Test
+    void previewCommonWord_doesNotPersistUntilConfirmation() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        var request = importService.previewCommonWord(file());
+        assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        org.junit.jupiter.api.Assertions.assertNull(request.getDccProjectCodeId());
+        verifyNoInteractions(dccProjectCodeMapper);
+        assertEquals(0L, request.getExpectedDraftRevision());
+        assertEquals("表面清洁，无异物", request.getProcesses().get(0).getItems().get(0).getStandardText());
+        assertEquals(List.of(), request.getProcesses().get(0).getItems().get(0).getEquipmentOptions());
+        assertEquals("备注：每班两次；不合格隔离后双倍检验", request.getProcesses().get(0).getItems().get(0).getFailureRule());
+        assertEquals(new BigDecimal("0.4"), request.getProcesses().get(0).getItems().get(0).getAql());
+        assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
+                request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+        verify(regulationMapper, never()).insert(any(MesQaInspectionRegulationDO.class));
+    }
+
+    @Test
+    void previewCommonWord_acceptsDocWithoutPersisting() {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        byte[] content = {1, 2, 3};
+        var file = new MockMultipartFile("file", "通用规程.DOC", "application/msword", content);
+        var request = importService.previewCommonWord(file);
+        assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        org.junit.jupiter.api.Assertions.assertNull(request.getDccProjectCodeId());
+        verifyNoInteractions(dccProjectCodeMapper);
+        verify(parser).parse(content, "通用规程.DOC");
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWordAfterCurrentDeletionReservesDeletedVersionNumbers() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
+                .thenReturn(publishedRegulation().setCurrentVersionId(null).setLifecycleStatus("RETIRED"));
+        when(versionMapper.selectUsedVersionNos(REGULATION_ID)).thenReturn(List.of("B/0", "B/1"));
+
+        var request = importService.previewCommonWord(file());
+
+        assertEquals("B/2", request.getVersionNo());
+        assertEquals(REGULATION_ID, request.getRegulationId());
+        verify(regulationService, never()).getLockedCommonVersionForOrder(any(), any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWord_usesCommonSnapshotAndSuggestsUnusedVersion() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        var common = publishedRegulation();
+        common.setOwnerModule("MES_QA_COMMON");
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001")).thenReturn(common);
+        var baseline = existingConfiguration();
+        baseline.getProcesses().get(0).getItems().get(0).setEquipmentOptions(List.of(
+                MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
+                        .equipmentId(91L).equipmentCode("EQ-91").equipmentName("量具")
+                        .equipmentNumber("N-91").defaultFlag(true).sort(1).build()));
+        when(regulationService.getLockedCommonVersionForOrder(REGULATION_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(baseline);
+        when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(
+                MesQaInspectionRegulationVersionDO.builder().versionNo("B/0").build(),
+                MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
+        var request = importService.previewCommonWord(file());
+        assertEquals("B/2", request.getVersionNo());
+        assertEquals(REGULATION_ID, request.getRegulationId());
+        assertEquals("LEGACY-I01", request.getProcesses().get(0).getItems().get(0).getItemCode());
+        assertEquals("NUMERIC", request.getProcesses().get(0).getItems().get(0).getResultType());
+        var option = request.getProcesses().get(0).getItems().get(0).getEquipmentOptions().get(0);
+        assertEquals("N-91", option.getEquipmentNumber());
+        option.setEquipmentNumber("EDITED");
+        assertEquals("N-91", baseline.getProcesses().get(0).getItems().get(0).getEquipmentOptions().get(0).getEquipmentNumber());
+        verify(regulationService, never()).getCurrent(any());
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWord_distinguishesDuplicateNamesByOriginalStandardAndMethod() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1", "大包装工序", "外观"));
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
+                .thenReturn(publishedRegulation());
+        var baseline = existingAmbiguousTerminalNameConfiguration();
+        var second = baseline.getProcesses().get(0).getItems().get(1);
+        second.setSourceOriginalExcerpt("新标准");
+        second.setSourceOriginalMethod("目视检查");
+        when(regulationService.getLockedCommonVersionForOrder(REGULATION_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(baseline);
+        var request = importService.previewCommonWord(file());
+        assertEquals("LEGACY-PACK-BOX", request.getProcesses().get(0).getItems().get(0).getItemCode());
+        second.setSourceOriginalMethod("不同的方法");
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file()));
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWord_rejectsExistingDraftWithoutOverwritingIt() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
+                .thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID))
+                .thenReturn(List.of(MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file()));
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
     }
 
     @Test
@@ -116,10 +230,16 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(new BigDecimal("1.2"), item.getStandardLowerLimit());
         assertEquals(new BigDecimal("2.4"), item.getStandardUpperLimit());
         assertTrue(item.getCritical());
-        assertEquals("原失败规则", item.getFailureRule());
+        assertEquals("备注：每班两次；不合格隔离后双倍检验\n原失败规则", item.getFailureRule());
         assertEquals("表面清洁，无异物", item.getStandardText());
         assertEquals("目视检查", item.getInspectionMethod());
-        assertEquals(List.of("FIRST", "PATROL", "FINAL"), item.getApplicableInspectionTypes());
+        assertEquals(List.of("FIRST", "PATROL"), item.getApplicableInspectionTypes());
+        assertFalse(request.getFinalInspectionApplicable());
+        assertNull(item.getFinalInspectionQuantity());
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"), request.getInspectionTypeRules().stream()
+                .map(MesQaInspectionRegulationSaveReqVO.InspectionTypeRule::getKey).toList());
+        assertFalse(request.getInspectionTypeRules().get(2).getRequired());
+        assertNull(request.getInspectionTypeRules().get(2).getFixedQuantity());
     }
 
     @Test
@@ -382,8 +502,8 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 LocalDate.of(2026, 8, 17), List.of(
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         "清洗", "外观", "表面清洁，无异物", "目视检查", "目测",
-                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
-                "测试QA模板.docx");
+                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, "I", new BigDecimal("0.4"))),
+                "测试QA模板.docx", "备注：每班两次；不合格隔离后双倍检验");
     }
 
     private static MesQaInspectionRegulationWordParser.ParsedRegulation parsedWithItem(
@@ -393,8 +513,8 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 LocalDate.of(2026, 8, 17), List.of(
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         processName, itemName, "新标准", "目视检查", "目测",
-                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
-                "测试QA模板.docx");
+                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, "I", new BigDecimal("0.4"))),
+                "测试QA模板.docx", "");
     }
 
     private static MesQaInspectionRegulationSaveRespVO savedDraft(
@@ -426,7 +546,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                         .resultType("NUMERIC")
                         .applicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"))
                         .firstInspectionQuantity(3)
-                        .patrolInspectionRatio(new BigDecimal("1.0"))
+                        .inspectionLevel("I").aql(new BigDecimal("1.0"))
                         .critical(true)
                         .failureRule("原失败规则")
                         .build();
@@ -538,7 +658,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 .resultType("NUMERIC")
                 .applicableInspectionTypes(List.of("FIRST", "PATROL"))
                 .firstInspectionQuantity(3)
-                .patrolInspectionRatio(new BigDecimal("1.0"))
+                .inspectionLevel("I").aql(new BigDecimal("1.0"))
                 .critical(true)
                 .failureRule("原失败规则")
                 .sourceOriginalItem(sourceOriginalItem)

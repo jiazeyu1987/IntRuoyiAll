@@ -2,7 +2,7 @@ package cn.iocoder.yudao.framework.dict.core;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.iocoder.yudao.framework.common.biz.system.dict.DictDataCommonApi;
-import cn.iocoder.yudao.framework.common.util.cache.CacheUtils;
+import com.google.common.cache.CacheBuilder;
 import cn.iocoder.yudao.framework.common.biz.system.dict.dto.DictDataRespDTO;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -25,19 +25,27 @@ public class DictFrameworkUtils {
 
     private static DictDataCommonApi dictDataApi;
 
-    /**
-     * 针对 dictType 的字段数据缓存
-     */
-    private static final LoadingCache<String, List<DictDataRespDTO>> GET_DICT_DATA_CACHE = CacheUtils.buildAsyncReloadingCache(
-            Duration.ofMinutes(1L), // 过期时间 1 分钟
-            new CacheLoader<String, List<DictDataRespDTO>>() {
+    private record DictKey(Long tenantId, String type) {}
 
+    // Synchronous expiry keeps database reads in the calling tenant's context.
+    private static final LoadingCache<DictKey, List<DictDataRespDTO>> GET_DICT_DATA_CACHE = CacheBuilder.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(1)).build(new CacheLoader<>() {
                 @Override
-                public List<DictDataRespDTO> load(String dictType) {
-                    return dictDataApi.getDictDataList(dictType);
+                public List<DictDataRespDTO> load(DictKey key) {
+                    if (!key.tenantId().equals(dictDataApi.getCurrentTenantId())) {
+                        throw new IllegalStateException("DICT_TENANT_CONTEXT_MISMATCH");
+                    }
+                    return dictDataApi.getDictDataList(key.type());
                 }
-
             });
+
+    private static DictKey key(String type) {
+        return new DictKey(Objects.requireNonNull(dictDataApi.getCurrentTenantId(), "DICT_TENANT_REQUIRED"), type);
+    }
+
+    public static void clearTenantCache(Long tenantId) {
+        GET_DICT_DATA_CACHE.asMap().keySet().removeIf(key -> key.tenantId().equals(tenantId));
+    }
 
     public static void init(DictDataCommonApi dictDataApi) {
         DictFrameworkUtils.dictDataApi = dictDataApi;
@@ -58,27 +66,27 @@ public class DictFrameworkUtils {
 
     @SneakyThrows
     public static String parseDictDataLabel(String dictType, String value) {
-        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(dictType);
+        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(key(dictType));
         DictDataRespDTO dictData = CollUtil.findOne(dictDatas, data -> Objects.equals(data.getValue(), value));
         return dictData != null ? dictData.getLabel(): null;
     }
 
     @SneakyThrows
     public static List<String> getDictDataLabelList(String dictType) {
-        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(dictType);
+        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(key(dictType));
         return convertList(dictDatas, DictDataRespDTO::getLabel);
     }
 
     @SneakyThrows
     public static String parseDictDataValue(String dictType, String label) {
-        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(dictType);
+        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(key(dictType));
         DictDataRespDTO dictData = CollUtil.findOne(dictDatas, data -> Objects.equals(data.getLabel(), label));
         return dictData!= null ? dictData.getValue(): null;
     }
 
     @SneakyThrows
     public static List<String> getDictDataValueList(String dictType) {
-        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(dictType);
+        List<DictDataRespDTO> dictDatas = GET_DICT_DATA_CACHE.get(key(dictType));
         return convertList(dictDatas, DictDataRespDTO::getValue);
     }
 }

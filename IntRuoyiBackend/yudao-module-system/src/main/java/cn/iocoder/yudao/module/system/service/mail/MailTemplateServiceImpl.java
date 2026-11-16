@@ -9,13 +9,10 @@ import cn.iocoder.yudao.module.system.controller.admin.mail.vo.template.MailTemp
 import cn.iocoder.yudao.module.system.controller.admin.mail.vo.template.MailTemplateSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.mail.MailTemplateDO;
 import cn.iocoder.yudao.module.system.dal.mysql.mail.MailTemplateMapper;
-import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -48,8 +45,18 @@ public class MailTemplateServiceImpl implements MailTemplateService {
     @Resource
     private MailTemplateMapper mailTemplateMapper;
 
+    @Resource
+    private cn.iocoder.yudao.module.system.dal.mysql.mail.MailAccountMapper mailAccountMapper;
+
+    private void validateAccount(Long id) {
+        if (mailAccountMapper.selectById(id) == null) {
+            throw exception(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.MAIL_ACCOUNT_NOT_EXISTS);
+        }
+    }
+
     @Override
     public Long createMailTemplate(MailTemplateSaveReqVO createReqVO) {
+        validateAccount(createReqVO.getAccountId());
         // 校验 code 是否唯一
         validateCodeUnique(null, createReqVO.getCode());
 
@@ -61,11 +68,10 @@ public class MailTemplateServiceImpl implements MailTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.MAIL_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为可能修改到 code 字段，不好清理
     public void updateMailTemplate(@Valid MailTemplateSaveReqVO updateReqVO) {
         // 校验是否存在
         validateMailTemplateExists(updateReqVO.getId());
+        validateAccount(updateReqVO.getAccountId());
         // 校验 code 是否唯一
         validateCodeUnique(updateReqVO.getId(),updateReqVO.getCode());
 
@@ -89,8 +95,6 @@ public class MailTemplateServiceImpl implements MailTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.MAIL_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为 id 不是直接的缓存 code，不好清理
     public void deleteMailTemplate(Long id) {
         // 校验是否存在
         validateMailTemplateExists(id);
@@ -100,9 +104,9 @@ public class MailTemplateServiceImpl implements MailTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.MAIL_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为 id 不是直接的缓存 code，不好清理
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteMailTemplateList(List<Long> ids) {
+        ids.forEach(this::validateMailTemplateExists);
         mailTemplateMapper.deleteByIds(ids);
     }
 
@@ -116,7 +120,6 @@ public class MailTemplateServiceImpl implements MailTemplateService {
     public MailTemplateDO getMailTemplate(Long id) {return mailTemplateMapper.selectById(id);}
 
     @Override
-    @Cacheable(value = RedisKeyConstants.MAIL_TEMPLATE, key = "#code", unless = "#result == null")
     public MailTemplateDO getMailTemplateByCodeFromCache(String code) {
         return mailTemplateMapper.selectByCode(code);
     }

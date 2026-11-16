@@ -25,6 +25,11 @@ public class ApprovalCenterReviewFacade {
         if(old!=null) { var raw=ApprovalContentJson.parse(old.getIdentityJson());identity=new ApprovalIdentity(Long.valueOf(raw.path("tenantId").textValue()),raw.path("ownerCode").textValue(),raw.path("sourceTaskType").textValue(),raw.path("sourceTaskId").textValue(),raw.get("processInstanceId").isNull()?null:raw.get("processInstanceId").textValue(),raw.path("domainSubjectType").textValue(),raw.path("domainSubjectId").textValue()); }
         else {var p=prepares.require(actor,command.getPrepareId(),true);identity=new ApprovalIdentity(p.getTenantId(),p.getOwnerCode(),p.getSourceTaskType(),p.getSourceTaskId(),p.getProcessInstanceId(),p.getSubjectType(),p.getSubjectId());}
         if(command.getModuleCode()==null || !Objects.equals(command.getModuleCode().name(),identity.ownerCode()) || !Objects.equals(command.getSourceTaskType(),identity.sourceTaskType()) || !Objects.equals(command.getSourceTaskId(),identity.sourceTaskId()) || !Objects.equals(command.getProcessInstanceId(),identity.processInstanceId())) throw new IllegalArgumentException("APPROVAL_REQUEST_IDENTITY_MISMATCH");
+        // Only the authenticated formal market-release approval may omit an opinion.
+        boolean optionalOpinion = "EDHR".equals(identity.ownerCode()) && "EDHR_WORK_TASK".equals(identity.sourceTaskType())
+                && "EDHR_RELEASE".equals(identity.domainSubjectType())
+                && command.getResult() == cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE;
+        if (reason.isEmpty() && !optionalOpinion) throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_INVALID");
         String hash=requestHash(actor,identity,command);
         if(old!=null) {if(!hash.equals(old.getRequestHash())) throw new IllegalArgumentException("APPROVAL_IDEMPOTENCY_CONFLICT");return receipts.response(old);}
         var signer=authentication.authenticate(new SignatureAuthenticationRequest(TenantContextHolder.getRequiredTenantId(),"SYSTEM_USER",actor,actor,command.getIdempotencyKey(),command.getSignaturePassword()));

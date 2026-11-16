@@ -138,6 +138,53 @@ class MesMdItemProductMasterLifecycleTest {
         verify(itemMapper, never()).insert(any(MesMdItemDO.class));
     }
 
+    @Test
+    void sameNameProductsCanBeCreatedAndUpdatedWithDifferentCodes() {
+        stubReferenceData();
+        lenient().when(itemMapper.selectByName("Shared product"))
+                .thenReturn(MesMdItemDO.builder().id(99L).code("OTHER").name("Shared product").build());
+        when(itemMapper.selectById(101L)).thenReturn(MesMdItemDO.builder().id(101L).build());
+        service.createItem(saveRequest(null, "IDI", "Shared product", null));
+        service.updateItem(saveRequest(101L, "IDI", "Shared product", null));
+        verify(itemMapper).insert(any(MesMdItemDO.class));
+        verify(itemMapper).updateById(any(MesMdItemDO.class));
+    }
+
+    @Test
+    void duplicateCodeStillPreventsCreatingAnotherProduct() {
+        when(itemMapper.selectByCode("IDI")).thenReturn(MesMdItemDO.builder().id(99L).code("IDI").build());
+        assertThrows(ServiceException.class, () -> service.createItem(saveRequest(null, "IDI", "Shared product", null)));
+        verify(itemMapper, never()).insert(any(MesMdItemDO.class));
+    }
+
+    @Test
+    void sameNameProductsCanBeImportedUnderANewCode() {
+        stubReferenceData();
+        lenient().when(itemMapper.selectByName("Shared product"))
+                .thenReturn(MesMdItemDO.builder().id(99L).code("OTHER").name("Shared product").build());
+        when(unitMeasureService.getUnitMeasureByCode("PCS"))
+                .thenReturn(MesMdUnitMeasureDO.builder().id(31L).code("PCS").build());
+        var row = MesMdItemImportExcelVO.builder().code("IDI").name("Shared product")
+                .unitMeasureCode("PCS").itemTypeId(21L).build();
+        assertEquals(List.of("IDI"), service.importItemList(List.of(row), false).getCreateCodes());
+        verify(itemMapper).insert(any(MesMdItemDO.class));
+    }
+
+    @Test
+    void importItemRejectsSourceCategoryIdPointingAtAnotherTargetCategory() {
+        when(itemTypeService.getItemType(21L)).thenReturn(
+                MesMdItemTypeDO.builder().id(21L).name("目标环境其他分类").build());
+        when(itemTypeService.getItemTypeChildrenList(21L)).thenReturn(List.of());
+        when(unitMeasureService.getUnitMeasureByCode("PCS"))
+                .thenReturn(MesMdUnitMeasureDO.builder().id(31L).code("PCS").build());
+        var row = MesMdItemImportExcelVO.builder().code("ITEM01").name("物料")
+                .unitMeasureCode("PCS").itemTypeId(21L).itemTypeName("原料").build();
+        var result = service.importItemList(List.of(row), false);
+        assertTrue(result.getFailureCodes().get("ITEM01").contains("分类编号与名称不一致"));
+        verify(itemMapper, never()).insert(any(MesMdItemDO.class));
+        verify(itemMapper, never()).updateById(any(MesMdItemDO.class));
+    }
+
     private void stubReferenceData() {
         when(itemTypeService.getItemType(21L)).thenReturn(MesMdItemTypeDO.builder().id(21L).build());
         when(itemTypeService.getItemTypeChildrenList(21L)).thenReturn(List.of());

@@ -4,6 +4,9 @@ import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpoo
 
 const EDHR_NONCONFORMANCE_REVIEW_BASE_URL = '/mes/pro/edhr-nonconformance-review'
 
+export const getQaReviewerCandidates = (): Promise<import('@/views/system/user/components/userPicker').UserOption[]> =>
+  request.get({ url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/reviewer-candidates` })
+
 export const SOURCE_TYPE_PQC_SUBMISSION = 'PQC_SUBMISSION'
 export const SOURCE_TYPE_PQC_RELEASE = 'PQC_RELEASE'
 export const SOURCE_TYPE_ACTIVE_ORDER = 'ACTIVE_ORDER'
@@ -32,6 +35,7 @@ export type EdhrNonconformanceReviewDisposition =
   | typeof DISPOSITION_VOID
 
 export interface EdhrNonconformanceReviewCreateReqVO {
+  qaReviewerUserId: string | number
   activeOrderId?: EdhrRouteId
   sourceType?: EdhrNonconformanceReviewSourceType
   sourceId?: EdhrRouteId
@@ -51,6 +55,7 @@ export interface EdhrNonconformanceReviewActiveOrderRespVO {
 }
 
 export interface EdhrDeviationNcrCreateReqVO {
+  qaReviewerUserId: string | number
   batchExecutionId: EdhrRouteId
   deviationIds: EdhrRouteId[]
   nonconformanceReason: string
@@ -60,6 +65,7 @@ export interface EdhrDeviationNcrCreateReqVO {
 }
 
 export interface EdhrBatchExecutionRejectReqVO {
+  qaReviewerUserId: string | number
   batchExecutionId: EdhrRouteId
   nonconformanceReason: string
   signaturePassword: string
@@ -104,6 +110,7 @@ export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, 
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {
+  listFilters?: string
   reviewCode?: string
   sourceType?: EdhrNonconformanceReviewSourceType
   sourceId?: EdhrRouteId
@@ -135,6 +142,7 @@ export interface EdhrNonconformanceReviewRespVO {
   reviewOpinion?: string
   qaSignature?: string
   qaUserId?: number
+  qaReviewerUserId?: string | number
   frozenAt?: string
   closedAt?: string
   unfrozenAt?: string
@@ -247,3 +255,6 @@ export const getBatchNonconformanceReviewList = async (batchExecutionId: EdhrRou
     params: { batchExecutionId }
   })
 }
+
+export const assignNonconformanceReviewer = (id: string | number, qaReviewerUserId: string | number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) =>
+  request.post<EdhrNonconformanceReviewRespVO>({ url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/assign-reviewer`, data: { id, qaReviewerUserId }, ...options })

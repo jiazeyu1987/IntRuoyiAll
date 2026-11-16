@@ -36,6 +36,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLeaderActiveOrderCompletionService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private static final String RELEASE_COMPLETION_KEY_PREFIX = "PQC_RELEASE_COMPLETION:";
 
@@ -55,6 +57,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
 
     @Resource
     private MesReleaseAffectedStateCollector affectedStateCollector;
+    @Resource
+    private MesFixedTestOrderCompletionSourceInitializer fixedTestCompletionSourceInitializer;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
@@ -83,7 +87,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (!(java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
         }
         MesProcessPoolActiveOrderCompletionReceiptDO existing =
@@ -129,7 +133,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
         }
-        if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (!(java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
         }
         pickListCompletionSourceService.freezeAll(activeOrder, leaderUserId, command.getIdempotencyKey());
@@ -171,6 +175,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         String affectedRowsBefore = JsonUtils.toJsonString(affectedStateCollector.captureCompletion(
                 activeOrder.getId(), activeOrder.getWorkOrderId()));
         processInspectionAggregationService.aggregateApprovedPqcSubmissionsForActiveOrder(activeOrder.getId());
+        fixedTestCompletionSourceInitializer.prepare(activeOrder.getWorkOrderId(), leaderUserId);
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = backfillPort.prepare(leaderUserId, activeOrder, command);
         if (draft == null || draft.getSourceSnapshotHash() == null || draft.getSourceSnapshotHash().isBlank()) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrder.getId(), "SOURCE_SNAPSHOT_HASH");
@@ -240,8 +245,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         }
         GxpAuditAppendResult main = appendCompletionGxpAudit(activeOrder, persisted, affectedRowsBefore);
         var proof = creationVerifier.requireCompletionCreation(persisted.getTenantId(), persisted.getId());
-        if (proof == null || !java.util.Objects.equals(main.eventId(), proof.creationEventId())
-                || !java.util.Objects.equals(main.eventHash(), proof.creationEventHash())) {
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && (proof == null || !java.util.Objects.equals(main.eventId(), proof.creationEventId())
+                || !java.util.Objects.equals(main.eventHash(), proof.creationEventHash()))) {
             throw new IllegalStateException("Completion main audit readback does not match append result");
         }
         creationVerifier.requireCompletionTransactionId(persisted.getTenantId(), persisted.getId());
@@ -252,6 +257,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private GxpAuditAppendResult appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
                                           MesProcessPoolActiveOrderCompletionReceiptDO receipt,
                                           String affectedRowsBefore) {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return GxpAuditAppendResult.developmentDisabled();
         var affectedManifest = MesCompletionAffectedRowAudit.append(gxpAuditService, receipt, affectedRowsBefore,
                 JsonUtils.toJsonString(affectedStateCollector.captureCompletion(activeOrder.getId(), activeOrder.getWorkOrderId())));
         Map<String, Object> before = new java.util.LinkedHashMap<>();

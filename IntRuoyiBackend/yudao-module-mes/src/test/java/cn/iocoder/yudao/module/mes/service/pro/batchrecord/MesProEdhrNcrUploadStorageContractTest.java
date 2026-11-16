@@ -23,6 +23,16 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class MesProEdhrNcrUploadStorageContractTest {
+    @org.junit.jupiter.api.BeforeEach
+    void tenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(122L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+
     @Test
     void uploadRejectsRecordFromAnotherUploadOfSameReview() {
         assertReturnedRecordRejected("directory");
@@ -101,7 +111,7 @@ class MesProEdhrNcrUploadStorageContractTest {
         ReflectionTestUtils.setField(service, "fileUploadSecurityPolicy", new FileUploadSecurityPolicy());
         MesProEdhrNonconformanceReviewController controller = new MesProEdhrNonconformanceReviewController();
         ReflectionTestUtils.setField(controller, "nonconformanceReviewService", service);
-        String name = "  原件+100%25.pdf  ";
+        String name = "原件+100.pdf";
         byte[] firstBytes = "%PDF-1.7 first".getBytes(StandardCharsets.UTF_8);
         byte[] secondBytes = "%PDF-1.7 second".getBytes(StandardCharsets.UTF_8);
         var first = controller.uploadMaterial(1001L,

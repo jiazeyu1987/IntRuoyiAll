@@ -25,7 +25,7 @@
 ## 经验门禁
 
 - PowerShell / Windows shell / 中文编码：已读取 `docs/powershell-memory.md`，本任务所有中文读写使用 UTF-8 显式处理。
-- 前端页面 / 表格 / 样式：已读取 `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`，本次仅删除冗余列，不改变既有表格视觉体系。
+- 前端页面 / 表格 / 样式：已读取 `./docs/frontend-development.md`，本次仅删除冗余列，不改变既有表格视觉体系。
 
 ## 设计约束检查
 

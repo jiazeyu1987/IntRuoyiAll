@@ -69,7 +69,7 @@ class ShowroomProductCoverImageServiceTest {
         codexCli.setCommand(command.toString());
         codexCli.setModel("gpt-5.4");
         codexCli.setTimeoutMs(5000L);
-        codexCli.setWorkingDirectory("D:\\ProjectPackage\\Int\\IntRuoyi\\ruoyi-vue-pro");
+        codexCli.setWorkingDirectory("yudao-module-showroom");
         when(properties.getCodexCli()).thenReturn(codexCli);
         when(fileService.createFileAndReturnId(eq(ONE_PIXEL_PNG_BYTES), contains("product-PRODUCT-001-cover"),
                 eq("showroom/product/cover"), eq("image/png")))
@@ -90,7 +90,7 @@ class ShowroomProductCoverImageServiceTest {
         assertTrue(args.contains("--ephemeral"));
         assertTrue(args.contains("--output-last-message"));
         assertTrue(args.contains("-m gpt-5.4"));
-        assertTrue(args.contains("-C D:\\ProjectPackage\\Int\\IntRuoyi\\ruoyi-vue-pro"));
+        assertTrue(args.contains("-C yudao-module-showroom"));
     }
 
     @Test

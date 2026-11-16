@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -32,6 +33,7 @@ import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PURCH
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID;
 
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class ErpKingdeeMaterialClientImpl implements ErpKingdeeMaterialClient {
 
@@ -58,25 +60,54 @@ public class ErpKingdeeMaterialClientImpl implements ErpKingdeeMaterialClient {
 
     @Override
     public List<ErpKingdeeMaterial> fetchMaterials(ErpKingdeeProperties properties) {
-        properties.validateProductSyncConfig();
-        String cookieHeader = login(properties);
+        long started = System.nanoTime();
+        String trace = java.util.UUID.randomUUID().toString();
         int startRow = 0;
-        int pageLimit = Math.min(PAGE_LIMIT, properties.getProduct().getQueryLimit());
-        List<ErpKingdeeMaterial> materials = new ArrayList<>();
-        while (true) {
-            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit);
-            if (!rows.isArray()) {
-                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "BD_MATERIAL response is not an array");
+        int page = 0;
+        String stage = "validate";
+        try {
+            properties.validateProductSyncConfig();
+            log.info("[material-full] trace={} tenant={} stage=login-start clientFactory={}", trace,
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId(),
+                    restTemplate.getRequestFactory().getClass().getSimpleName());
+            stage = "login";
+            String cookieHeader = login(properties);
+            log.info("[material-full] trace={} stage=login-complete elapsedMs={}", trace,
+                    (System.nanoTime() - started) / 1_000_000);
+            int pageLimit = Math.min(PAGE_LIMIT, properties.getProduct().getQueryLimit());
+            List<ErpKingdeeMaterial> materials = new ArrayList<>();
+            while (true) {
+                page++;
+                stage = "page-request";
+                long pageStarted = System.nanoTime();
+                log.info("[material-full] trace={} stage=page-request page={} startRow={} limit={} accumulated={}",
+                        trace, page, startRow, pageLimit, materials.size());
+                JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit);
+                stage = "page-parse";
+                if (!rows.isArray()) {
+                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "BD_MATERIAL response is not an array");
+                }
+                log.info("[material-full] trace={} stage=page-response page={} startRow={} rows={} fingerprint={} elapsedMs={}",
+                        trace, page, startRow, rows.size(),
+                        cn.hutool.crypto.digest.DigestUtil.sha256Hex(rows.toString()),
+                        (System.nanoTime() - pageStarted) / 1_000_000);
+                if (rows.isEmpty()) {
+                    break;
+                }
+                for (JsonNode row : rows) {
+                    materials.add(buildMaterial(row));
+                }
+                startRow += rows.size();
             }
-            if (rows.isEmpty()) {
-                break;
-            }
-            for (JsonNode row : rows) {
-                materials.add(buildMaterial(row));
-            }
-            startRow += rows.size();
+            log.info("[material-full] trace={} stage=fetch-complete pages={} rows={} elapsedMs={}",
+                    trace, page, materials.size(), (System.nanoTime() - started) / 1_000_000);
+            return materials;
+        } catch (RuntimeException failure) {
+            log.error("[material-full] trace={} stage={} page={} startRow={} elapsedMs={} errorType={}",
+                    trace, stage, page, startRow, (System.nanoTime() - started) / 1_000_000,
+                    failure.getClass().getName());
+            throw failure;
         }
-        return materials;
     }
 
     @Override

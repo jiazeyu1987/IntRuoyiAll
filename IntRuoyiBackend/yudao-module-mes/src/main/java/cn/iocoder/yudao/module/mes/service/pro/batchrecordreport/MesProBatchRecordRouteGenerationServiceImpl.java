@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotIdentityWriter;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -74,6 +75,10 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBa
 @Service
 @Validated
 public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchRecordRouteGenerationService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver projectCodeResolver;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
 
     @Resource
     private MesProProcessCreationService processCreationService;
@@ -130,6 +135,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
+    @Resource
+    private MesProRouteControlledContentAdapter routeControlledContentAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
     @Resource
@@ -394,6 +401,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             candidate.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
             candidate.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
         }
+        registerWordImportCandidate(activeVersion, candidate);
         return MesProBatchRecordRouteGenerationResult.builder()
                 .routeId(route.getId())
                 .routeCode(route.getCode())
@@ -587,7 +595,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         MesProRouteDO route = target.route();
         MesProRouteVersionDO sourceRouteVersion = target.activeVersion();
         if (route == null) {
-            String routeCode = generateRouteCode();
+            projectGuard.requireAvailable(dccProjectCodeId, null);
+            String routeCode = generateRouteCode(dccProjectCodeId);
             route = MesProRouteDO.builder()
                     .code(routeCode)
                     .name(batchRecordName)
@@ -612,7 +621,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .routeVersionId(candidateRouteVersion.getId())
                     .routeVersionNo(candidateRouteVersion.getVersionNo())
                     .routeProcessCount(bindings.size())
-                    .batchRecordRouteBindingCount(bindBatchRecordReports ? bindings.size() : 0)
+                    .batchRecordRouteBindingCount(countCandidateBatchRecordBindings(candidateRouteVersion))
                     .boundProductNameCount(productBindingResult.boundProductNameCount())
                     .boundProductCodeCount(productBindingResult.boundProductCodeCount())
                     .skippedProductNames(productBindingResult.skippedProductNames())
@@ -623,7 +632,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
 
         List<MesProProcessDO> processes = new ArrayList<>(bindings.size());
         for (RouteProcessReportBinding binding : bindings) {
-            processes.add(resolveProcess(binding.processName()));
+            processes.add(createProjectProcess(binding.processName(), route.getName(), route.getId()));
         }
 
         MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
@@ -982,6 +991,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .build();
         MesProRouteVersionSnapshotIdentityWriter.apply(routeVersion, snapshot.toJSONString());
         routeVersionMapper.insert(routeVersion);
+        routeControlledContentAdapter.recordActiveRegistered(routeVersion,
+                SecurityFrameworkUtils.getLoginUserId(), "Word导入创建工艺路线正式版本");
         return routeVersion;
     }
 
@@ -1043,15 +1054,17 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         snapshot.put("candidateSource", "EDHR_WORD_IMPORT");
         snapshot.put("productNames", productNames);
         ActiveRouteCandidateSource activeSource = loadActiveRouteCandidateSource(route, sourceVersion);
-        Map<Long, Integer> candidateOccurrenceByProcessId = new HashMap<>();
+        Map<String, Integer> candidateOccurrenceByProcessName = new HashMap<>();
         Set<Long> mappedActiveRouteProcessIds = new LinkedHashSet<>();
         List<Map<String, Object>> processSnapshots = new ArrayList<>();
         List<Map<String, Object>> batchUseConfigSnapshots = new ArrayList<>();
         for (int index = 0; index < bindings.size(); index++) {
             RouteProcessReportBinding binding = bindings.get(index);
-            MesProProcessDO processDefinition = resolveProcess(binding.processName());
-            int occurrence = candidateOccurrenceByProcessId.merge(processDefinition.getId(), 1, Integer::sum);
-            ActiveRouteProcessSnapshot activeRouteProcess = activeSource.find(processDefinition.getId(), occurrence);
+            int occurrence = candidateOccurrenceByProcessName.merge(binding.processName(), 1, Integer::sum);
+            ActiveRouteProcessSnapshot activeRouteProcess = activeSource.findByName(binding.processName(), occurrence);
+            MesProProcessDO processDefinition = activeRouteProcess == null
+                    ? createProjectProcess(binding.processName(), route.getName(), route.getId())
+                    : MesProProcessDO.builder().id(activeRouteProcess.processId()).name(binding.processName()).build();
             Map<String, Object> process = activeRouteProcess == null
                     ? new LinkedHashMap<>()
                     : new LinkedHashMap<>(activeRouteProcess.node());
@@ -1087,6 +1100,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("scheduleConfigs", List.of());
         configSnapshots.put("scheduleUseConfigs", List.of());
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
+        addProductionProcessSnapshots(configSnapshots, processSnapshots, activeSource.configSnapshots());
         copyStartConfiguration(activeSource.configSnapshots(), configSnapshots,
                 ROUTE_START_PRODUCTION_LEADERS_KEY, sourceVersion.getId());
         copyStartConfiguration(activeSource.configSnapshots(), configSnapshots,
@@ -1109,6 +1123,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .build();
             MesProRouteVersionSnapshotIdentityWriter.apply(candidateVersion, snapshotJson);
             routeVersionMapper.insert(candidateVersion);
+            registerWordImportCandidate(sourceVersion, candidateVersion);
             return candidateVersion;
         }
         MesProRouteVersionDO update = new MesProRouteVersionDO();
@@ -1122,7 +1137,26 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         candidateVersion.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
         candidateVersion.setChangeSummaryJson(changeSummaryJson);
         candidateVersion.setRemark(remark);
+        registerWordImportCandidate(sourceVersion, candidateVersion);
         return candidateVersion;
+    }
+
+    private void registerWordImportCandidate(MesProRouteVersionDO active, MesProRouteVersionDO candidate) {
+        Long actorId = SecurityFrameworkUtils.getLoginUserId();
+        routeControlledContentAdapter.recordActiveRegisteredIfMissing(active, actorId,
+                "Word导入登记工艺路线正式版本");
+        routeControlledContentAdapter.recordDraftCandidateRegisteredIfMissing(active, candidate, actorId,
+                "Word导入登记工艺路线候选版本");
+    }
+
+    private int countCandidateBatchRecordBindings(MesProRouteVersionDO candidate) {
+        JSONArray configs = JSON.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject(SNAPSHOT_CONFIGS_KEY).getJSONArray(BATCH_USE_CONFIGS_KEY);
+        int count = 0;
+        for (Object value : configs) {
+            count += ((JSONObject) value).getJSONArray(BATCH_RECORD_REPORTS_KEY).size();
+        }
+        return count;
     }
 
     private ActiveRouteCandidateSource loadActiveRouteCandidateSource(MesProRouteDO route,
@@ -1160,7 +1194,13 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         Map<Long, Integer> occurrenceByProcessId = new HashMap<>();
         Map<Long, List<ActiveRouteProcessSnapshot>> processesByProcessId = new LinkedHashMap<>();
         Map<Long, ActiveRouteProcessSnapshot> processByRouteProcessId = new LinkedHashMap<>();
-        for (JSONObject node : sortCandidateObjects(nodes, "ACTIVE flowGraph.nodes")) {
+        List<JSONObject> activeNodes = sortCandidateObjects(nodes, "ACTIVE flowGraph.nodes");
+        List<Long> processIds = activeNodes.stream()
+                .map(node -> node.getLong("processId")).filter(Objects::nonNull).distinct().toList();
+        Map<Long, MesProProcessDO> processDefinitions = (processIds.isEmpty()
+                ? List.<MesProProcessDO>of() : processMapper.selectBatchIds(processIds)).stream()
+                .collect(Collectors.toMap(MesProProcessDO::getId, process -> process));
+        for (JSONObject node : activeNodes) {
             Long routeProcessId = node.getLong("routeProcessId");
             Long processId = node.getLong("processId");
             Integer sort = node.getInteger("sort");
@@ -1168,9 +1208,16 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
                         "ACTIVE 工序节点缺少 routeProcessId/processId/sort：routeId=" + route.getId());
             }
+            MesProProcessDO definition = processDefinitions.get(processId);
+            if (definition == null || StrUtil.isBlank(definition.getName())) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "ACTIVE 工序定义不存在或名称为空：routeId=" + route.getId() + ", processId=" + processId);
+            }
+            Map<String, Object> processNode = new LinkedHashMap<>(node);
+            processNode.put("processName", definition.getName());
             int occurrence = occurrenceByProcessId.merge(processId, 1, Integer::sum);
             ActiveRouteProcessSnapshot process = new ActiveRouteProcessSnapshot(
-                    new LinkedHashMap<>(node), processId, routeProcessId, occurrence);
+                    processNode, processId, routeProcessId, occurrence);
             if (processByRouteProcessId.putIfAbsent(routeProcessId, process) != null) {
                 throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
                         "ACTIVE 工序节点 routeProcessId 重复：routeProcessId=" + routeProcessId);
@@ -1330,6 +1377,57 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         candidateConfigSnapshots.put(configKey, JSON.parseArray(array.toJSONString()));
     }
 
+    private void addProductionProcessSnapshots(JSONObject configs, List<Map<String, Object>> processes,
+                                                JSONObject sourceConfigs) {
+        Map<Long, JSONObject> existing = new LinkedHashMap<>();
+        if (sourceConfigs != null) {
+            JSONArray productionConfigs = sourceConfigs.getJSONArray("productionProcessConfigs");
+            if (!Objects.equals(1, sourceConfigs.getInteger("productionProcessConfigSchemaVersion"))
+                    || productionConfigs == null) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "ACTIVE 工艺路线缺少完整生产工序配置，不能生成 Word 候选");
+            }
+            for (Object value : productionConfigs) {
+                if (!(value instanceof JSONObject config) || config.getLong("routeProcessId") == null
+                        || existing.putIfAbsent(config.getLong("routeProcessId"), config) != null) {
+                    throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                            "ACTIVE 生产工序配置身份缺失或重复");
+                }
+            }
+        }
+        JSONArray productionConfigs = new JSONArray();
+        for (Map<String, Object> process : processes) {
+            Long routeProcessId = (Long) process.get("routeProcessId");
+            JSONObject previous = existing.get(routeProcessId);
+            if (sourceConfigs != null && routeProcessId != null && previous == null) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "ACTIVE 工序缺少生产配置：routeProcessId=" + routeProcessId);
+            }
+            JSONObject config;
+            if (previous != null) {
+                if (!Objects.equals(previous.getLong("processId"), process.get("processId"))) {
+                    throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                            "ACTIVE 生产工序配置身份不一致：routeProcessId=" + routeProcessId);
+                }
+                config = JSON.parseObject(previous.toJSONString());
+            } else {
+                // 与新建路线保持相同的显式初始配置；不替代任何既有工序配置。
+                config = new JSONObject(true);
+                config.put("overagePercent", java.math.BigDecimal.ZERO);
+                config.put("lossReasons", new JSONArray());
+                config.put("deviceSelectionGroups", new JSONArray());
+                config.put("parameterRules", new JSONArray());
+            }
+            config.put("routeProcessId", routeProcessId == null ? process.get("clientRouteProcessId") : routeProcessId);
+            config.put("processId", process.get("processId"));
+            config.put("processName", process.get("processName"));
+            config.put("sort", process.get("sort"));
+            productionConfigs.add(config);
+        }
+        configs.put("productionProcessConfigSchemaVersion", 1);
+        configs.put("productionProcessConfigs", productionConfigs);
+    }
+
     private Map<String, Object> buildCandidateFlowGraphSnapshot(List<Map<String, Object>> processSnapshots) {
         List<Map<String, Object>> edges = new ArrayList<>();
         for (int index = 1; index < processSnapshots.size(); index++) {
@@ -1416,30 +1514,17 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             batchUseConfig.put("useType", USE_TYPE_BATCH);
             batchUseConfig.put("enabled", true);
             batchUseConfig.put("executionMode", EXECUTION_MODE_SEQUENTIAL);
-            batchUseConfig.put("batchRecordReportId", binding.report().reportId());
-            batchUseConfig.put("reportId", binding.report().reportId());
-            batchUseConfig.put("reportCode", binding.report().reportCode());
-            batchUseConfig.put("reportName", binding.report().reportName());
-            batchUseConfig.put("batchRecordDefinitionId", binding.report().batchRecordDefinitionId());
-            batchUseConfig.put("batchRecordVersionId", binding.report().batchRecordVersionId());
-            batchUseConfig.put("formSlotType", binding.report().formSlotType());
-            batchUseConfig.put("recordCategory", RECORD_CATEGORY_BATCH_RECORD);
-            batchUseConfig.put("validationProfile", VALIDATION_PROFILE_CONTROLLED_BATCH);
             Long permissionScopeId = batchRecordPermissionScopeIds.get(routeProcess.getId());
             if (permissionScopeId == null) {
                 throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
                         "批记录绑定权限范围缺失：" + routeProcess.getId());
             }
-            batchUseConfig.put("permissionScopeId", permissionScopeId);
-            batchUseConfig.put("recordCategorySnapshotHash", buildSnapshotHash(route.getId(),
-                    routeProcess.getId(), binding.report().reportId()));
-            batchUseConfig.put("requiredPolicy", REQUIRED_POLICY_REQUIRED);
-            batchUseConfig.put("ownerRoleKey", OWNER_ROLE_PRODUCTION);
-            batchUseConfig.put("archiveVisibility", ARCHIVE_VISIBILITY_FINAL_DHR);
-            batchUseConfig.put("slotConfigSnapshotHash", buildSnapshotHash(route.getId(),
-                    routeProcess.getId(), binding.report().reportId()));
-            batchUseConfig.put("reportSort", 1);
-            batchUseConfig.put("remark", "eDHR Word导入自动绑定批记录报表");
+            JSONObject reportSnapshot = buildFormalBatchRecordReportSnapshot(route.getId(), routeProcess.getId(),
+                    binding.report(), binding.report().batchRecordDefinitionId(), binding.report().batchRecordVersionId());
+            reportSnapshot.put("permissionScopeId", permissionScopeId);
+            batchUseConfig.put("batchRecordBindingSnapshotExplicit", true);
+            batchUseConfig.put(BATCH_RECORD_REPORTS_KEY, List.of(reportSnapshot));
+            batchUseConfig.put(FORM_BINDINGS_KEY, List.of());
             batchUseConfigSnapshots.add(batchUseConfig);
         }
 
@@ -1449,6 +1534,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("scheduleConfigs", List.of());
         configSnapshots.put("scheduleUseConfigs", List.of());
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
+        addProductionProcessSnapshots(configSnapshots, processSnapshots, null);
         snapshot.put("configSnapshots", configSnapshots);
         return snapshot;
     }
@@ -1572,6 +1658,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
 
     private void bindRouteToDccProject(Long routeId, Long dccProjectCodeId) {
         DccProjectCodeDO selectedProjectCode = requireSelectedDccProjectCode(dccProjectCodeId);
+        projectGuard.requireAvailable(dccProjectCodeId, routeId);
         MesRouteDccProjectBindingDO current = routeDccProjectBindingMapper.selectCurrentByRouteIdForUpdate(routeId);
         if (current != null) {
             if (!Objects.equals(current.getDccProjectCodeId(), selectedProjectCode.getId())) {
@@ -1781,8 +1868,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return bindings;
     }
 
-    private String generateRouteCode() {
-        String routeCode = StrUtil.trim(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode()));
+    private String generateRouteCode(Long projectId) {
+        String routeCode = StrUtil.trim(autoCodeRecordService.generateProjectCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode(), projectId));
         if (StrUtil.isBlank(routeCode)) {
             throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED, "路线编码生成结果为空");
         }
@@ -1793,17 +1880,14 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return routeCode;
     }
 
-    private MesProProcessDO resolveProcess(String processName) {
-        MesProProcessDO existing = processMapper.selectByName(processName);
-        if (existing != null) {
-            return existing;
-        }
+    private MesProProcessDO createProjectProcess(String processName, String productName, Long routeId) {
         MesProProcessDO process = MesProProcessDO.builder()
+                .productName(productName)
                 .name(processName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
-                .remark("eDHR Word导入自动补齐")
+                .remark("eDHR Word导入为当前项目独立创建")
                 .build();
-        processCreationService.create(process);
+        processCreationService.create(process, projectCodeResolver.requireEnabledByRoute(routeId).dccProjectCodeId());
         return process;
     }
 
@@ -1852,9 +1936,14 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             Map<Long, JSONObject> batchUseConfigByRouteProcessId,
             JSONObject configSnapshots) {
 
-        private ActiveRouteProcessSnapshot find(Long processId, int occurrence) {
-            List<ActiveRouteProcessSnapshot> processes = processesByProcessId.get(processId);
-            return processes == null || occurrence > processes.size() ? null : processes.get(occurrence - 1);
+        private ActiveRouteProcessSnapshot findByName(String processName, int occurrence) {
+            return processesByProcessId.values().stream()
+                    .flatMap(List::stream)
+                    .filter(process -> Objects.equals(processName, process.node().get("processName")))
+                    .sorted(Comparator.comparingInt(process -> ((Number) process.node().get("sort")).intValue()))
+                    .skip(occurrence - 1L)
+                    .findFirst()
+                    .orElse(null);
         }
 
         private ActiveRouteProcessSnapshot findByRouteProcessId(Long routeProcessId) {

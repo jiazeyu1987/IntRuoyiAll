@@ -45,6 +45,10 @@ const ruleSelectorBlock = sectionAround(
   'data-pqc-inspection-rule-selector',
   '<footer class="frontline-pqc-submit-bar">'
 )
+const selectorSource = fs.readFileSync(
+  path.join(frontendRoot, 'src/views/mes/pro/feedback/FrontlinePqcInspectionTypeSelector.vue'),
+  'utf8'
+)
 
 assert.match(
   ruleSelectorBlock,
@@ -53,22 +57,22 @@ assert.match(
 )
 assert.match(
   ruleSelectorBlock,
-  /v-for="tab in pqcInspectionTypeTabs"/,
+  /:tabs="pqcInspectionTypeTabs"/,
   'Inspection rule buttons must still be rendered from formal task options.'
 )
 assert.match(
-  ruleSelectorBlock,
+  selectorSource,
   /:key="tab\.ruleKey"/,
-  'Inspection rule buttons must use FIRST/PATROL_AM/PATROL_PM/FINAL as stable keys.'
+  'Inspection rule buttons must use FIRST/PATROL/FINAL as stable keys.'
 )
 assert.match(
-  ruleSelectorBlock,
-  /:class="\{ active: selectedPqcInspectionRuleKey === tab\.ruleKey \}"/,
+  selectorSource,
+  /:class="\{ active: selectedRuleKey === tab\.ruleKey \}"/,
   'The active button must follow the independent selected inspection rule, not the current process default.'
 )
 assert.match(
   ruleSelectorBlock,
-  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  /@select-rule="selectPqcInspectionRule"/,
   'Clicking a rule button must select a rule key before resolving the target process.'
 )
 assert.doesNotMatch(
@@ -84,7 +88,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /const hasExecutablePqcTaskForRule = \([\s\S]*process: FrontlinePqcProcessVO[\s\S]*ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*option\.inspectionRuleKey === ruleKey/,
+  /const hasExecutablePqcTaskForRule = \([\s\S]*process: FrontlinePqcProcessVO[\s\S]*ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*getPqcTaskOptionsByRule\(process, ruleKey\)\.length > 0/,
   'Process eligibility must be tested by formal inspectionRuleKey.'
 )
 assert.match(
@@ -119,7 +123,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /const selectPqcInspectionRule = async \(ruleKey: FrontlinePqcInspectionRuleKey\) => \{[\s\S]*selectedPqcInspectionRuleKey\.value = ruleKey[\s\S]*findFirstPqcProcessForInspectionRule/,
+  /const selectPqcInspectionRule = async \(ruleKey: FrontlinePqcInspectionRuleKey, patrolRound\?: number\) => \{[\s\S]*selectedPqcInspectionRuleKey\.value = ruleKey[\s\S]*findFirstPqcProcessForInspectionRule/,
   'Rule selection must set the independent rule first and then resolve the target process.'
 )
 assert.match(
@@ -140,7 +144,7 @@ assert.match(
 assert.doesNotMatch(
   panelSource,
   /PQC_INSPECTION_RULE_TYPES\[ruleKey\] === 'PATROL'[\s\S]*hasExecutablePqcTaskForRule/,
-  'PATROL_AM and PATROL_PM must not be merged when filtering eligible processes.'
+  'Patrol rounds must retain their task identity when filtering eligible processes.'
 )
 
 console.log('frontline-pqc-inspection-type-process-filter-static: PASS')

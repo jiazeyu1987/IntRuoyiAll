@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MesActiveOrderCorrectionEvidenceController {
     private final MesActiveOrderCorrectionEvidenceService service;
     @GetMapping("/mes/pro/process-pool/team-leader/active-order/corrections")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesActiveOrderCorrectionEvidenceService.Timeline> team(@RequestParam("activeOrderId") Long activeOrderId) {
         return CommonResult.success(service.getTeam(SecurityFrameworkUtils.getLoginUserId(), activeOrderId));
     }

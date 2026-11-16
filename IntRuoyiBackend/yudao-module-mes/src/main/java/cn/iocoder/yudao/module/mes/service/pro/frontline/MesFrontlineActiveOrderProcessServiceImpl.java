@@ -35,6 +35,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineActiveOrderProcessService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
 
     private static final String STATUS_ACTIVE = "ACTIVE";
 
@@ -111,7 +113,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
 
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || !STATUS_ACTIVE.equals(activeOrder.getActiveStatus())
                 || !STATUS_ACTIVE.equals(activeOrder.getBusinessStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
@@ -206,8 +208,9 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         return new MesFrontlineActiveOrderProcess(activeOrder.getId(), activeOrder.getRouteId(), routeVersion.getId(),
                 routeCode, routeName, snapshot.getRouteProcessId(), snapshot.getProcessId(), processCode, processName,
                 node.getInteger("sort"), workstationId, normalize(node.getString("workstationCode")),
-                normalize(node.getString("workstationName")), snapshot.getProductionQuantityFactorSnapshot(),
-                snapshot.getPlannedQuantitySnapshot(), submittedQuantity,
+                normalize(node.getString("workstationName")),
+                cn.iocoder.yudao.module.mes.service.pro.route.MesRouteLossCoefficient.frozen(snapshot.getProductionConfigSnapshotJson()),
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityRange.of(snapshot).lower(), submittedQuantity,
                 Boolean.TRUE.equals(node.getBoolean("checkFlag")));
     }
 

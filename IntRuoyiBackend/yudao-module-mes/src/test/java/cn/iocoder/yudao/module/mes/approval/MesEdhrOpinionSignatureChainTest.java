@@ -128,11 +128,13 @@ class MesEdhrOpinionSignatureChainTest {
         when(manager.initializeManagerReleaseStage(any())).thenReturn(new MesProductionReleaseManagerStageInitializationResult()
                 .setReleaseTransactionId(91L).setManagerReleaseWorkTaskId(178L).setManagerCandidateSnapshotHash("candidates"));
         pqc = new MesPqcProductionReleaseServiceImpl(applications, orders, workOrders, tasks, mock(MesPqcReleaseDossierPort.class),
-                mock(MesProductionReleaseBatchExecutionPort.class), mock(MesProductionReleaseReportStageInitializer.class), manager,
+                mock(MesProductionReleaseBatchExecutionPort.class), manager,
                 mock(MesReleaseFlowAuditRecorder.class), writer, mock(MesProEdhrNonconformanceReviewService.class),
                 mock(MesProEdhrNonconformanceReviewMapper.class), Clock.fixed(AT.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
         configureAuthenticatedPqcWriter(authorization);
         ReflectionTestUtils.setField(pqc, "gxpAuditService", audit);
+        ReflectionTestUtils.setField(pqc, "outcomeNotifications", mock(
+                cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService.class));
         ReflectionTestUtils.setField(pqc, "approvalAuthority", mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = mock(MesProEdhrBatchExecutionMapper.class);
         var batch = new MesProEdhrBatchExecutionDO().setId(92L).setWorkOrderId(93L);
@@ -196,6 +198,14 @@ class MesEdhrOpinionSignatureChainTest {
 
     private void configureActualCreationAudit() {
         var actualAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
+        // Resolve the authenticated actor through the actual audit writer's new directory port.
+        // Only this tenant-bound storage lookup is mocked; audit/signature creation and verification stay real.
+        var auditUsers = mock(AdminUserMapper.class);
+        var currentActor = new AdminUserDO().setId(188L).setUsername("reviewer")
+                .setNickname("真实意见操作者").setStatus(0);
+        currentActor.setTenantId(1L);
+        when(auditUsers.selectGxpAuditActor(1L, 188L)).thenReturn(currentActor);
+        ReflectionTestUtils.setField(actualAudit, "adminUserMapper", auditUsers);
         var auditRows = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class);
         var sequenceRows = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
         actualCreationAudit = actualAudit;
@@ -436,6 +446,8 @@ class MesEdhrOpinionSignatureChainTest {
         var summary = new MesTeamLeaderActiveOrderDetailServiceImpl(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, applications, null, null, transactions, null,
                 queries, null, directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(summary, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(summary, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(summary, "workTaskMapper", tasks);
         ReflectionTestUtils.setField(summary, "verifiedSignatureFacts", verifiedFacts);
         ReflectionTestUtils.setField(summary, "batchExecutionMapper", batchRows);
@@ -504,6 +516,8 @@ class MesEdhrOpinionSignatureChainTest {
         var summary = new MesTeamLeaderActiveOrderDetailServiceImpl(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, applications, null, null, transactions, null,
                 queries, null, directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(summary, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(summary, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(summary, "workTaskMapper", tasks);
         ReflectionTestUtils.setField(summary, "verifiedSignatureFacts", verifiedFacts);
         ReflectionTestUtils.setField(summary, "batchExecutionMapper", batchRows);
@@ -702,7 +716,10 @@ class MesEdhrOpinionSignatureChainTest {
                 mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper.class),
                 applications, mock(MesProEdhrNonconformanceReviewMapper.class), mock(MesProEdhrOperationAuditEventMapper.class),
                 transactions, mock(MesProcessPoolTeamMaintenanceAuditMapper.class), queries, mock(MesSubmissionSignatureIdentityReader.class), directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(team, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(team, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(team, "workTaskMapper", tasks);
+        ReflectionTestUtils.setField(team, "marketReleaseAccess", mock(MesMarketReleaseAccess.class));
         ReflectionTestUtils.setField(team, "verifiedSignatureFacts", verifiedFacts);
         ReflectionTestUtils.setField(team, "batchExecutionMapper", batches);
         var materials = mock(cn.iocoder.yudao.module.mes.service.pro.workorder.kingdee.MesKingdeeProductionMaterialListQueryService.class);

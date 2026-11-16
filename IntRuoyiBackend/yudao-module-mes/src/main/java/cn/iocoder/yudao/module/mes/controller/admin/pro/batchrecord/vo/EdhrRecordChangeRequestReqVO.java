@@ -21,10 +21,13 @@ public class EdhrRecordChangeRequestReqVO {
     @NotBlank(message = "原因说明不能为空")
     private String reasonText;
 
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String password;
 
     private String comment;
+
+    /** Explicit independent reviewer for a single-record void, reopen or supplement request. */
+    private Long approverUserId;
 
     private Map<String, List<Long>> startUserSelectAssignees;
 

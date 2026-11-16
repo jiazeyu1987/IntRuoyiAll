@@ -15,7 +15,7 @@ public class DccApprovalSignatureImageSnapshotProvider implements ApprovalSignat
 
     @Override
     public ApprovalSignatureImageSnapshot requireActiveSnapshot(Long userId) {
-        DccElectronicSignatureImageSnapshot snapshot = signatureImageService.requireActiveSnapshot(userId);
+        DccElectronicSignatureImageSnapshot snapshot = signatureImageService.requireSigningSnapshot(userId);
         return toApprovalSnapshot(snapshot);
     }
 

@@ -126,6 +126,26 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @com.mzt.logapi.starter.annotation.LogRecord(type = "DCC文件类别", subType = "停用文件类别",
+            bizNo = "{{#id}}", success = "停用文件类别 {{#id}}", fail = "停用文件类别失败 {{#id}}")
+    public void disableCategory(Long id) {
+        DccFileCategoryDO existing = categoryMapper.selectMatrixCategoryForUpdate(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), id);
+        if (existing == null) {
+            throw exception(FILE_CATEGORY_NOT_EXISTS);
+        }
+        if (Boolean.FALSE.equals(existing.getActive())) {
+            return;
+        }
+        // 停用历史类别不修改分类、目录及审批配置；重新启用仍走完整配置校验。
+        DccFileCategoryDO update = DccFileCategoryDO.builder().id(id).active(Boolean.FALSE).build();
+        if (categoryMapper.updateById(update) != 1) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "停用类别");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteCategory(Long id) {
         validateCategoryExists(id);
         validateCategoryDeletable(id);

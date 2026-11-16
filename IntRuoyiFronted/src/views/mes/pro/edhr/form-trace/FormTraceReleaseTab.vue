@@ -1,6 +1,9 @@
 <template>
   <div class="edhr-form-trace-release">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
+      single-line-toolbar
       :table-key="releaseTraceTableKey"
       :query-model="queryParams"
       :filter-definitions="releaseQuickFilterDefinitions"
@@ -18,16 +21,12 @@
       @quick-filter-query="releaseQuickFilter.applyQuickFilter"
       @column-change="saveReleaseColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -48,7 +47,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           :data-user-table-key="releaseTraceTableKey"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="batchExecutionId"
@@ -165,20 +164,21 @@
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
+                
                 <el-button
-                  v-hasPermi="['mes:pro-edhr-release:event-query']"
+                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
                   link
                   type="primary"
-                  :disabled="!row.releaseTransactionId"
-                  @click="openEventDrawer(row)"
+                  :disabled="row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)"
+                  @click="handleExportArchive(row)"
                 >
-                  事务事件
+                  {{ exportLoadingBatchExecutionId === row.batchExecutionId ? '导出中...' : '导出PDF' }}
                 </el-button>
                 <el-button
                   v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
                   link
                   type="primary"
-                  :disabled="row.releaseStatus !== 'RELEASED' || printLoadingBatchExecutionId === row.batchExecutionId"
+                  :disabled="row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)"
                   @click="handlePrintArchive(row)"
                 >
                   {{ printLoadingBatchExecutionId === row.batchExecutionId ? '打印中...' : '打印' }}
@@ -239,43 +239,7 @@
       />
     </el-drawer>
 
-    <el-drawer v-model="eventDrawerVisible" title="电子批记录放行事务事件" size="82%" class="edhr-form-trace-release__drawer">
-      <el-table
-        v-loading="eventLoading"
-        :data="eventList"
-        stripe
-        :show-overflow-tooltip="true"
-        empty-text="暂无事务事件"
-      >
-        <el-table-column label="事件" width="120">
-          <template #default="{ row }">
-            <el-tag>{{ resolveReleaseEventLabel(row.eventType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态变化" width="190">
-          <template #default="{ row }">
-            {{ resolveReleaseStatusLabel(row.fromStatus) }} → {{ resolveReleaseStatusLabel(row.toStatus) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="幂等键" min-width="230" prop="idempotencyKey" />
-        <el-table-column label="签核证据" min-width="230" prop="signoffEvidenceHash" />
-        <el-table-column label="原因/意见" min-width="260">
-          <template #default="{ row }">
-            <div>{{ row.reason || row.opinion || '--' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作人" width="110" prop="actorUserId" />
-        <el-table-column label="发生时间" width="170">
-          <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
-        </el-table-column>
-      </el-table>
-      <Pagination
-        :total="eventTotal"
-        v-model:page="eventQuery.pageNo"
-        v-model:limit="eventQuery.pageSize"
-        @pagination="loadEventList"
-      />
-    </el-drawer>
+    
     <BatchExecutionTraceDrawer
       v-model="traceDrawerVisible"
       :context="traceContext"
@@ -284,15 +248,17 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getEdhrReleaseCheckItemPage,
-  getEdhrReleaseEventPage,
+  
   getEdhrReleasePage,
   type EdhrReleaseCheckItemPageReqVO,
   type EdhrReleaseCheckItemVO,
-  type EdhrReleaseEventPageReqVO,
-  type EdhrReleaseEventRespVO,
+  
+  
   type EdhrReleasePageReqVO,
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
@@ -305,8 +271,8 @@ import {
   EDHR_BATCH_STATUS_REJECTED,
   EDHR_BATCH_STATUS_REWORK_REQUIRED,
   EDHR_BATCH_STATUS_VOIDED,
-  getLatestEdhrBatchArchive,
-  printEdhrBatchArchive
+  downloadEdhrBatchPrintPdf,
+  printEdhrBatchPrintPdf
 } from '@/api/mes/pro/edhr/batchExecution'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -319,7 +285,7 @@ import {
   resolveReleaseCheckResultLabel,
   resolveReleaseCheckResultTagType,
   resolveReleaseCheckSourceObjectTypeLabel,
-  resolveReleaseEventLabel,
+  
   resolveReleaseStatusLabel,
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
@@ -344,26 +310,30 @@ const EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES = [EDHR_BATCH_STATUS_REJECTED] 
 
 const loading = ref(false)
 const checkItemLoading = ref(false)
-const eventLoading = ref(false)
+
 const printLoadingBatchExecutionId = ref<string>()
+const exportLoadingBatchExecutionId = ref<string>()
+const isArchiveActionBusy = (id: string) =>
+  [printLoadingBatchExecutionId.value, exportLoadingBatchExecutionId.value].includes(id)
 const loadError = ref('')
 const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
 const total = ref(0)
 const drawerVisible = ref(false)
-const eventDrawerVisible = ref(false)
+
 const traceDrawerVisible = ref(false)
 const currentRow = ref<EdhrReleaseRowVO>()
 const traceContext = ref<BatchExecutionTraceContext>()
 const checkItems = ref<EdhrReleaseCheckItemVO[]>([])
-const eventList = ref<EdhrReleaseEventRespVO[]>([])
+
 const checkItemTotal = ref(0)
-const eventTotal = ref(0)
+
 const autoOpenedTraceKey = ref('')
 
 const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
+  listFilters: '',
   batchExecutionCode:
     typeof route.query.batchExecutionCode === 'string' ? route.query.batchExecutionCode : '',
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
@@ -379,12 +349,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   checkResult: ''
 })
 
-const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
-  pageNo: 1,
-  pageSize: 10,
-  releaseTransactionId: '',
-  eventType: ''
-})
+
 
 const releaseDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'releaseObject', label: objectColumnLabel, minWidth: 250 },
@@ -439,8 +404,8 @@ const resolveBatchExecutionTraceStatusLabel = (status?: number | string | null) 
     [EDHR_BATCH_STATUS_READY_TO_CLOSE]: '待关闭',
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
-    [EDHR_BATCH_STATUS_ARCHIVED]: '已归档',
-    [EDHR_BATCH_STATUS_REJECTED]: '质量终态',
+    [EDHR_BATCH_STATUS_ARCHIVED]: '已放行',
+    [EDHR_BATCH_STATUS_REJECTED]: '已返工',
     [EDHR_BATCH_STATUS_VOIDED]: '已作废'
   }
   return Number.isFinite(normalizedStatus) ? labels[normalizedStatus] || String(normalizedStatus) : '--'
@@ -449,6 +414,7 @@ const resolveBatchExecutionTraceStatusLabel = (status?: number | string | null) 
 const buildQuery = (): EdhrReleasePageReqVO => ({
   pageNo: queryParams.pageNo,
   pageSize: queryParams.pageSize,
+  listFilters: queryParams.listFilters,
   batchExecutionCode: queryParams.batchExecutionCode?.trim() || undefined,
   workOrderCode: queryParams.workOrderCode?.trim() || undefined,
   batchCode: queryParams.batchCode?.trim() || undefined,
@@ -459,11 +425,14 @@ const buildQuery = (): EdhrReleasePageReqVO => ({
   releaseStatus: 'RELEASED'
 })
 
+let listRequestSequence = 0
 async function getList() {
+  const sequence = ++listRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrReleasePage(buildQuery())
+    if (sequence !== listRequestSequence) return false
     list.value = data.list || []
     total.value = data.total || 0
     const requestedBatchExecutionId = String(route.query.autoOpenBatchExecutionId || '').trim()
@@ -476,18 +445,16 @@ async function getList() {
         openBatchTrace(matchedRow)
       }
     }
+    return true
   } catch (error) {
+    if (sequence !== listRequestSequence) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '电子批记录放行追溯列表加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (sequence === listRequestSequence) loading.value = false
   }
-}
-
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
 }
 
 const resetQuery = async () => {
@@ -500,20 +467,31 @@ const resetQuery = async () => {
   await releaseQuickFilter.resetQuickFilter()
 }
 
+const handleExportArchive = async (row: EdhrReleaseRowVO) => {
+  if (row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)) return
+  exportLoadingBatchExecutionId.value = row.batchExecutionId
+  actionError.value = ''
+  try {
+    await downloadEdhrBatchPrintPdf(row.batchExecutionId, `${row.batchCode || row.batchExecutionCode}-edhr-print.pdf`)
+  } catch (error) {
+    actionError.value = resolveErrorMessage(error, '打印版PDF导出失败。')
+    message.error(actionError.value)
+  } finally {
+    exportLoadingBatchExecutionId.value = undefined
+  }
+}
+
 const handlePrintArchive = async (row: EdhrReleaseRowVO) => {
+  if (isArchiveActionBusy(row.batchExecutionId)) return
   if (row.releaseStatus !== 'RELEASED') {
-    actionError.value = '当前记录尚未正式放行，不能打印最终归档。'
+    actionError.value = '当前记录尚未正式放行，不能打印正式记录PDF。'
     message.error(actionError.value)
     return
   }
   printLoadingBatchExecutionId.value = row.batchExecutionId
   actionError.value = ''
   try {
-    const archive = await getLatestEdhrBatchArchive(row.batchExecutionId)
-    if (!archive?.id) {
-      throw new Error('当前批次没有可打印的打印版 PDF。')
-    }
-    await printEdhrBatchArchive(archive.id, archive.fileName)
+    await printEdhrBatchPrintPdf(row.batchExecutionId)
     message.info('打印版 PDF 窗口已打开')
   } catch (error) {
     actionError.value = resolveErrorMessage(error, '打印版 PDF 打印入口打开失败。')
@@ -571,45 +549,84 @@ const getCheckItems = async () => {
   }
 }
 
-const openEventDrawer = async (row: EdhrReleaseRowVO) => {
-  if (!row.releaseTransactionId) {
-    actionError.value = '该放行记录尚未生成放行事务，暂无事务事件。'
-    return
-  }
-  currentRow.value = row
-  eventDrawerVisible.value = true
-  eventQuery.pageNo = 1
-  eventQuery.releaseTransactionId = row.releaseTransactionId
-  await loadEventList()
-}
 
-const loadEventList = async () => {
-  if (!eventQuery.releaseTransactionId) {
-    eventList.value = []
-    eventTotal.value = 0
-    return
-  }
-  eventLoading.value = true
-  actionError.value = ''
-  try {
-    const data = await getEdhrReleaseEventPage(eventQuery)
-    eventList.value = data.list || []
-    eventTotal.value = data.total || 0
-  } catch (error) {
-    eventList.value = []
-    eventTotal.value = 0
-    actionError.value = resolveErrorMessage(error, '电子批记录放行事务事件加载失败。')
-    message.error(resolveErrorMessage(error, actionError.value))
-  } finally {
-    eventLoading.value = false
-  }
-}
+
+
 
 const formatDateTime = (value?: string | number) => {
   return formatEdhrDateTime(value)
 }
 
 onMounted(() => getList())
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'releaseObject',
+    label: objectColumnLabel,
+    type: 'text',
+    getValue: (row) => [row.batchExecutionCode, row.workOrderCode, row.batchCode].join(' ')
+  },
+  {
+    key: 'releaseStatus',
+    label: statusColumnLabel,
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveReleaseStatusLabel(row.releaseStatus),
+        resolveBatchExecutionTraceStatusLabel(row.batchExecutionStatus),
+        row.precheckSummary
+      ].join(' ')
+  },
+  {
+    key: 'productRoute',
+    label: '产品/路线',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.productName || '--',
+        row.productCode || '--',
+        row.routeName || row.routeCode || '--'
+      ].join(' ')
+  },
+  {
+    key: 'checkSummary',
+    label: '检查摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.blockingCheckCount || 0,
+        row.failedCheckCount || 0,
+        formatDateTime(row.lastPrecheckAt)
+      ].join(' ')
+  },
+  {
+    key: 'qualityGate',
+    label: '质量门禁',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveReleaseCheckResultLabel(row.dhrStatus),
+        resolveReleaseCheckResultLabel(row.inspectionStatus),
+        resolveReleaseCheckResultLabel(row.inventoryStatus),
+        resolveReleaseCheckResultLabel(row.deviationStatus),
+        resolveReleaseCheckResultLabel(row.reworkStatus),
+        resolveReleaseCheckResultLabel(row.scrapStatus)
+      ].join(' ')
+  },
+  {
+    key: 'transactionTime',
+    label: '事务时间',
+    type: 'text',
+    getValue: (row) => [formatDateTime(row.submittedAt), formatDateTime(row.approvedAt)].join(' ')
+  },
+  {
+    key: 'traceActions',
+    label: '追溯',
+    type: 'text',
+    getValue: (row) =>
+      [printLoadingBatchExecutionId === row.batchExecutionId ? '打印中...' : '打印'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

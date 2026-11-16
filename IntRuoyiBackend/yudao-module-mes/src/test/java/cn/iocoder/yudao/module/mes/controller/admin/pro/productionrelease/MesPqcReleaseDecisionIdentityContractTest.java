@@ -51,7 +51,7 @@ class MesPqcReleaseDecisionIdentityContractTest {
                 + (savedHash == null ? "" : ",\"decisionPayloadHash\":\"" + savedHash + "\"");
         application.setDossierSummaryJson("{\"applicationId\":9007199254740993,"
                 + "\"pqcReleaseWorkTaskId\":9007199254740995,\"decision\":\"APPROVE\","
-                + "\"decidedBy\":7,\"reportUploadTasks\":[]" + identity + "}");
+                + "\"decidedBy\":7" + identity + "}");
         var task = new MesProEdhrWorkTaskDO().setId(application.getPqcReleaseWorkTaskId())
                 .setTaskType("PQC_PRODUCTION_RELEASE").setBusinessScopeType("RELEASE_APPLICATION")
                 .setBusinessScopeId(application.getId()).setCandidateUserSnapshot("7");

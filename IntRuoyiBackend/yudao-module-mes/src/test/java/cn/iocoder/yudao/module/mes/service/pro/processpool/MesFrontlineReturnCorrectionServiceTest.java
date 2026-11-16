@@ -162,6 +162,73 @@ class MesFrontlineReturnCorrectionServiceTest {
         assertThrows(ServiceException.class,()->f.service.requireOwnReturned(176L,413L,91L,0L,342L,"PQC"));
     }
 
+    @ParameterizedTest @ValueSource(strings={"frozenMinimum","stricterActual"})
+    void returnedPqcDetailPreservesDifferentPerItemSampleCounts(String sampling) {
+        Fixture f = pqcDetailFixture();
+        int a = "stricterActual".equals(sampling) ? 3 : 2;
+        int b = "stricterActual".equals(sampling) ? 6 : 5;
+        var task = f.tasks.selectByIdForUpdate(51L).setActualInspectionQuantity(b);
+        when(f.pieces.selectListByTaskIdForUpdate(51L)).thenReturn(pqcPieces(a,b));
+        var detail = f.service.getOwnReturned(176L,413L,91L,0L,342L,"PQC");
+        assertEquals(b, detail.pqc().actualInspectionQuantity());
+        assertEquals(List.of(a,b),detail.pqc().items().stream().map(i->i.sampleValues().size()).toList());
+        assertEquals(1,detail.pqc().scrapQuantity());
+        assertEquals(task.getInspectionItemPlanJson(),"{\"A\":2,\"B\":5}");
+        verify(f.handoff,never()).completeReturnAndScheduleReview(anyLong(),anyLong(),anyLong(),anyLong());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"belowMinimum","missingItem","extraItem","wrongMaximum","duplicateSample","sampleGap"})
+    void returnedPqcDetailRejectsIncompleteOrInconsistentSamples(String defect) {
+        Fixture f = pqcDetailFixture();
+        var samples = new java.util.ArrayList<>(pqcPieces(2,5));
+        switch(defect) {
+            case "belowMinimum" -> samples.remove(0);
+            case "missingItem" -> samples.removeIf(p->"A".equals(p.getItemCode()));
+            case "extraItem" -> samples.add(pqcPiece("C",1));
+            case "wrongMaximum" -> f.tasks.selectByIdForUpdate(51L).setActualInspectionQuantity(6);
+            case "duplicateSample" -> samples.get(1).setSampleNo(1);
+            case "sampleGap" -> samples.get(1).setSampleNo(3);
+            default -> throw new IllegalArgumentException(defect);
+        }
+        when(f.pieces.selectListByTaskIdForUpdate(51L)).thenReturn(samples);
+        assertThrows(ServiceException.class,()->f.service.getOwnReturned(176L,413L,91L,0L,342L,"PQC"));
+        verify(f.handoff,never()).completeReturnAndScheduleReview(anyLong(),anyLong(),anyLong(),anyLong());
+    }
+
+    private static Fixture pqcDetailFixture() {
+        Fixture f=new Fixture();
+        f.event.setEventType("PQC_INSPECTION").setFeedbackSourceType("MES_PQC_INSPECTION_TASK")
+                .setFeedbackSourceId(51L).setQaProcessId(61L).setRawPayload("{\"activeOrderId\":413,\"scrapQuantity\":1}");
+        f.review.setLeaderType("PQC");f.evidence=evidence("SYSTEM_USER",342L,"PQC_SUBMIT");
+        var task=MesPqcInspectionTaskDO.builder().id(51L).activeOrderId(413L).workOrderId(990274L)
+                .routeId(920001L).qaProcessId(61L).submittedEventId(176L).inspectionType("FIRST")
+                .plannedInspectionQuantity(5).actualInspectionQuantity(5).inspectionItemPlanJson("{\"A\":2,\"B\":5}").build();
+        task.setTenantId(1L);when(f.tasks.selectByIdForUpdate(51L)).thenReturn(task);
+        when(f.pqcReader.read(11L,176L,413L,"PQC_SUBMIT")).thenReturn(new MesTeamLeaderActiveOrderDetail.SignatureDetail());
+        var orders=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        var order=cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(990274L).code("RETURN-PQC-TEST").build();order.setTenantId(1L);
+        when(orders.selectById(990274L)).thenReturn(order);
+        var processes=mock(cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper.class);
+        var process=cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO.builder().id(61L).processName("首检工序").build();process.setTenantId(1L);
+        when(processes.selectById(61L)).thenReturn(process);
+        org.springframework.test.util.ReflectionTestUtils.setField(f.service,"workOrders",orders);
+        org.springframework.test.util.ReflectionTestUtils.setField(f.service,"qaProcesses",processes);
+        return f;
+    }
+
+    private static List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO> pqcPieces(int a,int b) {
+        var result=new java.util.ArrayList<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO>();
+        for(int i=1;i<=a;i++)result.add(pqcPiece("A",i));
+        for(int i=1;i<=b;i++)result.add(pqcPiece("B",i));
+        return result;
+    }
+
+    private static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO pqcPiece(String code,int number) {
+        var piece=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO.builder()
+                .taskId(51L).itemCode(code).itemName(code).resultType("BOOLEAN").sampleNo(number).measuredValue("合格").build();
+        piece.setTenantId(1L);return piece;
+    }
+
     static ElectronicSignatureEvidenceDTO evidence(String domain,Long actor) {
         return evidence(domain,actor,"PRODUCTION_SUBMIT");
     }

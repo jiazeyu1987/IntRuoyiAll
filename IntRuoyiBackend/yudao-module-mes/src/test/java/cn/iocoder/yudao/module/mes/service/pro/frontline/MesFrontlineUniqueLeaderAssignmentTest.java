@@ -70,10 +70,17 @@ class MesFrontlineUniqueLeaderAssignmentTest {
 
     @BeforeEach
     void setUp() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi,
                 routeService, workstationService, workstationMachineService, machineryService, employeeProfileMapper,
                 activeOrderProcessService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(contextService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
     }
 
     @Test
@@ -108,6 +115,10 @@ class MesFrontlineUniqueLeaderAssignmentTest {
                 MesProcessPoolTeamEmployeeProfileDO.class);
         var oldProfile = employeeProfile(8101L, 9001L, 7001L);
         var newProfile = employeeProfile(8102L, 9002L, 7001L).setEnabled(false);
+        oldProfile.setTenantId(1L);
+        newProfile.setTenantId(1L);
+        when(employeeProfileMapper.selectSignatureIdentityForUpdate(1L, 8101L)).thenReturn(oldProfile);
+        when(employeeProfileMapper.selectSignatureIdentityForUpdate(1L, 8102L)).thenReturn(newProfile);
         List<MesProcessPoolTeamEmployeeProfileDO> profiles = List.of(oldProfile, newProfile);
         when(employeeProfileMapper.selectList(any())).thenAnswer(invocation -> {
             LambdaQueryWrapper<MesProcessPoolTeamEmployeeProfileDO> query = invocation.getArgument(0);
@@ -131,6 +142,10 @@ class MesFrontlineUniqueLeaderAssignmentTest {
                 mock(MesProcessPoolTeamProcessDeviceMapper.class), mock(MesProcessPoolDeviceParameterRuleMapper.class),
                 routeProcessMapper, mock(MesProcessPoolDefectReasonMapper.class), mock(MesProcessPoolTeamMaintenanceAuditMapper.class),
                 adminUserApi, mock(PasswordEncoder.class));
+        var authority = mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        when(authority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "qualificationAuthority", authority);
 
         assertEquals(9001L, contextService.requireUniqueResponsibleLeaderUserId(7001L));
         service.updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO.builder().leaderUserId(9001L)

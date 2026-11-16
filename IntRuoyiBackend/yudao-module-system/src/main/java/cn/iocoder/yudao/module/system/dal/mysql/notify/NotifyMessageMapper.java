@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.system.dal.mysql.notify;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX;
@@ -40,14 +42,17 @@ public interface NotifyMessageMapper extends BaseMapperX<NotifyMessageDO> {
     }
 
     default PageResult<NotifyMessageDO> selectPage(NotifyMessageMyPageReqVO reqVO, Long userId, Integer userType) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<NotifyMessageDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<NotifyMessageDO>()
                 .eqIfPresent(NotifyMessageDO::getReadStatus, reqVO.getReadStatus())
                 .betweenIfPresent(NotifyMessageDO::getCreateTime, reqVO.getCreateTime())
                 .eq(NotifyMessageDO::getUserId, userId)
                 .eq(NotifyMessageDO::getUserType, userType)
                 .orderByAsc(NotifyMessageDO::getReadStatus)
                 .orderByDesc(NotifyMessageDO::getCreateTime)
-                .orderByDesc(NotifyMessageDO::getId));
+                .orderByDesc(NotifyMessageDO::getId), java.util.Map.of(
+                    "templateNickname",text("template_nickname"), "templateContent",text("template_content"),
+                    "createTime",dateTime("create_time"), "readStatus",text("CASE WHEN read_status=1 THEN 'true' ELSE 'false' END")
+                )));
     }
 
     default int updateListRead(Collection<Long> ids, Long userId, Integer userType) {

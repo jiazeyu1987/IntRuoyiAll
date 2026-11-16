@@ -2,7 +2,7 @@
 
 ## Environment
 
-- Local repo: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro`.
+- Local repo: `./IntRuoyiBackend`.
 - Publish script: `script/deploy/publish-int-ruoyi.ps1`.
 - Runtime-control environments: `prod` host `172.30.30.57`, `backup` host `172.30.30.59`.
 - `prod` remote MinIO source: `ragflow_compose-minio-1`.

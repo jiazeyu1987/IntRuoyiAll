@@ -12,15 +12,12 @@ import cn.iocoder.yudao.module.system.controller.admin.sms.vo.template.SmsTempla
 import cn.iocoder.yudao.module.system.dal.dataobject.sms.SmsChannelDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.sms.SmsTemplateDO;
 import cn.iocoder.yudao.module.system.dal.mysql.sms.SmsTemplateMapper;
-import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.framework.sms.core.client.SmsClient;
 import cn.iocoder.yudao.module.system.framework.sms.core.client.dto.SmsTemplateRespDTO;
 import cn.iocoder.yudao.module.system.framework.sms.core.enums.SmsTemplateAuditStatusEnum;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -71,8 +68,6 @@ public class SmsTemplateServiceImpl implements SmsTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.SMS_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为可能修改到 code 字段，不好清理
     public void updateSmsTemplate(SmsTemplateSaveReqVO updateReqVO) {
         // 校验存在
         validateSmsTemplateExists(updateReqVO.getId());
@@ -91,8 +86,6 @@ public class SmsTemplateServiceImpl implements SmsTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.SMS_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为 id 不是直接的缓存 code，不好清理
     public void deleteSmsTemplate(Long id) {
         // 校验存在
         validateSmsTemplateExists(id);
@@ -101,9 +94,9 @@ public class SmsTemplateServiceImpl implements SmsTemplateService {
     }
 
     @Override
-    @CacheEvict(cacheNames = RedisKeyConstants.SMS_TEMPLATE,
-            allEntries = true) // allEntries 清空所有缓存，因为 id 不是直接的缓存 code，不好清理
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteSmsTemplateList(List<Long> ids) {
+        ids.forEach(this::validateSmsTemplateExists);
         smsTemplateMapper.deleteByIds(ids);
     }
 
@@ -119,8 +112,6 @@ public class SmsTemplateServiceImpl implements SmsTemplateService {
     }
 
     @Override
-    @Cacheable(cacheNames = RedisKeyConstants.SMS_TEMPLATE, key = "#code",
-            unless = "#result == null")
     public SmsTemplateDO getSmsTemplateByCodeFromCache(String code) {
         return smsTemplateMapper.selectByCode(code);
     }

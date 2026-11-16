@@ -8,10 +8,15 @@
       label-width="120px"
       v-loading="formLoading"
     >
+      <el-form-item label="所属项目" prop="projectId">
+        <el-select v-model="formData.projectId" filterable clearable placeholder="工序、工艺流程规则请选择项目" :disabled="formType === 'update'">
+          <el-option v-for="p in projects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" />
+        </el-select>
+      </el-form-item>
       <el-row :gutter="20">
         <el-col :span="24">
           <el-form-item label="规则编码" prop="code">
-            <el-input v-model="formData.code" placeholder="请输入规则编码" />
+            <el-input v-model="formData.code" :disabled="formType === 'update'" placeholder="请输入规则编码" />
           </el-form-item>
         </el-col>
         <el-col :span="24">
@@ -102,6 +107,7 @@
 <script setup lang="ts">
 import { getBoolDictOptions, getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { AutoCodeRuleApi, AutoCodeRuleVO } from '@/api/mes/md/autocode/rule'
+import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/route'
 import AutoCodePartList from './AutoCodePartList.vue'
 import { CommonStatusEnum } from '@/utils/constants'
 
@@ -117,6 +123,7 @@ const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const activeTab = ref('parts') // 当前激活的 Tab
 const formData = ref({
   id: undefined,
+  projectId: undefined as number | undefined,
   code: undefined,
   name: undefined,
   description: undefined,
@@ -136,6 +143,7 @@ const formRules = reactive({
   paddedChar: [{ required: true, message: '补齐字符不能为空', trigger: 'blur' }],
   paddedMethod: [{ required: true, message: '补齐方式不能为空', trigger: 'change' }]
 })
+const projects = ref<RouteProjectOption[]>([])
 const formRef = ref()
 
 /** 打开弹窗 */
@@ -145,6 +153,7 @@ const open = async (type: string, id?: number) => {
   formType.value = type
   activeTab.value = 'parts'
   resetForm()
+  projects.value = await getRouteProjectOptions()
   if (id) {
     formLoading.value = true
     try {
@@ -181,6 +190,7 @@ const submitForm = async () => {
 const resetForm = () => {
   formData.value = {
     id: undefined,
+  projectId: undefined as number | undefined,
     code: undefined,
     name: undefined,
     description: undefined,

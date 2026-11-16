@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleCategoryMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
@@ -45,7 +47,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     @Resource
     private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
-    private static final String PACKAGE_VERSION = "3";
+    private static final String PACKAGE_VERSION = "4";
     private static final String MENU_KEY_PERMISSION_PREFIX = "permission:";
     private static final String MENU_KEY_ROUTE_PREFIX = "route:";
     private static final String MENU_KEY_SEPARATOR = "|";
@@ -61,17 +63,31 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     @Resource
     private PermissionService permissionService;
 
+    @Resource
+    private TenantService tenantService;
+
     @Override
-    public byte[] exportPackage() {
+    public byte[] exportPackage(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw exception0(CONFIG_PACKAGE_CONTENT_INVALID.getCode(), "请选择导出的角色分类");
+        }
+        List<RoleCategoryDO> categories = roleCategoryMapper.selectListOrderBySort().stream()
+                .filter(category -> categoryIds.contains(category.getId())).toList();
+        if (categories.size() != new java.util.HashSet<>(categoryIds).size()) {
+            throw exception0(CONFIG_PACKAGE_CONTENT_INVALID.getCode(), "所选角色分类不存在");
+        }
         Map<Long, String> menuKeyById = buildMenuKeyById();
+        Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey(menuKeyById);
+        Set<Long> tenantMenuIds = getTenantMenuIds();
         RoleConfigPackage payload = new RoleConfigPackage();
         payload.setPackageVersion(PACKAGE_VERSION);
-        payload.setCategories(roleCategoryMapper.selectListOrderBySort().stream()
+        payload.setCategories(categories.stream()
                 .map(this::toCategoryItem)
                 .toList());
         payload.setRoles(roleMapper.selectList().stream()
+                .filter(role -> categoryIds.contains(role.getCategoryId()))
                 .sorted(Comparator.comparing(RoleDO::getSort).thenComparing(RoleDO::getId))
-                .map(role -> toItem(role, menuKeyById))
+                .map(role -> toItem(role, menuKeyById, menuIdByKey, tenantMenuIds))
                 .toList());
         return JsonUtils.toJsonByte(payload);
     }
@@ -87,11 +103,19 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         gxpAuditService.acquireLedgerLock();
         var authority = approvalAuthority.lockTenantApprovalAuthority(
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
-        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
-        Map<String, Long> menuIdByKey = buildMenuIdByKey();
-        Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
+        Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey();
+        Set<Long> tenantMenuIds = getTenantMenuIds();
+        // Validate every role before creating categories or updating any role.
+        List<Set<Long>> menuIdsByRole = new ArrayList<>();
         for (RoleConfigItem item : payload.getRoles()) {
-            Set<Long> menuIds = resolveMenuIds(item, menuIdByKey);
+            Set<Long> menuIds = resolveMenuIds(item, menuIdByKey, tenantMenuIds);
+            menuIdsByRole.add(menuIds);
+        }
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
+        for (int index = 0; index < payload.getRoles().size(); index++) {
+            RoleConfigItem item = payload.getRoles().get(index);
+            Set<Long> menuIds = menuIdsByRole.get(index);
             Long categoryId = resolveCategoryId(item, categoryIdByCode);
             RoleDO existing = roleMapper.selectByCode(item.getCode());
             if (existing == null) {
@@ -149,7 +173,17 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         }
     }
 
-    private RoleConfigItem toItem(RoleDO role, Map<Long, String> menuKeyById) {
+    private Set<Long> getTenantMenuIds() {
+        AtomicReference<Set<Long>> tenantMenuIds = new AtomicReference<>();
+        tenantService.handleTenantMenu(ids -> tenantMenuIds.set(Set.copyOf(ids)));
+        if (tenantMenuIds.get() == null) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "当前租户套餐菜单未提供，不能确认授权边界");
+        }
+        return tenantMenuIds.get();
+    }
+
+    private RoleConfigItem toItem(RoleDO role, Map<Long, String> menuKeyById,
+                                  Map<String, Set<Long>> menuIdByKey, Set<Long> tenantMenuIds) {
         RoleConfigItem item = new RoleConfigItem();
         item.setCode(role.getCode());
         item.setName(role.getName());
@@ -160,13 +194,23 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         item.setCategoryCode(resolveCategoryCode(role));
         item.setDataScope(role.getDataScope());
         item.setDataScopeDeptIds(role.getDataScopeDeptIds());
-        item.setMenuKeys(buildMenuKeys(permissionService.getRoleMenuListByRoleId(role.getId()), menuKeyById));
+        // Runtime administrator grants can include global menus. Only package-authorized
+        // menus are transferable, using exactly the same key resolution as import.
+        Set<Long> menuIds = new LinkedHashSet<>(permissionService.getRoleMenuListByRoleId(role.getId()));
+        menuIds.retainAll(tenantMenuIds);
+        item.setMenuKeys(buildMenuKeys(menuIds, menuKeyById));
+        resolveMenuIds(item, menuIdByKey, tenantMenuIds);
         return item;
     }
 
     private void validatePayload(RoleConfigPackage payload) {
         if (payload == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "权限角色配置包 JSON 非法");
+        }
+        if ("3".equals(payload.getPackageVersion())) {
+            throw exception0(CONFIG_PACKAGE_FORMAT_UNSUPPORTED.getCode(),
+                    "权限角色配置包版本3未区分旧权限标识与精确路由格式，不能安全导入；"
+                            + "请从可信来源重新导出版本4配置包，不得仅修改版本号");
         }
         if (!PACKAGE_VERSION.equals(payload.getPackageVersion())) {
             throw exception(CONFIG_PACKAGE_FORMAT_UNSUPPORTED, payload.getPackageVersion());
@@ -218,9 +262,13 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         for (RoleCategoryConfigItem item : items) {
             RoleCategoryDO existing = roleCategoryMapper.selectByCode(item.getCode());
             if (existing == null) {
-                throw exception0(CONFIG_PACKAGE_REFERENCE_MISSING.getCode(),
-                        CONFIG_PACKAGE_REFERENCE_MISSING.getMsg(),
-                        "分类标识【" + item.getCode() + "】在目标环境不存在");
+                existing = new RoleCategoryDO();
+                existing.setCode(item.getCode());
+                existing.setName(item.getName());
+                existing.setSort(item.getSort());
+                existing.setStatus(item.getStatus());
+                existing.setRemark(item.getRemark());
+                roleCategoryMapper.insert(existing);
             }
             result.put(existing.getCode(), existing.getId());
         }
@@ -274,6 +322,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return menuIds.stream()
                 .map(menuKeyById::get)
                 .filter(Objects::nonNull)
+                .distinct()
                 .sorted()
                 .toList();
     }
@@ -288,30 +337,57 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return keyById;
     }
 
-    private Map<String, Long> buildMenuIdByKey() {
-        Map<String, Long> result = new HashMap<>();
-        Map<Long, String> menuKeyById = buildMenuKeyById();
+    private Map<String, Set<Long>> buildMenuIdByKey() {
+        return buildMenuIdByKey(buildMenuKeyById());
+    }
+
+    private Map<String, Set<Long>> buildMenuIdByKey(Map<Long, String> menuKeyById) {
+        Map<String, Set<Long>> result = new HashMap<>();
         for (Map.Entry<Long, String> entry : menuKeyById.entrySet()) {
-            Long duplicatedMenuId = result.put(entry.getValue(), entry.getKey());
-            if (duplicatedMenuId != null && !Objects.equals(duplicatedMenuId, entry.getKey())) {
+            String identityKey = menuIdentityKey(entry.getValue());
+            Set<Long> menuIds = result.computeIfAbsent(identityKey, key -> new LinkedHashSet<>());
+            // Shared permissions stay within one route. Equivalent buttons under that same parent share an authority.
+            if (!identityKey.startsWith(MENU_KEY_PERMISSION_PREFIX) && !isSharedButtonMenuKey(identityKey)
+                    && !menuIds.isEmpty() && !menuIds.contains(entry.getKey())) {
                 throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
-                        "目标环境存在重复菜单标识【{}】",
-                        entry.getValue());
+                        "目标环境存在重复菜单标识【" + entry.getValue() + "】，菜单编号【"
+                                + menuIds.iterator().next() + "、" + entry.getKey() + "】");
             }
+            menuIds.add(entry.getKey());
         }
         return result;
     }
 
-    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Long> menuIdByKey) {
+    private boolean isSharedButtonMenuKey(String identityKey) {
+        if (!identityKey.startsWith(MENU_KEY_ROUTE_PREFIX)) {
+            return false;
+        }
+        int typeEnd = identityKey.length();
+        for (int index = 0; index < 4; index++) {
+            typeEnd = identityKey.lastIndexOf(MENU_KEY_SEPARATOR, typeEnd - 1);
+        }
+        int typeStart = identityKey.lastIndexOf(MENU_KEY_SEPARATOR, typeEnd - 1);
+        return identityKey.substring(typeStart + 1, typeEnd).startsWith("3:");
+    }
+
+    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Set<Long>> menuIdByKey,
+                                     Set<Long> tenantMenuIds) {
         LinkedHashSet<Long> result = new LinkedHashSet<>();
         List<String> missingMenuKeys = new ArrayList<>();
         for (String menuKey : item.getMenuKeys()) {
-            Long menuId = menuIdByKey.get(menuKey);
-            if (menuId == null) {
+            Set<Long> menuIds = menuIdByKey.get(menuIdentityKey(menuKey));
+            if (menuIds == null) {
                 missingMenuKeys.add(menuKey);
                 continue;
             }
-            result.add(menuId);
+            // Resolve the exact exported menu inside the tenant package.
+            Set<Long> authorizedIds = new LinkedHashSet<>(menuIds);
+            authorizedIds.retainAll(tenantMenuIds);
+            if (authorizedIds.isEmpty()) {
+                throw exception(CONFIG_PACKAGE_CONTENT_INVALID,
+                        "角色【" + item.getCode() + "】包含当前租户套餐外菜单【" + menuKey + "】，不能导入");
+            }
+            result.addAll(authorizedIds);
         }
         if (!missingMenuKeys.isEmpty()) {
             throw exception0(CONFIG_PACKAGE_REFERENCE_MISSING.getCode(),
@@ -321,12 +397,39 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return result;
     }
 
+    private String menuIdentityKey(String menuKey) {
+        if (!menuKey.startsWith(MENU_KEY_ROUTE_PREFIX)) {
+            return menuKey;
+        }
+        // The final five separators delimit this node's type, path, component,
+        // component name and display label. Labels (including ancestor labels)
+        // may change without changing the route or its permission boundary.
+        int labelSeparator = menuKey.lastIndexOf(MENU_KEY_SEPARATOR);
+        int parentSeparator = labelSeparator;
+        for (int index = 0; index < 4 && parentSeparator >= 0; index++) {
+            parentSeparator = menuKey.lastIndexOf(MENU_KEY_SEPARATOR, parentSeparator - 1);
+        }
+        if (parentSeparator < MENU_KEY_ROUTE_PREFIX.length()) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "菜单路由标识格式非法：" + menuKey);
+        }
+        String parentKey = menuKey.substring(MENU_KEY_ROUTE_PREFIX.length(), parentSeparator);
+        // Permission-free buttons (including retired log navigation shells) have
+        // no route or permission to distinguish them. Their label is part of
+        // their identity; discarding it collapses unrelated nodes under a page.
+        boolean permissionFreeButton = menuKey.substring(parentSeparator + 1, labelSeparator)
+                .startsWith("3|");
+        return MENU_KEY_ROUTE_PREFIX + menuIdentityKey(parentKey)
+                + menuKey.substring(parentSeparator, permissionFreeButton ? menuKey.length() : labelSeparator + 1);
+    }
+
     private String buildMenuKey(MenuDO menu, Map<Long, MenuDO> menuById, Map<Long, String> keyById) {
         String cached = keyById.get(menu.getId());
         if (cached != null) {
             return cached;
         }
-        if (StringUtils.hasText(menu.getPermission())) {
+        boolean sharedPermission = StringUtils.hasText(menu.getPermission()) && menuById.values().stream()
+                .filter(candidate -> menu.getPermission().equals(candidate.getPermission())).count() > 1;
+        if (StringUtils.hasText(menu.getPermission()) && !sharedPermission) {
             return MENU_KEY_PERMISSION_PREFIX + menu.getPermission().trim();
         }
         String parentKey = "";
@@ -338,7 +441,8 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         }
         return MENU_KEY_ROUTE_PREFIX
                 + normalizeSegment(parentKey) + MENU_KEY_SEPARATOR
-                + normalizeSegment(menu.getType()) + MENU_KEY_SEPARATOR
+                + normalizeSegment(menu.getType())
+                + (sharedPermission ? ":" + menu.getPermission().trim() : "") + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getPath()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getComponent()) + MENU_KEY_SEPARATOR
                 + normalizeSegment(menu.getComponentName()) + MENU_KEY_SEPARATOR

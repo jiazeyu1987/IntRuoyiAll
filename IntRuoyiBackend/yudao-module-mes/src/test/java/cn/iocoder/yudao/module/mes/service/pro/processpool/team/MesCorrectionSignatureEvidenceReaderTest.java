@@ -39,6 +39,12 @@ class MesCorrectionSignatureEvidenceReaderTest {
         var f = new Fixture("{\"outputQuantity\":11}", true);
         assertEquals("VALID", f.reader.read(f.event, f.revision).verification().verificationStatus());
     }
+    @Test void patrolConfirmationEvidenceRemainsReadableAndRejectsQualityFieldChanges() {
+        var f = new Fixture("{\"roundNo\":4,\"pqcTaskId\":31}", true, true);
+        assertEquals("PQC_PATROL_ROUND_CORRECTION", f.reader.read(f.event, f.revision).evidence().actionCode());
+        f.diff.setFieldCode("inspectionResult");
+        assertThrows(IllegalStateException.class, () -> f.reader.read(f.event, f.revision));
+    }
     @ParameterizedTest @ValueSource(strings = {"qa", "source", "eventRouteProcess", "eventProcess", "revisionRouteProcess", "revisionProcess"})
     void rejectsInvalidIndependentQaCorrectionIdentity(String broken) {
         var f = new Fixture("{\"outputQuantity\":11}", true);
@@ -172,21 +178,27 @@ class MesCorrectionSignatureEvidenceReaderTest {
         final GxpAuditEventDO audit = new GxpAuditEventDO();
         final String challenge;
         final String subject;
+        final String action;
+        final String authentication;
         Fixture() { this("{\"outputQuantity\":11}", false); }
-        Fixture(String afterPayload, boolean pqc) {
+        Fixture(String afterPayload, boolean pqc) { this(afterPayload, pqc, false); }
+        Fixture(String afterPayload, boolean pqc, boolean round) {
+            action = round ? "PQC_PATROL_ROUND_CORRECTION" : "FIELD_CHANGE";
+            authentication = round ? "SESSION_CONFIRMATION" : "SESSION_PLUS_PASSWORD";
             cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(reader, signatures, 1L);
             revision.setAfterPayload(afterPayload);
             var before = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(afterPayload);
-            before.put("outputQuantity", 10);
+            if (round) before.put("roundNo", 3).put("pqcTaskId", 30);
+            else before.put("outputQuantity", 10);
             revision.setBeforePayload(before.toString());
             challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256("1|"
                     + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(afterPayload) + "|核对记录");
-            subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L,"FIELD_CHANGE",null,null,null,null,null,null,null,null,null,null,null,null,null,null,challenge);
+            subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L,action,null,null,null,null,null,null,null,null,null,null,null,null,null,null,challenge);
             TenantContextHolder.setTenantId(1L); event.setTenantId(1L); revision.setTenantId(1L); diff.setTenantId(1L);
             revision.setRevisionSignatureSnapshot(JsonUtils.toJsonString(new MesProBatchRecordExecutionFieldAuditSignatureResult()
                     .setSignatureId(11L).setActorId(7L).setActorName("冻结本人").setSignedAt(time)));
             when(diffs.selectListByRevisionIds(List.of(10L))).thenReturn(List.of(diff));
-            var canonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(7L,"MES","FIELD_CHANGE","MES_BATCH_RECORD",subject,MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),"核对记录")).canonicalContentJson();
+            var canonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(7L,"MES",action,"MES_BATCH_RECORD",subject,MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),"核对记录")).canonicalContentJson();
             stubEvidence(canonical);
             when(signatures.verifyEvidence(11L)).thenReturn(new ElectronicSignatureVerificationDTO(11L,"VALID","content","content","evidence","evidence","SHA-256","1",
                     "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
@@ -203,10 +215,17 @@ class MesCorrectionSignatureEvidenceReaderTest {
                     new GxpAuditRelation("REVISION","REVISION","10",null,null),new GxpAuditRelation("SIGNATURE","SIGNATURE","11",null,null))));
             when(audits.selectList(any())).thenReturn(List.of(audit));
             if (pqc) pqc();
+            if (round) {
+                diff.setFieldCode("PQC.PATROL_ROUND").setBeforeValue("3").setAfterValue("4");
+                var target = new MesProProcessPoolEventRevisionDiffDO().setId(21L).setEventId(1L).setRevisionId(10L)
+                    .setFieldCode("PQC.TASK_ID").setFieldName("巡检任务归属").setBeforeValue("30").setAfterValue("31");
+                target.setTenantId(1L);
+                when(diffs.selectListByRevisionIds(List.of(10L))).thenReturn(List.of(diff,target));
+            }
         }
         void stubEvidence(String canonical) {
-            when(signatures.getById(11L)).thenReturn(new ElectronicSignatureEvidenceDTO(11L,"MES","FIELD_CHANGE","MES_BATCH_RECORD",subject,
-                    MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),7L,"CHANGE","更正","核对记录",time,null,"SESSION_PLUS_PASSWORD","content","evidence","SHA-256","1","1","VALID",
+            when(signatures.getById(11L)).thenReturn(new ElectronicSignatureEvidenceDTO(11L,"MES",action,"MES_BATCH_RECORD",subject,
+                    MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),7L,"CHANGE","更正","核对记录",time,null,authentication,"content","evidence","SHA-256","1","1","VALID",
                     null,null,null,null,canonical,null,null,null,"当前名字不同"));
         }
         void pqc() {

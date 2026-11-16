@@ -12,6 +12,12 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProFrontlineFeedbackSubmitRespVO {
 
+    @Schema(description = "SUBMITTED=正式提交成功；QUANTITY_BLOCKED=仅保存超限草稿，未形成报工")
+    private String submissionStatus = "SUBMITTED";
+
+    private Long quantityDraftId;
+    private String quantityBlockMessage;
+
     @Schema(description = "报工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
     private Long feedbackId;
 

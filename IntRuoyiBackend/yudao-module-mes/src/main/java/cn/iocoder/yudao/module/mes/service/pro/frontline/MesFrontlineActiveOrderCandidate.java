@@ -16,5 +16,7 @@ public record MesFrontlineActiveOrderCandidate(Long activeOrderId,
                                                Long routeVersionId,
                                                String routeCode,
                                                String routeName,
-                                               LocalDateTime latestSubmitTime) {
+                                               LocalDateTime latestSubmitTime,
+                                               boolean readBlocked,
+                                               String readBlockReason) {
 }

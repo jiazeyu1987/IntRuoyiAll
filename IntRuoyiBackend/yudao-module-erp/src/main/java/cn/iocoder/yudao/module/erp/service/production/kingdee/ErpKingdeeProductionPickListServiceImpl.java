@@ -112,6 +112,16 @@ public class ErpKingdeeProductionPickListServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeProductionPickListSyncResult syncRecentSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncPickLists(productionPickListClient.fetchProductionPickListsModifiedBetween(
+                properties, windowStart, windowEnd), true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeProductionPickListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
@@ -222,6 +232,15 @@ public class ErpKingdeeProductionPickListServiceImpl
                 .build();
         record.setTenantId(tenantId);
         return record;
+    }
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        var result = syncPickLists(productionPickListClient.fetchByCode(properties, code), false);
+        return result.getCreatedCount() + result.getUpdatedCount();
     }
 
 }

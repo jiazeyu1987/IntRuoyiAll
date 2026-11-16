@@ -58,6 +58,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void acquireLedgerLock() {
+        if (GxpAuditDevelopmentMode.disabled()) return;
         Long tenantId = resolveTenantId();
         if (ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId) == null) {
             throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-not-initialized");
@@ -68,18 +69,23 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void assertLedgerLockHeld() {
+        if (GxpAuditDevelopmentMode.disabled()) return;
         GxpAuditLedgerLockContext.requireHeld(resolveTenantId());
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public Long reserveEventId(String operationId, String subjectId, String sourceLocator, String idempotencyKey) {
+        if (GxpAuditDevelopmentMode.disabled()) return -com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         return GxpAuditLedgerLockContext.reserve(resolveTenantId(), operationId, subjectId, sourceLocator, idempotencyKey);
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public GxpAuditAppendResult append(GxpAuditCommand command) {
+        if (GxpAuditDevelopmentMode.disabled()) return command != null && command.getReservedEventId() != null
+                ? new GxpAuditAppendResult(command.getReservedEventId(), null, GxpAuditDevelopmentMode.STATUS, false, GxpAuditDevelopmentMode.STATUS)
+                : GxpAuditAppendResult.developmentDisabled();
         validateRequired(command);
         Long tenantId = resolveTenantId();
         LoginUser actor = resolveActor(tenantId);
@@ -250,11 +256,31 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         }
     }
 
+    // Market-release approval opinions are optional. Keep the empty opinion in both signed
+    // evidence and audit; all other actions continue to enforce their configured reason policy.
+    static boolean isOptionalMarketReleaseOpinion(GxpAuditCommand command) {
+        if (command.getAfterState() == null || StrUtil.isBlank(command.getAfterState().getCanonicalJson())) return false;
+        if (!"signature.record.create".equals(command.getOperationId())
+                && !"APPROVAL_CENTER_REVIEW_COMMIT".equals(command.getOperationId())) return false;
+        var state = JsonUtils.parseTree(command.getAfterState().getCanonicalJson());
+        if ("signature.record.create".equals(command.getOperationId())) {
+            return "BPM".equals(state.path("moduleCode").asText())
+                    && "BPM_APPROVAL_TASK".equals(state.path("subjectType").asText())
+                    && state.path("subjectId").asText().matches("EDHR_RELEASE:[1-9][0-9]*")
+                    && "APPROVE".equals(state.path("actionCode").asText());
+        }
+        var identity = state.path("identity");
+        return "EDHR".equals(identity.path("ownerCode").asText())
+                && "EDHR_WORK_TASK".equals(identity.path("sourceTaskType").asText())
+                && "EDHR_RELEASE".equals(identity.path("domainSubjectType").asText())
+                && "APPROVE".equals(state.path("action").asText());
+    }
+
     private void validatePolicyRequirements(GxpAuditCommand command, GxpAuditPolicyOperationDO policy) {
         if (("USER_REQUIRED".equals(policy.getReasonPolicy())
                 || StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED")
                 || ("APPROVAL_DECISION".equals(policy.getReasonPolicy()) && !isApprovedDecision(command)))
-                && isBlankReason(command.getReason())) {
+                && isBlankReason(command.getReason()) && !isOptionalMarketReleaseOpinion(command)) {
             throw exception(GXP_AUDIT_REASON_REQUIRED, command.getOperationId());
         }
         if (command.getBeforeState() == null || command.getAfterState() == null

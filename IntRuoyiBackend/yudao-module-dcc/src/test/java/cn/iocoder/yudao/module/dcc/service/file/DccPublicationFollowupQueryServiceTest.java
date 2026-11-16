@@ -256,13 +256,13 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         Page<DccPublicationFollowupBatchDO> page = new Page<>(2, 20, 1);
         page.setRecords(List.of());
         when(batchMapper.selectManagementPage(any(), eq(1L), eq("DOC"), eq("B/1"),
-                eq("PARTIAL_FAILED"), eq("PENDING"), eq("FAILED"), eq(9007199254740993L)))
+                eq("PARTIAL_FAILED"), eq("PENDING"), eq("FAILED"), eq(9007199254740993L), any()))
                 .thenReturn(page);
 
         service.getManagementPage(9L, req);
 
         verify(batchMapper).selectManagementPage(any(), eq(1L), eq("DOC"), eq("B/1"),
-                eq("PARTIAL_FAILED"), eq("PENDING"), eq("FAILED"), eq(9007199254740993L));
+                eq("PARTIAL_FAILED"), eq("PENDING"), eq("FAILED"), eq(9007199254740993L), any());
         verify(batchMapper, never()).selectList();
     }
 
@@ -278,7 +278,7 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         assertServiceException(() -> service.getManagementPage(9L, req),
                 cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_FOLLOWUP_FILTER_INVALID);
 
-        verify(batchMapper, never()).selectManagementPage(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(batchMapper, never()).selectManagementPage(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -297,12 +297,12 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         Page<DccPublicationFollowupBatchDO> page = new Page<>(1, 10, 0);
         page.setRecords(List.of());
         when(batchMapper.selectManagementPage(any(), eq(1L), any(), any(), any(), any(), any(),
-                eq(Long.MAX_VALUE))).thenReturn(page);
+                eq(Long.MAX_VALUE), any())).thenReturn(page);
 
         service.getManagementPage(9L, request);
 
         verify(batchMapper).selectManagementPage(any(), eq(1L), any(), any(), any(), any(), any(),
-                eq(Long.MAX_VALUE));
+                eq(Long.MAX_VALUE), any());
     }
 
     @Test

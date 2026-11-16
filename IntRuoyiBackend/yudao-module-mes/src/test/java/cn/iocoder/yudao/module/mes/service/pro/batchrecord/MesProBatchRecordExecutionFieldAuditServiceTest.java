@@ -73,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
@@ -84,7 +85,7 @@ import static org.mockito.Mockito.when;
 
 @Import({MesProBatchRecordExecutionFieldAuditServiceImpl.class,
         MesProEdhrPreReleaseEditabilityService.class,
-        MesProEdhrWorkTaskServiceImpl.class,
+        MesProEdhrWorkTaskServiceImpl.class, MesEdhrTaskDeadlineService.class,
         MesProBatchRecordExecutionAttachmentServiceImpl.class,
         MesProEdhrGoldenFingerPermissionService.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
@@ -93,6 +94,9 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     private static final String FIELD_PATH = "sheet[0].rows[1].cells[2].temperature";
     @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
+    @MockitoBean private MesEdhrRecordChangeEditGuard recordChangeEditGuard;
+    @MockitoBean private MesMarketReleaseAccess marketReleaseAccess;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthorityApi;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper ncrRows;
     @Resource private MesProEdhrWorkTaskService workTaskService;
@@ -241,6 +245,31 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
         verify(permissionGateService, never()).requireAbility(any());
         verify(signatureService).attachFieldChangeSignature(any());
+    }
+
+    @Test
+    void approvedReopenedExecutionAppendsFieldAuditAndPreservesOriginalApprovalFacts() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of("rowIndex", 1, "columnIndex", 2, "value", "36.6")));
+        var execution = insertDraftExecution(beforeJson);
+        var approvedAt = java.time.LocalDateTime.of(2026, 10, 28, 10, 0);
+        executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId()).setStatus(5)
+                .setReopenedByChangeEventId(700L).setApprovedBy(88L).setApprovedAt(approvedAt));
+        execution = executionMapper.selectById(execution.getId());
+        var command = saveCommand(execution, execution.getCellValuesHash(), "approved-reopen-real-field-save",
+                new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6")));
+        workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(command.getWorkTaskId()).setTaskType("REWORK")
+                .setBusinessScopeType("RECORD_CHANGE").setBusinessScopeId(700L));
+        mockFieldChangeSignature();
+        var result = fieldAuditService.saveChanges(command);
+        var after = executionMapper.selectById(execution.getId());
+        assertEquals(5, after.getStatus());
+        assertEquals(88L, after.getApprovedBy()); assertEquals(approvedAt, after.getApprovedAt());
+        assertEquals(700L, after.getReopenedByChangeEventId());
+        assertEquals(1L, after.getFieldAuditRevision());
+        assertEquals(1, itemMapper.selectListByBatchId(result.getAuditBatchId()).size());
+        assertNotEquals(execution.getCellValuesHash(), after.getCellValuesHash());
+        verify(recordChangeEditGuard).requireReopened(any(MesProBatchRecordExecutionDO.class), eq(command.getWorkTaskId()));
     }
 
     @Test
@@ -2308,13 +2337,20 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
     private MesProBatchRecordExecutionDO insertDraftExecutionForAttachment(String cellValuesJson) {
         MesProBatchRecordExecutionDO execution = insertDraftExecution(cellValuesJson);
+        if (batchExecutionMapper.selectById(601L) == null) {
+            batchExecutionMapper.insert(new MesProEdhrBatchExecutionDO().setId(601L)
+                    .setBatchExecutionCode("FIELD-ATTACHMENT-BATCH").setWorkOrderId(execution.getWorkOrderId())
+                    .setBatchCode(execution.getBatchCode()).setRouteId(4001L).setStatus(10).setTenantId(TENANT_ID));
+        }
         String snapshotJson = attachmentExecutionSnapshotJson();
         execution.setTaskId(701L);
+        execution.setBatchExecutionId(601L);
         execution.setActiveRevisionFlag(true);
         execution.setExecutionSnapshotJson(snapshotJson);
         executionMapper.updateById(new MesProBatchRecordExecutionDO()
                 .setId(execution.getId())
                 .setTaskId(701L)
+                .setBatchExecutionId(601L)
                 .setActiveRevisionFlag(true)
                 .setExecutionSnapshotJson(snapshotJson));
         return execution;
@@ -2340,6 +2376,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                 .actionUrl("/mes/pro/edhr/executions/" + execution.getId())
                 .build();
         workTaskMapper.insert(workTask);
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update(
+                "UPDATE mes_pro_edhr_work_task SET tenant_id = ? WHERE id = ?", TENANT_ID, workTask.getId());
         return workTask;
     }
 

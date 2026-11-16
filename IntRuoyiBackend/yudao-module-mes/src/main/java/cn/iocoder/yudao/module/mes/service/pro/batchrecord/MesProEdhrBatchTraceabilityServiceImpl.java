@@ -45,6 +45,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
             MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
             MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE);
 
+    @jakarta.annotation.Resource private MesMarketReleaseAccess marketReleaseAccess;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionOriginMapper originMapper;
     private final MesProEdhrBatchExecutionTraceLinkMapper traceLinkMapper;
@@ -302,6 +303,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
     }
 
     private void requireBatch(Long batchExecutionId) {
+        marketReleaseAccess.requireReadable(batchExecutionId);
         if (batchExecutionId == null || batchExecutionMapper.selectById(batchExecutionId) == null) {
             throw exception(BATCH_NOT_EXISTS);
         }

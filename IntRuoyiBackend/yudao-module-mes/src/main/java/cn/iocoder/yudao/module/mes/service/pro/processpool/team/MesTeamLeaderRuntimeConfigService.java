@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import java.util.List;
 
 public interface MesTeamLeaderRuntimeConfigService {
+    record StaleEmployeeScope(Long id, Long employeeUserId) {}
+    List<StaleEmployeeScope> listStaleEmployeeScopes(Long leaderUserId);
+    void disableStaleEmployeeScope(Long leaderUserId, Long scopeId);
 
     List<MesTeamFormalUserCandidateBO> searchFormalUserCandidates(Long leaderUserId, String keyword);
 
@@ -19,6 +22,8 @@ public interface MesTeamLeaderRuntimeConfigService {
     void renameEmployee(MesTeamEmployeeDisplayNameUpdateReqBO reqBO);
 
     void updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO reqBO);
+
+    void deleteEmployee(Long leaderUserId, Long employeeProfileId);
 
     void resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO reqBO);
 

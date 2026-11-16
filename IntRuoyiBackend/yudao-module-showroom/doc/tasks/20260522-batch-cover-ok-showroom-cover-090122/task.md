@@ -9,12 +9,12 @@ Create one square premium medical-device showroom cover image for `BATCH-COVER-O
 3. Verify the saved asset exists and update the task record with the final status.
 
 ## Verification
-- Confirm the final file exists at `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-ok-showroom-cover-090122.png`.
+- Confirm the final file exists at `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-ok-showroom-cover-090122.png`.
 - Confirm the final file is a square PNG.
 - Confirm the visual is a single premium medical-device showroom cover with no readable text, logo, watermark, badge, or UI overlay.
 
 ## Status
-Completed. Generated exactly once with the native image tool, copied the selected PNG into the workspace, and verified the final asset at `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-ok-showroom-cover-090122.png`.
+Completed. Generated exactly once with the native image tool, copied the selected PNG into the workspace, and verified the final asset at `./IntRuoyiBackend/yudao-module-showroom/output/imagegen/batch-cover-ok-showroom-cover-090122.png`.
 
 Verification completed:
 - File exists at the reserved output path.
@@ -23,5 +23,5 @@ Verification completed:
 
 Closeout preview:
 - `task-closeout-cleanup` preview was executed.
-- Preview was blocked because the cleanup script resolved the git workspace root to `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro` and could not find this module-scoped task record at repo-root `doc\tasks\20260522-batch-cover-ok-showroom-cover-090122\task.md`.
+- Preview was blocked because the cleanup script resolved the git workspace root to `./IntRuoyiBackend` and could not find this module-scoped task record at repo-root `doc\tasks\20260522-batch-cover-ok-showroom-cover-090122\task.md`.
 - No cleanup was applied.

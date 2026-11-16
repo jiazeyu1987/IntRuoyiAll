@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # MES Paperless Batch Processing Development Plan
 
 > For agentic workers: use `subagent-driven-development` or `executing-plans` task-by-task.
@@ -30,7 +32,7 @@ The current system does not provide:
 
 The Phase 1 pilot sample is:
 
-`C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc`
+`历史外部材料（引用已移除）`
 
 Observed structure:
 

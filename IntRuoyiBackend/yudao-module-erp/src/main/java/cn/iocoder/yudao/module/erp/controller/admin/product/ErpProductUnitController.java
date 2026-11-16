@@ -8,10 +8,13 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import cn.iocoder.yudao.module.erp.controller.admin.product.vo.unit.ErpProductUnitPageReqVO;
+import cn.iocoder.yudao.module.erp.controller.admin.product.vo.unit.ErpProductUnitImportVO;
+import cn.iocoder.yudao.module.erp.controller.admin.product.vo.unit.ErpProductUnitImportRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.product.vo.unit.ErpProductUnitRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.product.vo.unit.ErpProductUnitSaveReqVO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO;
 import cn.iocoder.yudao.module.erp.service.product.ErpProductUnitService;
+import cn.iocoder.yudao.module.erp.service.product.ErpProductUnitImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,11 +24,13 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
+import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.IMPORT;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 
@@ -37,6 +42,26 @@ public class ErpProductUnitController {
 
     @Resource
     private ErpProductUnitService productUnitService;
+
+    @Resource
+    private ErpProductUnitImportService productUnitImportService;
+
+    @GetMapping("/import-template")
+    @Operation(summary = "下载产品单位导入模板")
+    @PreAuthorize("@ss.hasPermission('erp:product-unit:create')")
+    public void getImportTemplate(HttpServletResponse response) throws IOException {
+        ExcelUtils.write(response, "产品单位导入模板.xlsx", "数据", ErpProductUnitImportVO.class, List.of());
+    }
+
+    @PostMapping("/import")
+    @Operation(summary = "导入产品单位（仅新增，跳过重复，整批事务）")
+    @PreAuthorize("@ss.hasPermission('erp:product-unit:create')")
+    @ApiAccessLog(operateType = IMPORT)
+    public CommonResult<ErpProductUnitImportRespVO> importProductUnits(@RequestParam("file") MultipartFile file) throws IOException {
+        List<ErpProductUnitImportVO> rows = ExcelUtils.read(file, ErpProductUnitImportVO.class);
+        int importedCount = productUnitImportService.importUnits(rows);
+        return success(new ErpProductUnitImportRespVO(importedCount, rows.size() - importedCount));
+    }
 
     @PostMapping("/create")
     @Operation(summary = "创建产品单位")
@@ -95,7 +120,7 @@ public class ErpProductUnitController {
         pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         List<ErpProductUnitDO> list = productUnitService.getProductUnitPage(pageReqVO).getList();
         // 导出 Excel
-        ExcelUtils.write(response, "产品单位.xls", "数据", ErpProductUnitRespVO.class,
+        ExcelUtils.write(response, "产品单位.xlsx", "数据", ErpProductUnitRespVO.class,
                         BeanUtils.toBean(list, ErpProductUnitRespVO.class));
     }
 

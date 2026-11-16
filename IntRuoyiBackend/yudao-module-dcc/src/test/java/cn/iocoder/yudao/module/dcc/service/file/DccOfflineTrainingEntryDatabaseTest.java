@@ -199,7 +199,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         assertFalse(training.canUpload(99L,files.selectById(20L)));
         assertEquals("DCC_OFFLINE_TRAINING_ACTOR_FORBIDDEN",assertThrows(IllegalStateException.class,
                 ()->training.requireUpload(99L,files.selectById(20L))).getMessage());
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
     }
 
     @Test
@@ -222,7 +222,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         assertEquals(1,training.listForActor(99L).size());
         assertEquals(1,training.listForActor(99L).size());
         assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class));
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
         assertEquals(0,engine.getTaskService().createTaskQuery().processInstanceId(processId).count());
     }
 
@@ -266,13 +266,13 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     @Test
     void officialStationMessageReplayIsExactAndDoesNotAlterSignedPeople() {
         new TransactionTemplate(manager).executeWithoutResult(s->training.notifyWaiting(files.selectById(20L)));
-        var message=jdbc.queryForMap("SELECT user_id,template_params,business_key FROM system_notify_message WHERE tenant_id=1 AND user_id=99");
+        var message=jdbc.queryForMap("SELECT user_id,template_params,business_key FROM system_tenant_notify_message WHERE tenant_id=1 AND user_id=99");
         assertEquals(99L,((Number)message.get("user_id")).longValue());
         assertTrue(message.get("template_params").toString().contains("DCC_OFFLINE_TRAINING_RECORD"));
         assertTrue(message.get("template_params").toString().contains("management=1"));
         new TransactionTemplate(manager).executeWithoutResult(s->training.notifyWaiting(files.selectById(20L)));
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
-        assertEquals(Set.of(99L,88L),new java.util.HashSet<>(jdbc.queryForList("SELECT user_id FROM system_notify_message",Long.class)));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
+        assertEquals(Set.of(99L,88L),new java.util.HashSet<>(jdbc.queryForList("SELECT user_id FROM system_tenant_notify_message",Long.class)));
         assertEquals(99L,files.selectById(20L).getRequesterId());
         assertEquals(88L,files.selectById(20L).getFileOwnerUserId());
         assertEquals(860L,files.selectById(20L).getFileOwnerSignatureId());
@@ -287,7 +287,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
                 ()->ReflectionTestUtils.invokeMethod(training,"requireConfiguredRecipients",file));
         assertEquals(1_080_000_360,failure.getCode());
         assertTrue(failure.getMessage().contains("本次上传人缺少线下培训记录办理资格"));
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Integer.class));
     }
 
     @org.junit.jupiter.params.ParameterizedTest

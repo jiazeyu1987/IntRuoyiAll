@@ -4,6 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.machineryType.main"
       :query-model="queryParams"
       label-width="80px"
@@ -23,11 +24,10 @@
       @column-change="saveMachineryTypeColumnConfig"
       @column-reset="resetMachineryTypeColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="machineryTypeTreeRows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="machineryTypeQuickFilter.resetQuickFilter">
-          <Icon icon="ep:refresh" class="mr-5px" /> 重置
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -36,24 +36,20 @@
         >
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
-        <el-button type="danger" plain @click="toggleExpandAll">
-          <Icon icon="ep:sort" class="mr-5px" /> 展开/折叠
-        </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="machinery-type-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.machineryType.main"
-          :data="paginatedMachineryTypeRows"
+          :data="resolveRows(paginatedMachineryTypeRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
           row-key="id"
-          :default-expand-all="isExpandAll"
-          v-if="refreshTable"
+          default-expand-all
           @header-dragend="handleMachineryTypeHeaderDragend"
         >
           <el-table-column
@@ -137,6 +133,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import { handleTree } from '@/utils/tree'
@@ -258,20 +257,19 @@ const handleDelete = async (id: number) => {
   } catch {}
 }
 
-/** 展开/折叠操作 */
-const isExpandAll = ref(true) // 是否展开，默认全部展开
-const refreshTable = ref(true) // 重新渲染表格状态
-const toggleExpandAll = async () => {
-  refreshTable.value = false
-  isExpandAll.value = !isExpandAll.value
-  await nextTick()
-  refreshTable.value = true
-}
-
 /** 初始化 **/
 onMounted(() => {
   getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

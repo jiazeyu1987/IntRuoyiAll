@@ -27,30 +27,34 @@ const taskButtonBlock = (() => {
   assert.ok(end > marker, 'missing submit footer after inspection rule selector.')
   return panelSource.slice(start, end)
 })()
+const selectorSource = fs.readFileSync(
+  path.join(frontendRoot, 'src/views/mes/pro/feedback/FrontlinePqcInspectionTypeSelector.vue'),
+  'utf8'
+)
 
 assert.match(
   taskButtonBlock,
-  /v-for="tab in pqcInspectionTypeTabs"/,
-  'PQC task buttons must be generated from the formal visible task list.'
+  /:tabs="pqcInspectionTypeTabs"/,
+  'PQC type control must receive the original formal visible task list.'
 )
 assert.match(
-  taskButtonBlock,
+  selectorSource,
   /:key="tab\.ruleKey"/,
-  'PQC task buttons must use FIRST/PATROL_AM/PATROL_PM/FINAL rule identity as the stable key.'
+  'PQC task buttons must use FIRST/PATROL/FINAL rule identity as the stable key.'
 )
 assert.match(
-  taskButtonBlock,
+  selectorSource,
   /:data-pqc-inspection-rule-tab="tab\.ruleKey"/,
   'PQC task buttons must expose the formal inspection rule key for UI verification.'
 )
 assert.match(
-  taskButtonBlock,
-  /selectedPqcInspectionRuleKey === tab\.ruleKey/,
+  selectorSource,
+  /selectedRuleKey === tab\.ruleKey/,
   'PQC task button active state must be per independent formal rule, not per duplicated item task id.'
 )
 assert.match(
   taskButtonBlock,
-  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  /@select-rule="selectPqcInspectionRule"/,
   'PQC task button clicks must set the independent rule before resolving a task snapshot.'
 )
 assert.doesNotMatch(
@@ -58,16 +62,26 @@ assert.doesNotMatch(
   /class="frontline-pqc-round-tabs"/,
   'PQC page must not render a second repeated round button grid.'
 )
+assert.match(
+  selectorSource,
+  /v-for="tab in tabs"[\s\S]*:key="tab\.ruleKey"/,
+  'Main type buttons must be deduplicated into first, patrol and final.'
+)
+assert.match(
+  selectorSource,
+  /emit\('select-rule', ruleKey\)/,
+  'The UI must preserve the original formal rule on selection.'
+)
 
 assert.match(
   panelSource,
-  /const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = \{[\s\S]*FIRST:\s*(?:'首检'|PQC_INSPECTION_TYPE_LABELS\.FIRST)[\s\S]*PATROL_AM:\s*'上午巡检'[\s\S]*PATROL_PM:\s*'下午巡检'[\s\S]*FINAL:\s*(?:'末检'|PQC_INSPECTION_TYPE_LABELS\.FINAL)/,
+  /const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = \{[\s\S]*FIRST:\s*(?:'首检'|PQC_INSPECTION_TYPE_LABELS\.FIRST)[\s\S]*PATROL:\s*'巡检'[\s\S]*FINAL:\s*(?:'末检'|PQC_INSPECTION_TYPE_LABELS\.FINAL)/,
   'PQC labels must be centralized by formal inspection rule key.'
 )
 assert.match(
   panelSource,
   /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)[\s\S]*\.map\(\(ruleKey\) => \(\{[\s\S]*ruleKey,[\s\S]*label: PQC_INSPECTION_RULE_LABELS\[ruleKey\]/,
-  'PQC visible task buttons must be deduplicated by FIRST/PATROL_AM/PATROL_PM/FINAL at current-order rule level.'
+  'PQC visible task buttons must be deduplicated by FIRST/PATROL/FINAL at current-order rule level.'
 )
 assert.match(
   panelSource,

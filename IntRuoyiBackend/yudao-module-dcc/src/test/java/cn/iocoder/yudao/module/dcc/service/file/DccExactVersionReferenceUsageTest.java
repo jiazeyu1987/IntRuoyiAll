@@ -87,6 +87,24 @@ class DccExactVersionReferenceUsageTest {
         var json=mapper.readTree(mapper.writeValueAsString(service.getUsage(99L,A1)));
         assertEquals("1",json.get("tenantId").textValue());assertEquals(Long.toString(A1),json.get("sourceControlledFileId").textValue());assertEquals("10",json.get("masterId").textValue());
     }
+    @Test void boundedBatchKeepsExactVersionCountsAndRunsBothNameGuards() {
+        var rows=service.getUsageBatch(99L,List.of(A1,A2));
+        assertEquals(List.of(A1,A2),rows.stream().map(ReferenceUsage::sourceControlledFileId).toList());
+        assertEquals(List.of(2L,2L),rows.stream().map(ReferenceUsage::referenceProjectCount).toList());
+        verify(access).assertNameVisible(99L,A1);verify(access).assertNameVisible(99L,A2);
+        verify(access,never()).assertContentReadable(any(),any());
+        assertThrows(DccRelationInputFailure.class,()->service.getUsageBatch(99L,List.of(A1,A1)));
+        assertThrows(DccRelationInputFailure.class,()->service.getUsageBatch(99L,List.of()));
+        assertThrows(DccRelationInputFailure.class,()->service.getUsageBatch(99L,java.util.stream.LongStream.rangeClosed(1,201).boxed().toList()));
+    }
+    @Test void boundedBatchDoesNotHideDeniedSourceOrCorruptExactReference() {
+        var denied=new DccRelationFailure("DCC_NAME_DENIED");
+        doThrow(denied).when(access).assertNameVisible(99L,A2);
+        assertSame(denied,assertThrows(DccRelationFailure.class,()->service.getUsageBatch(99L,List.of(A1,A2))));
+        reset(access);
+        jdbc.update("UPDATE dcc_project_file_reference SET master_id=999 WHERE id=1");
+        assertThrows(DccRelationFailure.class,()->service.getUsageBatch(99L,List.of(A1,A2)));
+    }
     @Test void summaryReviewRejectsWrongMasterOnTheSelectedReference(){
         jdbc.update("UPDATE dcc_project_file_reference SET master_id=999 WHERE id=1");
         assertEquals(A1,jdbc.queryForObject("SELECT selected_controlled_file_id FROM dcc_project_file_reference WHERE id=1",Long.class));

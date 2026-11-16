@@ -42,7 +42,7 @@ class DccRelationPlatformPersistenceTest extends BaseDbUnitTest {
         String platformSql=new ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(StandardCharsets.UTF_8);
         for(String sql:platformSql.split(";")) if(!sql.isBlank())jdbc.execute(sql);
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))if(!sql.isBlank())jdbc.execute(sql);
-        jdbc.update("DELETE FROM system_notify_message");jdbc.update("DELETE FROM dcc_relation_notification_outbox");
+        jdbc.update("DELETE FROM system_tenant_notify_message");jdbc.update("DELETE FROM dcc_relation_notification_outbox");
         var template=NotifyTemplateDO.builder().id(710L).code("dcc_relation_remediation").type(2).nickname("DCC系统")
                 .content("受控文件 {fileNumber} {versionNo} 关联整改期限 {dueAt}").status(0)
                 .params(List.of("fileNumber","versionNo","relatedMasterId","dueAt","sourceControlledFileId","detailUrl")).build();
@@ -55,18 +55,18 @@ class DccRelationPlatformPersistenceTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO dcc_relation_notification_outbox (tenant_id,event_id,related_master_id,recipient_user_id,source_file_id,due_at,business_key,status,file_number_snapshot,version_no_snapshot) VALUES (1,1,20,8,100,?,'dcc-remediation:1:100:round-1:20','PENDING','N-100','B/1')",LocalDateTime.of(2026,10,3,12,0));
     }
     long delivery(){return jdbc.queryForObject("SELECT id FROM dcc_relation_notification_outbox",Long.class);}
-    long messages(){return jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Long.class);}
+    long messages(){return jdbc.queryForObject("SELECT COUNT(*) FROM system_tenant_notify_message",Long.class);}
     @Test void realPlatformServicePersistsSingleMessageAcrossOutboxReplayAndResultRecovery() {
         dispatcher.dispatch(delivery());dispatcher.dispatch(delivery());
         assertEquals(1,messages());
-        Long original=jdbc.queryForObject("SELECT id FROM system_notify_message",Long.class);
+        Long original=jdbc.queryForObject("SELECT id FROM system_tenant_notify_message",Long.class);
         // Reproduce a committed platform send with missing local result: retry the same immutable outbox identity.
         jdbc.update("UPDATE dcc_relation_notification_outbox SET status='FAILED',platform_message_id=NULL");
         when(files.resolveSelected(100L)).thenReturn(new FileVersion(1L,100L,10L,9L,"N-RENAMED","源.pdf","B/1","OBSOLETE",false,false,false));
         dispatcher.dispatch(delivery());assertEquals(1,messages());
         assertEquals(original,jdbc.queryForObject("SELECT platform_message_id FROM dcc_relation_notification_outbox",Long.class));
-        assertEquals(8L,jdbc.queryForObject("SELECT user_id FROM system_notify_message",Long.class));
-        assertTrue(jdbc.queryForObject("SELECT template_content FROM system_notify_message",String.class).contains("2026-10-03 12:00:00"));
+        assertEquals(8L,jdbc.queryForObject("SELECT user_id FROM system_tenant_notify_message",Long.class));
+        assertTrue(jdbc.queryForObject("SELECT template_content FROM system_tenant_notify_message",String.class).contains("2026-10-03 12:00:00"));
     }
     @Test void simultaneousDispatchersPersistOnePlatformMessageAndOneSentResult() throws Exception {
         long id=delivery();ExecutorService pool=Executors.newFixedThreadPool(2);

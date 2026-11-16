@@ -44,12 +44,18 @@ public class TenantDatabaseInterceptor implements TenantLineHandler {
 
     @Override
     public boolean ignoreTable(String tableName) {
+        tableName = SqlParserUtils.removeWrapperSymbol(tableName);
+        TableInfo tableInfo = TableInfoHelper.getTableInfo(tableName);
+        if (tableInfo != null && tableInfo.getEntityType().isAnnotationPresent(
+                cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated.class)) {
+            TenantContextHolder.getRequiredTenantId();
+            return false;
+        }
         // 情况一，全局忽略多租户
         if (TenantContextHolder.isIgnore()) {
             return true;
         }
         // 情况二，忽略多租户的表
-        tableName = SqlParserUtils.removeWrapperSymbol(tableName);
         Boolean ignore = ignoreTables.get(tableName.toLowerCase());
         if (ignore == null) {
             ignore = computeIgnoreTable(tableName);

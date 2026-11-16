@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.bpm.workbench.EdhrVoidWorkbenchMapper">
+  <sql id="engine"><include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.source"/></sql>
+  <sql id="authorized"><include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.authorized"/></sql>
+  <!-- One exact domain request and one current submitted event anchor the same engine instance. -->
+  <sql id="domain">SELECT br.id <include refid="domainFrom"/></sql>
+  <sql id="domainFrom">
+    FROM bpm_business_approval_request br
+    JOIN mes_pro_edhr_batch_execution b ON CAST(CAST(b.id AS CHAR) AS BINARY)=CAST(br.object_id AS BINARY) AND b.tenant_id=br.tenant_id AND b.deleted=0
+    JOIN mes_pro_edhr_record_change_event e ON e.batch_execution_id=b.id AND e.tenant_id=b.tenant_id AND e.deleted=0
+      AND CAST(e.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)
+      AND e.change_type='VOID' AND e.target_scope='BATCH' AND e.change_status='SUBMITTED'
+    WHERE br.tenant_id=#{tenant} AND br.deleted=0 AND br.request_status='PENDING_BPM'
+      AND CAST(br.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)
+      AND CAST(br.process_definition_key AS BINARY)=CAST(d.KEY_ AS BINARY)
+      AND br.system_code='MES' AND br.data_domain='MES' AND br.object_type='EDHR_BATCH_EXECUTION' AND br.action_code='VOID'
+      AND o.authority_type='BUSINESS_REQUEST' AND o.projection_code='NATIVE_BUSINESS'
+      AND o.writer_code='BUSINESS_APPROVAL_SUBMIT' AND CAST(CAST(br.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY)
+      AND CAST(br.object_version AS BINARY)=CAST(o.authority_version AS BINARY)
+      AND CAST(p.BUSINESS_KEY_ AS BINARY)=CAST(CONCAT('BUSINESS_APPROVAL:',br.id) AS BINARY)
+      AND EXISTS (SELECT 1 FROM ACT_RU_VARIABLE v WHERE v.PROC_INST_ID_=t.PROC_INST_ID_
+        AND CAST(v.NAME_ AS BINARY)=CAST('businessType' AS BINARY)
+        AND CAST(v.TEXT_ AS BINARY)=CAST('EDHR_BATCH_EXECUTION_VOID' AS BINARY) AND v.TASK_ID_ IS NULL)
+  </sql>
+  <select id="countBrokenDomain" timeout="10" resultType="long">
+    SELECT COUNT(*) FROM <include refid="engine"/> WHERE <include refid="authorized"/>
+      AND (SELECT COUNT(*) <include refid="domainFrom"/>) != 1
+  </select>
+  <sql id="base">
+    SELECT 'BPM_EDHR_VOID' AS source_id, t.ID_ AS row_order_key, t.ID_ AS business_id,
+      CONCAT('BPM_EDHR_VOID:',t.ID_) AS task_key, '批记录' AS task_type, '批次作废审批' AS source,
+      CONCAT('批次作废 · ',t.NAME_,' · 流程 ',t.PROC_INST_ID_) AS detail, '待审批' AS status_label,
+      t.CREATE_TIME_ AS created_at, t.DUE_DATE_ AS due_at, t.PROC_INST_ID_ AS process_instance_id
+    FROM <include refid="engine"/> WHERE <include refid="authorized"/> AND EXISTS (<include refid="domain"/>)
+  </sql>
+  <select id="count" timeout="10" resultType="java.lang.Long">
+    <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.exactCount"><property name="baseRef" value="cn.iocoder.yudao.module.bpm.workbench.EdhrVoidWorkbenchMapper.base"/></include>
+  </select>
+  <select id="chunk" timeout="10" resultType="cn.iocoder.yudao.module.bpm.workbench.EdhrVoidWorkbenchRow">
+    <bind name="chunkValidated" value="q.validatedChunk(after,fetchLimit)"/>
+    SELECT r.* FROM (<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.normalizedProjection"><property name="baseRef" value="cn.iocoder.yudao.module.bpm.workbench.EdhrVoidWorkbenchMapper.base"/></include>) r
+    <where><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.conditions"/><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.after"/></where>
+    <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.order"/> LIMIT #{fetchLimit}
+  </select>
+  <select id="rows" timeout="10" resultType="cn.iocoder.yudao.module.bpm.workbench.EdhrVoidWorkbenchRow"><include refid="base"/><if test="lockIdentity != null and lockIdentity"> FOR UPDATE</if></select>
+</mapper>

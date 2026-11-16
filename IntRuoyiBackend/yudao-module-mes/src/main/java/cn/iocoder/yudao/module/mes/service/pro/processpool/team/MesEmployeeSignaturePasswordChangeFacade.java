@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.*;
 import cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.ESIGN_IDENTITY_BAD_CREDENTIALS;
 @Service
 public class MesEmployeeSignaturePasswordChangeFacade {
     private final MesFrontlineEmployeeSwitchService employees;
@@ -17,8 +19,11 @@ public class MesEmployeeSignaturePasswordChangeFacade {
         employees.switchActualEmployee(new MesFrontlineEmployeeSwitchCommand(SecurityFrameworkUtils.getLoginUserId(),r.getActiveOrderId(),r.getRouteId(),r.getRouteProcessId(),r.getProcessId(),r.getEmployeeProfileId(),r.getIdentityDomain()));
         if(!"MES_EMPLOYEE_PROFILE".equals(r.getIdentityDomain())) throw new IllegalArgumentException("SIGNATURE_IDENTITY_DOMAIN_UNSUPPORTED");
         var result=authentication.authenticatePasswordChange(new SignatureAuthenticationRequest(TenantContextHolder.getRequiredTenantId(),r.getIdentityDomain(),r.getEmployeeProfileId(),SecurityFrameworkUtils.getLoginUserId(),java.util.UUID.randomUUID().toString(),r.getCurrentPassword()));
-        if(!result.succeeded()) throw new IllegalArgumentException(result.rejectionCode());
-        credentials.change(result.signer(),r.getNewPassword());
+        if(!result.succeeded()) {
+            if("BAD_CREDENTIALS".equals(result.rejectionCode())) throw exception(ESIGN_IDENTITY_BAD_CREDENTIALS);
+            throw new IllegalArgumentException(result.rejectionCode());
+        }
+        credentials.updateSettings(result.signer(),r);
     }
     @Transactional(propagation=Propagation.NOT_SUPPORTED,readOnly=true)
     public MesEmployeeSignatureCredentialService.Qualification qualification(Long activeOrderId,Long routeId,Long routeProcessId,Long processId,Long employeeProfileId,String domain) {

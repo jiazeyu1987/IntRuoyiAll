@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModelUtils;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import org.flowable.engine.*;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -84,10 +86,9 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
         verify(taskService, never()).setAssignee(anyString(), anyString());
     }
 
-    @Test void genericSupervisorHandoverRecordsReasonAndKeepsTaskPending() {
+    private Task supervisorTask() {
         Task task = task();
         definition(task, "generic-supervisor");
-        when(task.getId()).thenReturn("task-1");
         when(task.getProcessInstanceId()).thenReturn("process-1");
         when(task.getTaskDefinitionKey()).thenReturn("supervisor");
         BpmnModel model = new BpmnModel();
@@ -103,6 +104,12 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
         when(runtimeService.createProcessInstanceQuery()).thenReturn(processQuery);
         when(processQuery.singleResult()).thenReturn(instance);
         when(instance.getStartUserId()).thenReturn("30");
+        return task;
+    }
+
+    @Test void genericSupervisorHandoverRecordsReasonAndKeepsTaskPending() {
+        var task = supervisorTask();
+        when(task.getId()).thenReturn("task-1");
         when(adminUserApi.getUser(1L)).thenReturn(new AdminUserRespDTO().setId(1L).setNickname("管理员"));
         service.handover(1L, request());
         var order = inOrder(taskService);
@@ -111,5 +118,43 @@ class BpmSupervisorHandoverServiceTest extends BaseMockitoUnitTest {
         order.verify(taskService).setOwner("task-1", "10");
         order.verify(taskService).setAssignee("task-1", "20");
         verify(taskService, never()).complete(anyString());
+    }
+
+    @Test void supervisorChangeCannotTransferAnotherEmployeesTask() {
+        supervisorTask();
+        assertThrows(ServiceException.class, () -> service.handover(1L, request().setApplicantUserId(31L)));
+        verify(taskService, never()).setAssignee(anyString(), anyString());
+    }
+
+    @Test void supervisorChangeRejectsARecipientWhoIsNoLongerTheSupervisor() {
+        supervisorTask();
+        when(adminUserApi.getDirectSupervisorRelation(30L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 30L, 21L, 2L));
+        assertThrows(ServiceException.class, () -> service.handover(1L, request().setApplicantUserId(30L)));
+        verify(taskService, never()).setAssignee(anyString(), anyString());
+    }
+
+    @Test void confirmedSupervisorChangeKeepsApprovalPending() {
+        var task = supervisorTask();
+        when(task.getId()).thenReturn("task-1");
+        when(adminUserApi.getUser(1L)).thenReturn(new AdminUserRespDTO().setId(1L).setNickname("管理员"));
+        when(adminUserApi.getDirectSupervisorRelation(30L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 30L, 20L, 2L));
+        service.handover(1L, request().setApplicantUserId(30L));
+        verify(taskService).setAssignee("task-1", "20");
+        verify(taskService, never()).complete(anyString());
+    }
+
+    @Test void previewIsRestrictedToTheEmployeeAndOriginalSupervisor() {
+        when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        when(runtimeService.createProcessInstanceQuery()).thenReturn(processQuery);
+        var process = mock(ProcessInstance.class);
+        when(process.getId()).thenReturn("employee-process");
+        when(processQuery.list()).thenReturn(java.util.List.of(process));
+        when(taskQuery.count()).thenReturn(0L);
+        assertEquals(0L, service.getPage(new PageParam(), 10L, 30L).getTotal());
+        verify(taskQuery).taskTenantId("1");
+        verify(taskQuery).taskAssignee("10");
+        verify(processQuery).processInstanceTenantId("1");
+        verify(processQuery).startedBy("30");
+        verify(taskQuery).processInstanceIdIn(java.util.List.of("employee-process"));
     }
 }

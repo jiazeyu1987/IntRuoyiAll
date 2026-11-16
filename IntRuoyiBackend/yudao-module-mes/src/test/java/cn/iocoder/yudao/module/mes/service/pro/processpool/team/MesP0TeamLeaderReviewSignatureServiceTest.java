@@ -147,11 +147,13 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(fifoAllocationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         reportConfirmationService = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper,
                 activeOrderMapper, workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper,
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(reportConfirmationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
         ReflectionTestUtils.setField(reportConfirmationService, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),

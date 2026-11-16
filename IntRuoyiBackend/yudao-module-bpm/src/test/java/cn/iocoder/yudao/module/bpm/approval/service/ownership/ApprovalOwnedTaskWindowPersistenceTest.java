@@ -36,7 +36,7 @@ public class ApprovalOwnedTaskWindowPersistenceTest {
         jdbc.update("INSERT INTO ACT_RE_PROCDEF VALUES('definition','native',122)");
         for(int i=0;i<1207;i++) {
             String id=String.format("task-%04d",i),process="process-"+i;
-            jdbc.update("INSERT INTO ACT_RU_TASK VALUES(?,?, 'definition','122','needle','7',1,?,NULL)",id,process,LocalDateTime.of(2026,10,10,12,0).minusSeconds(i));
+            jdbc.update("INSERT INTO ACT_RU_TASK VALUES(?,?, 'definition','122','needle','7',1,?,'REVIEW')",id,process,LocalDateTime.of(2026,10,10,12,0).minusSeconds(i));
             jdbc.update("INSERT INTO ACT_HI_PROCINST VALUES(?,'122',?)",process,"business-"+i);
             fact(jdbc,i+1,process,i==203 || i==1001);
         }

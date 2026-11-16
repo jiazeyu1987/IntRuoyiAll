@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrActiveOrderAuditAccess;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -53,6 +55,8 @@ public class MesProEdhrOperationAuditController {
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
     private MesProBatchRecordExecutionMapper executionMapper;
+    @Resource
+    private MesProEdhrActiveOrderAuditAccess activeOrderAuditAccess;
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-operation-audit:query')")
@@ -127,14 +131,15 @@ public class MesProEdhrOperationAuditController {
     private List<MesProEdhrPermissionGateCommand> resolveBatchExecutionAuditCommands(String objectId,
                                                                                      Long batchExecutionId,
                                                                                      Long routeId) {
-        Long resolvedBatchExecutionId = batchExecutionId != null ? batchExecutionId : parsePositiveLong(objectId);
-        if (resolvedBatchExecutionId == null) {
+        Long resolvedBatchExecutionId = parsePositiveLong(objectId);
+        if (resolvedBatchExecutionId == null
+                || batchExecutionId != null && !Objects.equals(batchExecutionId, resolvedBatchExecutionId)) {
             throw exception(PRO_EDHR_PERMISSION_CONTEXT_MISSING);
         }
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(resolvedBatchExecutionId);
         if (tasks == null || tasks.isEmpty()) {
-            throw exception(PRO_EDHR_PERMISSION_SCOPE_REQUIRED,
-                    OBJECT_TYPE_BATCH_EXECUTION + ":" + resolvedBatchExecutionId);
+            activeOrderAuditAccess.requireAuditView(resolvedBatchExecutionId);
+            return List.of();
         }
         Set<Long> resolvedScopeIds = new LinkedHashSet<>();
         List<MesProEdhrPermissionGateCommand> commands = new ArrayList<>();

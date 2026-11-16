@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.PostConfigPackageService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleConfigPackageService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryService;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,6 +46,8 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
     @Mock
     private RoleConfigPackageService roleConfigPackageService;
     @Mock
+    private RoleCategoryService roleCategoryService;
+    @Mock
     private MesProSchedulerWorkbenchRouteConfigPackageService routeConfigPackageService;
     @Mock
     private MesProSchedulerWorkbenchManualReplanDataPackageService manualReplanDataPackageService;
@@ -62,11 +66,13 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
     void exportPackage_shouldContainAllSubPackagesAndUserRoleBindings() throws Exception {
         when(postConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"1\",\"posts\":[]}"
                 .getBytes(StandardCharsets.UTF_8));
-        when(roleConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"1\",\"roles\":[]}"
+        when(roleCategoryService.getRoleCategoryList()).thenReturn(List.of(
+                new RoleCategoryDO().setId(21L), new RoleCategoryDO().setId(22L)));
+        when(roleConfigPackageService.exportPackage(List.of(21L, 22L))).thenReturn("{\"packageVersion\":\"1\",\"roles\":[]}"
                 .getBytes(StandardCharsets.UTF_8));
         when(routeConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"scheduler-route-config.v1\",\"routes\":[]}"
                 .getBytes(StandardCharsets.UTF_8));
-        when(manualReplanDataPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"scheduler-manual-replan-data.v1\"}"
+        when(manualReplanDataPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"scheduler-manual-replan-data.v2\"}"
                 .getBytes(StandardCharsets.UTF_8));
         when(schedulerWorkbenchService.getPolicySettings()).thenReturn(policySettings());
         when(permissionService.getUserRoleIdListByRoleId(Set.of(11L, 12L))).thenReturn(Set.of(101L));
@@ -86,7 +92,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         assertEquals("1", root.path("postConfigPackage").path("packageVersion").asText());
         assertEquals("1", root.path("roleConfigPackage").path("packageVersion").asText());
         assertEquals("scheduler-route-config.v1", root.path("routeConfigPackage").path("packageVersion").asText());
-        assertEquals("scheduler-manual-replan-data.v1",
+        assertEquals("scheduler-manual-replan-data.v2",
                 root.path("manualReplanDataPackage").path("packageVersion").asText());
         assertEquals("02:00", root.path("policySettings").path("erpWorkOrderSyncTime").asText());
         assertEquals("PROMISE_DATE", root.path("policySettings").path("priorityRule").asText());
@@ -103,7 +109,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "policySettings":%s
                 }
                 """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
@@ -137,7 +143,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "userRoleBindings":[]
                 }
                 """.getBytes(StandardCharsets.UTF_8);
@@ -154,7 +160,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackageBase64":"not-base64",
                   "roleConfigPackage":{"packageVersion":"2","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "policySettings":%s,
                   "userRoleBindings":[]
                 }
@@ -177,7 +183,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "policySettings":%s,
                   "userRoleBindings":[
                     {
@@ -210,7 +216,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "policySettings":%s,
                   "userRoleBindings":[
                     {
@@ -255,7 +261,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v2"},
                   "policySettings":%s,
                   "userRoleBindings":[
                     {

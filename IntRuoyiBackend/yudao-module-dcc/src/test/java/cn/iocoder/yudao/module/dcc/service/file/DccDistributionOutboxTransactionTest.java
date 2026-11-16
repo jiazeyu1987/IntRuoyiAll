@@ -46,9 +46,12 @@ class DccDistributionOutboxTransactionTest extends BaseDbUnitTest {
     JdbcTemplate jdbc;DccDistributionBatchService batchService;DccDistributionDispatchAttemptService attemptService;
     DccWorkflowDistributionService distributionService;DccControlledFileLifecycleEvent event;
     final LocalDateTime time=LocalDateTime.of(2026,10,11,9,0);
+    @Resource cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper policyActivations;
     @BeforeEach void fixture()throws Exception {
         try(var connection=dataSource.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         TenantContextHolder.setTenantId(1L);jdbc=new JdbcTemplate(dataSource);
+        jdbc.update("INSERT INTO gxp_audit_ledger_sequence (tenant_id,next_ledger_sequence) VALUES (1,1)");
+        jdbc.update("INSERT INTO gxp_audit_policy_activation (tenant_id,policy_version,policy_hash,request_id,actor_id,approval_reference,activated_at_utc,effective_after_sequence,canonical_activation_json,activation_hash) VALUES (1,'ic10-memory-fixture',?,'IC10-TEST-ACTIVATION',99,'ISOLATED_TEST',CURRENT_TIMESTAMP,0,'{}',?)", "0".repeat(64), "1".repeat(64));
         jdbc.update("""
                 INSERT INTO dcc_controlled_file(id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,file_number,version_no,
                  status,submitter_id,requester_id,tenant_id,deleted,published_file_id,stamped_file_id,effective_date,process_instance_id,process_definition_key,
@@ -57,7 +60,7 @@ class DccDistributionOutboxTransactionTest extends BaseDbUnitTest {
                 """,time,time);
         event=new DccControlledFileLifecycleEvent("root-event42","ACTIVATED",1L,10L,42L,null,"B/1","round-42",time);
         jdbc.update("INSERT INTO dcc_workflow_lifecycle_event(tenant_id,event_key,event_type,master_id,controlled_file_id,version_no,approval_process_instance_id,occurred_at,delivery_status) VALUES(1,'root-event42','ACTIVATED',10,42,'B/1','round-42',?,'PENDING')",time);
-        var audit=new GxpAuditServiceImpl();wire(audit,"auditEventMapper",audits,"ledgerSequenceMapper",sequences,"policyOperationMapper",policies);
+        var audit=new GxpAuditServiceImpl();wire(audit,"auditEventMapper",audits,"ledgerSequenceMapper",sequences,"policyOperationMapper",policies,"policyActivationMapper",policyActivations);
         for(String op:List.of("dcc.distribution.batch.accept","dcc.distribution.batch.prepare","dcc.distribution.batch.fail","dcc.distribution.attempt.start","dcc.distribution.attempt.finish")){
             var policy=new GxpAuditPolicyOperationDO();policy.setTenantId(1L);policy.setPolicyVersion("ic10-memory-fixture");policy.setOperationId(op);policy.setSourceType("SERVICE_METHOD");
             policy.setSourceLocator("W07-memory-test#"+op);policy.setDomain("DCC");policy.setSubjectType("DCC_DISTRIBUTION");policy.setActionType("UPDATE");
@@ -68,7 +71,7 @@ class DccDistributionOutboxTransactionTest extends BaseDbUnitTest {
         batchService=new DccDistributionBatchService();wire(batchService,"controlledFileMapper",files,"batchMapper",batches,"distributionMapper",distributions,"recipientMapper",recipients,"messageJobMapper",jobs,"jdbcTemplate",jdbc,"gxpAuditService",audit,"transactionManager",tx,"distributionService",distributionService);
         attemptService=new DccDistributionDispatchAttemptService();wire(attemptService,"batchMapper",batches,"attemptMapper",attempts,"messageJobMapper",jobs,"gxpAuditService",audit);
     }
-    @AfterEach void clear(){SecurityContextHolder.clearContext();if(jdbc!=null)for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch","gxp_audit_event","gxp_audit_ledger_sequence","gxp_audit_policy_operation","dcc_workflow_lifecycle_event"))jdbc.update("DELETE FROM "+table);TenantContextHolder.clear();}
+    @AfterEach void clear(){SecurityContextHolder.clearContext();if(jdbc!=null)for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch","gxp_audit_event","gxp_audit_ledger_sequence","gxp_audit_policy_activation","gxp_audit_policy_operation","dcc_workflow_lifecycle_event"))jdbc.update("DELETE FROM "+table);TenantContextHolder.clear();}
     static void wire(Object bean,Object...fields){for(int i=0;i<fields.length;i+=2)ReflectionTestUtils.setField(bean,(String)fields[i],fields[i+1]);}
     Long accept(){return new TransactionTemplate(tx).execute(ignored->batchService.acceptActivatedEvent(event));}
     DccDistributionRosterSnapshot roster(){return new DccDistributionRosterSnapshot(1L,42L,"B/1","round-42",time,"formal-fixture-policy",List.of(new DccDistributionRosterSnapshot.Department(61L,List.of(99L,100L))));}

@@ -75,17 +75,22 @@ test('single-choice device selection still replaces only its own device group', 
   assert.equal(r.activeProductionDevice.value, alternate)
 })
 
-test('the actual template exposes a separate guarded and accessible parameter button', () => {
+test('device codes switch parameters and checkboxes select devices without a separate parameter row', () => {
   const { descriptor, errors } = parse(source, { filename })
   assert.deepEqual(errors, [])
   const script = compileScript(descriptor, { id: 'production-device-switch-test' })
   const template = compileTemplate({ source: descriptor.template.content, filename, id: 'production-device-switch-test', compilerOptions: { bindingMetadata: script.bindings } })
   assert.deepEqual(template.errors, [])
-  const button = descriptor.template.content.match(/<button\s[^>]*data-frontline-production-device-parameters[^>]*>/)?.[0]
+  const button = descriptor.template.content.match(/<button\s[^>]*class="device-tab"[^>]*>/)?.[0]
   assert.ok(button)
-  assert.match(button, /:disabled="payloadLoading \|\| !selectedProductionDeviceKeys.includes\(device.key\)"/)
-  assert.match(button, /:aria-label="`\$\{device.label\}填写参数`"/)
+  assert.match(button, /:disabled="payloadLoading"/)
+  assert.match(button, /:aria-label="`\$\{device.label\}设备参数`"/)
   assert.match(button, /:aria-pressed="selectedProductionDeviceKey === device.key"/)
-  assert.match(button, /@click="showProductionDeviceParameters\(device\)"/)
-  assert.ok(!button.includes('toggleProductionDeviceSelection'))
+  assert.match(button, /@click="selectedProductionDeviceKeys.includes\(device.key\)\s*\? showProductionDeviceParameters\(device\)\s*: toggleProductionDeviceSelection\(device\)"/)
+  const checkbox = descriptor.template.content.match(/<button\s[^>]*class="device-tab-selection"[^>]*>/)?.[0]
+  assert.ok(checkbox)
+  assert.match(checkbox, /role="checkbox"/)
+  assert.match(checkbox, /:aria-checked="selectedProductionDeviceKeys.includes\(device.key\)"/)
+  assert.match(checkbox, /@click="toggleProductionDeviceSelection\(device\)"/)
+  assert.doesNotMatch(descriptor.template.content, /填写参数|data-frontline-production-device-parameters/)
 })

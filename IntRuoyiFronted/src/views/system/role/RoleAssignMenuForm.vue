@@ -4,9 +4,6 @@
       <el-form-item label="权限角色名称">
         <el-tag>{{ formData.name }}</el-tag>
       </el-form-item>
-      <el-form-item label="权限角色标识">
-        <el-tag>{{ formData.code }}</el-tag>
-      </el-form-item>
       <el-form-item
         label="变更原因"
         prop="reason"
@@ -22,30 +19,14 @@
         />
       </el-form-item>
       <el-form-item label="菜单权限">
+        <el-checkbox v-model="checkStrictly" @change="preserveSelectedMenus">
+          父子独立选择（可仅授权目录）
+        </el-checkbox>
         <el-card class="w-full h-400px !overflow-y-scroll" shadow="never">
-          <template #header>
-            全选/全不选:
-            <el-switch
-              v-model="treeNodeAll"
-              active-text="是"
-              inactive-text="否"
-              inline-prompt
-              @change="handleCheckedTreeNodeAll"
-            />
-            全部展开/折叠:
-            <el-switch
-              v-model="menuExpand"
-              active-text="展开"
-              inactive-text="折叠"
-              inline-prompt
-              @change="handleCheckedTreeExpand"
-            />
-            父子联动(选中父节点，自动选择子节点):
-            <el-switch v-model="checkStrictly" active-text="是" inactive-text="否" inline-prompt />
-          </template>
           <el-tree
             ref="treeRef"
-            :check-strictly="!checkStrictly"
+            :check-strictly="checkStrictly"
+            :default-expand-all="false"
             :data="menuOptions"
             :props="defaultProps"
             empty-text="加载中，请稍候"
@@ -75,7 +56,6 @@ const message = useMessage() // 消息弹窗
 interface RoleAssignMenuFormData {
   id?: number
   name: string
-  code: string
   menuIds: number[]
   reason: string
 }
@@ -83,7 +63,6 @@ interface RoleAssignMenuFormData {
 const createDefaultFormData = (): RoleAssignMenuFormData => ({
   id: undefined,
   name: '',
-  code: '',
   menuIds: [],
   reason: ''
 })
@@ -93,10 +72,15 @@ const formLoading = ref(false) // 表单的加载中：1）修改时的数据加
 const formData = reactive<RoleAssignMenuFormData>(createDefaultFormData())
 const formRef = ref() // 表单 Ref
 const menuOptions = ref<any[]>([]) // 菜单树形结构
-const menuExpand = ref(false) // 展开/折叠
 const treeRef = ref() // 菜单树组件 Ref
-const treeNodeAll = ref(false) // 全选/全不选
-const checkStrictly = ref(true) // 是否父子联动
+const checkStrictly = ref(false)
+
+const preserveSelectedMenus = async () => {
+  if (!checkStrictly.value) return
+  const selected = [...treeRef.value.getCheckedKeys(false), ...treeRef.value.getHalfCheckedKeys()]
+  await nextTick()
+  treeRef.value.setCheckedKeys(selected)
+}
 
 /** 打开弹窗 */
 const open = async (row: RoleApi.RoleVO) => {
@@ -107,7 +91,6 @@ const open = async (row: RoleApi.RoleVO) => {
   // 设置数据
   formData.id = row.id
   formData.name = row.name
-  formData.code = row.code
   formLoading.value = true
   try {
     formData.menuIds = await PermissionApi.getRoleMenuList(row.id)
@@ -152,30 +135,11 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
-  // 重置选项
-  treeNodeAll.value = false
-  menuExpand.value = false
-  checkStrictly.value = true
   // 重置表单
+  checkStrictly.value = false
   Object.assign(formData, createDefaultFormData())
   treeRef.value?.setCheckedNodes([])
   formRef.value?.resetFields()
-}
-
-/** 全选/全不选 */
-const handleCheckedTreeNodeAll = () => {
-  treeRef.value.setCheckedNodes(treeNodeAll.value ? menuOptions.value : [])
-}
-
-/** 展开/折叠全部 */
-const handleCheckedTreeExpand = () => {
-  const nodes = treeRef.value?.store.nodesMap
-  for (let node in nodes) {
-    if (nodes[node].expanded === menuExpand.value) {
-      continue
-    }
-    nodes[node].expanded = menuExpand.value
-  }
 }
 
 const createPermissionAuditIdempotencyKey = () => {

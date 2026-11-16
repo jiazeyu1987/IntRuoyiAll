@@ -1,20 +1,28 @@
 <template>
+  <WorkflowInteractionLog :save-error="workflowLogSaveError" :saving="workflowLogSaving" />
+  <el-alert v-if="quantityDraftId && !isPqcMode" type="warning" :closable="false" :title="quantityDraftMessage" data-production-quantity-blocked />
   <section
     ref="frontlinePanelRef"
     class="frontline-operator-panel"
     data-pqc-fullscreen-root
     :class="{
       'is-pqc-fullscreen': isPqcFullscreen,
+      'is-pqc-mode': isPqcMode,
       'is-production-mode': !isPqcMode,
       'is-production-fullscreen': isProductionFullscreen
     }"
   >
-    <FrontlineReturnCorrectionPanel ref="returnCorrectionPanel" :mode="props.mode" />
+    <FrontlineReturnCorrectionPanel v-if="!isPqcMode" ref="returnCorrectionPanel" :mode="props.mode" />
     <p v-if="hasReturnNotification" role="status" data-own-return-only-entry>
       当前通知仅用于原退回任务更正，请在本人退回更正面板核对原记录。
     </p>
     <div
       v-if="isPqcMode && !hasReturnNotification"
+      class="frontline-pqc-stage"
+      data-frontline-pqc-stage
+      :style="pqcStageStyle"
+    >
+    <div
       class="frontline-operator-screen is-pqc"
       data-frontline-pqc-operator
     >
@@ -26,27 +34,23 @@
           :disabled="isPqcProcessNavigationBlocked"
           @click="openPicker('order')"
         >
-          <div class="frontline-order-summary__field is-order">
-            <span>生产订单</span>
-            <strong
-              class="frontline-order-summary__value is-order"
-              data-pqc-order-code
+          <div class="frontline-production-order-summary" :aria-label="productionActiveOrderSummaryLabel">
+            <div class="frontline-production-order-summary__value">
+              <div class="frontline-production-order-summary__code" data-pqc-order-code>{{ productionOrderLabel }}</div>
+              <div v-if="selectedActiveOrder" class="frontline-production-order-summary__product" data-pqc-product-name>{{ productionProductNameLabel }}</div>
+            </div>
+            <div
+              v-if="selectedActiveOrder"
+              class="frontline-production-order-quantity"
+              data-pqc-product-quantity
             >
-              {{ productionOrderLabel }}
-            </strong>
+              {{ selectedProductionOrderQuantityLabel }} 件
+            </div>
           </div>
-          <div v-if="selectedActiveOrder" class="frontline-order-summary__field">
-            <span>产品名称</span>
-            <strong class="frontline-order-summary__value" data-pqc-product-name>
-              {{ selectedActiveOrder.productName }}
-            </strong>
-          </div>
-          <div v-if="selectedActiveOrder" class="frontline-order-summary__field is-quantity">
-            <span>产品数量</span>
-            <strong class="frontline-order-summary__value" data-pqc-product-quantity>
-              {{ selectedOrderQuantityLabel }}
-            </strong>
-          </div>
+          <FrontlinePqcCompletionSummary
+            v-if="isFrontlinePqcProcess(deviceState.selectedProcess)"
+            :processes="allSwitchablePqcProcessOptions"
+          />
         </button>
         <div
           class="frontline-top-card frontline-production-process-nav-card frontline-pqc-process-nav-card"
@@ -69,8 +73,7 @@
             :disabled="isPqcProcessNavigationBlocked"
             @click="openPicker('process')"
           >
-            <span>检验工序</span>
-            <strong>{{ selectedProcessLabel }}</strong>
+            <div class="top-value">{{ selectedProcessLabel }}</div>
           </button>
           <button
             class="frontline-production-process-nav-button"
@@ -84,21 +87,15 @@
           </button>
         </div>
         <button
-          class="frontline-top-card is-login-employee"
+          class="frontline-top-card frontline-production-employee-card is-login-employee"
           type="button"
           data-pqc-login-employee-card
           disabled
           aria-disabled="true"
         >
-          <span>员工</span>
-          <strong>{{ selectedEmployeeLabel }}</strong>
+          <div class="top-value">{{ selectedEmployeeLabel }}</div>
         </button>
         <div class="frontline-return-actions">
-        <button
-          v-hasPermi="['mes:pro-feedback:query']"
-          type="button" data-frontline-own-return-entry
-          class="frontline-return-button" @click="returnCorrectionPanel?.open()"
-        >退回待修改</button>
         <button
           class="frontline-home-button frontline-pqc-fullscreen-toggle"
           type="button"
@@ -108,6 +105,15 @@
           @click="handlePqcFullscreenToggle"
         >
           {{ pqcFullscreenActionText }}
+        </button>
+        <button
+          class="frontline-home-button frontline-pqc-facts-button"
+          type="button"
+          data-pqc-facts-button
+          :disabled="!activePqcTabItem || isPqcProcessNavigationBlocked"
+          @click="activePqcTabItem && openPqcFactsDialog(activePqcTabItem.key)"
+        >
+          方法和标准
         </button>
         </div>
       </header>
@@ -123,40 +129,25 @@
       >
         <section class="frontline-pqc-piece-dialog">
           <h3>{{ activePqcInspectionItem.label }}（{{ activePqcItemQuantity }}件）</h3>
-          <div class="frontline-pqc-piece-list" data-pqc-piece-list>
+          <FrontlinePqcNumericEntry
+            v-if="activePqcInspectionItem.type === 'number' && !pqcSelectedTaskReadonly"
+            v-model="pqcPieceDraftValues"
+            :quantity="activePqcItemQuantity"
+            :unit="activePqcInspectionItem.unit"
+            :standard-text="activePqcInspectionItem.standardText"
+            :lower-limit="activePqcInspectionItem.standardLowerLimit"
+            :upper-limit="activePqcInspectionItem.standardUpperLimit"
+            :precision="activePqcInspectionItem.standardPrecision"
+          />
+          <div v-else class="frontline-pqc-piece-list" data-pqc-piece-list>
             <article
               v-for="pieceIndex in activePqcItemQuantity"
               :key="pieceIndex"
               class="frontline-pqc-piece-row"
             >
               <strong>{{ pieceIndex }}</strong>
-              <div
-                v-if="activePqcInspectionItem.type === 'number'"
-                class="frontline-pqc-piece-value-control"
-              >
-                <button
-                  type="button"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}减少`"
-                  @click="stepPqcPieceValue(pieceIndex - 1, -activePqcInspectionItem.step)"
-                >
-                  -
-                </button>
-                <input
-                  :value="pqcPieceDraftValues[pieceIndex - 1]"
-                  type="number"
-                  data-pqc-piece-number-input
-                  :step="activePqcInspectionItem.step"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}`"
-                  @input="updatePqcPieceDraftValue(pieceIndex - 1, $event)"
-                />
-                <button
-                  type="button"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}增加`"
-                  @click="stepPqcPieceValue(pieceIndex - 1, activePqcInspectionItem.step)"
-                >
-                  +
-                </button>
-                <span>{{ activePqcInspectionItem.unit }}</span>
+              <div v-if="activePqcInspectionItem.type === 'number'" class="frontline-pqc-piece-choice">
+                {{ pqcPieceDraftValues[pieceIndex - 1] }} {{ activePqcInspectionItem.unit }}
               </div>
               <div v-else class="frontline-pqc-piece-choice">
                 <el-switch
@@ -165,6 +156,7 @@
                   inline-prompt
                   active-text="合格"
                   inactive-text="不合格"
+                  :disabled="pqcSelectedTaskReadonly"
                   :model-value="pqcPieceDraftValues[pieceIndex - 1] === '合格'"
                   :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}${pqcPieceDraftValues[pieceIndex - 1] || '合格'}`"
                   @update:model-value="updatePqcPieceChoice(pieceIndex - 1, $event)"
@@ -175,9 +167,11 @@
           <footer class="frontline-pqc-piece-actions">
             <button type="button" data-pqc-piece-return @click="closePqcPieceInspection(false)">返回</button>
             <button
+              v-if="!pqcSelectedTaskReadonly"
               type="button"
               class="primary"
               data-pqc-piece-confirm
+              :disabled="activePqcInspectionItem.type === 'number' && pqcPieceDraftValues.some(value => value.trim() && !isPqcNumericValue(value, activePqcInspectionItem?.standardPrecision))"
               @click="closePqcPieceInspection(true)"
             >
               完成
@@ -187,80 +181,56 @@
       </div>
 
       <div
-        v-if="activePqcStandardItem"
+        v-if="activePqcFactsItem"
         class="frontline-pqc-fact-dialog"
-        data-pqc-standard-dialog
+        data-pqc-facts-dialog
         role="dialog"
         aria-modal="true"
-        aria-labelledby="pqc-standard-dialog-title"
-        @click.self="closePqcStandardDialog"
+        aria-labelledby="pqc-facts-dialog-title"
+        @click.self="closePqcFactsDialog"
       >
-        <section class="frontline-pqc-fact-dialog__panel" data-pqc-standard-dialog-panel>
+        <section class="frontline-pqc-fact-dialog__panel" data-pqc-facts-dialog-panel>
           <header class="frontline-pqc-fact-dialog__header">
             <div>
-              <span class="frontline-pqc-fact-dialog__eyebrow">接收标准</span>
-              <h3 id="pqc-standard-dialog-title">{{ activePqcStandardItem.label }}</h3>
+              <span class="frontline-pqc-fact-dialog__eyebrow">方法和标准</span>
+              <h3 id="pqc-facts-dialog-title">{{ activePqcFactsItem.label }}</h3>
             </div>
             <button
               type="button"
               class="frontline-pqc-fact-dialog__close"
-              aria-label="关闭接收标准弹框"
-              @click="closePqcStandardDialog"
+              aria-label="关闭方法和标准弹框"
+              @click="closePqcFactsDialog"
             >
               ×
             </button>
           </header>
-          <div class="frontline-pqc-fact-dialog__body is-standard">
+          <div class="frontline-pqc-fact-dialog__body is-combined">
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-standard-detail-text>
-              <span>标准说明</span>
-              <p>{{ activePqcStandardItem.standardText || '未配置接收标准说明' }}</p>
+              <span>接收标准</span>
+              <p>{{ activePqcFactsItem.standardText || '未配置接收标准说明' }}</p>
             </article>
-          </div>
-          <footer class="frontline-pqc-fact-dialog__footer">
-            <button type="button" @click="closePqcStandardDialog">关闭</button>
-          </footer>
-        </section>
-      </div>
-
-      <div
-        v-if="activePqcMethodItem"
-        class="frontline-pqc-fact-dialog"
-        data-pqc-method-dialog
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pqc-method-dialog-title"
-        @click.self="closePqcMethodDialog"
-      >
-        <section class="frontline-pqc-fact-dialog__panel" data-pqc-method-dialog-panel>
-          <header class="frontline-pqc-fact-dialog__header">
-            <div>
-              <span class="frontline-pqc-fact-dialog__eyebrow">检验方法</span>
-              <h3 id="pqc-method-dialog-title">{{ activePqcMethodItem.samplingPlanText }}</h3>
-            </div>
-            <button
-              type="button"
-              class="frontline-pqc-fact-dialog__close"
-              aria-label="关闭检验方法弹框"
-              @click="closePqcMethodDialog"
-            >
-              ×
-            </button>
-          </header>
-          <div class="frontline-pqc-fact-dialog__body">
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-method-detail-text>
-              <span>方法说明</span>
-              <p>{{ formatPqcMethodSummary(activePqcMethodItem) }}</p>
+              <span>检验方法</span>
+              <p>{{ formatPqcMethodSummary(activePqcFactsItem) }}</p>
             </article>
-            <article
-              class="frontline-pqc-fact-dialog__detail is-equipment"
-              data-pqc-method-equipment-text
-            >
+            <article class="frontline-pqc-fact-dialog__detail" data-pqc-sampling-plan-text>
+              <span>抽样方案</span>
+              <p>{{ activePqcFactsItem.samplingPlanText }}</p>
+              <p v-if="activePqcFactsItem.samplingEvidence">
+                批量 {{ activePqcFactsItem.samplingEvidence.totalQuantity }}；
+                检验水平 {{ activePqcFactsItem.samplingEvidence.inspectionLevel }}；
+                字码 {{ activePqcFactsItem.samplingEvidence.sampleCode ?? '不适用（1件全检）' }}；
+                应检 {{ activePqcFactsItem.samplingEvidence.inspectionQuantity }} 件
+                {{ activePqcFactsItem.samplingEvidence.fullInspection ? '（全检）' : '' }}
+              </p>
+            </article>
+            <article class="frontline-pqc-fact-dialog__detail is-equipment" data-pqc-method-equipment-text>
               <span>检验器具及设备</span>
-              <p>{{ activePqcMethodItem.inspectionTool }}</p>
+              <p>{{ activePqcFactsItem.inspectionTool }}</p>
             </article>
           </div>
           <footer class="frontline-pqc-fact-dialog__footer">
-            <button type="button" @click="closePqcMethodDialog">关闭</button>
+            <button type="button" @click="closePqcFactsDialog">关闭</button>
           </footer>
         </section>
       </div>
@@ -271,8 +241,29 @@
           data-frontline-pqc-inspection-content
         >
           <div class="frontline-pqc-inspection-list">
+            <nav
+              v-if="pqcInspectionItems.length"
+              class="pqc-item-tabs"
+              :style="{ '--pqc-item-columns': Math.min(pqcInspectionItems.length, 3) }"
+              data-pqc-inspection-tabs
+              aria-label="PQC检验项目切换"
+            >
+              <button
+                v-for="item in pqcInspectionItems"
+                :key="item.key"
+                type="button"
+                class="pqc-item-tab"
+                data-pqc-inspection-tab
+                :data-pqc-inspection-item-code="item.key"
+                :class="{ active: activePqcTabKey === item.key }"
+                :aria-pressed="activePqcTabKey === item.key"
+                @click="selectPqcInspectionTab(item.key)"
+              >
+                <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
+              </button>
+            </nav>
             <article
-              v-if="activePqcTabItem"
+              v-if="activePqcTabItem && !pqcSelectedTaskReadonly"
               class="frontline-pqc-content-item"
               data-pqc-active-inspection-panel
               :data-pqc-inspection-entry="activePqcTabItem.key"
@@ -280,7 +271,6 @@
             >
               <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
                 <div
-                  v-if="hasPqcEquipmentOptions(activePqcTabItem)"
                   class="pqc-select-card"
                   data-pqc-equipment-card
                   :class="{
@@ -290,35 +280,37 @@
                   }"
                 >
                   <span>
-                    <strong>检验设备</strong>
                     <input
-                      v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                      v-if="hasPqcEquipmentOptions(activePqcTabItem) && isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                       class="pqc-select-custom-input"
                       :value="getPqcCustomEquipmentText(activePqcTabItem.key)"
                       maxlength="64"
                       data-pqc-custom-equipment-input
+                      :disabled="Boolean(activePqcTaskOption?.returnedSubmission)"
                       aria-label="手动输入检验设备"
                       placeholder="请输入检验设备"
                       @input="updatePqcCustomEquipmentText(activePqcTabItem.key, $event)"
                     />
-                    <span v-else>{{ getPqcSelectedEquipmentLabel(activePqcTabItem) }}</span>
+                    <span v-else>{{ hasPqcEquipmentOptions(activePqcTabItem) ? getPqcSelectedEquipmentLabel(activePqcTabItem) : '无设备' }}</span>
                   </span>
                   <button
-                    v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                    v-if="hasPqcEquipmentOptions(activePqcTabItem) && isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                     type="button"
                     class="pqc-select-custom-return"
                     data-pqc-custom-equipment-return
+                    :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain"
                     aria-label="返回检验设备选项"
                     @click="returnToPqcEquipmentOptions(activePqcTabItem.key)"
                   >
                     选项
                   </button>
-                  <em v-else aria-hidden="true">&gt;</em>
+                  <em v-else-if="hasPqcEquipmentOptions(activePqcTabItem)" aria-hidden="true">&gt;</em>
                   <select
-                    v-if="!isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                    v-if="hasPqcEquipmentOptions(activePqcTabItem) && !isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                     class="pqc-select-native"
                     :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId ?? ''"
                     data-pqc-equipment-select
+                    :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain"
                     aria-label="选择检验设备"
                     @change="updatePqcItemSelectedEquipment(activePqcTabItem.key, $event)"
                   >
@@ -330,7 +322,7 @@
                     >
                       {{ formatPqcEquipmentLabel(option) }}
                     </option>
-                    <option :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
+                    <option v-if="!activePqcTaskOption?.returnedSubmission" :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
                   </select>
                   <div
                     v-if="getPqcSelectedEquipmentParameters(activePqcTabItem).length"
@@ -342,24 +334,6 @@
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  class="pqc-fact-card is-primary"
-                  data-pqc-standard-button
-                  @click="openPqcStandardDialog(activePqcTabItem.key)"
-                >
-                  <strong>接收标准</strong>
-                  <span>{{ formatPqcStandardSummary(activePqcTabItem) }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="pqc-fact-card"
-                  data-pqc-method-button
-                  @click="openPqcMethodDialog(activePqcTabItem.key)"
-                >
-                  <strong>检验方法</strong>
-                  <span>{{ formatPqcMethodSummary(activePqcTabItem) }}</span>
-                </button>
               </div>
 
               <div
@@ -393,67 +367,103 @@
                   :class="{ active: isPqcManualChoiceActive(activePqcTabItem.key) }"
                   @click="openPqcPieceInspection(activePqcTabItem.key)"
                 >
-                  <span>{{ activePqcTabItem.type === 'number' ? '逐件填写' : '逐件选择' }}</span>
+                  <span>{{ activePqcTabItem.type === 'number' ? '快速填写' : '逐件选择' }}</span>
                   <em>{{ getPqcProgressText(activePqcTabItem.key) }}</em>
                   <strong aria-hidden="true">&gt;</strong>
                 </button>
               </div>
             </article>
 
+            <article v-else-if="activePqcTabItem && pqcSelectedTaskReadonly" class="frontline-pqc-content-item" data-pqc-submitted-inspection>
+              <template v-if="pqcSubmittedItem">
+                <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
+                  <div class="pqc-select-card is-selected" data-pqc-equipment-card>
+                    <span><span>{{ pqcSubmittedItem.selectedEquipmentNumber || '无设备' }}</span></span>
+                  </div>
+                </div>
+                <div class="frontline-pqc-choice-actions" :class="{ 'is-number': activePqcTabItem.type === 'number' }">
+                  <button
+                    v-if="activePqcTabItem.type === 'choice'"
+                    type="button"
+                    class="pass"
+                    data-pqc-bulk-pass
+                    :class="{ active: isPqcSubmittedChoiceActive('合格') }"
+                    disabled
+                  >全部合格</button>
+                  <button
+                    v-if="activePqcTabItem.type === 'choice'"
+                    type="button"
+                    class="fail"
+                    data-pqc-bulk-fail
+                    :class="{ active: isPqcSubmittedChoiceActive('不合格') }"
+                    disabled
+                  >全部不良</button>
+                  <button
+                    type="button"
+                    class="manual"
+                    data-pqc-piece-open-button
+                    :class="{ active: !isPqcSubmittedChoiceActive('合格') && !isPqcSubmittedChoiceActive('不合格') }"
+                    @click="openPqcPieceInspection(activePqcTabItem.key)"
+                  >
+                    <span>{{ activePqcTabItem.type === 'number' ? '快速填写' : '逐件选择' }}</span>
+                    <em>已填 {{ pqcSubmittedItem.sampleValues.filter(value => value.trim()).length }}/{{ pqcSubmittedItem.sampleValues.length }}</em>
+                    <strong aria-hidden="true">&gt;</strong>
+                  </button>
+                </div>
+              </template>
+              <p v-else role="alert">已提交记录缺少当前卡片的正式检验数据，请刷新订单后重试。</p>
+            </article>
             <div v-else class="frontline-pqc-empty-state" data-pqc-empty-inspection>
               {{ pqcInspectionEmptyText }}
             </div>
 
-            <nav
-              v-if="pqcInspectionItems.length"
-              class="pqc-item-tabs"
-              data-pqc-inspection-tabs
-              aria-label="PQC检验项目切换"
-            >
-              <button
-                v-for="item in pqcInspectionItems"
-                :key="item.key"
-                type="button"
-                class="pqc-item-tab"
-                data-pqc-inspection-tab
-                :data-pqc-inspection-item-code="item.key"
-                :class="{ active: activePqcTabKey === item.key }"
-                :aria-pressed="activePqcTabKey === item.key"
-                @click="selectPqcInspectionTab(item.key)"
-              >
-                <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
-              </button>
-            </nav>
-            <div
-              class="frontline-inline-error-slot"
-              data-frontline-error-slot
-              :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-            >
-              <template v-if="frontlineErrorMessage">
-                <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
-                <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
-                <button
-                  type="button"
-                  data-frontline-error-dismiss
-                  aria-label="关闭错误提示"
-                  @click="clearFrontlineError"
-                >
-                  <Icon icon="ep:close" :size="24" aria-hidden="true" />
-                </button>
-              </template>
-            </div>
+
+
           </div>
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
+          <div v-show="false" class="frontline-pqc-review-summary" data-pqc-review-summary role="status">
+            <strong>复核状态：{{ pqcReviewLabel }}</strong>
+            <span>本订单待复核 {{ pqcReviewCounts.pending }} · 复核通过 {{ pqcReviewCounts.confirmed }} · 退回待修改 {{ pqcReviewCounts.returned }}</span>
+            <span v-if="pqcReviewCounts.unavailable" role="alert">{{ pqcReviewCounts.unavailable }} 项复核状态缺失，请刷新订单。</span>
+            <span>检验提交进度与复核通过分别统计；检验结果见当前卡片正式记录。</span>
+            <span v-if="activePqcTaskOption">检验任务编号：{{ activePqcTaskOption.pqcTaskId }}</span>
+            <span v-if="activePqcTaskOption?.submittedEventId">正式事件编号：{{ activePqcTaskOption.submittedEventId }}</span>
+            <button v-if="activePqcTaskOption" type="button" data-pqc-review-history-open @click="pqcReviewHistoryDialog?.showModal()">复核历史与追溯</button>
+          </div>
+          <h3 class="frontline-pqc-section-title">数量填写</h3>
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
               <label for="frontlinePqcInspectionQuantity">检验</label>
-              <input id="frontlinePqcInspectionQuantity" :value="pqcDraft.inspectionQuantity ?? ''"
-                type="number" data-pqc-inspection-quantity readonly aria-label="本次最大抽样数量" />
+              <button
+                type="button"
+                aria-label="检验减少"
+                :disabled="pqcSelectedTaskReadonly || pqcSelectedItemQuantity <= pqcSelectedItemMinimum"
+                @click="adjustPqcQuantity('inspectionQuantity', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlinePqcInspectionQuantity"
+                :value="pqcSelectedItemQuantity || ''"
+                type="number"
+                :min="pqcSelectedItemMinimum"
+                :max="pqcOrderTotalQuantity"
+                inputmode="numeric"
+                data-pqc-inspection-quantity
+                :readonly="pqcSelectedTaskReadonly"
+                aria-label="检验数量"
+                @change="updatePqcQuantity('inspectionQuantity', $event)"
+              />
+              <button
+                type="button"
+                aria-label="检验增加"
+                :disabled="pqcSelectedTaskReadonly || !activePqcTabKey || pqcOrderTotalQuantity == null || pqcSelectedItemQuantity >= pqcOrderTotalQuantity"
+                @click="adjustPqcQuantity('inspectionQuantity', 1)"
+              >
+                +
+              </button>
               <span>件</span>
             </div>
             <div class="frontline-pqc-number-field">
@@ -461,22 +471,26 @@
               <button
                 type="button"
                 aria-label="损耗减少"
+                :disabled="pqcSelectedTaskReadonly"
                 @click="adjustPqcQuantity('scrapQuantity', -1)"
               >
                 -
               </button>
               <input
                 id="frontlinePqcScrapQuantity"
-                :value="pqcDraft.scrapQuantity ?? ''"
+                :value="pqcDisplayedScrapQuantity ?? ''"
                 type="number"
                 min="0"
                 inputmode="numeric"
                 data-pqc-scrap-quantity
+                :readonly="pqcSelectedTaskReadonly"
+                :max="pqcInspectionQuantity"
                 @input="updatePqcQuantity('scrapQuantity', $event)"
               />
               <button
                 type="button"
                 aria-label="损耗增加"
+                :disabled="pqcSelectedTaskReadonly || normalizePqcQuantity(pqcDisplayedScrapQuantity) >= pqcInspectionQuantity"
                 @click="adjustPqcQuantity('scrapQuantity', 1)"
               >
                 +
@@ -484,32 +498,65 @@
               <span>件</span>
             </div>
           </div>
+          <div
+            v-if="activePqcTaskOption?.returnedSubmission"
+            class="frontline-pqc-return-warning"
+            data-pqc-return-warning
+            role="alert"
+          >
+            <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+            <p>退回原因：{{ activePqcTaskOption.returnedSubmission.row.rejectionReason }}；请修改后重新提交。</p>
+          </div>
+          <div
+            class="frontline-inline-error-slot"
+            data-frontline-error-slot
+            :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
+            <template v-if="frontlineErrorMessage">
+              <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+              <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+              <button
+                type="button"
+                data-frontline-error-dismiss
+                aria-label="关闭错误提示"
+                @click="clearFrontlineError"
+              >
+                <Icon icon="ep:close" :size="24" aria-hidden="true" />
+              </button>
+            </template>
+          </div>
         </section>
         <section
           class="frontline-work-panel frontline-pqc-rule-panel"
           data-pqc-inspection-rule-selector
           :data-pqc-process-filter-rule="selectedPqcInspectionRuleKey || ''"
         >
-          <div class="frontline-pqc-type-tabs">
-            <button
-              v-for="tab in pqcInspectionTypeTabs"
-              :key="tab.ruleKey"
-              type="button"
-              :data-pqc-inspection-rule-tab="tab.ruleKey"
-              :data-pqc-inspection-type-tab="tab.type"
-              :class="{ active: selectedPqcInspectionRuleKey === tab.ruleKey }"
-              :aria-pressed="selectedPqcInspectionRuleKey === tab.ruleKey"
-              @click="selectPqcInspectionRule(tab.ruleKey)"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <FrontlinePqcInspectionTypeSelector
+            :tabs="pqcInspectionTypeTabs"
+            :selected-rule-key="selectedPqcInspectionRuleKey"
+            :current-task="activePqcTaskOption"
+            :patrol-rounds="pqcPatrolRounds"
+            :final-created="pqcFinalCreated"
+            :selected-patrol-round="selectedPqcPatrolRound"
+            :disabled="isPqcProcessNavigationBlocked"
+            @select-rule="selectPqcInspectionRule"
+            @select-round="selectPqcPatrolRound"
+            @create-patrol="createPqcPatrolRound"
+            @create-final="createPqcFinalInspection"
+            @cancel-round="openPqcCancelRound"
+            @restore-round="openPqcRestoreRound"
+            @correct-round="openPqcSubmittedRoundCorrection"
+            @move-draft="openPqcDraftRoundMove"
+          />
         </section>
         <footer class="frontline-pqc-submit-bar">
           <button
             class="frontline-pqc-reset-button"
             type="button"
-            :disabled="payloadLoading || pqcSubmitResultUncertain"
+            :disabled="pqcSelectedTaskReadonly || payloadLoading || pqcSubmitResultUncertain || pqcPatrolRoundCreating"
             @click="handleResetPqc"
           >
             重填
@@ -521,7 +568,7 @@
             data-pqc-submit-open-signature
             @click="handleValidate"
           >
-            {{ payloadLoading ? '提交中' : '提交' }}
+            {{ pqcSelectedTaskReadonly ? pqcReviewLabel : payloadLoading ? '提交中' : activePqcTaskOption?.returnedSubmission ? '修改后重新提交' : '提交' }}
           </button>
         </footer>
       </main>
@@ -537,13 +584,14 @@
         <section class="frontline-pqc-signature-dialog">
           <h3>电子签名</h3>
           <p>确认后将生成本次PQC正式提交签名。</p>
-          <label for="frontlinePqcSignaturePassword">登录密码</label>
-          <input
+          <p data-pqc-signature-method>当前签名方式：{{ pqcSignatureCredentialType === 'PIN' ? '六位 PIN 码' : '登录密码' }}。可在个人中心的电子签名设置中修改。</p>
+          <label for="frontlinePqcSignaturePassword">{{ pqcSignatureCredentialType === 'PIN' ? 'PIN 码' : '登录密码' }}</label>
+          <SignatureCredentialInput
             id="frontlinePqcSignaturePassword"
-            v-model="pqcSignaturePassword"
-            type="password"
-            autocomplete="current-password"
+            :model-value="pqcSignaturePassword" :credential-type="pqcSignatureCredentialType"
+            :disabled="payloadLoading"
             data-pqc-signature-password
+            @update:model-value="handlePqcSignatureCredentialUpdate"
             @keyup.enter="handleConfirmPqcSubmit"
           />
           <div>
@@ -570,6 +618,7 @@
         PQC正式提交结果不确定，状态确认失败。请刷新页面或联系组长核对后再操作，当前页面已锁定重复提交。
       </section>
 
+    </div>
     </div>
 
     <div
@@ -600,7 +649,12 @@
                 data-frontline-production-order-code
                 data-frontline-production-active-order-summary
               >
-                {{ productionOrderLabel }}<br />{{ productionProductNameLabel }}
+                <span class="frontline-production-order-summary__code">
+                  {{ productionOrderLabel }}
+                </span><br />
+                <span class="frontline-production-order-summary__product">
+                  {{ productionProductNameLabel }}
+                </span>
               </span>
               <span
                 class="frontline-production-order-quantity"
@@ -634,6 +688,7 @@
             >
               <div class="top-label">工序</div>
               <div class="top-value">{{ selectedProcessLabel }}</div>
+              <div v-if="productionQuantityRangeLabel" data-production-quantity-range>{{ productionQuantityRangeLabel }}</div>
               <div
                 v-if="selectedProductionProcessSubmittedQuantityLabel"
                 class="frontline-production-process-submitted"
@@ -663,25 +718,38 @@
             :disabled="isProductionSelectionSwitchLocked"
             @click="openPicker('employee')"
           >
-            <div class="top-label">员工</div>
             <div class="top-value">{{ selectedEmployeeLabel }}</div>
           </button>
-          <div class="frontline-return-actions">
-          <button
-            v-hasPermi="['mes:pro-feedback:query']"
-            type="button" data-frontline-own-return-entry
-            class="frontline-return-button" @click="returnCorrectionPanel?.open()"
-          >退回待修改</button>
-          <button
-            class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
-            type="button"
-            data-production-fullscreen-toggle
-            :aria-label="productionFullscreenActionText"
-            :aria-pressed="isProductionFullscreen"
-            @click="handleProductionFullscreenToggle"
-          >
-            {{ productionFullscreenActionText }}
-          </button>
+          <div class="frontline-return-actions frontline-production-top-actions">
+            <EmployeeSignaturePasswordDialog
+              v-if="deviceState.selectedEmployee && !deviceState.selectedEmployee.systemUserId"
+              :scope="employeeSignaturePasswordScope"
+              :employee-name="selectedEmployeeLabel"
+              :disabled="isProductionSelectionSwitchLocked"
+            />
+            <button
+              class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
+              type="button"
+              data-production-fullscreen-toggle
+              :aria-label="productionFullscreenActionText"
+              :aria-pressed="isProductionFullscreen"
+              @click="handleProductionFullscreenToggle"
+            >
+              {{ productionFullscreenActionText }}
+            </button>
+            <button
+              class="frontline-home-button frontline-production-sop-button"
+              type="button"
+              data-production-sop-button
+              :class="{ 'is-unbound': !productionSopLoading && !productionSopLoadError && !productionSopFileUrl }"
+              :disabled="productionSopLoading"
+              :aria-busy="productionSopLoading"
+              aria-label="查看当前工序SOP"
+              :title="productionSopLoadError || (productionSopFileUrl ? '查看当前工序SOP' : '当前工序没有上传SOP文件')"
+              @click="openProductionSop"
+            >
+              SOP
+            </button>
           </div>
         </header>
 
@@ -745,7 +813,7 @@
                   v-if="activePicker === 'order' && option.activeOrder"
                   class="frontline-order-picker-option"
                 >
-                  <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
+                  <span v-if="option.activeOrder.readBlocked" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
                   <span class="frontline-order-picker-option__row">
                     <span>编码</span>
                     <strong class="frontline-order-picker-option__value is-code" data-frontline-production-order-option-code>
@@ -793,6 +861,11 @@
               <input
                 class="value-box"
                 id="frontlineProductionOutputQuantity"
+                name="productionOutputQuantity"
+                type="number"
+                min="0"
+                step="1"
+                autocomplete="off"
                 data-production-output-quantity
                 :value="productionDraft.outputQuantity ?? ''"
                 inputmode="numeric"
@@ -824,92 +897,170 @@
               <span class="unit">件</span>
             </div>
 
-            <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
-              <div class="frontline-production-defect-grid defect-grid">
-                <div
-                  v-for="defect in configuredDefectReasons"
-                  :key="defect.key"
-                  class="frontline-production-defect-card defect-card"
-                  :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
-                  :data-defect-key="defect.key"
+            <div class="frontline-production-operation-area">
+              <div class="frontline-production-operation-fields">
+                <section class="frontline-production-defect-section defect-section" aria-label="损耗原因明细">
+                  <el-select v-model="selectedProductionLossReasonKey" filterable clearable
+                    placeholder="输入编码或描述选择损耗原因" aria-label="选择生产损耗原因"
+                    :disabled="payloadLoading" @change="selectProductionLossReason">
+                    <el-option v-for="reason in configuredDefectReasons" :key="reason.key"
+                      :value="reason.key" :label="`${reason.reasonCode} / ${reason.label}`" />
+                  </el-select>
+                  <p v-if="!configuredDefectReasons.length">当前工序未关联损耗原因，可提交零损耗。</p>
+                  <div class="frontline-production-defect-grid defect-grid">
+                    <div
+                      v-for="defect in visibleProductionLossReasons"
+                      :key="defect.key"
+                      class="frontline-production-defect-card defect-card"
+                      :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
+                      :data-defect-key="defect.key"
+                    >
+                      <span class="frontline-production-defect-name defect-name">{{ defect.label }}</span>
+                      <button
+                        type="button"
+                        class="frontline-production-defect-step defect-step"
+                        :aria-label="`${defect.label}减少`"
+                        :disabled="payloadLoading"
+                        @click="adjustProductionDefectQuantity(defect.key, -1)"
+                      >
+                        -
+                      </button>
+                      <input
+                        class="frontline-production-defect-qty defect-qty"
+                        :value="getProductionDefectQuantity(defect.key)"
+                        inputmode="numeric"
+                        :aria-label="`${defect.label}数量`"
+                        :disabled="payloadLoading"
+                        @input="updateProductionDefectQuantity(defect.key, $event)"
+                      />
+                      <button
+                        type="button"
+                        class="frontline-production-defect-step defect-step"
+                        :aria-label="`${defect.label}增加`"
+                        :disabled="payloadLoading"
+                        @click="adjustProductionDefectQuantity(defect.key, 1)"
+                      >
+                        +
+                      </button>
+                      <span class="frontline-production-defect-unit defect-unit">件</span>
+                    </div>
+                  </div>
+                </section>
+                <section
+                  v-if="configuredProductionMaterials.length > 0"
+                  class="frontline-production-material-tabs"
+                  data-frontline-production-material-tabs
+                  role="group"
+                  aria-label="物料切换"
                 >
-                  <span class="frontline-production-defect-name defect-name">{{ defect.label }}</span>
+                  <button
+                    v-for="material in configuredProductionMaterials"
+                    :key="material.key"
+                    class="frontline-production-material-tab"
+                    :class="{
+                      'is-selected': material.key === selectedProductionMaterialKey,
+                      'is-complete': isProductionMaterialCompletionEntered(material.key)
+                    }"
+                    type="button"
+                    role="tab"
+                    data-frontline-production-material-tab
+                    :aria-selected="material.key === selectedProductionMaterialKey"
+                    :aria-label="formatProductionMaterialTabLabel(material)"
+                    :disabled="payloadLoading"
+                    @click="switchProductionMaterial(material.key)"
+                  >
+                    <strong>
+                      {{ material.materialName }}<small
+                        v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
+                      > / {{ material.materialCode }}</small>
+                    </strong>
+                  </button>
+                </section>
+              </div>
+              <div
+                class="frontline-production-clearance-confirmations"
+                data-production-clearance-confirmations
+                aria-label="清场确认"
+              >
+                <div
+                  v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"
+                  :key="confirmation.key"
+                  class="frontline-production-clearance-confirmation"
+                >
                   <button
                     type="button"
-                    class="frontline-production-defect-step defect-step"
-                    :aria-label="`${defect.label}减少`"
-                    :disabled="payloadLoading"
-                    @click="adjustProductionDefectQuantity(defect.key, -1)"
+                    class="frontline-production-clearance-label"
+                    data-production-clearance-detail-trigger
+                    :aria-label="`${confirmation.label}完整说明`"
+                    @click="openProductionClearanceConfirmationDetail(confirmation.key)"
                   >
-                    -
+                    <span>{{ confirmation.label }}</span>
+                    <small>详情</small>
                   </button>
-                  <input
-                    class="frontline-production-defect-qty defect-qty"
-                    :value="getProductionDefectQuantity(defect.key)"
-                    inputmode="numeric"
-                    :aria-label="`${defect.label}数量`"
-                    :disabled="payloadLoading"
-                    @input="updateProductionDefectQuantity(defect.key, $event)"
-                  />
-                  <button
-                    type="button"
-                    class="frontline-production-defect-step defect-step"
-                    :aria-label="`${defect.label}增加`"
-                    :disabled="payloadLoading"
-                    @click="adjustProductionDefectQuantity(defect.key, 1)"
-                  >
-                    +
-                  </button>
-                  <span class="frontline-production-defect-unit defect-unit">件</span>
+                  <label class="frontline-production-clearance-checkbox">
+                    <input
+                      v-model="productionClearanceConfirmationDraft[confirmation.key]"
+                      type="checkbox"
+                      data-production-clearance-checkbox
+                      :disabled="payloadLoading"
+                      :aria-label="`${confirmation.label}是否确认`"
+                    />
+                    <span aria-hidden="true">✓</span>
+                    <em>已选</em>
+                  </label>
                 </div>
               </div>
-            </section>
-            <section
-              v-if="configuredProductionMaterials.length > 0"
-              class="frontline-production-material-tabs"
-              data-frontline-production-material-tabs
-              role="group"
-              aria-label="物料切换"
-            >
-              <button
-                v-for="material in configuredProductionMaterials"
-                :key="material.key"
-                class="frontline-production-material-tab"
-                :class="{
-                  'is-selected': material.key === selectedProductionMaterialKey,
-                  'is-complete': isProductionMaterialCompletionEntered(material.key)
-                }"
-                type="button"
-                role="tab"
-                data-frontline-production-material-tab
-                :aria-selected="material.key === selectedProductionMaterialKey"
-                :aria-label="formatProductionMaterialTabLabel(material)"
-                :disabled="payloadLoading"
-                @click="switchProductionMaterial(material.key)"
+              <div
+                class="frontline-inline-error-slot"
+                data-frontline-error-slot
+                :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
+                role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
               >
-                <strong>{{ formatProductionMaterialTabLabel(material) }}</strong>
-              </button>
-            </section>
-            <div
-              class="frontline-inline-error-slot"
-              data-frontline-error-slot
-              :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-            >
-              <template v-if="frontlineErrorMessage">
-                <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
-                <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+                <template v-if="frontlineErrorMessage">
+                  <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+                  <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+                  <button
+                    type="button"
+                    data-frontline-error-dismiss
+                    aria-label="关闭错误提示"
+                    @click="clearFrontlineError"
+                  >
+                    <Icon icon="ep:close" :size="24" aria-hidden="true" />
+                  </button>
+                </template>
+              </div>
+              <el-alert v-if="productionSubmitReadPending" title="生产提交已成功，当前工序结果尚未读取完成。请重试读取，勿再次提交。" type="warning" :closable="false">
+                <el-button :loading="payloadLoading" @click="retryProductionSubmitRead">重试读取结果</el-button>
+              </el-alert>
+              <footer class="frontline-production-submit-bar bottom">
                 <button
+                  class="frontline-production-reset-button minor-btn"
                   type="button"
-                  data-frontline-error-dismiss
-                  aria-label="关闭错误提示"
-                  @click="clearFrontlineError"
+                  :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitReadPending || productionSubmitWritePending"
+                  @click="handleResetProduction"
                 >
-                  <Icon icon="ep:close" :size="24" aria-hidden="true" />
+                  重填
                 </button>
-              </template>
+                <button
+                  class="frontline-production-submit-button submit-btn"
+                  type="button"
+                  data-production-submit-open-confirmation
+                  :disabled="isSubmitBlocked"
+                  @click="handleValidate"
+                >
+                  <span>
+                    {{
+                      payloadLoading
+                        ? '提交中'
+                        : submitConfirmationOpen
+                          ? '等待确认'
+                          : '正式提交'
+                    }}
+                  </span>
+                </button>
+              </footer>
             </div>
           </section>
 
@@ -930,19 +1081,29 @@
                 class="frontline-production-device-card device-tab-card"
                 :class="{ active: selectedProductionDeviceKeys.includes(device.key) }"
               >
-                <button
-                  class="device-tab"
-                  type="button"
-                  role="checkbox"
-                  :aria-checked="selectedProductionDeviceKeys.includes(device.key)"
-                  :disabled="payloadLoading"
-                  @click="toggleProductionDeviceSelection(device)"
-                >
-                  <span class="device-tab-selection" aria-hidden="true">
-                    {{ selectedProductionDeviceKeys.includes(device.key) ? '✓' : '' }}
-                  </span>
-                  <span class="device-tab-code">{{ device.label }}</span>
-                </button>
+                <div class="frontline-production-device-header">
+                  <button
+                    class="device-tab"
+                    type="button"
+                    :aria-label="`${device.label}设备参数`"
+                    :aria-pressed="selectedProductionDeviceKey === device.key"
+                    :disabled="payloadLoading"
+                    @click="selectedProductionDeviceKeys.includes(device.key)
+                      ? showProductionDeviceParameters(device)
+                      : toggleProductionDeviceSelection(device)"
+                  >
+                    <span class="device-tab-code">{{ device.label }}</span>
+                  </button>
+                  <button
+                    class="device-tab-selection"
+                    type="button"
+                    role="checkbox"
+                    :aria-label="`${device.label}设备选取`"
+                    :aria-checked="selectedProductionDeviceKeys.includes(device.key)"
+                    :disabled="payloadLoading"
+                    @click="toggleProductionDeviceSelection(device)"
+                  ></button>
+                </div>
                 <label class="frontline-production-device-metering-validity">
                   <input
                     type="checkbox"
@@ -955,17 +1116,6 @@
                   <span aria-hidden="true">✓</span>
                   <em>在计量效期内</em>
                 </label>
-                <button
-                  class="frontline-production-device-parameters-button"
-                  type="button"
-                  :aria-label="`${device.label}填写参数`"
-                  :aria-pressed="selectedProductionDeviceKey === device.key"
-                  :disabled="payloadLoading || !selectedProductionDeviceKeys.includes(device.key)"
-                  data-frontline-production-device-parameters
-                  @click="showProductionDeviceParameters(device)"
-                >
-                  填写参数
-                </button>
               </div>
             </div>
             <div
@@ -1153,73 +1303,49 @@
                 </div>
               </template>
             </div>
-            <div
-              class="frontline-production-clearance-confirmations"
-              data-production-clearance-confirmations
-              aria-label="清场确认"
-            >
-              <div
-                v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"
-                :key="confirmation.key"
-                class="frontline-production-clearance-confirmation"
-              >
-                <button
-                  type="button"
-                  class="frontline-production-clearance-label"
-                  data-production-clearance-detail-trigger
-                  :aria-label="`${confirmation.label}完整说明`"
-                  @click="openProductionClearanceConfirmationDetail(confirmation.key)"
-                >
-                  <span>{{ confirmation.label }}</span>
-                  <small>详情</small>
-                </button>
-                <label class="frontline-production-clearance-checkbox">
-                  <input
-                    v-model="productionClearanceConfirmationDraft[confirmation.key]"
-                    type="checkbox"
-                    data-production-clearance-checkbox
-                    :disabled="payloadLoading"
-                    :aria-label="`${confirmation.label}是否确认`"
-                  />
-                  <span aria-hidden="true">✓</span>
-                  <em>已选</em>
-                </label>
-              </div>
-            </div>
           </section>
-
-          <el-alert v-if="productionSubmitReadPending" title="生产提交已成功，当前工序结果尚未读取完成。请重试读取，勿再次提交。" type="warning" :closable="false">
-            <el-button :loading="payloadLoading" @click="retryProductionSubmitRead">重试读取结果</el-button>
-          </el-alert>
-          <footer class="frontline-production-submit-bar bottom">
-            <button
-              class="frontline-production-reset-button minor-btn"
-              type="button"
-              :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitReadPending || productionSubmitWritePending"
-              @click="handleResetProduction"
-            >
-              重填
-            </button>
-            <button
-              class="frontline-production-submit-button submit-btn"
-              type="button"
-              data-production-submit-open-confirmation
-              :disabled="isSubmitBlocked"
-              @click="handleValidate"
-            >
-              <span>
-                {{
-                  payloadLoading
-                    ? '提交中'
-                    : submitConfirmationOpen
-                      ? '等待确认'
-                      : '正式提交'
-                }}
-              </span>
-            </button>
-          </footer>
         </main>
       </div>
+    </div>
+
+    <div
+      v-if="productionSopDialogOpen && !isPqcMode"
+      class="frontline-production-sop-modal"
+      @click.self="closeProductionSop"
+      @keydown.esc.stop="closeProductionSop"
+    >
+      <section
+        class="frontline-production-sop-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="frontlineProductionSopTitle"
+      >
+        <header>
+          <h3 id="frontlineProductionSopTitle">{{ selectedProcessLabel }} · SOP</h3>
+          <button ref="productionSopCloseButtonRef" type="button" @click="closeProductionSop">关闭</button>
+        </header>
+        <div class="frontline-production-sop-body">
+          <div v-if="productionSopLoadError" role="alert">
+            <p>SOP读取失败：{{ productionSopLoadError }}</p>
+            <button type="button" :disabled="productionSopLoading" @click="productionSopRefreshKey += 1">重试</button>
+          </div>
+          <p v-else-if="productionSopLoading || productionSopPreviewLoading" role="status">正在读取SOP文件…</p>
+          <p v-else-if="!productionSopFileUrl" role="status">{{ deviceState.selectedProcess ? '当前工序没有上传SOP文件' : '请先选择工序' }}</p>
+          <p v-else-if="productionSopPreviewError" role="alert">SOP文件加载失败：{{ productionSopPreviewError }}</p>
+          <img
+            v-else-if="productionSopIsImage && productionSopPreviewUrl"
+            :src="productionSopPreviewUrl"
+            :alt="`${selectedProcessLabel} SOP`"
+            @error="productionSopPreviewError = '图片内容无法显示，请检查文件或重新上传'"
+          />
+          <iframe
+            v-else-if="productionSopPreviewUrl"
+            :src="productionSopPreviewUrl"
+            :title="`${selectedProcessLabel} SOP文件`"
+            @error="productionSopPreviewError = 'PDF内容无法显示，请检查文件或重新上传'"
+          ></iframe>
+        </div>
+      </section>
     </div>
 
     <div
@@ -1233,6 +1359,7 @@
     >
       <section class="frontline-production-submit-confirmation-dialog">
         <h3 id="frontlineProductionSubmitConfirmationTitle">确认正式提交</h3>
+        <p class="frontline-production-submit-confirmation-employee">{{ selectedEmployeeLabel }}</p>
         <p data-production-submit-confirmation-message>
           {{ productionFormalSubmitConfirmationText }}
         </p>
@@ -1240,19 +1367,17 @@
           class="frontline-production-submit-confirmation-signature"
           for="frontlineProductionSignaturePassword"
         >
-          <span>签名密码</span>
-          <input
+          <span>签名凭据（PIN 码或密码）</span>
+          <SignatureCredentialInput
             id="frontlineProductionSignaturePassword"
-            v-model="productionSignaturePassword"
-            type="password"
+            disable-autofill
+            v-model="productionSignaturePassword" :employee-scope="employeeSignaturePasswordScope"
+            :frontline-scope="productionSignatureScope"
             data-production-submit-signature-password
-            autocomplete="current-password"
             :disabled="payloadLoading"
-            placeholder="请输入所选员工签名密码"
             @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
           />
         </label>
-        <button v-if="deviceState.selectedEmployee && !deviceState.selectedEmployee.systemUserId" type="button" :disabled="payloadLoading" @click="changeSelectedEmployeeSignaturePassword">员工设置签名密码</button>
         <div class="frontline-production-submit-confirmation-actions">
           <button
             type="button"
@@ -1397,7 +1522,7 @@
               v-if="activePicker === 'order' && option.activeOrder"
               class="frontline-order-picker-option"
             >
-              <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
+              <span v-if="option.activeOrder.readBlocked" class="frontline-order-picker-option__blocked-reason" role="status">暂不可填写：{{ option.activeOrder.readBlockReason }}</span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-code>
                 <span>编码</span>
                 <strong class="frontline-order-picker-option__value is-code">
@@ -1426,18 +1551,85 @@
       </section>
     </div>
   </section>
+  <dialog
+    ref="pqcReviewHistoryDialog" class="pqc-review-history-dialog" aria-labelledby="pqc-review-history-title"
+  >
+    <h2 id="pqc-review-history-title">PQC复核历史与追溯</h2>
+    <template v-if="activePqcTaskOption">
+      <p>检验任务编号 {{ activePqcTaskOption.pqcTaskId }} · 第 {{ activePqcTaskOption.roundNo }} 轮 · 当前复核状态：{{ pqcReviewLabel }}</p>
+      <p v-if="activePqcTaskOption.submittedEventId">正式事件编号：{{ activePqcTaskOption.submittedEventId }}</p>
+      <p>检验结果以正式样本记录为准，复核通过不替代检验结果。</p>
+      <table v-if="activePqcTaskOption.reviewHistory?.length" data-pqc-review-history>
+        <caption>当前正式事件的复核记录（含历次退回）</caption>
+        <thead><tr><th>复核编号 / 轮次</th><th>复核状态</th><th>意见</th><th>复核人</th><th>时间 / 更正版本</th></tr></thead>
+        <tbody>
+          <tr v-for="review in activePqcTaskOption.reviewHistory" :key="review.reviewId">
+            <td>{{ review.reviewId }}<span v-if="review.reviewRound != null"> / 第 {{ review.reviewRound }} 轮</span></td>
+            <td>{{ formatPqcReviewStatus(review.reviewStatus) }}</td>
+            <td>{{ review.reviewRemark || '未填写意见' }}</td>
+            <td>{{ review.reviewerName || `用户编号 ${review.reviewerUserId}` }}</td>
+            <td>{{ formatPqcReviewTime(review.reviewedAt) }}<span v-if="review.revisionId != null"> / {{ review.revisionId }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else-if="!activePqcTaskOption.submittedEventId" data-pqc-review-history-empty>当前任务尚未正式提交，暂无复核记录。</p>
+      <p v-else-if="!Array.isArray(activePqcTaskOption.reviewHistory)" role="alert" data-pqc-review-history-missing>复核历史数据缺失，请刷新核对。</p>
+      <p v-else data-pqc-review-history-empty>当前正式事件暂无复核记录。</p>
+    </template>
+    <button type="button" @click="pqcReviewHistoryDialog?.close()">关闭</button>
+  </dialog>
+  <dialog
+ref="pqcRoundOperationDialog" class="pqc-round-operation-dialog" aria-labelledby="pqc-round-operation-title"
+    @cancel="pqcPatrolRoundCreating && $event.preventDefault()">
+    <h2 id="pqc-round-operation-title">{{ pqcRoundOperation.mode === 'CANCEL' ? `撤销第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'RESTORE' ? `恢复第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'DRAFT' ? '移动当前工序草稿' : '更正已提交轮次' }}</h2>
+    <p v-if="pqcRoundOperation.mode === 'CANCEL'">仅可撤销整轮均未提交的巡检。撤销后可恢复，当前页面草稿保留，后续轮次不改号。</p>
+    <p v-else-if="pqcRoundOperation.mode === 'RESTORE'">恢复后可继续填写本轮工序，保留原轮号和创建时间，其他轮次不变。</p>
+    <template v-else>
+      <label v-if="pqcRoundOperation.mode === 'SUBMITTED'">源工序（第 {{ pqcRoundOperation.roundNo }} 轮）
+        <select
+v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled="pqcPatrolRoundCreating"
+          @change="pqcRoundOperation.targetTaskId = undefined">
+          <option :value="undefined">请选择工序</option>
+          <option v-for="{ task, process } in pqcRoundCorrectionSources" :key="task.pqcTaskId" :value="task.pqcTaskId">{{ process.qaProcessName }} · {{ task.taskStatus === 'CONFIRMED' ? '已确认' : '已提交' }}</option>
+        </select>
+      </label>
+      <p v-if="pqcRoundOperationSource">{{ pqcRoundOperationSource.process.qaProcessName }} · 第 {{ pqcRoundOperationSource.task.roundNo }} 轮</p>
+      <label>目标轮次
+        <select v-model="pqcRoundOperation.targetTaskId" aria-label="目标巡检轮次" :disabled="pqcPatrolRoundCreating">
+          <option :value="undefined">请选择空白待检轮次</option>
+          <option v-for="{ task } in pqcRoundOperationTargets" :key="task.pqcTaskId" :value="task.pqcTaskId">第 {{ task.roundNo }} 轮{{ pqcTouchedTaskIds.has(task.pqcTaskId) ? '（已有草稿，不能覆盖）' : '' }}</option>
+        </select>
+      </label>
+      <p>仅调整这道工序，其他工序保持原轮次。目标已有内容时禁止覆盖。</p>
+      <p v-if="pqcRoundOperation.mode === 'SUBMITTED'">保留原检测内容和提交时间，并记录本次更正。已经组长复核的记录需由有权限的 PQC 组长确认更正。</p>
+    </template>
+    <p v-if="pqcRoundOperation.error" role="alert" class="pqc-round-operation-error">{{ pqcRoundOperation.error }}</p>
+    <footer><button type="button" :disabled="pqcPatrolRoundCreating" @click="pqcRoundOperationDialog?.close()">取消</button>
+      <button type="button" :disabled="pqcPatrolRoundCreating" @click="executePqcRoundOperation">{{ pqcPatrolRoundCreating ? '处理中…' : '确认调整' }}</button></footer>
+  </dialog>
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from 'element-plus'
-import { changeEmployeeSignaturePassword, getEmployeeSignatureQualification } from '@/api/mes/pro/employeeSignatureCredential'
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import WorkflowInteractionLog from '@/views/mes/pro/processpool/components/WorkflowInteractionLog.vue'
+import { useWorkflowInteractionLog } from '@/views/mes/pro/processpool/workflowInteractionLog'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
 import { cloneDeep } from 'lodash-es'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
+import { submitReturnedPqcInspection } from '@/api/mes/pro/feedback/pqcReturnedSubmission'
+import EmployeeSignaturePasswordDialog from './EmployeeSignaturePasswordDialog.vue'
+import { getSignatureSettings, type SignatureCredentialType } from '@/api/system/user/profile'
+import FrontlinePqcInspectionTypeSelector from './FrontlinePqcInspectionTypeSelector.vue'
+import { getPqcProcessProgress } from './frontlinePqcProgress'
+import { getPqcReviewLabel, getPqcReviewCounts, formatPqcReviewStatus, formatPqcReviewTime } from './frontlinePqcReviewDisplay'
+import FrontlinePqcCompletionSummary from './FrontlinePqcCompletionSummary.vue'
+import FrontlinePqcNumericEntry from './FrontlinePqcNumericEntry.vue'
+import { isPqcNumericValue } from './pqcNumericEntry'
+import { toDateTimeValue } from '@/utils/formatTime'
 const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
-import { isAxiosError } from 'axios'
+import axios, { isAxiosError } from 'axios'
 import {
   FRONTLINE_FIELD_CODES,
   FRONTLINE_PQC_RESULTS,
@@ -1488,6 +1680,7 @@ import {
 } from './frontlineTemplate'
 import {
   isExecutableFrontlinePqcTaskOption,
+  resolveFrontlinePqcTaskInvalidFields,
   resolveFrontlinePqcTaskAvailabilityIssue
 } from './frontlinePqcTaskAvailability'
 import {
@@ -1549,22 +1742,19 @@ const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
 
 const PQC_INSPECTION_RULE_ORDER: readonly FrontlinePqcInspectionRuleKey[] = [
   'FIRST',
-  'PATROL_AM',
-  'PATROL_PM',
+  'PATROL',
   'FINAL'
 ]
 
 const PQC_INSPECTION_RULE_TYPES: Record<FrontlinePqcInspectionRuleKey, InspectionType> = {
   FIRST: 'FIRST',
-  PATROL_AM: 'PATROL',
-  PATROL_PM: 'PATROL',
+  PATROL: 'PATROL',
   FINAL: 'FINAL'
 }
 
 const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = {
   FIRST: PQC_INSPECTION_TYPE_LABELS.FIRST,
-  PATROL_AM: '上午巡检',
-  PATROL_PM: '下午巡检',
+  PATROL: '巡检',
   FINAL: PQC_INSPECTION_TYPE_LABELS.FINAL
 }
 
@@ -1603,7 +1793,7 @@ interface FrontlinePickerOption {
 
 interface ProductionDefectOption {
   key: ProductionDefectKey
-  reasonId: number
+  reasonId: number | string
   reasonCode: string
   label: string
 }
@@ -1661,6 +1851,7 @@ interface PqcInspectionItem {
   standardText: string
   inspectionTool: string | null
   samplingPlanText: string | null
+  samplingEvidence?: FrontlinePqcInspectionItemVO['samplingEvidence']
   resultType: FrontlinePqcResultType
   standardLowerLimit?: number | string
   standardUpperLimit?: number | string
@@ -1691,6 +1882,7 @@ type PqcTaskDraftKey = string
 interface PqcTaskDraftState {
   inspectionQuantity?: number
   scrapQuantity?: number
+  itemQuantities?: Record<string, number>
 }
 
 type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
@@ -1701,8 +1893,12 @@ type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
 })
+// Immediate watchers below read the mode during setup, before the panel is mounted.
+const isPqcMode = computed(() => props.mode === 'pqc')
 
 const message = useMessage()
+const workflowLog = useWorkflowInteractionLog(() => props.mode === 'pqc' ? 'PQC' : 'PRODUCTION')
+const {saveError:workflowLogSaveError,saving:workflowLogSaving}=workflowLog
 
 const FRONTLINE_OTHER_OPTION_VALUE = '__FRONTLINE_OTHER__'
 const FRONTLINE_OTHER_OPTION_LABEL = '其他（手动输入）'
@@ -1737,17 +1933,18 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
 const route = useRoute()
+const router = useRouter()
 watch(
   [() => returnCorrectionPanel.value, () => JSON.stringify(route.query)],
   async ([panel]) => {
-    if (panel && route.query.returnTaskId !== undefined) {
+    if (!isPqcMode.value && panel && route.query.returnTaskId !== undefined) {
       await (panel as InstanceType<typeof FrontlineReturnCorrectionPanel>).openTask(route.query)
     }
   },
   { immediate: true, flush: 'post' }
 )
 const userStore = useUserStore()
-const hasReturnNotification = computed(() => route.query.returnTaskId !== undefined)
+const hasReturnNotification = computed(() => !isPqcMode.value && route.query.returnTaskId !== undefined)
 // Initial handoffs and own-return tasks have separate formal navigation contracts.
 const initialHandoffTask = ref<HandoffTask>()
 const initialHandoffLoading = ref(false)
@@ -1819,26 +2016,19 @@ const resolveErrorMessage = (error: unknown) => {
 }
 const showFrontlineError = (error: unknown) => {
   frontlineErrorMessage.value = resolveErrorMessage(error)
+  workflowLog.blocked()
 }
 const clearFrontlineError = () => {
   frontlineErrorMessage.value = ''
 }
 const productionFormalSubmitConfirmationText = ref('')
 const productionSignaturePassword = ref('')
-const changeSelectedEmployeeSignaturePassword = async () => {
-  if (deviceState.selectedEmployee?.systemUserId || !context.actualEmployeeId || !deviceState.selectedActiveOrder?.activeOrderId || !context.routeId || !context.routeProcessId || !context.processId) throw new Error('缺少当前员工的正式生产范围')
-  const scope = { activeOrderId: deviceState.selectedActiveOrder.activeOrderId, routeId: context.routeId, routeProcessId: context.routeProcessId, processId: context.processId, employeeProfileId: context.actualEmployeeId, identityDomain: 'MES_EMPLOYEE_PROFILE' as const }
-  productionSignaturePassword.value = ''
-  await getEmployeeSignatureQualification(scope)
-  const old = await ElMessageBox.prompt('请输入员工当前签名密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '当前密码不能为空' })
-  const next = await ElMessageBox.prompt('请输入符合密码强度要求的新密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '新密码不能为空' })
-  const confirmed = await changeEmployeeSignaturePassword({ ...scope, currentPassword: old.value, newPassword: next.value })
-  if (confirmed !== true) throw new Error('签名密码变更未获得正式确认')
-}
 const createProductionSubmitDraftKey = () =>
   `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 const FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH = 128
 const productionSubmitDraftKey = ref(createProductionSubmitDraftKey())
+const quantityDraftId = ref<number>()
+const quantityDraftMessage = ref('')
 let productionFormalSubmitConfirmationResolver: ((confirmed: boolean) => void) | undefined
 const activePicker = ref<PickerType>()
 const activeOrderKeyword = ref('')
@@ -1897,19 +2087,28 @@ const pqcDraft = reactive({
 
 const pqcTaskDrafts = reactive<Record<PqcTaskDraftKey, PqcTaskDraftState>>({})
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
-const activePqcStandardKey = ref<PqcInspectionItemKey>()
-const activePqcMethodKey = ref<PqcInspectionItemKey>()
+const activePqcFactsKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionRuleKey = ref<FrontlinePqcInspectionRuleKey>()
+const selectedPqcPatrolRound = ref<number>()
+const pqcPatrolRoundCreating = ref(false)
+const pqcTouchedTaskIds = reactive(new Set<number>())
+const pqcRoundOperationDialog = ref<HTMLDialogElement>()
+const pqcReviewHistoryDialog = ref<HTMLDialogElement>()
+const pqcRoundOperation = reactive({ mode: 'DRAFT' as 'DRAFT' | 'SUBMITTED' | 'CANCEL' | 'RESTORE',
+  roundNo: 0, sourceTaskId: undefined as number | undefined, targetTaskId: undefined as number | undefined,
+  error: '' })
+const markPqcTaskTouched = () => { if (activePqcTaskOptionId.value) pqcTouchedTaskIds.add(activePqcTaskOptionId.value) }
+
 const activePqcTaskOptionId = ref<number>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
 const pqcItemSelections = reactive<Record<string, PqcItemSelection>>({})
 const pqcSignatureDialogVisible = ref(false)
 const pqcSignaturePassword = ref('')
+const pqcSignatureCredentialType = ref<SignatureCredentialType>()
 const pqcSubmitResultUncertain = ref(false)
 
-const isPqcMode = computed(() => props.mode === 'pqc')
 const isProductionSubmitErrorAcknowledgementPending = computed(() =>
   !isPqcMode.value && Boolean(frontlineErrorMessage.value)
 )
@@ -1922,6 +2121,11 @@ const isProductionSelectionSwitchLocked = computed(() =>
 const PRODUCTION_CANVAS_WIDTH = 1920
 const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
+const pqcStageStyle = computed(() => ({
+  '--frontline-pqc-scale': String(productionViewportScale.value),
+  width: `${PRODUCTION_CANVAS_WIDTH * productionViewportScale.value}px`,
+  height: `${PRODUCTION_CANVAS_HEIGHT * productionViewportScale.value}px`
+}))
 let productionViewportScaleFrame: number | undefined
 let productionViewportResizeObserver: ResizeObserver | undefined
 let processSelectionRequestId = 0
@@ -1935,6 +2139,9 @@ const productionStageStyle = computed(() => {
     '--frontline-production-top-action-font-size': `${42 / scale}px`,
     '--frontline-production-return-action-font-size': `${18 / scale}px`,
     '--frontline-production-footer-action-font-size': `${54 / scale}px`,
+    '--frontline-production-home-font-size': `${22 / scale}px`,
+    '--frontline-production-reset-font-size': `${30 / scale}px`,
+    '--frontline-production-submit-font-size': `${36 / scale}px`,
     width: `${PRODUCTION_CANVAS_WIDTH * scale}px`,
     height: `${PRODUCTION_CANVAS_HEIGHT * scale}px`
   }
@@ -1947,7 +2154,7 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
   }
   const username = userStore.getUser?.username?.trim()
   const nickname = userStore.getUser?.nickname?.trim()
-  const displayName = username || nickname || String(userId)
+  const displayName = nickname
   return {
     userId: currentLoginUserId.value,
     username,
@@ -1959,6 +2166,32 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
   }
 })
 const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
+const employeeSignaturePasswordScope = computed(() => {
+  const employee = deviceState.selectedEmployee
+  const activeOrderId = deviceState.selectedActiveOrder?.activeOrderId
+  const submitContext = deviceState.runtimeConfig?.productionSubmitContext
+  if (!employee || employee.systemUserId || !employee.employeeProfileId
+      || !activeOrderId || !submitContext?.routeId || !submitContext.routeProcessId || !submitContext.processId) return undefined
+  return {
+    activeOrderId, routeId: submitContext.routeId,
+    routeProcessId: submitContext.routeProcessId, processId: submitContext.processId,
+    employeeProfileId: employee.employeeProfileId, identityDomain: 'MES_EMPLOYEE_PROFILE' as const
+  }
+})
+const productionSignatureScope = computed(() => {
+  const employee = deviceState.selectedEmployee
+  const activeOrderId = deviceState.selectedActiveOrder?.activeOrderId
+  const submitContext = deviceState.runtimeConfig?.productionSubmitContext
+  if (!employee || !activeOrderId || !submitContext?.routeId || !submitContext.routeProcessId || !submitContext.processId) {
+    throw new Error('所选员工的签名上下文不完整，请重新选择订单、工序和员工。')
+  }
+  return {
+    activeOrderId, routeId: submitContext.routeId,
+    routeProcessId: submitContext.routeProcessId, processId: submitContext.processId,
+    actualEmployeeId: employee.userId,
+    identityDomain: employee.systemUserId ? 'SYSTEM_USER' as const : 'MES_EMPLOYEE_PROFILE' as const
+  }
+})
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
@@ -1969,7 +2202,7 @@ const productionOrderLabel = computed(() => {
   if (!workOrderCode) {
     throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
   }
-  return workOrderCode
+  return Array.from(workOrderCode).slice(-20).join('')
 })
 
 const productionProductNameLabel = computed(() => {
@@ -2008,12 +2241,6 @@ const formatProductionQuantity = (quantity: number) => {
   return String(quantity)
 }
 
-const selectedOrderQuantityLabel = computed(() =>
-  selectedActiveOrder.value
-    ? formatProductionQuantity(selectedActiveOrder.value.quantity)
-    : ''
-)
-
 const selectedProductionOrderQuantityLabel = computed(() =>
   selectedActiveOrder.value
     ? formatProductionQuantity(selectedActiveOrder.value.quantity)
@@ -2036,6 +2263,106 @@ const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
 })
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
+const productionQuantityRangeLabel = computed(() => {
+  const process = deviceState.selectedProcess
+  if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.lossCoefficient === undefined) return ''
+  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；累计上限 ${formatProductionQuantity(process.targetQuantity * process.lossCoefficient)}`
+})
+
+const productionSopFileUrl = ref('')
+const productionSopLoading = ref(false)
+const productionSopLoadError = ref('')
+const productionSopPreviewError = ref('')
+const productionSopPreviewLoading = ref(false)
+const productionSopPreviewUrl = ref('')
+let productionSopPreviewRequestId = 0
+const productionSopDialogOpen = ref(false)
+const productionSopRefreshKey = ref(0)
+const productionSopCloseButtonRef = ref<HTMLButtonElement>()
+const productionSopIsImage = computed(() =>
+  /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(productionSopFileUrl.value)
+)
+
+const releaseProductionSopPreview = () => {
+  productionSopPreviewRequestId += 1
+  if (productionSopPreviewUrl.value) URL.revokeObjectURL(productionSopPreviewUrl.value)
+  productionSopPreviewUrl.value = ''
+  productionSopPreviewLoading.value = false
+  productionSopPreviewError.value = ''
+}
+
+const openProductionSop = async () => {
+  releaseProductionSopPreview()
+  productionSopDialogOpen.value = true
+  await nextTick()
+  productionSopCloseButtonRef.value?.focus()
+  if (!productionSopDialogOpen.value || !productionSopFileUrl.value || productionSopLoadError.value) return
+  const requestId = ++productionSopPreviewRequestId
+  const fileUrl = productionSopFileUrl.value
+  productionSopPreviewLoading.value = true
+  try {
+    // 文件下载接口返回 attachment，读取为 Blob 后才能在页面内预览。
+    const response = await axios.get<Blob>(fileUrl, { responseType: 'blob' })
+    if (requestId !== productionSopPreviewRequestId) return
+    if (response.data.type.includes('json')) {
+      const error = JSON.parse(await response.data.text())
+      throw new Error(error.msg || '文件服务未返回SOP文件内容')
+    }
+    if (!response.data.size) throw new Error('SOP文件内容为空')
+    const extension = new URL(fileUrl, window.location.origin).pathname.split('.').pop()?.toLowerCase()
+    const contentTypes: Record<string, string> = {
+      pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp'
+    }
+    if (!extension || !contentTypes[extension]) throw new Error('当前SOP文件格式不支持在线预览')
+    const contentType = contentTypes[extension]
+    productionSopPreviewUrl.value = URL.createObjectURL(new Blob([response.data], { type: contentType }))
+  } catch (error) {
+    if (requestId === productionSopPreviewRequestId) productionSopPreviewError.value = resolveErrorMessage(error)
+  } finally {
+    if (requestId === productionSopPreviewRequestId) productionSopPreviewLoading.value = false
+  }
+}
+
+const closeProductionSop = () => {
+  productionSopDialogOpen.value = false
+  releaseProductionSopPreview()
+}
+
+watch(
+  () => {
+    const order = selectedActiveOrder.value
+    const process = deviceState.selectedProcess
+    return !isPqcMode.value && order && process && 'routeProcessId' in process
+      ? [order.activeOrderId, process.routeId, process.routeProcessId, process.processId, productionSopRefreshKey.value] as const
+      : undefined
+  },
+  async (context, previousContext, onCleanup) => {
+    let stale = false
+    onCleanup(() => { stale = true })
+    const isRetry = context && previousContext && context.slice(0, 4).every((id, index) => id === previousContext[index])
+    if (!isRetry) productionSopDialogOpen.value = false
+    productionSopFileUrl.value = ''
+    productionSopLoadError.value = ''
+    releaseProductionSopPreview()
+    productionSopLoading.value = Boolean(context)
+    if (!context) return
+    const [activeOrderId, routeId, routeProcessId, processId] = context
+    try {
+      const result = await ProFeedbackApi.getFrontlineProductionProcessSop({ activeOrderId, routeId, routeProcessId, processId })
+      if (stale) return
+      if (result.processId !== processId) throw new Error('SOP文件与当前工序不一致')
+      productionSopFileUrl.value = result.fileUrl?.trim() ?? ''
+      if (productionSopDialogOpen.value) await openProductionSop()
+    } catch (error) {
+      if (stale) return
+      productionSopLoadError.value = resolveErrorMessage(error)
+      await openProductionSop()
+    } finally {
+      if (!stale) productionSopLoading.value = false
+    }
+  },
+  { immediate: true }
+)
 
 const selectedEmployeeLabel = computed(() =>
   isPqcMode.value
@@ -2054,6 +2381,7 @@ const productionScrapQuantity = computed(() =>
 const pqcInspectionQuantity = computed(() =>
   normalizePqcQuantity(pqcDraft.inspectionQuantity)
 )
+const pqcOrderTotalQuantity = computed(() => selectedActiveOrder.value?.quantity)
 
 const normalizePqcInspectionItemName = (itemName?: string) =>
   itemName?.trim() || ''
@@ -2077,6 +2405,11 @@ const hasPqcTaskOptionSnapshot = (
 const getPqcTaskOptions = (process?: FrontlinePqcProcessVO) =>
   (process?.pqcTaskOptions || []).filter(hasPqcTaskOptionSnapshot)
 
+const getBrowsablePqcTaskOptions = (process?: FrontlinePqcProcessVO): PqcTaskOptionSnapshot[] =>
+  (process?.pqcTaskOptions || []).filter((option): option is PqcTaskOptionSnapshot =>
+    ['PENDING', 'SUBMITTED', 'CONFIRMED'].includes(option.taskStatus) &&
+    resolveFrontlinePqcTaskInvalidFields(option).length === 0)
+
 const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspectionItem => ({
     key: item.itemCode,
     itemName: normalizePqcInspectionItemName(item.itemName),
@@ -2086,6 +2419,7 @@ const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspection
     standardText: item.standardText || '',
     inspectionTool: item.inspectionTool,
     samplingPlanText: item.samplingPlanText,
+    samplingEvidence: item.samplingEvidence,
     resultType: item.resultType,
     standardLowerLimit: item.standardLowerLimit,
     standardUpperLimit: item.standardUpperLimit,
@@ -2124,7 +2458,7 @@ const resolveSelectedPqcInspectionItemKey = (process: FrontlinePqcProcessVO) => 
     return selectedKey
   }
   const selectedTask = activePqcTaskOptionId.value
-    ? getPqcTaskOptions(process).find((option) => option.pqcTaskId === activePqcTaskOptionId.value)
+    ? getBrowsablePqcTaskOptions(process).find((option) => option.pqcTaskId === activePqcTaskOptionId.value)
     : undefined
   const taskItemKey = resolvePqcProcessItemKey(process, normalizePqcTaskOptionItemKey(selectedTask))
   return taskItemKey || process.inspectionItems[0]?.itemCode
@@ -2133,14 +2467,16 @@ const resolveSelectedPqcInspectionItemKey = (process: FrontlinePqcProcessVO) => 
 const getPqcTaskOptionsForInspectionItem = (
   process: FrontlinePqcProcessVO,
   itemKey?: PqcInspectionItemKey
-) => getPqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
+) => getBrowsablePqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
 
 const getPqcTaskOptionsByRule = (
   process: FrontlinePqcProcessVO,
   ruleKey: FrontlinePqcInspectionRuleKey,
   itemKey?: PqcInspectionItemKey
 ) => getPqcTaskOptionsForInspectionItem(process, itemKey)
-  .filter((option) => option.inspectionRuleKey === ruleKey)
+  .filter((option) => option.inspectionRuleKey === ruleKey &&
+    (ruleKey !== 'PATROL' || selectedPqcPatrolRound.value === undefined ||
+      option.roundNo === selectedPqcPatrolRound.value))
 
 const getPqcTaskOptionForRule = (
   process: FrontlinePqcProcessVO,
@@ -2149,20 +2485,20 @@ const getPqcTaskOptionForRule = (
 ) => getPqcTaskOptionsByRule(process, ruleKey, itemKey)[0] ||
   getPqcTaskOptionsByRule(process, ruleKey)[0]
 
-const hasExecutablePqcTaskForRule = (
+const hasBrowsablePqcTaskForRule = (
   process: FrontlinePqcProcessVO,
   ruleKey: FrontlinePqcInspectionRuleKey
-) => getPqcTaskOptions(process).some((option) => option.inspectionRuleKey === ruleKey)
+) => getPqcTaskOptionsByRule(process, ruleKey).length > 0
 
 const findFirstPqcInspectionRuleKey = (processes: FrontlinePqcProcessVO[]) =>
   PQC_INSPECTION_RULE_ORDER.find((ruleKey) =>
-    processes.some((process) => hasExecutablePqcTaskForRule(process, ruleKey))
+    processes.some((process) => hasBrowsablePqcTaskForRule(process, ruleKey))
   )
 
 const findFirstPqcProcessForInspectionRule = (
   processes: FrontlinePqcProcessVO[],
   ruleKey: FrontlinePqcInspectionRuleKey
-) => processes.find((process) => hasExecutablePqcTaskForRule(process, ruleKey))
+) => processes.find((process) => hasBrowsablePqcTaskForRule(process, ruleKey))
 
 const preferPqcTaskOption = (
   options: PqcTaskOptionSnapshot[],
@@ -2203,7 +2539,7 @@ const getDefaultPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   }
   const selectedItemOptions = getPqcTaskOptionsForInspectionItem(process, selectedItemKey)
   return preferPqcTaskOption(
-    selectedItemOptions.length > 0 ? selectedItemOptions : getPqcTaskOptions(process)
+    selectedItemOptions.length > 0 ? selectedItemOptions : getBrowsablePqcTaskOptions(process)
   )
 }
 
@@ -2212,9 +2548,11 @@ const getSelectedPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   const selectedRuleKey = selectedPqcInspectionRuleKey.value
   const selectedTaskId = activePqcTaskOptionId.value
   const selectedTask = selectedTaskId
-    ? getPqcTaskOptions(process).find((option) =>
+    ? getBrowsablePqcTaskOptions(process).find((option) =>
       option.pqcTaskId === selectedTaskId &&
       (!selectedRuleKey || option.inspectionRuleKey === selectedRuleKey) &&
+      (selectedRuleKey !== 'PATROL' || selectedPqcPatrolRound.value === undefined ||
+        option.roundNo === selectedPqcPatrolRound.value) &&
       pqcTaskOptionIncludesItem(option, selectedItemKey)
     )
     : undefined
@@ -2230,15 +2568,48 @@ const pqcInspectionTypeTabs = computed<{
   ruleKey: FrontlinePqcInspectionRuleKey
   type: InspectionType
   label: string
+  submittedCount: number
+  totalCount: number
 }[]>(() => {
   return PQC_INSPECTION_RULE_ORDER
-    .filter((ruleKey) => allSwitchablePqcProcessOptions.value
-      .some((process) => hasExecutablePqcTaskForRule(process, ruleKey)))
+    .filter((ruleKey) => allSwitchablePqcProcessOptions.value.some((process) =>
+      ruleKey === 'PATROL' || ruleKey === 'FINAL'
+        ? process.inspectionTypeRules.some((rule) => rule.key === ruleKey && rule.required) &&
+          process.inspectionItems.some((item) => item.applicableInspectionTypes.includes(ruleKey))
+        : hasBrowsablePqcTaskForRule(process, ruleKey)))
     .map((ruleKey) => ({
       ruleKey,
       type: PQC_INSPECTION_RULE_TYPES[ruleKey],
-      label: PQC_INSPECTION_RULE_LABELS[ruleKey]
+      label: ruleKey === 'FINAL' && !pqcFinalCreated.value ? '新建末检' : PQC_INSPECTION_RULE_LABELS[ruleKey],
+      ...getPqcProcessProgress(allSwitchablePqcProcessOptions.value, ruleKey, selectedPqcPatrolRound.value)
     }))
+})
+
+const pqcFinalCreated = computed(() => allSwitchablePqcProcessOptions.value.some(process =>
+  process.pqcTaskOptions.some(task => task.inspectionType === 'FINAL')))
+
+const pqcPatrolRounds = computed(() => {
+  const rounds = new Map<number, {
+    roundNo: number; pendingCount: number; totalCount: number; createTime?: number; cancelled: boolean; cancelReason?: string
+  }>()
+  for (const process of allSwitchablePqcProcessOptions.value) {
+    for (const task of process.pqcTaskOptions) {
+      if (task.inspectionType !== 'PATROL') continue
+      const round = rounds.get(task.roundNo) || {
+        roundNo: task.roundNo, pendingCount: 0, totalCount: 0, createTime: undefined, cancelled: true, cancelReason: undefined as string | undefined
+      }
+      const createTime = toDateTimeValue(task.createTime)?.getTime()
+      if (createTime !== undefined && (round.createTime === undefined || createTime < round.createTime)) {
+        round.createTime = createTime
+      }
+      round.totalCount++
+      round.cancelled = round.cancelled && task.taskStatus === 'CANCELLED'
+      if (task.cancelReason) round.cancelReason = task.cancelReason
+      if (task.taskStatus === 'PENDING') round.pendingCount++
+      rounds.set(task.roundNo, round)
+    }
+  }
+  return [...rounds.values()].sort((a, b) => a.roundNo - b.roundNo)
 })
 
 const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
@@ -2249,11 +2620,35 @@ const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
   return getSelectedPqcTaskOption(process)
 })
 
+const pqcSelectedStageSubmitted = computed(() => {
+  const process = deviceState.selectedProcess
+  if (!isFrontlinePqcProcess(process) || !selectedPqcInspectionRuleKey.value) return false
+  const tasks = process.pqcTaskOptions.filter((task) =>
+    task.inspectionRuleKey === selectedPqcInspectionRuleKey.value &&
+    (task.inspectionType !== 'PATROL' || task.roundNo === selectedPqcPatrolRound.value))
+  return tasks.length > 0 && tasks.every((task) =>
+    task.taskStatus === 'SUBMITTED' || task.taskStatus === 'CONFIRMED')
+})
+
 const pqcTaskAvailabilityIssue = computed(() =>
   isFrontlinePqcProcess(deviceState.selectedProcess)
     ? resolveFrontlinePqcTaskAvailabilityIssue(deviceState.selectedProcess)
     : undefined
 )
+
+const pqcSelectedTaskReadonly = computed(() =>
+  ['SUBMITTED', 'CONFIRMED'].includes(activePqcTaskOption.value?.taskStatus || ''))
+const pqcReviewLabel = computed(() => getPqcReviewLabel(activePqcTaskOption.value))
+const pqcReviewCounts = computed(() => getPqcReviewCounts(
+  allSwitchablePqcProcessOptions.value.flatMap(process => process.pqcTaskOptions)))
+const pqcSubmittedItem = computed(() => activePqcTaskOption.value?.submittedInspection?.items
+  .find(item => item.itemCode === activePqcTabKey.value))
+const isPqcSubmittedChoiceActive = (result: PqcChoiceResult) => {
+  const values = pqcSubmittedItem.value?.sampleValues
+  return Boolean(values?.length && values.every(value => value === result))
+}
+const pqcDisplayedScrapQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? activePqcTaskOption.value?.submittedInspection?.scrapQuantity : pqcDraft.scrapQuantity)
 
 const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
   isFrontlinePqcProcess(deviceState.selectedProcess)
@@ -2306,15 +2701,9 @@ const activePqcTabItem = computed(() =>
     : undefined
 )
 
-const activePqcStandardItem = computed(() =>
-  activePqcStandardKey.value
-    ? pqcTaskInspectionItemMap.value[activePqcStandardKey.value]
-    : undefined
-)
-
-const activePqcMethodItem = computed(() =>
-  activePqcMethodKey.value
-    ? pqcTaskInspectionItemMap.value[activePqcMethodKey.value]
+const activePqcFactsItem = computed(() =>
+  activePqcFactsKey.value
+    ? pqcTaskInspectionItemMap.value[activePqcFactsKey.value]
     : undefined
 )
 
@@ -2369,17 +2758,20 @@ const pqcSubmitContextKey = () => {
     isFrontlinePqcProcess(process) ? [process.activeOrderId, process.routeId, process.qaProcessId,
       process.pqcTaskOptions.map((option) => [option.pqcTaskId, option.regulationVersionId,
         option.qaProcessId, option.taskStatus, option.inspectionRuleKey, option.inspectionType, option.businessDate,
-        option.shiftCode, option.roundNo, option.plannedInspectionQuantity, option.inspectionTypeRule,
+        option.shiftCode, option.roundNo, option.returnedSubmission?.row.rejectedReviewId, option.returnedSubmission?.row.expectedRevisionId, option.plannedInspectionQuantity, option.inspectionTypeRule,
         option.inspectionItems])] : undefined
   ])
 }
 const pqcSubmitGuard = createFormalActionGuard(pqcSubmitContextKey)
 const pqcActionInProgress = ref(false)
 const pqcMethodWrites = new Set<string>()
-const pqcMethodReceipts = new Map<string, FrontlinePqcInspectionSubmitRespVO>()
+const pqcMethodReceipts = new Map<string, Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>>()
 const pqcUncertainMethods = new Set<string>()
 const pqcMethodKey = (sessionKey: string, payload: FrontlinePqcInspectionSubmitReqVO) =>
-  JSON.stringify([sessionKey, payload.activeOrderId, payload.pqcTaskId])
+  JSON.stringify([sessionKey, payload.activeOrderId, payload.pqcTaskId,
+    isFrontlinePqcProcess(deviceState.selectedProcess)
+      ? deviceState.selectedProcess.pqcTaskOptions.find(task => task.pqcTaskId === payload.pqcTaskId)?.returnedSubmission?.row.rejectedReviewId
+      : undefined])
 const invalidatePqcSubmitContext = () => {
   pqcSubmitGuard.invalidate()
   if (pqcActionInProgress.value) payloadLoading.value = false
@@ -2410,7 +2802,9 @@ const isSubmitBlocked = computed(() =>
 )
 
 const isPqcSubmitBlocked = computed(() =>
+  pqcSelectedTaskReadonly.value ||
   payloadLoading.value ||
+  pqcPatrolRoundCreating.value ||
   hasReturnNotification.value ||
   isInitialHandoffBlocked.value ||
   pqcSubmitResultUncertain.value ||
@@ -2432,6 +2826,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedProcess) {
     return '请选择工序'
+  }
+  if (isPqcMode.value && pqcSelectedStageSubmitted.value) {
+    return `${pqcReviewLabel.value}，可切换工序或卡片查看正式检验记录。`
   }
   if (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) {
     return '当前工序缺少PQC任务或QA规程快照'
@@ -2461,6 +2858,9 @@ const pqcInspectionEmptyText = computed(() => {
   if (!deviceState.selectedProcess) {
     return '请先选择PQC工序'
   }
+  if (pqcSelectedStageSubmitted.value) {
+    return `${pqcReviewLabel.value}，可切换工序或卡片查看正式检验记录。`
+  }
   if (pqcTaskAvailabilityIssue.value?.message) {
     return pqcTaskAvailabilityIssue.value.message
   }
@@ -2478,6 +2878,20 @@ const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
     label: reason.reasonName
   }))
 )
+
+const selectedProductionLossReasonKey = ref<string>()
+const selectedProductionLossReasonKeys = ref<string[]>([])
+const visibleProductionLossReasons = computed(() => configuredDefectReasons.value.filter(reason =>
+  selectedProductionLossReasonKeys.value.includes(reason.key) || (productionDefectDraft[reason.key] || 0) > 0
+))
+const selectProductionLossReason = (key?: string) => {
+  if (key && !selectedProductionLossReasonKeys.value.includes(key)) selectedProductionLossReasonKeys.value.push(key)
+  selectedProductionLossReasonKey.value = undefined
+}
+watch(selectedProductionMaterialKey, () => {
+  selectedProductionLossReasonKeys.value = []
+  selectedProductionLossReasonKey.value = undefined
+})
 
 const configuredProductionMaterials = computed<ProductionMaterialOption[]>(() =>
   (deviceState.runtimeConfig?.materials || []).map((material) => ({
@@ -2557,11 +2971,11 @@ const resolveProductionBooleanParameterDefault = (
   parameter: FrontlineRuntimeDeviceParameterVO
 ) => {
   if (parameter.defaultValue === undefined || parameter.defaultValue === null) {
-    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+    throw new Error(`设备参数“${parameter.parameterCode}”未配置有效的是/否默认值（0 或 1），请联系配置人员。`)
   }
   const defaultValue = Number(parameter.defaultValue)
   if (defaultValue !== 0 && defaultValue !== 1) {
-    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+    throw new Error(`设备参数“${parameter.parameterCode}”未配置有效的是/否默认值（0 或 1），请联系配置人员。`)
   }
   return defaultValue === 1
 }
@@ -2710,6 +3124,15 @@ const buildProductionMaterialDeviceMemoryStorageKey = (memoryKey: string) => {
   return `${PRODUCTION_MATERIAL_DEVICE_MEMORY_STORAGE_PREFIX}:${loginUserId}:${memoryKey}`
 }
 
+const buildProductionProcessDeviceMemoryKey = () => {
+  // 后端的 Long 产品ID超出 JS 安全整数范围时以字符串返回，记忆键必须保留原始精度。
+  const productId = String(deviceState.selectedActiveOrder?.productId ?? '')
+  if (!/^[1-9]\d*$/.test(productId)) {
+    throw new Error('设备参数记忆缺少当前订单的产品身份。')
+  }
+  return buildProductionMaterialDeviceMemoryKey(`product:${productId}`)
+}
+
 const parseProductionMaterialDeviceMemory = (
   raw: string,
   storageKey: string
@@ -2798,6 +3221,10 @@ const restoreProductionMaterialDraft = (materialKey: string) => {
       productionDefectDraft[defect.key] = 0
     }
   }
+  restoreProductionDeviceDraft(materialDraft)
+}
+
+const restoreProductionDeviceDraft = (materialDraft: ProductionMaterialDeviceDraftState) => {
   replaceReactiveRecord(
     deviceParameterDraft,
     cloneProductionDeviceParameters(materialDraft.deviceParameters)
@@ -2832,6 +3259,12 @@ const clearProductionMaterialDrafts = () => {
 const syncProductionMaterialDrafts = (materials: ProductionMaterialOption[]) => {
   if (!materials.length) {
     clearProductionMaterialDrafts()
+    if (!isPqcMode.value && deviceState.runtimeConfig && isFrontlineProductionProcess(deviceState.selectedProcess)) {
+      const memory = loadProductionMaterialDeviceMemory(buildProductionProcessDeviceMemoryKey())
+      if (memory) {
+        restoreProductionDeviceDraft(memory)
+      }
+    }
     ensureProductionDefaultDeviceSelection(visibleDeviceCards.value)
     return
   }
@@ -2998,7 +3431,7 @@ const filteredPqcProcessOptions = computed(() => {
     return allSwitchablePqcProcessOptions.value
   }
   return allSwitchablePqcProcessOptions.value.filter((process) =>
-    hasExecutablePqcTaskForRule(process, ruleKey)
+    hasBrowsablePqcTaskForRule(process, ruleKey)
   )
 })
 
@@ -3419,6 +3852,18 @@ const buildProductionClearanceConfirmationPayload = () =>
 const rememberProductionMaterialDeviceDrafts = (
   submittedMaterials: ProFrontlineFeedbackMaterialReqVO[]
 ) => {
+  if (!configuredProductionMaterials.value.length) {
+    const memoryKey = buildProductionProcessDeviceMemoryKey()
+    const memory: ProductionMaterialDeviceDraftState = {
+      selectedDeviceKey: selectedProductionDeviceKey.value,
+      selectedDeviceKeys: [...selectedProductionDeviceKeys.value],
+      deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
+      deviceMeteringValidity: { ...deviceMeteringValidityDraft }
+    }
+    saveProductionMaterialDeviceMemory(memoryKey, memory)
+    productionMaterialLastDeviceDrafts[memoryKey] = memory
+    return
+  }
   persistActiveProductionMaterialDraft()
   const submittedMaterialKeys = new Set(
     submittedMaterials.map((material) => String(material.materialId))
@@ -3443,16 +3888,12 @@ const rememberProductionMaterialDeviceDrafts = (
 }
 
 const resetProductionSubmissionDraft = () => {
+  // 重建物料草稿会清空数量，并恢复该产品上次提交的设备及参数。
   resetProductionMaterialDrafts()
   productionDraft.outputQuantity = undefined
   for (const defect of configuredDefectReasons.value) {
     productionDefectDraft[defect.key] = 0
   }
-  for (const deviceKey of Object.keys(deviceParameterDraft)) {
-    delete deviceParameterDraft[deviceKey]
-  }
-  resetProductionDeviceMeteringValidityDraft()
-  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
   resetProductionClearanceConfirmations()
   Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
   payloadPreview.value = undefined
@@ -3462,6 +3903,8 @@ const resetProductionSubmissionDraft = () => {
 const handleResetProduction = () => {
   if (productionSubmitReadPending.value || productionSubmitWritePending.value || payloadLoading.value) return
   resetProductionSubmissionDraft()
+  quantityDraftId.value = undefined
+  quantityDraftMessage.value = ''
 }
 
 const normalizePqcQuantity = (value?: number) => {
@@ -3489,8 +3932,11 @@ const getPqcTaskDraftKey = (taskOption: PqcTaskOptionSnapshot | undefined): PqcT
 }
 
 const createPqcTaskDraftState = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => ({
-  inspectionQuantity: taskOption.plannedInspectionQuantity,
-  scrapQuantity: undefined
+  inspectionQuantity: taskOption.returnedSubmission?.pqc?.actualInspectionQuantity ?? taskOption.plannedInspectionQuantity,
+  scrapQuantity: taskOption.returnedSubmission?.pqc?.scrapQuantity,
+  itemQuantities: taskOption.returnedSubmission?.pqc
+    ? Object.fromEntries(taskOption.returnedSubmission.pqc.items.map(item => [item.itemCode, item.sampleValues.length]))
+    : undefined
 })
 
 const getPqcTaskDraft = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => {
@@ -3517,12 +3963,14 @@ const persistCurrentPqcTaskDraft = () => {
     return
   }
   pqcTaskDrafts[key] = {
+    itemQuantities: pqcTaskDrafts[key]?.itemQuantities,
     inspectionQuantity: pqcDraft.inspectionQuantity ?? taskOption.plannedInspectionQuantity,
     scrapQuantity: pqcDraft.scrapQuantity
   }
 }
 
 const clearPqcTaskDraftsByTaskIds = (pqcTaskIds: number[]) => {
+  pqcTaskIds.forEach(id => pqcTouchedTaskIds.delete(id))
   const submittedTaskIds = new Set(pqcTaskIds.map(String))
   for (const key of Object.keys(pqcTaskDrafts)) {
     if (submittedTaskIds.has(key.split(':')[1])) {
@@ -3532,6 +3980,7 @@ const clearPqcTaskDraftsByTaskIds = (pqcTaskIds: number[]) => {
 }
 
 const clearAllPqcTaskDrafts = () => {
+  pqcTouchedTaskIds.clear()
   for (const key of Object.keys(pqcTaskDrafts)) {
     delete pqcTaskDrafts[key]
   }
@@ -3540,7 +3989,7 @@ const clearAllPqcTaskDrafts = () => {
 const getPqcInspectionQuantityForTask = (taskOption: PqcTaskOptionSnapshot) =>
   normalizePqcQuantity(getPqcTaskDraft(taskOption).inspectionQuantity ?? taskOption.plannedInspectionQuantity)
 
-const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) => {
+const getPqcPlannedQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) => {
   const quantity = taskOption.inspectionItems.find(item => item.itemCode === itemKey)?.plannedInspectionQuantity
   if (!Number.isSafeInteger(quantity) || Number(quantity) <= 0) {
     throw new Error(`PQC检验项目${itemKey}缺少冻结抽样数量。`)
@@ -3548,10 +3997,20 @@ const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, item
   return Number(quantity)
 }
 
-const activePqcItemQuantity = computed(() => activePqcTaskOption.value && activePqcInspectionKey.value
+const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) =>
+  getPqcTaskDraft(taskOption).itemQuantities?.[itemKey] ?? getPqcPlannedQuantityForItem(taskOption, itemKey)
+
+const activePqcItemQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? pqcPieceDraftValues.value.length : activePqcTaskOption.value && activePqcInspectionKey.value
   ? getPqcInspectionQuantityForItem(activePqcTaskOption.value, activePqcInspectionKey.value) : 0)
 const getPqcItemQuantity = (itemKey: PqcInspectionItemKey) => activePqcTaskOption.value
   ? getPqcInspectionQuantityForItem(activePqcTaskOption.value, itemKey) : 0
+
+const pqcSelectedItemQuantity = computed(() => pqcSelectedTaskReadonly.value
+  ? pqcSubmittedItem.value?.sampleValues.length ?? 0
+  : activePqcTabKey.value ? getPqcItemQuantity(activePqcTabKey.value) : 0)
+const pqcSelectedItemMinimum = computed(() => activePqcTaskOption.value && activePqcTabKey.value
+  ? getPqcPlannedQuantityForItem(activePqcTaskOption.value, activePqcTabKey.value) : 0)
 
 const isPqcNumericResultType = (resultType: FrontlinePqcResultType) => resultType === 'NUMERIC'
 
@@ -3577,13 +4036,32 @@ const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
 }
 
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
-  PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
+  option.inspectionType === 'PATROL'
+    ? `巡检 · 第 ${option.roundNo} 轮`
+    : PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
+
+const hydrateReturnedPqcTask = (option: PqcTaskOptionSnapshot) => {
+  getPqcTaskDraft(option)
+  if (option.returnedSubmission?.pqc) {
+    for (const item of option.returnedSubmission.pqc.items) {
+      const key = getPqcPieceStateKeyForTask(item.itemCode, option)
+      if (!key) throw new Error('退回检验记录缺少原填写上下文。')
+      if (!pqcPieceValues[key]) {
+        pqcPieceValues[key] = item.sampleValues.slice()
+        const selection = getPqcItemSelection(item.itemCode, option)
+        selection.selectedEquipmentId = item.selectedEquipmentId
+        selection.selectedEquipmentNumber = item.selectedEquipmentNumber
+      }
+    }
+  }
+}
 
 const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   const storedDraft = getPqcTaskDraft(option)
   activePqcTaskOptionId.value = option.pqcTaskId
   selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
   pqcDraft.inspectionType = option.inspectionType
+  if (option.inspectionType === 'PATROL') selectedPqcPatrolRound.value = option.roundNo
   pqcDraft.patrolRound = option.roundNo
   pqcDraft.inspectionQuantity = storedDraft.inspectionQuantity ?? option.plannedInspectionQuantity
   pqcDraft.scrapQuantity = storedDraft.scrapQuantity
@@ -3599,6 +4077,7 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
         : option.inspectionItems[0]?.itemCode
   }
   applyPqcItemEquipmentDefaults(option.inspectionItems.map(mapPqcInspectionItem), option)
+  hydrateReturnedPqcTask(option)
 }
 
 const clearPqcTaskOptionDraft = () => {
@@ -3645,8 +4124,7 @@ const clearPqcPieceValues = () => {
     delete pqcItemSelections[key]
   }
   activePqcInspectionKey.value = undefined
-  activePqcStandardKey.value = undefined
-  activePqcMethodKey.value = undefined
+  activePqcFactsKey.value = undefined
   selectedPqcInspectionKey.value = undefined
   pqcPieceDraftValues.value = []
 }
@@ -3655,23 +4133,18 @@ const applyPqcItemEquipmentDefaults = (
   items: PqcInspectionItem[],
   taskOption: PqcTaskOptionSnapshot
 ) => {
+  if (taskOption.returnedSubmission) return
   for (const item of items) {
     const selection = getPqcItemSelection(item.key, taskOption)
     if (selection.selectedEquipmentId || selection.selectedEquipmentNumber) {
       continue
     }
-    if (!item.lastSelectedEquipmentId || !item.lastSelectedEquipmentNumber) {
-      continue
-    }
-    const selectedOption = item.equipmentOptions.find((option) =>
-      option.equipmentId === item.lastSelectedEquipmentId &&
-      option.equipmentNumber === item.lastSelectedEquipmentNumber
-    )
+    const selectedOption = getUniquePqcEquipmentOptions(item)[0]
     if (!selectedOption) {
       continue
     }
-    selection.selectedEquipmentId = item.lastSelectedEquipmentId
-    selection.selectedEquipmentNumber = item.lastSelectedEquipmentNumber
+    selection.selectedEquipmentId = selectedOption.equipmentId
+    selection.selectedEquipmentNumber = selectedOption.equipmentNumber
   }
 }
 
@@ -3764,6 +4237,8 @@ const hasCompletedPqcEquipmentSelection = (item: PqcInspectionItem) => {
 }
 
 const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
+  if (pqcSelectedTaskReadonly.value || payloadLoading.value || pqcSubmitResultUncertain.value) return
+  markPqcTaskTouched()
   const value = (event.target as HTMLSelectElement).value
   const selection = getPqcItemSelection(itemKey)
   if (value === FRONTLINE_OTHER_OPTION_VALUE) {
@@ -3782,6 +4257,7 @@ const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Ev
 }
 
 const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Event) => {
+  markPqcTaskTouched()
   const value = (event.target as HTMLInputElement).value
   const selection = getPqcItemSelection(itemKey)
   selection.selectedEquipmentId = undefined
@@ -3789,13 +4265,11 @@ const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Even
 }
 
 const returnToPqcEquipmentOptions = (itemKey: PqcInspectionItemKey) => {
+  if (pqcSelectedTaskReadonly.value || payloadLoading.value || pqcSubmitResultUncertain.value) return
+  markPqcTaskTouched()
   const selection = getPqcItemSelection(itemKey)
   selection.selectedEquipmentId = undefined
   selection.selectedEquipmentNumber = undefined
-}
-
-const openPqcStandardDialog = (itemKey: PqcInspectionItemKey) => {
-  activePqcStandardKey.value = itemKey
 }
 
 const requirePqcInspectionDisplayFields = (item: PqcInspectionItem) => {
@@ -3825,7 +4299,7 @@ const assertPqcCurrentProcessInspectionDisplayFieldsReady = () => {
   }
 }
 
-const openPqcMethodDialog = (itemKey: PqcInspectionItemKey) => {
+const openPqcFactsDialog = (itemKey: PqcInspectionItemKey) => {
   const item = pqcTaskInspectionItemMap.value[itemKey]
   if (!item) {
     showFrontlineError(`PQC检验项目${itemKey}不在当前QA规程快照中。`)
@@ -3837,15 +4311,11 @@ const openPqcMethodDialog = (itemKey: PqcInspectionItemKey) => {
     showFrontlineError(error)
     return
   }
-  activePqcMethodKey.value = itemKey
+  activePqcFactsKey.value = itemKey
 }
 
-const closePqcStandardDialog = () => {
-  activePqcStandardKey.value = undefined
-}
-
-const closePqcMethodDialog = () => {
-  activePqcMethodKey.value = undefined
+const closePqcFactsDialog = () => {
+  activePqcFactsKey.value = undefined
 }
 
 const applyPqcTaskSnapshotToDraft = (
@@ -3960,11 +4430,10 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
   if (!isFrontlinePqcProcess(process)) {
     return
   }
-  const option = preferPqcTaskOption(
-    getPqcTaskOptionsForInspectionItem(process, itemKey),
-    pqcDraft.inspectionType,
-    selectedPqcInspectionRuleKey.value || activePqcTaskOption.value?.inspectionRuleKey
-  )
+  const ruleKey = selectedPqcInspectionRuleKey.value || activePqcTaskOption.value?.inspectionRuleKey
+  const option = ruleKey
+    ? getPqcTaskOptionForRule(process, ruleKey, itemKey)
+    : preferPqcTaskOption(getPqcTaskOptionsForInspectionItem(process, itemKey), pqcDraft.inspectionType)
   if (!option) {
     showFrontlineError('当前检验方法暂无待执行PQC任务。')
     return
@@ -3994,13 +4463,6 @@ const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
 
 const formatPqcInspectionItemTabLabel = (item: PqcInspectionItem) =>
   item.itemName || '未配置检验项目名称'
-
-const formatPqcStandardSummary = (item: PqcInspectionItem) => {
-  if (item.standardText) {
-    return item.standardText
-  }
-  return '未配置接收标准'
-}
 
 const normalizePqcInspectionMethodLabel = (inspectionMethod: string) => {
   const trimmedMethod = inspectionMethod.trim()
@@ -4244,6 +4706,16 @@ const assertPqcPieceContext = () => {
 }
 
 const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
+  if (pqcSelectedTaskReadonly.value) {
+    const item = activePqcTaskOption.value?.submittedInspection?.items.find(item => item.itemCode === itemKey)
+    if (!item) {
+      showFrontlineError('已提交记录缺少当前卡片的正式检验数据，请刷新订单后重试。')
+      return
+    }
+    pqcPieceDraftValues.value = item.sampleValues.slice()
+    activePqcInspectionKey.value = itemKey
+    return
+  }
   try {
     assertPqcPieceContext()
   } catch (error) {
@@ -4256,12 +4728,20 @@ const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
 
 const closePqcPieceInspection = (saveChanges: boolean) => {
   const itemKey = activePqcInspectionKey.value
-  if (saveChanges && itemKey) {
+  if (saveChanges && itemKey && !pqcSelectedTaskReadonly.value) {
+    if (activePqcInspectionItem.value?.type === 'number') {
+      const invalidIndex = pqcPieceDraftValues.value.findIndex(value => value.trim() && !isPqcNumericValue(value, activePqcInspectionItem.value?.standardPrecision))
+      if (invalidIndex >= 0) {
+        showFrontlineError(`第 ${invalidIndex + 1} 件不是有效数字，请修改后完成。`)
+        return
+      }
+    }
     const stateKey = getPqcPieceStateKey(itemKey)
     if (!stateKey) {
       showFrontlineError('当前工序上下文已失效，无法保存逐件检验。')
       return
     }
+    markPqcTaskTouched()
     pqcPieceValues[stateKey] = pqcPieceDraftValues.value.slice()
   }
   activePqcInspectionKey.value = undefined
@@ -4272,12 +4752,14 @@ const applyPqcBulkChoice = (
   itemKey: PqcInspectionItemKey,
   result: PqcChoiceResult
 ) => {
+  if (pqcSelectedTaskReadonly.value) return
   try {
     assertPqcPieceContext()
   } catch (error) {
     showFrontlineError(error)
     return
   }
+  markPqcTaskTouched()
   const values = getPqcStoredPieceValues(itemKey)
   for (let index = 0; index < getPqcItemQuantity(itemKey); index += 1) {
     values[index] = result
@@ -4285,6 +4767,7 @@ const applyPqcBulkChoice = (
 }
 
 const updatePqcPieceChoice = (index: number, value: boolean | string | number) => {
+  if (pqcSelectedTaskReadonly.value) return
   if (value === true) {
     pqcPieceDraftValues.value[index] = '合格'
     return
@@ -4296,25 +4779,9 @@ const updatePqcPieceChoice = (index: number, value: boolean | string | number) =
   showFrontlineError(`逐件检验结果无效：${String(value)}`)
 }
 
-const stepPqcPieceValue = (index: number, delta: number) => {
-  const item = activePqcInspectionItem.value
-  if (!item || item.type !== 'number') {
-    showFrontlineError('当前检验项目不是数值项目，无法调整数值。')
-    return
-  }
-  const current = Number(pqcPieceDraftValues.value[index] || item.defaultValue)
-  const precision = item.step < 1 ? String(item.step).split('.')[1]?.length || 0 : 0
-  pqcPieceDraftValues.value[index] = String(
-    Number((current + delta).toFixed(precision))
-  )
-}
-
-const updatePqcPieceDraftValue = (index: number, event: Event) => {
-  pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
-}
-
-const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) => {
+const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey, patrolRound?: number) => {
   persistCurrentPqcTaskDraft()
+  if (ruleKey === 'PATROL' && patrolRound !== undefined) selectedPqcPatrolRound.value = patrolRound
   selectedPqcInspectionRuleKey.value = ruleKey
   const currentProcess = isFrontlinePqcProcess(deviceState.selectedProcess)
     ? deviceState.selectedProcess
@@ -4342,21 +4809,258 @@ const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) =
   await handleSelectProcess(targetProcess)
 }
 
-const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
-  const inputValue = (event.target as HTMLInputElement).value
-  pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
+const selectPqcPatrolRound = async (roundNo: number) => {
+  if (isPqcProcessNavigationBlocked.value) return
+  await selectPqcInspectionRule('PATROL', roundNo)
+}
+
+const createPqcPatrolRound = async () => {
+  const activeOrder = deviceState.selectedActiveOrder
+  if (!activeOrder || isPqcProcessNavigationBlocked.value) return
   persistCurrentPqcTaskDraft()
-  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
-    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+  pqcPatrolRoundCreating.value = true
+  let createdRound: number | undefined
+  try {
+    const previousRound = Math.max(0, ...pqcPatrolRounds.value.map((round) => round.roundNo))
+    const roundNo = await ProFeedbackApi.createFrontlinePqcPatrolRound({
+      activeOrderId: activeOrder.activeOrderId,
+      expectedPreviousRoundNo: previousRound
+    })
+    createdRound = roundNo
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, activeOrder.activeOrderId)
+    const processes = await ProFeedbackApi.getPqcProcesses(activeOrder.activeOrderId, currentLoginUserId.value)
+    deviceState.processOptions = processes
+    if (!processes.some((process) => process.pqcTaskOptions.some((task) =>
+      task.inspectionType === 'PATROL' && task.roundNo === roundNo && task.taskStatus === 'PENDING'))) {
+      throw new Error('未读取到可执行任务')
+    }
+    const currentProcess = deviceState.selectedProcess
+    if (isFrontlinePqcProcess(currentProcess)) {
+      const refreshed = processes.find((process) =>
+        process.regulationVersionId === currentProcess.regulationVersionId &&
+        process.qaProcessId === currentProcess.qaProcessId)
+      if (refreshed) deviceState.selectedProcess = refreshed
+    }
+    await selectPqcInspectionRule('PATROL', roundNo)
+  } catch (error) {
+    showFrontlineError(createdRound === undefined ? error :
+      `巡检第 ${createdRound} 轮已创建，但任务切换失败，请刷新订单：${resolveErrorMessage(error)}`)
+  } finally {
+    pqcPatrolRoundCreating.value = false
   }
 }
 
-const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
-  pqcDraft[field] = Math.max(0, normalizePqcQuantity(pqcDraft[field]) + delta)
+const pqcRoundOperationTasks = computed(() => allSwitchablePqcProcessOptions.value.flatMap(process =>
+  process.pqcTaskOptions.filter(task => task.inspectionType === 'PATROL').map(task => ({ task, process }))))
+const pqcRoundCorrectionSources = computed(() => pqcRoundOperationTasks.value.filter(({ task }) =>
+  task.roundNo === pqcRoundOperation.roundNo && ['SUBMITTED', 'CONFIRMED'].includes(task.taskStatus)))
+const pqcRoundOperationSource = computed(() => pqcRoundOperationTasks.value.find(({ task }) =>
+  task.pqcTaskId === pqcRoundOperation.sourceTaskId))
+const pqcRoundOperationTargets = computed(() => {
+  const source = pqcRoundOperationSource.value
+  if (!source) return []
+  return pqcRoundOperationTasks.value.filter(({ task }) => task.taskStatus === 'PENDING' &&
+    task.regulationVersionId === source.task.regulationVersionId && task.qaProcessId === source.task.qaProcessId &&
+    task.roundNo !== source.task.roundNo)
+})
+const openPqcRoundOperation = (mode: 'DRAFT' | 'SUBMITTED' | 'CANCEL' | 'RESTORE', roundNo: number, sourceTaskId?: number) => {
+  if (isPqcProcessNavigationBlocked.value) return
   persistCurrentPqcTaskDraft()
-  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
-    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+  Object.assign(pqcRoundOperation, { mode, roundNo, sourceTaskId, targetTaskId: undefined, error: '' })
+  pqcRoundOperationDialog.value?.showModal()
+}
+const openPqcCancelRound = (roundNo: number) => openPqcRoundOperation('CANCEL', roundNo)
+const openPqcRestoreRound = (roundNo: number) => openPqcRoundOperation('RESTORE', roundNo)
+const openPqcSubmittedRoundCorrection = async (roundNo: number) => {
+  if (isPqcProcessNavigationBlocked.value || !deviceState.selectedActiveOrder) return
+  persistCurrentPqcTaskDraft()
+  pqcPatrolRoundCreating.value = true
+  try {
+    const orderId = deviceState.selectedActiveOrder.activeOrderId
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, orderId)
+    deviceState.processOptions = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+    pqcPatrolRoundCreating.value = false
+    openPqcRoundOperation('SUBMITTED', roundNo)
+  } catch (error) { showFrontlineError(error) }
+  finally { pqcPatrolRoundCreating.value = false }
+}
+const openPqcDraftRoundMove = () => {
+  const task = activePqcTaskOption.value
+  if (task?.inspectionType === 'PATROL') openPqcRoundOperation('DRAFT', task.roundNo, task.pqcTaskId)
+}
+const clearPqcLocalTaskData = (taskIds: number[]) => {
+  const ids = new Set(taskIds.map(String))
+  clearPqcTaskDraftsByTaskIds(taskIds)
+  for (const key of Object.keys(pqcPieceValues)) if (ids.has(key.split(':')[1])) delete pqcPieceValues[key]
+  for (const key of Object.keys(pqcItemSelections)) if (ids.has(key.split(':')[0])) delete pqcItemSelections[key]
+  taskIds.forEach(id => pqcTouchedTaskIds.delete(id))
+}
+const refreshPqcRoundProcesses = async (preferredRound?: number, ruleKey: FrontlinePqcInspectionRuleKey = 'PATROL') => {
+  const order = deviceState.selectedActiveOrder
+  if (!order) throw new Error('请先选择订单')
+  invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
+  const processes = await ProFeedbackApi.getPqcProcesses(order.activeOrderId, currentLoginUserId.value)
+  deviceState.processOptions = processes
+  const current = deviceState.selectedProcess
+  if (isFrontlinePqcProcess(current)) deviceState.selectedProcess = processes.find(process =>
+    process.regulationVersionId === current.regulationVersionId && process.qaProcessId === current.qaProcessId)
+  selectedPqcPatrolRound.value = preferredRound
+  const available = processes.some(process => getPqcTaskOptions(process).some(task =>
+    task.inspectionRuleKey === ruleKey && (preferredRound === undefined || task.roundNo === preferredRound)))
+  if (available) await selectPqcInspectionRule(ruleKey, preferredRound)
+  else {
+    const process = processes.find(process => getPqcTaskOptions(process).length)
+    if (process) {
+      const option = getPqcTaskOptions(process)[0]
+      selectedPqcPatrolRound.value = option.inspectionType === 'PATROL' ? option.roundNo : undefined
+      selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
+      await handleSelectProcess(process)
+    } else {
+      activePqcTaskOptionId.value = undefined
+      deviceState.selectedProcess = undefined
+      deviceState.selectedEmployee = undefined
+    }
   }
+}
+const createPqcFinalInspection = async () => {
+  const order = deviceState.selectedActiveOrder
+  if (!order || isPqcProcessNavigationBlocked.value) return
+  persistCurrentPqcTaskDraft()
+  pqcPatrolRoundCreating.value = true
+  let created = false
+  try {
+    await ProFeedbackApi.createFrontlinePqcFinalInspection(order.activeOrderId)
+    created = true
+    await refreshPqcRoundProcesses(undefined, 'FINAL')
+  } catch (error) {
+    showFrontlineError(created ? `末检已创建，请刷新订单：${resolveErrorMessage(error)}` : error)
+  } finally { pqcPatrolRoundCreating.value = false }
+}
+const executePqcRoundOperation = async () => {
+  if (pqcPatrolRoundCreating.value) return
+  pqcRoundOperation.error = ''
+  let committed = false
+  try {
+    const order = deviceState.selectedActiveOrder
+    if (!order) throw new Error('请先选择订单')
+    if (pqcRoundOperation.mode === 'CANCEL') {
+      pqcPatrolRoundCreating.value = true
+      await ProFeedbackApi.cancelFrontlinePqcPatrolRound({ activeOrderId: order.activeOrderId,
+        roundNo: pqcRoundOperation.roundNo })
+      committed = true
+      await refreshPqcRoundProcesses()
+    } else if (pqcRoundOperation.mode === 'RESTORE') {
+      pqcPatrolRoundCreating.value = true
+      await ProFeedbackApi.restoreFrontlinePqcPatrolRound({ activeOrderId: order.activeOrderId,
+        roundNo: pqcRoundOperation.roundNo })
+      committed = true
+      await refreshPqcRoundProcesses(pqcRoundOperation.roundNo)
+    } else {
+      const source = pqcRoundOperationSource.value?.task
+      const target = pqcRoundOperationTargets.value.find(({ task }) => task.pqcTaskId === pqcRoundOperation.targetTaskId)?.task
+      if (!source || !target) throw new Error('请选择源工序及目标轮次')
+      if (pqcTouchedTaskIds.has(target.pqcTaskId)) throw new Error('目标工序已有未提交填写内容，禁止覆盖，请先处理目标草稿')
+      if (pqcRoundOperation.mode === 'DRAFT') {
+        const current = activePqcTaskOption.value
+        if (!current || current.pqcTaskId !== source.pqcTaskId || !hasPqcTaskOptionSnapshot(target)) throw new Error('当前草稿已变化，请重新打开')
+        if (JSON.stringify(source.inspectionItems.map(item => [item.itemCode, item.plannedInspectionQuantity]).sort()) !==
+            JSON.stringify(target.inspectionItems.map(item => [item.itemCode, item.plannedInspectionQuantity]).sort())) throw new Error('两轮工序的检验项目或抽样数量不一致，不能移动')
+        const fromKey = getPqcTaskDraftKey(current)
+        const toKey = getPqcTaskDraftKey(target)
+        if (!fromKey || !toKey) throw new Error('缺少草稿上下文')
+        const draft = pqcTaskDrafts[fromKey]
+        const pieces = current.inspectionItems.map(item => ({ itemCode: item.itemCode,
+          values: pqcPieceValues[getPqcPieceStateKeyForTask(item.itemCode, current)!]?.slice(),
+          selection: pqcItemSelections[getPqcItemSelectionKey(current, item.itemCode)] }))
+        clearPqcLocalTaskData([source.pqcTaskId, target.pqcTaskId])
+        pqcTaskDrafts[toKey] = { ...draft }
+        for (const piece of pieces) {
+          if (piece.values) pqcPieceValues[getPqcPieceStateKeyForTask(piece.itemCode, target)!] = piece.values
+          if (piece.selection) pqcItemSelections[getPqcItemSelectionKey(target, piece.itemCode)] = { ...piece.selection }
+        }
+        pqcTouchedTaskIds.add(target.pqcTaskId)
+        activePqcTaskOptionId.value = undefined
+        await selectPqcInspectionRule('PATROL', target.roundNo)
+      } else {
+        if (!source.submittedEventId || !source.submittedContentHash) throw new Error('缺少原提交版本，请刷新订单')
+        pqcPatrolRoundCreating.value = true
+        await ProFeedbackApi.correctFrontlinePqcPatrolRound({ sourceTaskId: source.pqcTaskId, targetTaskId: target.pqcTaskId,
+          expectedSubmittedEventId: source.submittedEventId, expectedContentHash: source.submittedContentHash })
+        committed = true
+        clearPqcLocalTaskData([source.pqcTaskId, target.pqcTaskId])
+        await refreshPqcRoundProcesses(source.roundNo)
+      }
+    }
+    pqcRoundOperationDialog.value?.close()
+    message.success('轮次调整已完成')
+  } catch (error) {
+    pqcRoundOperation.error = committed ? `调整已保存，请刷新订单后继续：${resolveErrorMessage(error)}` : resolveErrorMessage(error)
+  } finally { pqcPatrolRoundCreating.value = false }
+}
+
+const assertPqcInspectionWithinOrderQuantity = (quantity: number) => {
+  const total = pqcOrderTotalQuantity.value
+  if (total == null || !Number.isFinite(total) || total <= 0) {
+    throw new Error('缺少有效的订单总数量，无法填写检验数量。')
+  }
+  if (quantity > total) {
+    throw new Error(`检验数量不能大于总数量（${total}件）。`)
+  }
+}
+
+const setPqcQuantity = (field: PqcQuantityField, value: number | undefined) => {
+  if (pqcSelectedTaskReadonly.value) return
+  const quantity = normalizePqcQuantity(value)
+  if (field === 'inspectionQuantity') {
+    const option = activePqcTaskOption.value
+    const itemKey = activePqcTabKey.value
+    if (!option || !itemKey) {
+      showFrontlineError('请先选择检验项目。')
+      return
+    }
+    try {
+      assertPqcInspectionWithinOrderQuantity(quantity)
+    } catch (error) {
+      showFrontlineError(resolveErrorMessage(error))
+      return
+    }
+    if (quantity < getPqcPlannedQuantityForItem(option, itemKey)) {
+      showFrontlineError('检验数量不能小于规程要求的抽样数量。')
+      return
+    }
+    const taskQuantity = Math.max(...option.inspectionItems.map(item =>
+      item.itemCode === itemKey ? quantity : getPqcInspectionQuantityForItem(option, item.itemCode)))
+    if (taskQuantity < normalizePqcQuantity(pqcDraft.scrapQuantity)) {
+      showFrontlineError('损耗数量不能大于检验数量。')
+      return
+    }
+    markPqcTaskTouched()
+    const draft = getPqcTaskDraft(option)
+    draft.itemQuantities = { ...draft.itemQuantities, [itemKey]: quantity }
+    pqcDraft.inspectionQuantity = taskQuantity
+    persistCurrentPqcTaskDraft()
+    resizePqcPieceValuesForCurrentTask(option)
+    return
+  }
+  if (quantity > pqcInspectionQuantity.value) {
+    showFrontlineError('损耗数量不能大于检验数量。')
+    return
+  }
+  markPqcTaskTouched()
+  pqcDraft[field] = value === undefined ? undefined : quantity
+  persistCurrentPqcTaskDraft()
+}
+
+const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
+  const input = event.target as HTMLInputElement
+  setPqcQuantity(field, input.value === '' ? undefined : Number(input.value))
+  const quantity = field === 'inspectionQuantity' ? pqcSelectedItemQuantity.value : pqcDraft[field]
+  input.value = quantity === undefined ? '' : String(quantity)
+}
+
+const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
+  const quantity = field === 'inspectionQuantity' ? pqcSelectedItemQuantity.value : pqcDraft[field]
+  setPqcQuantity(field, Math.max(0, normalizePqcQuantity(quantity) + delta))
 }
 
 const resolvePqcTaskSummaryState = (
@@ -4375,7 +5079,7 @@ const updatePqcSubmittedTasksInProcess = (
 ): FrontlinePqcProcessVO => {
   const pqcTaskOptions = process.pqcTaskOptions.map((taskOption) =>
     submittedTaskIds.has(taskOption.pqcTaskId)
-      ? { ...taskOption, taskStatus: 'SUBMITTED' as FrontlinePqcTaskStatus }
+      ? { ...taskOption, returnedSubmission: undefined, taskStatus: 'SUBMITTED' as FrontlinePqcTaskStatus, currentReviewStatus: 'PENDING' as const }
       : taskOption
   )
   const countStatus = (status: FrontlinePqcTaskStatus) =>
@@ -4460,7 +5164,7 @@ const resetPqcSubmissionDraft = (submittedPqcTaskId?: number) => {
 }
 
 const handleResetPqc = () => {
-  if (pqcSubmitResultUncertain.value) {
+  if (pqcSelectedTaskReadonly.value || pqcSubmitResultUncertain.value) {
     return
   }
   resetPqcSubmissionDraft()
@@ -4491,7 +5195,7 @@ const parseCssPixelValue = (value: string) => {
 
 const resolveProductionViewportScale = () => {
   const panel = frontlinePanelRef.value
-  if (!panel || isPqcMode.value) {
+  if (!panel) {
     return 1
   }
   const rect = panel.getBoundingClientRect()
@@ -4501,13 +5205,15 @@ const resolveProductionViewportScale = () => {
     rect.width - parseCssPixelValue(style.paddingLeft) - parseCssPixelValue(style.paddingRight)
   )
   const widthScale = availableWidth / PRODUCTION_CANVAS_WIDTH
-  const fullscreenHeightScale = isProductionFullscreen.value
+  // 两种填写模式都扣除导航区域，保证底部操作完整留在当前视口。
+  const availableHeight = isProductionFullscreen.value || isPqcFullscreen.value
     ? Math.max(
       0,
       rect.height - parseCssPixelValue(style.paddingTop) - parseCssPixelValue(style.paddingBottom)
-    ) / PRODUCTION_CANVAS_HEIGHT
-    : 1
-  const nextScale = Math.min(1, widthScale, fullscreenHeightScale)
+    )
+    : Math.max(0, window.innerHeight - Math.max(0, rect.top) - parseCssPixelValue(style.paddingBottom))
+  const heightScale = availableHeight / PRODUCTION_CANVAS_HEIGHT
+  const nextScale = Math.min(1, widthScale, heightScale)
   if (!Number.isFinite(nextScale) || nextScale <= 0) {
     return 1
   }
@@ -4519,10 +5225,6 @@ const updateProductionViewportScale = () => {
 }
 
 const scheduleProductionViewportScaleUpdate = () => {
-  if (isPqcMode.value) {
-    productionViewportScale.value = 1
-    return
-  }
   if (productionViewportScaleFrame !== undefined) {
     window.cancelAnimationFrame(productionViewportScaleFrame)
   }
@@ -4771,14 +5473,17 @@ const handleSelectActiveOrder = async (
     }
     return
   }
+  clearFrontlineError()
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
   selectedPqcInspectionRuleKey.value = undefined
+  selectedPqcPatrolRound.value = undefined
   clearPqcExecutionSelection()
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
   try {
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, activeOrder.activeOrderId)
     processes = await selectFrontlinePqcActiveOrder(
       deviceState,
       activeOrder,
@@ -4821,7 +5526,7 @@ const handleSelectProcess = async (
     isPqcMode.value &&
     isFrontlinePqcProcess(process) &&
     selectedRuleKey &&
-    !hasExecutablePqcTaskForRule(process, selectedRuleKey)
+    !hasBrowsablePqcTaskForRule(process, selectedRuleKey)
   ) {
     showFrontlineError(`当前工序没有可执行的${PQC_INSPECTION_RULE_LABELS[selectedRuleKey]}任务。`)
     return
@@ -4854,6 +5559,11 @@ const handleSelectProcess = async (
     context.workOrderId = undefined
   }
   if (isPqcMode.value) {
+    if (isFrontlinePqcProcess(selectedProcess)) {
+      for (const option of getBrowsablePqcTaskOptions(selectedProcess)) {
+        if (option.returnedSubmission) hydrateReturnedPqcTask(option)
+      }
+    }
     applyPqcTaskSnapshotToDraft(selectedProcess)
   }
   employeeTemplateCode.value = undefined
@@ -4901,6 +5611,10 @@ const handleNavigatePqcProcess = async (direction: -1 | 1) => {
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
     showFrontlineError('一线PQC员工必须使用当前登录账号。')
+    return
+  }
+  if (isPqcMode.value && pqcSelectedTaskReadonly.value) {
+    deviceState.selectedEmployee = employee
     return
   }
   const shouldClosePickerImmediately = !isPqcMode.value
@@ -4997,49 +5711,11 @@ const resolveProductionLossQuantity = (materialDetails: ProFrontlineFeedbackMate
 const buildProductionFormalSubmitConfirmation = (
   materialDetails: ProFrontlineFeedbackMaterialReqVO[] = buildProductionMaterialDetailsPayload()
 ) => {
-  const progressQuantity = resolveProductionProgressQuantity(materialDetails)
-  const selectedDevices = buildProductionSelectedDevicesForSubmitScope(materialDetails)
-  const deviceParameterReadings = buildProductionParameterReadingsForSubmitScope(materialDetails)
-  const materialSummary = configuredProductionMaterials.value
-    .flatMap((material) => {
-      const detail = materialDetails.find((item) => item.materialId === material.materialId)
-      if (!detail) {
-        return []
-      }
-      return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
-    })
-    .join('；') || '无批记录物料'
-  const deviceSummary = selectedDevices
-    .map((device) => device.deviceCode || device.deviceName || String(device.deviceId))
-    .join('、') || '无设备'
-  const parameterSummary = deviceParameterReadings.map((reading) => {
-    const value = reading.textValue ?? reading.value ?? ''
-    const statusLabel = reading.parameterStatus && reading.parameterStatus !== 'NORMAL'
-      ? '（参数异常）'
-      : ''
-    return `${reading.deviceCode || reading.deviceName || reading.deviceId}/${reading.parameterName || reading.parameterCode}=${value}${reading.unit || ''}${statusLabel}`
-  }).join('、')
   const totalCompletionQuantity = materialDetails.length > 0
     ? materialDetails.reduce((total, material) => total + material.outputQuantity, 0)
-    : progressQuantity
+    : resolveProductionProgressQuantity(materialDetails)
   const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
-  const clearanceSummary = buildProductionClearanceConfirmationPayload()
-    .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
-    .join('、')
-  return [
-    `生产订单：${productionOrderLabel.value}`,
-    `工序：${selectedProcessLabel.value}`,
-    `实际员工：${selectedEmployeeLabel.value}`,
-    `物料：${materialSummary}`,
-    `工序进度：${progressQuantity}件`,
-    `完成数量合计：${totalCompletionQuantity}件`,
-    `损耗数量合计：${totalLossQuantity}件`,
-    '完成数量为合格产出，损耗另计。',
-    `设备：${deviceSummary}`,
-    `设备参数：${parameterSummary || (selectedDevices.length ? '无数值参数' : '无设备参数')}`,
-    `清场确认：${clearanceSummary}`,
-    '正式提交后不可修改，请核对无误后确认。'
-  ].join('；')
+  return `完成${totalCompletionQuantity}个，损耗${totalLossQuantity}个`
 }
 
 const clearProductionFormalSubmitConfirmation = () => {
@@ -5081,7 +5757,7 @@ const confirmProductionFormalSubmitConfirmation = () => {
     return
   }
   if (!productionSignaturePassword.value.trim()) {
-    showFrontlineError('请输入所选员工的电子签名密码。')
+    showFrontlineError('请输入所选员工的电子签名凭据（PIN 码或密码）。')
     return
   }
   resolveProductionFormalSubmitConfirmation(true)
@@ -5188,6 +5864,7 @@ const handleProductionFormalSubmit = async () => {
         productionSignaturePassword.value = ''
       }
     })()
+    formalPayload.quantityDraftId = quantityDraftId.value
 
     if (!productionSubmitReceipts.begin(key)) return
     writeStarted = true
@@ -5195,12 +5872,27 @@ const handleProductionFormalSubmit = async () => {
     payloadLoading.value = true
     const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', formalPayload.processPoolContext.activeOrderId)
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvent.session.key) })
-    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (submitResult.submissionStatus === 'QUANTITY_BLOCKED') {
+      if (!isCurrent()) return
+      quantityDraftId.value = submitResult.quantityDraftId
+      quantityDraftMessage.value = submitResult.quantityBlockMessage || '本次填写已拦截，请生产组长核对处理后重新提交。'
+      showFrontlineError(quantityDraftMessage.value)
+      return
+    }
+    if (submitResult.submissionStatus !== 'SUBMITTED' || !submitResult.processPoolEventId) {
+      throw new Error('生产提交未返回有效正式回执，请核对后再操作。')
+    }
     writeSucceeded = true
-    const finish = () => {
+    // 只在正式提交成功后保存；刷新工序可能重建草稿，必须先记住本次设备与参数。
+    if (isCurrent()) {
       try { rememberProductionMaterialDeviceDrafts(materialDetails) }
       catch (memoryError) { message.warning(`报工已成功，但默认设备和参数记忆保存失败：${resolveErrorMessage(memoryError)}`) }
+    }
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    const finish = () => {
       resetProductionSubmissionDraft()
+      quantityDraftId.value = undefined
+      quantityDraftMessage.value = ''
       openProductionSubmitSuccessDialog()
       showParameterAuditWarning(submitResult)
       clearFrontlineError()
@@ -5222,11 +5914,15 @@ const handleProductionFormalSubmit = async () => {
 }
 
 const assertPqcSignatureAndQuantityReady = (requirePassword = false) => {
+  assertPqcInspectionWithinOrderQuantity(pqcInspectionQuantity.value)
   if (pqcInspectionQuantity.value <= 0) {
     throw new Error('PQC检验数量必须大于0。')
   }
+  if (normalizePqcQuantity(pqcDraft.scrapQuantity) > pqcInspectionQuantity.value) {
+    throw new Error('损耗数量不能大于检验数量。')
+  }
   if (requirePassword && !pqcSignaturePassword.value.trim()) {
-    throw new Error('请输入所选员工的电子签名密码。')
+    throw new Error('请输入所选员工的电子签名凭据（PIN 码或密码）。')
   }
 }
 
@@ -5247,6 +5943,9 @@ const switchPqcCurrentLoginEmployeeForActiveTask = async () => {
 }
 
 const assertPqcFormalSubmissionReady = () => {
+  if (pqcPatrolRoundCreating.value) {
+    throw new Error('巡检正在创建，请稍后再提交。')
+  }
   if (deviceState.loadingEmployees || deviceState.loadingTemplate) {
     throw new Error('PQC人员和任务正在切换，请稍后再提交。')
   }
@@ -5260,6 +5959,7 @@ const assertPqcFormalSubmissionReady = () => {
 }
 
 const handleValidate = async () => {
+  if (payloadLoading.value) return
   if (hasReturnNotification.value) {
     showFrontlineError('退回通知仅允许更正原任务，禁止普通填写提交。')
     return
@@ -5303,7 +6003,22 @@ const handleValidate = async () => {
   Object.assign(draft.fieldValues, buildPqcFieldValues())
   payloadPreview.value = undefined
   pqcSignaturePassword.value = ''
-  pqcSignatureDialogVisible.value = true
+  pqcSignatureCredentialType.value = undefined
+  const isCurrent = pqcSubmitGuard.capture()
+  payloadLoading.value = true
+  try {
+    const settings = await getSignatureSettings()
+    if (!isCurrent()) return
+    if (settings.credentialType !== 'PIN' && settings.credentialType !== 'PASSWORD') {
+      throw new Error('签名方式缺失或无效，请联系管理员核对签名设置。')
+    }
+    pqcSignatureCredentialType.value = settings.credentialType
+    pqcSignatureDialogVisible.value = true
+  } catch (error) {
+    if (isCurrent()) showFrontlineError(error)
+  } finally {
+    if (isCurrent()) payloadLoading.value = false
+  }
 }
 
 const closePqcSignatureDialog = () => {
@@ -5349,6 +6064,15 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (
   return true
 }
 
+const handlePqcSignatureCredentialUpdate = (value: string) => {
+  if (!pqcSignatureDialogVisible.value || payloadLoading.value) return
+  const previous = pqcSignaturePassword.value
+  pqcSignaturePassword.value = value
+  if (pqcSignatureCredentialType.value === 'PIN' && /^[0-9]{6}$/.test(value) && value !== previous) {
+    return handleConfirmPqcSubmit()
+  }
+}
+
 const handleConfirmPqcSubmit = async () => {
   if (hasReturnNotification.value) {
     showFrontlineError('退回通知仅允许更正原任务，禁止普通PQC提交。')
@@ -5359,8 +6083,16 @@ const handleConfirmPqcSubmit = async () => {
     return
   }
   if (payloadLoading.value || pqcSubmitResultUncertain.value) return
+  if (!pqcSignatureCredentialType.value) {
+    showFrontlineError('请重新打开电子签名窗口，读取本人的签名方式。')
+    return
+  }
+  if (pqcSignatureCredentialType.value === 'PIN' && !/^[0-9]{6}$/.test(pqcSignaturePassword.value)) {
+    showFrontlineError('当前签名方式为 PIN，请输入本人六位数字 PIN 码。')
+    return
+  }
   if (!pqcSignaturePassword.value.trim()) {
-    showFrontlineError('请输入所选员工的电子签名密码。')
+    showFrontlineError('请输入所选员工的电子签名凭据（PIN 码或密码）。')
     return
   }
   const isCurrent = pqcSubmitGuard.capture()
@@ -5391,7 +6123,7 @@ const handleConfirmPqcSubmit = async () => {
   pqcActionInProgress.value = true
   payloadLoading.value = true
   try {
-    const submitReceipts: FrontlinePqcInspectionSubmitRespVO[] = []
+    const submitReceipts: Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>[] = []
     for (let index = 0; index < submitPayloads.length; index++) {
       if (!isCurrent()) return
       const submitPayload = submitPayloads[index]
@@ -5402,7 +6134,18 @@ const handleConfirmPqcSubmit = async () => {
         continue
       }
       try {
-        const submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(submitPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvents[index].session.key) })
+        const task = isFrontlinePqcProcess(deviceState.selectedProcess)
+          ? deviceState.selectedProcess.pqcTaskOptions.find(option => option.pqcTaskId === submitPayload.pqcTaskId)
+          : undefined
+        const returned = task?.returnedSubmission
+        const options = { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvents[index].session.key) }
+        let submitReceipt: Pick<FrontlinePqcInspectionSubmitRespVO, 'pqcEventId'>
+        if (returned) {
+          const corrected = await submitReturnedPqcInspection(returned, submitPayload, options)
+          submitReceipt = { pqcEventId: corrected.eventId }
+        } else {
+          submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(submitPayload, options)
+        }
         pqcMethodReceipts.set(methodKey, submitReceipt)
         approvalInvalidation.publishEdhrSuccess(approvalEvents[index])
         if (!isCurrent()) return
@@ -5425,6 +6168,28 @@ const handleConfirmPqcSubmit = async () => {
         : `PQC正式提交成功，事件编号 ${eventIds}`
     )
     resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
+    const orderId = submitPayloads[0].activeOrderId
+    const selectedProcess = deviceState.selectedProcess
+    try {
+      const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId ||
+          deviceState.selectedProcess !== selectedProcess) return
+      deviceState.processOptions = processes
+      if (isFrontlinePqcProcess(selectedProcess)) {
+        const refreshedProcess = processes.find(process =>
+          process.regulationVersionId === selectedProcess.regulationVersionId &&
+          process.qaProcessId === selectedProcess.qaProcessId)
+        if (!refreshedProcess) throw new Error('刷新后缺少原PQC工序')
+        await handleSelectProcess(refreshedProcess)
+      }
+      if (route.query.returnTaskId !== undefined && route.query.handoffType === 'PQC_RETURN') {
+        await router.replace({ path: route.path, query: {} })
+      }
+    } catch (error) {
+      if (deviceState.selectedActiveOrder?.activeOrderId === orderId) {
+        showFrontlineError(`提交已成功，但已提交数据刷新失败：${resolveErrorMessage(error)}。请刷新订单后查看。`)
+      }
+    }
   } catch (error) {
     if (isCurrent() && !pqcSubmitResultUncertain.value) showFrontlineError(error)
   } finally {
@@ -5527,42 +6292,42 @@ const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSub
   const selectedEmployee = deviceState.selectedEmployee
   const snapshotContext = deviceState.runtimeConfig?.productionSubmitContext
   if (!isFrontlineProductionProcess(selectedProcess)) {
-    throw new Error('当前提交快照缺少正式生产工序，无法提交。')
+    throw new Error('尚未获取到当前生产工序，无法提交。请重新选择活跃订单和工序。')
   }
   if (!snapshotContext) {
-    throw new Error('当前提交快照缺少正式运行配置，无法提交。')
+    throw new Error('当前工序的生产配置未加载完整，无法提交。请重新进入工序。')
   }
   if (
     formalContext.routeId !== selectedProcess.routeId ||
     formalContext.routeProcessId !== selectedProcess.routeProcessId ||
     formalContext.processId !== selectedProcess.processId
   ) {
-    throw new Error('当前提交快照与所选工序不一致，请重新选择活跃订单或工序。')
+    throw new Error('提交信息与当前所选工序不一致，请重新选择活跃订单或工序后提交。')
   }
   if (
     snapshotContext.routeId !== formalContext.routeId ||
     snapshotContext.routeProcessId !== formalContext.routeProcessId ||
     snapshotContext.processId !== formalContext.processId
   ) {
-    throw new Error('当前提交快照与运行配置不一致，请刷新后重试。')
+    throw new Error('工序配置与本次提交信息不一致，请刷新页面并核对后重新提交。')
   }
   if (!selectedEmployee || selectedEmployee.userId !== formalContext.signatureEmployeeId) {
-    throw new Error('当前提交快照与所选员工不一致，请重新选择员工。')
+    throw new Error('提交信息与当前所选员工不一致，请重新选择员工。')
   }
   if (!formalContext.frontlineSessionSnapshotId || !formalContext.frontlineSessionSnapshotHash) {
-    throw new Error('缺少一线生产会话快照，无法提交。')
+    throw new Error('本次生产填写所需的会话信息不完整，无法提交。请重新进入工序；仍有问题时，请联系管理员。')
   }
   if (
     snapshotContext.parameterSnapshotState === 'FROZEN' &&
     (!snapshotContext.deviceSelectionSnapshotJson || !snapshotContext.deviceSelectionSnapshotSha256)
   ) {
-    throw new Error('当前提交快照缺少设备选择快照，请重新进入工序。')
+    throw new Error('本次填写缺少设备确认信息，请重新进入工序并确认设备。')
   }
   if (
     snapshotContext.parameterSnapshotState === 'FROZEN' &&
     (!formalContext.productionConfigSnapshotJson || !formalContext.productionConfigSnapshotSha256)
   ) {
-    throw new Error('当前提交快照缺少生产配置快照，请重置活跃订单后重新进入工序。')
+    throw new Error('本次填写的生产配置不完整，请重置活跃订单后重新进入工序。')
   }
 }
 
@@ -5626,7 +6391,7 @@ const buildFrontlineFormalSubmitPayload = (
   assertFrontlineFormalSubmitContext(formalContext)
   const signaturePassword = productionSignaturePassword.value.trim()
   if (!signaturePassword) {
-    throw new Error('请输入所选员工的电子签名密码。')
+    throw new Error('请输入所选员工的电子签名凭据（PIN 码或密码）。')
   }
   const progressQuantity = resolveProductionProgressQuantity(materialDetails)
   const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
@@ -5916,7 +6681,7 @@ const buildProductionDeviceParameterReadingsFromDraft = (
         }
         if (isBooleanParameter(parameter)) {
           if (typeof value !== 'boolean') {
-            throw new Error(`BOOLEAN 设备参数值无效：${parameter.parameterCode}`)
+            throw new Error(`设备参数“${parameter.parameterCode}”的值无效，请检查是/否选项。`)
           }
           const booleanValue = value
           return {
@@ -6146,6 +6911,10 @@ const buildPqcInspectionSubmitPayloadForTask = (
   }
   assertPqcSubmissionSampleQuantitiesForTask(taskOption)
   const taskDraft = getPqcTaskDraft(taskOption)
+  assertPqcInspectionWithinOrderQuantity(getPqcInspectionQuantityForTask(taskOption))
+  if (normalizePqcQuantity(taskDraft.scrapQuantity) > getPqcInspectionQuantityForTask(taskOption)) {
+    throw new Error('损耗数量不能大于检验数量。')
+  }
   const inspectionResult = resolvePqcResultForTask(taskOption)
   const itemResults = buildPqcItemResultsPayload(taskOption)
   const pqcItemDetails = buildPqcItemDetailsPayload(taskOption)
@@ -6430,6 +7199,7 @@ const nextPqcProcess = computed(() => {
 const isPqcProcessNavigationBlocked = computed(() =>
   !isPqcMode.value ||
   frontlineInitializing.value ||
+  pqcPatrolRoundCreating.value ||
   payloadLoading.value ||
   pqcSignatureDialogVisible.value ||
   pqcSubmitResultUncertain.value ||
@@ -6480,13 +7250,9 @@ const formatPqcLoginEmployeeLabel = (employee?: FrontlineEmployeeCandidateVO) =>
     return '未选择'
   }
   if (isCurrentLoginEmployee(employee)) {
-    const username = userStore.getUser?.username?.trim()
-    if (username) {
-      return username
-    }
-    return '未选择'
+    return userStore.getUser?.nickname?.trim() || '未设置姓名'
   }
-  return formatEmployeeLabel(employee)
+  return employee.nickname?.trim() || '未设置姓名'
 }
 
 const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
@@ -6523,11 +7289,29 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
   }
   pqcActiveOrderRefreshPromise = (async () => {
     if (hasInitialHandoffQuery.value) { await initializeInitialHandoffSelection(); return }
+    if (route.query.returnTaskId !== undefined) { await initializePqcReturnedSelection(); return }
     const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+    if (deviceState.selectedActiveOrder && !payloadLoading.value && !pqcActionInProgress.value) {
+      const selected = deviceState.selectedProcess
+      const orderId = deviceState.selectedActiveOrder.activeOrderId
+      const processes = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+      if (deviceState.selectedActiveOrder?.activeOrderId !== orderId || deviceState.selectedProcess !== selected) return
+      if (isFrontlinePqcProcess(selected)) {
+        const refreshed = processes.find(process => process.regulationVersionId === selected.regulationVersionId && process.qaProcessId === selected.qaProcessId)
+        const rounds = (process: FrontlinePqcProcessVO) => JSON.stringify(process.pqcTaskOptions.map(task => [task.pqcTaskId, task.taskStatus, task.returnedSubmission?.row.rejectedReviewId]))
+        if (refreshed && rounds(refreshed) !== rounds(selected)) {
+          clearPqcLocalTaskData(refreshed.pqcTaskOptions.map(task => task.pqcTaskId))
+          deviceState.processOptions = processes
+          await handleSelectProcess(refreshed)
+        }
+      }
+    }
     if (!deviceState.selectedActiveOrder) {
-      const initialActiveOrder = activeOrders[0]
+      const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
       if (initialActiveOrder) {
         await handleSelectActiveOrder(initialActiveOrder)
+      } else if (activeOrders.length) {
+        deviceState.lastError = activeOrders[0].readBlockReason
       }
     }
   })()
@@ -6536,6 +7320,35 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
   } finally {
     pqcActiveOrderRefreshPromise = undefined
   }
+}
+
+const initializePqcReturnedSelection = async () => {
+  const epoch = ++initialHandoffEpoch
+  deviceState.selectedActiveOrder = undefined
+  deviceState.selectedProcess = undefined
+  clearPqcExecutionSelection()
+  const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+  if (epoch !== initialHandoffEpoch) return
+  const order = activeOrders.find(candidate => String(candidate.activeOrderId) === String(route.query.activeOrderId))
+  if (!order || order.readBlocked) throw new Error('原退回检验订单不可填写，请重新打开订单。')
+  const processes = await ProFeedbackApi.getPqcProcesses(order.activeOrderId, currentLoginUserId.value)
+  if (epoch !== initialHandoffEpoch) return
+  const matches = processes.flatMap(process =>
+    process.pqcTaskOptions.filter(option => option.returnedSubmission &&
+      option.returnedSubmission.row.returnTaskId === route.query.returnTaskId &&
+      String(option.returnedSubmission.row.eventId) === String(route.query.eventId) &&
+      String(option.returnedSubmission.row.rejectedReviewId) === String(route.query.rejectedReviewId)
+    ).map(option => ({ process, option })))
+  if (matches.length !== 1) throw new Error('原检验已重新提交或退回轮次已变化，请从一线PQC打开订单查看。')
+  const { process, option } = matches[0]
+  invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
+  await handleSelectActiveOrder(order)
+  if (epoch !== initialHandoffEpoch) return
+  selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
+  if (option.inspectionType === 'PATROL') selectedPqcPatrolRound.value = option.roundNo
+  await handleSelectProcess(process)
+  if (epoch !== initialHandoffEpoch) return
+  applyPqcTaskOptionToDraft(option)
 }
 
 const isolateOwnReturnNotification = () => {
@@ -6637,6 +7450,10 @@ const initializeInitialHandoffSelection = async () => {
 watch(() => JSON.stringify(route.query), async () => {
   if (!initialHandoffPageMounted) return
   if (hasReturnNotification.value) { isolateOwnReturnNotification(); return }
+  if (isPqcMode.value && route.query.returnTaskId !== undefined) {
+    try { await initializePqcReturnedSelection() } catch (error) { showFrontlineError(error) }
+    return
+  }
   if (hasInitialHandoffQuery.value) await initializeInitialHandoffSelection()
   else { ++initialHandoffEpoch; initialHandoffTask.value = undefined; initialHandoffLoading.value = false; initialHandoffInvalid.value = false }
 })
@@ -6654,14 +7471,12 @@ onMounted(async () => {
   window.addEventListener('resize', scheduleProductionViewportScaleUpdate)
   window.addEventListener('focus', handlePqcForegroundRefresh)
   try {
-    if (!isPqcMode.value) {
-      if (typeof ResizeObserver !== 'function') {
-        throw new Error('当前浏览器不支持一线生产填写页面缩放观察。')
-      }
-      productionViewportResizeObserver = new ResizeObserver(scheduleProductionViewportScaleUpdate)
-      if (frontlinePanelRef.value) {
-        productionViewportResizeObserver.observe(frontlinePanelRef.value)
-      }
+    if (typeof ResizeObserver !== 'function') {
+      throw new Error('当前浏览器不支持一线填写页面缩放观察。')
+    }
+    productionViewportResizeObserver = new ResizeObserver(scheduleProductionViewportScaleUpdate)
+    if (frontlinePanelRef.value) {
+      productionViewportResizeObserver.observe(frontlinePanelRef.value)
     }
     syncPqcFullscreenState()
     initialHandoffPageMounted = true
@@ -6691,6 +7506,8 @@ onMounted(async () => {
     catalog.value = loadedCatalog
     Object.assign(draft.fieldValues, buildProductionFieldValues())
   } catch (error) {
+    // Catalog failures occur before the order query; keep them visible in the order picker.
+    if (isPqcMode.value) deviceState.lastError = resolveErrorMessage(error)
     showFrontlineError(error)
   } finally {
     frontlineInitializing.value = false
@@ -6698,6 +7515,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  releaseProductionSopPreview()
   ++initialHandoffEpoch; initialHandoffPageMounted = false
   resolveProductionFormalSubmitConfirmation(false)
   closeProductionSubmitSuccessDialog()
@@ -6717,3112 +7535,25 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.frontline-return-actions { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.frontline-return-actions > button { flex: 1; min-height: 40px; width: 100%; }
-.frontline-return-button { border: 1px solid #334155; border-radius: 8px; background: #fff; color: #1e293b; font-size: 18px; font-weight: 600; cursor: pointer; }
-.frontline-production-stage .frontline-return-actions > button {
-  font-size: var(--frontline-production-return-action-font-size);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.frontline-operator-panel {
-  --frontline-bg: #eef3ef;
-  --frontline-panel: #ffffff;
-  --frontline-ink: #111a15;
-  --frontline-muted: #5b665f;
-  --frontline-line: #cbd6ce;
-  --frontline-dark: #24322b;
-  position: relative;
-}
-
-.frontline-operator-panel.is-production-mode {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  min-height: calc(100vh - 96px);
-  margin: 0;
-  padding: 24px 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: #dfe8e2;
-  color: #111a15;
-  font-family:
-    "Microsoft YaHei UI",
-    "PingFang SC",
-    "Noto Sans CJK SC",
-    sans-serif;
-}
-
-.frontline-operator-screen,
-.frontline-operator-screen * {
-  box-sizing: border-box;
-}
-
-.frontline-production-stage {
-  position: relative;
-  width: 1920px;
-  height: 1080px;
-  max-width: 100%;
-  flex: 0 0 auto;
-}
-
-.frontline-operator-screen {
-  --frontline-bg: #eef3ef;
-  --frontline-panel: #ffffff;
-  --frontline-ink: #111a15;
-  --frontline-muted: #5b665f;
-  --frontline-line: #cbd6ce;
-  --frontline-dark: #24322b;
-  display: grid;
-  width: 1920px;
-  height: 1080px;
-  box-sizing: border-box;
-  grid-template-rows: minmax(130px, auto) minmax(0, 1fr);
-  gap: 20px;
-  padding: 28px;
-  overflow: hidden;
-  position: relative;
-  background: var(--frontline-bg);
-  color: var(--frontline-ink);
-  font-family:
-    "Microsoft YaHei UI",
-    "PingFang SC",
-    "Noto Sans CJK SC",
-    sans-serif;
-
-  &.is-pqc {
-    position: relative;
-    width: auto;
-    height: auto;
-    grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
-    min-height: 820px;
-  }
-}
-
-.frontline-production-stage .frontline-operator-screen {
-  position: absolute;
-  inset: 0;
-  transform: scale(var(--frontline-production-scale, 1));
-  transform-origin: top left;
-}
-
-.frontline-operator-screen button,
-.frontline-operator-screen input {
-  font: inherit;
-}
-
-.frontline-operator-screen:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  min-height: 100vh;
-  box-sizing: border-box;
-  border-radius: 0;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen,
-.frontline-operator-panel:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  margin: 0;
-  padding: 12px 16px;
-  box-sizing: border-box;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.76), transparent 28%),
-    linear-gradient(135deg, #eef3ef 0%, #e1ebe4 100%);
-}
-
-.frontline-operator-panel.is-production-fullscreen,
-.frontline-operator-panel.is-production-mode:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  background: #dfe8e2;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc,
-.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc {
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
-  border-radius: 18px;
-  box-shadow: 0 18px 46px rgba(36, 50, 43, 0.12);
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
-.frontline-operator-panel:fullscreen .frontline-operator-top.is-pqc {
-  grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
-  gap: 12px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
-.frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
-  grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.92fr);
-  grid-template-rows: minmax(0, 1fr) 112px;
-  gap: 18px 22px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card,
-.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-top-card {
-  padding: 14px 16px;
-
-  span {
-    font-size: 16px;
-  }
-
-  strong {
-    margin-top: 6px;
-    font-size: 22px;
-  }
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-home-button,
-.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-home-button {
-  font-size: 56px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-fill-panel,
-.frontline-operator-panel:fullscreen .frontline-pqc-fill-panel {
-  padding: 26px 20px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-rule-panel,
-.frontline-operator-panel:fullscreen .frontline-pqc-rule-panel {
-  padding: 20px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-number-field,
-.frontline-operator-panel:fullscreen .frontline-pqc-number-field {
-  grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
-  gap: 8px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-bar,
-.frontline-operator-panel:fullscreen .frontline-pqc-submit-bar {
-  grid-template-columns: 280px 360px minmax(0, 1fr);
-  gap: 24px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-reset-button,
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-button,
-.frontline-operator-panel:fullscreen .frontline-pqc-reset-button,
-.frontline-operator-panel:fullscreen .frontline-pqc-submit-button {
-  border-radius: 28px;
-  font-size: 50px;
-}
-
-.frontline-operator-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr) 240px;
-  gap: 20px;
-
-  &.is-pqc {
-    grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
-    gap: 12px;
-  }
-}
-
-.frontline-top-card,
-.frontline-home-button {
-  min-width: 0;
-  border: 3px solid var(--frontline-line);
-  border-radius: 22px;
-  font: inherit;
-}
-
-.frontline-top-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 22px 26px;
-  background: var(--frontline-panel);
-  text-align: left;
-  cursor: pointer;
-
-  span {
-    color: var(--frontline-muted);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .top-label {
-    color: var(--frontline-muted);
-    font-size: 28px;
-    font-weight: 700;
-  }
-
-  strong,
-  .top-value {
-    min-width: 0;
-    margin-top: 12px;
-    overflow: hidden;
-    font-size: 42px;
-    font-weight: 900;
-    line-height: 1.1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.frontline-production-selection-card[data-frontline-production-active-order-card] {
-  padding: 14px 22px;
-}
-
-.frontline-production-employee-card {
-  padding: 18px 20px;
-}
-
-.frontline-production-order-summary {
-  --frontline-production-order-summary-line-height: 30px;
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.35fr);
-  align-items: center;
-  max-height: calc(var(--frontline-production-order-summary-line-height) * 3 + 4px);
-  gap: 12px;
-  align-content: center;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.frontline-production-order-summary .frontline-production-order-summary__value {
-  display: block;
-  min-width: 0;
-  overflow: visible;
-  color: var(--frontline-ink);
-  font-size: 28px;
-  font-weight: 900;
-  line-height: var(--frontline-production-order-summary-line-height);
-  text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.frontline-production-order-quantity {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  color: var(--frontline-ink);
-  font-size: 42px;
-  font-weight: 900;
-  line-height: 1.1;
-  white-space: nowrap;
-  word-break: normal;
-}
-
-.frontline-top-card.is-login-employee {
-  cursor: default;
-  opacity: 1;
-}
-
-.frontline-production-process-nav-card {
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 140px;
-  align-items: stretch;
-  gap: 12px;
-  padding: 14px 16px;
-  cursor: default;
-}
-
-.frontline-pqc-process-nav-card {
-  grid-template-columns: 72px minmax(0, 1fr) 72px;
-  gap: 10px;
-  padding: 10px 12px;
-}
-
-.frontline-production-process-current {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-}
-
-.frontline-production-process-submitted {
-  display: flex;
-  max-width: 100%;
-  align-items: baseline;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.frontline-production-process-submitted span {
-  color: var(--frontline-muted);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.frontline-production-process-submitted strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--frontline-ink);
-  font-size: 28px;
-  font-weight: 900;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.frontline-production-process-nav-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  padding: 0 10px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 22px;
-  background: var(--frontline-panel);
-  color: var(--frontline-ink);
-  font: inherit;
-  font-size: 112px;
-  font-weight: 900;
-  text-align: center;
-  cursor: pointer;
-}
-
-.frontline-production-process-nav-icon {
-  position: relative;
-  display: block;
-  width: 78px;
-  height: 46px;
-  color: currentColor;
-}
-
-.frontline-production-process-nav-icon::before {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  left: 10px;
-  height: 14px;
-  border-radius: 999px;
-  background: currentColor;
-  content: '';
-  transform: translateY(-50%);
-}
-
-.frontline-production-process-nav-icon::after {
-  position: absolute;
-  top: 50%;
-  left: 4px;
-  width: 34px;
-  height: 34px;
-  border-left: 14px solid currentColor;
-  border-bottom: 14px solid currentColor;
-  content: '';
-  transform: translateY(-50%) rotate(45deg);
-  transform-origin: center;
-}
-
-.frontline-production-process-nav-icon.is-next {
-  transform: scaleX(-1);
-}
-
-.frontline-pqc-process-nav-card .frontline-production-process-nav-button {
-  padding: 0 4px;
-  border-radius: 16px;
-}
-
-.frontline-pqc-process-nav-card .frontline-production-process-nav-icon {
-  width: 48px;
-  height: 30px;
-}
-
-.frontline-pqc-process-nav-card .frontline-production-process-nav-icon::before {
-  right: 4px;
-  left: 8px;
-  height: 9px;
-}
-
-.frontline-pqc-process-nav-card .frontline-production-process-nav-icon::after {
-  left: 4px;
-  width: 22px;
-  height: 22px;
-  border-left: 9px solid currentColor;
-  border-bottom: 9px solid currentColor;
-}
-
-.frontline-production-process-current:disabled,
-.frontline-production-process-nav-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.46;
-}
-
-.frontline-operator-top.is-pqc {
-  .frontline-top-card {
-    padding: 14px 16px;
-
-    span {
-      font-size: 18px;
-      font-weight: 800;
-    }
-
-    strong {
-      margin-top: 6px;
-      overflow: visible;
-      font-size: 26px;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
-  }
-
-  .frontline-home-button {
-    font-size: 30px;
-  }
-}
-
-.frontline-pqc-production-process-card {
-  cursor: default;
-
-  select {
-    width: 100%;
-    min-height: 48px;
-    margin-top: 6px;
-    padding: 6px 10px;
-    border: 2px solid var(--frontline-line);
-    border-radius: 8px;
-    background: var(--frontline-panel);
-    color: inherit;
-    font: inherit;
-    font-size: 18px;
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.65;
-    }
-  }
-
-  [role='alert'],
-  [role='status'] {
-    margin-top: 6px;
-    font-size: 14px !important;
-  }
-}
-
-.frontline-top-card--order-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(112px, auto);
-  gap: 14px;
-  align-items: stretch;
-  padding: 14px 16px;
-}
-
-.frontline-order-summary__field {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  padding-left: 14px;
-  border-left: 2px solid var(--frontline-line);
-
-  &.is-order {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-.frontline-order-summary__value {
-  margin-top: 6px !important;
-  overflow: visible !important;
-  font-size: 22px !important;
-  line-height: 1.15 !important;
-  text-overflow: clip !important;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
-
-  &.is-order {
-    font-size: 24px !important;
-  }
-}
-
-.frontline-home-button {
-  background: var(--frontline-dark);
-  color: #ffffff;
-  font-size: 42px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.frontline-operator-main {
-  display: grid;
-  grid-template-columns: 1050px 1fr;
-  gap: 28px;
-  min-height: 0;
-
-  &.is-pqc {
-    grid-template-columns: minmax(620px, 1.28fr) minmax(500px, 0.92fr);
-    grid-template-rows: minmax(0, 1fr) 104px;
-    gap: 22px 24px;
-  }
-}
-
-.frontline-production-main {
-  grid-template-rows: minmax(0, 1fr) 126px;
-  column-gap: 28px;
-  row-gap: 20px;
-}
-
-.frontline-work-panel {
-  display: grid;
-  align-content: start;
-  gap: 22px;
-  min-width: 0;
-  padding: 26px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-
-  h3,
-  .panel-title {
-    margin: 0;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-  }
-}
-
-.frontline-production-quantity-panel {
-  grid-column: 1;
-  grid-row: 1;
-  align-content: stretch;
-  grid-template-rows: auto auto minmax(min-content, 1fr) auto auto;
-  gap: 16px;
-}
-
-.frontline-production-material-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, 72px);
-  grid-auto-rows: 72px;
-  gap: 10px 12px;
-  max-height: calc(72px * 2 + 10px);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.frontline-production-material-tab {
-  display: grid;
-  align-content: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 72px;
-  padding: 6px 8px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 12px;
-  background: #eef1ef;
-  color: var(--frontline-ink);
-  cursor: pointer;
-
-  strong,
-  small {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    letter-spacing: 0;
-  }
-
-  strong {
-    font-size: 24px;
-    line-height: 1.1;
-  }
-
-  small {
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1.1;
-  }
-
-  &.is-selected {
-    border-color: #111915;
-    box-shadow: inset 0 0 0 2px #ffffff;
-  }
-
-  &.is-complete {
-    border-color: #116b4e;
-    background: #17835f;
-    color: #ffffff;
-  }
-}
-
-.frontline-inline-error-slot {
-  display: none;
-  grid-template-columns: 28px minmax(0, 1fr) 36px;
-  gap: 12px;
-  align-items: center;
-  min-height: 54px;
-  min-width: 0;
-  padding: 5px 12px;
-  overflow: hidden;
-  border: 3px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: #b42318;
-  opacity: 0;
-  pointer-events: none;
-
-  span {
-    min-width: 0;
-    font-size: 24px;
-    font-weight: 900;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
-  }
-
-  button {
-    display: grid;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    place-items: center;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: currentColor;
-    cursor: pointer;
-  }
-}
-
-.frontline-inline-error-slot.is-visible {
-  display: grid;
-  border: 3px solid #e85d5d;
-  background: #fff2f2;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.frontline-production-number-field {
-  display: grid;
-  grid-template-columns: 250px 82px minmax(190px, 1fr) 82px 50px;
-  gap: 16px;
-  align-items: center;
-  min-width: 0;
-
-  &.is-total {
-    grid-template-columns: 250px minmax(0, 1fr) 50px;
-  }
-
-  label {
-    font-size: 36px;
-    font-weight: 900;
-    line-height: 1.15;
-  }
-
-  button,
-  input {
-    width: 100%;
-    height: 96px;
-    min-width: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 18px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    text-align: center;
-    font-weight: 900;
-  }
-
-  button {
-    padding: 0;
-    font-size: 50px;
-    cursor: pointer;
-  }
-
-  input {
-    font-size: 52px;
-
-    &[readonly] {
-      background: #eef3ef;
-    }
-  }
-
-  span {
-    font-size: 34px;
-    font-weight: 800;
-  }
-}
-
-.frontline-production-defect-section {
-  display: grid;
-  grid-template-rows: minmax(min-content, 1fr);
-  gap: 0;
-  min-height: 0;
-  overflow: visible;
-}
-
-.frontline-production-defect-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(62px, auto);
-  gap: 10px;
-  align-content: start;
-  min-height: 0;
-}
-
-.frontline-production-defect-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px 76px 58px 34px;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-  min-height: 62px;
-  padding: 0 10px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 16px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-weight: 900;
-  text-align: left;
-
-  &.active {
-    border-color: #15815f;
-    background: #dff2ea;
-  }
-}
-
-.frontline-production-defect-name {
-  min-width: 0;
-  font-size: 24px;
-  line-height: 1.15;
-}
-
-.frontline-production-defect-step,
-.frontline-production-defect-qty {
-  width: 100%;
-  height: 54px;
-  min-width: 0;
-  border: 3px solid var(--frontline-line);
-  border-radius: 12px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  text-align: center;
-  font-weight: 900;
-}
-
-.frontline-production-defect-step {
-  padding: 0;
-  font-size: 34px;
-  cursor: pointer;
-}
-
-.frontline-production-defect-qty {
-  font-size: 30px;
-}
-
-.frontline-production-defect-unit {
-  font-size: 24px;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.frontline-production-device-panel {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  grid-template-rows: 118px minmax(0, 1fr) auto;
-  gap: 12px;
-  overflow: hidden;
-}
-
-.frontline-production-device-tabs {
-  display: grid;
-  grid-template-columns: repeat(var(--frontline-device-tab-count, 1), minmax(0, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.frontline-production-device-card {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 36px 28px;
-  min-width: 0;
-  height: 138px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 20px;
-  background: #f8faf8;
-  overflow: hidden;
-
-  &.active {
-    border-color: #15815f;
-  }
-}
-
-.frontline-production-device-card .device-tab {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  padding: 0 38px;
-  border: 0;
-  background: var(--frontline-dark);
-  color: #ffffff;
-  font-size: 30px;
-  font-weight: 900;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.frontline-production-device-metering-validity {
-  display: grid;
-  grid-template-columns: 18px auto;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 6px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  cursor: pointer;
-
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
-    background: #15815f;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  em {
-    min-width: 0;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 900;
-    letter-spacing: 0;
-    white-space: nowrap;
-  }
-
-  input:not(:checked) + span {
-    border: 2px solid #8a9490;
-    background: #ffffff;
-    color: transparent;
-  }
-
-  input:disabled + span,
-  input:disabled + span + em {
-    opacity: 0.48;
-  }
-}
-
-.frontline-production-device-card.active .frontline-production-device-metering-validity {
-  color: var(--frontline-ink);
-}
-
-.frontline-production-device-parameters-button {
-  min-width: 0;
-  border: 0;
-  border-top: 1px solid var(--frontline-line);
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 14px;
-  font-weight: 900;
-  cursor: pointer;
-
-  &[aria-pressed='true'] {
-    background: #15815f;
-    color: #ffffff;
-  }
-
-  &:disabled {
-    opacity: 0.48;
-    cursor: default;
-  }
-}
-
-.frontline-production-device-current {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  min-width: 0;
-  min-height: 0;
-  padding: 14px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 24px;
-  background: #fbfdfb;
-  overflow: auto;
-}
-
-.frontline-production-self-check {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-  padding: 18px 20px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-
-  h3,
-  p {
-    margin: 0;
-  }
-
-  h3 {
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--frontline-line);
-    font-size: 32px;
-    font-weight: 900;
-  }
-
-  section {
-    display: grid;
-    gap: 6px;
-  }
-
-  strong {
-    font-size: 24px;
-    font-weight: 900;
-  }
-
-  p {
-    font-size: 20px;
-    font-weight: 700;
-  }
-}
-
-.frontline-production-device-boolean {
-  display: grid;
-  grid-column: 2 / -1;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 0 16px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 14px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 24px;
-  font-weight: 900;
-  cursor: pointer;
-
-  input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    border: 3px solid #15815f;
-    border-radius: 8px;
-    background: #15815f;
-    color: #ffffff;
-    font-size: 22px;
-    line-height: 1;
-  }
-
-  em {
-    min-width: 0;
-    font-style: normal;
-    white-space: nowrap;
-  }
-
-  input:not(:checked) + span {
-    border-color: #8a9490;
-    background: #ffffff;
-    color: transparent;
-  }
-
-  input:disabled + span,
-  input:disabled + span + em {
-    opacity: 0.48;
-  }
-}
-
-.frontline-production-device-empty {
-  display: grid;
-  grid-row: 1 / 3;
-  place-items: center;
-  min-width: 0;
-  min-height: 0;
-  padding: 26px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 24px;
-  background: #fbfdfb;
-  color: var(--frontline-ink);
-  font-size: 42px;
-  font-weight: 900;
-}
-
-.frontline-production-clearance-confirmations {
-  display: grid;
-  grid-row: 3;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  min-width: 0;
-  min-height: 0;
-  padding: 10px 12px;
-  border: 3px solid #0ea5e9;
-  border-radius: 16px;
-  background: #f7fbff;
-}
-
-.frontline-production-clearance-confirmation {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.frontline-production-clearance-label {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  height: 54px;
-  padding: 0 10px;
-  border: 2px solid var(--frontline-line);
-  border-radius: 14px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 24px;
-  font-weight: 900;
-  cursor: pointer;
-
-  span,
-  small {
-    min-width: 0;
-    white-space: nowrap;
-  }
-
-  small {
-    color: #256d85;
-    font-size: 17px;
-    font-weight: 900;
-  }
-}
-
-.frontline-production-clearance-checkbox {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  min-width: 82px;
-  min-height: 54px;
-  padding: 0 10px;
-  border: 2px solid var(--frontline-line);
-  border-radius: 14px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 20px;
-  font-weight: 900;
-  cursor: pointer;
-
-  input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border: 3px solid #15815f;
-    border-radius: 8px;
-    background: #15815f;
-    color: #ffffff;
-    font-size: 22px;
-    line-height: 1;
-  }
-
-  em {
-    font-style: normal;
-    white-space: nowrap;
-  }
-
-  input:not(:checked) + span {
-    background: #ffffff;
-    color: transparent;
-    border-color: #8a9490;
-  }
-
-  input:disabled + span,
-  input:disabled + span + em {
-    opacity: 0.48;
-  }
-}
-
-.frontline-production-clearance-confirmation-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 126;
-  display: grid;
-  place-items: center;
-  padding: 48px;
-  background: rgba(17, 26, 21, 0.56);
-  box-sizing: border-box;
-}
-
-.frontline-production-clearance-confirmation-dialog {
-  display: grid;
-  gap: 22px;
-  width: min(100%, 920px);
-  max-height: min(76vh, 680px);
-  padding: 38px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  border: 4px solid var(--frontline-line);
-  border-radius: 28px;
-  background: #fffdf4;
-  color: var(--frontline-ink);
-  box-shadow: 0 24px 80px rgba(17, 26, 21, 0.32);
-  font-size: 28px;
-  line-height: 1.45;
-}
-
-.frontline-production-clearance-confirmation-header {
-  display: grid;
-  gap: 8px;
-
-  span {
-    color: #256d85;
-    font-size: 22px;
-    font-weight: 900;
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 44px;
-    font-weight: 900;
-  }
-}
-
-.frontline-production-clearance-confirmation-dialog p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.frontline-production-clearance-confirmation-dialog button {
-  justify-self: end;
-  min-width: 180px;
-  min-height: 68px;
-  padding: 0 28px;
-  border: 0;
-  border-radius: 18px;
-  background: #15815f;
-  color: #ffffff;
-  font-size: 28px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.frontline-production-device-param {
-  display: grid;
-  grid-template-columns: 224px 70px minmax(0, 1fr) 70px 58px;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-
-  .device-param-label {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-width: 0;
-    gap: 4px;
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1.1;
-  }
-
-  .device-param-name {
-    display: block;
-    min-width: 0;
-    white-space: nowrap;
-  }
-
-  .device-param-range {
-    display: block;
-    min-width: 0;
-    color: #4b5f55;
-    font-size: 18px;
-    font-weight: 800;
-    line-height: 1.15;
-    white-space: nowrap;
-  }
-
-  button,
-  input,
-  select {
-    width: 100%;
-    height: 72px;
-    min-width: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 14px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    text-align: center;
-    font-weight: 900;
-  }
-
-  button {
-    padding: 0;
-    font-size: 38px;
-    cursor: pointer;
-  }
-
-  input {
-    font-size: 40px;
-
-    &.is-parameter-out-of-range {
-      border-color: #dc2626;
-      background: #fff1f2;
-      color: #b91c1c;
-    }
-  }
-
-  select.device-select {
-    grid-column: 2 / 5;
-    padding: 0 42px;
-    appearance: auto;
-    font-size: 32px;
-    cursor: pointer;
-    text-align-last: center;
-  }
-
-  .frontline-production-device-param-select {
-    grid-column: 2 / 5;
-    width: 100%;
-    height: 72px;
-    min-width: 0;
-    box-sizing: border-box;
-    font-size: 32px;
-    font-weight: 900;
-
-    :deep(.el-select__wrapper) {
-      height: 72px;
-      min-height: 72px;
-      padding: 0 42px;
-      border: 3px solid var(--frontline-line);
-      border-radius: 14px;
-      background: #f8faf8;
-      box-sizing: border-box;
-      box-shadow: none;
-      color: var(--frontline-ink);
-      text-align: center;
-      cursor: pointer;
-      overflow: hidden;
-    }
-
-    :deep(.el-select__selected-item),
-    :deep(.el-select__placeholder) {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 0;
-      color: var(--frontline-ink);
-      font-size: 32px;
-      font-weight: 900;
-      line-height: 1;
-      text-align: center;
-    }
-
-    :deep(.el-select__placeholder.is-transparent) {
-      color: #4b5f55;
-    }
-
-    :deep(.el-select__input) {
-      width: 100%;
-      height: auto;
-      min-width: 0;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-      color: var(--frontline-ink);
-      font-size: 32px;
-      font-weight: 900;
-      line-height: 1;
-      text-align: center;
-      box-shadow: none;
-    }
-
-    :deep(.el-select__caret) {
-      flex: 0 0 auto;
-      color: #7f8f86;
-    }
-  }
-
-  .frontline-production-device-select-custom {
-    grid-column: 2 / 5;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 92px;
-    gap: 10px;
-    min-width: 0;
-    height: 72px;
-
-    .frontline-production-device-select-custom-input {
-      width: 100%;
-      min-width: 0;
-      height: 72px;
-      padding: 0 18px;
-      box-sizing: border-box;
-      text-align: center;
-    }
-
-    button {
-      height: 72px;
-      border: 3px solid var(--frontline-line);
-      border-radius: 14px;
-      background: #ffffff;
-      color: var(--frontline-dark);
-      font-size: 20px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-  }
-
-  span {
-    font-size: 26px;
-    font-weight: 900;
-  }
-
-  .frontline-production-device-standard-text {
-    grid-column: 2 / -1;
-    min-width: 0;
-    padding: 14px 18px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 14px;
-    background: #f8faf8;
-    font-size: 28px;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
-  }
-}
-
-.frontline-production-submit-bar {
-  display: grid;
-  grid-column: 1;
-  grid-row: 2;
-  grid-template-columns: 300px 1fr;
-  gap: 24px;
-  position: relative;
-  z-index: 2;
-}
-
-.frontline-production-reset-button,
-.frontline-production-submit-button {
-  border: 0;
-  border-radius: 28px;
-  font-size: 54px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.frontline-production-reset-button {
-  border: 3px solid var(--frontline-line);
-  background: #ffffff;
-  color: var(--frontline-ink);
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-  }
-}
-
-.frontline-production-submit-button {
-  border: 0;
-  background: #15815f;
-  color: #ffffff;
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-  }
-
-}
-
-.frontline-production-submit-confirmation-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 48px;
-  background: rgba(17, 26, 21, 0.56);
-  box-sizing: border-box;
-}
-
-.frontline-production-submit-confirmation-dialog {
-  display: grid;
-  gap: 24px;
-  width: min(100%, 860px);
-  max-width: 860px;
-  padding: 42px;
-  border: 4px solid var(--frontline-line);
-  border-radius: 28px;
-  background: #fffdf4;
-  color: var(--frontline-ink);
-  box-shadow: 0 24px 80px rgba(17, 26, 21, 0.32);
-  font-size: 28px;
-  line-height: 1.45;
-
-  h3 {
-    margin: 0;
-    font-size: 42px;
-    font-weight: 900;
-  }
-
-  p {
-    margin: 0;
-  }
-}
-
-.frontline-production-submit-confirmation-signature {
-  display: grid;
-  gap: 10px;
-  font-size: 26px;
-  font-weight: 800;
-
-  input {
-    min-height: 72px;
-    padding: 0 22px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 18px;
-    background: #ffffff;
-    color: var(--frontline-ink);
-    font-size: 28px;
-    font-weight: 700;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  input:focus-visible {
-    border-color: #15815f;
-    box-shadow: 0 0 0 4px rgba(21, 129, 95, 0.18);
-  }
-}
-
-.frontline-production-submit-confirmation-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-
-  button {
-    min-height: 88px;
-    border: 0;
-    border-radius: 22px;
-    font-size: 32px;
-    font-weight: 900;
-    cursor: pointer;
-  }
-
-  button:first-child {
-    border: 3px solid var(--frontline-line);
-    background: #ffffff;
-    color: var(--frontline-ink);
-  }
-
-  button:last-child {
-    background: #15815f;
-    color: #ffffff;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.56;
-  }
-}
-
-.frontline-production-submit-success-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 130;
-  display: grid;
-  place-items: center;
-  padding: 48px;
-  background: rgba(17, 26, 21, 0.62);
-  box-sizing: border-box;
-}
-
-.frontline-production-submit-success-dialog {
-  display: grid;
-  justify-items: center;
-  gap: 28px;
-  width: min(100%, 720px);
-  padding: 48px;
-  border: 4px solid var(--frontline-line);
-  border-radius: 28px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  box-shadow: 0 24px 80px rgba(17, 26, 21, 0.34);
-  text-align: center;
-  box-sizing: border-box;
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    width: 100%;
-    min-height: 88px;
-    border: 0;
-    border-radius: 22px;
-    background: #15815f;
-    color: #ffffff;
-    font-size: 32px;
-    font-weight: 900;
-    cursor: pointer;
-  }
-
-  button:focus-visible {
-    outline: 5px solid rgba(21, 129, 95, 0.28);
-    outline-offset: 4px;
-  }
-}
-
-.frontline-production-submit-success-icon {
-  width: 96px;
-  height: 96px;
-  color: #15815f;
-}
-
-.frontline-production-submit-success-copy {
-  display: grid;
-  gap: 12px;
-
-  span {
-    color: #15815f;
-    font-size: 22px;
-    font-weight: 900;
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 48px;
-    font-weight: 900;
-  }
-
-  p {
-    margin: 0;
-    color: var(--frontline-muted);
-    font-size: 30px;
-    font-weight: 800;
-  }
-}
-
-.frontline-production-stage .frontline-operator-top.is-production {
-  grid-template-columns:
-    minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr)
-    max(240px, calc(var(--frontline-production-top-action-font-size, 42px) * 3 + 24px));
-}
-
-.frontline-production-stage .frontline-production-main {
-  grid-template-rows:
-    minmax(0, 1fr)
-    max(126px, calc(var(--frontline-production-footer-action-font-size, 54px) * 1.35 + 24px));
-}
-
-.frontline-production-stage .frontline-production-submit-bar {
-  grid-template-columns:
-    max(300px, calc(var(--frontline-production-footer-action-font-size, 54px) * 2 + 24px)) 1fr;
-}
-
-.frontline-production-stage .frontline-production-fullscreen-toggle {
-  font-size: var(--frontline-production-top-action-font-size, 42px);
-  white-space: nowrap;
-}
-
-.frontline-production-stage .frontline-production-reset-button,
-.frontline-production-stage .frontline-production-submit-button {
-  font-size: var(--frontline-production-footer-action-font-size, 54px);
-  white-space: nowrap;
-}
-
-.frontline-pqc-inspection-list {
-  display: grid;
-  grid-template-rows: auto minmax(88px, auto) minmax(0, 1fr);
-  gap: 16px;
-  min-height: 100%;
-}
-
-.frontline-pqc-content-panel {
-  grid-column: 1;
-  grid-row: 1;
-  align-content: stretch;
-  gap: 0;
-}
-
-.frontline-pqc-content-item {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-  min-width: 0;
-  padding-bottom: 0;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--frontline-ink);
-}
-
-.pqc-utility-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  min-width: 0;
-}
-
-.pqc-select-card,
-.pqc-fact-card {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  min-height: 66px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font: inherit;
-  text-align: left;
-}
-
-.pqc-select-card {
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 8px;
-  align-items: center;
-  padding: 7px 14px 7px 16px;
-  overflow: hidden;
-
-  strong,
-  span span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    color: var(--frontline-muted);
-    font-size: 17px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  span span {
-    display: block;
-    margin-top: 6px;
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1.05;
-  }
-
-  em {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: var(--frontline-dark);
-    color: #ffffff;
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  &.is-selected {
-    border-color: #8cb9a1;
-    background: #fbfffc;
-  }
-
-  &.is-empty span span {
-    color: #7f8f86;
-  }
-}
-
-.pqc-equipment-parameter-summary {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-  padding-top: 6px;
-  border-top: 1px solid var(--frontline-line);
-
-  strong {
-    font-size: 15px;
-  }
-
-  span {
-    min-width: 0;
-    overflow: hidden;
-    color: #435850;
-    font-size: 15px;
-    font-weight: 800;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.pqc-select-native {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  opacity: 0;
-}
-
-.pqc-select-card.is-custom {
-  grid-template-columns: minmax(0, 1fr) 64px;
-  overflow: visible;
-}
-
-.pqc-select-custom-input {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  margin-top: 4px;
-  padding: 0 8px;
-  border: 2px solid var(--frontline-line);
-  border-radius: 8px;
-  box-sizing: border-box;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.pqc-select-custom-return {
-  height: 38px;
-  border: 2px solid var(--frontline-line);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--frontline-dark);
-  font-size: 15px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.pqc-fact-card {
-  align-content: center;
-  gap: 3px;
-  padding: 7px 16px;
-  cursor: pointer;
-
-  strong,
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  span {
-    color: var(--frontline-muted);
-    font-size: 17px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  &.is-primary {
-    border-color: #8cb9a1;
-    background: #dff2ea;
-    color: #15815f;
-  }
-}
-
-.frontline-pqc-fact-dialog {
-  position: absolute;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 34px;
-  background:
-    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.88), transparent 30%),
-    rgba(20, 31, 25, 0.42);
-  backdrop-filter: blur(14px);
-}
-
-.frontline-pqc-fact-dialog__panel {
-  display: flex;
-  flex-direction: column;
-  width: min(920px, 100%);
-  max-height: calc(100vh - 88px);
-  overflow: hidden;
-  border: 3px solid rgba(139, 181, 159, 0.65);
-  border-radius: 32px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(242, 249, 245, 0.98)),
-    #ffffff;
-  box-shadow: 0 34px 90px rgba(20, 31, 25, 0.28);
-}
-
-.frontline-pqc-fact-dialog__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 22px;
-  padding: 28px 30px 18px;
-  border-bottom: 1px solid rgba(139, 181, 159, 0.42);
-
-  h3 {
-    margin: 8px 0 0;
-    color: #111a15;
-    font-size: 42px;
-    font-weight: 950;
-    line-height: 1.05;
-  }
-}
-
-.frontline-pqc-fact-dialog__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: #dff2ea;
-  color: #15815f;
-  font-size: 18px;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-}
-
-.frontline-pqc-fact-dialog__close {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border: 0;
-  border-radius: 999px;
-  background: #24322b;
-  color: #ffffff;
-  font: inherit;
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1;
-  cursor: pointer;
-
-  &:focus-visible {
-    outline: 5px solid #86c8ad;
-    outline-offset: 4px;
-  }
-}
-
-.frontline-pqc-fact-dialog__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.36fr) minmax(270px, 0.64fr);
-  gap: 20px;
-  min-height: 0;
-  padding: 24px 30px 30px;
-  overflow: auto;
-}
-
-.frontline-pqc-fact-dialog__body.is-standard {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.frontline-pqc-fact-dialog__detail {
-  min-width: 0;
-  padding: 24px;
-  border: 2px solid rgba(139, 181, 159, 0.5);
-  border-radius: 24px;
-  background: #ffffff;
-
-  span {
-    color: #15815f;
-    font-size: 18px;
-    font-weight: 950;
-  }
-
-  p {
-    margin: 14px 0 0;
-    color: #18231d;
-    font-size: 28px;
-    font-weight: 850;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-  }
-}
-
-.frontline-pqc-fact-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 30px 28px;
-
-  button {
-    min-width: 148px;
-    min-height: 52px;
-    border: 0;
-    border-radius: 999px;
-    background: #15815f;
-    color: #ffffff;
-    font: inherit;
-    font-size: 24px;
-    font-weight: 950;
-    cursor: pointer;
-
-    &:focus-visible {
-      outline: 5px solid #86c8ad;
-      outline-offset: 4px;
-    }
-  }
-}
-
-@media (max-width: 900px) {
-  .frontline-pqc-fact-dialog {
-    padding: 16px;
-  }
-
-  .frontline-pqc-fact-dialog__panel {
-    max-height: calc(100vh - 32px);
-    border-radius: 24px;
-  }
-
-  .frontline-pqc-fact-dialog__header {
-    padding: 22px 22px 14px;
-
-    h3 {
-      font-size: 32px;
-    }
-  }
-
-  .frontline-pqc-fact-dialog__body {
-    grid-template-columns: 1fr;
-    padding: 18px 22px 24px;
-  }
-
-  .frontline-pqc-fact-dialog__detail p {
-    font-size: 22px;
-  }
-
-  .frontline-pqc-fact-dialog__footer {
-    padding: 0 22px 22px;
-  }
-}
-
-.pqc-required-dot {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #15815f;
-}
-
-.frontline-pqc-empty-state {
-  display: grid;
-  place-items: center;
-  min-height: 260px;
-  color: var(--frontline-muted);
-  font-size: 32px;
-  font-weight: 900;
-}
-
-.frontline-pqc-choice-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.5fr;
-  gap: 8px;
-  min-height: 78px;
-
-  &.is-number {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  > button {
-    min-width: 0;
-    padding: 8px 12px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 18px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    font: inherit;
-    font-size: 29px;
-    font-weight: 900;
-    white-space: nowrap;
-    cursor: pointer;
-
-    &:focus-visible {
-      outline: 5px solid #86c8ad;
-      outline-offset: -8px;
-    }
-
-    &.pass.active {
-      background: #dff2ea;
-      color: #15815f;
-    }
-
-    &.fail.active {
-      background: #f8dfdc;
-      color: #b9382f;
-    }
-  }
-
-  .manual {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 38px;
-    grid-template-rows: auto auto;
-    gap: 4px 10px;
-    align-items: center;
-    padding: 10px 16px;
-    text-align: left;
-
-    &.active {
-      background: #e7f0eb;
-    }
-
-    span {
-      font-size: 30px;
-      line-height: 1;
-    }
-
-    em {
-      color: var(--frontline-muted);
-      font-size: 25px;
-      font-style: normal;
-      white-space: nowrap;
-    }
-
-    strong {
-      grid-column: 2;
-      grid-row: 1 / span 2;
-      font-size: 40px;
-      line-height: 1;
-    }
-  }
-}
-
-.pqc-item-tabs {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-  gap: 8px;
-  align-items: start;
-  min-height: 104px;
-  padding: 0 10px 8px;
-  border-top: 3px solid #8cb9a1;
-  background: transparent;
-
-  &::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 24px;
-    border-radius: 0 0 20px 20px;
-    background: linear-gradient(180deg, rgba(223, 242, 234, 0.9), rgba(223, 242, 234, 0));
-    content: "";
-    pointer-events: none;
-  }
-}
-
-.pqc-item-tab {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  align-items: center;
-  min-width: 0;
-  min-height: 68px;
-  margin-top: -3px;
-  padding: 9px 10px 8px;
-  border: 3px solid var(--frontline-line);
-  border-top: 0;
-  border-radius: 0 0 16px 16px;
-  background: #fbfdfb;
-  color: var(--frontline-ink);
-  font: inherit;
-  text-align: center;
-  box-shadow: inset 0 7px 0 rgba(203, 214, 206, 0.38);
-  cursor: pointer;
-
-  &::before {
-    position: absolute;
-    top: 0;
-    right: 11px;
-    left: 11px;
-    height: 5px;
-    border-radius: 0 0 999px 999px;
-    background: transparent;
-    content: "";
-  }
-
-  strong {
-    min-width: 0;
-    overflow: visible;
-    font-size: 20px;
-    font-weight: 900;
-    line-height: 1.05;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  &.active {
-    border-color: #d9a441;
-    background: #fff4bf;
-    color: #111a15;
-    box-shadow: 0 8px 18px rgba(98, 76, 24, 0.12);
-    transform: translateY(3px);
-
-    &::before {
-      display: none;
-      background: transparent;
-    }
-  }
-
-  &:focus-visible {
-    outline: 5px solid #86c8ad;
-    outline-offset: 2px;
-  }
-}
-
-.frontline-pqc-fill-panel {
-  grid-column: 2;
-  grid-row: 1;
-  grid-template-rows: auto minmax(min-content, 1fr);
-  align-content: stretch;
-  gap: 16px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 22px;
-}
-
-.frontline-pqc-rule-panel {
-  grid-column: 2;
-  grid-row: 2;
-  align-content: center;
-  min-height: 0;
-  padding: 18px 22px;
-  border-color: #f0bf00;
-  background: #fff9d7;
-}
-
-.frontline-pqc-type-tabs {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-
-  button {
-    min-width: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 20px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    font-weight: 900;
-    cursor: pointer;
-
-    &.active {
-      border-color: var(--frontline-dark);
-      background: var(--frontline-dark);
-      color: #ffffff;
-    }
-  }
-}
-
-.frontline-pqc-type-tabs {
-  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
-  gap: 10px;
-
-  button {
-    font-size: 32px;
-    min-height: 64px;
-    padding: 8px 12px;
-    line-height: 1.15;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-}
-
-.frontline-pqc-form-area {
-  display: grid;
-  align-content: start;
-  align-self: stretch;
-  gap: 12px;
-  min-width: 0;
-  min-height: 0;
-  padding: 14px 12px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 24px;
-  background: #fbfdfb;
-}
-
-.frontline-pqc-production-source {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-
-  label {
-    font-size: 24px;
-    font-weight: 900;
-  }
-
-  select {
-    width: 100%;
-    min-width: 0;
-    height: 54px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 14px;
-    padding: 0 12px;
-    background: #ffffff;
-    color: var(--frontline-ink);
-    font-size: 20px;
-    font-weight: 800;
-  }
-}
-
-.frontline-pqc-number-field {
-  display: grid;
-  grid-template-columns: 116px 52px minmax(42px, 1fr) 52px 36px;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-
-  label {
-    font-size: 25px;
-    font-weight: 900;
-  }
-
-  button,
-  input {
-    width: 100%;
-    height: 58px;
-    min-width: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 16px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    text-align: center;
-    font-weight: 900;
-  }
-
-  button {
-    font-size: 32px;
-    cursor: pointer;
-  }
-
-  input {
-    font-size: 32px;
-  }
-
-  span {
-    font-size: 24px;
-    font-weight: 900;
-  }
-}
-
-.frontline-pqc-submit-bar {
-  display: grid;
-  grid-column: 1;
-  grid-row: 2;
-  grid-template-columns: 280px 360px minmax(0, 1fr);
-  gap: 24px;
-  min-height: 0;
-}
-
-.frontline-pqc-signature-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  background: rgba(17, 26, 21, 0.58);
-}
-
-.frontline-pqc-signature-dialog {
-  display: grid;
-  gap: 16px;
-  width: min(520px, calc(100% - 40px));
-  padding: 28px;
-  border-radius: 8px;
-  background: #ffffff;
-
-  h3,
-  p {
-    margin: 0;
-  }
-
-  h3 {
-    font-size: 30px;
-  }
-
-  label,
-  p {
-    font-size: 18px;
-  }
-
-  input {
-    height: 58px;
-    border: 2px solid var(--frontline-line);
-    border-radius: 6px;
-    padding: 0 14px;
-    font-size: 24px;
-  }
-
-  div {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 12px;
-  }
-
-  button {
-    min-height: 54px;
-    border: 0;
-    border-radius: 6px;
-    background: #e8eee9;
-    color: var(--frontline-ink);
-    font-size: 18px;
-    font-weight: 900;
-  }
-
-  button:last-child {
-    background: #15815f;
-    color: #ffffff;
-  }
-}
-
-.frontline-pqc-reset-button,
-.frontline-pqc-submit-button {
-  border: 0;
-  border-radius: 28px;
-  font-size: 50px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.device-tab-selection {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid #ffffff;
-  border-radius: 5px;
-  color: #ffffff;
-  font-size: 17px;
-  line-height: 1;
-}
-
-.frontline-production-device-card.active .device-tab-selection {
-  border-color: #9ce0c1;
-  background: #15815f;
-}
-
-.frontline-production-device-card.active .device-tab-selection::after {
-  content: '✓';
-  font-weight: 900;
-}
-
-.frontline-pqc-reset-button {
-  border: 3px solid var(--frontline-line);
-  background: #ffffff;
-  color: var(--frontline-ink);
-}
-
-.frontline-pqc-submit-button {
-  background: #15815f;
-  color: #ffffff;
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-  }
-}
-
-.frontline-pqc-piece-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  background: rgba(17, 26, 21, 0.5);
-}
-
-.frontline-pqc-piece-dialog {
-  display: grid;
-  grid-template-rows: 86px minmax(0, 1fr) 96px;
-  gap: 14px;
-  width: min(1580px, calc(100% - 48px));
-  height: min(930px, calc(100% - 48px));
-  min-height: 0;
-  padding: 24px;
-  overflow: hidden;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: #ffffff;
-
-  h3 {
-    display: flex;
-    align-items: center;
-    margin: 0;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-  }
-}
-
-.frontline-pqc-piece-list {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-rows: max-content;
-  gap: 10px;
-  align-content: start;
-  min-height: 0;
-  padding-right: 8px;
-  overflow-y: auto;
-}
-
-.frontline-pqc-piece-row {
-  display: grid;
-  grid-template-rows: auto auto;
-  gap: 8px;
-  align-items: start;
-  align-self: start;
-  height: fit-content;
-  min-width: 0;
-  min-height: 0;
-  padding: 10px 12px;
-  background: #f8faf8;
-  border: 3px solid var(--frontline-line);
-  border-radius: 16px;
-
-  > strong {
-    font-size: 24px;
-    font-weight: 900;
-  }
-}
-
-.frontline-pqc-piece-value-control {
-  display: grid;
-  grid-template-columns: 44px minmax(80px, 1fr) 44px 52px;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-
-  button,
-  input {
-    width: 100%;
-    height: 50px;
-    min-width: 0;
-    padding: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 12px;
-    background: #ffffff;
-    color: var(--frontline-ink);
-    text-align: center;
-    font-size: 30px;
-    font-weight: 900;
-  }
-
-  button {
-    cursor: pointer;
-  }
-
-  span {
-    font-size: 22px;
-    font-weight: 900;
-    white-space: nowrap;
-  }
-}
-
-.frontline-pqc-piece-choice {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 56px;
-}
-
-.frontline-pqc-piece-switch {
-  --el-switch-on-color: #15815f;
-  --el-switch-off-color: #b9382f;
-
-  width: 100%;
-  height: 56px;
-
-  :deep(.el-switch__core) {
-    width: 100% !important;
-    height: 56px;
-    min-width: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 14px;
-  }
-
-  :deep(.el-switch__action) {
-    left: 3px;
-    width: 44px;
-    height: 44px;
-  }
-
-  :deep(.el-switch__inner) {
-    height: 50px;
-    padding: 0 8px 0 52px;
-  }
-
-  :deep(.el-switch__inner .is-text) {
-    max-width: none;
-    font-size: 24px;
-    font-weight: 900;
-    line-height: 1;
-    color: #fff;
-  }
-
-  &.is-checked :deep(.el-switch__action) {
-    left: calc(100% - 47px);
-  }
-
-  &.is-checked :deep(.el-switch__inner) {
-    padding: 0 52px 0 8px;
-  }
-}
-
-.frontline-pqc-piece-actions {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 18px;
-
-  button {
-    border: 3px solid var(--frontline-line);
-    border-radius: 22px;
-    background: #ffffff;
-    color: var(--frontline-ink);
-    font-size: 40px;
-    font-weight: 900;
-    cursor: pointer;
-
-    &.primary {
-      border-color: #15815f;
-      background: #15815f;
-      color: #ffffff;
-    }
-  }
-}
-
-.frontline-choice-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-
-  button {
-    height: 92px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 20px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    font-size: 38px;
-    font-weight: 900;
-    cursor: pointer;
-
-    &.active {
-      border-color: var(--frontline-dark);
-      background: var(--frontline-dark);
-      color: #ffffff;
-    }
-  }
-}
-
-.frontline-number-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-
-  label {
-    display: grid;
-    gap: 12px;
-    min-width: 0;
-  }
-
-  span {
-    font-size: 32px;
-    font-weight: 900;
-  }
-}
-
-.frontline-submit-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  align-items: center;
-  gap: 20px;
-  padding: 20px 24px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-
-  span {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--frontline-muted);
-    font-size: 30px;
-    font-weight: 800;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  :deep(.el-button) {
-    width: 100%;
-    height: 72px;
-    border-radius: 20px;
-    font-size: 36px;
-    font-weight: 900;
-  }
-}
-
-.frontline-picker {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  border-radius: 18px;
-  background: rgba(17, 26, 21, 0.38);
-}
-
-.frontline-picker__card {
-  display: grid;
-  gap: 20px;
-  width: min(760px, calc(100% - 80px));
-  padding: 28px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-
-  h3 {
-    margin: 0;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-  }
-}
-
-.frontline-picker__options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  max-height: 520px;
-  overflow: auto;
-
-  button {
-    min-height: 112px;
-    border: 3px solid var(--frontline-line);
-    border-radius: 22px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    font-size: 34px;
-    font-weight: 900;
-    cursor: pointer;
-
-    &.active {
-      border-color: var(--frontline-dark);
-      background: var(--frontline-dark);
-      color: #ffffff;
-    }
-  }
-}
-
-.frontline-picker__empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  margin: 0;
-  color: #66736c;
-  font-size: 28px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.frontline-picker__close {
-  height: 86px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 22px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 36px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker {
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  border-radius: 0;
-  background: rgba(17, 26, 21, 0.38);
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__card {
-  width: min(96%, 1770px);
-  aspect-ratio: 1920 / 1080;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 32px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__title {
-  font-size: 48px;
-  line-height: 1;
-  font-weight: 900;
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__options {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  align-content: start;
-  min-height: 0;
-  max-height: none;
-  overflow: auto;
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  aspect-ratio: 1920 / 720;
-  min-height: 0;
-  padding: 6px 8px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.05;
-  text-align: center;
-  word-break: break-word;
-  overflow: hidden;
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__option.active {
-  border-color: var(--frontline-dark);
-  background: var(--frontline-dark);
-  color: #ffffff;
-}
-
-.frontline-operator-panel.is-production-mode .frontline-picker__close {
-  height: 68px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 30px;
-  font-weight: 900;
-}
-
-.frontline-picker--production-order {
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  border-radius: 0;
-  background: rgba(17, 26, 21, 0.38);
-}
-
-.frontline-picker--production-order .frontline-picker__card {
-  width: min(96%, 1770px);
-  aspect-ratio: 1920 / 1080;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 32px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-}
-
-.frontline-picker--production-order .frontline-picker__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  min-width: 0;
-}
-
-.frontline-picker--production-order .frontline-picker__order-search {
-  flex: 0 1 620px;
-  width: min(620px, 46%);
-  height: 72px;
-  padding: 0 24px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 12px;
-  outline: none;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.frontline-picker--production-order .frontline-picker__order-search:focus {
-  border-color: var(--frontline-dark);
-  box-shadow: 0 0 0 4px rgba(31, 50, 42, 0.16);
-}
-
-.frontline-picker--production-order .frontline-picker__options {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  align-content: start;
-  min-height: 0;
-  max-height: none;
-  overflow: auto;
-}
-
-.frontline-picker--production-order .frontline-picker__empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  margin: 0;
-  color: #66736c;
-  font-size: 32px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.frontline-picker--production-order .frontline-picker__option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  min-height: 132px;
-  padding: 8px 10px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 22px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.1;
-  text-align: center;
-  word-break: break-word;
-  overflow: visible;
-}
-
-.frontline-order-picker-option {
-  display: grid;
-  grid-template-rows: repeat(3, auto);
-  gap: 5px;
-  align-content: center;
-  width: 100%;
-  min-width: 0;
-}
-
-.frontline-order-picker-option__row {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-  color: #66736c;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: left;
-}
-
-.frontline-order-picker-option__value {
-  min-width: 0;
-  overflow: visible;
-  color: var(--frontline-ink);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.15;
-  text-align: left;
-  text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.frontline-picker--production-order .frontline-picker__option.active .frontline-order-picker-option__row,
-.frontline-picker--production-order .frontline-picker__option.active .frontline-order-picker-option__value {
-  color: #ffffff;
-}
-
-.frontline-picker--production-order .frontline-picker__close {
-  height: 86px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 22px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 36px;
-  font-weight: 900;
-}
-
-.frontline-picker--production-process {
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  border-radius: 0;
-  background: rgba(17, 26, 21, 0.38);
-}
-
-.frontline-picker--production-process .frontline-picker__card {
-  width: min(96%, 1770px);
-  aspect-ratio: 1920 / 1080;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 32px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 28px;
-  background: var(--frontline-panel);
-}
-
-.frontline-picker--production-process .frontline-picker__options {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  align-content: start;
-  min-height: 0;
-  max-height: none;
-  overflow: auto;
-}
-
-.frontline-picker--production-process .frontline-picker__option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  aspect-ratio: 1920 / 720;
-  min-height: 0;
-  padding: 6px 8px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.05;
-  text-align: center;
-  word-break: break-word;
-  overflow: hidden;
-}
-
-.frontline-picker--production-process .frontline-picker__option.active {
-  border-color: var(--frontline-dark);
-  background: var(--frontline-dark);
-  color: #ffffff;
-}
-
-.frontline-picker--production-process .frontline-picker__close {
-  height: 68px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 18px;
-  background: #f8faf8;
-  color: var(--frontline-ink);
-  font-size: 30px;
-  font-weight: 900;
-}
-
-.frontline-operator-screen :deep(.el-input-number),
-.frontline-operator-screen :deep(.el-input),
-.frontline-operator-screen :deep(.el-radio-group) {
-  width: 100%;
-}
-
-.frontline-operator-screen :deep(.el-input-number .el-input__wrapper),
-.frontline-operator-screen :deep(.el-input .el-input__wrapper) {
-  min-height: 76px;
-  border-radius: 18px;
-  font-size: 34px;
-}
-
-.frontline-operator-screen :deep(.el-radio-button) {
-  flex: 1;
-}
-
-.frontline-operator-screen :deep(.el-radio-button__inner) {
-  width: 100%;
-  min-height: 76px;
-  padding: 20px 18px;
-  border-radius: 18px;
-  font-size: 30px;
-  font-weight: 900;
-}
-
-@media (max-width: 1280px) {
-  .frontline-operator-screen.is-pqc {
-    min-height: 860px;
-  }
-
-  .frontline-operator-top.is-pqc,
-  .frontline-operator-main.is-pqc {
-    grid-template-columns: 1fr;
-  }
-
-  .frontline-operator-main.is-pqc {
-    grid-template-rows: auto auto auto 104px;
-  }
-
-  .frontline-pqc-content-panel,
-  .frontline-pqc-fill-panel,
-  .frontline-pqc-rule-panel,
-  .frontline-pqc-submit-bar {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .frontline-pqc-choice-actions,
-  .frontline-pqc-type-tabs,
-  .frontline-pqc-number-field,
-  .frontline-pqc-submit-bar {
-    grid-template-columns: 1fr !important;
-  }
-
-  .frontline-pqc-piece-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .frontline-pqc-piece-actions {
-    grid-template-columns: 1fr 1fr;
-  }
-}
+@use "./frontlineFixedTemplate.scss";
+</style>
+
+<style scoped>
+.frontline-pqc-review-summary { display: flex; flex-direction: column; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #b8c9be; border-radius: 10px; color: #20352b; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.frontline-pqc-review-summary button { align-self: start; padding: 5px 12px; border: 1px solid #7b9585; border-radius: 6px; background: #fff; color: inherit; font: inherit; cursor: pointer; }
+.pqc-review-history-dialog { box-sizing: border-box; width: min(960px, calc(100% - 40px)); max-height: calc(100% - 40px); overflow: auto; border: 1px solid #a9bcb1; border-radius: 16px; padding: 24px; color: #20352b; }
+.pqc-review-history-dialog::backdrop { background: #14251db3; }
+.pqc-review-history-dialog table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.pqc-review-history-dialog th, .pqc-review-history-dialog td { padding: 10px; text-align: left; border-bottom: 1px solid #d7e0da; overflow-wrap: anywhere; }
+.pqc-review-history-dialog button { margin-top: 20px; padding: 8px 20px; font: inherit; }
+.pqc-round-operation-dialog { margin: auto; width: min(560px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow-y: auto; box-sizing: border-box; border: 2px solid #ccd7d0; border-radius: 20px; padding: 24px; color: #20352b; font: inherit; background: white; }
+.pqc-round-operation-dialog::backdrop { background: #14251db3; }
+.pqc-round-operation-dialog h2 { margin: 0 0 20px; font-size: 25px; }
+.pqc-round-operation-dialog p { font-size: 16px; line-height: 1.6; }
+.pqc-round-operation-dialog label { display: block; font-size: 17px; margin: 16px 0; }
+.pqc-round-operation-dialog select, .pqc-round-operation-dialog input, .pqc-round-operation-dialog textarea { display: block; box-sizing: border-box; width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #a9bcb1; border-radius: 8px; font: inherit; }
+.pqc-round-operation-dialog footer { display: flex; justify-content: flex-end; gap: 16px; margin-top: 24px; }
+.pqc-round-operation-dialog button { padding: 12px 20px; border: 1px solid #a9bcb1; border-radius: 12px; font: inherit; cursor: pointer; }
+.pqc-round-operation-dialog button:last-child { background: #22382d; color: white; }
+.pqc-round-operation-error { color: #b42318; }
 </style>

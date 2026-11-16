@@ -114,8 +114,7 @@ public record MesFrontlinePqcTaskOverlay(Long activeOrderId,
     private static int ruleSort(String inspectionRuleKey) {
         return switch (inspectionRuleKey) {
             case "FIRST" -> 10;
-            case "PATROL_AM" -> 20;
-            case "PATROL_PM" -> 30;
+            case "PATROL" -> 20;
             case "FINAL" -> 40;
             default -> throw new IllegalArgumentException("unsupported inspectionRuleKey for PQC task overlay sorting: "
                     + inspectionRuleKey);

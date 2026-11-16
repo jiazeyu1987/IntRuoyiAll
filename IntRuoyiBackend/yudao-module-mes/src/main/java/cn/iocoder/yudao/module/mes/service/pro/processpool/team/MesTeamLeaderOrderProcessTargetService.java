@@ -90,6 +90,13 @@ public class MesTeamLeaderOrderProcessTargetService {
         return buildTarget(snapshot, activeOrderId);
     }
 
+    public BigDecimal requireLossCoefficient(Long activeOrderId, Long routeProcessId, Long processId) {
+        var snapshot = processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, processId);
+        if (snapshot == null) throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        return cn.iocoder.yudao.module.mes.service.pro.route.MesRouteLossCoefficient.frozen(
+                snapshot.getProductionConfigSnapshotJson());
+    }
+
     private static MesTeamLeaderOrderProcessTarget buildTarget(MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
                                                                Long activeOrderId) {
         BigDecimal erpFixedQuantity = requirePositive(snapshot.getErpFixedQuantitySnapshot(), activeOrderId)

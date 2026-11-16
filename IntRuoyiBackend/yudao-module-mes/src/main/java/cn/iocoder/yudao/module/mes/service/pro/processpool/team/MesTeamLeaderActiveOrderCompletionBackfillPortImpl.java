@@ -1,6 +1,11 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -55,6 +60,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         implements MesTeamLeaderActiveOrderCompletionBackfillPort {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
@@ -117,14 +124,14 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Formal production freeze requires the existing Tx-A transaction");
         }
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw sourceMissing(activeOrder, "ACTIVE_ORDER_OWNER");
         }
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = lockedSnapshots(activeOrder);
         List<MesProcessPoolReportAllocationDO> allocations = lockedAllocations(activeOrder);
         List<MesProcessPoolOrderProcessCompletionDO> completions = completionMapper
                 .selectListByWorkOrderIdsForUpdate(List.of(activeOrder.getWorkOrderId()));
-        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectEffectiveListByActiveOrderIdForUpdate(activeOrder.getId());
         List<MesPqcProcessInspectionAggregateDetailDO> details = aggregateDetailMapper
                 .selectListByActiveOrderIdForUpdate(activeOrder.getId());
         if (completions == null || completions.isEmpty() || tasks == null || tasks.isEmpty()
@@ -177,12 +184,23 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                         .setProductId(workOrder.getProductId())
                         .setBatchCode(workOrder.getBatchCode())
                         .setSourceSnapshotHash(sourceSeedHash)
-                        .setRequireNoReplenishmentConfirmation(true)
-                        .setConfirmNoReplenishmentInfo(command.getConfirmNoReplenishmentInfo())
                         .setProcessSnapshots(snapshots);
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources = lossSourceReader.read(lossCommand);
         if (lossSources != null && lossSources.getBlockers() != null && !lossSources.getBlockers().isEmpty()) {
-            throw sourceMissing(activeOrder, lossSources.getBlockers().get(0).getBlockerType());
+            var blockers = lossSources.getBlockers().stream().map(source ->
+                    new MesReleaseFlowBlocker()
+                            .setBlockerType(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED)
+                            .setObjectType(source.getObjectType()).setObjectId(source.getObjectId())
+                            .setObjectCode(source.getObjectCode()).setRouteProcessId(source.getRouteProcessId())
+                            .setProcessId(source.getProcessId()).setFieldCode(source.getFieldCode())
+                            .setCellKey(source.getCellKey()).setReason(source.getReason())
+                            .setSuggestion(source.getSuggestion())).toList();
+            var first = lossSources.getBlockers().get(0);
+            throw new MesReleaseFlowBlockerException(
+                    first.getBlockerType() + ": " + first.getReason(),
+                    new MesReleaseFlowFailureRespVO()
+                            .setStage(MesReleaseFlowStage.SP_1)
+                            .setCurrentStatus(activeOrder.getActiveStatus()).setBlockers(blockers));
         }
         if (lossSources == null || lossSources.getBlockers() == null || !lossSources.getBlockers().isEmpty()
                 || !coversEveryProcessSnapshot(lossSources.getProcessSources(), snapshots)) {
@@ -228,7 +246,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .setZeroLossConfirmationSnapshot(hasActualLoss ? null
                         : JsonUtils.toJsonString(Map.of("activeOrderId", activeOrder.getId(),
                         "sourceSnapshotHash", sourceSnapshotHash, "status", "NO_FORMAL_LOSS",
-                        "confirmedBy", leaderUserId, "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
+                        "evaluatedBy", leaderUserId, "determinationMode", "SOURCE_QUERY",
+                        "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
                 .setLossConditionFactsJson(lossConditionFactsJson);
     }
 
@@ -486,7 +505,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     || !Objects.equals(order.getRouteVersionId(), task.getRouteVersionId())
                     || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
                     || task.getActualInspectionQuantity() == null || task.getActualInspectionQuantity() <= 0
-                    || !Objects.equals(task.getPlannedInspectionQuantity(), task.getActualInspectionQuantity())
                     || task.getSubmittedEventId() == null) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
@@ -496,6 +514,13 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     .toList();
             if (!detailMatches.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                     .collect(java.util.stream.Collectors.toSet()).equals(itemPlan.keySet())) {
+                throw sourceMissing(order, "PROCESS_INSPECTION");
+            }
+            var actualQuantities = detailMatches.stream().collect(java.util.stream.Collectors.groupingBy(
+                    MesPqcProcessInspectionAggregateDetailDO::getItemCode,
+                    java.util.stream.Collectors.summingInt(ignored -> 1)));
+            if (!MesPqcInspectionItemPlan.matchesActualQuantities(task, actualQuantities,
+                    task.getActualInspectionQuantity())) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
             for (MesPqcProcessInspectionAggregateDetailDO detail : detailMatches) {
@@ -521,8 +546,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             for (var item : itemPlan.entrySet()) {
                 List<Integer> sampleNos = detailMatches.stream()
                         .filter(detail -> Objects.equals(item.getKey(), detail.getItemCode()))
-                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
-                if (!sampleNos.equals(java.util.stream.IntStream.rangeClosed(1, item.getValue()).boxed().toList())) {
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).toList();
+                if (!MesPqcInspectionItemPlan.completeSamples(task, item.getKey(), sampleNos)) {
                     throw sourceMissing(order, "PROCESS_INSPECTION");
                 }
             }

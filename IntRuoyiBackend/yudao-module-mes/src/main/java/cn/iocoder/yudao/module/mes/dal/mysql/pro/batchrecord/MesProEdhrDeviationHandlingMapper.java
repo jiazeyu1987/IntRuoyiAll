@@ -53,6 +53,7 @@ public interface MesProEdhrDeviationHandlingMapper extends BaseMapperX<MesProEdh
                 handling_conclusion = #{handling.handlingConclusion},
                 verification_result = #{handling.verificationResult},
                 verification_content = #{handling.verificationContent},
+                reviewer_assignments_json = #{handling.reviewerAssignmentsJson},
                 content_version = #{handling.contentVersion},
                 content_hash = #{handling.contentHash}
             WHERE tenant_id = #{tenantId}

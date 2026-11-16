@@ -58,7 +58,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class})
+@Import({MesProEdhrWorkTaskServiceImpl.class, MesEdhrTaskDeadlineService.class, MesProEdhrCandidateResolver.class})
 class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
 
     private static final String FILLER_SOURCE_TYPE = "EDHR_PROCESS_FORM_FILLER";

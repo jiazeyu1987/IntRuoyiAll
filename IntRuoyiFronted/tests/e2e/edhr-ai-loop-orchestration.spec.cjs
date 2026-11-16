@@ -8,7 +8,7 @@ const { freezeExecutionBaseline } = require('./edhr-ai-loop/coverage.cjs')
 const runnerPath = path.join(__dirname, 'edhr-ai-loop/runner.cjs')
 const order = { activeOrderId: '9', workOrderCode: 'UNIT', quantity: 10 }
 order.executionBaseline = freezeExecutionBaseline(order, [1, 2, 3].map(id => ({ routeProcessId: String(id), processKey: `P${id}`, targetQuantity: id * 10, outputMaterials: ['M'] })),
-  [{ processKey: 'QA-999-77', processLabel: '独立QA工序', tasks: [71, 72].map(id => ({ pqcTaskId: String(id), ruleKey: 'FIRST', type: 'FIRST', businessDate: '2026-09-17', shiftCode: 'D', roundNo: 1, quantity: 2, taskStatus: 'PENDING', inspectionItems: [{ itemCode: String(id) }] })) }])
+  [{ processKey: 'QA-999-77', processLabel: '独立QA工序', tasks: [71, 72].map(id => ({ pqcTaskId: String(id), ruleKey: 'FIRST', type: 'FIRST', businessDate: '2026-09-17', shiftCode: 'D', roundNo: 1, quantity: 2, taskStatus: 'PENDING', inspectionItems: [{ itemCode: String(id), plannedInspectionQuantity: 2 }] })) }])
 
 async function run(failReview = false, deferToTail = false) {
   const calls = []

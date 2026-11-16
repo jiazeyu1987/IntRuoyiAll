@@ -31,7 +31,7 @@
         <MdClientSelect v-model="queryParams.clientId" class="!w-240px" />
       </el-form-item>
       <el-form-item label="检查员" prop="inspectorUserId">
-        <UserSelectV2 v-model="queryParams.inspectorUserId" class="!w-240px" />
+        <UserSelectV2 allow-inactive v-model="queryParams.inspectorUserId" class="!w-240px" />
       </el-form-item>
       <el-form-item>
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>

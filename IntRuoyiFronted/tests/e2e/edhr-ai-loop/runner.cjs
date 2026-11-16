@@ -612,8 +612,16 @@ async function selectFrontlinePqcProcess(page, processKey) {
 }
 
 async function fillPqcQuantity(page, quantity) {
-  await page.locator('[data-pqc-inspection-quantity]').fill(String(quantity))
+  assert.equal(Number(await page.locator('[data-pqc-inspection-quantity]').inputValue()), Number(quantity),
+    '任务数量应由各项目实际抽样数量的最大值计算')
   await page.locator('[data-pqc-scrap-quantity]').fill('0')
+}
+
+async function selectPqcTaskScope(page, task) {
+  await page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(task.ruleKey)}"]`).click()
+  if (task.ruleKey === 'PATROL') {
+    await page.locator(`[data-pqc-patrol-round="${Number(task.roundNo)}"]`).click()
+  }
 }
 
 async function selectFirstPqcEquipmentWhenAvailable(page) {
@@ -644,6 +652,7 @@ async function fillActivePqcInspectionItem(page, itemValue) {
   await page.locator('[data-pqc-piece-open-button]').click()
   const modal = page.locator('[data-pqc-piece-modal]')
   await modal.waitFor({ state: 'visible', timeout: 30000 })
+  await modal.getByRole('button', { name: '表格核对', exact: true }).click()
   const inputs = modal.locator('[data-pqc-piece-number-input]')
   const inputCount = await inputs.count()
   if (!inputCount) {
@@ -673,9 +682,11 @@ async function fillPqcInspectionItems(page, step) {
       await tab.click()
       const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(task.ruleKey)}"]`)
       await ruleTab.waitFor({ state: 'visible' })
-      await ruleTab.click()
+      await selectPqcTaskScope(page, task)
       await fillPqcQuantity(page, task.quantity)
       await page.locator('[data-pqc-active-inspection-panel]').waitFor({ state: 'visible' })
+      const itemQuantity = Number(item.plannedInspectionQuantity)
+      assert.ok(Number.isInteger(itemQuantity) && itemQuantity > 0, '项目缺少冻结应检数量')
       const numeric = ['NUMBER', 'NUMERIC'].includes(String(item.resultType).toUpperCase())
       let value
       if (numeric) {
@@ -686,7 +697,7 @@ async function fillPqcInspectionItems(page, step) {
         assert.ok(upper === null || value <= upper, `检验上下限矛盾: ${item.itemCode}`)
       }
       const filled = await fillActivePqcInspectionItem(page, value)
-      if (numeric) assert.equal(filled.sampleCount, Number(task.quantity), '逐件输入数量必须等于冻结应检数量')
+      if (numeric) assert.equal(filled.sampleCount, itemQuantity, '逐件输入数量必须等于本项目实际抽样数量')
       items.push({ pqcTaskId: task.pqcTaskId, itemCode: item.itemCode, ...filled })
     }
   }
@@ -904,7 +915,25 @@ async function freezeActiveOrderExecutionBaseline(page, order) {
       outputMaterials: outputMaterials.map(text => text.trim()), quantityMode })
   }
   } finally { page.off('response', captureRuntime) }
-  const processes = await readPqcProcessesFromPage(page, order)
+  let processes = await readPqcProcessesFromPage(page, order)
+  // Freeze the test baseline only after creating real dynamic rounds through the UI.
+  if (processes.some(process => process.patrolInspectionApplicable) &&
+      !processes.some(process => process.pqcTaskOptions.some(task => task.inspectionType === 'PATROL'))) {
+    await page.locator('[data-pqc-inspection-rule-tab="PATROL"]').click()
+    const created = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url().includes('/pqc/patrol-round'))
+    await page.locator('[data-pqc-create-patrol]').click()
+    await readPageResponse(await created, '新建真实巡检轮次')
+    processes = await readPqcProcessesFromPage(page, order)
+  }
+  if (processes.some(process => process.finalInspectionApplicable) &&
+      !processes.some(process => process.pqcTaskOptions.some(task => task.inspectionType === 'FINAL'))) {
+    const created = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url().includes('/pqc/final-inspection'))
+    await page.locator('[data-pqc-inspection-rule-tab="FINAL"]').click()
+    await readPageResponse(await created, '新建适用工序的末检')
+    processes = await readPqcProcessesFromPage(page, order)
+  }
   const pqcProcesses = []
   for (const process of processes) {
     const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
@@ -947,7 +976,7 @@ async function submitOnePqcInspectionForProcess(page, manifestOrder, step) {
   // Rule selection controls which processes are visible in the real picker.
   const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"]`)
   await ruleTab.waitFor({ state: 'visible', timeout: 30000 })
-  await ruleTab.click()
+  await selectPqcTaskScope(page, step.tasks[0])
   await page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"][aria-pressed="true"]`).waitFor({ state: 'visible', timeout: 30000 })
   const processLabel = await selectFrontlinePqcProcess(page, step.processKey)
   const submissions = await submitOnePqcInspectionRound(page, manifestOrder, { ...step, processLabel })
@@ -976,7 +1005,7 @@ function assertFreshPqcTaskGroup(processes, order, step) {
   for (const task of step.tasks) {
     for (const item of task.inspectionItems) {
       const active = process.pqcTaskOptions.find(candidate => candidate.taskStatus === 'PENDING' &&
-        candidate.inspectionRuleKey === step.ruleKey && includesItem(candidate, item.itemCode))
+        candidate.inspectionRuleKey === step.ruleKey && scope(candidate) === expectedScope && includesItem(candidate, item.itemCode))
       assert.ok(active, 'fresh PQC项目规则缺少pending任务')
       assert.equal(String(active.pqcTaskId), task.pqcTaskId, 'fresh PQC页面将选中不同pending任务，禁止跨业务轮次提交')
     }
@@ -1120,30 +1149,6 @@ function requireReleaseReadyProgress(status, manifestOrder, action) {
   }
 }
 
-function requireNoReplenishmentConfirmationResponse(body, manifestOrder, action) {
-  if (Number(body.code) === 0) {
-    throw stageError({
-      stage: 'S04',
-      errorType: 'BUSINESS_ASSERTION',
-      action,
-      message: `无补料确认前不应生成生产放行申请：${manifestOrder.workOrderCode}`,
-      expected: { firstReleaseApplyResult: 'NO_REPLENISHMENT_CONFIRMATION_REQUIRED' },
-      actual: { code: body.code, data: body.data }
-    })
-  }
-  const serialized = JSON.stringify(body)
-  if (!serialized.includes('NO_REPLENISHMENT_CONFIRMATION_REQUIRED')) {
-    throw stageError({
-      stage: 'S04',
-      errorType: 'BUSINESS_ASSERTION',
-      action,
-      message: `完工申请未返回无补料确认要求：${manifestOrder.workOrderCode}`,
-      expected: { blocker: 'NO_REPLENISHMENT_CONFIRMATION_REQUIRED' },
-      actual: { code: body.code, msg: body.msg, data: body.data }
-    })
-  }
-}
-
 async function openReleaseApplyAndConfirmMainPrompt(page, manifestOrder, action) {
   await openActiveOrderPool(page, manifestOrder.workOrderCode)
   const row = activeOrderRow(page, manifestOrder.workOrderCode)
@@ -1159,27 +1164,28 @@ async function openReleaseApplyAndConfirmMainPrompt(page, manifestOrder, action)
   }
 }
 
-async function applyActiveOrderReleaseAndCancelNoReplenishment(page, manifestOrder) {
-  const action = 'S04取消无补料确认'
-  const attempt = await openReleaseApplyAndConfirmMainPrompt(page, manifestOrder, action)
-  requireNoReplenishmentConfirmationResponse(attempt.firstApplyBody, manifestOrder, action)
-  await clickMessageBoxButton(page, '确认无补料信息', '取消')
+async function applyActiveOrderReleaseAndCancel(page, manifestOrder) {
+  const action = 'S04取消生产放行申请'
+  await openActiveOrderPool(page, manifestOrder.workOrderCode)
+  const beforeRow = activeOrderRow(page, manifestOrder.workOrderCode)
+  await beforeRow.waitFor({ state: 'visible', timeout: 30000 })
+  const beforeStatus = await readActiveOrderProgressAndStatus(beforeRow)
+  requireReleaseReadyProgress(beforeStatus, manifestOrder, action)
+  await beforeRow.locator('[data-team-leader-active-order-release-apply]').click()
+  await clickMessageBoxButton(page, '提交生产放行申请', '取消')
   await openActiveOrderPool(page, manifestOrder.workOrderCode)
   const row = activeOrderRow(page, manifestOrder.workOrderCode)
   await row.waitFor({ state: 'visible', timeout: 30000 })
   const afterStatus = await readActiveOrderProgressAndStatus(row)
-  assert.equal(afterStatus.releaseStatusText, '未申请', '取消无补料确认后不应生成放行申请')
-  return { cancelled: true, beforeStatus: attempt.beforeStatus, afterStatus }
+  assert.equal(afterStatus.releaseStatusText, '未申请', '取消生产放行申请后不应生成申请')
+  return { cancelled: true, beforeStatus, afterStatus }
 }
 
-async function applyActiveOrderReleaseWithNoReplenishmentConfirmation(page, manifestOrder) {
-  const action = 'S04确认无补料并申请放行'
+async function applyActiveOrderReleaseWithoutReplenishment(page, manifestOrder) {
+  const action = 'S04无补料直接申请放行'
   const attempt = await openReleaseApplyAndConfirmMainPrompt(page, manifestOrder, action)
-  requireNoReplenishmentConfirmationResponse(attempt.firstApplyBody, manifestOrder, action)
-  const confirmedApplyResponse = page.waitForResponse(isActiveOrderReleaseApplyResponse)
-  await clickMessageBoxButton(page, '确认无补料信息', '确认无补料信息')
-  const confirmedBody = await readCommonResult(await confirmedApplyResponse, '确认无补料后的生产完工申请失败')
-  assert.equal(Number(confirmedBody.code), 0, `确认无补料后的生产完工申请业务失败：${confirmedBody.msg || 'unknown'}`)
+  const confirmedBody = attempt.firstApplyBody
+  assert.equal(Number(confirmedBody.code), 0, `无补料订单生产完工申请业务失败：${confirmedBody.msg || 'unknown'}`)
   const receipt = confirmedBody.data || {}
   assert.equal(String(receipt.status), 'PQC_RELEASE_PENDING', `S04完成后状态必须为待PQC放行，实际为${receipt.status}`)
   assert.ok(String(receipt.sourceSnapshotHash || '').trim(), 'S04放行申请回执缺少正式来源快照哈希')
@@ -1302,8 +1308,8 @@ async function completeActiveOrderAndApplyRelease(page, manifestOrder) {
   await verifyExecutionProgress(page, manifestOrder)
   const prePickListInputMaterialBackfill = await verifyNoInputMaterialBackfillBeforePickList(page, manifestOrder)
   const pickListSync = await triggerProductionPickListSync(page, manifestOrder)
-  const cancelProbe = await applyActiveOrderReleaseAndCancelNoReplenishment(page, manifestOrder)
-  const releaseApplication = await applyActiveOrderReleaseWithNoReplenishmentConfirmation(page, manifestOrder)
+  const cancelProbe = await applyActiveOrderReleaseAndCancel(page, manifestOrder)
+  const releaseApplication = await applyActiveOrderReleaseWithoutReplenishment(page, manifestOrder)
   const inputMaterialBackfill = await verifyCompletionInputMaterialBackfill(page, manifestOrder)
   return {
     workOrderCode: manifestOrder.workOrderCode,

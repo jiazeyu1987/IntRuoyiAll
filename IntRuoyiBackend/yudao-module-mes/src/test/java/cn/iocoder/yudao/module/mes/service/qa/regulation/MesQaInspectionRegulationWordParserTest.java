@@ -26,6 +26,19 @@ class MesQaInspectionRegulationWordParserTest {
             new MesQaInspectionRegulationWordParser();
 
     @Test
+    void parse_readsBinaryDocAndRejectsProductionRecordAsInspectionRegulation() throws Exception {
+        var fixture = java.nio.file.Path.of("src/test/resources/fixtures/pressure-pump-record.doc");
+        byte[] bytes = java.nio.file.Files.readAllBytes(fixture);
+        Object document = org.springframework.test.util.ReflectionTestUtils.invokeMethod(parser, "readDoc", bytes);
+        var headers = (List<?>) org.springframework.test.util.ReflectionTestUtils.getField(document, "headerRows");
+        var tables = (List<?>) org.springframework.test.util.ReflectionTestUtils.getField(document, "tables");
+        assertTrue(!headers.isEmpty());
+        assertTrue(!tables.isEmpty());
+        var error = assertThrows(RuntimeException.class, () -> parser.parse(bytes, "生产记录.DOC"));
+        assertTrue(error.getMessage().contains("首页规程编号不存在"));
+    }
+
+    @Test
     void parse_reconstructsHeaderRevisionAndMergedInspectionRows() throws Exception {
         MesQaInspectionRegulationWordParser.ParsedRegulation parsed = parser.parse(
                 buildQaTemplate(true), "测试QA模板.docx");
@@ -43,14 +56,118 @@ class MesQaInspectionRegulationWordParserTest {
         assertEquals("目视检查", first.inspectionMethod());
         assertEquals("目测", first.inspectionTool());
         assertEquals(5, first.firstInspectionQuantity());
-        assertEquals(new BigDecimal("0.4"), first.patrolInspectionRatio());
+        assertEquals(new BigDecimal("0.4"), first.aql());
+        assertEquals("I", first.inspectionLevel());
+        assertTrue(first.patrolApplicable());
 
         MesQaInspectionRegulationWordParser.ParsedItem second = parsed.items().get(1);
         assertEquals("清洗", second.processName());
         assertEquals("旋转接头 / 牢固度", second.itemName());
         assertNull(second.firstInspectionQuantity());
-        assertEquals(new BigDecimal("0.65"), second.patrolInspectionRatio());
+        assertEquals(new BigDecimal("0.65"), second.aql());
+        assertTrue(second.patrolApplicable());
         assertTrue(parsed.items().stream().noneMatch(item -> item.itemName().contains("备注")));
+    }
+
+    @Test
+    void parse_preservesAqlAndGeneralRulesFromCompleteMecrDocument() throws Exception {
+        var file = java.nio.file.Path.of("..", "..", "resource", "通用检验规程",
+                "PQC-MECR-001（B 1）美联初包装过程检验规程--2026.08.10生效(1).docx");
+        var parsed = parser.parse(java.nio.file.Files.readAllBytes(file), file.getFileName().toString());
+        assertEquals(LocalDate.of(2026, 8, 10), parsed.effectiveDate());
+        assertEquals(4, parsed.items().size());
+        assertTrue(parsed.items().get(0).samplingPlanText().contains("AQL=0.25"));
+        assertEquals(3, parsed.items().stream().filter(item -> item.patrolApplicable()).count());
+        assertEquals(new BigDecimal("0.25"), parsed.items().get(0).aql());
+        assertTrue(parsed.items().stream().filter(item -> item.patrolApplicable())
+                .allMatch(item -> item.aql() != null));
+        assertTrue(parsed.ruleSourceText().contains("模具更换"));
+        assertTrue(parsed.ruleSourceText().contains("双倍检验"));
+        assertTrue(parsed.ruleSourceText().contains("每一个检验项目均应合格"));
+        assertTrue(parsed.ruleSourceText().contains("直到首检合格后方可进入正常生产"));
+    }
+
+    @Test
+    void parse_extractsLevelAndKeepsAqlIndependent() throws Exception {
+        for (String level : List.of("I", "II", "III", "S-1", "S2", "S-3", "S4", "Ⅰ", "Ⅱ", "Ⅲ")) {
+            var item = parseFirstSampling("首件：5件；GB/T 2828.1，" + level + "，AQL=0.4");
+            assertEquals(level.replace("-", "").replace("Ⅰ", "I").replace("Ⅱ", "II").replace("Ⅲ", "III"), item.inspectionLevel());
+            assertEquals(new BigDecimal("0.4"), item.aql());
+            assertEquals(5, item.firstInspectionQuantity());
+        }
+    }
+
+    @Test
+    void parse_rejectsPercentOnlyAndMissingOrIncompleteLevel() {
+        for (String sampling : List.of("首件：5件；巡检抽样比例：2%", "首件：5件；AQL=0.4",
+                "首件：5件；GB/T 2828.1，S-，AQL=1.0", "GB/T 2828.1，S-5，AQL=0.4")) {
+            var error = assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
+            assertTrue(error.getMessage().contains("检验水平"), error.getMessage());
+        }
+    }
+
+    @Test
+    void parse_rejectsAmbiguousLevelOrAql() {
+        for (String sampling : List.of("GB/T 2828.1，I，S-3，AQL=0.4",
+                "GB/T 2828.1，I，AQL=0.4；AQL=0.65")) {
+            assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
+        }
+    }
+
+    @Test
+    void parse_preservesFirstOnlyRule() throws Exception {
+        var item = parseFirstSampling("首件：5件");
+        assertEquals(5, item.firstInspectionQuantity());
+        assertNull(item.inspectionLevel());
+        assertTrue(!item.patrolApplicable());
+    }
+
+    private MesQaInspectionRegulationWordParser.ParsedItem parseFirstSampling(String sampling) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new java.io.ByteArrayInputStream(buildQaTemplate(true)));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var cell = document.getTables().get(1).getRow(1).getTableCells().get(6);
+            while (!cell.getParagraphs().isEmpty()) {
+                cell.removeParagraph(0);
+            }
+            cell.addParagraph().createRun().setText(sampling);
+            document.write(output);
+            return parser.parse(output.toByteArray(), "抽样比例.docx").items().get(0);
+        }
+    }
+
+    @Test
+    void parse_appliesExplicitRemarkFirstQuantityWithoutOverwritingItemRule() throws Exception {
+        var parsed = parseWithRemark("设备初次开机需要首件检验；首检数量为3件；过程巡检每班两次。");
+        assertEquals(5, parsed.items().get(0).firstInspectionQuantity());
+        assertEquals(3, parsed.items().get(1).firstInspectionQuantity());
+        assertEquals("GB/T 2828.1，I，AQL=0.65", parsed.items().get(1).samplingPlanText());
+        assertTrue(parsed.items().get(1).patrolApplicable());
+        assertTrue(parsed.ruleSourceText().contains("首检数量为3件"));
+    }
+
+    @Test
+    void parse_doesNotInventFirstQuantityFromRemarkWithoutNumber() throws Exception {
+        var parsed = parseWithRemark("设备初次开机需要按照表中抽样规则进行首件检验。");
+        assertNull(parsed.items().get(1).firstInspectionQuantity());
+    }
+
+    @Test
+    void parse_rejectsAmbiguousOrZeroRemarkFirstQuantity() {
+        for (String remark : List.of("首检数量为3件；首件数量：5件", "首检数量为0件")) {
+            var failure = assertThrows(RuntimeException.class, () -> parseWithRemark(remark));
+            assertTrue(failure.getMessage().contains("备注中的首检数量"), failure.getMessage());
+        }
+    }
+
+    private MesQaInspectionRegulationWordParser.ParsedRegulation parseWithRemark(String text) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new java.io.ByteArrayInputStream(buildQaTemplate(true)));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var cell = document.getTables().get(1).getRow(3).getCell(0);
+            while (!cell.getParagraphs().isEmpty()) cell.removeParagraph(0);
+            cell.addParagraph().createRun().setText("备注：" + text);
+            document.write(output);
+            return parser.parse(output.toByteArray(), "备注首检.docx");
+        }
     }
 
     @Test
@@ -123,7 +240,7 @@ class MesQaInspectionRegulationWordParserTest {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> parser.parse(buildQaTemplate(false), "测试QA模板.docx"));
 
-        assertTrue(exception.getMessage().contains("生效日期"));
+        assertTrue(exception.getMessage().contains("生效/实施日期"), exception.getMessage());
     }
 
     @Test

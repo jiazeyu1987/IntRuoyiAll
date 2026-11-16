@@ -75,9 +75,7 @@
         <ReceivablePlanList :customer-id="customer.id!" @create-receivable="createReceivable" />
         <ReceivableList ref="receivableListRef" :customer-id="customer.id!" />
       </el-tab-pane>
-      <el-tab-pane label="操作日志">
-        <OperateLogV2 :log-list="logList" />
-      </el-tab-pane>
+      
     </el-tabs>
   </el-col>
 
@@ -101,8 +99,8 @@ import PermissionList from '@/views/crm/permission/components/PermissionList.vue
 import CrmTransferForm from '@/views/crm/permission/components/TransferForm.vue'
 import FollowUpList from '@/views/crm/followup/index.vue'
 import { BizTypeEnum } from '@/api/crm/permission'
-import type { OperateLogVO } from '@/api/system/operatelog'
-import { getOperateLogPage } from '@/api/crm/operateLog'
+
+
 import CustomerDistributeForm from '@/views/crm/customer/pool/CustomerDistributeForm.vue'
 
 defineOptions({ name: 'CrmCustomerDetail' })
@@ -121,7 +119,7 @@ const getCustomer = async () => {
   loading.value = true
   try {
     customer.value = await CustomerApi.getCustomer(customerId.value)
-    await getOperateLog()
+    
   } finally {
     loading.value = false
   }
@@ -193,17 +191,8 @@ const handlePutPool = async () => {
 }
 
 /** 获取操作日志 */
-const logList = ref<OperateLogVO[]>([]) // 操作日志列表
-const getOperateLog = async () => {
-  if (!customerId.value) {
-    return
-  }
-  const data = await getOperateLogPage({
-    bizType: BizTypeEnum.CRM_CUSTOMER,
-    bizId: customerId.value
-  })
-  logList.value = data.list
-}
+ // 操作日志列表
+
 
 /** 从回款计划创建回款 */
 const receivableListRef = ref<InstanceType<typeof ReceivableList>>() // 回款列表 Ref

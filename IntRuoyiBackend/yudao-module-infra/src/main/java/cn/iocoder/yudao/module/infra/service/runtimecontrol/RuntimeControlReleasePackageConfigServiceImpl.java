@@ -2,7 +2,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
-import cn.iocoder.yudao.module.infra.service.config.ConfigService;
+import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
 import org.springframework.stereotype.Service;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -24,10 +24,10 @@ public class RuntimeControlReleasePackageConfigServiceImpl implements RuntimeCon
     public static final String KEY_BACKEND_RUNTIME_BASE_VERSION =
             "runtime-control.release-package.backend-runtime-base-version";
 
-    private final ConfigService configService;
+    private final ConfigMapper configMapper;
 
-    public RuntimeControlReleasePackageConfigServiceImpl(ConfigService configService) {
-        this.configService = configService;
+    public RuntimeControlReleasePackageConfigServiceImpl(ConfigMapper configMapper) {
+        this.configMapper = configMapper;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class RuntimeControlReleasePackageConfigServiceImpl implements RuntimeCon
     }
 
     private String requiredConfigValue(String key, String scriptArgumentName) {
-        ConfigDO config = configService.getConfigByKey(key);
+        ConfigDO config = configMapper.selectByKey(key);
         String value = config == null ? null : config.getValue();
         if (StrUtil.isBlank(value)) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED,

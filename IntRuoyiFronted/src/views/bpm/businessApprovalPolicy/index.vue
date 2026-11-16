@@ -3,6 +3,7 @@
 
   <ContentWrap v-hasPermi="['bpm:business-approval-policy:query']">
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="bpm.business-approval-policy.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,9 +23,12 @@
       @column-change="saveBusinessApprovalPolicyColumnConfig"
       @column-reset="resetBusinessApprovalPolicyColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+        <PolicyTransferActions @imported="getList" />
         <el-button
           type="primary"
           plain
@@ -35,10 +39,10 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -190,7 +194,8 @@
             align="center"
             prop="actions"
             fixed="right"
-            :width="getBusinessApprovalPolicyColumnWidthString('actions', 170)"
+            :width="getBusinessApprovalPolicyColumnWidthString('actions', 240)"
+            min-width="240"
           >
             <template #default="{ row }">
               <el-button
@@ -206,10 +211,22 @@
                 link
                 type="success"
                 :loading="publishingPolicyId === row.id"
+                :disabled="deletingPolicyId === row.id"
                 @click="publishPolicy(row.id)"
                 v-hasPermi="['bpm:business-approval-policy:publish']"
               >
                 发布
+              </el-button>
+              <el-button
+                v-if="row.status === 'DRAFT'"
+                v-hasPermi="['bpm:business-approval-policy:create']"
+                link
+                type="danger"
+                :loading="deletingPolicyId === row.id"
+                :disabled="publishingPolicyId === row.id"
+                @click="deleteDraftPolicy(row.id)"
+              >
+                删除草稿
               </el-button>
               <el-button
                 v-if="row.status === 'PUBLISHED'"
@@ -276,8 +293,13 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { computed } from 'vue'
+import PolicyTransferActions from './PolicyTransferActions.vue'
 import { dateFormatter } from '@/utils/formatTime'
+import { promptSignatureCredential } from '@/utils/signaturePrompt'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
@@ -306,7 +328,7 @@ const businessApprovalPolicyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'effectExecutorCode', label: '领域执行器', minWidth: 220 },
   { key: 'status', label: '状态', width: 100 },
   { key: 'updatedTime', label: '更新时间', width: 180 },
-  { key: 'actions', label: '操作', width: 170, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 240, minWidth: 240, hideable: false, business: false }
 ]
 
 const {
@@ -408,10 +430,12 @@ const formatPolicyObjectState = (objectState: string | undefined) =>
 const formatPolicyEffectExecutorCode = (effectExecutorCode: string | undefined) =>
   formatPolicyCodeLabel(effectExecutorCode, policyEffectExecutorCodeLabels)
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<BusinessApprovalPolicyVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   dataDomain: undefined as string | undefined,
@@ -442,16 +466,15 @@ const resolveBusinessApprovalPolicyErrorMessage = (error: unknown) => {
 }
 
 const getList = async () => {
-  loading.value = true
   try {
-    const data = await BusinessApprovalPolicyApi.getPolicyPage(queryParams)
+    return await listRequest.run(() => BusinessApprovalPolicyApi.getPolicyPage({ ...queryParams }), (data) => {
     list.value = data.list || []
     total.value = data.total || 0
-  } catch (error) {
+  })
+  }
+  catch (error) {
     message.error(resolveBusinessApprovalPolicyErrorMessage(error))
     throw error
-  } finally {
-    loading.value = false
   }
 }
 
@@ -475,6 +498,7 @@ const policyFormTitle = ref('新增平台业务审批策略')
 const policyFormLoading = ref(false)
 const policyFormRef = ref()
 const publishingPolicyId = ref<number>()
+const deletingPolicyId = ref<number>()
 const disablingPolicyId = ref<number>()
 const switchingPolicyId = ref<number>()
 const policyFormData = ref<BusinessApprovalPolicySaveReqVO>({
@@ -570,6 +594,27 @@ const submitPolicyForm = async () => {
   }
 }
 
+const deleteDraftPolicy = async (id: number) => {
+  try {
+    await message.confirm('确认删除该审批策略草稿？删除后无法恢复。')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  deletingPolicyId.value = id
+  try {
+    await BusinessApprovalPolicyApi.deleteDraftPolicy(id)
+    message.success('草稿已删除')
+    if (list.value.length === 1 && queryParams.pageNo > 1) queryParams.pageNo -= 1
+    await getList()
+  } catch (error) {
+    message.error(resolveBusinessApprovalPolicyErrorMessage(error))
+    throw error
+  } finally {
+    deletingPolicyId.value = undefined
+  }
+}
+
 const publishPolicy = async (id: number) => {
   try {
     await message.confirm('确认发布该平台业务审批策略？发布后同一业务动作会按该策略执行。')
@@ -615,15 +660,10 @@ const handlePolicyModeSwitch = async (row: BusinessApprovalPolicyVO, enabled: bo
   if (row.policyMode === targetMode) return
   let signaturePassword = ''
   try {
-    const promptResult = await message.prompt('请输入电子签名密码', '审批开关电子签名', {
-      inputType: 'password',
-      inputPlaceholder: '请输入电子签名密码',
-      inputValidator: (value) => Boolean(String(value || '').trim()),
-      inputErrorMessage: '电子签名密码不能为空'
-    })
+    const promptResult = await promptSignatureCredential('审批开关电子签名')
     signaturePassword = String(promptResult.value || '').trim()
     if (!signaturePassword) {
-      message.warning('电子签名密码不能为空')
+      message.warning('电子签名凭据不能为空')
       await getList()
       return
     }
@@ -656,4 +696,61 @@ const handlePolicyModeSwitch = async (row: BusinessApprovalPolicyVO, enabled: bo
 onMounted(() => {
   getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'dataDomain',
+    label: '数据域',
+    type: 'text',
+    getValue: (row) => [formatPolicyDataDomain(row.dataDomain)].join(' ')
+  },
+  {
+    key: 'systemCode',
+    label: '系统编码',
+    type: 'text',
+    getValue: (row) => [formatPolicySystemCode(row.systemCode)].join(' ')
+  },
+  {
+    key: 'objectType',
+    label: '对象类型',
+    type: 'text',
+    getValue: (row) => [formatPolicyObjectType(row.objectType)].join(' ')
+  },
+  {
+    key: 'actionCode',
+    label: '动作编码',
+    type: 'text',
+    getValue: (row) => [formatPolicyActionCode(row.actionCode)].join(' ')
+  },
+  {
+    key: 'objectState',
+    label: '对象状态',
+    type: 'text',
+    getValue: (row) => [formatPolicyObjectState(row.objectState)].join(' ')
+  },
+  {
+    key: 'policyMode',
+    label: '审批模式',
+    type: 'text',
+    getValue: (row) => [formatPolicyMode(row.policyMode)].join(' ')
+  },
+  {
+    key: 'approvalSwitch',
+    label: '审批开关',
+    type: 'text',
+    getValue: (row) => [formatPolicySwitchUnavailable(row)].join(' ')
+  },
+  {
+    key: 'effectExecutorCode',
+    label: '领域执行器',
+    type: 'text',
+    getValue: (row) => [formatPolicyEffectExecutorCode(row.effectExecutorCode)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatPolicyStatus(row.status)].join(' ')
+  }
+])
 </script>

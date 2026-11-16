@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 public class EdhrRecordChangeRespVO {
 
     private Long id;
+    private Long previousChangeEventId;
+    private String decisionReason;
     private String changeCode;
     private String changeType;
     private String targetScope;
@@ -38,5 +40,12 @@ public class EdhrRecordChangeRespVO {
     private String bpmProcessInstanceId;
     private String bpmTaskId;
     private String remark;
+    private Long approverUserId;
+    private Long approvalWorkTaskId;
+    private Boolean canApprove;
+    private Boolean canResubmit;
+    private Long correctionWorkTaskId;
+    private Long revisionWorkTaskId;
+    private String revisionActionUrl;
 
 }

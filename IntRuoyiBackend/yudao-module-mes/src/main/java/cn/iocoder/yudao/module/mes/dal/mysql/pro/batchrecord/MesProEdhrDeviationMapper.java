@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
 import org.apache.ibatis.annotations.Mapper;
@@ -17,7 +19,8 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
     default Page<MesProEdhrDeviationDO> selectPageByTenant(Page<MesProEdhrDeviationDO> page, Long tenantId,
                                                             String status, String level, Long batchExecutionId,
                                                             String search, String sortField, String sortOrder,
-                                                            LocalDateTime initiatedAtStart, LocalDateTime initiatedAtEnd) {
+                                                            LocalDateTime initiatedAtStart, LocalDateTime initiatedAtEnd,
+                                                            cn.iocoder.yudao.framework.common.pojo.PageParam filters) {
         var wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<MesProEdhrDeviationDO>()
                 .eq(MesProEdhrDeviationDO::getTenantId, tenantId)
                 .eq(status != null && !status.isBlank(), MesProEdhrDeviationDO::getStatus, status)
@@ -33,6 +36,14 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
         if (initiatedAtEnd != null) {
             wrapper.le(MesProEdhrDeviationDO::getInitiatedAt, initiatedAtEnd);
         }
+        ListFilterQueryUtils.apply(filters, wrapper, java.util.Map.ofEntries(
+                java.util.Map.entry("deviationCode", text("deviation_code")),
+                java.util.Map.entry("batchExecutionCode", text("batch_execution_code")),
+                java.util.Map.entry("batchCode", text("batch_code")),
+                java.util.Map.entry("level", text("CASE WHEN level = 'CRITICAL' THEN '重大' ELSE '普通' END")),
+                java.util.Map.entry("status", text("CASE WHEN status = 'OPEN' THEN '未处理' ELSE '已处理' END")),
+                java.util.Map.entry("initiatedAt", dateTime("initiated_at"))
+        ));
         boolean asc = "asc".equalsIgnoreCase(sortOrder);
         switch (sortField == null ? "" : sortField) {
             case "deviationCode" -> { if (asc) wrapper.orderByAsc(MesProEdhrDeviationDO::getDeviationCode); else wrapper.orderByDesc(MesProEdhrDeviationDO::getDeviationCode); }

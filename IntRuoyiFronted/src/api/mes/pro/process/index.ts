@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 export interface ProProcessRouteVO {
   id: number // 工艺路线编号
@@ -21,11 +22,13 @@ export interface ProProcessBatchRecordFormLinkVO {
 
 // MES 生产工序 VO
 export interface ProProcessVO {
+  projectId?: number
   id?: number // 编号
   productName?: string // 产品名称
   code: string // 工序编码
   name: string // 工序名称
   attention?: string // 工艺要求
+  sopFileUrl?: string | null // 工序 SOP 文件地址；空字符串表示解除绑定
   status: number // 状态
   manualShiftCapacity?: number // 人工班产能
   machineryQuantityTotal?: number // 关联设备台数
@@ -76,7 +79,7 @@ export const ProProcessApi = {
   },
 
   // 查询生产工序详情
-  getProcess: async (id: number, params?: { routeId?: number }) => {
+  getProcess: async (id: number, params?: { routeId?: MesRouteId }) => {
     return await request.get({ url: `/mes/pro/process/get`, params: { id, ...params } })
   },
 

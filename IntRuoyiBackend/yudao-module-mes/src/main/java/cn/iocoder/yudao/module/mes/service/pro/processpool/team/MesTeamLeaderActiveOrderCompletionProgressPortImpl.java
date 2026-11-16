@@ -20,11 +20,17 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED;
 
 /** Reads the dual completion gate from the locked production/PQC source tables. */
 @Service
 public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
         implements MesTeamLeaderActiveOrderCompletionProgressPort {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
+
 
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
@@ -45,14 +51,14 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
     @Override
     public MesTeamLeaderActiveOrderCompletionProgress read(Long leaderUserId,
                                                             MesProcessPoolActiveOrderDO activeOrder) {
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw sourceMissing(activeOrder, "ACTIVE_ORDER_OWNER");
         }
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
                 snapshotMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
         List<MesProcessPoolReportAllocationDO> allocations =
                 allocationMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
-        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectEffectiveListByActiveOrderIdForUpdate(activeOrder.getId());
         if (snapshots == null || snapshots.isEmpty() || tasks == null || tasks.isEmpty()) {
             throw sourceMissing(activeOrder, "PRODUCTION_OR_PQC_SNAPSHOT");
         }
@@ -85,7 +91,14 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
             BigDecimal conservativeProgress =
                     MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
                             productionEvents, allocations);
-            if (conservativeProgress.compareTo(snapshot.getPlannedQuantitySnapshot()) >= 0) {
+            var range = MesProductionQuantityRange.of(snapshot);
+            BigDecimal maximumQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                    activeOrder, snapshot, productionEvents, allocations);
+            if (maximumQuantity.compareTo(range.upper()) > 0) {
+                throw exception(PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED, activeOrder.getWorkOrderId(),
+                        snapshot.getProcessId(), maximumQuantity, range.upper());
+            }
+            if (conservativeProgress.compareTo(range.lower()) >= 0) {
                 productionComplete++;
             }
         }
@@ -102,7 +115,7 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
         }).filter(task -> MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())).count();
         return new MesTeamLeaderActiveOrderCompletionProgress()
                 .setProductionProgressPercent(percent(productionComplete, snapshots.size()))
-                .setInspectionProgressPercent(percent(inspectionComplete, tasks.size()));
+                .setInspectionProgressPercent(percent(inspectionComplete, tasks.size() + pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, tasks).size()));
     }
 
     private static BigDecimal percent(long completed, long total) {

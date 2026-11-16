@@ -123,6 +123,32 @@ class MesProRouteBatchRecordAttachmentOwnerServiceTest {
     }
 
     @Test
+    void initializeBatchRecordAttachmentOwners_shouldPreserveExplicitSingleUserAssignments() {
+        stubDraftCandidate();
+        when(roleCategoryMapper.selectByCode("batch-record")).thenReturn(enabledCategory());
+        when(adminUserService.getUserListByStatus(CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of(enabledUser(101L), enabledUser(102L)));
+        RoleDO role = new RoleDO();
+        role.setId(901L);
+        role.setName("已配置的上传角色");
+        role.setCode("UPLOAD");
+        role.setCategoryId(77L);
+        role.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        when(roleMapper.selectByCode(any())).thenReturn(role);
+        when(permissionService.getUserRoleIdListByRoleId(anySet())).thenReturn(Set.of(101L));
+
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result = service.initializeBatchRecordAttachmentOwners(
+                new MesProRouteBatchRecordAttachmentOwnerInitReqVO().setRouteId(10L).setRouteVersionId(1002L));
+
+        assertEquals(4, result.size());
+        assertTrue(result.stream().allMatch(owner -> owner.getAssignedUserIds().equals(List.of(101L))));
+        org.mockito.Mockito.verifyNoInteractions(roleService);
+        org.mockito.Mockito.verify(permissionService, org.mockito.Mockito.never())
+                .assignUserRole(any(), anySet(), anyString(), anyString());
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchRecordAttachmentOwners"), any());
+    }
+
+    @Test
     void initializeBatchRecordAttachmentOwners_shouldFailWhenCurrentTenantHasLessThanTwoEnabledUsers() {
         stubDraftCandidate();
         when(roleCategoryMapper.selectByCode("batch-record")).thenReturn(enabledCategory());

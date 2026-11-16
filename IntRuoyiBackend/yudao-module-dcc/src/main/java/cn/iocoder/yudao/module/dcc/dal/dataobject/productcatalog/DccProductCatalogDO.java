@@ -1,9 +1,8 @@
 package cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog;
 
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,13 +17,10 @@ import lombok.ToString;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DccProductCatalogDO extends BaseDO {
+public class DccProductCatalogDO extends TenantBaseDO {
 
     @TableId
     private Long id;
-    // Formal approved creation supplies the physical catalog tenant explicitly; no historical backfill.
-    @TableField("tenant_id")
-    private Long tenantId;
     private String dataSource;
     private Integer originalRowNo;
     private String categoryLevel1;

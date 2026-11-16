@@ -7,6 +7,7 @@
     <div class="form-template-workbench">
       <section class="form-template-workbench__list">
         <UnifiedListTemplate
+          :reset-filters="resetQuery"
           table-key="form.center.template"
           :query-model="queryParams"
           label-width="88px"
@@ -25,12 +26,11 @@
           @column-change="saveTemplateColumnConfig"
           @column-reset="resetTemplateColumnConfig"
           @pagination="getList"
+          server-filter
+          :server-filter-query="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
-            <el-button class="scheme-d-btn scheme-d-btn--warning" @click="resetQuery">
-              <Icon class="mr-5px" icon="ep:refresh" />
-              重置
-            </el-button>
             <el-button
               v-hasPermi="['form:template:create']"
               class="scheme-d-btn scheme-d-btn--primary"
@@ -43,12 +43,12 @@
             </el-button>
           </template>
 
-          <template #table="{ sortColumnAttrs, handleSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange }">
             <el-table
               v-loading="loading"
-              :data="list"
+              :data="resolveRows(list)"
               :row-key="templateRowKey"
-              height="calc(100vh - 260px)"
+              max-height="calc(100vh - 260px)"
               highlight-current-row
               border
               :stripe="true"
@@ -524,6 +524,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import download from '@/utils/download'
@@ -574,7 +577,8 @@ const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 const importDialogRef = ref()
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<FormTemplateListItemVO[]>([])
 const selectedTemplateKey = ref('')
@@ -596,6 +600,7 @@ const consumedTemplateActionKey = ref('')
 const isDesignerMode = computed(() => route.query.mode === 'designer')
 const isTemplateSimulationMode = computed(() => props.simulationOnly)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   templateName: undefined as string | undefined,
@@ -698,30 +703,30 @@ const syncSelectedTemplate = () => {
 }
 
 const getList = async () => {
-  loading.value = true
   templateRouteLoadError.value = ''
   try {
     if (isDesignerMode.value || isTemplateSimulationMode.value) {
-      list.value = []
-      total.value = 0
-      await syncTemplateRouteContext()
-      return
+      return await listRequest.run(async () => {
+        await syncTemplateRouteContext()
+        return { list: [], total: 0 }
+      }, (data) => { list.value = data.list; total.value = data.total })
     }
-    const data = await TemplateApi.getTemplatePool(queryParams)
-    list.value = data.list
-    total.value = data.total
-    syncSelectedTemplate()
+    const applied = await listRequest.run(() => TemplateApi.getTemplatePool({ ...queryParams }), (data) => {
+      list.value = data.list
+      total.value = data.total
+      syncSelectedTemplate()
+    })
+    if (!applied) return false
     await syncTemplateRouteContext()
     await refreshSelectedTemplateObsoletePending()
     await handleTemplateActionQuery()
+    return true
   } catch (error) {
     if (isDesignerMode.value || isTemplateSimulationMode.value) {
       templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
-      return
+      return false
     }
     throw error
-  } finally {
-    loading.value = false
   }
 }
 
@@ -1644,6 +1649,27 @@ watch(
     }
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'currentEffectiveVersion',
+    label: '当前生效版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo].join(' ')
+  },
+  {
+    key: 'pendingVersion',
+    label: '待发布版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo, statusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [statusLabel(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

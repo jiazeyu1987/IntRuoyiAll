@@ -9,6 +9,8 @@
     />
 
     <UnifiedListTemplate
+      :query-loading="recordLoading"
+      :reset-filters="resetRecordFilters"
       class="signature-governance-records__list"
       table-key="signature.governance.records"
       :query-model="queryParams"
@@ -28,19 +30,15 @@
       @column-change="saveRecordColumnConfig"
       @pagination="loadRecordPage"
     >
-      <template #actions>
-        <el-button :loading="recordLoading" @click="resetRecordFilters">重置</el-button>
-        <el-button type="primary" :loading="recordLoading" @click="loadRecordPage">查询</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="recordLoading"
           data-user-table-column-explicit
           data-user-table-key="signature.governance.records"
-          :data="recordList"
+          :data="resolveRows(recordList)"
           :empty-text="recordError || '暂无签名记录'"
-          :show-overflow-tooltip="true"
+          :show-overflow-tooltip="false"
           @header-dragend="handleRecordHeaderDragend"
           @sort-change="handleTemplateSortChange"
         >
@@ -49,7 +47,7 @@
             label="来源"
             prop="sourceLabel"
             align="center"
-            :width="getRecordColumnWidthString('source', 100)"
+            :width="getRecordColumnWidthString('source', 70)"
             v-bind="sortColumnAttrs('sourceLabel')"
           >
             <template #default="{ row }">
@@ -62,15 +60,15 @@
             v-if="isRecordColumnVisible('businessRecord')"
             label="业务记录"
             prop="businessRecordCode"
-            :min-width="getRecordColumnMinWidthString('businessRecord', 220)"
+            :min-width="getRecordColumnMinWidthString('businessRecord', 185)"
             v-bind="sortColumnAttrs('businessRecordCode')"
           >
             <template #default="{ row }">
               <div class="signature-governance-records__main">
-                {{ row.businessRecordCode || row.globalId }}
+                {{ String(row.businessRecordCode || '').trim() === '0' ? '业务记录关联异常' : (row.businessRecordCode || '未记录业务编号') }}
               </div>
               <div class="signature-governance-records__meta">
-                {{ formatBusinessRecordName(row) }}
+                {{ String(row.businessRecordCode || '').trim() === '0' ? '原记录关联编号为 0，请核查来源记录' : formatBusinessRecordName(row) }}
               </div>
             </template>
           </el-table-column>
@@ -78,7 +76,7 @@
             v-if="isRecordColumnVisible('signer')"
             label="签名人"
             prop="signerName"
-            :min-width="getRecordColumnMinWidthString('signer', 160)"
+            :min-width="getRecordColumnMinWidthString('signer', 155)"
             v-bind="sortColumnAttrs('signerName')"
           >
             <template #default="{ row }">
@@ -92,7 +90,7 @@
             v-if="isRecordColumnVisible('actorDeptPost')"
             label="部门/岗位"
             prop="actorDeptPost"
-            :min-width="getRecordColumnMinWidthString('actorDeptPost', 180)"
+            :min-width="getRecordColumnMinWidthString('actorDeptPost', 100)"
             v-bind="sortColumnAttrs('actorDeptPost')"
           >
             <template #default="{ row }">
@@ -106,16 +104,22 @@
             v-if="isRecordColumnVisible('actorRoleNamesSnapshot')"
             label="角色"
             prop="actorRoleNamesSnapshot"
-            :min-width="getRecordColumnMinWidthString('actorRoleNamesSnapshot', 150)"
+            :min-width="getRecordColumnMinWidthString('actorRoleNamesSnapshot', 115)"
             v-bind="sortColumnAttrs('actorRoleNamesSnapshot')"
           >
-            <template #default="{ row }">{{ formatValue(row.actorRoleNamesSnapshot) }}</template>
+            <template #default="{ row }">
+              <details v-if="recordRoles(row.actorRoleNamesSnapshot).length > 1" class="signature-governance-records__details">
+                <summary>{{ recordRoles(row.actorRoleNamesSnapshot).length }} 项角色，展开查看</summary>
+                <ul><li v-for="role in recordRoles(row.actorRoleNamesSnapshot)" :key="role">{{ role }}</li></ul>
+              </details>
+              <span v-else>{{ formatValue(row.actorRoleNamesSnapshot) }}</span>
+            </template>
           </el-table-column>
           <el-table-column
             v-if="isRecordColumnVisible('signatureSummary')"
             label="签名摘要"
             prop="signatureSummary"
-            :min-width="getRecordColumnMinWidthString('signatureSummary', 240)"
+            :min-width="getRecordColumnMinWidthString('signatureSummary', 175)"
             v-bind="sortColumnAttrs('signatureSummary')"
           >
             <template #default="{ row }">
@@ -128,9 +132,16 @@
                     {{ formatSignatureSummaryText(row) }}
                   </span>
                 </div>
-                <div class="signature-governance-records__meta">
-                  来源表：{{ formatSourceTableLabel(row.sourceTable) }}
-                </div>
+                <details class="signature-governance-records__details">
+                  <summary>签署详情</summary>
+                  <p v-if="row.comment">原始说明：{{ row.comment }}</p>
+                  <p>来源：{{ formatSourceTableLabel(row.sourceTable) }}</p>
+                  <p>记录标识：{{ row.globalId }}</p>
+                  <p>动作编码：{{ row.actionCode || '未记录' }}</p>
+                  <p>含义编码：{{ row.meaningCode || '未记录' }}</p>
+                  <p v-if="row.actionLabel">原始动作说明：{{ row.actionLabel }}</p>
+                  <p v-if="row.meaningLabel">原始含义说明：{{ row.meaningLabel }}</p>
+                </details>
               </div>
             </template>
           </el-table-column>
@@ -138,7 +149,7 @@
             v-if="isRecordColumnVisible('evidenceSummary')"
             label="证据摘要"
             prop="evidenceSummary"
-            :min-width="getRecordColumnMinWidthString('evidenceSummary', 220)"
+            :min-width="getRecordColumnMinWidthString('evidenceSummary', 195)"
             v-bind="sortColumnAttrs('evidenceSummary')"
           >
             <template #default="{ row }">
@@ -149,9 +160,13 @@
                     {{ formatEvidenceStatusText(row.evidenceStatus) }}
                   </el-tag>
                 </div>
-                <div class="signature-governance-records__hash">
-                  {{ formatHash(row.evidenceHash) }}
-                </div>
+                <div class="signature-governance-records__meta">{{ row.evidenceHash ? '已记录证据校验码' : '未记录证据校验码' }}</div>
+                <details class="signature-governance-records__details">
+                  <summary>证据技术详情</summary>
+                  <p>状态编码：{{ row.evidenceStatus || '未记录' }}</p>
+                  <p v-if="row.evidenceStatus === 'CAPTURED_PARTIAL_ORG'">采集时岗位或角色信息不完整。</p>
+                  <p>证据校验码：{{ row.evidenceHash || '未记录' }}</p>
+                </details>
               </div>
             </template>
           </el-table-column>
@@ -160,7 +175,7 @@
             label="签名时间"
             prop="signedAt"
             align="center"
-            :width="getRecordColumnWidthString('signedAt', 180)"
+            :width="getRecordColumnWidthString('signedAt', 155)"
             v-bind="sortColumnAttrs('signedAt')"
           >
             <template #default="{ row }">{{ formatRecordSignedAt(row.signedAt) }}</template>
@@ -171,7 +186,7 @@
             prop="operation"
             align="center"
             fixed="right"
-            :width="getRecordColumnWidthString('operation', 210)"
+            :width="getRecordColumnWidthString('operation', 150)"
           >
             <template #default="{ row }">
               <div class="signature-governance-records__actions">
@@ -236,6 +251,9 @@
 </template>
 
 <script lang="ts" setup>
+import { recordRoles, signatureCommentSummary } from './signatureRecordDisplay'
+import { buildSignatureRecordQuery, type SignatureRecordFilters } from './signatureRecordQuery'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   downloadSignatureGovernanceRecordPdf,
@@ -264,6 +282,7 @@ const route = useRoute()
 const sourceOptions = [
   { label: '文件', value: 'FILE' },
   { label: '批记录', value: 'BATCH_RECORD' },
+  { label: '生产签名', value: 'MES' },
   { label: '展厅', value: 'SHOWROOM' },
   { label: '审批', value: 'BPM' },
   { label: '报工审批', value: 'MES_FEEDBACK' },
@@ -275,10 +294,14 @@ const sourceTableLabels: Record<string, string> = {
   dcc_controlled_file_signature: '受控文件签名记录',
   mes_pro_batch_record_execution_signature: '批记录执行签名记录',
   showroom_change_request_signature: '展厅变更签名记录',
-  bpm_approval_signature_record: '审批签名记录'
+  bpm_approval_signature_record: '审批签名记录',
+  system_electronic_signature: '统一电子签名记录'
 }
 
 const signatureActionLabels: Record<string, string> = {
+  PRODUCTION_SUBMIT: '生产提交',
+  PQC_RELEASE: 'PQC放行',
+  TEAM_LEADER_REVIEW: '班组长复核',
   APPROVE: '审批通过',
   APPROVED: '审批通过',
   REJECT: '审批驳回',
@@ -307,6 +330,7 @@ const signatureMeaningLabels: Record<string, string> = {
   MARKET_RELEASE: '上市放行',
   FORM_REVIEW: '表单复核',
   REVIEW_APPROVE: '审核通过',
+  TEAM_LEADER_REVIEW: '班组长复核',
   APPROVE: '审批通过',
   APPROVED: '审批通过',
   REJECT: '审批驳回',
@@ -320,6 +344,7 @@ const evidenceStatusLabels: Record<string, string> = {
   PASSWORD_VERIFIED: '签名密码已验证',
   PASSWORD_NOT_VERIFIED: '签名密码未验证',
   CAPTURED: '已采集',
+  CAPTURED_PARTIAL_ORG: '已采集（组织信息不全）',
   VALID: '已校验',
   PASSED: '已通过',
   READY: '已就绪',
@@ -351,15 +376,15 @@ const recordScopeOptions = [
 ] as const
 
 const recordDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'source', label: '来源', width: 100, hideable: false },
-  { key: 'businessRecord', label: '业务记录', minWidth: 220, hideable: false },
-  { key: 'signer', label: '签名人', minWidth: 160 },
-  { key: 'actorDeptPost', label: '部门/岗位', minWidth: 180 },
-  { key: 'actorRoleNamesSnapshot', label: '角色', minWidth: 150 },
-  { key: 'signatureSummary', label: '签名摘要', minWidth: 240 },
-  { key: 'evidenceSummary', label: '证据摘要', minWidth: 220 },
-  { key: 'signedAt', label: '签名时间', width: 180 },
-  { key: 'operation', label: '操作', width: 210, hideable: false }
+  { key: 'source', label: '来源', width: 70, hideable: false },
+  { key: 'businessRecord', label: '业务记录', minWidth: 185, hideable: false },
+  { key: 'signer', label: '签名人', minWidth: 155 },
+  { key: 'actorDeptPost', label: '部门/岗位', minWidth: 100 },
+  { key: 'actorRoleNamesSnapshot', label: '角色', minWidth: 115 },
+  { key: 'signatureSummary', label: '签名摘要', minWidth: 175 },
+  { key: 'evidenceSummary', label: '证据摘要', minWidth: 195 },
+  { key: 'signedAt', label: '签名时间', width: 155 },
+  { key: 'operation', label: '操作', width: 150, hideable: false }
 ]
 
 const {
@@ -372,7 +397,7 @@ const {
   saveConfig: saveRecordColumnConfig
 } = useUserTableColumns(tableKey, recordDefaultColumns)
 
-const queryParams = reactive<SignatureGovernanceRecordPageReqVO & {
+const queryParams = reactive<SignatureGovernanceRecordPageReqVO & SignatureRecordFilters & {
   pageNo: number
   pageSize: number
   quickFilter?: TableQuickFilterValue
@@ -397,19 +422,14 @@ const signatureRecordPdfPreviewDialog = reactive({
 })
 
 const recordQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
-  { key: 'source', label: '来源', type: 'select', options: sourceOptions },
-  { key: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
-  { key: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
-  { key: 'signer', label: '签名人', type: 'text', placeholder: '签名人/账号' },
-  { key: 'action', label: '动作', type: 'text', placeholder: '动作编码' },
-  { key: 'signedAt', label: '签名时间', type: 'dateRange' }
+  { key: 'recordScope', queryParamKey: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
+  { key: 'source', queryParamKey: 'source', label: '来源', type: 'select', options: sourceOptions },
+  { key: 'signatureId', operators: ['eq'], queryParamKey: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
+  { key: 'keyword', operators: ['contains'], queryParamKey: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
+  { key: 'signer', operators: ['contains'], queryParamKey: 'signerKeyword', label: '签名人', type: 'text', placeholder: '签名人/账号' },
+  { key: 'action', operators: ['eq'], queryParamKey: 'actionCode', label: '动作', type: 'text', placeholder: '动作编码' },
+  { key: 'signedAt', queryParamKey: 'signedAt', label: '签名时间', type: 'dateRange' }
 ]
-
-const normalizeText = (value: unknown) => {
-  const text = String(value ?? '').trim()
-  return text || undefined
-}
 
 const hasChineseText = (value: string) => /[\u4e00-\u9fa5]/.test(value)
 
@@ -425,43 +445,15 @@ const formatMappedText = (
   if (hasChineseText(text)) return text
   const label = labels[text]
   if (label) return label
-  return isUpperCaseCode(text) ? `${unknownLabel}：${text}` : text
+  return isUpperCaseCode(text) ? unknownLabel : text
 }
 
-const buildPageParams = (): SignatureGovernanceRecordPageReqVO => {
-  const params: SignatureGovernanceRecordPageReqVO = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize
-  }
-  const quickFilter = queryParams.quickFilter
-  if (!quickFilter) return params
-  if (quickFilter.fieldKey === 'recordScope') {
-    return params
-  }
-  if (quickFilter.fieldKey === 'signatureId') {
-    params.sourceCodes = ['BATCH_RECORD']
-    params.signatureId = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'source') {
-    params.sourceCodes = [quickFilter.value as SignatureGovernanceRecordSourceCode]
-  } else if (quickFilter.fieldKey === 'keyword') {
-    params.keyword = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'signer') {
-    params.signerKeyword = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'action') {
-    params.actionCode = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'signedAt' && quickFilter.value && quickFilter.valueEnd) {
-    params.signedAt = [String(quickFilter.value), String(quickFilter.valueEnd)]
-  }
-  return params
-}
+const buildPageParams = () => buildSignatureRecordQuery(queryParams).params
 
-const resolveRecordPageLoader = () => {
-  const quickFilter = queryParams.quickFilter
-  if (quickFilter?.fieldKey === 'recordScope' && quickFilter.value === 'MY_SIGNATURES') {
-    return getMySignatureGovernanceRecordPage
-  }
-  return getSignatureGovernanceRecordPage
-}
+const resolveRecordPageLoader = () =>
+  buildSignatureRecordQuery(queryParams).mine
+    ? getMySignatureGovernanceRecordPage
+    : getSignatureGovernanceRecordPage
 
 const recordQuickFilter = useTableQuickFilter(
   tableKey,
@@ -476,11 +468,15 @@ const applyRouteQuickFilter = async () => {
   if (!quickFilterField || !quickFilterValue) return false
   const matchedDefinition = recordQuickFilterDefinitions.find((item) => item.key === quickFilterField)
   if (!matchedDefinition) return false
-  queryParams.quickFilter = {
-    fieldKey: quickFilterField,
-    operator: 'contains',
-    value: quickFilterValue
-  }
+  recordQuickFilter.updateState({
+    conditions: [{
+      id: 'signature-route-filter',
+      key: quickFilterField,
+      operator: matchedDefinition.operators?.[0] || (matchedDefinition.type === 'select' ? 'eq' : 'contains'),
+      value: quickFilterValue
+    }],
+    activeConditionId: 'signature-route-filter'
+  })
   await recordQuickFilter.applyQuickFilter()
   return true
 }
@@ -550,7 +546,7 @@ const formatSignatureMeaningText = (row: SignatureGovernanceRecordRespVO) => {
 }
 
 const formatSignatureSummaryText = (row: SignatureGovernanceRecordRespVO) => {
-  const comment = row.comment?.trim()
+  const comment = signatureCommentSummary(row.comment)
   if (!comment) {
     return formatSignatureActionText(row)
   }
@@ -583,7 +579,7 @@ const evidenceTagType = (status?: string) => {
     return 'success'
   }
   if (status === 'INVALID' || status === 'FAILED' || status === 'BLOCKED') return 'danger'
-  if (status === 'PENDING_VERIFY' || status === 'PENDING' || status === 'PASSWORD_NOT_VERIFIED') {
+  if (status === 'PENDING_VERIFY' || status === 'PENDING' || status === 'PASSWORD_NOT_VERIFIED' || status === 'CAPTURED_PARTIAL_ORG') {
     return 'warning'
   }
   return 'info'
@@ -596,7 +592,7 @@ const formatValue = (value?: string) => {
 
 const formatHash = (hash?: string) => {
   const text = hash?.trim()
-  if (!text) return '未记录证据 hash'
+  if (!text) return '未记录证据校验码'
   return text.length > 16 ? `${text.slice(0, 12)}...${text.slice(-4)}` : text
 }
 
@@ -711,6 +707,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   revokeRecordPdfPreviewUrl()
 })
+
 </script>
 
 <style scoped>
@@ -729,7 +726,8 @@ onBeforeUnmount(() => {
   color: #172033;
   font-weight: 600;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .signature-governance-records__meta,
@@ -739,7 +737,8 @@ onBeforeUnmount(() => {
   font-size: 0.82rem;
   line-height: 1.5;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .signature-governance-records__summary {
@@ -750,7 +749,10 @@ onBeforeUnmount(() => {
 }
 
 .signature-governance-records__summary-text {
-  margin-left: 6px;
+  display: block;
+  margin: 6px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: #263247;
 }
 
@@ -795,4 +797,9 @@ onBeforeUnmount(() => {
     height: 520px;
   }
 }
+.signature-governance-records__details { white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
+.signature-governance-records__details summary { cursor: pointer; color: var(--el-color-primary); }
+.signature-governance-records__details ul { padding-left: 18px; margin: 6px 0; }
+.signature-governance-records__details p { margin: 6px 0; }
+.signature-governance-records__summary .el-tag { max-width: 100%; height: auto; white-space: normal; line-height: 1.5; padding-block: 3px; }
 </style>

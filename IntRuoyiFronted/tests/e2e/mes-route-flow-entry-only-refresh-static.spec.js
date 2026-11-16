@@ -10,10 +10,10 @@ const routeFormContent = read('src/views/mes/pro/route/RouteFormContent.vue')
 const graphComponent = read('src/views/mes/pro/route/RouteFlowGraphDesigner.vue')
 const routeApi = read('src/api/mes/pro/route/index.ts')
 const validationRespVO = readRepo(
-  'ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/flow/MesProRouteProcessFlowValidationRespVO.java'
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/flow/MesProRouteProcessFlowValidationRespVO.java'
 )
 const flowService = readRepo(
-  'ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteProcessFlowServiceImpl.java'
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteProcessFlowServiceImpl.java'
 )
 
 const assertIncludes = (content, expected, label) => {
@@ -55,7 +55,7 @@ const runPendingFlowAutoLayoutHandler = extractConstFunction(
   routeFormContent,
   'runPendingFlowAutoLayout'
 )
-const handleRouteTabChangeHandler = extractConstFunction(routeFormContent, 'handleRouteTabChange')
+const handleStartSettingSelectHandler = extractConstFunction(routeFormContent, 'handleStartSettingSelect')
 const saveFromParentHandler = extractConstFunction(graphComponent, 'saveFromParent')
 
 assertIncludes(
@@ -98,10 +98,10 @@ assertIncludes(
   'completedFlowAutoLayoutEntryKey.value = pendingKey',
   'pending runner must mark entry auto-layout complete after it actually runs'
 )
-assertIncludes(
-  handleRouteTabChangeHandler,
+assertNotIncludes(
+  handleStartSettingSelectHandler,
   'triggerFlowAutoLayout()',
-  'flow tab change may request entry auto-layout through the guarded trigger'
+  'switching START settings must preserve the current graph layout'
 )
 
 assertIncludes(

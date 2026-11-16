@@ -133,7 +133,7 @@ public class MesPqcReleaseOrderDetailService {
                 || !Objects.equals(signature.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)
                 || !Objects.equals(signature.subjectVersion(), MesBatchRecordSignatureSubjectAdapter.subjectVersion(signature.subjectId()))
                 || signature.authenticationMethod() == null
-                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD").contains(signature.authenticationMethod())
+                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_PIN", "SESSION_PLUS_SELECTED_USER_PASSWORD", "SESSION_PLUS_SELECTED_USER_PIN").contains(signature.authenticationMethod())
                 || signature.actorId() == null || signature.actorId() <= 0) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTION_MISMATCH");
         }

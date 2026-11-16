@@ -6,9 +6,12 @@
     <el-form ref="queryFormRef" :model="queryParams" class="temporary-role-grant-toolbar" label-position="top" @submit.prevent>
       <div class="temporary-role-grant-toolbar__filters">
         <el-form-item label="被授权用户" prop="userId">
-          <el-select v-model="queryParams.userId" clearable filterable placeholder="请选择用户">
-            <el-option v-for="user in userOptions" :key="user.id" :label="user.nickname || user.username" :value="user.id" />
-          </el-select>
+          <UserSelectV2 allow-inactive
+            v-model="queryParams.userId"
+            clearable
+            placeholder="请选择用户"
+            :user-options="userOptions"
+          />
         </el-form-item>
         <el-form-item label="临时角色" prop="roleId">
           <el-select v-model="queryParams.roleId" clearable filterable placeholder="请选择角色">
@@ -87,7 +90,7 @@
         <template #default="{ row }">
           <el-button v-if="row.status === 'PENDING'" v-hasPermi="['system:temporary-role-grant:approve']" link type="primary" @click="handleApprove(row)">审批通过</el-button>
           <el-button v-if="row.status === 'PENDING' || row.status === 'ACTIVE'" v-hasPermi="['system:temporary-role-grant:revoke']" link type="danger" @click="openRevokeDialog(row)">撤销</el-button>
-          <el-button v-hasPermi="['system:temporary-role-grant:query']" link type="primary" @click="openAuditDialog(row)">审计记录</el-button>
+          
         </template>
       </el-table-column>
     </el-table>
@@ -97,9 +100,11 @@
   <Dialog v-model="createDialogVisible" title="新增临时角色授权" width="620px">
     <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="120px">
       <el-form-item label="被授权用户" prop="userId">
-        <el-select v-model="createForm.userId" filterable placeholder="请选择用户">
-          <el-option v-for="user in userOptions" :key="user.id" :label="user.nickname || user.username" :value="user.id" />
-        </el-select>
+        <UserSelectV2
+          v-model="createForm.userId"
+          placeholder="请选择用户"
+          :user-options="userOptions"
+        />
       </el-form-item>
       <el-form-item label="临时角色" prop="roleId">
         <el-select v-model="createForm.roleId" filterable placeholder="请选择角色">
@@ -131,18 +136,11 @@
     </template>
   </Dialog>
 
-  <Dialog v-model="auditDialogVisible" title="临时角色授权审计记录" width="760px">
-    <el-table :data="auditList">
-      <el-table-column label="事件" prop="eventType" width="110" />
-      <el-table-column label="权限标识" prop="permissionCode" min-width="180" show-overflow-tooltip />
-      <el-table-column label="操作人" prop="operatorUsername" width="120" />
-      <el-table-column label="说明" prop="message" min-width="180" show-overflow-tooltip />
-      <el-table-column label="时间" prop="createTime" width="170" />
-    </el-table>
-  </Dialog>
+  
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import * as TemporaryRoleGrantApi from '@/api/system/temporaryRoleGrant'
 import * as RoleApi from '@/api/system/role'
 import * as UserApi from '@/api/system/user'
@@ -153,7 +151,7 @@ const loading = ref(false)
 const submitLoading = ref(false)
 const total = ref(0)
 const list = ref<TemporaryRoleGrantApi.TemporaryRoleGrantVO[]>([])
-const auditList = ref<TemporaryRoleGrantApi.TemporaryRoleGrantAuditVO[]>([])
+
 const reviewSummary = reactive<TemporaryRoleGrantApi.TemporaryRoleGrantReviewSummaryVO>({ activeCount: 0, expiringSoonCount: 0, overdueCount: 0 })
 const roleOptions = ref<RoleApi.RoleVO[]>([])
 const userOptions = ref<UserApi.UserVO[]>([])
@@ -162,7 +160,7 @@ const createFormRef = ref()
 const revokeFormRef = ref()
 const createDialogVisible = ref(false)
 const revokeDialogVisible = ref(false)
-const auditDialogVisible = ref(false)
+
 const selectedGrant = ref<TemporaryRoleGrantApi.TemporaryRoleGrantVO>()
 
 const queryParams = reactive({
@@ -262,11 +260,7 @@ const handleRevoke = async () => {
   }
 }
 
-const openAuditDialog = async (row: TemporaryRoleGrantApi.TemporaryRoleGrantVO) => {
-  selectedGrant.value = row
-  auditList.value = await TemporaryRoleGrantApi.getTemporaryRoleGrantAuditList(row.id)
-  auditDialogVisible.value = true
-}
+
 
 onMounted(async () => {
   await loadOptions()

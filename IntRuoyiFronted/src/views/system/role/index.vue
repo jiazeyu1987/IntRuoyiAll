@@ -1,66 +1,23 @@
 <template>
-  <doc-alert title="功能权限" url="https://doc.iocoder.cn/resource-permission" />
-  <doc-alert title="数据权限" url="https://doc.iocoder.cn/data-permission" />
 
-  <ContentWrap>
-    <div class="mb-12px text-12px text-[var(--el-text-color-secondary)]">
-      权限角色：控制菜单与数据权限。
-    </div>
-    <!-- 搜索工作栏 -->
-    <el-form
-      ref="queryFormRef"
-      :model="queryParams"
-      class="permission-role-toolbar"
-      label-position="top"
-      @submit.prevent
+  <ContentWrap class="standard-list-page">
+    <UnifiedListTemplate
+      ref="roleListRef"
+      class="unified-list-template--contained"
+      table-key="system.role.main"
+      :query-model="queryParams"
+      v-model:limit="queryParams.pageSize"
+      v-model:page="queryParams.pageNo"
+      :total="total"
+      @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
-      <div class="permission-role-toolbar__filters">
-        <el-form-item label="权限角色名称" prop="name">
-          <el-input
-            v-model="queryParams.name"
-            clearable
-            placeholder="请输入权限角色名称"
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item label="权限角色标识" prop="code">
-          <el-input
-            v-model="queryParams.code"
-            clearable
-            placeholder="请输入权限角色标识"
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" clearable placeholder="请选择状态">
-            <el-option
-              v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
-              :key="dict.value"
-              :label="dict.label"
-              :value="dict.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="创建时间" prop="createTime">
-          <el-date-picker
-            v-model="queryParams.createTime"
-            :default-time="[new Date('1 00:00:00'), new Date('1 23:59:59')]"
-            end-placeholder="结束日期"
-            start-placeholder="开始日期"
-            type="daterange"
-            value-format="YYYY-MM-DD HH:mm:ss"
-          />
-        </el-form-item>
-      </div>
-      <div class="permission-role-toolbar__actions">
-        <el-button class="permission-role-toolbar__action" @click="handleQuery">
-          <Icon class="mr-5px" icon="ep:search" />
-          搜索
-        </el-button>
-        <el-button class="permission-role-toolbar__action" @click="resetQuery">
-          <Icon class="mr-5px" icon="ep:refresh" />
-          重置
-        </el-button>
+      <template #actions="{ filterLoading, filterError }">
         <el-button
           v-hasPermi="['system:role:create']"
           class="permission-role-toolbar__action"
@@ -69,33 +26,25 @@
           @click="openForm('create')"
         >
           <Icon class="mr-5px" icon="ep:plus" />
-          新增权限角色
+          新增
         </el-button>
         <el-button
           v-hasPermi="['system:role:export']"
-          :loading="exportLoading"
+          :loading="roleExcelExportLoading"
+          :disabled="loading || filterLoading || !!filterError"
           class="permission-role-toolbar__action"
           plain
           type="success"
-          @click="handleExport"
+          title="导出当前分类和筛选条件内的全部匹配数据"
+          @click="handleRoleExcelExport"
         >
           <Icon class="mr-5px" icon="ep:download" />
-          导出配置包
-        </el-button>
-        <el-button
-          v-hasPermi="['system:role:create', 'system:role:update']"
-          :loading="importLoading"
-          class="permission-role-toolbar__action"
-          plain
-          type="warning"
-          @click="openImport"
-        >
-          <Icon class="mr-5px" icon="ep:upload" />
-          导入配置包
+          导出列表
         </el-button>
         <el-button
           v-hasPermi="['system:role:delete']"
-          :disabled="checkedIds.length === 0"
+          :disabled="selectedRoleIds.length === 0"
+          :loading="batchDeleteLoading"
           class="permission-role-toolbar__action"
           plain
           type="danger"
@@ -104,253 +53,284 @@
           <Icon class="mr-5px" icon="ep:delete" />
           批量删除
         </el-button>
+        <EdhrPermissionTransfer
+          :export-loading="exportLoading"
+          :import-loading="importLoading"
+          @export-role="openExport"
+          @import-role="openImport"
+          @success="refreshCategories"
+        />
+
         <UserTableColumnSettings
           :columns="roleColumns"
+          :show-reset="false"
           :saving="roleColumnSaving"
           @change="saveRoleColumnConfig"
-          @reset="resetRoleColumnConfig"
         />
-      </div>
-    </el-form>
-  </ContentWrap>
-
-  <ContentWrap>
-    <div class="permission-role-layout">
-      <aside class="permission-role-category">
-        <div class="permission-role-category__header">
-          <div>
-            <div class="permission-role-category__title">角色分类</div>
-            <div class="permission-role-category__hint">像文件夹一样管理权限角色</div>
-          </div>
-          <el-button
-            v-hasPermi="['system:role-category:create']"
-            link
-            type="primary"
-            @click="openCategoryForm('create')"
-          >
-            新增
-          </el-button>
-        </div>
-        <el-scrollbar class="permission-role-category__body">
-          <button
-            v-for="category in categoryList"
-            :key="category.id"
-            :class="[
-              'permission-role-category__item',
-              queryParams.categoryId === category.id ? 'is-active' : ''
-            ]"
-            type="button"
-            @click="selectCategory(category)"
-          >
-            <span class="permission-role-category__name">
-              <Icon icon="ep:folder-opened" />
-              {{ category.name }}
-            </span>
-            <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="category.status" />
-          </button>
-        </el-scrollbar>
-        <div v-if="selectedCategory" class="permission-role-category__actions">
-          <el-button
-            v-hasPermi="['system:role-category:update']"
-            plain
-            type="primary"
-            @click="openCategoryForm('update', selectedCategory)"
-          >
-            编辑分类
-          </el-button>
-          <el-button
-            v-hasPermi="['system:role-category:delete']"
-            plain
-            type="danger"
-            @click="handleDeleteCategory(selectedCategory)"
-          >
-            删除分类
-          </el-button>
-        </div>
-      </aside>
-
-      <section class="permission-role-table">
-        <div class="permission-role-table__title">
-          <span>{{ selectedCategory?.name || '请选择分类' }}</span>
-          <span class="permission-role-table__count">共 {{ total }} 个权限角色</span>
-        </div>
-        <el-table
-          v-loading="loading"
-          :data="list"
-          :row-class-name="getRoleRowClassName"
-          data-user-table-column-explicit
-          data-user-table-key="system.role.main"
-          @header-dragend="handleRoleHeaderDragend"
-          @selection-change="handleRowCheckboxChange"
-        >
-          <el-table-column
-            type="selection"
-            column-key="selection"
-            :width="getRoleColumnWidth('selection')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('id')"
-            align="center"
-            label="权限角色编号"
-            prop="id"
-            :width="getRoleColumnWidth('id')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('name')"
-            align="center"
-            label="权限角色名称"
-            min-width="160"
-            prop="name"
-            :width="getRoleColumnWidth('name')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('categoryName')"
-            align="center"
-            label="所属分类"
-            min-width="120"
-            prop="categoryName"
-            :width="getRoleColumnWidth('categoryName')"
-          >
-            <template #default="scope">
-              <el-tag type="primary">{{ scope.row.categoryName }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isRoleColumnVisible('type')"
-            label="权限角色类型"
-            align="center"
-            prop="type"
-            :width="getRoleColumnWidth('type')"
-          >
-            <template #default="scope">
-              <dict-tag :type="DICT_TYPE.SYSTEM_ROLE_TYPE" :value="scope.row.type" />
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isRoleColumnVisible('assignedUserCount')"
-            align="center"
-            label="分配人数"
-            prop="assignedUserCount"
-            :width="getRoleColumnWidth('assignedUserCount')"
-          >
-            <template #default="scope">
-              <span class="permission-role-table__number">
-                {{ scope.row.assignedUserCount }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isRoleColumnVisible('code')"
-            align="center"
-            label="权限角色标识"
-            min-width="180"
-            prop="code"
-            :width="getRoleColumnWidth('code')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('sort')"
-            align="center"
-            label="显示顺序"
-            prop="sort"
-            :width="getRoleColumnWidth('sort')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('remark')"
-            align="center"
-            label="备注"
-            min-width="180"
-            prop="remark"
-            show-overflow-tooltip
-            :width="getRoleColumnWidth('remark')"
-          />
-          <el-table-column
-            v-if="isRoleColumnVisible('status')"
-            align="center"
-            label="状态"
-            prop="status"
-            :width="getRoleColumnWidth('status')"
-          >
-            <template #default="scope">
-              <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isRoleColumnVisible('createTime')"
-            :formatter="dateFormatter"
-            align="center"
-            label="创建时间"
-            prop="createTime"
-            :width="getRoleColumnWidth('createTime')"
-          />
-          <el-table-column
-            :width="getRoleColumnWidth('actions')"
-            column-key="actions"
-            align="center"
-            fixed="right"
-            label="操作"
-          >
-            <template #default="scope">
+      </template>
+      <template #table="{ resolveRows }">
+        <div class="permission-role-layout">
+          <aside class="permission-role-category">
+            <div class="permission-role-category__header">
+              <div>
+                <div class="permission-role-category__title">角色分类</div>
+                <div class="permission-role-category__hint">像文件夹一样管理权限角色</div>
+              </div>
               <el-button
-                v-hasPermi="['system:role:update']"
+                v-hasPermi="['system:role-category:create']"
                 link
                 type="primary"
-                @click="openForm('update', scope.row.id)"
+                @click="openCategoryForm('create')"
               >
-                编辑
+                新增
               </el-button>
+            </div>
+            <el-scrollbar class="permission-role-category__body">
+              <button
+                v-for="category in categoryList"
+                :key="category.id"
+                :class="[
+                  'permission-role-category__item',
+                  queryParams.categoryId === category.id ? 'is-active' : ''
+                ]"
+                type="button"
+                @click="selectCategory(category)"
+              >
+                <span class="permission-role-category__name">
+                  <Icon icon="ep:folder-opened" />
+                  {{ category.name }}
+                </span>
+                <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="category.status" />
+              </button>
+            </el-scrollbar>
+            <div v-if="selectedCategory" class="permission-role-category__actions">
               <el-button
-                v-hasPermi="['system:permission:assign-role-menu']"
-                link
-                preIcon="ep:basketball"
-                title="菜单权限"
+                v-hasPermi="['system:role-category:update']"
+                plain
                 type="primary"
-                @click="openAssignMenuForm(scope.row)"
+                @click="openCategoryForm('update', selectedCategory)"
               >
-                菜单权限
+                编辑分类
               </el-button>
               <el-button
-                v-hasPermi="['system:permission:assign-role-data-scope']"
-                link
-                preIcon="ep:coin"
-                title="数据权限"
-                type="primary"
-                @click="openDataPermissionForm(scope.row)"
-              >
-                数据权限
-              </el-button>
-              <el-button
-                v-hasPermi="['system:role:delete']"
-                link
+                v-hasPermi="['system:role-category:delete']"
+                plain
                 type="danger"
-                @click="handleDelete(scope.row.id)"
+                @click="handleDeleteCategory(selectedCategory)"
               >
-                删除
+                删除分类
               </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <Pagination
-          v-model:limit="queryParams.pageSize"
-          v-model:page="queryParams.pageNo"
-          :total="total"
-          @pagination="getList"
-        />
-      </section>
-    </div>
-  </ContentWrap>
+            </div>
+          </aside>
+
+          <section class="permission-role-table">
+            <el-table
+              stripe
+              border
+              v-loading="loading"
+              :data="resolveRows(list)"
+              :row-class-name="getRoleRowClassName"
+              ref="roleTableRef"
+              data-user-table-column-explicit
+              data-user-table-key="system.role.main"
+              @header-dragend="handleRoleHeaderDragend"
+              @selection-change="handleSelectionChange"
+            >
+              <el-table-column
+                type="selection"
+                column-key="selection"
+                :width="getRoleColumnWidth('selection')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('id')"
+                align="center"
+                label="权限角色编号"
+                prop="id"
+                :width="getRoleColumnWidth('id')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('name')"
+                align="center"
+                label="权限角色名称"
+                min-width="160"
+                prop="name"
+                :width="getRoleColumnWidth('name')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('categoryName')"
+                align="center"
+                label="所属分类"
+                min-width="120"
+                prop="categoryName"
+                :width="getRoleColumnWidth('categoryName')"
+              >
+                <template #default="scope">
+                  <el-tag type="primary">{{ scope.row.categoryName }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isRoleColumnVisible('type')"
+                label="权限角色类型"
+                align="center"
+                prop="type"
+                :width="getRoleColumnWidth('type')"
+              >
+                <template #default="scope">
+                  <dict-tag :type="DICT_TYPE.SYSTEM_ROLE_TYPE" :value="scope.row.type" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isRoleColumnVisible('assignedUserCount')"
+                align="center"
+                label="分配人数"
+                prop="assignedUserCount"
+                :width="getRoleColumnWidth('assignedUserCount')"
+              >
+                <template #default="scope">
+                  <span class="permission-role-table__number">
+                    {{ scope.row.assignedUserCount }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isRoleColumnVisible('code')"
+                align="center"
+                label="权限角色标识"
+                min-width="180"
+                prop="code"
+                :width="getRoleColumnWidth('code')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('sort')"
+                align="center"
+                label="显示顺序"
+                prop="sort"
+                :width="getRoleColumnWidth('sort')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('remark')"
+                align="center"
+                label="备注"
+                min-width="180"
+                prop="remark"
+                show-overflow-tooltip
+                :width="getRoleColumnWidth('remark')"
+              />
+              <el-table-column
+                v-if="isRoleColumnVisible('status')"
+                align="center"
+                label="状态"
+                prop="status"
+                :width="getRoleColumnWidth('status')"
+              >
+                <template #default="scope">
+                  <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isRoleColumnVisible('createTime')"
+                :formatter="dateFormatter"
+                align="center"
+                label="创建时间"
+                prop="createTime"
+                :width="getRoleColumnWidth('createTime')"
+              />
+              <el-table-column
+                :width="Math.max(getRoleColumnWidth('actions') ?? 0, 350)"
+                column-key="actions"
+                align="center"
+                fixed="right"
+                label="操作"
+              >
+                <template #default="scope">
+                  <el-button
+                    v-hasPermi="['system:user:query']"
+                    link
+                    type="primary"
+                    @click="assignedUsersRef?.open(scope.row)"
+                  >
+                    查看
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['system:role:update']"
+                    link
+                    type="primary"
+                    @click="openForm('update', scope.row.id)"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['system:permission:assign-role-menu']"
+                    link
+                    preIcon="ep:basketball"
+                    title="菜单权限"
+                    type="primary"
+                    @click="openAssignMenuForm(scope.row)"
+                  >
+                    菜单权限
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['system:permission:assign-role-data-scope']"
+                    link
+                    type="primary"
+                    @click="openDataPermissionForm(scope.row)"
+                  >
+                    数据权限
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['system:permission:assign-user-role']"
+                    link
+                    type="primary"
+                    @click="assignUserFormRef?.open(scope.row)"
+                  >
+                    分配
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['system:role:delete']"
+                    link
+                    type="danger"
+                    @click="handleDelete(scope.row.id)"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </section>
+        </div>
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
+  <el-dialog v-model="exportDialogVisible" title="选择导出文件夹" width="480px">
+    <el-alert v-if="exportError" title="权限角色配置包导出失败" type="error" :closable="false" show-icon class="mb-4">
+      <div role="alert" style="white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; user-select: text">{{ exportError }}</div>
+    </el-alert>
+    <el-select v-model="exportCategoryIds" multiple placeholder="请选择角色分类文件夹" class="w-full">
+      <el-option v-for="category in categoryList" :key="category.id" :label="category.name" :value="category.id" />
+    </el-select>
+    <template #footer>
+      <el-button @click="exportDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="exportLoading" :disabled="exportCategoryIds.length === 0" @click="handleExport">导出</el-button>
+    </template>
+  </el-dialog>
   <RoleForm ref="formRef" @success="getList" />
+  <RoleAssignedUsers ref="assignedUsersRef" />
+  <RoleAssignUserForm ref="assignUserFormRef" @success="getList" />
   <RoleCategoryForm ref="categoryFormRef" @success="refreshCategories" />
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
-  <!-- 表单弹窗：数据权限 -->
   <RoleDataPermissionForm ref="dataPermissionFormRef" @success="getList" />
+
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
-import { isSearchFormInputEmpty } from '@/utils/search'
-import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import * as RoleApi from '@/api/system/role'
@@ -360,9 +340,13 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import RoleForm from './RoleForm.vue'
+import RoleAssignedUsers from './RoleAssignedUsers.vue'
+import RoleAssignUserForm from './RoleAssignUserForm.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
 import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
+import EdhrPermissionTransfer from './EdhrPermissionTransfer.vue'
+import PermissionAuditDialog from './PermissionAuditDialog.vue'
 
 defineOptions({ name: 'SystemRole' })
 
@@ -382,7 +366,7 @@ const roleDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'remark', label: '备注', minWidth: 180 },
   { key: 'status', label: '状态', width: 100 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 300, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 350, hideable: false, business: false }
 ]
 const {
   columns: roleColumns,
@@ -390,8 +374,7 @@ const {
   isColumnVisible: isRoleColumnVisible,
   getColumnWidth: getRoleColumnWidth,
   handleHeaderDragend: handleRoleHeaderDragend,
-  saveConfig: saveRoleColumnConfig,
-  resetConfig: resetRoleColumnConfig
+  saveConfig: saveRoleColumnConfig
 } = useUserTableColumns('system.role.main', roleDefaultColumns)
 
 const loading = ref(true) // 列表的加载中
@@ -399,6 +382,11 @@ const total = ref(0) // 列表的总页数
 const list = ref<RoleApi.RoleVO[]>([]) // 列表的数据
 const categoryList = ref<RoleApi.RoleCategoryVO[]>([])
 const highlightedRoleId = ref<number>()
+
+const roleTableRef = ref()
+const roleListRef = ref<InstanceType<typeof UnifiedListTemplate>>()
+const selectedRoleIds = ref<number[]>([])
+const batchDeleteLoading = ref(false)
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -408,8 +396,8 @@ const queryParams = reactive({
   status: undefined,
   createTime: []
 })
-const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
+const roleExcelExportLoading = ref(false)
 const importLoading = ref(false)
 const importInputRef = ref<HTMLInputElement>()
 const selectedCategory = computed(() =>
@@ -417,36 +405,35 @@ const selectedCategory = computed(() =>
 )
 
 /** 查询角色列表 */
+let listRequestId = 0
 const getList = async () => {
+  const requestId = ++listRequestId
+  clearRoleSelection()
+  list.value = []
   loading.value = true
   try {
-    const data = await RoleApi.getRolePage(queryParams)
+    const data = await RoleApi.getRolePage({ ...queryParams })
+    if (requestId !== listRequestId) return
     list.value = data.list
     total.value = data.total
+  } catch (error) {
+    if (requestId === listRequestId) total.value = 0
+    throw error
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 
-/** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
+/** 按当前分类查询角色 */
+const handleQuery = () => {
   queryParams.pageNo = 1
   getList()
 }
 
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  queryParams.categoryId = selectedCategory.value?.id
-  handleQuery(true)
-}
-
 /** 添加/修改操作 */
 const formRef = ref()
+const assignedUsersRef = ref<InstanceType<typeof RoleAssignedUsers>>()
+const assignUserFormRef = ref<InstanceType<typeof RoleAssignUserForm>>()
 const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
@@ -498,12 +485,6 @@ const handleDeleteCategory = async (category: RoleApi.RoleCategoryVO) => {
   await refreshCategories()
 }
 
-/** 数据权限操作 */
-const dataPermissionFormRef = ref()
-const openDataPermissionForm = async (row: RoleApi.RoleVO) => {
-  dataPermissionFormRef.value.open(row)
-}
-
 /** 菜单权限操作 */
 const assignMenuFormRef = ref()
 const openAssignMenuForm = async (row: RoleApi.RoleVO) => {
@@ -518,27 +499,73 @@ const handleDelete = async (id: number) => {
   await getList()
 }
 
-/** 批量删除按钮操作 */
-const checkedIds = ref<number[]>([])
-const handleRowCheckboxChange = (rows: RoleApi.RoleVO[]) => {
-  checkedIds.value = rows.map((row) => row.id)
+const clearRoleSelection = () => {
+  selectedRoleIds.value = []
+  roleTableRef.value?.clearSelection()
+}
+
+const handleSelectionChange = (rows: RoleApi.RoleVO[]) => {
+  selectedRoleIds.value = rows.map((row) => row.id)
 }
 
 const handleDeleteBatch = async () => {
-  await message.delConfirm()
-  await RoleApi.deleteRoleList(checkedIds.value)
-  checkedIds.value = []
-  message.success(t('common.delSuccess'))
-  await getList()
+  const ids = [...selectedRoleIds.value]
+  if (ids.length === 0) return
+  try {
+    await message.delConfirm(`是否删除选中的 ${ids.length} 个权限角色？`)
+  } catch (action) {
+    if (action === 'cancel' || action === 'close') return
+    throw action
+  }
+  batchDeleteLoading.value = true
+  try {
+    await RoleApi.deleteRoleList(ids)
+    message.success(t('common.delSuccess'))
+    await getList()
+  } finally {
+    batchDeleteLoading.value = false
+  }
+}
+
+const dataPermissionFormRef = ref<InstanceType<typeof RoleDataPermissionForm>>()
+const openDataPermissionForm = (row: RoleApi.RoleVO) => {
+  dataPermissionFormRef.value?.open(row)
+}
+
+const handleRoleExcelExport = async () => {
+  roleListRef.value!.getExportScope()
+  roleExcelExportLoading.value = true
+  try {
+    const data = await RoleApi.exportRole({
+      ...queryParams,
+      pageNo: 1
+    })
+    download.excel(data, '权限角色数据.xlsx')
+  } finally {
+    roleExcelExportLoading.value = false
+  }
+}
+
+const exportDialogVisible = ref(false)
+const exportError = ref('')
+const exportCategoryIds = ref<number[]>([])
+const openExport = () => {
+  exportError.value = ''
+  exportCategoryIds.value = queryParams.categoryId ? [queryParams.categoryId] : []
+  exportDialogVisible.value = true
 }
 
 /** 导出按钮操作 */
 const handleExport = async () => {
-  await message.exportConfirm()
+  if (exportCategoryIds.value.length === 0) return
   exportLoading.value = true
+  exportError.value = ''
   try {
-    const data = await RoleApi.exportRoleConfigPackage()
+    const data = await RoleApi.exportRoleConfigPackage(exportCategoryIds.value)
     download.json(data, '权限角色配置包.json')
+    exportDialogVisible.value = false
+  } catch (error) {
+    exportError.value = error instanceof Error ? error.message : String(error)
   } finally {
     exportLoading.value = false
   }
@@ -561,7 +588,7 @@ const handleImportFileChange = async (event: Event) => {
     formData.append('file', file)
     await RoleApi.importRoleConfigPackage(formData)
     message.success('权限角色配置包导入成功')
-    await getList()
+    await refreshCategories()
   } finally {
     importLoading.value = false
   }
@@ -569,12 +596,16 @@ const handleImportFileChange = async (event: Event) => {
 
 /** 初始化 */
 onMounted(async () => {
-  await getCategoryList()
-  const hasRouteRole = await syncRoleQueryFromRoute()
-  if (!hasRouteRole && categoryList.value.length > 0) {
-    queryParams.categoryId = categoryList.value[0].id
+  try {
+    await getCategoryList()
+    const hasRouteRole = await syncRoleQueryFromRoute()
+    if (!hasRouteRole && categoryList.value.length > 0) {
+      queryParams.categoryId = categoryList.value[0].id
+    }
+    await getList()
+  } finally {
+    loading.value = false
   }
-  await getList()
 })
 
 watch(
@@ -584,58 +615,107 @@ watch(
     await getList()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '权限角色类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.SYSTEM_ROLE_TYPE)
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '权限角色编号',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '权限角色名称',
+    visible: true
+  },
+  {
+    key: 'categoryName',
+    label: '所属分类',
+    visible: true
+  },
+  {
+    key: 'type',
+    label: '权限角色类型',
+    visible: true
+  },
+  {
+    key: 'assignedUserCount',
+    label: '分配人数',
+    visible: true
+  },
+  {
+    key: 'code',
+    label: '权限角色标识',
+    visible: true
+  },
+  {
+    key: 'sort',
+    label: '显示顺序',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'categoryName',
+    label: '所属分类',
+    type: 'text',
+    getValue: (row) => [row.categoryName].join(' ')
+  },
+  {
+    key: 'assignedUserCount',
+    label: '分配人数',
+    type: 'text',
+    getValue: (row) => [row.assignedUserCount].join(' ')
+  }
+]
 </script>
 <style lang="scss" scoped>
-.permission-role-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.permission-role-toolbar__filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px 16px;
-  align-items: end;
-}
-
-.permission-role-toolbar__filters :deep(.el-form-item) {
-  margin-bottom: 0;
-}
-
-.permission-role-toolbar__filters :deep(.el-form-item__label) {
-  margin-bottom: 6px;
-  color: #263247;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 20px;
-}
-
-.permission-role-toolbar__filters :deep(.el-input),
-.permission-role-toolbar__filters :deep(.el-select),
-.permission-role-toolbar__filters :deep(.el-date-editor) {
-  width: 100%;
-}
-
-.permission-role-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 12px;
-}
-
 .permission-role-toolbar__action {
   min-width: 108px;
 }
 
 .permission-role-layout {
   display: grid;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 16px;
 }
 
 .permission-role-category {
   display: flex;
-  min-height: 520px;
+  min-height: 0;
   flex-direction: column;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -664,6 +744,7 @@ watch(
 
 .permission-role-category__body {
   flex: 1;
+  min-height: 0;
   padding: 8px;
 }
 
@@ -711,6 +792,10 @@ watch(
 }
 
 .permission-role-table {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
   min-width: 0;
 }
 
@@ -742,10 +827,6 @@ watch(
 }
 
 @media (max-width: 960px) {
-  .permission-role-toolbar__filters {
-    grid-template-columns: 1fr;
-  }
-
   .permission-role-toolbar__action {
     flex: 1 1 140px;
     min-width: 0;

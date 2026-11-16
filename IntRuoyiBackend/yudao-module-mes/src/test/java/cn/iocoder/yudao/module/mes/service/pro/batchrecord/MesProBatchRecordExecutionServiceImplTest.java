@@ -244,6 +244,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private BpmTaskService bpmTaskService;
     @MockitoBean
+    private cn.iocoder.yudao.module.mes.approval.MesLegacyApprovalPageQuery legacyApprovalPages;
+    @MockitoBean
     private EdhrDomainTaskAssignmentService domainTaskAssignmentService;
     @MockitoBean
     private GxpAuditService gxpAuditService;
@@ -2899,7 +2901,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     @Test
     void approvalPendingPage_missingSnapshot_failsFastInsteadOfFiltering() {
         Task task = mockTask("task-pending-missing", "process-missing-snapshot", "approveNode", "审批");
-        when(bpmTaskService.getTaskTodoPage(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
+        when(legacyApprovalPages.todo(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
@@ -2921,7 +2923,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 .currentTaskDefinitionKey("approveNode")
                 .build());
         Task task = mockTask("task-pending", "process-missing-execution", "approveNode", "审批");
-        when(bpmTaskService.getTaskTodoPage(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
+        when(legacyApprovalPages.todo(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
@@ -2933,7 +2935,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     @Test
     void approvalDonePage_missingSnapshot_failsFastInsteadOfFiltering() {
         HistoricTaskInstance task = mockHistoricTask("task-done-missing", "process-done-missing-snapshot", "approveNode", "审批");
-        when(bpmTaskService.getTaskDonePage(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
+        when(legacyApprovalPages.done(eq(88L), any())).thenReturn(new PageResult<>(List.of(task), 1L));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
@@ -3162,8 +3164,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         Task matchedTask = mockTask("task-filter-match", "process-filter-match", "approveNode", "审批");
         Task ignoredByUserTask = mockTask("task-filter-user", "process-filter-user", "approveNode", "审批");
         Task ignoredByTimeTask = mockTask("task-filter-time", "process-filter-time", "approveNode", "审批");
-        when(bpmTaskService.getTaskTodoPage(eq(66L), any()))
-                .thenReturn(new PageResult<>(List.of(matchedTask, ignoredByUserTask, ignoredByTimeTask), 3L));
+        when(legacyApprovalPages.todo(eq(66L), any()))
+                .thenReturn(new PageResult<>(List.of(matchedTask), 1L));
 
         MesProBatchRecordExecutionApprovalPageReqVO reqVO = pageReq();
         reqVO.setExecutionCode("match");
@@ -3204,16 +3206,12 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         Task ignoredTask = mockTask("task-filter-page-ignored", "process-filter-page-ignored", "approveNode", "Approval");
         Task firstMatchedTask = mockTask("task-filter-page-match-1", "process-filter-page-match-1", "approveNode", "Approval");
         Task secondMatchedTask = mockTask("task-filter-page-match-2", "process-filter-page-match-2", "approveNode", "Approval");
-        when(bpmTaskService.getTaskTodoPage(eq(66L), any(BpmTaskPageReqVO.class)))
-                .thenAnswer(invocation -> {
-                    BpmTaskPageReqVO bpmReqVO = invocation.getArgument(1);
-                    if (bpmReqVO.getPageNo() == 1 && bpmReqVO.getPageSize() >= 3) {
-                        return new PageResult<>(List.of(ignoredTask, firstMatchedTask, secondMatchedTask), 3L);
-                    }
-                    if (bpmReqVO.getPageNo() == 2 && bpmReqVO.getPageSize() == 1) {
-                        return new PageResult<>(List.of(firstMatchedTask), 3L);
-                    }
-                    return new PageResult<>(List.of(), 3L);
+        when(legacyApprovalPages.todo(eq(66L), any(MesProBatchRecordExecutionApprovalPageReqVO.class)))
+                .thenAnswer(call->{
+                    MesProBatchRecordExecutionApprovalPageReqVO forwarded=call.getArgument(1);
+                    assertEquals(2,forwarded.getPageNo());assertEquals(1,forwarded.getPageSize());
+                    assertEquals("MATCH-PAGE",forwarded.getBatchCode());
+                    return new PageResult<>(List.of(secondMatchedTask),2L);
                 });
 
         MesProBatchRecordExecutionApprovalPageReqVO reqVO = pageReq();
@@ -3256,16 +3254,12 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 "process-done-filter-page-match-1", "approveNode", "Approval");
         HistoricTaskInstance secondMatchedTask = mockHistoricTask("task-done-filter-page-match-2",
                 "process-done-filter-page-match-2", "approveNode", "Approval");
-        when(bpmTaskService.getTaskDonePage(eq(66L), any(BpmTaskPageReqVO.class)))
-                .thenAnswer(invocation -> {
-                    BpmTaskPageReqVO bpmReqVO = invocation.getArgument(1);
-                    if (bpmReqVO.getPageNo() == 1 && bpmReqVO.getPageSize() >= 3) {
-                        return new PageResult<>(List.of(ignoredTask, firstMatchedTask, secondMatchedTask), 3L);
-                    }
-                    if (bpmReqVO.getPageNo() == 2 && bpmReqVO.getPageSize() == 1) {
-                        return new PageResult<>(List.of(firstMatchedTask), 3L);
-                    }
-                    return new PageResult<>(List.of(), 3L);
+        when(legacyApprovalPages.done(eq(66L), any(MesProBatchRecordExecutionApprovalPageReqVO.class)))
+                .thenAnswer(call->{
+                    MesProBatchRecordExecutionApprovalPageReqVO forwarded=call.getArgument(1);
+                    assertEquals(2,forwarded.getPageNo());assertEquals(1,forwarded.getPageSize());
+                    assertEquals("DONE-MATCH-PAGE",forwarded.getBatchCode());
+                    return new PageResult<>(List.of(secondMatchedTask),2L);
                 });
 
         MesProBatchRecordExecutionApprovalPageReqVO reqVO = pageReq();
@@ -3301,7 +3295,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 .setReviewSourceType("ROLE")
                 .setReviewSourceId(910212L)
                 .setReviewSourceName("eDHR审核-审批人");
-        when(bpmTaskService.getTaskTodoPage(eq(88L), any()))
+        when(legacyApprovalPages.todo(eq(88L), any()))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         when(workTaskService.getActiveReviewTaskByBpmTaskId(execution.getId(), "task-pending-context"))
                 .thenReturn(reviewTask);

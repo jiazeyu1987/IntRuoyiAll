@@ -8,6 +8,8 @@ import lombok.Data;
 @Schema(description = "管理后台 - MES 编码规则新增/修改 Request VO")
 @Data
 public class MesMdAutoCodeRuleSaveReqVO {
+    @Schema(description = "所属产品项目")
+    private Long projectId;
 
     @Schema(description = "规则 ID", example = "1024")
     private Long id;

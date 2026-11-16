@@ -9,6 +9,11 @@ import jakarta.validation.constraints.NotBlank;
 @Data
 public class MesProEdhrNonconformanceReviewCreateReqVO {
 
+    @jakarta.validation.constraints.NotNull(message = "请选择QA评审责任人")
+    @jakarta.validation.constraints.Positive(message = "QA评审责任人编号必须为正数")
+    @Schema(description = "发起人明确选择的QA评审责任人", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long qaReviewerUserId;
+
     @Schema(description = "活跃订单ID；填写后由服务端统一记录为 ACTIVE_ORDER 来源")
     private Long activeOrderId;
 

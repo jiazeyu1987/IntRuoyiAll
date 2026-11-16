@@ -15,9 +15,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesMarketReleaseHandoverMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionVisibilityService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.AfterEach;
@@ -67,7 +71,8 @@ class MesActiveOrderDossierReadScopeServiceTest {
     @AfterEach
     void cleanup() {
         if (f != null) {
-            for (Object dependency : List.of(f.apps, f.orders, f.batches, f.pqcReader, f.tasks, f.permissions, f.batchTasks, f.transactions, f.origins)) {
+            for (Object dependency : List.of(f.apps, f.orders, f.batches, f.pqcReader, f.tasks, f.permissions, f.batchTasks,
+                    f.transactions, f.origins, f.handovers, f.executions, f.ledger)) {
                 assertTrue(mockingDetails(dependency).getInvocations().stream().noneMatch(invocation -> {
                     String name = invocation.getMethod().getName();
                     return name.startsWith("insert") || name.startsWith("update") || name.startsWith("delete")
@@ -88,6 +93,24 @@ class MesActiveOrderDossierReadScopeServiceTest {
         f.login(PQC_ACTOR, TENANT); f.task.setStatus("TODO"); f.app.setApplicationStatus("PQC_RELEASE_PENDING");
         assertEquals(APPLICATION, ((MesActiveOrderDossierReadScopeService) f.target)
                 .requireMutation(PQC_ACTOR, ACTIVE, APPLICATION, false).application().getId());
+    }
+
+    @Test void uploadDutyPermitsOnlyAssignedCategoryAndCannotDelete() {
+        var service = (MesActiveOrderDossierReadScopeService) f.target;
+        var completion = mock(MesActiveOrderDossierCompletionService.class);
+        var uploads = mock(MesReleaseAttachmentUploadService.class);
+        ReflectionTestUtils.setField(service, "dossierCompletionService", completion);
+        ReflectionTestUtils.setField(service, "attachmentUploads", uploads);
+        when(f.permissions.hasAnyPermissions(eq(ACTOR), any(String[].class))).thenAnswer(call ->
+                Arrays.asList((String[]) call.getRawArguments()[1]).contains("mes:pro-edhr-batch-execution:upload"));
+        when(completion.isAssigned(ACTOR, ACTIVE, "INCOMING_INSPECTION_FILE")).thenReturn(true);
+        when(uploads.hasDuty(ACTOR, ACTIVE)).thenReturn(true);
+        assertEquals(APPLICATION, service.requireMutation(ACTOR, ACTIVE, APPLICATION, false,
+                "INCOMING_INSPECTION_FILE").application().getId());
+        assertThrows(ServiceException.class, () -> service.requireMutation(ACTOR, ACTIVE, APPLICATION,
+                false, "STERILIZATION_FILE"));
+        assertThrows(ServiceException.class, () -> service.requireMutation(ACTOR, ACTIVE, APPLICATION,
+                true, "INCOMING_INSPECTION_FILE"));
     }
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -150,11 +173,13 @@ class MesActiveOrderDossierReadScopeServiceTest {
         assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
                 .requireMutation(ACTOR, ACTIVE, APPLICATION, false));
     }
-    @Test void forgedApplicationAndAmbiguousFormalAssociationAreRejected() {
+    @Test void forgedApplicationAndExpiredFormalRoundAreRejected() {
         when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
         assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
                 .requireMutation(ACTOR, ACTIVE, APPLICATION + 1, false));
-        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app, f.app));
+        var latest = new MesProcessPoolActiveOrderReleaseApplicationDO().setId(APPLICATION + 1);
+        latest.setTenantId(TENANT);
+        when(f.apps.selectByBatchExecutionId(BATCH)).thenReturn(latest);
         assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
                 .requireMutation(ACTOR, ACTIVE, null, false));
     }
@@ -429,6 +454,21 @@ class MesActiveOrderDossierReadScopeServiceTest {
         verify(f.tasks, times(2)).selectTimelineListByBatchExecutionId(BATCH);
     }
 
+    @Test
+    void recalledHandoverRecipientCannotUseFrozenManagerCandidateToRecoverReadAccess() {
+        var recalled = new MesMarketReleaseHandoverMapper.Row().setId(90L).setBatchExecutionId(BATCH)
+                .setActiveOrderId(ACTIVE).setOriginalUserId(348L).setRecipientUserId(ACTOR)
+                .setRecalledAt(LocalDateTime.of(2026, 10, 27, 10, 0));
+        recalled.setTenantId(TENANT);
+        when(f.handovers.history(BATCH)).thenReturn(List.of(recalled));
+        when(f.handovers.activeOrderHistory(ACTIVE)).thenReturn(List.of(recalled));
+        var batchFailure = assertThrows(ServiceException.class, () -> f.batch(ACTOR, BATCH, null));
+        assertEquals(1040750457, batchFailure.getCode());
+        var previewFailure = assertThrows(ServiceException.class, () -> f.preview(ACTOR, f.row));
+        assertEquals(403, previewFailure.getCode());
+        verify(f.tasks, never()).selectTimelineListByBatchExecutionId(any());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"EMPTY", "NULL", "ID", "TENANT", "BATCH", "WORK_ORDER", "ACTIVE", "SECOND_FOREIGN"})
     void formalOriginsMustAllMatchTheAuthorizedApplication(String fault) {
@@ -467,11 +507,17 @@ class MesActiveOrderDossierReadScopeServiceTest {
             assertTrue(exactLookup.isDefault(), "exact formal batch application lookup must be an implemented Mapper default method");
             type.getMethod("requireBatch", Long.class, Long.class, Long.class);
             type.getMethod("requirePreview", Long.class, MesProcessPoolActiveOrderDossierFileDO.class);
-            return type.getConstructor(MesProcessPoolActiveOrderReleaseApplicationMapper.class,
+            Object service = type.getConstructor(MesProcessPoolActiveOrderReleaseApplicationMapper.class,
                     MesProcessPoolActiveOrderMapper.class, MesProEdhrBatchExecutionMapper.class,
                     MesProEdhrBatchExecutionVisibilityService.class, MesProEdhrBatchExecutionOriginMapper.class,
-                    MesPqcProductionReleaseService.class, MesProEdhrWorkTaskMapper.class, PermissionApi.class)
-                    .newInstance(f.apps, f.orders, f.batches, f.visibility, f.origins, f.pqcReader, f.tasks, f.permissions);
+                    MesPqcProductionReleaseService.class, MesProEdhrWorkTaskMapper.class, PermissionApi.class,
+                    MesMarketReleaseAccess.class)
+                    .newInstance(f.apps, f.orders, f.batches, f.visibility, f.origins, f.pqcReader, f.tasks, f.permissions,
+                            f.marketReleaseAccess);
+            ReflectionTestUtils.setField(service, "packagingAccess", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));
+            ReflectionTestUtils.setField(service, "dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
+            ReflectionTestUtils.setField(service, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
+            return service;
         } catch (ReflectiveOperationException missingContract) {
             throw new AssertionError("HISTORY-DOSSIER01 requires the real read-scope service with pure visibility authorization and exact mapper method", missingContract);
         }
@@ -526,6 +572,10 @@ class MesActiveOrderDossierReadScopeServiceTest {
         final MesProEdhrBatchExecutionOriginMapper origins = mock(MesProEdhrBatchExecutionOriginMapper.class);
         final MesProEdhrBatchExecutionTaskMapper batchTasks = mock(MesProEdhrBatchExecutionTaskMapper.class);
         final MesProEdhrReleaseTransactionMapper transactions = mock(MesProEdhrReleaseTransactionMapper.class);
+        final MesMarketReleaseHandoverMapper handovers = mock(MesMarketReleaseHandoverMapper.class);
+        final MesProBatchRecordExecutionMapper executions = mock(MesProBatchRecordExecutionMapper.class);
+        final GxpAuditService ledger = mock(GxpAuditService.class);
+        final MesMarketReleaseAccess marketReleaseAccess = new MesMarketReleaseAccess(handovers, executions, ledger);
         final MesProEdhrBatchExecutionVisibilityService visibility = spy(new MesProEdhrBatchExecutionVisibilityService());
         final MesProEdhrReleaseTransactionDO transaction = new MesProEdhrReleaseTransactionDO()
                 .setId(226L).setBatchExecutionId(BATCH);
@@ -540,10 +590,16 @@ class MesActiveOrderDossierReadScopeServiceTest {
 
         Fixture() {
             order.setTenantId(TENANT); app.setTenantId(TENANT); row.setTenantId(TENANT);
+            ReflectionTestUtils.setField(visibility, "attachmentUploads", mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesReleaseAttachmentUploadService.class));
             ReflectionTestUtils.setField(visibility, "permissionApi", permissions);
             ReflectionTestUtils.setField(visibility, "batchTaskMapper", batchTasks);
             ReflectionTestUtils.setField(visibility, "workTaskMapper", tasks);
             ReflectionTestUtils.setField(visibility, "releaseTransactionMapper", transactions);
+            ReflectionTestUtils.setField(visibility, "marketReleaseAccess", marketReleaseAccess);
+            ReflectionTestUtils.setField(visibility, "batchOriginMapper", origins);
+            ReflectionTestUtils.setField(visibility, "activeOrderMapper", orders);
+            when(handovers.history(BATCH)).thenReturn(List.of());
+            when(handovers.activeOrderHistory(ACTIVE)).thenReturn(List.of());
             when(batchTasks.selectListByBatchExecutionId(BATCH)).thenReturn(List.of());
             when(transactions.selectByBatchExecutionId(BATCH)).thenReturn(transaction);
             when(tasks.selectTimelineListByBatchExecutionId(BATCH)).thenReturn(List.of(managerTask));
@@ -558,6 +614,7 @@ class MesActiveOrderDossierReadScopeServiceTest {
                 }
                 return RETURNS_DEFAULTS.answer(invocation);
             });
+            ReflectionTestUtils.setField(visibility, "releaseApplicationMapper", apps);
             when(orders.selectById(anyLong())).thenAnswer(invocation ->
                     !missingActive && Objects.equals(invocation.getArgument(0), ACTIVE) ? order : null);
             when(tasks.selectById(anyLong())).thenAnswer(invocation ->

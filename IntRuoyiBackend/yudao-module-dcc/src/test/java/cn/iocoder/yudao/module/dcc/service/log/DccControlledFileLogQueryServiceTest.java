@@ -49,8 +49,29 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import(DccControlledFileLogQueryServiceImpl.class)
-class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
+@Import({DccControlledFileLogQueryServiceImpl.class, DccControlledFileLogQueryServiceTest.H2MysqlTextConfiguration.class})
+public class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class H2MysqlTextConfiguration {
+        @org.springframework.context.annotation.Bean
+        org.apache.ibatis.plugin.Interceptor mysqlTextCasts() { return new MysqlTextCasts(); }
+    }
+
+    /** H2's MySQL mode truncates unqualified CHAR casts to one character; MySQL does not. */
+    @org.apache.ibatis.plugin.Intercepts(@org.apache.ibatis.plugin.Signature(
+            type = org.apache.ibatis.executor.statement.StatementHandler.class, method = "prepare",
+            args = {java.sql.Connection.class, Integer.class}))
+    static class MysqlTextCasts implements org.apache.ibatis.plugin.Interceptor {
+        @Override
+        public Object intercept(org.apache.ibatis.plugin.Invocation invocation) throws Throwable {
+            var handler = (org.apache.ibatis.executor.statement.StatementHandler) invocation.getTarget();
+            var bound = handler.getBoundSql();
+            org.apache.ibatis.reflection.SystemMetaObject.forObject(bound).setValue("sql",
+                    bound.getSql().replace(" AS CHAR)", " AS VARCHAR)"));
+            return invocation.proceed();
+        }
+    }
 
     @Resource
     private DccControlledFileLogQueryService logQueryService;
@@ -83,6 +104,14 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUpUsers() {
+        // Fixtures predate tenant interception and intentionally use the schema default tenant 0.
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(0L);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.execute("CREATE ALIAS IF NOT EXISTS JSON_QUOTE FOR 'cn.iocoder.yudao.module.dcc.service.log.DccControlledFileLogQueryServiceTest.jsonQuote'");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id BIGINT PRIMARY KEY,nickname VARCHAR(128),tenant_id BIGINT,deleted INT)");
+        for (Long id : List.of(100L,101L,1999L,2001L,2002L,2003L,2004L,2101L,2102L,2201L,2209L,2210L,2298L,2299L,2401L)) {
+            jdbc.update("MERGE INTO system_users(id,nickname,tenant_id,deleted) KEY(id) VALUES (?,?,0,0)",id,"用户"+id);
+        }
         new JdbcTemplate(dataSource).execute(
                 "ALTER TABLE dcc_controlled_file_access_log ALTER COLUMN user_id DROP NOT NULL");
         when(adminUserApi.getUserList(ArgumentMatchers.<Collection<Long>>any())).thenAnswer(invocation -> {
@@ -392,9 +421,37 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
                 .findFirst().orElseThrow();
         assertEquals("用户2201", logUserPriorityRow.getOperatorName());
         assertTrue(page.getList().stream().noneMatch(row -> row.getOperatorUserId().equals(2299L)));
-        verify(accessEventMapper).selectListByControlledFileId(fileId);
+        verify(accessEventMapper, never()).selectListByControlledFileId(fileId);
         verify(accessEventMapper, never()).selectList();
         verify(accessLogMapper, never()).selectList();
+    }
+
+    @Test
+    void getLogPage_filtersCompleteUnionBeforePaging_andHydratesOnlySelectedPage() {
+        for (int i=0; i<15; i++) {
+            DccControlledFileDO file=insertControlledFile(8000L+i,"FILTER-"+i,"跨页匹配文件","A");
+            insertAccessAudit(file,2001L,"PREVIEW","SUCCESS",LocalDateTime.of(2026,10,1,9,0).plusMinutes(i));
+        }
+        DccControlledFileDO foreign=insertControlledFile(9000L,"FOREIGN","跨页匹配文件","A");
+        insertAccessAudit(foreign,2001L,"PREVIEW","SUCCESS",LocalDateTime.of(2026,10,1,10,0));
+        JdbcTemplate jdbc=new JdbcTemplate(dataSource);
+        jdbc.update("UPDATE dcc_controlled_file SET tenant_id=2 WHERE id=9000");
+        jdbc.update("UPDATE dcc_controlled_file_access_log SET tenant_id=2 WHERE controlled_file_id=9000");
+        jdbc.update("UPDATE dcc_controlled_file_access_event SET tenant_id=2 WHERE controlled_file_id=9000");
+        DccControlledFileLogPageReqVO request=new DccControlledFileLogPageReqVO();
+        request.setPageNo(3);request.setPageSize(5);
+        request.setListFilters("[{\"key\":\"fileName\",\"operator\":\"contains\",\"value\":\"跨页匹配\"},{\"key\":\"operatorName\",\"operator\":\"eq\",\"value\":\"用户2001\"},{\"key\":\"logType\",\"operator\":\"in\",\"value\":[\"访问\"]}]");
+        PageResult<DccControlledFileLogRespVO> result=logQueryService.getLogPage(request);
+        assertEquals(15L,result.getTotal());
+        assertEquals(5,result.getList().size());
+        assertEquals("FILTER-4",result.getList().get(0).getFileNumber());
+        verify(accessLogMapper).selectBatchIds(org.mockito.ArgumentMatchers.argThat(ids -> ids.size()==5));
+        verify(accessLogMapper,never()).selectList();
+        verify(controlledFileMapper,never()).selectList();
+    }
+
+    public static String jsonQuote(String value) {
+        return value == null ? null : cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(value);
     }
 
     @Test

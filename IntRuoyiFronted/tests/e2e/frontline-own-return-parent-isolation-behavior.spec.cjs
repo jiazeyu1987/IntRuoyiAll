@@ -8,26 +8,55 @@ function functions(names,values,preamble=''){
  const code=ts.transpileModule(preamble+declarations(names),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
  return Function(...Object.keys(values),code+';return {'+names.join(',')+'};')(...Object.values(values))
 }
-test('真实父SFC隐藏普通生产/PQC填写，仅保留本人严格退回面板',()=>{
+test('真实父SFC保持生产专用退回面板与PQC原表单入口独立',()=>{
  assert.deepEqual(compileTemplate({source:descriptor.template.content,filename,id:'return-parent-isolation'}).errors,[])
  assert.match(descriptor.template.content,/v-if="isPqcMode && !hasReturnNotification"/)
  assert.match(descriptor.template.content,/v-else-if="!hasReturnNotification"[\s\S]*?data-frontline-production-stage/)
- assert.match(descriptor.template.content,/<FrontlineReturnCorrectionPanel ref="returnCorrectionPanel" :mode="props.mode"/)
+ assert.match(descriptor.template.content,/<FrontlineReturnCorrectionPanel v-if="!isPqcMode" ref="returnCorrectionPanel" :mode="props.mode"/)
  assert.match(descriptor.scriptSetup.content,/returnTaskId !== undefined[\s\S]*\.openTask\(route.query\)/)
 })
-test('旧、错误或改造RETURN query均启动隔离，不能作为普通填写入口',()=>{
+test('生产旧、错误或改造RETURN query均启动隔离，PQC走原表单定位',()=>{
  for(const id of ['1900000000000000001','0',null,['1900000000000000001']]){
-  const page=functions(['hasReturnNotification'],{computed:vue.computed,route:{query:{returnTaskId:id}}});assert.equal(page.hasReturnNotification.value,true)
+  const page=functions(['hasReturnNotification'],{computed:vue.computed,isPqcMode:vue.ref(false),route:{query:{returnTaskId:id}}});assert.equal(page.hasReturnNotification.value,true)
  }
- const page=functions(['hasReturnNotification'],{computed:vue.computed,route:{query:{}}});assert.equal(page.hasReturnNotification.value,false)
+ const page=functions(['hasReturnNotification'],{computed:vue.computed,isPqcMode:vue.ref(false),route:{query:{}}});assert.equal(page.hasReturnNotification.value,false)
+ const pqc=functions(['hasReturnNotification'],{computed:vue.computed,isPqcMode:vue.ref(true),route:{query:{returnTaskId:'1900000000000000001'}}});assert.equal(pqc.hasReturnNotification.value,false)
 })
-for(const pqc of [false,true])test(`实际${pqc?'PQC':'生产'}mount旧RETURN不加载或默认选择当前新周期`,async()=>{
+
+test('PQC真实刷新入口只定位本人原退回订单、事件及复核轮次，错配不得打开其他表单',async()=>{
+ const originalQuery={activeOrderId:'413',returnTaskId:'1900000000000000001',eventId:'176',rejectedReviewId:'91'}
+ for(const mutation of [null,{activeOrderId:'414'},{returnTaskId:'other'},{eventId:'177'},{rejectedReviewId:'90'}]){
+  const query={...originalQuery,...mutation},calls=[],state={},selectedPqcInspectionRuleKey=vue.ref(),selectedPqcPatrolRound=vue.ref()
+  const option={pqcTaskId:55,inspectionRuleKey:'PATROL',inspectionType:'PATROL',roundNo:2,returnedSubmission:{row:{...originalQuery}}}
+  const process={qaProcessId:31,pqcTaskOptions:[{...option,pqcTaskId:54,returnedSubmission:undefined},option]}
+  const values={hasReturnNotification:vue.ref(false),isPqcMode:vue.ref(true),hasInitialHandoffQuery:vue.ref(false),route:{query},deviceState:state,currentLoginUserId:vue.ref(344),selectedPqcInspectionRuleKey,selectedPqcPatrolRound,
+   clearPqcExecutionSelection:()=>calls.push(['clear']),
+   loadFrontlinePqcActiveOrders:async()=>[{activeOrderId:414,readBlocked:true},{activeOrderId:413}],
+   ProFeedbackApi:{getPqcProcesses:async(orderId,userId)=>{assert.equal(orderId,413);assert.equal(userId,344);return[process]}},
+   invalidateFrontlinePqcProcessCacheForActiveOrder:(_,id)=>calls.push(['invalidate',id]),
+   handleSelectActiveOrder:async order=>{calls.push(['order',order.activeOrderId]);state.selectedActiveOrder=order},
+   handleSelectProcess:async selected=>{calls.push(['process',selected.qaProcessId]);state.selectedProcess=selected},
+   applyPqcTaskOptionToDraft:selected=>calls.push(['task',selected.pqcTaskId]),
+   initializeInitialHandoffSelection:()=>{throw Error('must not open initial handoff')}
+  }
+  const page=functions(['initializePqcReturnedSelection','refreshPqcActiveOrdersAndEnsureSelection'],values,'let initialHandoffEpoch=0,pqcActiveOrderRefreshPromise;')
+  if(mutation){
+   await assert.rejects(page.refreshPqcActiveOrdersAndEnsureSelection(),/原退回检验订单不可填写|退回轮次已变化/)
+   assert.deepEqual(calls,[['clear']]);assert.equal(state.selectedActiveOrder,undefined);assert.equal(state.selectedProcess,undefined)
+  }else{
+   await page.refreshPqcActiveOrdersAndEnsureSelection()
+   assert.deepEqual(calls,[['clear'],['invalidate',413],['order',413],['process',31],['task',55]])
+   assert.equal(selectedPqcInspectionRuleKey.value,'PATROL');assert.equal(selectedPqcPatrolRound.value,2)
+  }
+ }
+})
+for(const pqc of [false,true])test(`实际${pqc?'PQC原表单':'生产隔离'}mount旧RETURN不加载或默认选择当前新周期`,async()=>{
  const calls=[],errors=[],catalog=vue.ref([])
- const values={document:{addEventListener:()=>{}},window:{addEventListener:()=>{}},syncPqcFullscreenState:()=>{},handlePqcForegroundRefresh:()=>{},scheduleProductionViewportScaleUpdate:()=>{},isPqcMode:{value:pqc},ResizeObserver:class{observe(){}},frontlinePanelRef:{value:null},hasInitialHandoffQuery:{value:false},hasReturnNotification:{value:true},hydrateContextFromRoute:()=>{throw Error('generic hydrate must not run')},FrontlineTemplateApi:{getCatalog:async()=>[{code:'formal'}]},isolateOwnReturnNotification:()=>calls.push('isolate'),catalog,initializeInitialHandoffSelection:()=>{throw Error('initial handoff must not run')},refreshPqcActiveOrdersAndEnsureSelection:()=>{throw Error('generic PQC must not run')},initializeProductionSelection:()=>{throw Error('generic production must not run')},showFrontlineError:e=>errors.push(e)}
+ const values={document:{addEventListener:()=>{}},window:{addEventListener:()=>{}},syncPqcFullscreenState:()=>{},handlePqcForegroundRefresh:()=>{},scheduleProductionViewportScaleUpdate:()=>{},isPqcMode:{value:pqc},ResizeObserver:class{observe(){}},frontlinePanelRef:{value:null},hasInitialHandoffQuery:{value:false},hasReturnNotification:{value:!pqc},frontlineInitializing:vue.ref(true),draft:{fieldValues:{}},buildPqcFieldValues:()=>({}),hydrateContextFromRoute:()=>{if(!pqc)throw Error('generic hydrate must not run')},FrontlineTemplateApi:{getCatalog:async()=>[{code:'formal'}]},isolateOwnReturnNotification:()=>calls.push('isolate'),catalog,initializeInitialHandoffSelection:()=>{throw Error('initial handoff must not run')},refreshPqcActiveOrdersAndEnsureSelection:()=>calls.push('pqc-original-return'),initializeProductionSelection:()=>{throw Error('generic production must not run')},showFrontlineError:e=>errors.push(e)}
  const mount=ast.statements.find(s=>ts.isExpressionStatement(s)&&s.expression.expression?.getText(ast)==='onMounted').expression.arguments[0].getText(ast)
  const code=ts.transpileModule('let productionViewportResizeObserver;let initialHandoffPageMounted=false;const mount='+mount,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
  await Function(...Object.keys(values),code+';return mount;')(...Object.values(values))()
- assert.deepEqual(calls,['isolate']);assert.deepEqual(errors,[]);assert.equal(catalog.value[0].code,'formal')
+ assert.deepEqual(calls,[pqc?'pqc-original-return':'isolate']);assert.deepEqual(errors,[]);assert.equal(catalog.value[0].code,'formal')
 })
 test('实际隔离方法清空既有新周期与填写上下文并终止旧选择响应',()=>{
  const state={selectedActiveOrder:{activeOrderId:414},selectedProcess:{routeProcessId:92},selectedEmployee:{userId:342},processOptions:[1],productionProcessOptions:[1],activeOrderOptions:[{activeOrderId:414}],employeeOptions:[1],runtimeConfig:{},template:{},productionActiveOrderSelectionRequestToken:1,pqcActiveOrderSelectionRequestToken:2,processSelectionRequestToken:3,employeeSwitchRequestToken:4},context={workOrderId:274,routeId:98,routeProcessId:92,processId:16,actualEmployeeId:342},calls=[]

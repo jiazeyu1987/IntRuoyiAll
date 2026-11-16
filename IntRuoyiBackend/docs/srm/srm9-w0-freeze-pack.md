@@ -41,7 +41,7 @@
 
 ### admin ERP 金蝶配置与同步历史只读证据
 
-2026-06-21 按用户补充说明使用主系统 `芋道源码/admin` 继续做只读验证：打开 `/erp/kingdee-config`，读取 `/admin-api/erp/kingdee-config/get`，并用真实库只读聚合查询同步记录。证据文件为 `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\output\playwright\srm9-admin-erp-kingdee-config-readonly-2026-06-21T13-40-21-692Z.json`。该证据未输出密码、token、外部端点 host、NAS 凭据或供应商明细。
+2026-06-21 按用户补充说明使用主系统 `芋道源码/admin` 继续做只读验证：打开 `/erp/kingdee-config`，读取 `/admin-api/erp/kingdee-config/get`，并用真实库只读聚合查询同步记录。证据文件为 `./IntRuoyiFronted/output/playwright/srm9-admin-erp-kingdee-config-readonly-2026-06-21T13-40-21-692Z.json`。该证据未输出密码、token、外部端点 host、NAS 凭据或供应商明细。
 
 | 检查项 | 证据结论 | 对 W0-01 的影响 |
 | --- | --- | --- |
@@ -68,7 +68,7 @@
 | SRM 准入状态 | `APPROVED` | 通过真实资格校验，页面可继续后续链路 |
 | 风险状态 | `0` 个未处理高风险 | 仅说明当前页面较干净，不代表外部契约已冻结 |
 
-2026-06-22 已用 Playwright 真实打开 `http://127.0.0.1:8081`，登录 `测试租户/aoteman`，在 `/srm/supplier-portal-review` 审核通过 `103` 的门户申请，并在 `/srm/supplier/access` 执行资格校验返回 `eligible=true`。证据文件为 `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\output\playwright\srm9-candidate-103-portal-approval-e2e-2026-06-21T16-49-15-646Z.json`。
+2026-06-22 已用 Playwright 真实打开 `http://127.0.0.1:8081`，登录 `测试租户/aoteman`，在 `/srm/supplier-portal-review` 审核通过 `103` 的门户申请，并在 `/srm/supplier/access` 执行资格校验返回 `eligible=true`。证据文件为 `./IntRuoyiFronted/output/playwright/srm9-candidate-103-portal-approval-e2e-2026-06-21T16-49-15-646Z.json`。
 
 结论：这条候选样本已经可以证明 SRM 门户审核、准入档案和资格校验的真实页面链路可走通，但仍不能把它当作 K3 供应商主数据写回样本，更不能用来证明 W1 已可开发。
 
@@ -88,7 +88,7 @@
 | 风险状态 | `0` 个未处理高风险 | 资格校验通过 |
 | 金蝶映射 | 无金蝶映射 | 不能作为 K3 写回样本 |
 
-2026-06-21 已用 Playwright 真实打开 `http://localhost:8081`，登录 `测试租户/aoteman`，在 `/srm/supplier/access` 搜索 `108 / SRM Portal E2E 20260620183546`，执行资格校验并进入档案页，结果通过。证据文件为 `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\output\playwright\srm9-portal-ready-readonly-2026-06-21T14-29-36-448Z.json`。
+2026-06-21 已用 Playwright 真实打开 `http://localhost:8081`，登录 `测试租户/aoteman`，在 `/srm/supplier/access` 搜索 `108 / SRM Portal E2E 20260620183546`，执行资格校验并进入档案页，结果通过。证据文件为 `./IntRuoyiFronted/output/playwright/srm9-portal-ready-readonly-2026-06-21T14-29-36-448Z.json`。
 
 ### 必填冻结项
 

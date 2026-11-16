@@ -125,48 +125,23 @@ class MesBatchExecutionEntryContractTest {
     }
 
     @Test
-    void independentEntryRequiresFormalReceiptAndRelation() {
-        MesBatchExecutionProvisionCommand command = independentCommand();
-        ServiceException missingReceipt = assertThrows(ServiceException.class, () -> contract.validate(command));
-        assertEquals(PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED.getCode(), missingReceipt.getCode());
-
-        command.setIndependentReceipt(validIndependentReceipt().setSourceRelationId(null));
-        ServiceException missingRelation = assertThrows(ServiceException.class, () -> contract.validate(command));
-        assertEquals(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED.getCode(), missingRelation.getCode());
+    void retiredIndependentTypesRejectEvenPreviouslyValidReceipt() {
+        for (String type : List.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT")) {
+            MesBatchExecutionProvisionCommand command = independentCommand().setEntryType(type)
+                    .setIndependentReceipt(validIndependentReceipt().setEntryType(type));
+            ServiceException failure = assertThrows(ServiceException.class, () -> contract.validate(command));
+            assertEquals(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH.getCode(), failure.getCode());
+            assertThrows(ServiceException.class, () -> contract.validate(
+                    new MesBatchExecutionAuthoritativeContext().setProvisionCommand(command)
+                            .setIndependentReceipt(command.getIndependentReceipt())));
+        }
     }
 
     @Test
-    void independentPqcRejectsActiveReceiptAndAcceptsCanonicalReceipt() {
-        MesBatchExecutionProvisionCommand command = independentCommand()
-                .setCompletionBackfillReceipt(new MesCompletionBackfillReceipt()
-                        .setReceiptId("active-receipt")
-                        .setStatus("BACKFILL_SUCCEEDED"));
-        ServiceException mismatch = assertThrows(ServiceException.class, () -> contract.validate(command));
-        assertEquals(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH.getCode(), mismatch.getCode());
-
-        command.setCompletionBackfillReceipt(null).setIndependentReceipt(validIndependentReceipt());
-        assertSame(command, contract.validate(command));
-    }
-
-    @Test
-    void scheduledEntryTypesRemainValidAfterSharedValidation() {
-        MesBatchExecutionProvisionCommand active = activeCommand()
-                .setEntryType("ACTIVE_ORDER_SCHEDULED")
+    void activeScheduledEntryStillAcceptsCompletionReceipt() {
+        MesBatchExecutionProvisionCommand active = activeCommand().setEntryType("ACTIVE_ORDER_SCHEDULED")
                 .setCompletionBackfillReceipt(validCompletionReceipt());
         assertSame(active, contract.validate(active));
-
-        MesBatchExecutionProvisionCommand independent = independentCommand()
-                .setEntryType("SCHEDULED")
-                .setIndependentReceipt(validIndependentReceipt().setEntryType("SCHEDULED"));
-        assertSame(independent, contract.validate(independent));
-    }
-
-    @Test
-    void expiredIndependentReceiptIsBlocked() {
-        MesBatchExecutionProvisionCommand command = independentCommand()
-                .setIndependentReceipt(validIndependentReceipt().setExpiresAt(LocalDateTime.now().minusMinutes(1)));
-        ServiceException error = assertThrows(ServiceException.class, () -> contract.validate(command));
-        assertEquals(PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED.getCode(), error.getCode());
     }
 
     private MesBatchExecutionProvisionCommand activeCommand() {

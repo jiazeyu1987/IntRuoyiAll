@@ -88,6 +88,29 @@ export const resolveDisplayNames = (
 export const formatDisplayNames = (names: string[], placeholder = '-') =>
   names.length > 0 ? names.join('、') : placeholder
 
+export type UserTableSortOrder = 'ascending' | 'descending' | null
+
+/** Sort the complete authorized result before pagination; empty values stay last. */
+export const sortUserTableRows = <T extends { id: number }>(
+  users: T[],
+  key: keyof T,
+  order: UserTableSortOrder
+): T[] => {
+  if (!order) return [...users]
+  const direction = order === 'ascending' ? 1 : -1
+  return [...users].sort((left, right) => {
+    const a = left[key]
+    const b = right[key]
+    const aEmpty = a == null || a === ''
+    const bEmpty = b == null || b === ''
+    if (aEmpty || bEmpty) return aEmpty === bEmpty ? left.id - right.id : aEmpty ? 1 : -1
+    const comparison = typeof a === 'number' && typeof b === 'number'
+      ? a - b
+      : String(a).localeCompare(String(b), 'zh-CN', { numeric: true })
+    return comparison * direction || left.id - right.id
+  })
+}
+
 export const sortUsersByDeptLeader = <T extends DeptLeaderAwareUser>(
   users: T[],
   deptLeaderByDeptId: Map<number, number>,

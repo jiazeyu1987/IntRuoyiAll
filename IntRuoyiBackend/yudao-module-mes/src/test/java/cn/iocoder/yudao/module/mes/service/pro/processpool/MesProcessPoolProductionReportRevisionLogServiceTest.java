@@ -85,8 +85,8 @@ class MesProcessPoolProductionReportRevisionLogServiceTest {
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
         when(scopeService.listResponsibleEmployeeIds(3001L, "PRODUCTION")).thenReturn(Set.of(964L));
-        when(revisionMapper.selectProductionReportRevisionLogCount(reqVO, List.of(964L))).thenReturn(1L);
-        when(revisionMapper.selectProductionReportRevisionLogPage(reqVO, List.of(964L), 0, 10))
+        when(revisionMapper.selectProductionReportRevisionLogCount(org.mockito.ArgumentMatchers.eq(reqVO), org.mockito.ArgumentMatchers.eq(List.of(964L)), org.mockito.ArgumentMatchers.any())).thenReturn(1L);
+        when(revisionMapper.selectProductionReportRevisionLogPage(org.mockito.ArgumentMatchers.eq(reqVO), org.mockito.ArgumentMatchers.eq(List.of(964L)), org.mockito.ArgumentMatchers.eq(0), org.mockito.ArgumentMatchers.eq(10), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(revision()));
         when(eventMapper.selectById(176L)).thenReturn(event());
         when(timelineReadMapper.selectTimelineDetailById(176L)).thenReturn(timelineEvent());

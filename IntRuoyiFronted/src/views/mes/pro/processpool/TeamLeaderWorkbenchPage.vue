@@ -66,10 +66,16 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -103,6 +109,8 @@
     >
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
         <UnifiedListTemplate
+          single-line-toolbar
+          class="team-leader-workbench__production-personnel-list"
           table-key="mes.processPool.teamLeader.productionPersonnel"
           :query-model="productionPersonnelQuery"
           :filter-definitions="productionPersonnelFilterDefinitions"
@@ -117,23 +125,27 @@
           @update:page="handleProductionPersonnelPageChange"
           @update:limit="handleProductionPersonnelPageSizeChange"
           @pagination="refreshProductionPersonnel"
+          :filter-rows="visibleProductionPersonnelRows"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
-          <template #extra-filters>
-            <el-form-item>
-              <el-button
-                type="primary"
-                data-team-leader-open-personnel-dialog
-                @click="productionPersonnelAddDialogVisible = true"
-              >
-                <Icon icon="ep:plus" class="mr-5px" />
-                新增人员
-              </el-button>
-            </el-form-item>
+          <template #actions>
+            <el-button
+              type="primary"
+              data-team-leader-open-personnel-dialog
+              @click="productionPersonnelAddDialogVisible = true"
+            >
+              <Icon icon="ep:plus" class="mr-5px" />
+              新增人员
+            </el-button>
+            <el-button v-hasPermi="['mes:pro-process-pool-team-leader:maintain']" @click="teamRosterImportRef?.open('members')">
+              <Icon icon="ep:upload" class="mr-5px" />导入人员名单
+            </el-button>
+            <TeamRosterImportDialog ref="teamRosterImportRef" @success="refreshProductionPersonnel" />
           </template>
-          <template #table>
+          <template #table="{ resolveRows }">
             <el-table
               v-loading="productionPersonnelLoading"
-              :data="pagedProductionPersonnelRows"
+              :data="resolveRows(pagedProductionPersonnelRows)"
               border
               stripe
               data-team-leader-production-personnel-list
@@ -165,7 +177,7 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="320" fixed="right">
+              <el-table-column label="操作" width="380" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
                     修改名称
@@ -188,6 +200,16 @@
                   <el-button link type="info" @click="foldProductionPersonnel(row)">
                     折叠
                   </el-button>
+                  <el-button
+                    link
+                    type="danger"
+                    :disabled="productionPersonnelDeletingId !== undefined"
+                    :loading="productionPersonnelDeletingId === row.id"
+                    data-team-leader-delete-personnel
+                    @click="deleteProductionPersonnel(row)"
+                  >
+                    删除
+                  </el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -199,36 +221,61 @@
             <template #title>
               已折叠人员（{{ foldedProductionPersonnelRows.length }}人）
             </template>
-            <el-button class="mb-12px" @click="restoreAllProductionPersonnel">
-              全部恢复显示
-            </el-button>
-            <el-table :data="foldedProductionPersonnelRows" row-key="id" border stripe>
-              <el-table-column label="显示名" min-width="140">
-                <template #default="{ row }">
-                  <span
-                    class="team-leader-workbench__personnel-name"
-                    :class="{ 'is-disabled': row.enabled === false }"
-                  >{{ row.displayName || row.employeeName || '--' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="来源" width="110">
-                <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
-                    {{ row.enabled === false ? '已禁用' : '可选择' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="130" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="restoreProductionPersonnel(row)">
-                    恢复显示
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+
+            <UnifiedListTemplate
+              table-key="mes.teamLeader.foldedPersonnel"
+              :rows="foldedProductionPersonnelRows"
+              class="unified-list-template--contained"
+              data-list-viewport="embedded"
+              :columns="listFilterColumns1"
+              :show-column-settings="false"
+              :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
+            >
+              <template #actions>
+                <el-button class="mb-12px" @click="restoreAllProductionPersonnel">全部恢复显示</el-button>
+              </template>
+              <template #table="{ rows: standardRows }">
+                <el-table :data="standardRows" row-key="id" border stripe>
+                  <el-table-column label="显示名" min-width="140">
+                    <template #default="{ row }">
+                      <span
+                        class="team-leader-workbench__personnel-name"
+                        :class="{ 'is-disabled': row.enabled === false }"
+                      >
+                        {{ row.displayName || row.employeeName || '--' }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="来源" width="110">
+                    <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                        {{ row.enabled === false ? '已禁用' : '可选择' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="190" fixed="right">
+                    <template #default="{ row }">
+                      <el-button link type="primary" @click="restoreProductionPersonnel(row)">
+                        恢复显示
+                      </el-button>
+                      <el-button
+                        link
+                        type="danger"
+                        :disabled="productionPersonnelDeletingId !== undefined"
+                        :loading="productionPersonnelDeletingId === row.id"
+                        @click="deleteProductionPersonnel(row)"
+                      >
+                        删除
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </template>
+            </UnifiedListTemplate>
+
           </el-collapse-item>
         </el-collapse>
 
@@ -303,7 +350,7 @@
                   />
                 </el-form-item>
                 <el-alert
-                  title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
+                  title="正式工默认使用六位 PIN 码，初始值 888888；本人可在个人中心修改 PIN 或切换密码签名。"
                   type="info"
                   :closable="false"
                   show-icon
@@ -335,16 +382,16 @@
                     @input="clearProductionPersonnelDialogError"
                   />
                 </el-form-item>
-                <el-form-item label="签名密码">
+                <el-form-item label="初始签名密码">
                   <el-input
                     v-model="temporaryEmployeeForm.signaturePassword"
                     show-password
                     clearable
-                    placeholder="用于统一电子签名流程"
+                    placeholder="用于密码签名方式，沿用现有密码规则"
                   />
                 </el-form-item>
                 <el-alert
-                  title="临时工只创建生产人员档案，不创建系统登录账号。"
+                  title="临时工无登录账号；默认使用六位 PIN 码，初始值 888888。员工可在一线页面的签名设置中修改 PIN、密码或切换方式。"
                   type="info"
                   :closable="false"
                   show-icon
@@ -371,12 +418,6 @@
     :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
     data-pqc-leader-personnel-tab
   >
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
-    </div>
     <el-tabs
       v-if="showPqcModuleTabs"
       v-model="activePqcModuleTab"
@@ -390,6 +431,7 @@
     </el-tabs>
 
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.processPool.teamLeader.pqcPersonnel"
       :query-model="pqcPersonnelQuery"
       :filter-definitions="pqcPersonnelFilterDefinitions"
@@ -404,6 +446,8 @@
       @update:page="handlePqcPersonnelPageChange"
       @update:limit="handlePqcPersonnelPageSizeChange"
       @pagination="refreshPqcPersonnel"
+      :filter-rows="pqcPersonnelRows"
+      :column-filter-definitions="listColumnFilterDefinitions2"
     >
       <template #actions>
         <el-button
@@ -415,10 +459,10 @@
           新增
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="pqcPersonnelLoading"
-          :data="pagedPqcPersonnelRows"
+          :data="resolveRows(pagedPqcPersonnelRows)"
           border
           stripe
           data-pqc-leader-personnel-list
@@ -543,10 +587,16 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -570,12 +620,6 @@
       <span v-else class="team-leader-workbench__responsible-routes-empty">
         {{ responsibleRouteLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
       </span>
-    </div>
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
     </div>
     <el-tabs
       v-if="showPqcModuleTabs"
@@ -623,14 +667,17 @@
       @column-change="saveSubmissionColumnConfig"
       @column-reset="resetSubmissionColumnConfig"
       @pagination="getSubmissionList"
+      server-filter
+      :server-filter-query="getSubmissionList"
+      :column-filter-definitions="listColumnFilterDefinitions3"
     >
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.processPool.teamLeader.submissions"
           :class="{ 'team-leader-workbench__submission-table--single-line': activeLeaderTab === 'PQC' }"
-          :data="submissionList"
+          :data="resolveRows(submissionList)"
           border
           stripe
           :show-overflow-tooltip="true"
@@ -662,7 +709,7 @@
                         <span>损耗 {{ material.lossQuantityText }}</span>
                         <span>{{ material.lossDetailText }}</span>
                       </div>
-                      <el-table
+                      <el-table stripe
                         :data="material.devices"
                         border
                         size="small"
@@ -978,9 +1025,6 @@
                 {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第
                 {{ row.roundNo || '--' }} 轮
               </span>
-              <div data-pqc-leader-original-event-ids>
-                原提交事件：{{ formatSubmissionSourceEventIds(row).split(' ').join('、') }}
-              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -1328,7 +1372,7 @@
                   复核
                 </el-button>
                 <el-button
-                  v-if="canCorrectSubmission(row)"
+                  v-if="activeLeaderTab !== 'PQC' && canCorrectSubmission(row)"
                   link
                   type="warning"
                   :data-team-leader-correction-event-id="String(row.id)"
@@ -1377,12 +1421,6 @@
     class="team-leader-workbench__pqc-module-card"
     data-pqc-leader-detail-tab
   >
-    <div class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
-    </div>
     <el-tabs
       v-model="activePqcModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
@@ -1423,26 +1461,10 @@
           >
             {{ resolveSubmissionLossQuantity(detail) }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="!isPqcSubmissionRow(detail)" label="复核日志">
-            <div class="team-leader-workbench__review-log" data-team-leader-review-log>
-              <el-tag
-                :type="resolveSubmissionReviewTagType(detail.submissionReviewStatus)"
-                effect="plain"
-              >
-                {{ resolveSubmissionReviewStatusText(detail.submissionReviewStatus) }}
-              </el-tag>
-              <span v-if="detail.submissionReviewRemark" class="team-leader-workbench__review-text">
-                {{ detail.submissionReviewRemark }}
-              </span>
-              <span v-if="detail.submissionReviewedAt" class="team-leader-workbench__review-meta">
-                复核人 {{ detail.submissionReviewLeaderUserId || '--' }} ·
-                {{ formatDateTime(detail.submissionReviewedAt) }}
-              </span>
-            </div>
-          </el-descriptions-item>
+          
           <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
             <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
-              {{ detail.pqcSummary || detail.pqcResult }}
+              {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
             </el-tag>
           </el-descriptions-item>
         </el-descriptions>
@@ -1450,21 +1472,23 @@
         <div v-if="isPqcSubmissionRow(detail)" class="team-leader-workbench__detail-standard-list">
           <div class="team-leader-workbench__submission-log-title">PQC项目明细</div>
           <UnifiedListTemplate
+            single-line-toolbar
             table-key="mes.processPool.teamLeader.pqcSubmissionDetailItems"
             :query-model="pqcDetailQuery"
             :filter-definitions="pqcDetailFilterDefinitions"
             :quick-filter-state="pqcDetailQuickFilterState"
             :operator-options="pqcDetailOperatorOptions"
             :columns="pqcDetailColumns"
-            :show-query-form="false"
+            :show-query-form="true"
             :show-column-settings="false"
             :total="pqcDetailTotal"
             v-model:page="pqcDetailQuery.pageNo"
             v-model:limit="pqcDetailQuery.pageSize"
+            :filter-rows="pqcDetailRows"
           >
-            <template #table>
-              <el-table
-                :data="pagedPqcDetailRows"
+            <template #table="{ resolveRows }">
+              <el-table stripe
+                :data="resolveRows(pagedPqcDetailRows)"
                 border
                 size="small"
                 data-pqc-leader-item-snapshot-table
@@ -1499,7 +1523,7 @@
                 </el-table-column>
                 <el-table-column label="判定" min-width="100">
                   <template #default="{ row }">{{
-                    row.judgement || row.itemResult || '--'
+                    formatPqcJudgement(row.judgement || row.itemResult)
                   }}</template>
                 </el-table-column>
               </el-table>
@@ -1508,6 +1532,68 @@
         </div>
       </template>
     </div>
+  </ContentWrap>
+
+  <ContentWrap
+    v-if="showProductionQuantityDraftsModule"
+    :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+    data-team-leader-quantity-drafts-tab
+  >
+    <el-tabs
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+    </el-tabs>
+    <ProductionQuantityDrafts leader />
+  </ContentWrap>
+
+  <ContentWrap v-if="isProductionLeader && (!showProductionModuleTabs || activeProductionModuleTab === 'lossReasons')" class="team-leader-workbench__production-module-card">
+    <el-tabs
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+    </el-tabs>
+    <LossReasonCatalog />
   </ContentWrap>
 
   <ContentWrap
@@ -1530,10 +1616,16 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -1559,6 +1651,21 @@
       </span>
     </div>
 
+    <el-alert
+      v-if="activeOrderTestResetReceipt"
+      :type="activeOrderTestResetReceipt.state === 'success' ? 'success' : 'warning'"
+      :closable="false"
+      :title="activeOrderTestResetReceipt.message"
+      data-team-leader-test-reset-result
+      :data-result-state="activeOrderTestResetReceipt.state"
+    />
+    <el-alert
+      v-if="activeOrderTestDataReceipt"
+      :type="activeOrderTestDataReceipt.success ? 'success' : 'error'"
+      :closable="false"
+      :title="activeOrderTestDataReceipt.message"
+      data-team-leader-test-data-result
+    />
     <UnifiedListTemplate
       table-key="mes.processPool.teamLeader.activeOrders"
       :query-model="activeOrderQuery"
@@ -1572,7 +1679,9 @@
       :total="activeOrderTotal"
       v-model:page="activeOrderQuery.pageNo"
       v-model:limit="activeOrderQuery.pageSize"
-      >
+      :filter-rows="filteredActiveOrderRows"
+      :column-filter-definitions="listColumnFilterDefinitions5"
+    >
       <template #actions>
         <el-input
           v-model="activeOrderWorkOrderKeyword"
@@ -1587,16 +1696,43 @@
           v-if="testModeEnabled"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
-          :loading="activeOrderTestResetSubmitting"
+          :loading="activeOrderTestResetSubmitting && !activeOrderTestDataSubmitting"
           :disabled="activeOrderTestResetBlocked"
-          title="清理指定测试订单的本轮测试数据，并重新加入活跃订单；保留原工单及领料关联"
+          title="清理指定测试订单的本轮测试数据，按芋道源码重建领料单、补料单和生产用料清单，再重新加入活跃订单"
           data-team-leader-reset-fixed-active-order
           @click="handleResetFixedSimulationActiveOrder"
         >
           <Icon icon="ep:refresh-right" class="mr-5px" />
-          重置指定测试订单
+          重置测试订单
+        </el-button>
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="warning"
+          :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 1"
+          :disabled="activeOrderTestResetBlocked"
+          title="补齐固定测试订单单据，已有数据跳过；无补料来源不生成补料单，并移除旧工具复制的模拟补料"
+          data-team-leader-prepare-fixed-test-data
+          @click="handlePrepareFixedTestOrderData(1)"
+        >
+          <Icon icon="ep:document-add" class="mr-5px" />
+          数据
+        </el-button>
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="warning"
+          :loading="activeOrderTestDataSubmitting && activeOrderTestDataSet === 2"
+          :disabled="activeOrderTestResetBlocked"
+          title="补齐第二套独立生产订单及关联单据，已有数据跳过；修复本工具生成且尚未投产的用料单关联"
+          data-team-leader-prepare-second-test-data
+          @click="handlePrepareFixedTestOrderData(2)"
+        >
+          <Icon icon="ep:document-add" class="mr-5px" />
+          数据2
         </el-button>
         <el-button
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="primary"
           :disabled="activeOrderTestResetSubmitting"
           data-team-leader-open-active-order-dialog
@@ -1618,10 +1754,10 @@
           一键清理生产数据
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="activeOrderLoading"
-          :data="pagedActiveOrderRows"
+          :data="resolveRows(pagedActiveOrderRows)"
           row-key="id"
           border
           stripe
@@ -1689,6 +1825,20 @@
               >
                 {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
               </el-tag>
+              <el-button v-if="row.releaseCorrectionReceivable && row.releaseApplicationId" link type="primary"
+                v-hasPermi="['mes:pro-process-pool-team-leader:maintain']" :disabled="row.readBlocked || receivingPqcCorrection"
+                data-pqc-correction-receive @click="receivePqcCorrection(row.releaseApplicationId)">接收补正任务</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="不合格评审责任人" prop="pendingNonconformanceReviews" min-width="240">
+            <template #default="{ row }">
+              <span v-if="row.readBlocked">未知</span>
+              <template v-else-if="row.pendingNonconformanceReviews?.length">
+                <div v-for="review in row.pendingNonconformanceReviews" :key="review.reviewId" data-active-order-ncr-responsibility>
+                  {{ review.reviewCode }} · {{ review.qaReviewerUserId == null ? '未指派' : review.qaReviewerName }}
+                </div>
+              </template>
+              <span v-else>—</span>
             </template>
           </el-table-column>
           <el-table-column label="加入时间" min-width="170">
@@ -1708,10 +1858,10 @@
               <el-button
                 link
                 type="warning"
-                :disabled="row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                :disabled="isActiveOrderNcrClosed(row) || row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
                 :loading="abnormalSubmitting && abnormalForm.activeOrderId === row.id"
                 :title="
-                  row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
+                  isActiveOrderNcrClosed(row) ? '该生产周期已由QA处置结束，仅可查看' : row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
                 "
                 data-team-leader-report-active-order-abnormal
                 @click="openAbnormalDialog(row)"
@@ -1740,7 +1890,7 @@
                   link
                   type="primary"
                   :loading="activeOrderSimulationSubmittingId === row.id || releaseApplicationSubmittingId === row.id"
-                  :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                  :disabled="isActiveOrderNcrClosed(row) || maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
                   aria-label="更多操作"
                   title="更多操作"
                   data-team-leader-active-order-test-menu
@@ -1749,6 +1899,15 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="activeLeaderTab === 'PRODUCTION'"
+                      v-hasPermi="['mes:pro-process-pool-team-leader:deviation-create']"
+                      :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || activeOrderRebuildSubmittingId !== undefined"
+                      data-team-leader-active-order-deviation
+                      @click="activeOrderDeviationTarget = row"
+                    >
+                      偏差
+                    </el-dropdown-item>
                     <el-dropdown-item
                       :disabled="
                         maintenanceSubmitting ||
@@ -1875,6 +2034,21 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
+    <el-alert
+      v-if="releaseApplicationErrorMessage"
+      class="mt-12px"
+      title="生产放行申请未完成"
+      type="error"
+      :closable="false"
+      show-icon
+      data-team-leader-active-order-release-error
+    >
+      <p>{{ releaseApplicationErrorOrder?.workOrderCode }}：{{ releaseApplicationErrorMessage }}</p>
+      <el-button v-if="releaseApplicationErrorOrder" link type="primary"
+        @click="openActiveOrderSubmissionDetail(releaseApplicationErrorOrder)">
+        查看订单详情并处理缺项
+      </el-button>
+    </el-alert>
     <el-alert
       v-if="releaseApplicationBlockers.length"
       class="mt-12px"
@@ -2032,7 +2206,9 @@
       data-team-leader-active-order-add-dialog
       title="新增活跃订单"
       width="560px"
-      :close-on-click-modal="!maintenanceSubmitting"
+      :close-on-click-modal="!maintenanceSubmitting && !activeOrderErpSyncing"
+      :close-on-press-escape="!maintenanceSubmitting && !activeOrderErpSyncing"
+      :show-close="!maintenanceSubmitting && !activeOrderErpSyncing"
       @closed="resetActiveOrderForm"
     >
       <el-form :model="activeOrderForm" label-width="110px">
@@ -2047,6 +2223,7 @@
             :teleported="false"
             :remote-method="searchActiveOrderCandidates"
             :loading="activeOrderCandidateLoading"
+            :disabled="activeOrderErpSyncing || maintenanceSubmitting"
             placeholder="请输入订单号、产品编码或产品名称"
             class="team-leader-workbench__full-control"
             popper-class="team-leader-workbench__active-order-candidate-popper"
@@ -2114,14 +2291,38 @@
             {{ activeOrderCandidateError }}
           </div>
         </el-form-item>
+        <el-form-item label="ERP订单号">
+          <el-input
+            v-model="activeOrderErpCode"
+            data-team-leader-active-order-erp-code
+            placeholder="本地未找到时，请输入完整ERP生产订单号"
+            maxlength="100"
+            :disabled="activeOrderErpSyncing || maintenanceSubmitting"
+            @keyup.enter="syncActiveOrderFromErp"
+          />
+          <el-button
+            v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+            class="mt-2"
+            data-team-leader-active-order-erp-sync
+            :loading="activeOrderErpSyncing"
+            :disabled="maintenanceSubmitting || !activeOrderErpCode.trim()"
+            @click="syncActiveOrderFromErp"
+          >
+            从 ERP 同步
+          </el-button>
+          <div class="text-gray-500 text-12px mt-2">
+            仅同步到本地生产订单列表。请确认工艺路线正确后，再从上方下拉框选择并加入活跃订单。
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button :disabled="maintenanceSubmitting" @click="activeOrderAddDialogVisible = false">
+        <el-button :disabled="maintenanceSubmitting || activeOrderErpSyncing" @click="activeOrderAddDialogVisible = false">
           取消
         </el-button>
         <el-button
           type="primary"
           :loading="maintenanceSubmitting"
+          :disabled="activeOrderErpSyncing || activeOrderCandidateLoading || !activeOrderSelectedCandidate"
           data-team-leader-active-order-add-submit
           @click="submitAddActiveOrder"
         >
@@ -2191,10 +2392,16 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -2218,12 +2425,6 @@
       <span v-else class="team-leader-workbench__responsible-routes-empty">
         {{ responsibleRouteLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
       </span>
-    </div>
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
     </div>
     <el-tabs
       v-if="showPqcModuleTabs"
@@ -2302,10 +2503,16 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -2666,105 +2873,7 @@
     destroy-on-close
     data-team-leader-submission-detail-drawer
   >
-    <div v-loading="detailLoading">
-      <el-descriptions
-        v-if="detail"
-        :column="1"
-        border
-        class="team-leader-workbench__detail-descriptions"
-        label-width="400px"
-        data-team-leader-structured-detail
-      >
-        <el-descriptions-item label="服务端提交时间">
-          {{ formatDateTime(detail.submittedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="employeeDetailLabel">
-          {{ detail.actualEmployeeUserName || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="工序">
-          {{ detail.processName || detail.processCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="生产工单">
-          {{ detail.workOrderCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="提交摘要">
-          {{ detail.submittedSummary || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
-          <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
-            {{ detail.pqcSummary || detail.pqcResult }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="detail && isPqcSubmissionRow(detail)" label="PQC项目明细">
-          <el-table
-            :data="resolvePqcItemSnapshotDetails(detail)"
-            border
-            size="small"
-            data-pqc-leader-item-snapshot-table
-            empty-text="PQC提交内容缺少正式项目明细"
-          >
-            <el-table-column label="检验项目" min-width="120">
-              <template #default="{ row }">{{ row.itemName || row.itemCode || '--' }}</template>
-            </el-table-column>
-            <el-table-column label="检验设备" min-width="140">
-              <template #default="{ row }">
-                {{ row.selectedEquipmentName || row.selectedEquipmentCode || '--' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
-            <el-table-column label="损耗数量" min-width="100">
-              <template #default="{ row }">
-                <span data-pqc-leader-detail-item-loss-quantity>
-                  {{ formatPqcItemLossQuantity(row) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="接收标准" min-width="180">
-              <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
-            </el-table-column>
-            <el-table-column label="检验方法" prop="inspectionMethod" min-width="180" />
-            <el-table-column label="样本值" min-width="180">
-              <template #default="{ row }">
-                <span data-pqc-leader-detail-sample-values>
-                  {{ formatPqcSnapshotSampleValues(row) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="判定" min-width="100">
-              <template #default="{ row }">{{ row.judgement || row.itemResult || '--' }}</template>
-            </el-table-column>
-          </el-table>
-        </el-descriptions-item>
-      </el-descriptions>
-      <div
-        v-if="detail && isPqcSubmissionRow(detail)"
-        class="team-leader-workbench__submission-log"
-        data-pqc-submission-log
-      >
-        <div class="team-leader-workbench__submission-log-title">PQC提交日志</div>
-        <el-descriptions
-          :column="1"
-          border
-          class="team-leader-workbench__detail-descriptions"
-          label-width="400px"
-        >
-          <el-descriptions-item label="提交事件编号">
-            {{ detail.id || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="PQC检验员">
-            {{ detail.actualEmployeeUserName || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="服务端提交时间">
-            {{ formatDateTime(detail.submittedAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="签名编号">
-            <span data-pqc-submission-signature-id>
-              {{ detail.electronicSignatureId || '--' }}
-            </span>
-          </el-descriptions-item>
-        </el-descriptions>
-      </div>
-    </div>
+    
     <template #footer>
       <el-button
         v-if="detail && isProductionLeader && canAllocateSubmission(detail)"
@@ -3479,12 +3588,8 @@
         />
       </el-form-item>
       <el-form-item label="电子签名" required data-team-leader-review-signature>
-        <el-input
+        <SignatureCredentialInput
           v-model="reviewForm.reviewSignaturePassword"
-          type="password"
-          show-password
-          autocomplete="new-password"
-          placeholder="请输入当前登录密码完成电子签名"
           data-team-leader-review-signature-password
         />
       </el-form-item>
@@ -3615,9 +3720,9 @@
             {{ formatAllocationOrderProductionQuantity(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="生产系数" width="90" align="right">
+        <el-table-column label="累计上限" width="110" align="right">
           <template #default="{ row }">
-            {{ formatAllocationOrderProductionCoefficient(row) }}
+            {{ formatAllocationOrderProductionCeiling(row) }}
           </template>
         </el-table-column>
         <el-table-column label="分配数量" min-width="340">
@@ -3948,7 +4053,7 @@
         <div class="team-leader-workbench__correction-quantity-grid">
           <el-form-item label="检验数量">
             <el-input-number
-              v-model="correctionForm.pqcActualInspectionQuantity"
+              :model-value="getPqcCorrectionActualQuantity()"
               disabled
               :min="1"
               :precision="0"
@@ -4007,13 +4112,9 @@
             placeholder="请说明本次修改原因"
           />
         </el-form-item>
-        <el-form-item label="签名密码" prop="signaturePassword">
-          <el-input
+        <el-form-item label="签名凭据" prop="signaturePassword">
+          <SignatureCredentialInput
             v-model="correctionForm.signaturePassword"
-            type="password"
-            show-password
-            autocomplete="current-password"
-            placeholder="请输入当前登录账号的签名密码"
             data-production-report-correction-signature-password
             @keyup.enter="submitCorrection"
           />
@@ -4092,17 +4193,32 @@
       </el-button>
     </template>
   </el-dialog>
+  <ActiveOrderDeviationDialog
+    v-if="activeOrderDeviationTarget"
+    :active-order-id="activeOrderDeviationTarget.id"
+    :order-code="activeOrderDeviationTarget.workOrderCode"
+    @close="activeOrderDeviationTarget = undefined"
+  />
 </template>
 
 <script setup lang="ts">
+import LossReasonCatalog from './components/LossReasonCatalog.vue'
+import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
+import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
+import ActiveOrderDeviationDialog from './components/ActiveOrderDeviationDialog.vue'
+import {useWorkflowInteractionLog} from './workflowInteractionLog'
+const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
+import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
-import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { h, watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { receivePqcReleaseCorrection } from '@/api/mes/pro/productionRelease/correction'
 import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 import { isClosedHandoffCompletion, resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -4132,6 +4248,7 @@ import {
   saveTeamLeaderProcessOverageLimit,
   getTeamLeaderResponsibleRouteList,
   getProductionPersonnelList,
+  deleteTeamProductionEmployee,
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderRelease,
@@ -4149,6 +4266,8 @@ import {
   copyLatestTeamLeaderSimulationActiveOrder,
   cleanupLatestTeamLeaderSimulationActiveOrder,
   resetFixedSimulationActiveOrder,
+  prepareFixedTestOrderData,
+  prepareSecondFixedTestOrderData,
   previewTeamLeaderDataCleanup,
   executeTeamLeaderDataCleanup,
   simulateStage1ActiveOrderCompletion,
@@ -4162,6 +4281,7 @@ import {
   saveTeamProcessConfigDeviceParameterRule,
   searchPqcFormalEmployeeCandidates,
   searchTeamLeaderActiveOrderCandidates,
+  syncTeamLeaderProductionOrder,
   searchTeamFormalEmployeeCandidates,
   updateTeamLeaderLossReason,
   updateTeamDeviceStatus,
@@ -4380,7 +4500,7 @@ interface TeamLeaderReportAllocationDraftLine
 }
 
 interface ProductionReportCorrectionLossDetailRow {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName: string
   quantity: number
@@ -4457,12 +4577,23 @@ const props = withDefaults(
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const router = useRouter()
+const receivingPqcCorrection = ref(false)
+const receivePqcCorrection = async (applicationId: number | string) => {
+  if (receivingPqcCorrection.value) return
+  receivingPqcCorrection.value = true
+  try {
+    const taskId = await receivePqcReleaseCorrection(String(applicationId))
+    await router.push({ path: '/user/profile', query: { tab: 'workbench', releaseCorrectionTaskId: taskId } })
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : String(error))
+  } finally { receivingPqcCorrection.value = false }
+}
 const route = useRoute()
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'activeOrder'
+  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder' | 'lossReasons'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -4479,7 +4610,12 @@ const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
+const activeOrderTestDataSubmitting = ref(false)
+const activeOrderTestDataSet = ref<1 | 2>(1)
+const activeOrderTestDataReceipt = ref<{ success: boolean; message: string }>()
+const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
+  !testModeEnabled.value ||
   activeOrderTestResetSubmitting.value ||
   maintenanceSubmitting.value ||
   activeOrderSimulationSubmittingId.value !== undefined ||
@@ -4495,6 +4631,7 @@ const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
 const correctionVisible = ref(false)
+const activeOrderDeviationTarget = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderAddDialogVisible = ref(false)
 const activeOrderConflictDrawerVisible = ref(false)
 const abnormalDialogVisible = ref(false)
@@ -4520,8 +4657,14 @@ const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
 const activeOrderCandidateKeyword = ref('')
 const activeOrderCandidateLoading = ref(false)
 const activeOrderCandidateError = ref('')
+const activeOrderErpCode = ref('')
+const activeOrderErpSyncing = ref(false)
+const activeOrderSyncedCandidates = ref<TeamLeaderActiveOrderCandidateRespVO[]>([])
+let activeOrderCandidateRequest = 0
 const releaseApplicationSubmittingId = ref<number | string>()
 const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
+const releaseApplicationErrorMessage = ref('')
+const releaseApplicationErrorOrder = ref<TeamLeaderActiveOrderRespVO>()
 const releaseApplicationIdempotencyKeys = new Map<number | string, string>()
 const releaseApplicationLocks = reactive(new Map<number | string, ActiveOrderReleaseApplicationLockState>())
 const releaseApplicationUncertainMessage = ref('')
@@ -4599,6 +4742,7 @@ const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
 const productionPersonnelActiveTab = ref('productionPersonnel')
+const teamRosterImportRef = ref<InstanceType<typeof TeamRosterImportDialog>>()
 const productionPersonnelAddDialogVisible = ref(false)
 const productionPersonnelDialogError = ref('')
 const PRODUCTION_PERSONNEL_DIALOG_ERROR_DURATION = 6000
@@ -4644,6 +4788,7 @@ const activeOrderColumns: any[] = [
   { key: 'productionProgressPercent', label: '生产进度', visible: true },
   { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
   { key: 'releaseApplicationStatus', label: '放行申请', visible: true },
+  { key: 'pendingNonconformanceReviews', label: '不合格评审责任人', visible: true },
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
@@ -4804,6 +4949,11 @@ const showProductionReportHistoryModule = computed(
 )
 const isProductionReportHistoryTab = computed(
   () => isProductionLeader.value && activeProductionModuleTab.value === 'reportHistory'
+)
+const showProductionQuantityDraftsModule = computed(
+  () =>
+    isProductionLeader.value &&
+    (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'quantityDrafts')
 )
 const showProductionActiveOrderModule = computed(
   () =>
@@ -5011,8 +5161,16 @@ const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
   return activeOrderOptions.value.find((order) => Number(order.workOrderId) === workOrderId)
 }
 
-const resolveActiveOrderFormalQuantity = (order?: TeamLeaderActiveOrderRespVO) => {
-  const quantity = Number(order?.erpFixedQuantitySnapshot)
+const resolveActiveOrderProcessCeiling = (
+  order?: TeamLeaderActiveOrderRespVO,
+  event = reviewEvent.value
+) => {
+  const matches = order?.processRemainingQuantities?.filter(item =>
+    String(item.processId) === String(event?.processId) &&
+    String(item.routeProcessId) === String(event?.routeProcessId)
+  ) ?? []
+  if (matches.length !== 1) return undefined
+  const quantity = Number(matches[0].upperQuantity)
   return Number.isFinite(quantity) && quantity > 0 ? quantity : undefined
 }
 
@@ -5025,7 +5183,7 @@ const resolveProductionReportOverageQuantity = (event: ProcessPoolTimelineEventV
       ? unallocatedQuantity
       : outputQuantity
   }
-  const orderQuantity = resolveActiveOrderFormalQuantity(findReportSelectedActiveOrder(event))
+  const orderQuantity = resolveActiveOrderProcessCeiling(findReportSelectedActiveOrder(event), event)
   return orderQuantity === undefined ? outputQuantity : Math.max(0, outputQuantity - orderQuantity)
 }
 
@@ -5055,6 +5213,7 @@ const reviewDialogSubmitText = computed(() => {
 })
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO & { pageNo: number; pageSize: number }>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   leaderType: activeLeaderTab.value,
@@ -5163,7 +5322,7 @@ const submissionMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>((
       operators: ['eq'],
       placeholder: '轮次'
     },
-    {
+    ...(activeLeaderTab.value === 'PQC' ? [] : [{
       key: 'submissionReviewStatus',
       label: '复核状态',
       type: 'select',
@@ -5174,7 +5333,7 @@ const submissionMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>((
         { label: '不正确', value: 'REJECTED' }
       ],
       placeholder: '复核状态'
-    }
+    } as ListMultiFilterDefinition])
   ]
 })
 
@@ -5204,7 +5363,7 @@ const correctionActiveMaterialKey = ref('')
 const correctionActiveDeviceKeys = reactive<Record<string, string>>({})
 const correctionFormRules = {
   changeReason: [{ required: true, message: '请输入修改原因', trigger: 'blur' }],
-  signaturePassword: [{ required: true, message: '请输入签名密码', trigger: 'blur' }]
+  signaturePassword: [{ required: true, message: '请输入所选签名方式的六位 PIN 码或密码', trigger: 'blur' }]
 }
 
 const correctionLossQuantity = computed(() =>
@@ -5456,10 +5615,10 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
   }
 
   const originalLossMap = new Map(
-    (event.lossDetails || []).map((item) => [Number(item.reasonId), Number(item.quantity || 0)])
+    (event.lossDetails || []).map((item) => [String(item.reasonId), Number(item.quantity || 0)])
   )
   correctionForm.lossDetails.forEach((item) => {
-    const before = originalLossMap.get(item.reasonId) || 0
+    const before = originalLossMap.get(String(item.reasonId)) || 0
     const after = Number(item.quantity || 0)
     if (before !== after) {
       changes.push({
@@ -5530,7 +5689,7 @@ const abnormalForm = reactive({
 })
 
 const activeOrderForm = reactive({
-  workOrderId: undefined as number | undefined
+  workOrderId: undefined as number | string | undefined
 })
 
 const formalEmployeeForm = reactive({
@@ -5635,6 +5794,12 @@ const requirePositiveNumber = (value: unknown, message: string) => {
   return parsed
 }
 
+const requireLossReasonId = (value: unknown, message: string): string => {
+  const id = String(value ?? '')
+  if (!/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n) throw new Error(message)
+  return id
+}
+
 const resolveCurrentLeaderType = (): TeamLeaderType => {
   const leaderType = activeLeaderTab.value
   if (leaderType !== 'PRODUCTION' && leaderType !== 'PQC') {
@@ -5725,22 +5890,36 @@ const assertStage1SimulationDouble100 = (result: Stage1ActiveOrderCompleteSimula
 }
 
 const formatActiveOrderReleaseStatus = (status?: string) => {
+  if (!status) return '未申请'
+  if (status === 'NONCONFORMANCE_VOID') return 'QA已作废'
+  if (status === 'NONCONFORMANCE_REWORK') return '已结束并转入返工'
   if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
   if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
   if (status === 'REPORT_UPLOAD_PENDING') return '待上传放行报告'
   if (status === 'MANAGER_RELEASE_PENDING') return '待管理者代表放行'
+  if (status === 'MARKET_RELEASE_WITHDRAWN') return '上市放行已撤回'
+  if (status === 'MARKET_RELEASE_REJECTED') return '上市放行已驳回'
   if (status === 'RELEASED') return '已放行'
-  return '未申请'
+  return `未知放行状态：${status}`
 }
 
 const formatActiveOrderReleaseStatusTag = (status?: string) => {
+  if (!status) return 'info'
+  if (status === 'NONCONFORMANCE_VOID') return 'danger'
+  if (status === 'NONCONFORMANCE_REWORK') return 'warning'
   if (status === 'PQC_RELEASE_PENDING') return 'warning'
   if (status === 'PQC_RELEASE_REJECTED') return 'danger'
   if (status === 'REPORT_UPLOAD_PENDING') return 'primary'
   if (status === 'MANAGER_RELEASE_PENDING') return 'primary'
+  if (status === 'MARKET_RELEASE_WITHDRAWN') return 'warning'
+  if (status === 'MARKET_RELEASE_REJECTED') return 'danger'
   if (status === 'RELEASED') return 'success'
-  return 'info'
+  return 'danger'
 }
+
+const isActiveOrderNcrClosed = (row: TeamLeaderActiveOrderRespVO) =>
+  row.releaseApplicationStatus === 'NONCONFORMANCE_VOID' ||
+  row.releaseApplicationStatus === 'NONCONFORMANCE_REWORK'
 
 const resolveActiveOrderReleaseBlockerLocator = (
   blocker: TeamLeaderActiveOrderReleaseBlockerRespVO
@@ -6017,6 +6196,28 @@ const refreshProductionPersonnel = async () => {
   }
 }
 
+const productionPersonnelDeletingId = ref<number>()
+const deleteProductionPersonnel = async (row: TeamProductionEmployeeRespVO) => {
+  if (productionPersonnelDeletingId.value !== undefined) return
+  productionPersonnelDeletingId.value = row.id
+  try {
+    await ElMessageBox.confirm(
+      `确认删除人员“${row.displayName || row.employeeName}”？删除后将移出当前班组并解除责任关联，历史报工和签名记录保留，系统账号不受影响。`,
+      '删除人员',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    await deleteTeamProductionEmployee(requirePositiveNumber(row.id, '生产人员档案ID不能为空'))
+    foldedProductionPersonnelIds.value.delete(String(row.id))
+    ElMessage.success('人员已删除')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '删除人员失败'))
+  } finally {
+    productionPersonnelDeletingId.value = undefined
+  }
+}
+
 const handleProductionPersonnelPageChange = (page: number) => {
   productionPersonnelQuery.pageNo = page
 }
@@ -6149,10 +6350,10 @@ const updateEmployeeStatus = async (row: TeamProductionEmployeeRespVO, enabled: 
 
 const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置密码', {
+    const result = await ElMessageBox.prompt('请输入新的临时工签名密码（用于密码签名方式）', '重置密码', {
       inputType: 'password',
       inputPattern: /\S+/,
-      inputErrorMessage: '签名密码不能为空',
+      inputErrorMessage: '签名凭据不能为空',
       confirmButtonText: '重置',
       cancelButtonText: '取消'
     })
@@ -7147,7 +7348,7 @@ const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftL
   if (line.needsAdjustment && persistedOverageQuantity > 0) return persistedOverageQuantity
   const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
   if (allocatedQuantity === 0) return 0
-  const orderQuantity = resolveActiveOrderFormalQuantity(findAllocationActiveOrder(line))
+  const orderQuantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
   return orderQuantity === undefined
     ? allocatedQuantity
     : Math.max(0, allocatedQuantity - orderQuantity)
@@ -7182,20 +7383,9 @@ const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocatio
   return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
 }
 
-const formatAllocationOrderProductionCoefficient = (line: TeamLeaderReportAllocationDraftLine) => {
-  const order = findAllocationActiveOrder(line)
-  if (!order) {
-    return '--'
-  }
-  const value = order.productionCoefficient
-  if (value === undefined || value === null || String(value).trim() === '') {
-    return '1.0'
-  }
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) {
-    return String(value)
-  }
-  return parsed.toFixed(3).replace(/\.?0+$/, '')
+const formatAllocationOrderProductionCeiling = (line: TeamLeaderReportAllocationDraftLine) => {
+  const quantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
+  return quantity === undefined ? '--' : formatTraceQuantity(quantity)
 }
 
 const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
@@ -7372,7 +7562,7 @@ const applyAllocationSnapshot = (snapshot: TeamLeaderReportAllocationSnapshotRes
 const buildReviewSignaturePayload = () => {
   const signaturePassword = reviewForm.reviewSignaturePassword.trim()
   if (!signaturePassword) {
-    throw new Error('请输入电子签名密码')
+    throw new Error('请输入所选签名方式的六位 PIN 码或密码')
   }
   return { signaturePassword }
 }
@@ -7705,14 +7895,13 @@ const toProductionMaterialRow = (value: unknown): ProductionReportCorrectionMate
     lossDetails: normalizeSubmissionArray(value.lossDetails)
       .filter((detail): detail is Record<string, unknown> => isRecord(detail))
       .map((detail) => ({
-        reasonId: Number(detail.reasonId),
+        reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因编号无效'),
         reasonCode: String(detail.reasonCode ?? '').trim() || undefined,
         reasonName:
           String(detail.reasonName ?? detail.reasonCode ?? '').trim() ||
           `损耗原因 ${detail.reasonId}`,
         quantity: optionalCorrectionNumber(detail.quantity) ?? 0
-      }))
-      .filter((detail) => Number.isFinite(detail.reasonId) && detail.reasonId > 0),
+      })),
     selectedDevice: isRecord(value.selectedDevice)
       ? {
           deviceId: Number(value.selectedDevice.deviceId),
@@ -8622,6 +8811,7 @@ const resolveSubmissionReviewTagType = (status?: string) => {
 
 const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     leaderType: resolveCurrentLeaderType(),
@@ -8641,7 +8831,9 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     roundNo: normalizePositiveNumber(queryParams.roundNo),
     submissionReviewStatus: isPqcFormHistoryTab.value
       ? 'APPROVED'
-      : queryParams.submissionReviewStatus || undefined,
+      : activeLeaderTab.value === 'PQC'
+        ? 'PENDING'
+        : queryParams.submissionReviewStatus || undefined,
     pqcFormView: isPqcFormHistoryTab.value
       ? 'HISTORY'
       : activeLeaderTab.value === 'PQC'
@@ -8664,18 +8856,20 @@ async function getSubmissionList() {
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     const list = data.list || []
     await enrichSubmissionMaterialNames(list)
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     submissionList.value = list
     submissionTotal.value = data.total || 0
+    return true
   } catch (error) {
-    if (!isCurrent()) return
+    if (!isCurrent()) return false
     submissionList.value = []
     submissionTotal.value = 0
     loadError.value = resolveErrorMessage(error, '班组长提交看板加载失败')
     ElMessage.error(loadError.value)
+    throw error
   } finally {
     if (isCurrent()) loading.value = false
   }
@@ -8771,6 +8965,11 @@ const resetSubmissionMultiFilter = async () => {
   loadError.value = ''
   await getSubmissionList()
 }
+
+watch(() => route.query.workbenchTab, (tab) => {
+  if (props.leaderType !== 'PRODUCTION' || route.query.handoffTaskId !== undefined) return
+  if (tab === 'activeOrder' || tab === 'report') activeProductionModuleTab.value = tab
+})
 
 watch(activePqcModuleTab, async (tab) => {
   if ((tab === 'management' || tab === 'history') && activeLeaderTab.value === 'PQC') {
@@ -8990,6 +9189,10 @@ const submitReview = async () => {
     ElMessage.error('退回复核必须填写复核说明')
     return
   }
+  if (mode === 'ALLOCATION' && !reviewForm.reviewRemark.trim()) {
+    ElMessage.error('重新分配必须填写分配说明，明确更正原因及数量归属')
+    return
+  }
   reviewSubmitting.value = true
   let writeCompleted = false
   try {
@@ -9138,9 +9341,9 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   const routeProcessId = requirePositiveNumber(event.routeProcessId, '报工记录缺少路线工序快照')
   const configuredReasons =
     processConfigRows.value.find((row) => row.routeProcessId === routeProcessId)?.lossReasons || []
-  const lossRowMap = new Map<number, ProductionReportCorrectionLossDetailRow>()
+  const lossRowMap = new Map<string, ProductionReportCorrectionLossDetailRow>()
   ;(event.lossDetails || []).forEach((item) => {
-    const reasonId = requirePositiveNumber(item.reasonId, '报工损耗明细缺少原因编号')
+    const reasonId = requireLossReasonId(item.reasonId, '报工损耗明细缺少原因编号')
     const quantity = Number(item.quantity)
     if (!Number.isFinite(quantity) || quantity < 0) {
       throw new Error('报工损耗明细数量无效，不能修改')
@@ -9155,8 +9358,8 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   configuredReasons
     .filter((item) => item.enabled)
     .forEach((item) => {
-      if (!lossRowMap.has(item.id)) {
-        lossRowMap.set(item.id, {
+      if (!lossRowMap.has(String(item.id))) {
+        lossRowMap.set(String(item.id), {
           reasonId: item.id,
           reasonCode: item.reasonCode,
           reasonName: item.reasonName,
@@ -9225,7 +9428,9 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
       standardPrecision: item.standardPrecision,
       resultType: item.resultType,
       sampleValuesText: normalizePqcSampleText(sampleValues),
-      sampleQuantity: sampleValues.length
+      sampleQuantity: requirePositiveNumber(
+        readSubmissionPayloadValue(rootPayload, ['inspectionItemPlan'])?.[itemCode],
+        `PQC项目 ${item.itemName || itemCode} 缺少冻结抽样计划，不能修改`)
     }
   })
   correctionVisible.value = true
@@ -9271,7 +9476,7 @@ const requireCorrectionAuditFields = () => {
     throw new Error('修改原因不能为空')
   }
   if (!correctionForm.signaturePassword) {
-    throw new Error('签名密码不能为空')
+    throw new Error('签名凭据不能为空')
   }
   if (correctionChangePreview.value.length === 0) {
     throw new Error('没有可提交的变更')
@@ -9321,7 +9526,7 @@ const buildProductionCorrectionRequest = () => {
         lossDetails: item.lossDetails
           .filter((detail) => Number(detail.quantity) > 0)
           .map((detail) => ({
-            reasonId: requirePositiveNumber(detail.reasonId, '物料损耗原因不能为空'),
+            reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因不能为空'),
             quantity: Number(detail.quantity)
           })),
         selectedDevice: item.selectedDevice
@@ -9344,7 +9549,7 @@ const buildProductionCorrectionRequest = () => {
     lossDetails: materialLossDetails
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
-        reasonId: requirePositiveNumber(item.reasonId, '损耗原因不能为空'),
+        reasonId: requireLossReasonId(item.reasonId, '损耗原因不能为空'),
         quantity: Number(item.quantity)
       })),
     deviceParameterReadings: materialParameterReadings.flatMap((item) => {
@@ -9395,8 +9600,11 @@ const resolvePqcCorrectionFailedSampleNos = (
   return failedSampleNos
 }
 
+const getPqcCorrectionActualQuantity = () => Math.max(0, ...correctionForm.pqcItemResults.map(item =>
+  parsePqcSampleText(item.sampleValuesText).length))
+
 const buildPqcCorrectionRequest = () => {
-  const actualInspectionQuantity = Number(correctionForm.pqcActualInspectionQuantity)
+  const actualInspectionQuantity = getPqcCorrectionActualQuantity()
   if (!Number.isInteger(actualInspectionQuantity) || actualInspectionQuantity <= 0) {
     throw new Error('PQC检验数量必须为正整数')
   }
@@ -9415,8 +9623,8 @@ const buildPqcCorrectionRequest = () => {
       throw new Error('PQC检验项目编码不能为空')
     }
     const sampleValues = parsePqcSampleText(item.sampleValuesText)
-    if (sampleValues.length !== item.sampleQuantity) {
-      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须保持为${item.sampleQuantity}`)
+    if (sampleValues.length < item.sampleQuantity) {
+      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量不能少于规程要求的${item.sampleQuantity}件`)
     }
     sampleValuesByItem.set(itemCode, sampleValues)
     return {
@@ -9488,6 +9696,10 @@ const resetAbnormalForm = () => {
 
 const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
   if (activeOrderTestResetSubmitting.value) return
+  if (isActiveOrderNcrClosed(row)) {
+    ElMessage.warning('该生产周期已由QA处置结束，仅可查看')
+    return
+  }
   if (row.abnormal) {
     ElMessage.warning(row.abnormalReason || '该订单已报异常')
     return
@@ -9514,6 +9726,9 @@ const submitAbnormal = async () => {
     if (currentActiveOrder.readBlocked) {
       throw new Error(currentActiveOrder.readBlockReason || '当前活跃订单数据异常，请刷新后重试')
     }
+    if (isActiveOrderNcrClosed(currentActiveOrder)) {
+      throw new Error('该生产周期已由QA处置结束，仅可查看，不能上报异常')
+    }
     await markAndReportWorkOrderAbnormal({
       activeOrderId,
       abnormalDescription: abnormalForm.abnormalDescription.trim()
@@ -9529,6 +9744,9 @@ const submitAbnormal = async () => {
 }
 
 const resetActiveOrderForm = () => {
+  activeOrderCandidateRequest++
+  activeOrderErpCode.value = ''
+  activeOrderSyncedCandidates.value = []
   activeOrderForm.workOrderId = undefined
   activeOrderSelectedCandidate.value = undefined
   activeOrderCandidateKeyword.value = ''
@@ -9543,9 +9761,9 @@ const openActiveOrderDialog = () => {
   activeOrderAddDialogVisible.value = true
 }
 
-const findActiveOrderCandidateById = (workOrderId: number) =>
+const findActiveOrderCandidateById = (workOrderId: number | string) =>
   activeOrderCandidateOptions.value.find(
-    (candidate) => Number(candidate.workOrderId) === Number(workOrderId)
+    (candidate) => parsePositiveRouteQueryId(candidate.workOrderId) === parsePositiveRouteQueryId(workOrderId)
   )
 
 const findActiveOrderCandidateByCode = (workOrderCode: string) =>
@@ -9567,7 +9785,7 @@ const handleActiveOrderCandidateClear = () => {
 }
 
 const handleActiveOrderCandidateChange = (value?: number | string) => {
-  const workOrderId = normalizePositiveNumber(value)
+  const workOrderId = parsePositiveRouteQueryId(value)
   if (!workOrderId) {
     handleActiveOrderCandidateClear()
     return
@@ -9586,11 +9804,15 @@ const handleActiveOrderCandidateChange = (value?: number | string) => {
 }
 
 const searchActiveOrderCandidates = async (keyword: string) => {
+  if (activeOrderErpSyncing.value) return
+  const requestId = ++activeOrderCandidateRequest
   const searchText = keyword.trim()
   activeOrderCandidateKeyword.value = searchText
   activeOrderCandidateError.value = ''
   if (!searchText) {
-    activeOrderCandidateOptions.value = []
+    activeOrderCandidateLoading.value = false
+    // 打开空白远程下拉框时，展示本次已同步的候选，保留手动选择步骤。
+    activeOrderCandidateOptions.value = activeOrderSyncedCandidates.value
     handleActiveOrderCandidateClear()
     return
   }
@@ -9603,21 +9825,62 @@ const searchActiveOrderCandidates = async (keyword: string) => {
   }
   activeOrderCandidateLoading.value = true
   try {
-    activeOrderCandidateOptions.value = await searchTeamLeaderActiveOrderCandidates(searchText)
-    const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+    const candidates = await searchTeamLeaderActiveOrderCandidates(searchText)
+    if (requestId !== activeOrderCandidateRequest) return
+    activeOrderCandidateOptions.value = candidates
+    const workOrderId = parsePositiveRouteQueryId(activeOrderForm.workOrderId)
     if (workOrderId && !findActiveOrderCandidateById(workOrderId)) {
       activeOrderForm.workOrderId = undefined
       activeOrderSelectedCandidate.value = undefined
     }
   } catch (error) {
+    if (requestId !== activeOrderCandidateRequest) return
     activeOrderCandidateOptions.value = []
     activeOrderForm.workOrderId = undefined
     activeOrderSelectedCandidate.value = undefined
     activeOrderCandidateError.value = resolveErrorMessage(error, '订单号/产品候选搜索失败')
     ElMessage.error(activeOrderCandidateError.value)
   } finally {
-    activeOrderCandidateLoading.value = false
+    if (requestId === activeOrderCandidateRequest) activeOrderCandidateLoading.value = false
   }
+}
+
+const syncActiveOrderFromErp = async () => {
+  if (activeOrderErpSyncing.value || maintenanceSubmitting.value) return
+  const code = activeOrderErpCode.value.trim()
+  if (!code) return
+  activeOrderErpSyncing.value = true
+  activeOrderCandidateRequest++
+  activeOrderCandidateLoading.value = false
+  let synced = false
+  let resultMessage = ''
+  try {
+    const result = await syncTeamLeaderProductionOrder(code)
+    synced = true
+    // 同步与加入分开：刷新本地候选，但必须由用户重新选择并确认路线。
+    handleActiveOrderCandidateClear()
+    activeOrderCandidateOptions.value = []
+    activeOrderSyncedCandidates.value = []
+    activeOrderCandidateKeyword.value = result.code
+    activeOrderCandidateOptions.value = await searchTeamLeaderActiveOrderCandidates(result.code)
+    activeOrderSyncedCandidates.value = activeOrderCandidateOptions.value
+    resultMessage = `订单 ${result.code} 已同步到本地生产订单列表。请确认工艺路线正确，再从上方下拉框选择并加入活跃订单。`
+  } catch (error) {
+    const reason = resolveErrorMessage(error, '请求失败，请检查服务状态后重试')
+    resultMessage = synced
+      ? `订单 ${code} 已同步到本地生产订单列表，但下拉候选刷新失败：${reason}。请重新搜索该订单。`
+      : `订单 ${code} 同步失败：${reason}`
+    if (synced) activeOrderCandidateError.value = resultMessage
+  } finally {
+    activeOrderErpSyncing.value = false
+  }
+  await ElMessageBox.alert(resultMessage, synced ? 'ERP订单同步结果' : 'ERP订单同步失败', {
+    type: synced && !activeOrderCandidateError.value ? 'success' : 'warning',
+    confirmButtonText: '知道了',
+    showClose: false,
+    closeOnClickModal: false,
+    closeOnPressEscape: false
+  })
 }
 
 const resolveActiveOrderCandidateByKeyword = async () => {
@@ -9644,12 +9907,12 @@ const resolveActiveOrderCandidateByKeyword = async () => {
 }
 
 const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
-  const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+  const workOrderId = parsePositiveRouteQueryId(activeOrderForm.workOrderId)
   let selectedCandidate = activeOrderSelectedCandidate.value
   if (
     workOrderId &&
     selectedCandidate &&
-    Number(selectedCandidate.workOrderId) === Number(workOrderId) &&
+    parsePositiveRouteQueryId(selectedCandidate.workOrderId) === workOrderId &&
     findActiveOrderCandidateById(workOrderId)
   ) {
     if (!selectedCandidate.eligible) {
@@ -9668,7 +9931,9 @@ const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
   activeOrderSelectedCandidate.value = selectedCandidate
   activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
   activeOrderCandidateError.value = ''
-  return requirePositiveNumber(selectedCandidate.workOrderId, '请选择订单号/产品候选')
+  const selectedId = parsePositiveRouteQueryId(selectedCandidate.workOrderId)
+  if (!selectedId) throw new Error('请选择订单号/产品候选')
+  return selectedId
 }
 
 const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitAction) => {
@@ -9679,7 +9944,11 @@ const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitActi
 }
 
 const submitAddActiveOrder = async () => {
-  if (activeOrderTestResetSubmitting.value) return
+  if (activeOrderTestResetSubmitting.value || activeOrderErpSyncing.value) return
+  if (!activeOrderSelectedCandidate.value) {
+    ElMessage.warning('请先从下拉框选择订单，并确认工艺路线正确')
+    return
+  }
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
@@ -9886,7 +10155,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
           '工单号：',
           h('strong', { 'data-team-leader-release-confirm-work-order': '' }, row.workOrderCode)
         ]),
-        h('p', '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。')
+        h('p', '系统将以活跃工单明细保存生产、检验、用料和签名记录，完成订单后提交生产放行申请并生成一个PQC待办。无需逐工序绑定批记录模板。')
       ]),
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
@@ -9901,25 +10170,17 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   releaseApplicationSubmittingId.value = row.id
   releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
   releaseApplicationBlockers.value = []
+  releaseApplicationErrorMessage.value = ''
+  releaseApplicationErrorOrder.value = undefined
   releaseApplicationUncertainMessage.value = ''
   let result: TeamLeaderActiveOrderReleaseApplyRespVO | undefined
   let recovered = false
   try {
-    result = await applyWithNoReplenishmentConfirmation(
-      (confirmNoReplenishmentInfo) => applyTeamLeaderActiveOrderRelease({
-        activeOrderId: request.activeOrderId,
-        idempotencyKey: request.idempotencyKey,
-        applyRemark: '生产组长提交生产放行申请',
-        confirmNoReplenishmentInfo
-      }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()}),
-      () => ElMessageBox.confirm(
-        '完成时未查到生产补料单。确认后将按无正式损耗完成订单；取消则不完成。',
-        '确认无补料信息',
-        { type: 'warning', confirmButtonText: '确认无补料信息', cancelButtonText: '取消' }
-      ),
-      (error) => resolveErrorMessage(error, '生产完工失败'),
-      isCurrent
-    )
+    result = await applyTeamLeaderActiveOrderRelease({
+      activeOrderId: request.activeOrderId,
+      idempotencyKey: request.idempotencyKey,
+      applyRemark: '生产组长提交生产放行申请'
+    }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     if (!result) {
       if (!isCurrent()) return
       releaseApplicationLocks.delete(request.rowId)
@@ -9942,9 +10203,11 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
       if (!isCurrent()) return
       const failure = resolveActiveOrderReleaseFailure(writeError)
       releaseApplicationBlockers.value = failure?.blockers ?? []
+      releaseApplicationErrorOrder.value = row
+      releaseApplicationErrorMessage.value = failure?.blockers[0].reason ?? resolveErrorMessage(writeError, '生产完工或放行申请失败')
       releaseApplicationLocks.delete(request.rowId)
       releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, failure?.blockers[0].reason ?? '生产完工或放行申请失败'))
+      ElMessage.error(releaseApplicationErrorMessage.value)
       releaseApplicationSubmittingId.value = undefined
       return
     }
@@ -9966,7 +10229,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   applyActiveOrderReleaseReceiptToRow(row, result)
   releaseApplicationLocks.set(row.id, 'CONFIRMED')
   releaseApplicationUncertainMessage.value = ''
-  ElMessage.success('完工已完成：P2已生成，P3已推送至PQC生产放行')
+  ElMessage.success('订单已完工，活跃工单明细已保存并提交至PQC生产放行')
   try {
     await loadActiveOrders()
     if (!isCurrent()) return
@@ -10140,7 +10403,7 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
   let writeCompleted = false
   try {
     await ElMessageBox.confirm(
-      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会打开或生成批记录表单、完工、上传资料或放行。',
+      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。指定固定测试工单会先按芋道源码重建领料单、补料单和生产用料清单。不会打开或生成批记录表单、完工、上传资料或放行。',
       '确认P1双100',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
@@ -10334,11 +10597,51 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
+const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
+  if (activeOrderTestResetBlocked.value) return
+  activeOrderTestDataSet.value = dataSet
+  activeOrderTestDataSubmitting.value = true
+  // Share the existing mutation lock with reset and all active-order actions.
+  activeOrderTestResetSubmitting.value = true
+  activeOrderTestDataReceipt.value = undefined
+  try {
+    const result = await (dataSet === 2 ? prepareSecondFixedTestOrderData() : prepareFixedTestOrderData())
+    if (!result?.workOrderCode?.trim() || result.documents?.length !== 4 ||
+      result.documents.some(row => !row.name || !Number.isInteger(row.createdCount) || row.createdCount < 0 ||
+        !Number.isInteger(row.deletedCount) || row.deletedCount < 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0 ||
+        !Number.isInteger(row.repairedCount) || row.repairedCount < 0)) {
+      throw new Error('数据回执不完整，请核对单据后再操作')
+    }
+    const label = dataSet === 2 ? '数据2' : '数据'
+    const message = `${label}补齐完成（生产订单：${result.workOrderCode}）：` + result.documents
+      .map(row => `${row.name}新增${row.createdCount}条、移除旧模拟数据${row.deletedCount}条、跳过已有${row.skippedCount}条、修复关联${row.repairedCount}条`).join('；')
+    activeOrderTestDataReceipt.value = { success: true, message }
+    ElMessage.success(result.documents.some(row => row.deletedCount > 0)
+      ? `${label}补齐完成，旧模拟补料已移除` : result.documents.some(row => row.repairedCount > 0)
+      ? `${label}补齐完成，错误用料单关联已修复` : `${label}补齐完成，已有数据已跳过`)
+  } catch (error) {
+    const message = resolveErrorMessage(error, '数据补齐失败，请核对单据')
+    activeOrderTestDataReceipt.value = { success: false, message }
+    ElMessage.error(message)
+  } finally {
+    activeOrderTestResetSubmitting.value = false
+    activeOrderTestDataSubmitting.value = false
+  }
+}
+
 const handleResetFixedSimulationActiveOrder = async () => {
   if (activeOrderTestResetBlocked.value) return
   activeOrderTestResetSubmitting.value = true
+  let writeStarted = false
   let writeCompleted = false
   try {
+    await ElMessageBox.confirm(
+      '将清理固定测试工单的生产、PQC及下游放行数据，并重新加入活跃订单。此操作不可恢复，是否继续？',
+      '重置固定测试订单',
+      { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
+    )
+    activeOrderTestResetReceipt.value = undefined
+    writeStarted = true
     const result = await resetFixedSimulationActiveOrder()
     if (!result?.workOrderCode?.trim() || !/^[1-9]\d*$/.test(String(result.activeOrderId))) {
       throw new Error('重置回执缺少正式工单号或活跃订单身份，请刷新核对后再操作')
@@ -10352,15 +10655,37 @@ const handleResetFixedSimulationActiveOrder = async () => {
     )) {
       throw new Error('刷新后未找到重置回执对应的活跃订单，请核对列表')
     }
+    activeOrderTestResetReceipt.value = { state: 'success', message: '重置完成：' + result.workOrderCode }
     ElMessage.success(
       `本轮测试数据已清理，原工单已重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
     )
   } catch (error) {
+    if (!writeStarted) {
+      if (error !== 'cancel' && error !== 'close') {
+        ElMessage.error(resolveErrorMessage(error, '无法确认重置，请重新打开确认窗口'))
+      }
+      return
+    }
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
+    // Known prerequisite failures roll back; transport failures remain uncertain.
+    const errorCode = Number((error as { code?: number | string })?.code)
+    if (!writeCompleted && [1040760394, 1040502000, 1040506111, 1040760324, 1040760414, 1076041001].includes(errorCode)) {
+      const guidance = errorCode === 1076041001 && reason.includes('生产接手缺少正式人员责任配置')
+        ? `${reason}。当前登录账号尚未配置正式生产人员，请使用已配置班组的生产组长账号重置，或先在人员管理中完成正式员工及系统账号绑定`
+        : reason
+      const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${guidance}`
+      activeOrderTestResetReceipt.value = { state: 'rejected', message: rejectedMessage }
+      ElMessage.error(rejectedMessage)
+      return
+    }
+    activeOrderTestResetReceipt.value = {
+      state: 'unknown',
+      message: `重置结果需要核对：${reason}；请刷新列表核对，不要再次重置`
+    }
     ElMessage.error(
       writeCompleted
         ? `测试订单已重置，但列表刷新失败：${reason}；请刷新列表，不要再次重置`
-        : `测试订单重置失败：${reason}`
+        : `测试订单重置结果未确认：${reason}；请核对结果，不要再次重置`
     )
   } finally {
     activeOrderTestResetSubmitting.value = false
@@ -10469,6 +10794,26 @@ const submitProcessDefectReason = async () => {
 }
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value, '--')
+
+const formatSubmittedSummary = (value?: string) => {
+  if (!value) return '尚无提交摘要'
+  const labels: Record<string, string> = {
+    PRODUCTION_SUBMIT: '生产记录提交', PRODUCTION_SIMPLIFIED: '生产简化表单',
+    PQC_SUBMIT: 'PQC检验提交', PQC_SIMPLIFIED: 'PQC检验表单'
+  }
+  return value.split(' / ').map(part => labels[part] ||
+    (/^[A-Z_]+$/.test(part) ? '提交类型未识别，请核对记录' : part)).join(' · ')
+}
+
+const formatPqcJudgement = (value?: string) => {
+  if (!value) return '尚无判定'
+  const labels: Record<string, string> = {
+    SUCCESS: '合格', PASS: '合格', DETECTION_SUCCESS: '合格',
+    FAILURE: '不合格', FAIL: '不合格', DETECTION_FAILURE: '不合格',
+    PENDING: '待判定'
+  }
+  return labels[value] || (/^[A-Z_]+$/.test(value) ? '判定未识别，请核对记录' : value)
+}
 
 const resolvePqcTagType = (pqcResult?: string) => {
   if (pqcResult === 'SUCCESS' || pqcResult === 'PASS') return 'success'
@@ -10585,9 +10930,12 @@ const requireProductionHandoffDetail = (
   if (!originalAllocations.length && !awaitingReallocation && !completedRejection) throw new Error('原周期正式生产分配不存在')
 }
 
+const leaderHandoffRoutePath = route.path
 let handoffNavigationEpoch = 0
 const navigateToLeaderHandoff = async () => {
   const epoch = ++handoffNavigationEpoch
+  // Cached workbenches still observe the global route when another role's page is active.
+  if (route.path !== leaderHandoffRoutePath) return
   handoffActiveOrderAnchor.value = undefined
   if (route.query.handoffTaskId === undefined) return
   detailVisible.value = false; detail.value = undefined
@@ -10595,7 +10943,7 @@ const navigateToLeaderHandoff = async () => {
     const id = route.query.handoffTaskId
     if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务编号无效')
     const context = await handoffNavigationContext(id)
-    if (epoch !== handoffNavigationEpoch) return
+    if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
     const target = resolveActiveOrderHandoffTarget({ actionUrl: context.task.actionUrl, handoffTaskId: context.task.id, handoffType: context.task.taskType, activeOrderId: context.task.activeOrderId })
     if (!target || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
       || Object.keys(route.query).some(key => !(key in target.query) && key !== 'handoffReadOnly')) throw new Error('页面参数与原交接任务不一致')
@@ -10608,7 +10956,7 @@ const navigateToLeaderHandoff = async () => {
     if (context.task.taskType === 'QA_DECISION_HANDOFF') {
       if (!isProductionLeader.value) throw new Error('该交接仅供原生产组长接手')
       await loadActiveOrders()
-      if (epoch !== handoffNavigationEpoch) return
+      if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
       if (!activeOrderOptions.value.some(order => String(order.id) === String(context.task.activeOrderId))) throw new Error('原周期活跃订单不可办理')
       handoffActiveOrderAnchor.value = String(context.task.activeOrderId); activeOrderQuery.pageNo = 1
       activeProductionModuleTab.value = 'activeOrder'
@@ -10627,7 +10975,7 @@ const navigateToLeaderHandoff = async () => {
       String(context.task.roundId) !== target.query.roundId) throw new Error('交接任务与原提交事件、原轮次不一致')
     const eventId = parseProductionEventQuery(target.query.eventId)!
     const selected = await getTeamLeaderSubmissionDetail(eventId, leader)
-    if (epoch !== handoffNavigationEpoch) return
+    if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
     if (String(selected.id) !== target.query.eventId) throw new Error('正式提交详情与原事件不一致')
     if (signedReview && context.processable && selected.submissionReviewStatus !== 'PENDING') {
       throw new Error('签名补正交接不是当前待复核轮次')
@@ -10638,16 +10986,19 @@ const navigateToLeaderHandoff = async () => {
     if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context)
     else if (String(selected.activeOrderId) !== target.query.activeOrderId) throw new Error('正式提交详情与原周期、原事件不一致')
     detail.value = selected; pqcDetailQuery.pageNo = 1
-    if (leader === 'PQC') activePqcModuleTab.value = 'detail'
+    if (leader === 'PQC') {
+      activePqcModuleTab.value = 'detail'
+      if (context.processable) await openReview(selected)
+    }
     else {
       const correctingProfile = context.profileLeaderCorrection && context.processable && route.query.handoffReadOnly !== '1'
       activeProductionModuleTab.value = correctingProfile ? 'report' : ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'
       detailVisible.value = true
       if (correctingProfile) await openCorrection(selected)
     }
-  } catch (error) { if (epoch === handoffNavigationEpoch) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
+  } catch (error) { if (epoch === handoffNavigationEpoch && route.path === leaderHandoffRoutePath) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
 }
-watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
+watch(() => [route.path, route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
 watch(
   () => route.query.eventId,
   (value) => { if (route.query.handoffTaskId === undefined) void navigateToProductionEvent(value) },
@@ -10655,6 +11006,9 @@ watch(
 )
 
 onMounted(() => {
+  if (props.leaderType === 'PRODUCTION' && route.query.handoffTaskId === undefined && route.query.workbenchTab === 'activeOrder') {
+    activeProductionModuleTab.value = 'activeOrder'
+  }
   if (isProductionLeader.value) {
     if (!showProductionModuleTabs.value) {
       loadLegacyProductionWorkbenchData()
@@ -10681,6 +11035,218 @@ onMounted(() => {
     }
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '已启用'].join(' ')
+  }
+])
+
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeUser',
+    label: employeeColumnLabel.value,
+    type: 'text',
+    getValue: (row) => row.actualEmployeeUserName
+  },
+  {
+    key: 'completionQuantity',
+    label: completionQuantityColumnLabel.value,
+    type: 'text',
+    getValue: (row) => resolveSubmissionCompletionQuantity(row)
+  },
+  {
+    key: 'process',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processName || row.processCode || '--'].join(' ')
+  },
+  {
+    key: 'clearanceWorkplace',
+    label: '清场',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'workplace')].join(' ')
+  },
+  {
+    key: 'clearanceMaterial',
+    label: '物料',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'material')].join(' ')
+  },
+  {
+    key: 'clearanceCleaning',
+    label: '清洁',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'cleaning')].join(' ')
+  },
+  {
+    key: 'workOrder',
+    label: '生产工单',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || row.workOrderName || '--'].join(' ')
+  },
+  {
+    key: 'lossQuantity',
+    label: '损耗数量',
+    type: 'text',
+    getValue: (row) => [resolveSubmissionLossQuantity(row)].join(' ')
+  },
+  {
+    key: 'reportUnallocatedQuantity',
+    label: '未分配数量',
+    type: 'text',
+    getValue: (row) => [row.reportUnallocatedQuantity ?? row.outputQuantity ?? '--'].join(' ')
+  },
+  {
+    key: 'product',
+    label: '产品',
+    type: 'text',
+    getValue: (row) => [row.productCode || row.productName || '--'].join(' ')
+  },
+  {
+    key: 'inspectionTask',
+    label: '检验类型/轮次',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolvePqcInspectionTypeText(row.inspectionType),
+        row.roundNo || '--',
+        formatSubmissionSourceEventIds(row).split(' ').join('、')
+      ].join(' ')
+  },
+  {
+    key: 'approvedBy',
+    label: '处理人',
+    type: 'text',
+    getValue: (row) =>
+      [row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--'].join(' ')
+  },
+  {
+    key: 'reviewStatus',
+    label: '处理结果',
+    type: 'text',
+    getValue: (row) => [resolveSubmissionReviewStatusText(row.submissionReviewStatus)].join(' ')
+  },
+  {
+    key: 'reviewRemark',
+    label: '处理说明',
+    type: 'text',
+    getValue: (row) => [row.submissionReviewRemark || '--'].join(' ')
+  },
+  {
+    key: 'approvedBy',
+    label: '审核通过人',
+    type: 'text',
+    getValue: (row) =>
+      [row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions5 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'erpFixedQuantitySnapshot',
+    label: 'ERP生产数量',
+    type: 'text',
+    getValue: (row) => [formatActiveOrderErpQuantity(row.erpFixedQuantitySnapshot)].join(' ')
+  },
+  {
+    key: 'productionProgressPercent',
+    label: '生产进度',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.productionProgressPercent)
+      ].join(' ')
+  },
+  {
+    key: 'inspectionProgressPercent',
+    label: '检验进度',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.inspectionProgressPercent)
+      ].join(' ')
+  },
+  {
+    key: 'releaseApplicationStatus',
+    label: '放行申请',
+    type: 'text',
+    getValue: (row) => [formatActiveOrderReleaseStatus(row.releaseApplicationStatus)].join(' ')
+  }
+])
+
+const listFilterColumns1 = [
+  {
+    key: 'displayName',
+    label: '显示名',
+    visible: true
+  },
+  {
+    key: 'employeeType',
+    label: '来源',
+    visible: true
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayName',
+    label: '显示名',
+    type: 'text',
+    getValue: (row) => [row.displayName || row.employeeName || '--'].join(' ')
+  },
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -10836,6 +11402,21 @@ onMounted(() => {
 
 .team-leader-workbench__personnel-name.is-disabled {
   color: #f56c6c;
+}
+
+.team-leader-workbench__production-personnel-list :deep(.unified-list-template__query-form) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.team-leader-workbench__production-personnel-list :deep(.unified-list-template__multi-filter) {
+  min-width: 0;
+}
+
+.team-leader-workbench__production-personnel-list :deep(.unified-list-template__toolbar) {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .team-leader-workbench__pqc-personnel-name.is-disabled {

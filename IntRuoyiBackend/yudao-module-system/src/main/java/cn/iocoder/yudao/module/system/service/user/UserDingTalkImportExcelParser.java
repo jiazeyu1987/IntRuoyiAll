@@ -17,7 +17,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 public class UserDingTalkImportExcelParser {
 
     private static final List<String> REQUIRED_HEADERS = List.of(
-            "员工UserID", "姓名", "邮箱", "工号", "部门主管", "1级部门", "主部门ID",
+            "员工UserID", "姓名", "部门主管", "1级部门",
             "2级部门", "3级部门", "4级部门", "5级部门", "6级部门", "7级部门"
     );
 
@@ -90,19 +90,14 @@ public class UserDingTalkImportExcelParser {
                 row.getLevel5DepartmentName(), row.getLevel6DepartmentName(), row.getLevel7DepartmentName()
         );
         boolean blankSeen = false;
-        boolean hasDepartment = false;
         for (String level : levels) {
             if (isBlank(level)) {
                 blankSeen = true;
                 continue;
             }
-            hasDepartment = true;
             if (blankSeen) {
                 throw exception(USER_DING_TALK_IMPORT_LEVEL_GAP);
             }
-        }
-        if (hasDepartment && isBlank(row.getSourceDepartmentId())) {
-            throw exception(USER_DING_TALK_IMPORT_SOURCE_DEPT_ID_REQUIRED);
         }
     }
 

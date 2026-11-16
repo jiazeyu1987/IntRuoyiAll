@@ -20,13 +20,17 @@
       @quick-filter-query="trainingMineQuickFilter.applyQuickFilter"
       @column-change="saveTrainingMineColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :query-loading="loading"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.trainingMine.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           empty-text="当前暂无培训任务"
@@ -121,6 +125,9 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+
 import {
   getFileCategoryList,
   type ControlledFileCategoryVO
@@ -147,7 +154,8 @@ const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const categories = ref<ControlledFileCategoryVO[]>([])
 const departments = ref<DeptVO[]>([])
@@ -180,6 +188,7 @@ const {
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
+  listFilters: undefined as string | undefined,
   categoryId: undefined as number | undefined,
   status: undefined as string | undefined
 })
@@ -212,18 +221,14 @@ const loadBaseData = async () => {
 }
 
 const getList = async () => {
-  loading.value = true
   try {
-    const data = await getMyTrainingTaskPage(queryParams)
-    list.value = data.list.map((item) => ({
-      ...item,
-      trainingSummary: getTrainingTaskSummary(item)
-    }))
-    total.value = data.total
+    return await listRequest.run(() => getMyTrainingTaskPage({ ...queryParams }), data => {
+      list.value = data.list.map(item => ({ ...item, trainingSummary: getTrainingTaskSummary(item) }))
+      total.value = data.total
+    })
   } catch (error) {
     message.error(resolveTrainingPageErrorMessage(error, '培训任务加载失败，请查看错误提示后重试。'))
-  } finally {
-    loading.value = false
+    throw error
   }
 }
 
@@ -249,6 +254,28 @@ onMounted(async () => {
   await loadBaseData()
   await getList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'departmentNames',
+    label: '来源部门',
+    type: 'text',
+    getValue: (row) => [buildDepartmentNames(row.departmentIds, deptNameMap.value)].join(' ')
+  },
+  {
+    key: 'trainingSummary',
+    label: '培训摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.trainingSummary.statusLabel,
+        row.trainingSummary.progressText,
+        row.trainingSummary.hintText,
+        row.trainingSummary.timeText
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

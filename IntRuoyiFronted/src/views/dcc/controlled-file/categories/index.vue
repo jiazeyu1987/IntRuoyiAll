@@ -32,6 +32,8 @@
             @quick-filter-query="categoryQuickFilter.applyQuickFilter"
             @column-change="saveCategoryColumnConfig"
             @pagination="handleCategoryPagination"
+            :filter-rows="filteredCategories"
+            :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
               <el-button
@@ -44,12 +46,12 @@
                 新增类别
               </el-button>
             </template>
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="loading"
                 data-user-table-column-explicit
                 data-user-table-key="dcc.controlledFile.permission.categories"
-                :data="paginatedCategories"
+                :data="resolveRows(paginatedCategories)"
                 border
                 :stripe="true"
                 :show-overflow-tooltip="true"
@@ -161,7 +163,7 @@
                   prop="actions"
                   align="center"
                   fixed="right"
-                  :width="getCategoryColumnWidthString('actions', 220)"
+                  :width="getCategoryColumnWidthString('actions', 270)"
                 >
                   <template #default="{ row }">
                     <el-button
@@ -179,6 +181,16 @@
                       v-hasPermi="['dcc:controlled-file:category:manage']"
                     >
                       编辑
+                    </el-button>
+                    <el-button
+                      v-if="row.active"
+                      link
+                      type="warning"
+                      :disabled="loading"
+                      @click="handleDisable(row)"
+                      v-hasPermi="['dcc:controlled-file:category:manage']"
+                    >
+                      停用
                     </el-button>
                     <el-button
                       link
@@ -255,6 +267,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { checkPermi } from '@/utils/permission'
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import FileTypeTaxonomyPanel from '../basic-data/file-type-taxonomy/index.vue'
@@ -265,6 +279,7 @@ import type { ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directo
 import { getDirectoryTree } from '@/api/dcc/controlledFile/directories'
 import {
   deleteFileCategory,
+  disableFileCategory,
   getFileCategoryList,
   type ControlledFileCategoryVO
 } from '@/api/dcc/controlledFile/fileCategories'
@@ -476,7 +491,7 @@ const categoryDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'directory', label: '绑定目录', minWidth: 180 },
   { key: 'fileTypeTaxonomy', label: '默认文件分类', minWidth: 240 },
   { key: 'governance', label: '治理摘要', minWidth: 260 },
-  { key: 'actions', label: '操作', width: 220, hideable: false }
+  { key: 'actions', label: '操作', width: 270, hideable: false }
 ]
 
 const {
@@ -611,6 +626,24 @@ const openCategoryUploadPolicyDialog = async (row: ControlledFileCategoryVO) => 
   dialogRef.open(row)
 }
 
+const handleDisable = async (row: ControlledFileCategoryVO) => {
+  if (loading.value) return
+  loading.value = true
+  try {
+    try {
+      await message.confirm(`确认停用文件类别“${row.name}”（${row.code}）吗？停用后保留历史文件与治理配置。`)
+    } catch (action) {
+      if (action === 'cancel' || action === 'close') return
+      throw action
+    }
+    await disableFileCategory(row.id)
+    message.success('停用成功')
+    await loadData()
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleDelete = async (row: ControlledFileCategoryVO) => {
   if (!row.id) {
     return
@@ -657,6 +690,43 @@ watch(activeTab, async (tab) => {
     }
   })
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'taxonomyStageName',
+    label: '阶段',
+    type: 'text',
+    getValue: (row) => [formatCategoryTaxonomyStageLabel(row)].join(' ')
+  },
+  {
+    key: 'directory',
+    label: '绑定目录',
+    type: 'text',
+    getValue: (row) =>
+      [row.directoryId ? directoryPathMap.value.get(row.directoryId) || '-' : '-'].join(' ')
+  },
+  {
+    key: 'fileTypeTaxonomy',
+    label: '默认文件分类',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.fileTypeTaxonomyId ? taxonomyPathMap.value.get(row.fileTypeTaxonomyId) || '-' : '-'
+      ].join(' ')
+  },
+  {
+    key: 'governance',
+    label: '治理摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatBooleanLabel(row.active),
+        formatRequirementLabel(row.distributionRequired),
+        formatRequirementLabel(row.trainingRequired),
+        formatDateTimeValue(row.createTime, '-')
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

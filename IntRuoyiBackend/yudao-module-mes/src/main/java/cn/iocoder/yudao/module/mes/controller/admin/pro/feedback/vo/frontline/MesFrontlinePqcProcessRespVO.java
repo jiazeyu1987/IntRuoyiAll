@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -42,7 +43,7 @@ public class MesFrontlinePqcProcessRespVO {
     private Long activeOrderId;
     @Schema(description = "发布态 QA 规程是否启用末检")
     private Boolean finalInspectionApplicable;
-    @Schema(description = "锁定 QA 发布版本的四类检验规则")
+    @Schema(description = "锁定 QA 发布版本的首检、巡检、末检规则")
     private List<QaInspectionTypeRule> inspectionTypeRules;
     @Schema(description = "当前任务的 QA 检验项目")
     private List<PqcInspectionItem> inspectionItems;
@@ -64,6 +65,12 @@ public class MesFrontlinePqcProcessRespVO {
         private String qaItemCode;
         private String inspectionRuleKey;
         private String taskStatus;
+        private String cancelReason;
+        private Long submittedEventId;
+        private String submittedContentHash;
+        private SubmittedInspection submittedInspection;
+        private List<PqcReviewHistory> reviewHistory;
+        private String currentReviewStatus;
         private Integer ruleSort;
         private QaInspectionTypeRule inspectionTypeRule;
         private Boolean finalInspectionApplicable;
@@ -71,8 +78,37 @@ public class MesFrontlinePqcProcessRespVO {
         private LocalDate businessDate;
         private String shiftCode;
         private Integer roundNo;
+        @Schema(description = "任务实际创建时间")
+        private LocalDateTime createTime;
         private Integer plannedInspectionQuantity;
         private List<PqcInspectionItem> inspectionItems;
+    }
+
+    @Data
+    public static class PqcReviewHistory {
+        private Long reviewId;
+        private Long eventId;
+        private String reviewStatus;
+        private String reviewRemark;
+        private LocalDateTime reviewedAt;
+        private Long reviewerUserId;
+        private String reviewerName;
+        private Integer reviewRound;
+        private Long revisionId;
+    }
+
+    @Data
+    public static class SubmittedInspection {
+        private Integer actualInspectionQuantity;
+        private Integer scrapQuantity;
+        private List<SubmittedInspectionItem> items;
+    }
+
+    @Data
+    public static class SubmittedInspectionItem {
+        private String itemCode;
+        private String selectedEquipmentNumber;
+        private List<String> sampleValues;
     }
 
     @Data
@@ -101,12 +137,15 @@ public class MesFrontlinePqcProcessRespVO {
     @Data
     public static class PqcInspectionItem {
         private Integer plannedInspectionQuantity;
+        private MesQcSamplingPlan.Evidence samplingEvidence;
         private Integer itemSort;
         private String itemCode;
         private String itemName;
         private String inspectionMethod;
         private String standardText;
         private String inspectionTool;
+        @Schema(description = "规程发布时的器具未绑定原因")
+        private String equipmentUnboundReason;
         private String samplingPlanText;
         private BigDecimal standardLowerLimit;
         private BigDecimal standardUpperLimit;
@@ -116,7 +155,9 @@ public class MesFrontlinePqcProcessRespVO {
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
-        private BigDecimal patrolInspectionRatio;
+        private Integer finalInspectionQuantity;
+        private String inspectionLevel;
+        private BigDecimal aql;
         private Boolean critical;
         private String failureRule;
         private String sourceNote;

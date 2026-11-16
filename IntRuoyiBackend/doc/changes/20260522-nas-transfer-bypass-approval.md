@@ -8,7 +8,7 @@
 ## Current Baseline Reviewed
 
 - Active backend task:
-  - `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260522-dcc-nas-transfer-controlled-files-backend\task.md`
+  - `./IntRuoyiBackend/doc/tasks/20260522-dcc-nas-transfer-controlled-files-backend/task.md`
 - Current implementation baseline:
   - NAS transfer reuses `DccControlledFileWorkflowService.submitControlledFile(...)`
   - Real runtime failure has advanced to approval-route prerequisite:

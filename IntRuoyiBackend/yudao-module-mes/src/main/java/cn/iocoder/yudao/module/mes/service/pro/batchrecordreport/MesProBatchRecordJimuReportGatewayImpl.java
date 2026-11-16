@@ -287,6 +287,16 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
     }
 
     @Override
+    public String getReportJsonReadOnly(String reportId) {
+        if (isFormTemplateReportId(reportId)) {
+            FormTemplateVersionDO version = requireFormTemplateVersion(parseFormTemplateReportId(reportId));
+            return extractFormTemplateDesignerJson(version.getJimuSchemaJson(), reportId);
+        }
+        JimuReport report = jimuReportDao.get(reportId);
+        return report == null ? null : report.getJsonStr();
+    }
+
+    @Override
     public String getReportJson(String reportId) {
         if (isFormTemplateReportId(reportId)) {
             ensureFormTemplateDesignerReport(reportId);

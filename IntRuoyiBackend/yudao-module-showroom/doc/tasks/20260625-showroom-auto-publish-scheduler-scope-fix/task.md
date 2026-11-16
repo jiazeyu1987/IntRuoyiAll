@@ -12,7 +12,7 @@ completed
 
 ## Previous Task Check
 
-- Previous same-repo task record: `D:\ProjectPackage\Int\IntRuoyi
+- Previous same-repo task record: `.
 uoyi-vue-pro\yudao-module-showroom\doc	asks60625-showroom-base-workbook-import	ask.md`
 - Status before this task: `completed`
 - Impact on this task:
@@ -20,10 +20,10 @@ uoyi-vue-pro\yudao-module-showroom\doc	asks60625-showroom-base-workbook-import
 
 ## ????
 
-- ????`D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
+- ????`./docs/experience-index.md`
 - ????????
   - ???? runtime ???????????????? `execution-log.md` ?? `GREEN: experience-preflight -> PASS`?
-  - ????????????????? `D:\ProjectPackage\Int\IntRuoyi\docs\login-access.md` ???????????????/admin ?????
+  - ????????????????? `./docs/login-access.md` ???????????????/admin ?????
 
 ## ??????
 
@@ -49,7 +49,7 @@ uoyi-vue-pro\yudao-module-showroom\doc	asks60625-showroom-base-workbook-import
 
 - `mvn -pl yudao-module-showroom -Dtest=ShowroomReleaseAutoPublishSchedulerTest test`
 - `mvn -pl yudao-module-showroom -Dtest=ShowroomReleaseAutoPublishServiceTest,ShowroomReleaseAutoPublishSchedulerTest "-Dsurefire.failIfNoSpecifiedTests=false" test`
-- `powershell -NoProfile -ExecutionPolicy Bypass -File D:\ProjectPackage\Int\IntRuoyi
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .
 uoyi-vue-pro\script\deploy
 estart-int-ruoyi-local.ps1 -Component backend`
 - `Invoke-RestMethod http://127.0.0.1:48081/actuator/health | ConvertTo-Json -Compress`

@@ -13,6 +13,7 @@ export type EdhrTrackingEventType =
   | 'ARCHIVE_SEAL'
 
 export interface EdhrTrackingPageReqVO extends PageParam {
+  listFilters?: string
   executionCode?: string
   workOrderCode?: string
   batchCode?: string

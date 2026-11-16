@@ -2,6 +2,7 @@
   <component :is="signaturePageShell" :class="{ 'edhr-signature-page--embedded': isEmbedded }">
     <div class="edhr-query">
       <UnifiedListTemplate
+        single-line-toolbar
         class="edhr-query__list-template"
         table-key="mes.pro.edhr.signature.history"
         :query-model="queryParams"
@@ -20,15 +21,18 @@
         @quick-filter-query="signatureQuickFilter.applyQuickFilter"
         @column-change="saveSignatureColumnConfig"
         @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.signature.history"
-          :data="list"
+          :data="resolveRows(list)"
           stripe
           :show-overflow-tooltip="true"
           empty-text="暂无签名记录"
@@ -223,6 +227,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ContentWrap } from '@/components/ContentWrap'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -322,6 +328,7 @@ const resolveInitialExecutionId = () => {
 }
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   executionId: resolveInitialExecutionId() as string | number | undefined,
@@ -376,11 +383,15 @@ const formatSnapshotValue = (value?: string | number | null) => {
 
 const formatSignatureSignedAt = (signedAt?: string | number | Date) => formatEdhrDateTime(signedAt, '')
 
+let signatureRequestSequence = 0
 const getList = async () => {
+  const request = ++signatureRequestSequence
+  const isCurrent = () => request === signatureRequestSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getEdhrExecutionSignaturePage({
+      listFilters: queryParams.listFilters,
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       executionId: parsePositiveRouteQueryId(queryParams.executionId) || undefined,
@@ -391,14 +402,18 @@ const getList = async () => {
       processInstanceId: queryParams.processInstanceId?.trim() || undefined,
       bpmTaskId: queryParams.bpmTaskId?.trim() || undefined
     })
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 签名记录加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -418,6 +433,50 @@ const openExecution = async (row: EdhrSignatureSummaryVO) => {
 }
 
 onMounted(() => getList())
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'actionType',
+    label: '动作结果',
+    type: 'text',
+    getValue: (row) => [formatSignatureAction(row.actionType)].join(' ')
+  },
+  {
+    key: 'actorDeptPost',
+    label: '部门/岗位',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatSnapshotValue(row.actorDeptNameSnapshot),
+        formatSnapshotValue(row.actorPostNamesSnapshot)
+      ].join(' ')
+  },
+  {
+    key: 'actorRoleNamesSnapshot',
+    label: '角色',
+    type: 'text',
+    getValue: (row) => [formatSnapshotValue(row.actorRoleNamesSnapshot)].join(' ')
+  },
+  {
+    key: 'signaturePurpose',
+    label: '签名目的',
+    type: 'text',
+    getValue: (row) => [formatSnapshotValue(row.signaturePurpose || row.meaningText)].join(' ')
+  },
+  {
+    key: 'signatureConfirm',
+    label: '签名确认',
+    type: 'text',
+    getValue: (row) =>
+      [formatSignatureMode(row.signatureMode), row.passwordVerified ? '通过' : '失败'].join(' ')
+  },
+  {
+    key: 'comment',
+    label: '意见/原因',
+    type: 'text',
+    getValue: (row) => [row.reason || row.comment || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -492,7 +551,7 @@ onMounted(() => getList())
   grid-column: 1 / -1;
 }
 .edhr-signature-evidence__hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
 }
 .edhr-signature__execution-link {
   padding: 0;

@@ -41,8 +41,8 @@ public class ApprovalTaskReviewReqVO {
     @Schema(description = "审核意见或驳回原因；驳回时必填")
     private String reason;
 
-    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @Schema(description = "所选电子签名方式的 PIN 码或密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
     private String prepareId;
     private String idempotencyKey;

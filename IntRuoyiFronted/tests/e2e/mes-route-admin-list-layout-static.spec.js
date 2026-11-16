@@ -52,7 +52,8 @@ for (const key of [
   'status',
   'activeRouteVersionNo',
   'pendingRouteVersionNo',
-  'productCodes',
+  'productCount',
+  'dccProjectCode',
   'createTime',
   'actions'
 ]) {

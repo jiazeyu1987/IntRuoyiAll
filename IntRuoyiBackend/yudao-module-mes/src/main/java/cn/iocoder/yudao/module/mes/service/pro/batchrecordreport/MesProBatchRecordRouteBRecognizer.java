@@ -315,7 +315,7 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
             for (RawTablePayload rawTable : response.getTables()) {
                 parsedTables.addAll(splitTemplates(toParsedTable(rawTable)));
             }
-            parsedTables = alignWithDocParserVisualGrids(parsedTables, sourceBytes);
+            parsedTables = alignWithDocParserVisualGrids(parsedTables, sourceBytes, originalFileName);
             for (int index = 0; index < parsedTables.size(); index++) {
                 parsedTables.get(index).setSourceTableIndex(index + 1);
                 parsedTables.get(index).setRouteBSource(true);
@@ -472,11 +472,11 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
     }
 
     private List<MesProBatchRecordParsedTable> alignWithDocParserVisualGrids(
-            List<MesProBatchRecordParsedTable> routeTables, byte[] sourceBytes) {
+            List<MesProBatchRecordParsedTable> routeTables, byte[] sourceBytes, String originalFileName) {
         if (routeTables == null || routeTables.isEmpty() || sourceBytes == null || sourceBytes.length == 0) {
             return routeTables;
         }
-        List<MesProBatchRecordParsedTable> docTables = new MesProBatchRecordDocParser().parse(sourceBytes);
+        List<MesProBatchRecordParsedTable> docTables = new MesProBatchRecordDocParser().parseWord(sourceBytes, originalFileName);
         MesProBatchRecordDocumentFrame documentFrame = resolveDocumentFrame(docTables);
         boolean[] matched = new boolean[docTables.size()];
         List<MesProBatchRecordParsedTable> alignedTables = new ArrayList<>();

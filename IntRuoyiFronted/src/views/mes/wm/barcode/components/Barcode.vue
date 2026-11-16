@@ -66,6 +66,7 @@ const generateBarcode = async () => {
         width: 2,
         height: props.height,
         displayValue: props.displayValue,
+        font: 'Microsoft YaHei',
         margin: 10
       })
       emit('done', (unref(imgRef) as HTMLImageElement).src)

@@ -196,4 +196,55 @@ class DccElectronicSignatureAuthorizationServiceTest extends BaseMockitoUnitTest
         assertNotNull(tableField);
         assertEquals(FieldStrategy.ALWAYS, tableField.updateStrategy());
     }
+
+    @Test
+    void provisioningCreatesGrantAndAudit() {
+        TenantContextHolder.setTenantId(1L);
+        when(authority.lockTenantApprovalAuthority(1L)).thenReturn(new ApprovalAuthorityRevisionDTO(1L, 4L));
+        when(authorizationMapper.insert(any(DccElectronicSignatureAuthorizationDO.class))).thenReturn(1);
+        service.authorizeProvisionedUser(99L, "钉钉导入自动授权");
+        var grant = ArgumentCaptor.forClass(DccElectronicSignatureAuthorizationDO.class);
+        verify(authorizationMapper).insert(grant.capture());
+        assertEquals(99L, grant.getValue().getUserId());
+        assertEquals("ENABLED", grant.getValue().getAuthorizationState());
+        assertTrue(grant.getValue().getElectronicSignatureEnabled());
+        var audit = ArgumentCaptor.forClass(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationAuditDO.class);
+        verify(authorizationAuditService).recordAuthorizationChange(audit.capture());
+        assertEquals("UNAUTHORIZED", audit.getValue().getBeforeState());
+        assertEquals("ENABLED", audit.getValue().getAfterState());
+        assertEquals("钉钉导入自动授权", audit.getValue().getReason());
+        verify(authority).incrementLockedAuthorityRevision(1L, 4L);
+    }
+
+    @Test
+    void reimportIsIdempotentAndDoesNotClearTemporaryLocks() {
+        TenantContextHolder.setTenantId(1L);
+        for (String state : new String[]{"ENABLED", "LOCKED"}) {
+            when(authorizationMapper.selectByUserIdForUpdate(99L)).thenReturn(
+                    DccElectronicSignatureAuthorizationDO.builder().id(5L).userId(99L)
+                            .electronicSignatureEnabled(true).authorizationState(state)
+                            .lockedUntil(LocalDateTime.now().plusMinutes(10)).build());
+            service.authorizeProvisionedUser(99L, "重复导入自动授权");
+        }
+        org.mockito.Mockito.verify(authorizationMapper, org.mockito.Mockito.never()).updateById(any(DccElectronicSignatureAuthorizationDO.class));
+        org.mockito.Mockito.verify(authorizationMapper, org.mockito.Mockito.never()).insert(any(DccElectronicSignatureAuthorizationDO.class));
+        org.mockito.Mockito.verifyNoInteractions(authorizationAuditService);
+    }
+
+    @Test
+    void reimportEnablesPreviouslyDisabledGrant() {
+        TenantContextHolder.setTenantId(1L);
+        when(authority.lockTenantApprovalAuthority(1L)).thenReturn(new ApprovalAuthorityRevisionDTO(1L, 4L));
+        when(authorizationMapper.selectByUserIdForUpdate(99L)).thenReturn(
+                DccElectronicSignatureAuthorizationDO.builder().id(5L).userId(99L)
+                        .electronicSignatureEnabled(false).authorizationState("DISABLED").build());
+        when(authorizationMapper.updateById(any(DccElectronicSignatureAuthorizationDO.class))).thenReturn(1);
+        service.authorizeProvisionedUser(99L, "重复导入自动授权");
+        var grant = ArgumentCaptor.forClass(DccElectronicSignatureAuthorizationDO.class);
+        verify(authorizationMapper).updateById(grant.capture());
+        assertEquals(5L, grant.getValue().getId());
+        assertTrue(grant.getValue().getElectronicSignatureEnabled());
+        assertEquals("ENABLED", grant.getValue().getAuthorizationState());
+        verify(authorizationAuditService).recordAuthorizationChange(any());
+    }
 }

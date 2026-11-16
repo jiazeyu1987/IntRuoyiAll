@@ -3,7 +3,7 @@ const { freezeExecutionBaseline, assertCoverage, assertDouble100 } = require('./
 
 const order = { activeOrderId: '900', workOrderCode: 'TEST', quantity: 10, batchCode: 'B' }
 const productionProcesses = [1, 2, 3].map((id) => ({ routeProcessId: String(id), processId: String(id + 10), processKey: `MES-900-1-${id}-${id + 10}`, processLabel: `工序${id}`, targetQuantity: id * 10, outputMaterials: [`物料${id}`, `副产${id}`] }))
-const task = (id, quantity) => ({ pqcTaskId: String(id), ruleKey: 'FIRST', type: 'FIRST', businessDate: '2026-09-17', shiftCode: 'DAY', roundNo: 1, quantity, taskStatus: 'PENDING', inspectionItems: [{ itemCode: `I${id}`, itemName: `项目${id}`, resultType: 'NUMBER', standardLowerLimit: 2, standardUpperLimit: 4 }] })
+const task = (id, quantity) => ({ pqcTaskId: String(id), ruleKey: 'FIRST', type: 'FIRST', businessDate: '2026-09-17', shiftCode: 'DAY', roundNo: 1, quantity, taskStatus: 'PENDING', inspectionItems: [{ itemCode: `I${id}`, plannedInspectionQuantity: quantity, itemName: `项目${id}`, resultType: 'NUMBER', standardLowerLimit: 2, standardUpperLimit: 4 }] })
 const pqcProcesses = [{ processKey: 'QA-80-50', processLabel: '独立QA工序', tasks: [task(71, 2), task(72, 3)] }]
 const baseline = freezeExecutionBaseline(order, productionProcesses, pqcProcesses)
 assert.equal(baseline.productionProcesses.length, 3)
@@ -62,3 +62,7 @@ assert.throws(() => assertCoverage(repeatedBaseline, ['1', '2', '3'],
 assert.throws(() => assertCoverage(repeatedBaseline, ['1', '2', '3'],
   allReceipts.map((receipt, index) => index === 29 ? allReceipts[0] : receipt)), /coverage/)
 console.log('PASS: exact task receipt coverage, 30 repeated-item tasks across 15 UI submissions')
+
+const mixedPlanBaseline = freezeExecutionBaseline(order, baseline.productionProcesses, [{ ...pqcProcesses[0], tasks: [{ ...task(300, 50), inspectionItems: [{ itemCode: 'I', plannedInspectionQuantity: 50 }, { itemCode: 'S3', plannedInspectionQuantity: 13 }] }] }])
+assert.equal(mixedPlanBaseline.expected.pqcPieceResultCount, 63, 'frozen per-item sampling count must not use task maximum for every item')
+assert.throws(() => freezeExecutionBaseline(order, baseline.productionProcesses, [{ ...pqcProcesses[0], tasks: [{ ...task(301, 50), inspectionItems: [{ itemCode: 'I' }] }] }]), /plannedInspectionQuantity/)

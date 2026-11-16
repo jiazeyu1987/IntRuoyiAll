@@ -21,6 +21,12 @@ public interface MesProEdhrReverseTraceSourceAdapter {
 
     CatalogResult readCatalog(MesProEdhrBatchExecutionDO batch);
 
+    java.util.Map<Long, CatalogResult> readCatalogs(List<MesProEdhrBatchExecutionDO> batches);
+
+    /** Read all requested formal categories against one request-local bounded evidence window. */
+    java.util.Map<Category, java.util.Map<Long, CatalogResult>> readCatalogs(
+            List<MesProEdhrBatchExecutionDO> batches, java.util.Set<Category> categories);
+
     EvaluationResult evaluate(MesProEdhrBatchExecutionDO batch, List<Condition> conditions);
 
     EvidenceResult readEvidence(MesProEdhrBatchExecutionDO batch, List<Condition> conditions);

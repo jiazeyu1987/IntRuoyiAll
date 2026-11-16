@@ -8,6 +8,7 @@ import java.time.Instant;
 /** Implemented separately by each identity domain, without a reverse module dependency. */
 public interface SignatureAuthenticationApi {
     String identityDomain();
+    String credentialType(Long actorId);
     SignatureAuthenticationOutcome authenticate(SignatureAuthenticationRequest request);
     AuthenticatedSigner lockAndRevalidate(AuthenticatedSigner signer, Instant signingInstant);
 }

@@ -6,9 +6,12 @@ const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
+const presentation = {}
+Function('exports', ts.transpileModule(fs.readFileSync(path.join(root, 'src/utils/businessMessagePresentation.ts'), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(presentation)
 const flush = async () => { await Promise.resolve(); await vue.nextTick(); await Promise.resolve() }
 const deferred = () => { let resolve, reject; const promise = new Promise((ok, bad) => { resolve = ok; reject = bad }); return { promise, resolve, reject } }
 function script(file, bindings, names) {
+  bindings = { ...presentation, ...bindings }
   const descriptor = parse(fs.readFileSync(path.join(root, file), 'utf8')).descriptor
   const compiled = compileTemplate({ source: descriptor.template.content, filename: file, id: 'handoff-behavior' })
   assert.deepEqual(compiled.errors, [], '实际 SFC 模板须可编译')
@@ -17,32 +20,6 @@ function script(file, bindings, names) {
   const code = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
   return Function(...Object.keys(bindings), code + '; return {' + names.join(',') + '};')(...Object.values(bindings))
 }
-function qa(api) {
-  const messages = []
-  // Explicitly drive actual async functions; lifecycle/watch are exercised by the real page integration separately.
-  const values = script('src/views/mes/pro/handoff/QaHandoffAssignmentConfig.vue', { ref: vue.ref, computed: vue.computed, watch: () => {}, onMounted: () => {}, api, useMessage: () => ({ success: text => messages.push(text) }) }, ['routeId','sourceId','sourceType','reason','ruleId','userOptions','readyToSave','error','loading','save','loadRule','searchUsers'])
-  return { ...values, messages }
-}
-const rule = (routeId, id, owner, label) => ({ id, routeId, candidateSourceType: 'USER', candidateSourceId: owner, candidateLabel: label, enabled: true })
-test('真实 QA 配置加载保存保持负责人姓名与准确路线/旧版本', async () => {
-  let request
-  const q = qa({ qaAssignment: async () => rule(98, 10, 345, 'QA本人'), saveQaAssignment: async data => { request = data; return rule(98, 10, 345, 'QA本人') } })
-  q.routeId.value = 98; await q.loadRule(); assert.deepEqual(q.userOptions.value, [{ id:345,label:'QA本人' }]); assert.equal(q.readyToSave.value, true)
-  q.reason.value = '正式责任确认'; await q.save(); assert.deepEqual(request,{ routeId:98,candidateSourceType:'USER',candidateSourceId:345,enabled:true,reason:'正式责任确认',expectedRuleId:10 }); assert.deepEqual(q.messages,['QA 负责人已保存'])
-})
-test('A 路线迟到读取不能污染 B 路线负责人或版本', async () => {
-  const a = deferred(), b = deferred(); const q = qa({ qaAssignment: route => route === 98 ? a.promise : b.promise })
-  q.routeId.value = 98; const first = q.loadRule(); q.routeId.value = 99; const second = q.loadRule(); b.resolve(rule(99,11,349,'B负责人')); await second; a.resolve(rule(98,10,345,'A负责人')); await first
-  assert.equal(q.ruleId.value,11); assert.equal(q.sourceId.value,349); assert.deepEqual(q.userOptions.value,[{id:349,label:'B负责人'}])
-})
-test('配置读取失败必须显式阻止保存', async () => {
-  let writes=0; const q=qa({qaAssignment:async()=>{throw Error('formal rule load failed')},saveQaAssignment:async()=>{writes++}})
-  q.routeId.value=98; await q.loadRule(); assert.equal(q.error.value,'formal rule load failed'); assert.equal(q.readyToSave.value,false); q.sourceId.value=345;q.reason.value='不能绕过读取';await q.save();assert.equal(writes,0)
-})
-test('A 路线保存和用户查询迟到响应不能污染 B 路线', async () => {
-  const saved=deferred(), searched=deferred();const q=qa({qaAssignment:async route=>rule(route,route,route+200,'路线'+route),saveQaAssignment:()=>saved.promise,qaUserOptions:()=>searched.promise})
-  q.routeId.value=98;await q.loadRule();q.reason.value='保存A';const save=q.save(), search=q.searchUsers('A');q.routeId.value=99;await q.loadRule();saved.resolve(rule(98,500,345,'迟到A'));searched.resolve([{id:345,label:'迟到A'}]);await Promise.all([save,search]);assert.equal(q.ruleId.value,99);assert.equal(q.sourceId.value,299);assert.deepEqual(q.userOptions.value,[{id:299,label:'路线99'}]);assert.deepEqual(q.messages,[])
-})
 function navigation(context) {
  const exports={};const module={exports};const text=fs.readFileSync(path.join(root,'src/utils/activeOrderHandoffNavigation.ts'),'utf8');const code=ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
  Function('exports','module','require','window',code)(exports,module,() => ({handoffNavigationContext:async id => typeof context==='function'?context(id):context}),{location:{origin:'http://localhost:8081'}});return module.exports
@@ -61,7 +38,53 @@ const voidTask=()=>({id:taskId,activeOrderId:'413',sourceId:'229',roundId:'229',
 test('作废 DONE 在原周期关闭后跳转真实个人通知页并强制只读',async()=>{
  const task=voidTask(),nav=navigation({task,current:false,processable:false});let pushed;await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)));assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.tab,'notifyMessage');assert.equal(pushed.query.handoffReadOnly,'1');assert.equal(pushed.query.reviewId,'229')
 })
-function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+const freezeTask=()=>({...voidTask(),taskType:'NCR_FREEZE_NOTICE',notificationOnly:true,reason:'NCR NCR-001 已冻结工单/批次，暂停受影响生产、检验和放行，等待QA正式处置：尺寸异常',actionUrl:voidTask().actionUrl.replace('QA_DECISION_HANDOFF','NCR_FREEZE_NOTICE')})
+test('正式冻结通知可解析并精确打开本人通知只读记录',async()=>{
+ const task=freezeTask(),nav=navigation({task,current:true,processable:false});let pushed
+ const target=nav.resolveActiveOrderHandoffTarget(params(task));assert.equal(target.query.reviewId,'229')
+ await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},target)
+ assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.handoffReadOnly,'1')
+ const p=panel({handoffNavigationContext:async()=>({task,current:true,processable:false})},{query:pushed.query})
+ await p.openVoidResult();assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.id,taskId)
+})
+test('冻结通知拒绝办理状态、伪造通知属性及非法路径和参数',async()=>{
+ const task=freezeTask(),nav=navigation(null)
+ for(const actionUrl of [task.actionUrl.replace('/user/profile','/mes/pro/process-pool/production-leader'),task.actionUrl.replace('reviewId=229','eventId=229'),task.actionUrl.replace('tab=notifyMessage','tab=workbench'),task.actionUrl+'&reviewId=229']) assert.throws(()=>nav.resolveActiveOrderHandoffTarget({...params(task),actionUrl}))
+ for(const change of [{status:'TODO'},{notificationOnly:false}]){
+  const invalid={...task,...change},n=navigation({task:invalid,current:true,processable:false});let pushed=0
+  await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushed++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/);assert.equal(pushed,0)
+ }
+})
+function panel(api, route={query:{}}, navigationContext=null){const nav=navigation(navigationContext), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineEmits:()=>()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['openTask','tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+
+const dispositionNotice = () => ({ ...freezeTask(), taskType: 'NCR_DISPOSITION_NOTICE', completionSourceId: '229',
+  reason: 'NCR NCR-001 QA处置结果：让步放行；让步不代替PQC生产放行或上市批准。处置意见：材料已核实',
+  actionUrl: freezeTask().actionUrl.replace('NCR_FREEZE_NOTICE', 'NCR_DISPOSITION_NOTICE') })
+test('QA结果告知在原周期当前或关闭后均打开同一正式只读结果', async () => {
+ for (const current of [true, false]) {
+  const task=dispositionNotice(),context={task,current,processable:false},nav=navigation(context);let pushed
+  await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)))
+  assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.reviewId,'229');assert.equal(pushed.query.handoffReadOnly,'1')
+  const p=panel({handoffNavigationContext:async()=>context},{query:pushed.query});await p.openVoidResult()
+  assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.taskType,'NCR_DISPOSITION_NOTICE')
+  const described=presentation.describeHandoffMessage(task.taskType,task.reason)
+  assert.equal(described.title,'QA处置结果通知');assert.match(described.body,/让步不代替PQC生产放行或上市批准/)
+ }
+})
+test('QA结果告知拒绝执行待办、伪造身份与业务办理路径', async () => {
+ const task=dispositionNotice(),nav=navigation(null)
+ for(const actionUrl of [task.actionUrl.replace('/user/profile','/mes/pro/process-pool/production-leader'),task.actionUrl.replace('reviewId=229','eventId=229'),task.actionUrl+'&reviewId=229'])
+  assert.throws(()=>nav.resolveActiveOrderHandoffTarget({...params(task),actionUrl}))
+ for(const change of [{status:'TODO'},{notificationOnly:false},{completionSourceId:undefined}]){
+  const invalid={...task,...change},n=navigation({task:invalid,current:false,processable:false});let pushes=0
+  await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushes++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/)
+  assert.equal(pushes,0)
+ }
+ const context={task,current:true,processable:false}
+ const query={...nav.resolveActiveOrderHandoffTarget(params(task)).query,handoffReadOnly:'1',reviewId:'230'}
+ const p=panel({handoffNavigationContext:async()=>context},{query});await p.openVoidResult()
+ assert.equal(p.resultOpen.value,false);assert.match(p.error.value,/入口与原任务/)
+})
 const handoffRows = count => Array.from({length:count},(_,index)=>({
  id:(2100000000000000000n+BigInt(index)).toString(),activeOrderId:index<76?'422':'418',
  taskType:'PQC_HANDOFF',status:index<76?'TODO':index%2?'DONE':'CANCELED',
@@ -190,6 +213,7 @@ function notifyNavigation(){
   const code=ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
   const requireSource=name=>{
    if(name.startsWith('@/utils/'))return load('src/'+name.slice(2)+'.ts')
+   if(name.startsWith('./'))return load(path.posix.normalize(path.posix.join(path.posix.dirname(file),name+'.ts')))
    if(name==='@/api/mes/pro/handoff'||name==='@/api/mes/pro/edhr/batchExecution')return{}
    throw Error('Unexpected source dependency: '+name)
   }
@@ -213,4 +237,15 @@ test('实际通知过滤保留独立精确交接，非法交接不会降级普�
  const nav=notifyNavigation(),formal=params(returnTask()),ordinary={notifyTargetType:'PRODUCT',notifyTargetId:72,detailUrl:'/bpm/process-instance/detail?id=74',followupUrl:'/dcc/controlled-file/detail/71?viewer=1&from=notification'}
  assert.deepEqual(nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal}}),[navigation(null).resolveActiveOrderHandoffTarget(formal)])
  for(const change of [{handoffType:undefined},{activeOrderId:'414'},{actionUrl:formal.actionUrl+'&roundId=700'},{actionUrl:'https://outside.example'+formal.actionUrl}])assert.throws(()=>nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal,...change}}))
+})
+
+for (const outcome of ['返工', '作废']) test('同一路由关闭后仍可再次打开QA'+outcome+'只读通知', async () => {
+ const task={...dispositionNotice(),reason:'QA处置结果：'+outcome+'；原周期不得继续生产'},context={task,current:false,processable:false}
+ const nav=navigation(context),target=nav.resolveActiveOrderHandoffTarget(params(task))
+ const query={...target.query,handoffReadOnly:'1'},route={path:'/user/profile',fullPath:'/user/profile?'+new URLSearchParams(query),query}
+ const p=panel({handoffNavigationContext:async()=>context},route,context)
+ await p.openTask(task);assert.equal(p.error.value,'');assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.id,task.id)
+ p.resultOpen.value=false
+ await p.openTask(task);assert.equal(p.error.value,'');assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.reason,task.reason)
+ assert.equal(route.fullPath,'/user/profile?'+new URLSearchParams(query))
 })

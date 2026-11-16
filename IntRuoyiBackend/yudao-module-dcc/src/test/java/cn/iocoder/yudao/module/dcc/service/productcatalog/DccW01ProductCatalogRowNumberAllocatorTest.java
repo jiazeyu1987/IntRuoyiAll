@@ -36,7 +36,7 @@ class DccW01ProductCatalogRowNumberAllocatorTest {
         int start = fixture.indexOf(marker), end = fixture.indexOf(';', start);
         if (start < 0 || end < start) throw new IllegalStateException("Missing existing H2 catalog schema");
         jdbc.execute(fixture.substring(start, end + 1));
-        assertTrue(fixture.substring(start, end + 1).contains("uk_dcc_product_catalog_source_row"), "public fixture must retain actual unique scope");
+        assertTrue(fixture.substring(start, end + 1).contains("uk_dcc_product_catalog_tenant_source_row"), "public fixture must retain actual unique scope");
         int sequenceStart = fixture.indexOf("CREATE TABLE IF NOT EXISTS dcc_product_catalog_source_sequence"), sequenceEnd = fixture.indexOf(';', sequenceStart);
         if (sequenceStart < 0 || sequenceEnd < sequenceStart) throw new IllegalStateException("Missing IC12 shared sequence schema");
         jdbc.execute(fixture.substring(sequenceStart, sequenceEnd + 1));
@@ -116,8 +116,8 @@ class DccW01ProductCatalogRowNumberAllocatorTest {
             assertEquals(value, last("瑛泰产品"));
         }
     }
-    @Test void foreignWriterUniqueCollisionPropagatesAndRollsBackAllocatedHighWater() {
-        sequence("瑛泰产品", 186); catalog("瑛泰产品", 187, 2, false);
+    @Test void sameTenantWriterUniqueCollisionPropagatesAndRollsBackAllocatedHighWater() {
+        sequence("瑛泰产品", 186); catalog("瑛泰产品", 187, 1, false);
         assertThrows(DuplicateKeyException.class, () -> tx.execute(status -> {
             int next = allocator.allocate("瑛泰产品"); catalog("瑛泰产品", next, 1, false); return next;
         }));

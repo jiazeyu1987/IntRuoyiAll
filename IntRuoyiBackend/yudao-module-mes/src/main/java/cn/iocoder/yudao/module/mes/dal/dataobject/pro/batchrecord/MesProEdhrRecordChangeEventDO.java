@@ -21,6 +21,8 @@ public class MesProEdhrRecordChangeEventDO extends BaseDO {
 
     @TableId
     private Long id;
+    private Long previousChangeEventId;
+    private String decisionReason;
     private String changeCode;
     private String changeType;
     private String targetScope;

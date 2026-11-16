@@ -25,6 +25,8 @@ public class ApprovalTaskPageReqVO {
     @Schema(description = "关键词")
     private String keyword;
 
+    private String listFilters;
+
     @Schema(description = "页码", example = "1")
     @Min(value = 1, message = "页码最小值为 1")
     private Integer pageNo = 1;
@@ -39,6 +41,7 @@ public class ApprovalTaskPageReqVO {
                 .setViewType(viewType)
                 .setModuleCode(moduleCode)
                 .setKeyword(keyword)
+                .setListFilters(listFilters)
                 .setPageNo(pageNo)
                 .setPageSize(pageSize);
     }

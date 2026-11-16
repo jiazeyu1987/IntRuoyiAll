@@ -42,7 +42,7 @@ public class MesProEdhrDeviationController {
 
     @GetMapping("/batch-options-by-active-order")
     @Operation(summary = "按活跃订单解析正式批记录偏差来源")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<java.util.List<MesProEdhrDeviationBatchOptionRespVO>> getBatchOptionsByActiveOrder(
             @jakarta.validation.constraints.NotNull Long activeOrderId) {
         return success(deviationService.getBatchOptionsByActiveOrder(activeOrderId));
@@ -56,9 +56,28 @@ public class MesProEdhrDeviationController {
         return success(deviationService.create(SecurityFrameworkUtils.getLoginUserId(), reqVO));
     }
 
+    @GetMapping("/creation-batch-options-by-active-order")
+    @Operation(summary = "生产组长查询本订单可关联的正式批记录")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:deviation-create')")
+    public CommonResult<java.util.List<MesProEdhrDeviationBatchOptionRespVO>> getCreationBatchOptionsByActiveOrder(
+            @jakarta.validation.constraints.NotNull Long activeOrderId) {
+        return success(deviationService.getCreationBatchOptionsByActiveOrder(
+                SecurityFrameworkUtils.getLoginUserId(), activeOrderId));
+    }
+
+    @PostMapping("/create-by-active-order")
+    @Operation(summary = "生产组长针对本订单发起偏差")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:deviation-create')")
+    public CommonResult<MesProEdhrDeviationRespVO> createByActiveOrder(
+            @org.springframework.web.bind.annotation.RequestParam @jakarta.validation.constraints.NotNull Long activeOrderId,
+            @Valid @RequestBody MesProEdhrDeviationCreateReqVO reqVO) {
+        reqVO.setActiveOrderId(activeOrderId);
+        return success(deviationService.create(SecurityFrameworkUtils.getLoginUserId(), reqVO));
+    }
+
     @GetMapping("/page")
     @Operation(summary = "分页查询偏差")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<PageResult<MesProEdhrDeviationRespVO>> getPage(
             @Valid MesProEdhrDeviationPageReqVO reqVO) {
         return success(deviationService.getPage(reqVO));
@@ -66,7 +85,7 @@ public class MesProEdhrDeviationController {
 
     @GetMapping("/get")
     @Operation(summary = "获取偏差详情")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrDeviationRespVO> get(@jakarta.validation.constraints.NotNull Long id) {
         return success(deviationService.get(id));
     }

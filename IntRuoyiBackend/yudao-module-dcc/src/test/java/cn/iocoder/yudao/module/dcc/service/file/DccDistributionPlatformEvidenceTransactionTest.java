@@ -40,8 +40,8 @@ class DccDistributionPlatformEvidenceTransactionTest extends DccDistributionOutb
     private int sendCalls;
 
     @AfterEach void cleanPrivatePlatformRows() {
-        jdbc.update("DELETE FROM system_notify_message WHERE template_id=?", TEMPLATE_ID);
-        jdbc.update("DELETE FROM system_notify_template WHERE id=?", TEMPLATE_ID);
+        jdbc.update("DELETE FROM system_tenant_notify_message WHERE template_id=?", TEMPLATE_ID);
+        jdbc.update("DELETE FROM system_tenant_notify_template WHERE id=?", TEMPLATE_ID);
     }
 
     @Test void afterCommitTwoRecipientsReadRealPlatformEvidenceOutsideTheOldDccResources() {
@@ -175,12 +175,12 @@ class DccDistributionPlatformEvidenceTransactionTest extends DccDistributionOutb
     private void corruptPrivateRow(Long id, String mismatch) {
         // Fault injection touches only freshly created rows in the asserted private H2 database.
         String sql = switch (mismatch) {
-            case "MISSING" -> "DELETE FROM system_notify_message WHERE id=?";
-            case "TENANT" -> "UPDATE system_notify_message SET tenant_id=2 WHERE id=?";
-            case "RECIPIENT" -> "UPDATE system_notify_message SET user_id=999 WHERE id=?";
-            case "USER_TYPE" -> "UPDATE system_notify_message SET user_type='1' WHERE id=?";
-            case "TEMPLATE" -> "UPDATE system_notify_message SET template_code='private-other' WHERE id=?";
-            case "BUSINESS_KEY" -> "UPDATE system_notify_message SET business_key='private-other-key' WHERE id=?";
+            case "MISSING" -> "DELETE FROM system_tenant_notify_message WHERE id=?";
+            case "TENANT" -> "UPDATE system_tenant_notify_message SET tenant_id=2 WHERE id=?";
+            case "RECIPIENT" -> "UPDATE system_tenant_notify_message SET user_id=999 WHERE id=?";
+            case "USER_TYPE" -> "UPDATE system_tenant_notify_message SET user_type='1' WHERE id=?";
+            case "TEMPLATE" -> "UPDATE system_tenant_notify_message SET template_code='private-other' WHERE id=?";
+            case "BUSINESS_KEY" -> "UPDATE system_tenant_notify_message SET business_key='private-other-key' WHERE id=?";
             default -> throw new IllegalArgumentException(mismatch);
         };
         assertEquals(1, jdbc.update(sql, id));

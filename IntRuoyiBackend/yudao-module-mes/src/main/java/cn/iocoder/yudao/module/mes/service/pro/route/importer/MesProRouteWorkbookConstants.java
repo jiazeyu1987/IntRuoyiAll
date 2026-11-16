@@ -16,7 +16,7 @@ final class MesProRouteWorkbookConstants {
     static final String FLOW_PROCESS_CONFIG_SHEET = "工序用途配置";
     static final String BATCH_RECORD_SHEET = "工序表单绑定";
 
-    static final List<String> ROUTE_HEADERS = List.of("路线编码", "路线名称", "状态", "负责人", "说明", "备注");
+    static final List<String> ROUTE_HEADERS = List.of("路线编码", "路线名称", "状态", "负责人", "说明", "备注", "项目代码");
     static final List<String> PROCESS_HEADERS = List.of("路线编码", "序号", "工序编码", "工序名称",
             "准备时间", "等待时间", "颜色", "关键工序", "质检工序", "备注");
     static final List<String> FLOW_HEADERS = List.of("路线编码", "源工序编码", "目标工序编码", "关系类型");

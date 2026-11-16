@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification;
 
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.handler.DefaultDBFieldHandler;
@@ -122,7 +123,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         LocalDateTime earliestUtc = LocalDateTime.now(ZoneOffset.UTC).minusSeconds(1);
         f.schedule();
         assertEquals(2, f.count(DELIVERY));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(Set.of(PREFIX + "created", PREFIX + "attempted", PREFIX + "sent", PREFIX + "failed"),
                 Set.copyOf(f.events().stream().map(GxpAuditEventDO::getOperationId).toList()));
         assertEquals(6, f.count(EVENT));
@@ -153,7 +154,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals("SENT", f.status(id));
         assertEquals("DONE", f.task.getStatus());
         assertEquals(frozen, f.frozen(id));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         List<GxpAuditEventDO> newEvents = f.events().subList(priorEvents, f.count(EVENT));
         assertEquals(2, newEvents.size());
         for (GxpAuditEventDO event : newEvents) {
@@ -166,7 +167,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         }
         int events = f.count(EVENT);
         assertThrows(RuntimeException.class, () -> f.retry(id, f.version(id), "已成功不得重放"));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(events, f.count(EVENT));
         verify(f.taskMapper, never()).updateById(any(MesProEdhrWorkTaskDO.class));
     }
@@ -182,7 +183,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
             assertEquals(2, f.count(EVENT));
             assertEquals(4, f.count(RELATION));
             assertEquals(3L, f.watermark());
-            assertEquals(0, f.count("system_notify_message"));
+            assertEquals(0, f.count("system_tenant_notify_message"));
             throw new IllegalStateException("injected source failure after actual created ledger SQL");
         }));
         assertEquals(0, f.count("parent_marker"));
@@ -190,7 +191,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals(0, f.count(EVENT));
         assertEquals(0, f.count(RELATION));
         assertEquals(1L, f.watermark());
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -205,7 +206,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals(0, f.count(EVENT));
         assertEquals(0, f.count(RELATION));
         assertEquals(1L, f.watermark());
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -222,7 +223,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals(0, f.count(EVENT));
         assertEquals(0, f.count(RELATION));
         assertEquals(1L, f.watermark());
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
     }
 
     @Test
@@ -234,8 +235,8 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         f.failRelation("sent");
         assertThrows(RuntimeException.class, () -> f.retry(10L, 0, "首次投递但本地成功审计失败"));
         assertPhysicalFailure("sent", "SENT", 2, 1);
-        assertEquals(1, f.count("system_notify_message"));
-        Long originalMessage = f.jdbc.queryForObject("SELECT id FROM system_notify_message", Long.class);
+        assertEquals(1, f.count("system_tenant_notify_message"));
+        Long originalMessage = f.jdbc.queryForObject("SELECT id FROM system_tenant_notify_message", Long.class);
         assertEquals("FAILED", f.status(10L), "independent failure ACK must leave an observable recoverable receipt");
         assertEquals(2, f.version(10L));
         assertEquals(List.of(PREFIX + "attempted", PREFIX + "failed"), f.events().stream().map(GxpAuditEventDO::getOperationId).toList());
@@ -244,9 +245,9 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         f.retry(10L, f.version(10L), "恢复已经提交的平台消息回执");
         assertEquals("SENT", f.status(10L));
         assertEquals(frozen, f.frozen(10L));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(originalMessage, f.jdbc.queryForObject("SELECT system_message_id FROM " + DELIVERY, Long.class));
-        assertEquals(KEY, f.jdbc.queryForObject("SELECT business_key FROM system_notify_message", String.class));
+        assertEquals(KEY, f.jdbc.queryForObject("SELECT business_key FROM system_tenant_notify_message", String.class));
         assertEquals(1, f.events().stream().filter(event -> event.getOperationId().equals(PREFIX + "sent")).count());
         assertKernelLedger(f, 346L, f.startedUtc.minusSeconds(1));
     }
@@ -266,11 +267,11 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals(PREFIX + "attempted", f.events().get(0).getOperationId());
         assertEquals(2, f.count(RELATION));
         assertEquals(2L, f.watermark());
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
         f.templateStatus = call -> 0;
         f.retry(10L, f.version(10L), "恢复配置及原投递");
         assertEquals("SENT", f.status(10L));
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(0, f.events().stream().filter(event -> event.getOperationId().equals(PREFIX + "failed")).count());
         assertKernelLedger(f, 346L, f.startedUtc.minusSeconds(1));
     }
@@ -302,7 +303,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertEquals(expectedEvents, f.count(EVENT));
         assertEquals(expectedEvents * 2, f.count(RELATION));
         assertEquals(expectedEvents + 1L, f.watermark());
-        assertEquals("sent".equals(action) ? 1 : 0, f.count("system_notify_message"));
+        assertEquals("sent".equals(action) ? 1 : 0, f.count("system_tenant_notify_message"));
         assertEquals(0, f.events().stream().filter(event -> event.getOperationId().equals(PREFIX + action)).count());
     }
 
@@ -330,14 +331,14 @@ class MesReleaseTaskNotificationKernelTransactionTest {
         assertThrows(RuntimeException.class, () -> f.dispatcher.retryDelivery(2L, 346L, 10L, 0, "其他租户不能发送此回执"));
         assertThrows(RuntimeException.class, () -> f.scheduler.listForTask(2L, 346L, 900L));
         assertEquals(0, f.count(EVENT));
-        assertEquals(0, f.count("system_notify_message"));
+        assertEquals(0, f.count("system_tenant_notify_message"));
         assertEquals(0, f.version(10L));
         f.actor(1L, 347L);
         assertThrows(RuntimeException.class, () -> f.retry(10L, 0, "不是原收件人"));
         assertEquals(0, f.count(EVENT));
         f.actor(1L, 346L);
         f.retry(10L, 0, "正式本人投递");
-        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(1, f.count("system_tenant_notify_message"));
         assertEquals(2, f.count(EVENT));
         assertKernelLedger(f, 346L, f.startedUtc.minusSeconds(1));
         for (GxpAuditEventDO event : f.events()) {
@@ -440,7 +441,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
                             if (!actual.next()) { throw new SQLException("injected failure did not reach an actual receipt"); }
                             FAILURES.add(new FailureObservation(operation, count(connection, DELIVERY), count(connection, EVENT),
                                     scalar(connection, "SELECT next_ledger_sequence FROM gxp_audit_ledger_sequence WHERE tenant_id=1"),
-                                    eventSequence, actual.getString(1), actual.getInt(2), count(connection, "system_notify_message"),
+                                    eventSequence, actual.getString(1), actual.getInt(2), count(connection, "system_tenant_notify_message"),
                                     count(connection, "parent_marker")));
                         }
                     }
@@ -494,11 +495,12 @@ class MesReleaseTaskNotificationKernelTransactionTest {
             GlobalConfigUtils.setGlobalConfig(configuration, global);
             for (Class<?> mapper : List.of(MesReleaseTaskNotifyDeliveryMapper.class, NotifyMessageMapper.class,
                     GxpAuditEventMapper.class, GxpAuditEventRelationMapper.class, GxpAuditLedgerSequenceMapper.class,
-                    GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class)) { configuration.addMapper(mapper); }
+                    GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class, AdminUserMapper.class)) { configuration.addMapper(mapper); }
             var factory = new MybatisSqlSessionFactoryBean();
             factory.setGlobalConfig(global); factory.setDataSource(source); factory.setConfiguration(configuration);
             sessions = new SqlSessionTemplate(Objects.requireNonNull(factory.getObject()));
             var writer = new GxpAuditServiceImpl();
+            field(writer, "adminUserMapper", mapper(AdminUserMapper.class));
             field(writer, "auditEventMapper", mapper(GxpAuditEventMapper.class));
             field(writer, "eventRelationMapper", mapper(GxpAuditEventRelationMapper.class));
             field(writer, "ledgerSequenceMapper", mapper(GxpAuditLedgerSequenceMapper.class));
@@ -549,7 +551,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
             business.executeWithoutResult(tx -> {
                 jdbc.update("INSERT INTO parent_marker(id) VALUES(1)");
                 scheduler.scheduleAssigned(task, 341L);
-                assertEquals(0, count("system_notify_message"), "actual platform chain must wait for source commit");
+                assertEquals(0, count("system_tenant_notify_message"), "actual platform chain must wait for source commit");
             });
         }
         void retry(Long id, Integer version, String reason) {
@@ -624,7 +626,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
                       deleted BOOLEAN DEFAULT FALSE NOT NULL,UNIQUE(tenant_id,work_task_id,event_type,user_id),UNIQUE(tenant_id,business_key))
                     """);
             jdbc.execute("""
-                    CREATE TABLE system_notify_message (
+                    CREATE TABLE system_tenant_notify_message (
                       id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT NOT NULL,user_id BIGINT NOT NULL,user_type INT NOT NULL,
                       business_key VARCHAR(255),template_id BIGINT,template_code VARCHAR(128),template_type INT,
                       template_nickname VARCHAR(255),template_content LONGTEXT,template_params LONGTEXT,
@@ -633,6 +635,8 @@ class MesReleaseTaskNotificationKernelTransactionTest {
                       deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,business_key))
                     """);
             jdbc.execute("CREATE TABLE parent_marker(id BIGINT PRIMARY KEY)");
+            jdbc.execute("CREATE TABLE system_users (id BIGINT PRIMARY KEY,tenant_id BIGINT NOT NULL,status INT NOT NULL,username VARCHAR(64),nickname VARCHAR(64),deleted BOOLEAN DEFAULT FALSE)");
+            for(long userId:new long[]{341,346,347}) jdbc.update("INSERT INTO system_users (id,tenant_id,status,username,nickname) VALUES (?,1,0,?,?)",userId,"kernel-notify-"+userId,"kernel-notify-"+userId);
         }
     }
 

@@ -1,0 +1,37 @@
+{
+  "formatVersion": "DCC_APPROVAL_MATRIX_BASELINE_V2",
+  "tenantId": "1",
+  "categoryId": "2",
+  "fileTypeTaxonomyId": "4",
+  "routeId": "9007199254740993",
+  "routeVersionNo": 2,
+  "actionType": "LEGACY",
+  "effectiveTime": "2026-10-11 00:00:00.000000000",
+  "routeRemark": null,
+  "nodes": [
+    {
+      "id": "40",
+      "stageNo": 1,
+      "stageCode": "MATRIX_REVIEW",
+      "stageName": "会签",
+      "stageOrder": 1,
+      "sort": 1,
+      "candidateSourceType": "DEPT",
+      "candidateSourceId": "7",
+      "candidateSourceIds": "7, 8",
+      "approveMethod": "ALL",
+      "approveRatio": 100,
+      "requireAllApprovals": true,
+      "required": true,
+      "stageType": "SIGNOFF",
+      "subjectLabel": "质量",
+      "marker": "◎",
+      "subjectType": "DEPT",
+      "subjectId": "7",
+      "subjectName": "质量部",
+      "subjectDepartmentPath": "公司/质量部",
+      "ruleRemark": "原备注\r\n不改"
+    }
+  ],
+  "matrixDigest": "2222222222222222222222222222222222222222222222222222222222222222"
+}

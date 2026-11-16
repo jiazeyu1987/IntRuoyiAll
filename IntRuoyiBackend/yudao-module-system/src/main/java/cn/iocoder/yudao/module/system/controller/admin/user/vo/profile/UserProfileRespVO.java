@@ -13,6 +13,12 @@ import java.util.List;
 @Schema(description = "管理后台 - 用户个人中心信息 Response VO")
 public class UserProfileRespVO {
 
+    @Schema(description = "当前认证用户所属租户编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long tenantId;
+
+    @Schema(description = "当前认证用户所属租户名称", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String tenantName;
+
     @Schema(description = "用户编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
     private Long id;
 

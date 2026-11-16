@@ -123,11 +123,17 @@
 <script lang="ts" setup>
 import { useCache } from '@/hooks/web/useCache'
 import { propTypes } from '@/utils/propTypes'
+import { usePermissionStore } from '@/store/modules/permission'
 
 interface SearchHistoryRecord {
   label: string
   value: string
   query: string
+}
+
+interface SearchMenuNode {
+  path: string
+  children?: SearchMenuNode[]
 }
 
 const ROUTER_SEARCH_HISTORY_KEY = 'routerSearchHistory'
@@ -150,6 +156,7 @@ defineProps({
 
 const { wsCache } = useCache()
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const showSearch = ref(false)
 const showTopSearch = ref(false)
 const value = ref('')
@@ -157,6 +164,25 @@ const value = ref('')
 function getSearchRoutes() {
   return router.getRoutes()
 }
+
+// 注册后的多级路由已被拍平，目录须从原始菜单树识别，不能按 URL 前缀推断。
+const directoryPaths = computed(() => {
+  const paths = new Set<string>()
+  const visit = (routes: readonly SearchMenuNode[], parentPath = '') => {
+    for (const route of routes) {
+      const path = normalizeSearchPath(
+        route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
+      )
+      // 空路径子节点只是独立页面的布局包装，不属于菜单目录。
+      if (route.children?.some((child) => child.path !== '')) {
+        paths.add(path)
+      }
+      if (route.children) visit(route.children, path)
+    }
+  }
+  visit(permissionStore.routers)
+  return paths
+})
 
 const recentOptions = ref<SearchHistoryRecord[]>(loadSearchHistory())
 
@@ -198,7 +224,12 @@ function findRouteBySearchPath(path: string) {
 }
 
 function isSearchableRoute(route: any) {
-  return Boolean(route?.path && route?.meta?.title && !route.meta?.hidden)
+  return Boolean(
+    route?.path &&
+      route?.meta?.title &&
+      !route.meta?.hidden &&
+      !directoryPaths.value.has(normalizeSearchPath(route.path))
+  )
 }
 
 function getRouteSearchAliases(route: any) {
@@ -224,6 +255,9 @@ function createSearchRecord(route: any, query: string): SearchHistoryRecord {
 }
 
 function resolveSearchablePath(path: string) {
+  if (directoryPaths.value.has(normalizeSearchPath(path))) {
+    return ''
+  }
   const route = findRouteBySearchPath(path)
   if (!route) {
     return ''

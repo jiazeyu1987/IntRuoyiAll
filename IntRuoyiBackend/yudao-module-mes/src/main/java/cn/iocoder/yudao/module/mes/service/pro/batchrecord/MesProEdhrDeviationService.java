@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface MesProEdhrDeviationService {
 
+    List<MesProEdhrDeviationBatchOptionRespVO> getCreationBatchOptionsByActiveOrder(Long actorUserId, Long activeOrderId);
+
     PageResult<MesProEdhrDeviationBatchOptionRespVO> getBatchOptions(
             MesProEdhrDeviationBatchOptionPageReqVO reqVO);
 

@@ -21,24 +21,20 @@
       @quick-filter-query="applyStockMoveQuickFilter"
       @column-change="saveStockMoveColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="syncLoading"
-          @click="handleKingdeeSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="STOCK_MOVE" />
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           class="stock-move-table stock-move-table--locked"
           v-loading="loading || stockMoveColumnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           height="calc(100vh - 304px)"
           border
           stripe
@@ -149,8 +145,11 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { ErpKingdeeStockMoveApi, type ErpKingdeeStockMoveVO } from '@/api/erp/stock/kingdeeStockMove'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -202,12 +201,12 @@ const stockMoveQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const message = useMessage()
-const loading = ref(true)
-const syncLoading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const list = ref<ErpKingdeeStockMoveVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   sourceBillNo: undefined as string | undefined,
@@ -227,6 +226,17 @@ const {
   saveConfig: saveStockMoveColumnConfig
 } = useUserTableColumns(STOCK_MOVE_TABLE_KEY, stockMoveDefaultColumns)
 
+const getBillDateRequestRange = () => {
+  if (!queryParams.billDate || queryParams.billDate.length !== 2) return undefined
+  return [`${queryParams.billDate[0]} 00:00:00`, `${queryParams.billDate[1]} 23:59:59`]
+}
+
+const getList = () => listRequest.run(
+  () => ErpKingdeeStockMoveApi.getStockMovePage({ ...queryParams, billDate: getBillDateRequestRange() }),
+  (data) => { list.value = data.list; total.value = data.total }
+)
+
+
 const {
   state: stockMoveQuickFilterState,
   selectedDefinition: stockMoveSelectedFilterDefinition,
@@ -242,38 +252,22 @@ const {
 
 const firstItem = (row: ErpKingdeeStockMoveVO) => row.items?.[0]
 
-const getBillDateRequestRange = () => {
-  if (!queryParams.billDate || queryParams.billDate.length !== 2) return undefined
-  return [`${queryParams.billDate[0]} 00:00:00`, `${queryParams.billDate[1]} 23:59:59`]
-}
-
-async function getList() {
-  loading.value = true
-  try {
-    const requestParams = {
-      ...queryParams,
-      billDate: getBillDateRequestRange()
-    }
-    const data = await ErpKingdeeStockMoveApi.getStockMovePage(requestParams)
-    list.value = data.list
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleKingdeeSync = async () => {
-  syncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('STOCK_MOVE')
-    message.success('金蝶调拨单增量同步任务已提交')
-    await getList()
-  } finally {
-    syncLoading.value = false
-  }
-}
-
 onMounted(getList)
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'fromWarehouseName',
+    label: '调出仓库',
+    type: 'text',
+    getValue: (row) => [firstItem(row)?.fromWarehouseName || '-'].join(' ')
+  },
+  {
+    key: 'toWarehouseName',
+    label: '调入仓库',
+    type: 'text',
+    getValue: (row) => [firstItem(row)?.toWarehouseName || '-'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

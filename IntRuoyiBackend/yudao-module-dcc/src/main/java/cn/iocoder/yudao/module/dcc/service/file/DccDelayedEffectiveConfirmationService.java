@@ -53,7 +53,7 @@ public class DccDelayedEffectiveConfirmationService {
         if(request==null || request.getSelectedEffectiveTime()==null || request.getPassword()==null || request.getPassword().isBlank()
                 || request.getReason()!=null && request.getReason().trim().length()>500
                 || request.getIdempotencyKey()==null || request.getIdempotencyKey().isBlank() || request.getIdempotencyKey().length()>128
-                || !request.getIdempotencyKey().equals(request.getIdempotencyKey().trim())) throw invalid("请填写本次生效时间、电子签名密码及幂等身份");
+                || !request.getIdempotencyKey().equals(request.getIdempotencyKey().trim())) throw invalid("请填写本次生效时间、电子签名凭据及幂等身份");
         String reason=ApprovalReviewReason.normalize(request.getReason());
         var locked=lock(actor,id);var file=locked.file();var bound=boundContracts.resolve(file);
         requireExpected(bound,request);

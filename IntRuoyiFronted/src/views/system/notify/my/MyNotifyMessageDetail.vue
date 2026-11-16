@@ -38,9 +38,9 @@
           class="notify-message-detail__content-button"
           @click="handleContentClick"
         >
-          {{ detailData.templateContent || '-' }}
+          <BusinessMessageContent :description="messageDescription" />
         </button>
-        <p v-else>{{ detailData.templateContent || '-' }}</p>
+        <BusinessMessageContent v-else :description="messageDescription" />
       </section>
 
       <HandlingTaskPanel v-if="detailData.templateCode === 'DCC_REGISTRATION_HANDLING_TASK' && normalizeTemplateParams(detailData.templateParams)?.handlingTaskId"
@@ -95,6 +95,8 @@
 import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
+import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
+import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import HandlingTaskPanel from '@/views/dcc/registration-certificate/components/HandlingTaskPanel.vue'
 import ChangeConfirmationsPanel from '@/views/dcc/registration-certificate/components/ChangeConfirmationsPanel.vue'
 import { getControlledFileApplicationRestartContext, prepareControlledFileApplicationRestart,
@@ -118,6 +120,7 @@ defineOptions({ name: 'MyNotifyMessageDetailDetail' })
 const dialogVisible = ref(false)
 const detailLoading = ref(false)
 const detailData = ref({} as NotifyMessageApi.NotifyMessageVO)
+const messageDescription = computed(() => describeNotifyMessage(detailData.value))
 const router = useRouter()
 const message = useMessage()
 const applicationRestart = ref<ControlledFileApplicationRestartContext | null>(null)
@@ -185,6 +188,10 @@ const dccProjectProductNavigation = computed(
 const templateParamLabels: Record<string, string> = {
   processInstanceName: '流程名称',
   taskName: '任务名称',
+  activeOrderId: '原交接周期编号',
+  workOrderCode: '工单编号',
+  batchCode: '批次编号',
+  processName: '工序名称',
   startUserNickname: '申请人',
   reason: '原因',
   businessTitle: '业务标题',
@@ -217,7 +224,8 @@ const templateParamEntries = computed(() => {
     return []
   }
   return Object.entries(templateParams)
-    .filter(([key, value]) => !hiddenTemplateParamKeys.has(key) && value !== undefined && value !== null && value !== '')
+    .filter(([key, value]) => !hiddenTemplateParamKeys.has(key) && value !== undefined && value !== null && value !== ''
+      && !(detailData.value.templateCode === 'MES_ACTIVE_ORDER_HANDOFF' && ['reason', 'taskName'].includes(key)))
     .map(([key, value]) => ({
       key,
       label: templateParamLabels[key] || key,

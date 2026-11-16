@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getApprovalTaskPage } from '@/api/approval-center'
+import { getApprovalTodoCount } from '@/api/approval-center'
 import { checkPermi } from '@/utils/permission'
 import { store } from '../index'
 import { effectScope, watch } from 'vue'
@@ -7,7 +7,6 @@ import { useApprovalCenterInvalidationStore } from './approvalCenterInvalidation
 import { createApprovalBadgeLoader } from './approvalCenterInvalidationState'
 
 const TODO_TOTAL_REFRESH_INTERVAL_MS = 30 * 1000
-const APPROVAL_TODO_BADGE_PAGE_SIZE = 10
 
 let badgeLoader: ReturnType<typeof createApprovalBadgeLoader> | undefined
 let badgeScopeInitialized = false
@@ -56,10 +55,9 @@ export const useApprovalTodoBadgeStore = defineStore('approvalTodoBadge', {
       badgeScopeInitialized = true
       badgeLoader = createApprovalBadgeLoader({
         contextKey: () => JSON.stringify([invalidation.syncSession().key, invalidation.todoRevision]),
-        request: async (isRequestContextCurrent) => (await getApprovalTaskPage(
-          { pageNo: 1, pageSize: APPROVAL_TODO_BADGE_PAGE_SIZE, viewType: 'TODO' },
+        request: (isRequestContextCurrent) => getApprovalTodoCount(
           { ignoreErrorMessage: true, isRequestContextCurrent }
-        )).total,
+        ),
         commit: (total) => this.applyTodoTotal(total),
         start: () => { this.loading = true; this.error = '' },
         fail: (error) => { this.error = resolveTodoBadgeError(error) },

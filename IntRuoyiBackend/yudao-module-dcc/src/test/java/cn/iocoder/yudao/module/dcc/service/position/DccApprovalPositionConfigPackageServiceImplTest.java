@@ -49,4 +49,27 @@ class DccApprovalPositionConfigPackageServiceImplTest extends BaseDbUnitTest {
         String exported = new String(configPackageService.exportPackage());
         assertEquals("{\"packageVersion\":\"1\",\"positions\":[]}", exported);
     }
+
+    @Test
+    void relationshipRuleRoundTripKeepsDynamicTypeAndNoAccountId() {
+        var relation = new DccApprovalPositionConfigPackageServiceImpl.DccPositionAssignmentConfigItem();
+        relation.setAssignmentType("DIRECT_SUPERVISOR");
+        relation.setActive(true);
+        var position = new DccApprovalPositionConfigPackageServiceImpl.DccApprovalPositionConfigItem();
+        position.setCode("DYNAMIC-SUPERVISOR");
+        position.setName("动态审核");
+        position.setSource("MANUAL");
+        position.setActive(true);
+        position.setAssignments(java.util.List.of(relation));
+        var payload = new DccApprovalPositionConfigPackageServiceImpl.DccApprovalPositionConfigPackage();
+        payload.setPackageVersion("1");
+        payload.setPositions(java.util.List.of(position));
+        configPackageService.importPackage(JsonUtils.toJsonByte(payload));
+        var exported = JsonUtils.parseObject(new String(configPackageService.exportPackage(), java.nio.charset.StandardCharsets.UTF_8),
+                DccApprovalPositionConfigPackageServiceImpl.DccApprovalPositionConfigPackage.class);
+        var actual = exported.getPositions().get(0).getAssignments().get(0);
+        assertEquals("DIRECT_SUPERVISOR", actual.getAssignmentType());
+        org.junit.jupiter.api.Assertions.assertNull(actual.getUserId());
+        org.junit.jupiter.api.Assertions.assertNull(actual.getSystemPostId());
+    }
 }

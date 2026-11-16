@@ -20,7 +20,7 @@ const extractFunction = (name, nextName) => {
 }
 
 const open = extractFunction('open', 'assertRouteCandidateVersionWritable')
-const handleRouteTabChange = extractFunction('handleRouteTabChange', 'loadDccProjectBinding')
+const handleStartSettingSelect = extractFunction('handleStartSettingSelect', 'loadDccProjectData')
 
 assert.match(
   editPage,
@@ -28,15 +28,15 @@ assert.match(
   'Route edit deep links must allow the DCC tab as an initial tab'
 )
 const loadDccProjectData = extractFunction('loadDccProjectData', 'loadDccProjectBinding')
-assert.match(
+assert.doesNotMatch(
   open,
-  /const shouldLoadDccProjectData = activeTab\.value === 'dcc'[\s\S]*if \(shouldLoadDccProjectData\) \{[\s\S]*await loadDccProjectData\(\)/,
-  'opening directly to the DCC tab must load the route binding without waiting for a manual tab-change event'
+  /loadDccProjectData\(\)/,
+  'opening the flow graph must defer DCC data until the project setting is selected'
 )
 assert.match(
-  handleRouteTabChange,
-  /tabName === 'dcc'[\s\S]*loadDccProjectData\(\)/,
-  'DCC data must load only when the DCC tab becomes active'
+  handleStartSettingSelect,
+  /setting === 'dcc'[\s\S]*loadDccProjectData\(\)/,
+  'DCC data must load when the START project setting becomes active'
 )
 assert.match(
   loadDccProjectData,

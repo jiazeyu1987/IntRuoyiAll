@@ -68,20 +68,14 @@
       prop="assignEmptyHandlerUserIds"
       span="24"
     >
-      <el-select
+      <UserSelectV2
         v-model="assignEmptyUserIds"
         clearable
         multiple
         style="width: 100%"
         @change="updateAssignEmptyUserIds"
-      >
-        <el-option
-          v-for="item in userOptions"
-          :key="item.id"
-          :label="item.nickname"
-          :value="item.id"
-        />
-      </el-select>
+        :user-options="userOptions"
+      />
     </el-form-item>
 
     <el-divider content-position="left">审批人与提交人为同一人时</el-divider>
@@ -198,6 +192,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   ASSIGN_START_USER_HANDLER_TYPES,
   RejectHandlerType,

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.approval;
 
+import cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -195,6 +196,33 @@ public class MesManagerReleaseCompletedActorResolver {
                 && (review.getBatchExecutionId() == null || Objects.equals(application.getBatchExecutionId(), review.getBatchExecutionId()))
                 && Objects.equals(application.getWorkOrderId(), review.getWorkOrderId())
                 && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "formal QA closure is missing or mismatched");
+        return requireQaSignature(taskId, review);
+    }
+
+    /** Exact QA review decision for its own handoff; no application or latest-row inference. */
+    public cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO readVerifiedQaReview(
+            Long taskId, Long reviewId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        require(positive(reviewId), taskId, "QA review identity missing");
+        var review = nonconformanceReviews.selectOne(new LambdaQueryWrapperX<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO>()
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getId, reviewId)
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getTenantId, tenantId));
+        require(review != null && Objects.equals(reviewId, review.getId()) && Objects.equals(tenantId, review.getTenantId())
+                && !Boolean.TRUE.equals(review.getDeleted()) && "closed".equals(review.getReviewStatus())
+                && Set.of("concession_release", "rework", "void").contains(review.getDisposition())
+                && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "QA review decision missing or mismatched");
+        String hash = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrQaDispositionAggregateHash.build(review,
+                review.getDisposition(), review.getReviewMaterialUrl(), review.getReviewMaterialFileId(),
+                review.getReviewMaterialsJson(), review.getReviewOpinion(), review.getQaUserId());
+        require(Objects.equals(hash, JsonUtils.parseTree(review.getTraceSnapshotJson()).path("qaSignatureSnapshotJson")
+                .path("aggregateHash").asText()), taskId, "QA decision content differs from the signed aggregate");
+        return requireQaSignature(taskId, review);
+    }
+
+    private cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO requireQaSignature(
+            Long taskId, cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO review) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String disposition = review.getDisposition();
         var actor = users.selectById(review.getQaUserId());
         require(actor != null && Objects.equals(review.getQaUserId(), actor.getId())
                 && Objects.equals(tenantId, actor.getTenantId()) && !Boolean.TRUE.equals(actor.getDeleted()),
@@ -209,7 +237,7 @@ public class MesManagerReleaseCompletedActorResolver {
         require(evidence != null && Objects.equals(signatureId, evidence.id()) && Objects.equals(actor.getId(), evidence.actorId())
                 && "MES".equals(evidence.moduleCode()) && "QA_DISPOSITION".equals(evidence.actionCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
-                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) && evidence.signedAt() != null
+                && SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD") && evidence.signedAt() != null
                 && Objects.equals(review.getReviewOpinion(), evidence.reason()) && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "QA closure signature identity is inconsistent");
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "QA_DISPOSITION",
@@ -237,7 +265,7 @@ public class MesManagerReleaseCompletedActorResolver {
                 && Objects.equals(application.getPqcDecidedBy(), evidence.actorId()) && evidence.signedAt() != null
                 && "MES".equals(evidence.moduleCode()) && "PQC_RELEASE".equals(evidence.actionCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
-                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
+                && SignatureCredentialPolicy.matchesMethod(evidence.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                 && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "formal PQC approval signature identity is inconsistent");
         var verified = verifiedContent(signatureId).signatureFact().verification();

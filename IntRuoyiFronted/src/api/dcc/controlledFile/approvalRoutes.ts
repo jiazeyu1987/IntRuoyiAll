@@ -79,6 +79,7 @@ export interface ControlledFileApprovalRouteSaveReqVO {
 }
 
 export interface ControlledFileApprovalRoutePageReqVO {
+  listFilters?: string
   pageNo: number
   pageSize: number
   categoryId?: number

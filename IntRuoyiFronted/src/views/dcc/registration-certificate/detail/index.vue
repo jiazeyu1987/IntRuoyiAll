@@ -345,22 +345,6 @@
         </div>
       </el-card>
 
-      <el-card class="detail-card" shadow="never">
-        <template #header>历史记录</template>
-        <el-table :data="otherHistory">
-          <el-table-column label="事件" prop="eventType" min-width="150" />
-          <el-table-column label="对象" prop="itemType" min-width="150" />
-          <el-table-column label="操作人" prop="actorId" width="120" />
-          <el-table-column label="变更前" prop="beforeValueJson" min-width="220" show-overflow-tooltip />
-          <el-table-column label="变更后" prop="afterValueJson" min-width="220" show-overflow-tooltip />
-          <el-table-column label="批件文件" width="120">
-            <template #default="{ row }">
-              <el-tag v-if="row.businessFileId" type="success">可申请下载</el-tag>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
     </div>
 
     <Dialog
@@ -496,10 +480,6 @@ const changeHistory = computed(() => {
     })
   return Array.from(grouped.values()).reverse()
 })
-const otherHistory = computed(() => history.value
-  .filter((item) => item.eventType !== 'RENEWAL_UPLOADED'
-    && item.eventType !== 'CHANGE_SUBMITTED'
-    && item.eventType !== 'CHANGE_APPLIED'))
 
 const formatBooleanChoice = (value?: boolean) => {
   if (value === true) return '是'

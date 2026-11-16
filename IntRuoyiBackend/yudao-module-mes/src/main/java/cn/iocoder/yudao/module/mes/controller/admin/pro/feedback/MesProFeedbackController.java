@@ -106,14 +106,14 @@ public class MesProFeedbackController {
 
     @PostMapping("/create")
     @Operation(summary = "创建生产报工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<Long> createFeedback(@Valid @RequestBody MesProFeedbackSaveReqVO createReqVO) {
         return success(feedbackService.createFeedback(createReqVO));
     }
 
     @PostMapping("/frontline/submit")
     @Operation(summary = "一线报工与记录本一体提交")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProFrontlineFeedbackSubmitRespVO> frontlineSubmit(
             @Valid @RequestBody MesProFrontlineFeedbackSubmitReqVO reqVO) {
         return success(frontlineFeedbackSubmitService.submit(reqVO));
@@ -124,7 +124,7 @@ public class MesProFeedbackController {
     @Parameters({
             @Parameter(name = "file", description = "第三方报工 Excel 文件", required = true)
     })
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<ThirdPartyFeedbackImportResult> importThirdPartyXlsx(@RequestParam("file") MultipartFile file) {
         return success(thirdPartyFeedbackImportService.importWorkbook(file));
     }
@@ -134,7 +134,7 @@ public class MesProFeedbackController {
     @Parameters({
             @Parameter(name = "file", description = "李萍报工单 Excel 文件", required = true)
     })
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<ThirdPartyFeedbackImportResult> importDirectWorkReportXlsx(@RequestParam("file") MultipartFile file) {
         return success(thirdPartyFeedbackImportService.importDirectWorkReportWorkbook(file));
     }
@@ -142,7 +142,7 @@ public class MesProFeedbackController {
     @PostMapping("/simulate-import-third-party-xlsx")
     @Operation(summary = "模拟导入第三方生产报工 Excel")
     @Parameter(name = "processCount", description = "随机模拟的订单工序数量", required = true)
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<ThirdPartyFeedbackImportResult> simulateThirdPartyXlsxImport(
             @RequestParam("processCount") @Min(1) @Max(20) Integer processCount) {
         return success(thirdPartyFeedbackImportService.simulateImportWorkbook(processCount));

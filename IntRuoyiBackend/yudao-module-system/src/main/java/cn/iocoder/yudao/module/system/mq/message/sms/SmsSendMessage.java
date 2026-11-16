@@ -14,6 +14,9 @@ import java.util.List;
 @Data
 public class SmsSendMessage {
 
+    @NotNull(message = "租户编号不能为空")
+    private Long tenantId;
+
     /**
      * 短信日志编号
      */

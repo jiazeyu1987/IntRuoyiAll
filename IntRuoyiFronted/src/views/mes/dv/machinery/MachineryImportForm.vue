@@ -20,8 +20,10 @@
         <div class="el-upload__tip text-center">
           <div class="el-upload__tip">
             <el-checkbox v-model="updateSupport" />
-            是否更新已经存在的设备数据
+            是否更新已经存在的设备类型、车间和设备数据
           </div>
+          <div>请使用含“设备类型”“车间列表”“设备台账”的三表模板。任一行失败则整批回滚。</div>
+          <div>所属车间、所属车间编码至少填写一项；同时填写时须对应同一车间。</div>
           <span>仅允许导入 xls、xlsx 格式文件。</span>
           <el-link
             :underline="false"
@@ -41,6 +43,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { showRecordImportResult } from '@/utils/importResult'
 import { DvMachineryApi } from '@/api/mes/dv/machinery'
 import { getAccessToken, getTenantId } from '@/utils/auth'
 import download from '@/utils/download'
@@ -56,7 +59,7 @@ const importUrl =
   import.meta.env.VITE_BASE_URL + import.meta.env.VITE_API_URL + '/mes/dv/machinery/import'
 const uploadHeaders = ref() // 上传 Header 头
 const fileList = ref([]) // 文件列表
-const updateSupport = ref(0) // 是否更新已经存在的设备数据
+const updateSupport = ref(0) // 是否更新已经存在的设备类型、车间和设备数据
 
 /** 打开弹窗 */
 const open = () => {
@@ -90,21 +93,18 @@ const submitFormSuccess = (response: any) => {
     resetForm()
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '上传成功数量：' + data.createCodes.length + ';'
-  for (let code of data.createCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新成功数量：' + data.updateCodes.length + ';'
-  for (const code of data.updateCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureCodes).length + ';'
-  for (const code in data.failureCodes) {
-    text += '< ' + code + ': ' + data.failureCodes[code] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '设备编码',
+    created: data.createCodes,
+    updated: data.updateCodes,
+    failures: data.failureCodes,
+    stats: [
+      { label: '新建车间', value: data.workshopCreateCount },
+      { label: '更新车间', value: data.workshopUpdateCount },
+      { label: '沿用已有车间', value: data.workshopReuseCount }
+    ],
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件
@@ -133,6 +133,6 @@ const handleExceed = (): void => {
 /** 下载模板操作 */
 const importTemplate = async () => {
   const res = await DvMachineryApi.importTemplate()
-  download.excel(res, '设备导入模板.xls')
+  download.excel(res, '设备导入模板.xlsx')
 }
 </script>

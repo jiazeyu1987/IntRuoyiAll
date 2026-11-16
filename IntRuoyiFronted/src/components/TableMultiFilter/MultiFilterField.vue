@@ -16,8 +16,17 @@
       />
     </el-select>
 
+    <component
+      :is="definition.valueComponent"
+      v-if="definition.valueComponent"
+      :model-value="condition?.value"
+      class="table-multi-filter-field__value"
+      :placeholder="definition.placeholder"
+      @update:model-value="updateValue"
+      @keyup.enter="$emit('query')"
+    />
     <el-date-picker
-      v-if="definition.type === 'date'"
+      v-else-if="definition.type === 'date'"
       :model-value="condition?.value"
       class="table-multi-filter-field__value table-multi-filter-field__value--single-date"
       type="date"
@@ -35,6 +44,17 @@
       range-separator="至"
       start-placeholder="开始日期"
       end-placeholder="结束日期"
+      @update:model-value="updateDateRange"
+      @keyup.enter="$emit('query')"
+    />
+    <el-select-v2
+      v-else-if="definition.type === 'select' && definition.virtualized"
+      :model-value="condition?.value"
+      :options="virtualOptions"
+      class="table-multi-filter-field__value"
+      clearable
+      filterable
+      :placeholder="definition.placeholder || '请选择'"
       @update:model-value="updateValue"
       @keyup.enter="$emit('query')"
     />
@@ -161,6 +181,7 @@ const OPERATOR_LABELS: Record<ListMultiFilterOperator, string> = {
 }
 
 const operatorOptions = computed(() => getMultiFilterOperatorOptions(props.definition))
+const virtualOptions = computed(() => props.definition.options?.slice())
 
 const currentOperator = computed(() =>
   props.condition?.operator || getDefaultMultiFilterOperator(props.definition)
@@ -170,9 +191,8 @@ const rangeValue = computed(() => {
   if (Array.isArray(props.condition?.value)) {
     return props.condition?.value
   }
-  return [props.condition?.value, props.condition?.valueEnd].filter(
-    (value) => value !== undefined && value !== null
-  )
+  const values = [props.condition?.value, props.condition?.valueEnd]
+  return values.every((value) => value == null) ? [] : values
 })
 
 const multiSelectValue = computed(() =>
@@ -217,11 +237,15 @@ const updateValue = (value?: ListMultiFilterValue) => {
   emitCondition({ value })
 }
 
+const updateDateRange = (value: ListMultiFilterScalar[] | null) => {
+  emitCondition({ value: value?.[0], valueEnd: value?.[1] })
+}
+
 const updateRangeValue = (index: 0 | 1, value?: ListMultiFilterScalar) => {
   const nextRange = [...rangeValue.value]
   nextRange[index] = value
   emitCondition({
-    value: nextRange as ListMultiFilterScalar[],
+    value: nextRange[0] as ListMultiFilterScalar | undefined,
     valueEnd: nextRange[1] as ListMultiFilterScalar | undefined
   })
 }

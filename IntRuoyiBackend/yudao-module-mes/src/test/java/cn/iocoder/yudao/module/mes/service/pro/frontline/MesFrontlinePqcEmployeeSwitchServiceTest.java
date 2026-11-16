@@ -230,15 +230,15 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
         return MesProcessPoolActiveOrderDO.builder().id(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE")
                 .dccProjectCodeId(DCC_PROJECT_ID).qaRegulationId(REGULATION_ID)
-                .qaRegulationVersionId(REGULATION_VERSION_ID).build();
+                .qaRegulationVersionId(REGULATION_VERSION_ID)
+                .pqcQaSourceVersionIdsJson("[" + REGULATION_VERSION_ID + "]").build();
     }
 
     private static MesPqcInspectionTaskDO task() {
         return MesPqcInspectionTaskDO.builder().id(PQC_TASK_ID).activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(30001L).processId(40001L)
                 .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                .qaItemCode("QA-001")
+                .inspectionItemPlanJson("{\"QA-001\":1}")
                 .inspectionRuleKey("FIRST").inspectionType("FIRST")
                 .businessDate(LocalDate.of(2026, 8, 14)).shiftCode("FIRST").roundNo(1)
                 .plannedInspectionQuantity(1).taskStatus("PENDING").build();
@@ -259,19 +259,19 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 .dccProjectCodeId(DCC_PROJECT_ID).regulationId(REGULATION_ID)
                 .publishedVersionId(REGULATION_VERSION_ID).versionNo("G/0").lifecycleStatus("PUBLISHED")
                 .inspectionTypeRules(List.of(
-                        rule("FIRST", "FIRST", "FIRST", 1, 1, 10),
-                        rule("PATROL_AM", "PATROL", "AM", 1, null, 20),
-                        rule("PATROL_PM", "PATROL", "PM", 1, null, 30),
-                        rule("FINAL", "FINAL", "FINAL", 1, 1, 40)))
+                        rule("FIRST", "FIRST", "FIRST", 1, 1),
+                        rule("PATROL", "PATROL", "PATROL", 1, null),
+                        rule("FINAL", "FINAL", "FINAL", 1, 1)))
                 .processes(List.of(process)).build();
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule rule(
-            String key, String inspectionType, String label, int round, Integer fixedQuantity, int sort) {
+            String key, String inspectionType, String label, int round, Integer fixedQuantity) {
         return MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule.builder()
                 .key(key).inspectionType(inspectionType).label(label).roundLabel(label + round)
                 .required("FIRST".equals(key)).fixedQuantity(fixedQuantity)
-                .taskRule(sort == 10 ? "ONCE" : "BY_SHIFT").releaseGate("REQUIRED").build();
+                .taskRule("PATROL".equals(inspectionType) ? "MANUAL_ROUND" : "ONCE")
+                .releaseGate("REQUIRED").build();
     }
 
     private static MesProcessPoolTeamLeaderScopeDO employeeScope(long employeeId) {

@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
-import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
@@ -48,6 +47,17 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RequestMapping("/mes/qa/inspection-regulation")
 @Validated
 public class MesQaInspectionRegulationController {
+
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.qa.regulation.MesSimplePqcPublishService simplePqcPublishService;
+
+    @PostMapping("/simple-parser/publish")
+    @Operation(summary = "简易PQC解析原子发布规程及检验设备配置")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> publishSimpleParser(
+            @Valid @RequestBody MesQaInspectionRegulationSaveReqVO request) {
+        return success(simplePqcPublishService.publish(request));
+    }
 
     @Resource
     private MesQaInspectionRegulationService regulationService;
@@ -129,8 +139,9 @@ public class MesQaInspectionRegulationController {
     @Parameter(name = "dccProjectCodeId", description = "DCC 项目代码 ID")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
     public CommonResult<List<MesQaInspectionRegulationVersionOptionRespVO>> listVersions(
-            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
-        return success(regulationService.listVersions(dccProjectCodeId));
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
+            @RequestParam(value = "ownerModule", defaultValue = "MES_QA") String ownerModule) {
+        return success(regulationService.listVersions(dccProjectCodeId, ownerModule));
     }
 
     @GetMapping("/current")
@@ -164,6 +175,46 @@ public class MesQaInspectionRegulationController {
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
     public CommonResult<List<MesQaCommonRegulationVersionOptionRespVO>> listCommonRegulationPublishedVersions() {
         return success(regulationService.listCommonRegulationPublishedVersions());
+    }
+
+    @GetMapping("/common-regulations/released-versions")
+    @Operation(summary = "获得全部已发布通用检验规程及历史版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaCommonRegulationVersionOptionRespVO>> listCommonRegulationReleasedVersions() {
+        return success(regulationService.listCommonRegulationReleasedVersions());
+    }
+
+    @GetMapping("/common-regulations/published-version")
+    @Operation(summary = "查看通用检验规程已发布版本内容")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getCommonRegulationPublishedVersion(
+            @RequestParam("versionId") Long versionId) {
+        return success(regulationService.getCommonRegulationPublishedVersion(versionId));
+    }
+
+    @DeleteMapping("/common-regulations/version")
+    @Operation(summary = "删除未被引用的误导入通用规程版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<Boolean> deleteCommonRegulationVersion(@RequestParam("versionId") Long versionId) {
+        regulationService.deleteCommonRegulationVersion(versionId);
+        return success(true);
+    }
+
+    @GetMapping("/common-regulations/versions")
+    @Operation(summary = "获得单份通用检验规程的全部版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaInspectionRegulationVersionOptionRespVO>> listCommonRegulationVersions(
+            @RequestParam("regulationId") Long regulationId) {
+        return success(regulationService.listCommonRegulationVersions(regulationId));
+    }
+
+    @GetMapping("/common-regulations/editor-version")
+    @Operation(summary = "获得通用规程编辑内容；未指定版本时优先恢复草稿")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getCommonRegulationEditorVersion(
+            @RequestParam("regulationId") Long regulationId,
+            @RequestParam(value = "versionId", required = false) Long versionId) {
+        return success(regulationService.getCommonRegulationEditorVersion(regulationId, versionId));
     }
 
     @GetMapping("/common-sets")
@@ -230,19 +281,4 @@ public class MesQaInspectionRegulationController {
         return success(regulationService.listCommonRegulationPublishedSetVersions());
     }
 
-    @PostMapping("/common-binding/bind")
-    @Operation(summary = "绑定产品当前通用检验规程版本")
-    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
-    public CommonResult<MesQaCommonRegulationBindingRespVO> bindCommonRegulationVersion(
-            @Valid @RequestBody MesQaCommonRegulationBindReqVO reqVO) {
-        return success(regulationService.bindCommonRegulationVersion(reqVO));
-    }
-
-    @PostMapping("/common-binding/unbind")
-    @Operation(summary = "解除产品当前通用检验规程绑定")
-    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
-    public CommonResult<MesQaCommonRegulationBindingRespVO> unbindCommonRegulation(
-            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
-        return success(regulationService.unbindCommonRegulation(dccProjectCodeId));
-    }
 }

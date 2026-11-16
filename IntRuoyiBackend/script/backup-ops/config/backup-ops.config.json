@@ -46,7 +46,7 @@
     "incrementalSchedule": "02:00",
     "repositoryEnvironment": "test",
     "maxFreshnessHours": 25,
-    "localWorkspaceRoot": "D:\\IntRuoyi-BackupOps\\tmp",
+    "localWorkspaceRoot": ".runtime/backup-ops/tmp",
     "keepDaysRemote": 30,
     "keepLastPoints": 5,
     "keepLastFullChains": 4,
@@ -71,7 +71,7 @@
   },
   "console": {
     "title": "IntRuoyi Backup Console - PRODUCTION",
-    "logRoot": "D:\\IntRuoyi-BackupOps\\logs"
+    "logRoot": ".runtime/backup-ops/logs"
   },
   "notify": {
     "enabled": false,

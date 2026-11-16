@@ -48,6 +48,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
     void setUp() {
         service = new MesRouteStartProductionLeaderAuthorizationServiceImpl(routeMapper, routeProcessMapper,
                 routeVersionMapper, permissionApi);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     }
 
     @Test

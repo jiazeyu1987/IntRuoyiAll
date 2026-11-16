@@ -95,7 +95,26 @@ public class DccProjectReferenceService {
         projectAccessService.assertProjectViewerOrAbove(actorId,projectId);
         authority.assertFolderBelongsToProject(projectId,folderId);
         Long tenant = TenantContextHolder.getRequiredTenantId();
-        return store.references(tenant,projectId,folderId).stream().map(ref -> {
+        return projectRows(actorId, projectId, folderId, tenant, store.references(tenant,projectId,folderId));
+    }
+    public void assertListContext(Long actorId, Long projectId, Long folderId) {
+        require(actorId, projectId, folderId);
+        projectAccessService.assertProjectViewerOrAbove(actorId, projectId);
+        authority.assertFolderBelongsToProject(projectId, folderId);
+        store.assertReferenceContextIdentity(TenantContextHolder.getRequiredTenantId(), projectId, folderId);
+    }
+    public List<ReferenceListView> listSelected(Long actorId, Long projectId, Long folderId, List<Long> referenceIds) {
+        assertListContext(actorId, projectId, folderId);
+        if (referenceIds == null || referenceIds.isEmpty() || referenceIds.size() > 200
+                || new java.util.HashSet<>(referenceIds).size() != referenceIds.size())
+            throw new DccRelationInputFailure("DCC_REFERENCE_SELECTION_REQUIRED");
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var refs = store.referencesByIds(tenant, projectId, folderId, referenceIds);
+        if (refs.size() != referenceIds.size()) throw new DccRelationFailure("DCC_REFERENCE_IDENTITY_MISMATCH");
+        return projectRows(actorId, projectId, folderId, tenant, refs);
+    }
+    private List<ReferenceListView> projectRows(Long actorId, Long projectId, Long folderId, Long tenant, List<Reference> refs) {
+        return refs.stream().map(ref -> {
             FileVersion file=selected(tenant,ref.selectedControlledFileId());
             if(!Objects.equals(ref.masterId(),file.masterId())) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_IDENTITY_MISMATCH");
             var permission=queryService.getProjectReferencePermissions(actorId,projectId,folderId,file.controlledFileId());
@@ -108,6 +127,28 @@ public class DccProjectReferenceService {
         store.assertUsageIdentity(tenant,selected);
         long count=store.referenceProjectCount(tenant,selected.masterId(),selectedFileId);
         return new ReferenceUsage(tenant,selectedFileId,selected.masterId(),count,count>0);
+    }
+    /** Bounded page read: use the exact same tenant, source and name-visibility guards as a single read. */
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public List<ReferenceUsage> getUsageBatch(Long actorId, List<Long> selectedFileIds) {
+        require(actorId);
+        if (selectedFileIds == null || selectedFileIds.isEmpty() || selectedFileIds.size() > 200
+                || new java.util.HashSet<>(selectedFileIds).size() != selectedFileIds.size())
+            throw new DccRelationInputFailure("DCC_REFERENCE_USAGE_QUERY_INVALID");
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var sources = selectedFileIds.stream().map(id -> {
+            require(id);
+            var source = selected(tenant, id);
+            access.assertNameVisible(actorId, id);
+            store.assertUsageIdentity(tenant, source);
+            return source;
+        }).toList();
+        var counts = store.referenceProjectCounts(tenant, selectedFileIds);
+        return sources.stream().map(source -> {
+            // GROUP BY has no row for a valid version with no references.
+            long count = counts.getOrDefault(source.controlledFileId(), 0L);
+            return new ReferenceUsage(tenant, source.controlledFileId(), source.masterId(), count, count > 0);
+        }).toList();
     }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReferenceUsagePage getUsagePage(Long actorId,Long selectedFileId,Integer pageNo,Integer pageSize) {

@@ -13,5 +13,3 @@ int_qms；仅修改错误文案及定向测试；不写数据库、不启用E2E�
 - doc/tasks/20261021-dcc-project-defaults-hint/task.md
 - doc/tasks/20261021-dcc-project-defaults-hint/execution-log.md
 - doc/tasks/20261021-dcc-project-defaults-hint/verification-report.md
-
-

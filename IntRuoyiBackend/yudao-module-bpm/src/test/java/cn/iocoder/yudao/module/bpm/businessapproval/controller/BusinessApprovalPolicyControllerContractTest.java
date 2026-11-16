@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.businessapproval.vo.Business
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -35,6 +36,11 @@ class BusinessApprovalPolicyControllerContractTest {
         assertArrayEquals(new String[]{""}, save.getAnnotation(PostMapping.class).value());
         assertEquals("@ss.hasPermission('bpm:business-approval-policy:create')",
                 save.getAnnotation(PreAuthorize.class).value());
+
+        Method delete = BusinessApprovalPolicyController.class.getDeclaredMethod("deleteDraftPolicy", Long.class);
+        assertArrayEquals(new String[]{"/{policyId}"}, delete.getAnnotation(DeleteMapping.class).value());
+        assertEquals("@ss.hasPermission('bpm:business-approval-policy:create')",
+                delete.getAnnotation(PreAuthorize.class).value());
 
         Method publish = BusinessApprovalPolicyController.class.getDeclaredMethod("publishPolicy", Long.class);
         assertArrayEquals(new String[]{"/{policyId}/publish"}, publish.getAnnotation(PostMapping.class).value());

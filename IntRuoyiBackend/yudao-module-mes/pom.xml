@@ -27,6 +27,8 @@
     </build>
 
     <dependencies>
+        <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-module-mes-device</artifactId><version>${revision}</version></dependency>
+
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-module-system</artifactId>
@@ -121,6 +123,238 @@
 
     <profiles>
         <profile>
+            <id>mes-production-quantity-tests</id>
+            <build><plugins>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesProductionQuantity*Test.java</testInclude>
+                        <testInclude>**/ProcessPoolTimelinePqcGroupSqlTest.java</testInclude>
+                        <testInclude>**/MesReportAllocationReviewBindingTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderReleaseLossSourceReaderTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderReleaseLossReportWriterTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderReleaseBatchRecordWriter*Test.java</testInclude>
+                        <testInclude>**/MesProFrontlineFeedbackSubmit*.java</testInclude>
+                        <testInclude>**/MesFrontlineActiveOrderProcessServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderCompletionProgressPortImplTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderCompletionServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderOrderProcessCompletionServiceTest.java</testInclude>
+                        <testInclude>**/MesReportAllocationCommandServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderReportConfirmationServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteCandidateConfigServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderFifoAllocationServiceTest.java</testInclude>
+                        <testInclude>**/MesReportAllocationOrderChangeServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionControllerTest.java</testInclude>
+                        <testInclude>**/MesFrontlineActiveOrderControllerTest.java</testInclude>
+                        <testInclude>**/MesProductionReleaseQuantityLimitTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesProductionQuantity*Test.java</include>
+                        <include>**/ProcessPoolTimelinePqcGroupSqlTest.java</include>
+                        <include>**/MesReportAllocationReviewBindingTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderReleaseLossSourceReaderTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderReleaseLossReportWriterTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderReleaseBatchRecordWriter*Test.java</include>
+                        <include>**/MesProFrontlineFeedbackSubmit*Test.java</include>
+                        <include>**/MesFrontlineActiveOrderProcessServiceTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderCompletionProgressPortImplTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderCompletionServiceTest.java</include>
+                        <include>**/MesTeamLeaderOrderProcessCompletionServiceTest.java</include>
+                        <include>**/MesReportAllocationCommandServiceTest.java</include>
+                        <include>**/MesTeamLeaderReportConfirmationServiceTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
+                        <include>**/MesProRouteCandidateConfigServiceTest.java</include>
+                        <include>**/MesProRouteServiceImplTest.java</include>
+                        <include>**/MesTeamLeaderFifoAllocationServiceTest.java</include>
+                        <include>**/MesReportAllocationOrderChangeServiceTest.java</include>
+                        <include>**/MesProRouteVersionControllerTest.java</include>
+                        <include>**/MesFrontlineActiveOrderControllerTest.java</include>
+                        <include>**/MesProductionReleaseQuantityLimitTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</include>
+                    </includes><failIfNoTests>false</failIfNoTests></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-project-identity-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skipMain>false</skipMain><skip>false</skip><testIncludes>
+                        <testInclude>**/MesRouteDccProjectBindingServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                        <testInclude>**/MesQaInspectionRegulationServiceTest.java</testInclude>
+                        <testInclude>**/MesFixedTestOrderInitializerTest.java</testInclude>
+                        <testInclude>**/MesM9SimulationHistoryProtectionTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+
+        <profile>
+            <id>mes-pqc-patrol-round-tests</id>
+            <build><plugins>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes><testInclude>**/MesQcSampling*Test.java</testInclude><testInclude>**/MesFrontlineActiveOrderControllerTest.java</testInclude><testInclude>**/MesFrontlinePqcPatrolRoundTest.java</testInclude><testInclude>**/MesQaInspectionStageRulesTest.java</testInclude><testInclude>**/MesQaInspectionRegulationWordImportServiceTest.java</testInclude><testInclude>**/MesTeamLeaderActiveOrderCompletionProgressPortImplTest.java</testInclude><testInclude>**/MesProcessPoolPqcInspectionCorrectionServiceTest.java</testInclude><testInclude>**/MesProBatchRecordExecutionSignatureServiceTest.java</testInclude><testInclude>**/MesFrontlinePqcSubmissionConcurrencyTest.java</testInclude></testIncludes></configuration>
+                </plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes><include>**/MesFrontlineActiveOrderControllerTest.java</include><include>**/MesFrontlinePqcPatrolRoundTest.java</include><include>**/MesQaInspectionStageRulesTest.java</include><include>**/MesQaInspectionRegulationWordImportServiceTest.java</include><include>**/MesTeamLeaderActiveOrderCompletionProgressPortImplTest.java</include><include>**/MesProcessPoolPqcInspectionCorrectionServiceTest.java</include><include>**/MesProBatchRecordExecutionSignatureServiceTest.java</include><include>**/MesFrontlinePqcSubmissionConcurrencyTest.java</include></includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+
+        <profile>
+            <id>mes-fixed-order-initializer-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skipMain>false</skipMain><skip>false</skip><testIncludes>
+                        <testInclude>**/MesFixedTestOrderInitializerTest.java</testInclude>
+                        <testInclude>**/MesStage1ActiveOrderCompleteSimulationServiceImplTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderCompletionServiceTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderCompletionBackfillPortImplTest.java</testInclude>
+                        <testInclude>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</testInclude>
+                        <testInclude>**/MesM9SimulationHistoryProtectionTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesFixedTestOrderInitializerTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderCompletionServiceTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderCompletionBackfillPortImplTest.java</include>
+                        <include>**/MesStage1ActiveOrderCompleteSimulationServiceImplTest.java</include>
+                        <include>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</include>
+                        <include>**/MesM9SimulationHistoryProtectionTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-fixed-test-reset-permission-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><testIncludes>
+                        <testInclude>**/MesFixedTestOrderModeGuardTest.java</testInclude>
+                        <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
+                        <testInclude>**/MesM9SimulationHistoryProtectionTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><includes>
+                        <include>**/MesFixedTestOrderModeGuardTest.java</include>
+                        <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
+                        <include>**/MesM9SimulationHistoryProtectionTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-device-integration-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><testIncludes>
+                        <testInclude>**/MesMdWorkstationCapacityServiceTest.java</testInclude>
+                        <testInclude>**/MesFrontlineDeviceAccountContextServiceTest.java</testInclude>
+                        <testInclude>**/MesFrontlineDeviceSelectionValidationTest.java</testInclude>
+                        <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteResourceServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteProcessServiceImplTest.java</testInclude>
+                        <testInclude>**/MesPqcItemEquipmentConfigServiceImplTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><includes>
+                        <include>**/MesMdWorkstationCapacityServiceTest.java</include>
+                        <include>**/MesFrontlineDeviceAccountContextServiceTest.java</include>
+                        <include>**/MesFrontlineDeviceSelectionValidationTest.java</include>
+                        <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
+                        <include>**/MesProRouteResourceServiceImplTest.java</include>
+                        <include>**/MesProRouteProcessServiceImplTest.java</include>
+                        <include>**/MesPqcItemEquipmentConfigServiceImplTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+
+        <profile>
+            <id>mes-edhr-list-performance-tests</id>
+            <properties>
+                <mes.main-output-directory>${project.build.directory}/edhr-list-performance-classes</mes.main-output-directory>
+                <mes.test-output-directory>${project.build.directory}/edhr-list-performance-test-classes</mes.test-output-directory>
+            </properties>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><testIncludes>
+                        <testInclude>**/MesDeviationTransferEligibilityTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationServiceImplTest.java</testInclude>
+                        <testInclude>**/MesPqcReleasePageRoundOwnershipTest.java</testInclude>
+                        <testInclude>**/MesPqcReleaseBatchExecutionServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchVoidEffectServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchHistory*Test.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchLookupServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatch*PerformanceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchVisibilitySessionTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchSummaryReaderTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchDatabasePageTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchVisibilitySql*Test.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchVisibilityQueryServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrBatchIntegrityServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrTraceSearchMysqlIT.java</testInclude>
+                        <testInclude>**/MesProEdhrSummaryAggregationSqlTest.java</testInclude>
+                        <testInclude>**/MesProEdhrVisibilityTaskProjectionTest.java</testInclude>
+                        <testInclude>**/MesProEdhrFormalReverseTrace*Test.java</testInclude>
+                        <testInclude>**/MesMarketReleaseHandoverTest.java</testInclude>
+                        <testInclude>**/MesProEdhr*BatchVisibilityTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><includes>
+                        <include>**/MesDeviationTransferEligibilityTest.java</include>
+                        <include>**/MesProEdhrDeviationServiceImplTest.java</include>
+                        <include>**/MesPqcReleasePageRoundOwnershipTest.java</include>
+                        <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>
+                        <include>**/MesProEdhrBatchVoidEffectServiceImplTest.java</include>
+                        <include>**/MesProEdhrBatchHistory*Test.java</include>
+                        <include>**/MesProEdhrBatchLookupServiceTest.java</include>
+                        <include>**/MesProEdhrBatch*PerformanceTest.java</include>
+                        <include>**/MesProEdhrBatchVisibilitySessionTest.java</include>
+                        <include>**/MesProEdhrBatchSummaryReaderTest.java</include>
+                        <include>**/MesProEdhrBatchDatabasePageTest.java</include>
+                        <include>**/MesProEdhrBatchVisibilitySql*Test.java</include>
+                        <include>**/MesProEdhrBatchVisibilityQueryServiceTest.java</include>
+                        <include>**/MesProEdhrBatchIntegrityServiceTest.java</include>
+                        <include>**/MesProEdhrSummaryAggregationSqlTest.java</include>
+                        <include>**/MesProEdhrVisibilityTaskProjectionTest.java</include>
+                        <include>**/MesProEdhrFormalReverseTrace*Test.java</include>
+                        <include>**/MesMarketReleaseHandoverTest.java</include>
+                        <include>**/MesProEdhr*BatchVisibilityTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
             <id>mes-route-create-tests</id>
             <properties>
                 <mes.test-output-directory>${project.build.directory}/route-create-test-classes</mes.test-output-directory>
@@ -144,6 +378,8 @@
                             <skip>false</skip>
                             <testIncludes>
                                 <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProRouteWorkstationServiceTest.java</testInclude>
+                                <testInclude>**/MesSimpleParserPublishServiceTest.java</testInclude>
                                 <testInclude>**/MesMdAutoCodeSerialNumberPartStrategyTest.java</testInclude>
                             </testIncludes>
                         </configuration>
@@ -155,6 +391,8 @@
                             <skip>false</skip>
                             <includes>
                                 <include>**/MesProRouteServiceImplTest.java</include>
+                                <include>**/MesProRouteWorkstationServiceTest.java</include>
+                                <include>**/MesSimpleParserPublishServiceTest.java</include>
                                 <include>**/MesMdAutoCodeSerialNumberPartStrategyTest.java</include>
                             </includes>
                         </configuration>
@@ -467,7 +705,6 @@
                                 <testInclude>**/MesProductionReleaseBatchExecutionPortTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</testInclude>
                                 <testInclude>**/MesProEdhrApprovalTaskAdapterTest.java</testInclude>
-                                <testInclude>**/MesProductionReleaseReportStageInitializerTest.java</testInclude>
                                 <testInclude>**/MesProductionReleaseApplySp1Test.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
@@ -488,7 +725,6 @@
                                 <include>**/MesProductionReleaseBatchExecutionPortTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</include>
                                 <include>**/MesProEdhrApprovalTaskAdapterTest.java</include>
-                                <include>**/MesProductionReleaseReportStageInitializerTest.java</include>
                                 <include>**/MesProductionReleaseApplySp1Test.java</include>
                                 <include>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
@@ -644,6 +880,157 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>mes-in-process-order-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes><testInclude>**/MesInProcessOrder*Test.java</testInclude></testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes><include>**/MesInProcessOrder*Test.java</include></includes>
+                            <failIfNoTests>false</failIfNoTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-market-release-handover-tests</id>
+            <build><plugins>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId>
+                    <executions><execution><id>default-testResources</id><configuration><skip>false</skip></configuration></execution></executions>
+                </plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><useIncrementalCompilation>false</useIncrementalCompilation><testIncludes><testInclude>**/MesMarketRelease*Test.java</testInclude></testIncludes></configuration>
+                </plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes><include>**/MesMarketRelease*Test.java</include></includes><failIfNoTests>false</failIfNoTests></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-edhr-work-routing-tests</id>
+            <build><plugins>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                                <testInclude>**/MesOpenPqcCorrectionTaskVisibilityTest.java</testInclude>
+                                <testInclude>**/MesOpenPqcReleaseTaskVisibilityTest.java</testInclude>
+
+                                <testInclude>**/MesProEdhrWorkTaskServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProEdhrDeviationHandlingServiceTest.java</testInclude>
+                                <testInclude>**/MesProEdhrDeviationReviewTaskServiceTest.java</testInclude>
+                                <testInclude>**/MesEdhrDeviationApprovalOutcomeReaderTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderDossierCompletionServiceTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderDossierFileServiceTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderDossierReadScopeServiceTest.java</testInclude>
+                                <testInclude>**/MesOpenDossierTaskVisibilityTest.java</testInclude>
+                                <testInclude>**/MesPqcReleaseCorrectionServiceTest.java</testInclude>
+                                <testInclude>**/MesPqcReleaseBatchExecutionServiceTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseApplySp1Test.java</testInclude>
+                                <testInclude>**/MesEdhrRecordChangeTaskServiceTest.java</testInclude>
+                                <testInclude>**/MesEdhrRecordChangeEditGuardTest.java</testInclude>
+                                <testInclude>**/MesEdhrSupplementRevisionServiceTest.java</testInclude>
+                                <testInclude>**/MesEdhrRecordChangeOutcomeReaderTest.java</testInclude>
+                                <testInclude>**/MesProEdhrRecordChangeServiceTest.java</testInclude>
+                                <testInclude>**/MesProEdhrRecordChangeContractTest.java</testInclude>
+                                <testInclude>**/MesProBatchRecordExecutionFieldAuditServiceTest.java</testInclude>
+                                <testInclude>**/MesEdhrApprovalCenterQueryContractTest.java</testInclude>
+                                <testInclude>**/MesProEdhrBatchExecutionControllerTest.java</testInclude>
+                                <testInclude>**/MesHandoffApprovalCenterPrefixTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderHandoffLifecycleTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderHandoffOwnerResolverTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderHandoffDeliveryReliabilityTest.java</testInclude>
+                                <testInclude>**/MesEdhrApprovalOutcomeReaderTest.java</testInclude>
+                                <testInclude>**/MesEdhrHistoricalReadContractTest.java</testInclude>
+                                <testInclude>**/MesProEdhrDeviationNcrIntegrationTest.java</testInclude>
+                                <testInclude>**/MesProEdhrNonconformanceReviewApplicationScopeTest.java</testInclude>
+                                <testInclude>**/MesNcrReviewerAssignmentTest.java</testInclude>
+                                <testInclude>**/MesNcrScopeAuditTransactionTest.java</testInclude>
+                                <testInclude>**/MesProEdhrNonconformanceReviewControllerPermissionTest.java</testInclude>
+                                <testInclude>**/MesPqcReleasePageRoundOwnershipTest.java</testInclude>
+                                <testInclude>**/MesReleaseTaskNotificationReliabilityTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseControllerJsonTest.java</testInclude>
+                                <testInclude>**/MesEdhrOpinionSignatureChainTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                                <include>**/MesOpenPqcCorrectionTaskVisibilityTest.java</include>
+                                <include>**/MesOpenPqcReleaseTaskVisibilityTest.java</include>
+                                <include>**/MesProEdhrDeviationHandlingServiceTest.java</include>
+                                <include>**/MesProEdhrDeviationReviewTaskServiceTest.java</include>
+                                <include>**/MesEdhrDeviationApprovalOutcomeReaderTest.java</include>
+                                <include>**/MesActiveOrderDossierCompletionServiceTest.java</include>
+                                <include>**/MesActiveOrderDossierFileServiceTest.java</include>
+                                <include>**/MesActiveOrderDossierReadScopeServiceTest.java</include>
+                                <include>**/MesOpenDossierTaskVisibilityTest.java</include>
+                                <include>**/MesPqcReleaseCorrectionServiceTest.java</include>
+                                <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>
+                                <include>**/MesProductionReleaseApplySp1Test.java</include>
+                                <include>**/MesEdhrRecordChangeTaskServiceTest.java</include>
+                                <include>**/MesEdhrRecordChangeEditGuardTest.java</include>
+                                <include>**/MesEdhrSupplementRevisionServiceTest.java</include>
+                                <include>**/MesEdhrRecordChangeOutcomeReaderTest.java</include>
+                                <include>**/MesProEdhrRecordChangeServiceTest.java</include>
+                                <include>**/MesProEdhrRecordChangeContractTest.java</include>
+                                <include>**/MesProBatchRecordExecutionFieldAuditServiceTest.java</include>
+                                <include>**/MesEdhrApprovalCenterQueryContractTest.java</include>
+                                <include>**/MesProEdhrBatchExecutionControllerTest.java</include>
+                                <include>**/MesHandoffApprovalCenterPrefixTest.java</include>
+                                <include>**/MesActiveOrderHandoffLifecycleTest.java</include>
+                                <include>**/MesActiveOrderHandoffOwnerResolverTest.java</include>
+                                <include>**/MesActiveOrderHandoffDeliveryReliabilityTest.java</include>
+                                <include>**/MesEdhrApprovalOutcomeReaderTest.java</include>
+                                <include>**/MesEdhrHistoricalReadContractTest.java</include>
+                                <include>**/MesProEdhrDeviationNcrIntegrationTest.java</include>
+                                <include>**/MesProEdhrNonconformanceReviewApplicationScopeTest.java</include>
+                                <include>**/MesNcrReviewerAssignmentTest.java</include>
+                                <include>**/MesNcrScopeAuditTransactionTest.java</include>
+                                <include>**/MesProEdhrNonconformanceReviewControllerPermissionTest.java</include>
+                                <include>**/MesPqcReleasePageRoundOwnershipTest.java</include>
+                                <include>**/MesReleaseTaskNotificationReliabilityTest.java</include>
+                                <include>**/MesProductionReleaseControllerJsonTest.java</include>
+                                <include>**/MesEdhrOpinionSignatureChainTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-version-operate-log-tests</id>
+            <properties>
+                <mes.test-output-directory>${project.build.directory}/version-operate-log-test-classes</mes.test-output-directory>
+            </properties>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skip>false</skip><testIncludes>
+                        <testInclude>**/MesVersionOperateLogServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionWorkflowServiceTest.java</testInclude>
+                        <testInclude>**/MesProRouteVersionLifecycleServiceTest.java</testInclude>
+                        <testInclude>**/MesQaInspectionRegulationServiceTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesVersionOperateLogServiceTest.java</include>
+                        <include>**/MesProRouteServiceImplTest.java</include>
+                        <include>**/MesProRouteVersionWorkflowServiceTest.java</include>
+                        <include>**/MesProRouteVersionLifecycleServiceTest.java</include>
+                        <include>**/MesQaInspectionRegulationServiceTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
         </profile>
     </profiles>
 

@@ -49,9 +49,16 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesKingdeeBomListSyncResult syncAllSkipExisting() {
+        return syncAllSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeBomListSyncResult syncAllSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
+        List<ErpKingdeeBomLine> lines = (windowStart == null ? bomClient.fetchBomLines(properties)
+                : bomClient.fetchBomLinesModifiedBetween(properties, windowStart, windowEnd));
         MesKingdeeBomListSyncResult result = new MesKingdeeBomListSyncResult();
         LocalDateTime now = LocalDateTime.now();
         Set<String> existingFids = new HashSet<>();
@@ -129,6 +136,14 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
                 .rawPayload(JsonUtils.toJsonString(line))
                 .build();
         bomListMapper.insert(row);
+    }
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        return syncLines(bomClient.fetchApprovedBomByParentMaterialNumber(properties, code));
     }
 
 }

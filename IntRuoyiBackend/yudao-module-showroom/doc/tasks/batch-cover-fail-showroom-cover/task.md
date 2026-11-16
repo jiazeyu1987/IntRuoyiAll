@@ -17,9 +17,9 @@ Create one square premium medical-device showroom cover image for the product fa
 ## Expected Verification
 - The final artifact is a PNG file in the workspace.
 - The artifact path is:
-  - `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\tmp\imagegen\batch-cover-fail-showroom-cover.png`
+  - `./IntRuoyiBackend/yudao-module-showroom/tmp/imagegen/batch-cover-fail-showroom-cover.png`
 - Verification command:
-  - `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\tmp\imagegen\batch-cover-fail-showroom-cover.png'`
+  - `Test-Path './IntRuoyiBackend/yudao-module-showroom/tmp/imagegen/batch-cover-fail-showroom-cover.png'`
 
 ## Cleanup Keep
 - `tmp/imagegen/batch-cover-fail-showroom-cover.png`
@@ -32,7 +32,7 @@ Create one square premium medical-device showroom cover image for the product fa
 - Ran closeout preview and confirmed there are no cleanup deletions for this task.
 
 ## Verification Evidence
-- `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\tmp\imagegen\batch-cover-fail-showroom-cover.png'` returned `True`.
+- `Test-Path './IntRuoyiBackend/yudao-module-showroom/tmp/imagegen/batch-cover-fail-showroom-cover.png'` returned `True`.
 - The saved PNG dimensions are `1254 x 1254`.
 - The refreshed artifact timestamp is `2026-05-22 09:16:56`.
 - Closeout preview reported:

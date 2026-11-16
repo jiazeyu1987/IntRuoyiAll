@@ -12,4 +12,4 @@ GREEN: node tests/e2e/mes-route-use-copy-buttons-static.spec.js -> PASS。
 
 GREEN: node tests/e2e/mes-route-use-config-display-static.spec.js -> PASS。
 
-GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/hide-process-route-owner-purpose-columns/frontend-feature-evidence.md -> PASS。
+GREEN: python 会话技能：frontend-feature-delivery --evidence doc/tasks/hide-process-route-owner-purpose-columns/frontend-feature-evidence.md -> PASS。

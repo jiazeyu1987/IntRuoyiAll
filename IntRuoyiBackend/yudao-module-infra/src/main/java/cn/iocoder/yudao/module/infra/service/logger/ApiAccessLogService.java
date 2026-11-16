@@ -12,6 +12,9 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.logger.ApiAccessLogDO;
  */
 public interface ApiAccessLogService {
 
+    /** Paged list without request/response bodies; detail and export retain their full records. */
+    PageResult<ApiAccessLogDO> getApiAccessLogSummaryPage(ApiAccessLogPageReqVO pageReqVO);
+
     /**
      * 创建 API 访问日志
      *

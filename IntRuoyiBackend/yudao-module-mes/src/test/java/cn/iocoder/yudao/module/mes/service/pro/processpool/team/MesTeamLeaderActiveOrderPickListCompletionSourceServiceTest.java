@@ -39,7 +39,8 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderPickListCompletionSourceService(
-                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper),
+                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper,
+                        org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class)),
                 bindingMapper, bindingItemMapper);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectById(30L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
@@ -77,8 +78,12 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
     @Test
     void missingFormalPickListFailsBeforeWriting() {
         when(pickListItemMapper.selectListByProductionOrderNo("MO-001")).thenReturn(List.of());
-        assertThrows(ServiceException.class, () -> service.freezeAll(order(), 20L, "complete-1"));
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.freezeAll(order(), 20L, "complete-1"));
+        assertEquals("当前系统缺少生产订单(MO-001)对应的领料单,请在确保ERP里存在然后在系统里进行同步",
+                error.getMessage());
         verify(bindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+        verify(bindingItemMapper, never()).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO.class));
     }
 
     @Test

@@ -97,8 +97,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     private void validateItemSaveData(MesMdItemSaveReqVO reqVO) {
         // 校验物料编码的唯一性
         validateItemCodeUnique(reqVO.getId(), reqVO.getCode());
-        // 校验物料名称的唯一性
-        validateItemNameUnique(reqVO.getId(), reqVO.getName());
+        // 产品编码标识物料；同名产品可以有不同规格或业务用途。
         // 校验物料分类存在
         validateItemTypeExists(reqVO.getItemTypeId());
         // 校验计量单位存在
@@ -175,18 +174,9 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         }
     }
 
-    private void validateItemNameUnique(Long id, String name) {
-        MesMdItemDO item = itemMapper.selectByName(name);
-        if (item == null) {
-            return;
-        }
-        if (ObjUtil.notEqual(item.getId(), id)) {
-            throw exception(MD_ITEM_NAME_DUPLICATE);
-        }
-    }
-
-    private void validateItemTypeExists(Long itemTypeId) {
-        if (itemTypeService.getItemType(itemTypeId) == null) {
+    private MesMdItemTypeDO validateItemTypeExists(Long itemTypeId) {
+        MesMdItemTypeDO itemType = itemTypeService.getItemType(itemTypeId);
+        if (itemType == null) {
             throw exception(MD_ITEM_TYPE_NOT_EXISTS);
         }
         // 校验必须是叶子分类（没有子分类）
@@ -194,6 +184,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         if (CollUtil.isNotEmpty(children)) {
             throw exception(MD_ITEM_TYPE_NOT_LEAF);
         }
+        return itemType;
     }
 
     private void validateUnitMeasureExists(Long unitMeasureId) {
@@ -328,7 +319,13 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             // 2.2 校验分类是否存在
             Long productMasterId;
             try {
-                validateItemTypeExists(importItem.getItemTypeId());
+                MesMdItemTypeDO itemType = validateItemTypeExists(importItem.getItemTypeId());
+                // 跨环境导入时，源分类编号不能指向目标环境的另一个分类。
+                if (StrUtil.isNotBlank(importItem.getItemTypeName())
+                        && !java.util.Objects.equals(importItem.getItemTypeName(), itemType.getName())) {
+                    respVO.getFailureCodes().put(key, "物料分类编号与名称不一致，请填写目标环境的正确分类编号");
+                    return;
+                }
                 productMasterId = resolveProductMasterId(importItem.getProductMasterCode());
             } catch (ServiceException ex) {
                 respVO.getFailureCodes().put(key, ex.getMessage());
@@ -339,12 +336,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             MesMdItemDO existItem = itemMapper.selectByCode(importItem.getCode());
             if (existItem == null) {
                 // 2.3.1 创建
-                try {
-                    validateItemNameUnique(null, importItem.getName());
-                } catch (ServiceException ex) {
-                    respVO.getFailureCodes().put(key, ex.getMessage());
-                    return;
-                }
                 MesMdItemDO item = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 item.setUnitMeasureId(unitMeasure.getId());
                 item.setProductMasterId(productMasterId);
@@ -357,12 +348,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 respVO.getCreateCodes().add(importItem.getCode());
             } else if (updateSupport) {
                 // 2.3.2 更新
-                try {
-                    validateItemNameUnique(existItem.getId(), importItem.getName());
-                } catch (ServiceException ex) {
-                    respVO.getFailureCodes().put(key, ex.getMessage());
-                    return;
-                }
                 MesMdItemDO updateObj = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 updateObj.setId(existItem.getId());
                 updateObj.setUnitMeasureId(unitMeasure.getId());

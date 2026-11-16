@@ -32,6 +32,7 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper realTasks;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper changes;
 
+    @MockitoBean private MesMarketReleaseAccess marketReleaseAccess;
     @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
     @MockitoBean private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
@@ -196,6 +197,7 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
     private org.springframework.jdbc.core.JdbcTemplate jdbc;
     @org.junit.jupiter.api.BeforeEach void jdbcFixture(){
         jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
         jdbc.execute("CREATE TABLE IF NOT EXISTS mes_pro_edhr_nonconformance_review(id BIGINT PRIMARY KEY,tenant_id BIGINT,source_type VARCHAR(40),source_id BIGINT,active_order_id BIGINT,deleted BOOLEAN DEFAULT FALSE,frozen_at TIMESTAMP,review_status VARCHAR(40),disposition VARCHAR(40),closed_at TIMESTAMP)");
     }
 
@@ -249,12 +251,12 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
             cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
             jdbc.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
             var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();
-            var history=applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId());
+            var history=applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null);
             org.junit.jupiter.api.Assertions.assertEquals(1L,history.getTotal());org.junit.jupiter.api.Assertions.assertEquals(saved.getDossierSummaryJson(),history.getList().get(0).getDossierSummaryJson());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"PENDING",null,null,app.getId(),task.getId()).getTotal());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,1L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"PENDING",null,null,app.getId(),task.getId(),null).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,1L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null).getTotal());
             jdbc.update("UPDATE mes_pro_edhr_record_change_event SET change_status = 'SUBMITTED' WHERE id = ?",result.getId());
-            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId(),null).getTotal());
         }
     }
     @org.junit.jupiter.params.ParameterizedTest

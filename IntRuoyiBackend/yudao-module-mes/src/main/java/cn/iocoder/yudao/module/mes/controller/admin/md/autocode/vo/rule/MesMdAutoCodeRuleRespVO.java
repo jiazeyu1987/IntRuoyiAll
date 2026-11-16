@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 @Data
 @ExcelIgnoreUnannotated
 public class MesMdAutoCodeRuleRespVO {
+    @Schema(description = "所属产品项目")
+    private Long projectId;
 
     @Schema(description = "规则 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "1024")
     @ExcelProperty("规则 ID")

@@ -4,10 +4,11 @@
       class="mb-16px rounded-6px border border-[#dbe3ef] bg-[#fafcff] px-12px py-10px text-13px leading-22px text-[#4b5563]"
     >
       <div>仅支持由“导出”生成的多 Sheet .xlsx 文件。</div>
-      <div>重复路线编码、表头不一致或主数据缺失会导入失败。</div>
-      <div>不会自动创建产品、物料、工序、工作站或设备主数据。</div>
+      <div>导入流程及关联工序、工艺、工作台、设备、项目和产品资源。</div>
+      <div>同编码资源内容不一致时整包导入失败，不覆盖目标租户已有数据。</div>
     </div>
 
+    <el-alert class="mb-16px" type="info" :closable="false" title="请使用最新全量导出文件；同一项目只能导入一条流程，目标租户已有同编码流程时禁止重复导入。" />
     <el-upload
       ref="uploadRef"
       v-model:file-list="fileList"
@@ -38,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { showImportResult } from '@/utils/importResult'
 import { ProRouteApi } from '@/api/mes/pro/route'
 import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 
@@ -70,14 +72,21 @@ const submitForm = async () => {
     uploadFormData.append('file', selectedFile.value)
 
     const result = await ProRouteApi.importRouteWorkbookExcel(uploadFormData)
-    const routeCodesText = result.routeCodes?.length ? result.routeCodes.join('、') : '无'
-    message.alert(
-      `导入完成；路线数：${result.routeCount}；路线工序数：${result.routeProcessCount}；产品绑定数：${result.routeProductCount}；工序BOM数：${result.routeProductBomCount}；路线编码：${routeCodesText}`
-    )
+    showImportResult({
+      title: '工艺路线导入完成',
+      summary: `已导入 ${result.routeCount} 条工艺路线。`,
+      stats: [
+        { label: '工艺路线', value: result.routeCount },
+        { label: '路线工序', value: result.routeProcessCount },
+      { label: '绑定产品', value: result.routeProductCount },
+      { label: '工序物料清单', value: result.routeProductBomCount },
+      ],
+      sections: [{ title: '路线明细', columns: ['路线编码'], rows: (result.routeCodes ?? []).map((code: string) => [code]) }]
+    })
     dialogVisible.value = false
     emits('success')
   } catch (error) {
-    message.error(getErrorMessage(error, '导入失败，请根据后端提示修正 Excel'))
+    message.error(getErrorMessage(error, '导入失败，请根据错误提示检查并修改 Excel 文件'))
   } finally {
     formLoading.value = false
   }

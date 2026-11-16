@@ -45,22 +45,22 @@ class MesProRouteControllerImportIntGyMarkdownTest {
         result.setProcessCreatedCount(51);
         result.setProcessReusedCount(0);
         result.setRouteProcessCount(51);
-        when(routeMarkdownImportService.importMarkdown(eq(markdown), eq(1), eq("{\"A\":[\"P1\"]}")))
+        when(routeMarkdownImportService.importMarkdown(eq(markdown), eq(1), eq("{\"A\":[\"P1\"]}"), eq(10L)))
                 .thenReturn(result);
 
         CommonResult<IntGyRouteMarkdownImportResult> response = controller.importIntGyMarkdown(
-                file, 1, "{\"A\":[\"P1\"]}");
+                file, 1, "{\"A\":[\"P1\"]}", 10L);
 
         assertEquals(0, response.getCode());
         assertTrue(response.isSuccess());
         assertSame(result, response.getData());
-        verify(routeMarkdownImportService).importMarkdown(eq(markdown), eq(1), eq("{\"A\":[\"P1\"]}"));
+        verify(routeMarkdownImportService).importMarkdown(eq(markdown), eq(1), eq("{\"A\":[\"P1\"]}"), eq(10L));
     }
 
     @Test
     void importIntGyMarkdown_exposesExpectedMappingPermissionAndRequestParams() throws Exception {
         Method method = MesProRouteController.class.getDeclaredMethod("importIntGyMarkdown",
-                org.springframework.web.multipart.MultipartFile.class, Integer.class, String.class);
+                org.springframework.web.multipart.MultipartFile.class, Integer.class, String.class, Long.class);
 
         PostMapping postMapping = method.getAnnotation(PostMapping.class);
         assertArrayEquals(new String[] { "/import-intgy-md" }, postMapping.value());
@@ -78,6 +78,9 @@ class MesProRouteControllerImportIntGyMarkdownTest {
         RequestParam jsonParam = method.getParameters()[2].getAnnotation(RequestParam.class);
         assertEquals("checkProcessCodesByRouteCodeJson", jsonParam.value());
         assertTrue(!jsonParam.required());
+        RequestParam projectParam = method.getParameters()[3].getAnnotation(RequestParam.class);
+        assertEquals("dccProjectCodeId", projectParam.value());
+        assertTrue(projectParam.required());
     }
 
 }

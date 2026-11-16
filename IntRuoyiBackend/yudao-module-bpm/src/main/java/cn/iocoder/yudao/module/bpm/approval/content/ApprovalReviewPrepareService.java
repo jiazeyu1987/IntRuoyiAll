@@ -36,7 +36,7 @@ public class ApprovalReviewPrepareService {
         var row = mapper.selectExact(TenantContextHolder.getRequiredTenantId(), prepareId);
         if (row == null || !Objects.equals(actorId, row.getActorId()) || !Objects.equals(TenantContextHolder.getRequiredTenantId(), row.getTenantId())) throw new IllegalArgumentException("APPROVAL_PREPARE_NOT_FOUND");
         if (!Objects.equals(row.getPreviewContentHash(), ApprovalContentJson.hash(row.getCanonicalBusinessContentJson())) || !Objects.equals(row.getPrepareRecordHash(), recordHash(row))) throw new IllegalStateException("APPROVAL_PREPARE_INTEGRITY_FAILED");
-        if (requireFresh && !row.getExpiresAt().isAfter(LocalDateTime.ofInstant(clock.instant(),ZoneId.of("Asia/Shanghai")))) throw new IllegalArgumentException("APPROVAL_PREPARE_EXPIRED");
+        if (requireFresh && !row.getExpiresAt().isAfter(LocalDateTime.ofInstant(clock.instant(),ZoneId.of("Asia/Shanghai")))) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "审批预览已过期，请重新预览并签名。");
         return row;
     }
     public static String recordHash(BpmApprovalReviewPrepareDO row) {

@@ -162,9 +162,14 @@ public class ErpKingdeeInventoryClientImpl implements ErpKingdeeInventoryClient 
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow,
                                       String filter) {
+        return executeBillQuery(properties, cookieHeader, startRow, filter, FIELD_KEYS);
+    }
+
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow,
+                                      String filter, String fieldKeys) {
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeeInventoryRow.FORM_ID);
-        query.put("FieldKeys", FIELD_KEYS);
+        query.put("FieldKeys", fieldKeys);
         query.put("FilterString", filter);
         query.put("OrderString", "FID DESC");
         query.put("StartRow", startRow);
@@ -316,4 +321,23 @@ public class ErpKingdeeInventoryClientImpl implements ErpKingdeeInventoryClient 
         }
     }
 
+
+    @Override
+    public List<ErpKingdeeInventoryRow> fetchInventoryRowsByCode(ErpKingdeeProperties properties, String code) {
+        properties.validateBaseConfig();
+        String cookie = login(properties);
+        String filter = "FMATERIALID.FNumber = '" + code.replace("'", "''") + "'";
+        List<ErpKingdeeInventoryRow> result = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            JsonNode rows = executeBillQuery(properties, cookie, offset, filter, INCREMENTAL_FIELD_KEYS);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "STK_Inventory response is not an array");
+            }
+            for (JsonNode row : rows) { result.add(buildIncrementalRow(row)); }
+            if (rows.size() < PAGE_LIMIT) { break; }
+            offset += rows.size();
+        }
+        return result;
+    }
 }

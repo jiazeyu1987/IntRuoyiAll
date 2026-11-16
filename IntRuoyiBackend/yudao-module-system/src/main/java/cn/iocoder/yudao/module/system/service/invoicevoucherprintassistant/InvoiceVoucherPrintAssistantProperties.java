@@ -27,7 +27,7 @@ public class InvoiceVoucherPrintAssistantProperties implements InitializingBean 
 
     private String assistantScript = "server.js";
 
-    private String nodeCommand = "D:/Programs/node.exe";
+    private String nodeCommand = ".runtime/tools/node.exe";
 
     private String ticketValidateUrl = "http://127.0.0.1:48081/admin-api/system/auth/invoice-voucher-print-ticket/validate";
 

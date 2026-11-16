@@ -38,6 +38,17 @@ class WorkbenchQueryAlgorithmTest {
   }
  }
  record Setup(ProfileWorkbenchTodoReadTransaction reader,WorkbenchQueryTokens.Claim claim,List<Source> sources){}
+ @Test void unfilteredPartitionsNeedOnlyTwoCountsAndKeepExactTotals() {
+  for (String visibility : List.of("visible", "hidden")) {
+   Source source = spy(new Source(5));
+   for (int i=0;i<5;i++) { var row=source.add("key"+i,"row"+i,i); if(i<2)source.hidden.add(row.getTaskKey()); }
+   var setup=setup(List.of(source),new WorkbenchQuerySpec(visibility,null,null,new WorkbenchQuerySpec.Sort("detail","asc")));
+   var result=setup.reader.page("opaque",setup.claim,1,10,System.nanoTime());
+   assertEquals(5,result.businessTotal());assertEquals(2,result.hiddenTotal());
+   assertEquals("hidden".equals(visibility)?2:3,result.filteredTotal());
+   assertEquals(result.filteredTotal(),result.rows().size());verify(source,times(2)).count(any());
+  }
+ }
  Setup setup(List<Source> sources,WorkbenchQuerySpec spec){
   var ids=sources.stream().map(Source::sourceId).toList();var registry=new WorkbenchSourceRegistry(new ArrayList<SourceAdapter>(sources),new WorkbenchSourceRegistry.Manifest(1,"revision",List.of(new WorkbenchSourceRegistry.Module("fixture",true,ids))));
   var versions=mock(WorkbenchVisibilityVersionMapper.class);when(versions.shared(2,3)).thenReturn(1L);

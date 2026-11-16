@@ -211,7 +211,11 @@ public class JdbcProjectionRepository implements ProjectionRepository {
     private static final String HIDDEN="EXISTS(SELECT 1 FROM system_profile_workbench_task_visibility h WHERE h.tenant_id=t.tenant_id AND h.user_id=:user AND CAST(h.task_key AS BINARY)=CAST(t.task_key AS BINARY) AND h.deleted=0)";
     private Map<String,Object> parameters(Query q) {
         q.spec().validate(); Map<String,Object> p=new HashMap<>();p.put("generation",q.generation());p.put("tenant",q.tenant());p.put("user",q.user());p.put("sources",q.sources());p.put("at",Timestamp.from(q.authorizationAt()));
-        p.put("taskType",q.spec().getTaskType()); p.put("filter",q.spec().getFilterValue()); return p;
+        p.put("taskType",q.spec().getTaskType()); p.put("filter",q.spec().getFilterValue());
+        var filters=cn.iocoder.yudao.module.system.api.workbench.WorkbenchListFilters.wrapper(q.spec().getListFilters(),true);
+        filters.getSqlSegment();
+        filters.getParamNameValuePairs().forEach((key,value)->p.put("list_"+key,value));
+        return p;
     }
     private String filtered(Query q) {
         QueryContext s=q.spec(); String sql=" AND "+("hidden".equals(s.getVisibility())?"":"NOT ")+HIDDEN;
@@ -220,6 +224,11 @@ public class JdbcProjectionRepository implements ProjectionRepository {
             String field=column(s.getFilterField());
             sql+="eq".equals(s.getFilterOperator())?" AND CAST(COALESCE(t."+field+",'') AS BINARY)=CAST(:filter AS BINARY)":" AND LOCATE(CAST(:filter AS BINARY),CAST(COALESCE(t."+field+",'') AS BINARY))>0";
         }
+        var filters=cn.iocoder.yudao.module.system.api.workbench.WorkbenchListFilters.wrapper(s.getListFilters(),true);
+        String filterSql=filters.getSqlSegment();
+        for(String key:filters.getParamNameValuePairs().keySet())
+            filterSql=filterSql.replace("#{ew.paramNameValuePairs."+key+"}",":list_"+key);
+        if(!filterSql.isEmpty()) sql+=" AND ("+filterSql+")";
         return sql;
     }
     private static String column(String key) {

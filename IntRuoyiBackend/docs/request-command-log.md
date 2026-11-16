@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Request Command Log
 
 ## 2026-07-02 任务：20260702-schedule-order-workorder-code-display
@@ -13,8 +15,8 @@
 - `node tests/e2e/mes-schedule-order-workorder-link-static.spec.js` -> PASS。
 - `node tests/e2e/mes-schedule-order-freeze-visibility-static.spec.js` -> PASS。
 - `node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260702-schedule-order-workorder-code-display/bug-regression-evidence.md` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260702-schedule-order-workorder-code-display --mode preview` -> PASS，预览无阻塞，未执行删除。
+- `python 会话技能：bug-regression-fix-loop --evidence doc/tasks/20260702-schedule-order-workorder-code-display/bug-regression-evidence.md` -> PASS。
+- `python 会话技能：task-closeout-cleanup --workspace ./IntRuoyiBackend --task-id 20260702-schedule-order-workorder-code-display --mode preview` -> PASS，预览无阻塞，未执行删除。
 
 ## 2026-07-02 任务：20260702-edhr-jingxi-table-structure
 
@@ -56,16 +58,16 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\worktree-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\simplify-codebase\SKILL.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 ./docs/worktree-memory.md`
+- `Get-Content -Encoding utf8 会话技能：simplify-codebase`
 - `rg -n "EdhrRelease|Release|Audit|DomainTrace|PermissionMatrix|DhrTemplate|Recordbook|BatchExecution|Workbench|Simulate|Review" yudao-module-mes/src/main yudao-module-mes/src/test doc/tasks/20260701-edhr-phase6-module-dedup -S`
 - `apply_patch` -> 新建并更新 Phase 6 后端任务台账与执行日志，记录后端无已证明可安全删除接口，本轮不删除放行、审计、权限、模板、记录簿等专业后台能力。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260701-edhr-phase6-module-dedup --mode preview` -> BLOCKED，无删除项；因当前分支无法快进合并到 `int_main` 且主工作区 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro` 有脏改，未执行 apply。
+- `python 会话技能：task-closeout-cleanup --task-id 20260701-edhr-phase6-module-dedup --mode preview` -> BLOCKED，无删除项；因当前分支无法快进合并到 `int_main` 且主工作区 `./IntRuoyiBackend` 有脏改，未执行 apply。
 - `git add -- doc/tasks/20260701-edhr-phase6-module-dedup/task.md doc/tasks/20260701-edhr-phase6-module-dedup/execution-log.md`
 - `git commit -m '任务: 记录eDHR后端去重结论'` -> FAIL，缺少 `TDD_TASK_DIR`。
-- `$env:TDD_TASK_DIR='D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_phase\ruoyi-vue-pro\doc\tasks\20260701-edhr-phase6-module-dedup'; git commit -m '任务: 记录eDHR后端去重结论'` -> PASS，提交 `cda9574ef7`。
+- `$env:TDD_TASK_DIR='../IntRuoyiWorktree/edhr_phase/ruoyi-vue-pro/doc/tasks/20260701-edhr-phase6-module-dedup'; git commit -m '任务: 记录eDHR后端去重结论'` -> PASS，提交 `cda9574ef7`。
 
 ## 2026-07-03 任务：20260702-edhr-jingxi-table-structure
 
@@ -87,17 +89,17 @@
 
 ### 已执行命令
 
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\references\backend-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\references\database-contract.md`
-- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro status --short`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
-- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260702-dcc-project-alias-directory-recognition\task.md`
+- `Get-Content -Encoding utf8 ./docs/powershell-memory.md`
+- `Get-Content -Encoding utf8 会话技能：backend-api-delivery`
+- `Get-Content -Encoding utf8 会话技能：database-schema-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `Get-Content -Encoding utf8 ./docs/experience-index.md`
+- `Get-Content -Encoding utf8 会话技能：backend-api-delivery`
+- `Get-Content -Encoding utf8 会话技能：database-schema-delivery`
+- `Get-Content -Encoding utf8 会话技能：frontend-feature-delivery`
+- `git -C ./IntRuoyiBackend status --short`
+- `git -C ./IntRuoyiFronted status --short`
+- `Get-Content -Encoding utf8 ./IntRuoyiBackend/doc/tasks/20260702-dcc-project-alias-directory-recognition/task.md`
 - `rg -n "alias|别名|mapping|映射|..." DCC 相关源码与任务文档`
 - `apply_patch` -> 创建任务文档、后端证据、数据库证据，并记录 BDD 场景。
 - `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledFileProjectCodeRecognitionServiceTest#recognizeProjectCode_confirmedFileNameAliasWinsBeforeStandardRulesAndCodex" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> RED FAIL，缺少持久化别名映射 DO/Mapper。
@@ -127,22 +129,22 @@
 
 ### 已执行命令
 
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntRuoyi\docs\powershell-memory.md -Encoding utf8`
-- `Get-Content -LiteralPath D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\backend-api-delivery\SKILL.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\backend-api-delivery\references\backend-contract.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md -Encoding utf8`
-- `Get-Content -LiteralPath C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md -Encoding utf8`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro status --short`
-- `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 status --short`
+- `Get-Content -LiteralPath ./docs/powershell-memory.md -Encoding utf8`
+- `Get-Content -LiteralPath ./docs/experience-index.md -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：backend-api-delivery -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：backend-api-delivery -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
+- `Get-Content -LiteralPath 会话技能：frontend-feature-delivery -Encoding utf8`
+- `git -C ./IntRuoyiBackend status --short`
+- `git -C ./IntRuoyiFronted status --short`
 - `rg -n "recognizeProjectCode|recognize-project-code|识别基础信息|识别产品|产品名称" ...`
 - `apply_patch` -> 新增任务文档、后端证据、前端证据，并补 RED 测试断言。
 - `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledFileProjectCodeRecognitionServiceTest#recognizeProjectCode_emptyAiResultPersistsNoMatchWithoutUpdatingFile,DccControlledFileBatchRecognitionServiceTest#processWaitingTasksTreatsNoMatchRecognitionAsCompletedSuccess,DccControlledFileBatchRecognitionServiceTest#processWaitingTasksTreatsExistingNoMatchLedgerAsCompletedSuccess" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> RED FAIL，响应 VO 缺少 `recognitionStatus`。
 - `apply_patch` -> 后端新增 `NO_MATCH` 状态、响应字段、无匹配账本记录、批量识别非失败统计；前端新增 `NO_MATCH` 类型和提示。
 - `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledFileProjectCodeRecognitionServiceTest#recognizeProjectCode_emptyAiResultPersistsNoMatchWithoutUpdatingFile,DccControlledFileBatchRecognitionServiceTest#processWaitingTasksTreatsNoMatchRecognitionAsCompletedSuccess,DccControlledFileBatchRecognitionServiceTest#processWaitingTasksTreatsExistingNoMatchLedgerAsCompletedSuccess" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> GREEN PASS，3 tests, 0 failures。
 - `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledFileProjectCodeRecognitionServiceTest,DccControlledFileBatchRecognitionServiceTest,DccControlledFileProjectCodeRecognitionControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> GREEN PASS，47 tests, 0 failures。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260706-dcc-recognition-no-match-success\backend-api-evidence.md` -> 初次 FAIL，缺少 `BDD:` 标记，随后补齐。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260706-dcc-recognition-no-match-success --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
+- `python -X utf8 会话技能：backend-api-delivery --evidence ./IntRuoyiBackend/doc/tasks/20260706-dcc-recognition-no-match-success/backend-api-evidence.md` -> 初次 FAIL，缺少 `BDD:` 标记，随后补齐。
+- `python -X utf8 会话技能：task-closeout-cleanup --workspace ./IntRuoyiBackend --task-id 20260706-dcc-recognition-no-match-success --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
 
 
 # 2026-07-06 排产与批记录前置检查解耦
@@ -181,7 +183,7 @@
 ## Commands / Actions
 - 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/login-access.md`，创建 `doc/tasks/20260706-mes-replan-apply-system-error/` 任务记录。
 - 搜索前端 `applyReplan/replanApply` 与后端 `/mes/pro/auto-schedule/replan/apply` 调用链，定位到 `MesProAutoScheduleServiceImpl#createEdhrBatchExecutionsAfterScheduleCompletion`。
-- 检查运行日志 `E:\Int\CacheData\IntRuoyi\runtime\backend-20260706-125836.out.log`，确认根因为 eDHR 批次号缺失业务异常被外层捕获后，事务仍被标记 rollback-only 并在提交阶段抛出 `UnexpectedRollbackException`。
+- 检查运行日志 `历史外部材料（引用已移除）`，确认根因为 eDHR 批次号缺失业务异常被外层捕获后，事务仍被标记 rollback-only 并在提交阶段抛出 `UnexpectedRollbackException`。
 - 新增 `MesProEdhrBatchExecutionService#getScheduleCompletionMissingItems` 非事务前置条件检查，并在排产服务进入 eDHR 创建事务前先校验缺少批次号等前置条件。
 - 更新 `MesProAutoScheduleServiceImplTest#apply_shouldNotEnterTransactionalEdhrCreationWhenSchedulePrerequisiteMissing`，验证缺少批次号时应用重排成功、写入警告且不进入事务创建方法。
 - `mvn --% -pl yudao-module-mes -am -Dtest=MesProAutoScheduleServiceImplTest#apply_shouldNotEnterTransactionalEdhrCreationWhenSchedulePrerequisiteMissing -Dsurefire.failIfNoSpecifiedTests=false test` -> GREEN PASS，1 test, 0 failures, 0 errors。
@@ -197,7 +199,7 @@
 
 ### 已执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、backend/frontend 交付技能说明与契约。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、backend/frontend 交付技能说明与契约。
 - `apply_patch` -> 新建 `doc/tasks/20260706-direct-work-report-import/` 任务文档、执行日志、后端证据、前端证据。
 - `apply_patch` -> 后端新增李萍报工单表头解析、直接报工导入接口 `/mes/pro/feedback/import-direct-work-report-xlsx`、直接创建报工并提交审批、来源导入记录关联、杂务行跳过统计与行级 fail-fast 错误。
 - `apply_patch` -> 前端报工导入弹窗新增“第三方报工待归属 / 李萍报工单”模式，直接报工模式调用新接口并展示创建数、提交数、跳过杂务行数和报工单号。
@@ -214,7 +216,7 @@
 ## 执行命令
 
 - 读取 `docs/powershell-memory.md`、`docs/worktree-memory.md`、worktree/backend/frontend/BDD 技能说明与证据契约 -> PASS。
-- `git worktree add -b edhr_batch_improve D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_batch_improve\ruoyi-vue-pro int_main` -> PASS。
+- `git worktree add -b edhr_batch_improve ../IntRuoyiWorktree/edhr_batch_improve/ruoyi-vue-pro int_main` -> PASS。
 - `Get-NetTCPConnection -LocalPort 8095,48095` -> PASS，目标端口当前未占用。
 - 创建 `doc/tasks/20260706-edhr-batch-role-permission-flow/`、`.runtime/runtime.env`，记录 BDD、设计约束、经验门禁和运行态计划 -> PASS。
 
@@ -271,7 +273,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 - 更新 `sql/mysql/20260708_mes_balloon_process_device_capacity.sql`，新增两条路线 seed、23/26 道路线工序 seed、`process_id/next_process_id` 挂载和缺失/冲突 fail-fast 校验。
 - 同步 SQL 契约测试、H2 测试 schema 的 `product_name/manual_shift_capacity/process_code` 字段，并修正复用工位产能断言为保留既有 `12.50`。
 - `python -X utf8 -m pytest script/tests/test_mes_balloon_process_device_capacity_sql.py -q` -> GREEN PASS，6 tests。
-- `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260708-balloon-route-process-import/database-schema-evidence.md` -> PASS。
+- `python 会话技能：database-schema-delivery --evidence doc/tasks/20260708-balloon-route-process-import/database-schema-evidence.md` -> PASS。
 - `mvn.cmd -pl yudao-module-mes "-Dtest=MesProRouteProcessControllerTest,MesProRouteServiceImplTest,BalloonProcessDeviceMappingImportServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，10 tests。
 - `task_closeout.py --task-id 20260708-balloon-route-process-import --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
 - Git commit -> BLOCKED，相关 SQL 与 SQL 契约测试在本任务开始前已是未跟踪文件，整文件提交会夹带前序未提交内容。
@@ -284,7 +286,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、frontend/backend 交付技能与 closeout 规则 -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、frontend/backend 交付技能与 closeout 规则 -> PASS。
 - 创建 `doc/tasks/20260709-process-route-filter-column/`，记录 BDD、设计约束检查、经验门禁和执行日志 -> PASS。
 - RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProProcessServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，缺少 `routeId`、`routeList` 和批量路线工序查询接口。
 - RED: `node tests/e2e/mes-pro-process-route-filter-static.spec.js` -> FAIL，前端缺少路线 VO、筛选项和“所属工艺路线”列。
@@ -372,7 +374,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`./docs/frontend-development.md` -> PASS。
 - 创建 `doc/tasks/20260709-route-product-bind-from-work-orders/`，记录 BDD、经验门禁、设计约束和后端证据 -> PASS。
 - RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProRouteProductBindFromWorkOrdersTest" test` -> FAIL，缺少批量补齐 VO、service method、controller endpoint。
 - 实现结果：新增 `POST /mes/pro/route-product/bind-from-work-orders`，按工艺路线名称精确匹配生产订单产品，去重插入 `mes_pro_route_product`，其它路线已绑定冲突 fail fast。
@@ -386,7 +388,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、backend/frontend/database delivery skills -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`./docs/frontend-development.md`、backend/frontend/database delivery skills -> PASS。
 - 创建 `doc/tasks/20260709-route-schedule-shared-config/`，记录 BDD、经验门禁、设计约束、RED/GREEN 证据 -> PASS。
 - 实现结果：`/mes/pro/route-schedule-config/save` 改为按 `routeVersionId + routeProcessId` 保存路线级排产配置，`itemId` 仅保留为历史兼容字段且保存时清空；前端“工艺排产路线”配置弹窗移除产品选择器和保存 payload 中的 `itemId`。
 - SQL 迁移契约：`mes_pro_route_schedule_config` 改为 `tenant_id + route_version_id + route_process_id + deleted` 唯一索引；产品维度历史配置存在差异时 fail fast，无冲突时归并为路线级配置。
@@ -404,7 +406,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/login-access.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、frontend-feature-delivery 与 task-closeout-cleanup 规则 -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/login-access.md`、`./docs/frontend-development.md`、frontend-feature-delivery 与 task-closeout-cleanup 规则 -> PASS。
 - 创建 `doc/tasks/20260709-route-basic-info-tab/`，记录 BDD、经验门禁、设计约束和前端证据 -> PASS。
 - RED: `node tests/e2e/mes-route-basic-info-tab-static.spec.js` -> FAIL，缺少 `basic` Tab 类型和基础信息 Tab。
 - 实现结果：`RouteFormContent.vue` 将编码、名称、负责人、说明、备注移动到“基础信息”Tab；已有路线 Tab 顺序为“组成工序 / 基础信息 / 流转关系图 / 关联产品”；新建路线未生成 ID 前只显示基础信息；`RouteEditPage.vue` 仍默认进入流转关系图。
@@ -422,7 +424,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、frontend-feature-delivery 与 evidence contract -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`./docs/frontend-development.md`、frontend-feature-delivery 与 evidence contract -> PASS。
 - 创建 `doc/tasks/20260709-route-flow-entry-auto-layout/`，记录 BDD、经验门禁、设计约束和前端证据 -> PASS。
 - RED: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> FAIL，缺少 flow Tab 进入事件监听与子组件自动布局入口。
 - 实现结果：`RouteFormContent.vue` 在默认进入或切换到 `flow` Tab 时调用 `RouteFlowGraphDesigner.autoLayoutOnEntry()`；`RouteFlowGraphDesigner.vue` 复用现有 `handleAutoLayout()`，等图节点加载完成后执行一次，不改保存接口和布局算法。
@@ -438,7 +440,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 执行命令
 
-- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`、`bug-regression-fix-loop`、`frontend-feature-delivery`、`backend-api-delivery` 与 `task-closeout-cleanup` 规则 -> PASS。
+- 读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`docs/agent-memory/project-error-prevention.md`、`./docs/frontend-development.md`、`bug-regression-fix-loop`、`frontend-feature-delivery`、`backend-api-delivery` 与 `task-closeout-cleanup` 规则 -> PASS。
 - 创建 `doc/tasks/20260709-scheduler-workbench-current-process-wip/`，记录 BDD、经验门禁和设计约束 -> PASS。
 - RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProScheduleOrderServiceImplTest#getProcessWipStatistics_shouldUseCurrentProcessSnapshotForWorkbenchWip" test` -> FAIL，期望 1 行但返回 2 行，后续未完成工序被统计进工作台。
 - 修复结果：`MesProScheduleOrderServiceImpl#getProcessWipStatistics` 改为先按每个排产工单解析当前未完成工序，再按当前工序聚合；`processCode` / `processName` 来自排产工序快照。
@@ -523,7 +525,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 2026-07-11 旧工序 ID 系统性消除
 
-- 用户需求：报工导入 `C:\Users\BJB110\Desktop\文档\李萍.xlsx` 报“未找到对应的工艺工序配置”，继续检查并修复系统内旧工序 ID 问题，直到类似问题消除。
+- 用户需求：报工导入 `历史外部材料（引用已移除）` 报“未找到对应的工艺工序配置”，继续检查并修复系统内旧工序 ID 问题，直到类似问题消除。
 - 执行：在独立后端 worktree `codex/legacy-process-id-eradication` 中建立统一路线工序身份解析，修复报工创建/导入/审批、BOM/物料消耗/IPQC、工位/设备/资源、批记录/eDHR、路线默认配置、排程配置和自动排程快照链路中的旧工序严格匹配。
 - GREEN：旧工序 ID 目标回归与自动排程相关回归 Maven 命令均通过；`git diff --check` 通过。
 - GREEN：测试租户真实前端导入 `李萍.xlsx` 返回成功弹窗，未再出现“未找到对应的工艺工序配置”。
@@ -578,7 +580,7 @@ ode tests\e2e\edhr-batch-role-permission-real-flow.e2e.js -> PASS，batch=900000
 
 ## 2026-07-23 压力泵组装Ⅰ/光固Ⅰ单元格差异优化
 
-- 用户需求：在 `20260723_batch` worktree 中，对比识别后的 `组装Ⅰ`、`光固Ⅰ` 与 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 原 Word 表单的每个单元格，分析差异最大的单元并通用优化识别算法，直到基本无差异。
+- 用户需求：在 `20260723_batch` worktree 中，对比识别后的 `组装Ⅰ`、`光固Ⅰ` 与 `历史外部材料（引用已移除）` 原 Word 表单的每个单元格，分析差异最大的单元并通用优化识别算法，直到基本无差异。
 - 执行意图：新增真实 Word 单元格级差异报告测试，比较 Word 原表与 `RouteB + LayoutCalibrator + ReportJsonBuilder` 渲染 JSON 的行数、列数、列宽、行高、文本、合并、控件和斜杠语义。
 - 根因修复：将结构化汇总空白录入格与普通汇总留白分开处理，并在压缩物料矩阵展开时保留奇数尾行右侧物料/批号槽可填写属性；未使用单表名称、固定坐标或截图特例。
 - 验证结果：`MesProBatchRecordPressurePumpCellDiffReportTest` PASS，最终报告显示 `组装Ⅰ工序生产记录 diffCount=0/maxScore=0`、`光固Ⅰ工序生产记录 diffCount=0/maxScore=0`；JsonBuilder 定向 3 tests PASS，LayoutCalibrator 定向 2 tests PASS，CellRuleSupport 21 tests PASS。

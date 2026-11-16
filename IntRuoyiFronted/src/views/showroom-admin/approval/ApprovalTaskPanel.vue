@@ -295,7 +295,7 @@ const handleSignatureConfirm = async (payload: { password: string; comment: stri
     throw new Error('当前登录用户缺失，无法执行审批动作')
   }
   if (!payload.password) {
-    message.error('请输入登录密码完成电子签名')
+    message.error('请输入所选签名方式的六位 PIN 码或密码')
     return
   }
   approvalComment.value = payload.comment

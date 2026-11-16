@@ -29,12 +29,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                 .setReportUnallocatedQuantity(new BigDecimal("-140"));
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 
@@ -64,7 +64,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        PageResult<ProcessPoolTimelineEventRespVO> page = new ProcessPoolTimelineServiceImpl(mapper)
+        PageResult<ProcessPoolTimelineEventRespVO> page = ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
 
         ProcessPoolTimelineEventRespVO actual = page.getList().get(0);
@@ -141,12 +141,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                         """);
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 
@@ -183,7 +183,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        PageResult<ProcessPoolTimelineEventRespVO> page = new ProcessPoolTimelineServiceImpl(mapper)
+        PageResult<ProcessPoolTimelineEventRespVO> page = ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
 
         ProcessPoolTimelineEventRespVO.MaterialDetailRespVO material = page.getList().get(0).getMaterialDetails().get(0);
@@ -202,12 +202,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                 .setReportUnallocatedQuantity(new BigDecimal("-140"));
         MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
             @Override
-            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return 1L;
             }
 
             @Override
-            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO, com.baomidou.mybatisplus.core.conditions.Wrapper<?> filters) {
                 return List.of(event);
             }
 
@@ -234,7 +234,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        assertThrows(IllegalStateException.class, () -> new ProcessPoolTimelineServiceImpl(mapper)
+        assertThrows(IllegalStateException.class, () -> ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq()));
     }
 

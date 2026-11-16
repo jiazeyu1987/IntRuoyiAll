@@ -9,7 +9,8 @@ public enum ErpKingdeeSyncRunStatusEnum {
 
     RUNNING(10),
     SUCCESS(20),
-    FAILED(30);
+    FAILED(30),
+    STOPPING(40);
 
     private final Integer status;
 

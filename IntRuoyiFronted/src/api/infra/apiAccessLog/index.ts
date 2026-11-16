@@ -24,8 +24,12 @@ export interface ApiAccessLogVO {
 }
 
 // 查询列表API 访问日志
-export const getApiAccessLogPage = (params: PageParam) => {
-  return request.get({ url: '/infra/api-access-log/page', params })
+export const getApiAccessLogPage = (params: PageParam, isRequestContextCurrent?: () => boolean) => {
+  return request.get({ url: '/infra/api-access-log/page', params, isRequestContextCurrent })
+}
+
+export const getApiAccessLog = (id: number, isRequestContextCurrent?: () => boolean) => {
+  return request.get<ApiAccessLogVO>({ url: '/infra/api-access-log/get', params: { id }, isRequestContextCurrent })
 }
 
 // 导出API 访问日志

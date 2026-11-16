@@ -44,12 +44,12 @@ export interface ActiveOrderSignatureEvidence {
     verificationScope: string
     digestStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
     timeConsistencyStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
-    auditBindingStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
+    auditBindingStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH' | 'DEVELOPMENT_DISABLED'
     timeSource: 'SERVER_CLOCK' | 'UNKNOWN'
     timeTrustStatus: 'NOT_BOUND'
     reasonCodes: string[]
     verifiedAt: number
-    evidenceFormatVersion: 'V1' | 'UNSUPPORTED'
+    evidenceFormatVersion: 'V1' | 'V2' | 'UNSUPPORTED'
   }
 }
 

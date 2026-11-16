@@ -83,7 +83,7 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     @Override
     public List<DccControlledFileMetadataExportExcelVO> getExportList(Long userId, DccControlledFilePageReqVO reqVO) {
         validateDocControlRole(userId);
-        return controlledFileQueryService.listControlledFileBrowserCandidates(userId, reqVO).stream()
+        return controlledFileQueryService.listControlledFileBrowserExportFiles(userId, reqVO).stream()
                 .filter(this::hasRecognizedMetadata)
                 .map(DccControlledFileMetadataExportExcelVO::from)
                 .toList();
@@ -106,7 +106,7 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     @Override
     public byte[] buildRecognitionRecordExportExcel(Long userId, DccControlledFilePageReqVO reqVO) {
         validateDocControlRole(userId);
-        List<DccControlledFileDO> files = controlledFileQueryService.listControlledFileBrowserCandidates(userId, reqVO);
+        List<DccControlledFileDO> files = controlledFileQueryService.listControlledFileBrowserExportFiles(userId, reqVO);
         String recognitionStatus = StrUtil.trimToNull(reqVO.getRecognitionStatus());
         if (reqVO.getBatchRecognitionTaskId() != null) {
             List<DccControlledFileRecognitionRecordExportExcelVO> taskRows = buildRecognitionRecordExportRows(
@@ -147,7 +147,7 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     @Override
     public byte[] buildRecognitionMigrationExportExcel(Long userId, DccControlledFilePageReqVO reqVO) {
         validateDocControlRole(userId);
-        List<DccControlledFileDO> files = controlledFileQueryService.listControlledFileBrowserCandidates(userId, reqVO);
+        List<DccControlledFileDO> files = controlledFileQueryService.listControlledFileBrowserExportFiles(userId, reqVO);
         String recognitionStatus = StrUtil.trimToNull(reqVO.getRecognitionStatus());
         List<DccControlledFileRecognitionRecordDO> records;
         if (reqVO.getBatchRecognitionTaskId() != null) {

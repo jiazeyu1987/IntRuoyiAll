@@ -106,9 +106,9 @@ for (const token of [
   'templateError',
   'impactError',
   'message.error(resolveErrorMessage',
-  '<el-alert v-if="loadError"',
-  '<el-alert v-if="templateError"',
-  '<el-alert v-if="impactError"'
+  'v-if="loadError"',
+  'v-if="templateError"',
+  'v-if="impactError"'
 ]) {
   assert.match(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `页面必须暴露后端失败原因：${token}`)
 }

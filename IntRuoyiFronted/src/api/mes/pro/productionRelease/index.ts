@@ -11,6 +11,7 @@ export const getPqcProductionReleaseOrderDetail = async (applicationId: string, 
 }
 
 export const PQC_RELEASE_VIEW_PENDING = 'PENDING' as const
+export const PQC_RELEASE_VIEW_COMPLETED = 'COMPLETED' as const
 export const PQC_RELEASE_VIEW_RELEASED = 'RELEASED' as const
 export const PQC_RELEASE_VIEW_VOIDED = 'VOIDED' as const
 export const PQC_RELEASE_VIEW_REWORKED = 'REWORKED' as const
@@ -49,14 +50,6 @@ export interface MesProductionReleaseFailureRespVO {
   blockers: MesProductionReleaseBlockerRespVO[]
 }
 
-export interface MesProductionReleaseReportUploadTaskRespVO {
-  nodeType: string
-  batchTaskId: string
-  workTaskId: string
-  candidateUserIds: string[]
-  status: string
-}
-
 export interface MesPqcProductionReleaseApproveReqVO {
   applicationId: string
   pqcReleaseWorkTaskId: string
@@ -89,7 +82,6 @@ export interface MesPqcProductionReleaseDecisionRespVO {
   lossReportFormCenterInstanceIds: string[]
   lossReportFieldAuditIds: string[]
   lossReportFieldAuditHeadHashes: string[]
-  reportUploadTasks: MesProductionReleaseReportUploadTaskRespVO[]
   sourceSnapshotHash: string
   reportSnapshotHash?: string
   version: number
@@ -101,7 +93,8 @@ export interface MesPqcProductionReleaseDecisionRespVO {
 }
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {
-  viewStatus: MesPqcProductionReleaseViewStatus
+  listFilters?: string
+  viewStatus: MesPqcProductionReleaseViewStatus | typeof PQC_RELEASE_VIEW_COMPLETED
   applicationId?: string
   pqcReleaseWorkTaskId?: string
   workOrderCode?: string

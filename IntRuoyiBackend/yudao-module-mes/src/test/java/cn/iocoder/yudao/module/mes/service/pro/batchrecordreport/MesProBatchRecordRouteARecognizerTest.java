@@ -18,7 +18,7 @@ class MesProBatchRecordRouteARecognizerTest {
 
     private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\\u6279\u8bb0\u5f55\u6a21\u677f.doc");
+            "../../resource/\u6279\u8bb0\u5f55\u6a21\u677f.doc");
 
     private final MesProBatchRecordRouteARecognizer recognizer =
             new MesProBatchRecordRouteARecognizer(new MesProBatchRecordDocParser());

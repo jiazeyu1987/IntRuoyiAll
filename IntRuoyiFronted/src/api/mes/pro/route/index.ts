@@ -2,7 +2,21 @@ import request from '@/config/axios'
 
 export type MesRouteId = number | string
 
+export interface RouteProjectOption {
+  id: number
+  projectCode: string
+  projectName: string
+  status: string
+  occupied: boolean
+  routeIds: number[]
+}
+
+export const getRouteProjectOptions = (keyword = ''): Promise<RouteProjectOption[]> =>
+  request.get({ url: '/mes/pro/route/dcc-project-options', params: { keyword } })
+
 export interface ProRouteCreateReqVO {
+  dccProjectCodeId: number
+  workshopId: number
   name: string
   remark?: string
   processIds: number[]
@@ -20,6 +34,8 @@ export interface ProRouteVO {
   remark?: string // 备注
   lastProcessName?: string // 末道工序
   productCodes?: string // 关联产品编号
+  productCount?: number // 正式关联产品数量
+  dccProjectCode?: string // 正式关联项目代码
   flowGraphConfigured?: boolean // 关系图是否已设置
   activeRouteVersionId?: number // 当前激活路线版本编号
   activeRouteVersionNo?: string // 当前激活路线版本号
@@ -76,6 +92,7 @@ export interface ProRouteResourceCapacityPreviewVO {
   blockingIssues: ProRouteResourceCapacityBlockingIssueVO[]
 }
 export interface ProRouteCopyReqVO {
+  dccProjectCodeId: number
   sourceRouteId: number
   targetCode: string
   targetName: string
@@ -90,14 +107,16 @@ export interface RouteDccProjectBindingVO {
 
 export interface RouteDccProjectBindingSaveReqVO {
   routeId: number
+  routeVersionId?: MesRouteId
   dccProjectCodeId: number
   expectedVersion?: number
+  confirmedProductItemIds: number[]
 }
 
 export interface ProRouteScheduleConfigVO {
   id?: number
   routeVersionId: MesRouteId
-  routeProcessId: number
+  routeProcessId: MesRouteId
   capacityMode: 'RESOURCE_CALCULATED' | 'MANUAL_OVERRIDE' | 'FINITE_HOURLY' | 'INFINITE_FORMULA'
   hourlyCapacity?: number
   shiftHours?: number
@@ -127,6 +146,8 @@ export interface ProRouteVersionVO {
   active: boolean
   lifecycleStatus: ProRouteVersionLifecycleStatus
   sourceRouteVersionId?: number
+  lastSavedBy?: number
+  lastSavedUserName?: string
   submittedBy?: number
   submittedTime?: string
   approvalProcessInstanceId?: string
@@ -139,6 +160,13 @@ export interface RouteVersionEditContext {
   routeVersionId: MesRouteId
   versionNo: string
   lifecycleStatus: ProRouteVersionLifecycleStatus
+}
+
+export interface RouteVersionNameVO {
+  routeVersionId: MesRouteId
+  routeId: MesRouteId
+  name: string
+  routeSnapshotSha256: string
 }
 
 export interface ProRouteVersionCreateReqVO {
@@ -297,7 +325,7 @@ export interface RouteFlowGraphVO extends RouteFlowValidationVO {
 }
 
 export interface RouteFlowGraphSaveReqVO {
-  routeId: number
+  routeId: MesRouteId
   routeVersionId?: MesRouteId
   graphVersion: number
   edges: RouteFlowEdgeVO[]
@@ -310,7 +338,7 @@ export interface RouteFlowGraphSaveReqVO {
 
 export interface RouteFlowRouteProcessCreateReqVO {
   clientRouteProcessId: number
-  routeId: number
+  routeId: MesRouteId
   processId: number
   sort: number
   linkType?: number
@@ -324,7 +352,7 @@ export interface RouteFlowRouteProcessCreateReqVO {
 
 export interface RouteFlowRouteProcessUpdateReqVO {
   id: number
-  routeId: number
+  routeId: MesRouteId
   processId: number
   sort: number
   workstationId?: number
@@ -342,7 +370,34 @@ export const PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL =
 export const PRO_ROUTE_VERSION_BASE_URL = '/mes/pro/route-version'
 
 // MES 工艺路线 API
+export interface RouteFullFlowReadinessVO {
+  routeId: MesRouteId
+  routeVersionId?: MesRouteId
+  versionNo?: string
+  checkedAt: string
+  overallStatus: 'BLOCKED' | 'PASS'
+  items: Array<{
+    stage: string
+    name: string
+    status: 'PASS' | 'BLOCKED'
+    detail: string
+    action: string
+  }>
+}
+
+export interface RouteReleaseOwnerVO {
+  role: { id: number; name: string }
+  users: Array<{ id: number; username: string; nickname: string; status: number }>
+}
+
 export const ProRouteApi = {
+  getReleaseOwner: async (code: string) => {
+    return await request.get<RouteReleaseOwnerVO>({
+      url: '/mes/pro/route/release-owner',
+      params: { code },
+      ignoreErrorMessage: true
+    })
+  },
   // 查询工艺路线分页
   getRoutePage: async (params: any) => {
     return await request.get({ url: `/mes/pro/route/page`, params })
@@ -488,6 +543,14 @@ export const ProRouteApi = {
     return await request.post({ url: `/mes/pro/route-schedule-config/save`, data, ...options })
   },
 
+  checkRouteFullFlowReadiness: async (routeId: MesRouteId, routeVersionId?: MesRouteId) => {
+    return await request.get<RouteFullFlowReadinessVO>({
+      url: '/mes/pro/route-process-flow/full-flow-readiness',
+      params: { routeId, routeVersionId },
+      ignoreErrorMessage: true
+    })
+  },
+
   // 查询工艺路线工序流转关系图
   getRouteProcessFlowGraph: async (routeId: MesRouteId, routeVersionId?: MesRouteId) => {
     return await request.get<RouteFlowGraphVO>({
@@ -536,6 +599,18 @@ export const ProRouteApi = {
     })
   },
 
+  getRouteLossCoefficient: async (id: MesRouteId) => request.get<{
+    routeVersionId: MesRouteId
+    routeSnapshotSha256: string
+    lossCoefficient: number
+  }>({ url: `${PRO_ROUTE_VERSION_BASE_URL}/loss-coefficient`, params: { id } }),
+
+  saveRouteLossCoefficient: async (data: {
+    routeVersionId: MesRouteId
+    expectedRouteSnapshotSha256: string
+    lossCoefficient: number
+  }) => request.post<boolean>({ url: `${PRO_ROUTE_VERSION_BASE_URL}/loss-coefficient/save`, data }),
+
   // 查询工艺路线版本生产工序配置
   getRouteProductionProcessConfig: async (id: MesRouteId) => {
     return await request.get<ProRouteProductionProcessConfigSnapshotVO>({
@@ -558,6 +633,21 @@ export const ProRouteApi = {
       url: `${PRO_ROUTE_VERSION_BASE_URL}/production-process-config/save`,
       data
     })
+  },
+
+  getRouteVersionName: async (id: MesRouteId) => {
+    return await request.get<RouteVersionNameVO>({
+      url: `${PRO_ROUTE_VERSION_BASE_URL}/name`,
+      params: { id }
+    })
+  },
+
+  saveRouteVersionName: async (data: {
+    routeVersionId: MesRouteId
+    name: string
+    expectedRouteSnapshotSha256: string
+  }) => {
+    return await request.post({ url: `${PRO_ROUTE_VERSION_BASE_URL}/name/save`, data })
   },
 
   // 查询候选版本发布阻断项

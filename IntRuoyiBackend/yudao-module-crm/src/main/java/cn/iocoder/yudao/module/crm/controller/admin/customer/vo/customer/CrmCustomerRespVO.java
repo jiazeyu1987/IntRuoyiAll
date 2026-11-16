@@ -73,11 +73,11 @@ public class CrmCustomerRespVO {
     private String qq;
 
     @Schema(description = "wechat", example = "25682")
-    @ExcelProperty("wechat")
+    @ExcelProperty("微信")
     private String wechat;
 
     @Schema(description = "email", example = "25682")
-    @ExcelProperty("email")
+    @ExcelProperty("邮箱")
     private String email;
 
     @Schema(description = "地区编号", example = "1024")
@@ -86,6 +86,10 @@ public class CrmCustomerRespVO {
     @Schema(description = "地区名称", example = "北京市")
     @ExcelProperty("地区名称")
     private String areaName;
+
+    @Schema(description = "供导入识别的完整地区路径")
+    @ExcelProperty("地区")
+    private String areaPath;
     @Schema(description = "详细地址", example = "北京市成华大道")
     @ExcelProperty("详细地址")
     private String detailAddress;

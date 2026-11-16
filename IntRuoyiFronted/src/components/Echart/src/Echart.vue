@@ -33,15 +33,20 @@ const props = defineProps({
 const isDark = computed(() => appStore.getIsDark)
 
 const theme = computed(() => {
-  const echartTheme: boolean | string = unref(isDark) ? true : 'auto'
+  const echartTheme: EChartsOption['darkMode'] = unref(isDark) ? true : 'auto'
 
   return echartTheme
 })
 
 const options = computed(() => {
-  return Object.assign(props.options, {
-    darkMode: unref(theme)
-  })
+  return {
+    ...props.options,
+    darkMode: unref(theme),
+    textStyle: {
+      ...props.options.textStyle,
+      fontFamily: 'Microsoft YaHei'
+    }
+  }
 })
 
 const elRef = ref<ElRef>()

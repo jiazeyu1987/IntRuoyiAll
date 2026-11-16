@@ -17,10 +17,6 @@ const activeOrderDetailPanel = fs.readFileSync(
   path.resolve(root, 'src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'),
   'utf8'
 )
-const replenishmentHelper = fs.readFileSync(
-  path.resolve(root, 'src/views/mes/pro/processpool/activeOrderReplenishmentConfirmation.ts'),
-  'utf8'
-)
 const packageJson = JSON.parse(fs.readFileSync(path.resolve(root, 'package.json'), 'utf8'))
 
 assert.match(pickListPage, /data-production-pick-list-sync-kingdee/, 'pick list sync button needs a stable selector')
@@ -38,8 +34,7 @@ for (const selector of [
   assert.match(teamLeaderPage, new RegExp(selector), `active order completion page missing ${selector}`)
 }
 
-assert.match(replenishmentHelper, /NO_REPLENISHMENT_CONFIRMATION_REQUIRED/)
-assert.match(replenishmentHelper, /return undefined/, 'cancelled no-replenishment confirmation must leave no completion result')
+assert.doesNotMatch(teamLeaderPage, /applyWithNoReplenishmentConfirmation|确认无补料信息/)
 
 assert.match(runner, /async function triggerProductionPickListSync\(page, manifestOrder\)/)
 assert.match(
@@ -62,10 +57,10 @@ assert.match(
   /const prePickListInputMaterialBackfill = await verifyNoInputMaterialBackfillBeforePickList\(page, manifestOrder\)[\s\S]*const pickListSync = await triggerProductionPickListSync\(page, manifestOrder\)/,
   'S04 must check empty input-material backfill before triggering production pick-list sync'
 )
-assert.match(runner, /async function applyActiveOrderReleaseAndCancelNoReplenishment\(page, manifestOrder\)/)
-assert.match(runner, /async function applyActiveOrderReleaseWithNoReplenishmentConfirmation\(page, manifestOrder\)/)
+assert.match(runner, /async function applyActiveOrderReleaseAndCancel\(page, manifestOrder\)/)
+assert.match(runner, /async function applyActiveOrderReleaseWithoutReplenishment\(page, manifestOrder\)/)
 assert.match(runner, /data-team-leader-active-order-release-apply/)
-assert.match(runner, /NO_REPLENISHMENT_CONFIRMATION_REQUIRED/)
+assert.doesNotMatch(runner, /NO_REPLENISHMENT_CONFIRMATION_REQUIRED/)
 assert.match(runner, /PQC_RELEASE_PENDING/)
 assert.match(runner, /const completion = await runWithStage\('S04',[\s\S]*completeActiveOrderAndApplyRelease\(page, mainOrder\)/)
 assert.match(runner, /failedStage:\s*null/, 'after S08 succeeds, runner must clear failedStage')

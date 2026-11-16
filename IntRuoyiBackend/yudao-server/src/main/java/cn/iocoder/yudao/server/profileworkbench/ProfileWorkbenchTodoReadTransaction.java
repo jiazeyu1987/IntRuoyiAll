@@ -12,6 +12,7 @@ import static cn.iocoder.yudao.module.system.api.workbench.WorkbenchFailure.*;
 
 @Service @DS("master")
 public class ProfileWorkbenchTodoReadTransaction {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ProfileWorkbenchTodoReadTransaction.class);
     private static final int CHUNK_SIZE = 100;
     private static final long BUDGET_NANOS = 10_000_000_000L;
     private final WorkbenchSourceRegistry registry;
@@ -46,7 +47,11 @@ public class ProfileWorkbenchTodoReadTransaction {
             SourceAdapter source = registry.require(id);
             long all = checkedCount(source, q.partition(null), start);
             long hiddenCount = checkedCount(source, q.partition("hidden"), start);
-            long selected = checkedCount(source, q, start);
+            // All partitions share this transaction's snapshot. Without filters, the
+            // visible/hidden count is already known; sorting does not change it.
+            long selected = q.getTaskType() == null && q.getFilterField() == null && (q.getListFilters() == null || q.getListFilters().isBlank())
+                ? ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)
+                : checkedCount(source, q, start);
             if (hiddenCount > all || selected > ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)) throw SOURCE_CONTRACT_INVALID.exception();
             try { business = Math.addExact(business, all); hidden = Math.addExact(hidden, hiddenCount); filtered = Math.addExact(filtered, selected); }
             catch (ArithmeticException failure) { throw SOURCE_CONTRACT_INVALID.exception(failure); }
@@ -98,7 +103,7 @@ public class ProfileWorkbenchTodoReadTransaction {
         checkBudget(start); q.validate(); long value;
         try { value = source.count(q); }
         catch (ServiceException failure) { throw failure; }
-        catch (RuntimeException failure) { throw SOURCE_QUERY_FAILED.exception(failure); }
+        catch (RuntimeException failure) { LOG.warn("Workbench source failure: source={} operation={} type={}", source.sourceId(), "count", failure.getClass().getName()); throw SOURCE_QUERY_FAILED.exception(failure); }
         checkBudget(start); if (value < 0) throw SOURCE_CONTRACT_INVALID.exception(); return value;
     }
     static void checkBudget(long start) { if (System.nanoTime() - start >= BUDGET_NANOS) throw QUERY_BUDGET_EXCEEDED.exception(); }
@@ -111,7 +116,7 @@ public class ProfileWorkbenchTodoReadTransaction {
             checkBudget(start); TaskChunk chunk;
             try { chunk = source.readChunk(q, after, CHUNK_SIZE); }
             catch (ServiceException failure) { throw failure; }
-            catch (RuntimeException failure) { throw SOURCE_QUERY_FAILED.exception(failure); }
+            catch (RuntimeException failure) { LOG.warn("Workbench source failure: source={} operation={} type={}", source.sourceId(), "readChunk", failure.getClass().getName()); throw SOURCE_QUERY_FAILED.exception(failure); }
             checkBudget(start);
             if (chunk == null || chunk.rows() == null || chunk.rows().isEmpty() || chunk.rows().size() > CHUNK_SIZE
                     || (chunk.hasNext() && chunk.rows().size() != CHUNK_SIZE)) throw SOURCE_CONTRACT_INVALID.exception();

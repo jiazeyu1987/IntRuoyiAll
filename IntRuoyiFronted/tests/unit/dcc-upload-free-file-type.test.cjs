@@ -129,7 +129,8 @@ test('file information keeps ordered fields, paired inputs, readonly matches and
  const number=fields.find(n=>attr(n,'prop')==='fileNumber')
  for(const key of ['currentVersionLookupLoading','currentVersionLookupError','currentVersionInfo.fileName','currentVersionInfo.currentVersionNo',
   'currentVersionInfo.status','currentVersionInfo.modifying','currentVersionProjectionBlockReason','isRequestedVersionDuplicate',
-  'originalFilePath','sourceFilePath','stampedFilePath','publishedFilePath']) assert.ok(number.loc.source.includes(key),key)
+  'currentVersionStatusLabel','currentVersionFiles']) assert.ok(number.loc.source.includes(key),key)
+ for (const key of ['originalFilePath','sourceFilePath','stampedFilePath','publishedFilePath']) assert.ok(descriptor.scriptSetup.content.includes(key),key)
  const product=fields.find(n=>attr(n,'prop')==='productCode')
  assert.ok(!walk(product).some(n=>n.tag==='el-input'))
  const details=walk(product).find(n=>n.tag==='details')

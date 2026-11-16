@@ -89,7 +89,7 @@ class MesEdhrDirectNavigationPermissionContractTest {
         var task = new MesProEdhrWorkTaskDO().setId(8001L).setTaskType(type).setStatus(status);
         var display = new MesProEdhrWorkTaskRespVO().setId(8001L).setTaskType(type).setStatus(status)
                 .setExecutionId(9001L).setBatchExecutionId(7001L).setBpmTaskId("task-9001").setActionUrl(action);
-        when(tasks.getApprovalCenterAuthorizedPrefix(any(), eq(global), eq("DONE".equals(status)), anyLong()))
+        when(tasks.getApprovalCenterAuthorizedWindow(any(), eq(global), eq("DONE".equals(status)), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(200L)))
                 .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(task, display)), 1L));
         var adapter = new MesProEdhrApprovalTaskAdapter(tasks, mock(MesProEdhrReleaseService.class),
                 mock(MesManagerReleaseCompletedActorResolver.class));

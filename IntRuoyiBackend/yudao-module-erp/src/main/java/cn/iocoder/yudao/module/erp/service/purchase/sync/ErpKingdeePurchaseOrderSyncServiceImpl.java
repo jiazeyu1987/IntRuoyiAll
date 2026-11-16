@@ -65,9 +65,16 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting() {
+        return syncPurchaseOrdersFullSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validatePurchaseOrderSyncConfig();
-        List<ErpKingdeePurchaseOrder> purchaseOrders = kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties);
+        List<ErpKingdeePurchaseOrder> purchaseOrders = (windowStart == null ? kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties)
+                : kingdeePurchaseOrderClient.fetchPurchaseOrdersModifiedBetween(kingdeeProperties, windowStart, windowEnd));
         return syncPurchaseOrders(kingdeeProperties, purchaseOrders, true);
     }
 

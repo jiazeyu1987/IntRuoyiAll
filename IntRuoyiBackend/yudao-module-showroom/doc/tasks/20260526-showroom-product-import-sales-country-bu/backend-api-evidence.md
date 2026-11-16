@@ -2,9 +2,9 @@
 
 ## 只读检查范围
 
-- 后端 worktree：`D:\ProjectPackage\Int\IntRuoyi\worktrees\20260526-showroom-product-import-sales-country-bu\ruoyi-vue-pro`
+- 后端 worktree：`./worktrees/20260526-showroom-product-import-sales-country-bu/ruoyi-vue-pro`
 - 模块：`yudao-module-showroom`
-- 验收 Excel：`D:\ProjectPackage\Int\IntRuoyi\resource\产品资料修改版.xlsx`
+- 验收 Excel：`./resource/产品资料修改版.xlsx`
 
 ## 实现前基线证据
 

@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -48,6 +49,9 @@ public class UserProfileController {
     @Resource
     private RoleService roleService;
 
+    @Resource
+    private TenantService tenantService;
+
     @GetMapping("/get")
     @Operation(summary = "获得登录用户信息")
     @DataPermission(enable = false) // 关闭数据权限，避免只查看自己时，查询不到部门。
@@ -60,13 +64,34 @@ public class UserProfileController {
         DeptDO dept = user.getDeptId() != null ? deptService.getDept(user.getDeptId()) : null;
         // 获得岗位信息
         List<PostDO> posts = CollUtil.isNotEmpty(user.getPostIds()) ? postService.getPostList(user.getPostIds()) : null;
-        return success(UserConvert.INSTANCE.convert(user, userRoles, dept, posts));
+        UserProfileRespVO response = UserConvert.INSTANCE.convert(user, userRoles, dept, posts);
+        var tenant = tenantService.getTenant(user.getTenantId());
+        if (tenant == null) {
+            throw new IllegalStateException("当前认证用户所属租户不存在，无法核对身份");
+        }
+        response.setTenantId(tenant.getId());
+        response.setTenantName(tenant.getName());
+        return success(response);
     }
 
     @PutMapping("/update")
     @Operation(summary = "修改用户个人信息")
     public CommonResult<Boolean> updateUserProfile(@Valid @RequestBody UserProfileUpdateReqVO reqVO) {
         userService.updateUserProfile(getLoginUserId(), reqVO);
+        return success(true);
+    }
+
+    @Resource private cn.iocoder.yudao.module.system.service.signature.UserSignatureSettingsService signatureSettings;
+    @GetMapping("/signature-settings")
+    @Operation(summary="读取本人电子签名方式")
+    public CommonResult<cn.iocoder.yudao.module.system.service.signature.UserSignatureSettingsService.Settings> getSignatureSettings() {
+        return success(signatureSettings.get());
+    }
+    @PutMapping("/signature-settings")
+    @ApiAccessLog(requestEnable=false, sanitizeKeys={"password", "newPin"})
+    @Operation(summary="修改本人签名 PIN 和签名方式")
+    public CommonResult<Boolean> updateSignatureSettings(@Valid @RequestBody cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserSignatureSettingsReqVO request) {
+        signatureSettings.update(request);
         return success(true);
     }
 

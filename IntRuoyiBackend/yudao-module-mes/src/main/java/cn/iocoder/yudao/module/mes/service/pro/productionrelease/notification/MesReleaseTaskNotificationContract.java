@@ -91,6 +91,19 @@ final class MesReleaseTaskNotificationContract {
         }
     }
 
+    static boolean outcome(String event) {
+        return List.of("PQC_APPROVED", "PQC_REJECTED", "MARKET_APPROVED", "MARKET_REJECTED", "MARKET_WITHDRAWN").contains(event);
+    }
+
+    static void outcomeAccess(PermissionApi permissions, Long tenantId, Long actorId,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.productionrelease.MesReleaseTaskNotifyDeliveryDO row) {
+        tenant(tenantId);
+        if (row == null || !outcome(row.getEventType()) || !Objects.equals(actorId, row.getUserId())
+                || !permissions.hasAnyPermissions(actorId, QUERY_PERMISSION)) {
+            throw new ServiceException(403, "仅结果通知收件人可查询或重试本人的放行结果");
+        }
+    }
+
     static void reason(Long actorId, String reason) {
         if (actorId == null || actorId <= 0 || blank(reason) || reason.length() > 1000) {
             throw new IllegalArgumentException("通知重试必须提供真实操作者和有效原因");

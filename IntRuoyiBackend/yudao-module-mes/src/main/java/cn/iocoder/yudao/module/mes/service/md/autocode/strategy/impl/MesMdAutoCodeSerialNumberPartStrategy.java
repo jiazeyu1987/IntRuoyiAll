@@ -105,14 +105,14 @@ public class MesMdAutoCodeSerialNumberPartStrategy implements MesMdAutoCodePartS
                 filterByInputChar ? context.getInputChar() : null, filterByInputChar, cycleWindow[0], cycleWindow[1]);
         long next = latestRecord == null || latestRecord.getSerialNo() == null
                 ? startNo.longValue() : Math.max(startNo.longValue(), Math.addExact(latestRecord.getSerialNo(), step));
-        if (MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode().equals(context.getRule().getCode())) {
+        if (context.getRule().getProjectId() == null && MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode().equals(context.getRule().getCode())) {
             Long highWatermark = recordMapper.selectRouteCodeHighWatermark(TenantContextHolder.getRequiredTenantId());
             if (highWatermark == null) {
                 throw new IllegalStateException("工艺流程编码历史序号查询失败");
             }
             next = Math.max(next, Math.addExact(highWatermark, step));
         }
-        if (MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.getCode().equals(context.getRule().getCode())) {
+        if (context.getRule().getProjectId() == null && MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.getCode().equals(context.getRule().getCode())) {
             Long highWatermark = processMapper.selectProcessCodeHighWatermark(TenantContextHolder.getRequiredTenantId());
             if (highWatermark == null) {
                 throw new IllegalStateException("工序编码历史序号查询失败");

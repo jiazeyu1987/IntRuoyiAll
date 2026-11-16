@@ -26,7 +26,7 @@ export const WmWarehouseApi = {
   },
 
   // 查询仓库详情
-  getWarehouse: async (id: number) => {
+  getWarehouse: async (id: number | string) => {
     return await request.get({ url: '/mes/wm/warehouse/get?id=' + id })
   },
 

@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="bpm.form.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,12 +23,11 @@
       @column-change="saveFormColumnConfig"
       @column-reset="resetFormColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery">
-          <Icon class="mr-5px" icon="ep:refresh" />
-          重置
-        </el-button>
         <el-button
           v-hasPermi="['bpm:form:create']"
           plain
@@ -39,10 +39,10 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -147,6 +147,10 @@
 </template>
 
 <script lang="ts" setup>
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { computed } from 'vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -182,10 +186,12 @@ const {
   resetConfig: resetFormColumnConfig
 } = useUserTableColumns('bpm.form.main', formDefaultColumns)
 
-const loading = ref(true)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<FormApi.FormVO[]>([])
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   name: undefined as string | undefined,
@@ -205,14 +211,10 @@ const formQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => 
 
 /** 查询列表 */
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await FormApi.getFormPage(queryParams)
+  return await listRequest.run(() => FormApi.getFormPage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const formQuickFilter = useTableQuickFilter('bpm.form.main', formQuickFilterDefinitions, queryParams, getList)
@@ -281,4 +283,13 @@ watch(
 onMounted(() => {
   getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>

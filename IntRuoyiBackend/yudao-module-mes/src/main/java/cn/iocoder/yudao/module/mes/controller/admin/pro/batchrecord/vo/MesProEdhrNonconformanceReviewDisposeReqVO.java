@@ -22,7 +22,7 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
     @Schema(description = "评审材料URL摘要")
     private String reviewMaterialUrl;
 
-    @Schema(description = "当前有效评审材料清单", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "当前有效评审材料清单，选填，可为空")
     private List<ReviewMaterialReqVO> reviewMaterials;
 
     @Schema(description = "评审材料上传删除操作记录")
@@ -33,7 +33,7 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
     private String reviewOpinion;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "电子签名密码不能为空")
+    @NotBlank(message = "电子签名凭据不能为空")
     private String signaturePassword;
 
     @Data

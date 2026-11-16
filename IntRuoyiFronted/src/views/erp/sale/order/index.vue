@@ -20,20 +20,13 @@
         />
       </el-form-item>
       <el-form-item label="产品" prop="productId">
-        <el-select
+        <RemoteProductSelect
           v-model="queryParams.productId"
           clearable
           filterable
           placeholder="请选择产品"
           class="!w-240px"
-        >
-          <el-option
-            v-for="item in productList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
+         />
       </el-form-item>
       <el-form-item label="订单时间" prop="orderTime">
         <el-date-picker
@@ -142,15 +135,6 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
         <el-button
-          type="warning"
-          plain
-          @click="handleSyncKingdeeSaleOrders"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:sale-order:create']"
-        >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
-        </el-button>
-        <el-button
           type="danger"
           plain
           @click="handleDelete(selectionList.map((item) => item.id))"
@@ -160,6 +144,7 @@
           <Icon icon="ep:delete" class="mr-5px" /> 删除
         </el-button>
       </el-form-item>
+      <el-form-item><RecentFullSyncButton sync-type="SALE_ORDER" /></el-form-item>
     </el-form>
   </ContentWrap>
 
@@ -286,14 +271,14 @@
 </template>
 
 <script setup lang="ts">
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { SaleOrderApi, SaleOrderVO } from '@/api/erp/sale/order'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import SaleOrderForm from './SaleOrderForm.vue'
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import RemoteProductSelect from '@/views/erp/components/RemoteProductSelect.vue'
 import { UserVO } from '@/api/system/user'
 import * as UserApi from '@/api/system/user'
 import { erpCountTableColumnFormatter, erpPriceTableColumnFormatter } from '@/utils'
@@ -323,12 +308,10 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-const productList = ref<ProductVO[]>([]) // 产品列表
 const customerList = ref<CustomerVO[]>([]) // 客户列表
 const userList = ref<UserVO[]>([]) // 用户列表
 
 /** 查询列表 */
-const kingdeeSyncLoading = ref(false)
 
 const getList = async () => {
   loading.value = true
@@ -412,21 +395,10 @@ const handleSelectionChange = (rows: SaleOrderVO[]) => {
 }
 
 /** 初始化 **/
-const handleSyncKingdeeSaleOrders = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('SALE_ORDER')
-    message.success('销售订单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 onMounted(async () => {
   await getList()
   // 加载产品、仓库列表、客户
-  productList.value = await ProductApi.getProductSimpleList()
   customerList.value = await CustomerApi.getCustomerSimpleList()
   userList.value = await UserApi.getSimpleUserList()
 })

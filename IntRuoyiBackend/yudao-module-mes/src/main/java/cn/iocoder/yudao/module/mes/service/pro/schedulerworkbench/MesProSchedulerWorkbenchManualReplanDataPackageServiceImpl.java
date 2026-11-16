@@ -88,7 +88,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         implements MesProSchedulerWorkbenchManualReplanDataPackageService {
 
-    private static final String PACKAGE_VERSION = "scheduler-manual-replan-data.v1";
+    private static final String PACKAGE_VERSION = "scheduler-manual-replan-data.v2";
 
     @Resource
     private MesMdItemMapper itemMapper;
@@ -96,6 +96,8 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
     private MesProProcessMapper processMapper;
     @Resource
     private MesProRouteMapper routeMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper projectBindingMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
@@ -164,6 +166,7 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         payload.setItems(itemMapper.selectList());
         payload.setProcesses(processMapper.selectList());
         payload.setRoutes(routeMapper.selectList());
+        payload.setRouteProjectBindings(projectBindingMapper.selectList());
         payload.setRouteVersions(routeVersionMapper.selectList());
         payload.setRouteProducts(routeProductMapper.selectList());
         payload.setRouteProcesses(routeProcessMapper.selectList());
@@ -203,11 +206,16 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         ManualReplanDataPackage payload = parsePayload(content);
         validatePayload(payload);
         rewriteTenantScopedRows(payload);
+        validateRouteProjects(payload);
 
         int masterDataCount = 0;
         masterDataCount += upsertRows(itemMapper, payload.getItems(), "物料主数据");
         masterDataCount += upsertRows(processMapper, payload.getProcesses(), "工序主数据");
         masterDataCount += upsertRows(routeMapper, payload.getRoutes(), "工艺路线");
+        for (var binding : payload.getRouteProjectBindings()) {
+            if (projectBindingMapper.selectCurrentByRouteId(binding.getRouteId()) == null)
+                projectGuard.bindNewRoute(binding.getRouteId(), binding.getDccProjectCodeId());
+        }
         masterDataCount += upsertRows(routeVersionMapper, payload.getRouteVersions(), "工艺路线版本");
         masterDataCount += upsertRows(routeProductMapper, payload.getRouteProducts(), "路线产品绑定");
         masterDataCount += upsertRows(routeProcessMapper, payload.getRouteProcesses(), "路线工序");
@@ -272,6 +280,7 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         requireList(payload.getItems(), "items");
         requireList(payload.getProcesses(), "processes");
         requireList(payload.getRoutes(), "routes");
+        requireList(payload.getRouteProjectBindings(), "routeProjectBindings");
         requireList(payload.getRouteVersions(), "routeVersions");
         requireList(payload.getRouteProducts(), "routeProducts");
         requireList(payload.getRouteProcesses(), "routeProcesses");
@@ -339,6 +348,24 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         }
     }
 
+    private void validateRouteProjects(ManualReplanDataPackage payload) {
+        java.util.Set<Long> projects = new java.util.HashSet<>();
+        java.util.Set<Long> routes = new java.util.HashSet<>();
+        for (var route : payload.getRoutes()) routes.add(route.getId());
+        java.util.Set<Long> boundRoutes = new java.util.HashSet<>();
+        for (var binding : payload.getRouteProjectBindings()) {
+            if (binding == null || !routes.contains(binding.getRouteId())
+                    || Boolean.TRUE.equals(binding.getDeleted()) || !boundRoutes.add(binding.getRouteId())
+                    || !projects.add(binding.getDccProjectCodeId()))
+                throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "数据包项目关联无效：每条流程必须且只能关联一个独占项目");
+            var current = projectBindingMapper.selectCurrentByRouteId(binding.getRouteId());
+            if (current != null && !java.util.Objects.equals(current.getDccProjectCodeId(), binding.getDccProjectCodeId()))
+                throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "数据包不能更改已有流程的所属项目，请在工艺流程中维护");
+            projectGuard.requireAvailable(binding.getDccProjectCodeId(), binding.getRouteId());
+        }
+        if (!routes.equals(boundRoutes)) throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "数据包存在缺少项目代码的工艺流程，请补齐关联后重新导出");
+    }
+
     private <T> int upsertRows(BaseMapperX<T> mapper, List<T> rows, String label) {
         int count = 0;
         for (T row : rows) {
@@ -378,6 +405,7 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
         private List<MesMdItemDO> items;
         private List<MesProProcessDO> processes;
         private List<MesProRouteDO> routes;
+        private List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO> routeProjectBindings;
         private List<MesProRouteVersionDO> routeVersions;
         private List<MesProRouteProductDO> routeProducts;
         private List<MesProRouteProcessDO> routeProcesses;

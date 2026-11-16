@@ -492,18 +492,12 @@ public class MesProRouteProcessTemplateServiceImpl implements MesProRouteProcess
             throw ServiceExceptionUtil.invalidParamException("Excel 中没有可导入的工序");
         }
         Set<Long> processIds = new HashSet<>();
-        int keyProcessCount = 0;
+
         for (ResolvedProcess resolved : resolvedProcesses) {
             if (!processIds.add(resolved.process().getId())) {
                 throw ServiceExceptionUtil.invalidParamException("Excel 中工序 [{}] 重复",
                         resolved.row().processName());
             }
-            if (resolved.row().keyFlag()) {
-                keyProcessCount++;
-            }
-        }
-        if (keyProcessCount > 1) {
-            throw ServiceExceptionUtil.invalidParamException("关键工序只能存在一个");
         }
     }
 
@@ -535,7 +529,7 @@ public class MesProRouteProcessTemplateServiceImpl implements MesProRouteProcess
 
             List<ParsedRow> rows = new ArrayList<>();
             Set<String> processNames = new HashSet<>();
-            int keyProcessCount = 0;
+
             for (int rowIndex = DATA_START_ROW_INDEX; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isEmptyRow(row, formatter)) {
@@ -551,17 +545,11 @@ public class MesProRouteProcessTemplateServiceImpl implements MesProRouteProcess
                     throw ServiceExceptionUtil.invalidParamException("Excel 第 {} 行工序 [{}] 重复",
                             sourceRowNo, processName);
                 }
-                if (keyFlag) {
-                    keyProcessCount++;
-                }
                 validateNoExtraCells(row, formatter, sourceRowNo);
                 rows.add(new ParsedRow(sourceRowNo, processName, hourlyCapacity, machineryCode, keyFlag));
             }
             if (rows.isEmpty()) {
                 throw ServiceExceptionUtil.invalidParamException("Excel 中没有可导入的工序");
-            }
-            if (keyProcessCount > 1) {
-                throw ServiceExceptionUtil.invalidParamException("关键工序只能存在一个");
             }
             return new ParsedTemplate(routeCode, routeName, rows);
         } catch (ServiceException exception) {

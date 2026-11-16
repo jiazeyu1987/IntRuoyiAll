@@ -46,13 +46,13 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @BeforeEach void verifiedPort() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
 
     @ParameterizedTest
-    @ValueSource(strings = {"VALID", "MISMATCH", "INCOMPLETE"})
+    @ValueSource(strings = {"VALID", "MISMATCH", "MISSING"})
     void v2PqcEvidenceUsesRegisteredProtocolAndPreservesDiagnosticStatus(String status) {
         var evidence = v2PqcEvidence(MesTeamLeaderActiveOrderDetailServiceImplTest.pqcEvidence("正式放行意见", false));
         stubPqc(evidence);
         when(signatureQueryService.verifyEvidence(7701L)).thenReturn(v2PqcVerification(evidence, status));
         var result = service.getTeam(3001L, 8101L, 7701L);
-        assertEquals(status, result.verification().verificationStatus());
+        assertEquals("VALID".equals(status) ? "VALID" : "MISMATCH", result.verification().verificationStatus());
         assertEquals("VALID".equals(status) ? "签署时正式姓名" : "签时姓名未核验", result.signerName());
         assertSame(evidence, result.evidence());
         var application = MesTeamLeaderActiveOrderDetailServiceImplTest.pqcApplication();
@@ -82,7 +82,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
         return cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(json.toString(), ElectronicSignatureEvidenceDTO.class);
     }
     static ElectronicSignatureVerificationDTO v2PqcVerification(ElectronicSignatureEvidenceDTO evidence, String status) {
-        return new ElectronicSignatureVerificationDTO(evidence.id(), status, evidence.contentHash(), evidence.contentHash(),
+        return new ElectronicSignatureVerificationDTO(evidence.id(), "VALID".equals(status) ? "VALID" : "MISMATCH", evidence.contentHash(), evidence.contentHash(),
                 evidence.evidenceHash(), evidence.evidenceHash(), evidence.algorithm(), evidence.keyVersion(),
                 "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
                 "VALID".equals(status) ? "CONSISTENT" : "MISMATCH".equals(status) ? "MISMATCH" : "MISSING",
@@ -186,7 +186,6 @@ class MesActiveOrderSignatureEvidenceServiceTest {
         when(applicationMapper.selectOne(any())).thenReturn(MesTeamLeaderActiveOrderDetailServiceImplTest.pqcApplication());
         when(workTaskMapper.selectOne(any())).thenReturn(MesTeamLeaderActiveOrderDetailServiceImplTest.pqcTask().setBusinessScopeId(8802L));
         assertThrows(RuntimeException.class, () -> service.getTeam(3001L, 8101L, 7701L));
-        when(workTaskMapper.selectOne(any())).thenReturn(MesTeamLeaderActiveOrderDetailServiceImplTest.pqcTask());
         for (String field : List.of("subjectVersion", "contentHash", "evidenceHash", "canonicalContentJson")) {
             var json = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
                     cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(evidence));

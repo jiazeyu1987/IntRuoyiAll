@@ -46,7 +46,7 @@ class IntGyRouteMarkdownImportServiceImplDbTest extends BaseDbUnitTest {
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> importService.importMarkdown(
                 Files.readString(CURRENT_EXPORT_FIXTURE, StandardCharsets.UTF_8),
-                CommonStatusEnum.ENABLE.getStatus(), null));
+                CommonStatusEnum.ENABLE.getStatus(), null, 10L));
 
         assertEquals("route process insert failed", exception.getMessage());
         assertEquals(0L, routeMapper.selectCount());

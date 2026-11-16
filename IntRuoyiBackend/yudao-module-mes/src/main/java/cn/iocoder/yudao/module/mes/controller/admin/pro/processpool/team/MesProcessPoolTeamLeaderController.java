@@ -154,6 +154,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -670,7 +671,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @PostMapping("/active-order/release/push-generated")
-    @Operation(summary = "P3推送P2生成记录至PQC生产放行")
+    @Operation(summary = "完成活跃订单并申请生产放行")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:release-apply')")
     public CommonResult<MesTeamLeaderActiveOrderReleaseApplyRespVO> pushGeneratedActiveOrderRelease(
             @Valid @RequestBody MesTeamLeaderActiveOrderReleaseApplyReqVO reqVO) {
@@ -828,6 +829,19 @@ public class MesProcessPoolTeamLeaderController {
                 .toList());
     }
 
+    @GetMapping("/employee-profile/stale-scopes")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRuntimeConfigService.StaleEmployeeScope>> listStaleEmployeeScopes() {
+        return success(runtimeConfigService.listStaleEmployeeScopes(SecurityFrameworkUtils.getLoginUserId()));
+    }
+
+    @PutMapping("/employee-profile/stale-scopes/disable")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> disableStaleEmployeeScope(@RequestParam("scopeId") Long scopeId) {
+        runtimeConfigService.disableStaleEmployeeScope(SecurityFrameworkUtils.getLoginUserId(), scopeId);
+        return success(true);
+    }
+
     @GetMapping("/employee-profile/formal-candidates")
     @Operation(summary = "按姓名搜索全量系统正式工")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -884,6 +898,14 @@ public class MesProcessPoolTeamLeaderController {
                 .employeeProfileId(reqVO.getEmployeeProfileId())
                 .enabled(reqVO.getEnabled())
                 .build());
+        return success(Boolean.TRUE);
+    }
+
+    @DeleteMapping("/employee-profile/delete")
+    @Operation(summary = "删除当前生产组长关联员工并解除责任关联")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> deleteEmployee(@RequestParam("employeeProfileId") Long employeeProfileId) {
+        runtimeConfigService.deleteEmployee(SecurityFrameworkUtils.getLoginUserId(), employeeProfileId);
         return success(Boolean.TRUE);
     }
 
@@ -1074,6 +1096,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setInspectionProgressPercent(activeOrder.getInspectionProgressPercent())
                 .setActiveStatus(activeOrder.getActiveStatus())
                 .setBusinessStatus(activeOrder.getBusinessStatus())
+                .setPendingNonconformanceReviews(activeOrder.getPendingNonconformanceReviews())
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion())
@@ -1085,6 +1108,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setReleaseApplicationId(activeOrder.getReleaseApplicationId())
                 .setPqcReleaseWorkTaskId(activeOrder.getPqcReleaseWorkTaskId())
                 .setReleaseApplicationStatus(activeOrder.getReleaseApplicationStatus())
+                .setReleaseCorrectionReceivable(activeOrder.getReleaseCorrectionReceivable())
                 .setReleaseSourceSnapshotHash(activeOrder.getReleaseSourceSnapshotHash())
                 .setReleaseApplicationVersion(activeOrder.getReleaseApplicationVersion())
                 .setQuantityConflict(activeOrder.getQuantityConflict())
@@ -1106,6 +1130,7 @@ public class MesProcessPoolTeamLeaderController {
                         .setRouteProcessId(item.getRouteProcessId())
                         .setProcessId(item.getProcessId())
                         .setPlannedQuantity(item.getPlannedQuantity())
+                        .setUpperQuantity(item.getUpperQuantity())
                         .setAllocatedQuantity(item.getAllocatedQuantity())
                         .setRemainingQuantity(item.getRemainingQuantity())
                         .setQuantityConflict(item.getQuantityConflict())
@@ -1237,6 +1262,7 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderDetail.SubmissionDetail submission) {
         return new MesTeamLeaderActiveOrderDetailRespVO.SubmissionDetail()
                 .setEventId(submission.getEventId())
+                .setOriginalBusinessIdentityJson(submission.getOriginalBusinessIdentityJson())
                 .setSubmittedQuantity(submission.getSubmittedQuantity())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
@@ -1253,7 +1279,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setClearanceConfirmations(submission.getClearanceConfirmations().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderClearanceConfirmationDetailRespVO)
                         .toList())
-                .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()));
+                .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()))
+                .setLossDetails(submission.getLossDetails().stream()
+                        .map(reason -> new MesTeamLeaderActiveOrderDetailRespVO.LossDetail()
+                                .setReasonId(reason.getReasonId())
+                                .setReasonCode(reason.getReasonCode())
+                                .setReasonName(reason.getReasonName())
+                                .setQuantity(reason.getQuantity()))
+                        .toList());
     }
 
     private static List<MesTeamLeaderActiveOrderDetailRespVO.SubmissionMaterialDetail>
@@ -1318,6 +1351,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setPqcTaskIds(submission.getPqcTaskIds())
                 .setSubmittedEventId(submission.getSubmittedEventId())
                 .setSubmittedEventIds(submission.getSubmittedEventIds())
+                .setOriginalBusinessIdentities(submission.getOriginalBusinessIdentities())
                 .setProductionEventId(submission.getProductionEventId())
                 .setProductionEventIds(submission.getProductionEventIds())
                 .setProductionSubmitterSignatures(submission.getProductionSubmitterSignatures().stream()
@@ -1397,6 +1431,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setId(fact.getId())
                 .setOperationType(fact.getOperationType())
                 .setOperationName(fact.getOperationName())
+                .setHandoverFromName(fact.getHandoverFromName()).setHandoverToName(fact.getHandoverToName()).setHandoverReason(fact.getHandoverReason())
                 .setSourceType(fact.getSourceType())
                 .setSourceId(fact.getSourceId())
                 .setActorUserId(fact.getActorUserId())

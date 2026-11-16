@@ -94,48 +94,53 @@ class MesTeamLeaderReportConfirmationServiceTest {
     void setUp() {
         org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
-                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
-                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
-                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+                .thenAnswer(call -> List.of(frozenConfirmationSnapshot(call.getArgument(0), 5001L, call.getArgument(1))));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
-                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
-                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
-                        .processId(invocation.getArgument(2))
-                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> frozenConfirmationSnapshot(call.getArgument(0), call.getArgument(1), call.getArgument(2)));
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(fifoAllocationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any())).thenReturn(9101L);
         lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
 
-    @Test
-    void shouldConfirmSubmissionWithManualAllocationsToActiveOrders() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldConfirmSubmissionWithManualAllocationsToActiveOrders(boolean packaging) {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
-        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+        var orders = List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
+                activeOrder(8102L, 9002L, "2026-07-31T09:00:00"));
+        if (packaging) {
+            orders.forEach(order -> order.setLeaderUserId(4001L));
+            var access = org.mockito.Mockito.mock(MesPackagingLeaderAccess.class);
+            when(access.isPackagingLeader(3001L)).thenReturn(true);
+            ReflectionTestUtils.setField(service, "packagingAccess", access);
+            when(activeOrderMapper.selectActiveListByLeader(3001L, true)).thenReturn(orders);
+        } else {
+            when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(orders);
+        }
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "200"),
                 workOrder(9002L, "WO-9002", "200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "160"), allocation(9002L, "160")));
-        when(orderProcessTargetService.requireTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+        when(orderProcessTargetService.requireTarget(orders.get(0),
                 5001L, 6001L)).thenReturn(target("600"));
-        when(orderProcessTargetService.requireTarget(activeOrder(8102L, 9002L, "2026-07-31T09:00:00"),
+        when(orderProcessTargetService.requireTarget(orders.get(1),
                 5001L, 6001L)).thenReturn(target("600"));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
@@ -157,6 +162,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .build());
 
         assertEquals(7001L, reviewId);
+        assertEquals(packaging ? 4001L : 3001L, orders.get(0).getLeaderUserId());
         verify(scopeService).assertCanAccessEmployee(3001L,
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
 
@@ -369,12 +375,12 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .build());
 
         assertEquals(7002L, reviewId);
-        verify(orderProcessTargetService).requireTarget(activeOrder, 5001L, 6001L);
+        verify(orderProcessTargetService, org.mockito.Mockito.times(2)).requireTarget(activeOrder, 5001L, 6001L);
         verify(allocationMapper).insertBatch(anyCollection());
     }
 
     @Test
-    void shouldPersistManualAllocationWithinExplicitFrozenOverageAllowance() {
+    void shouldPersistManualAllocationWithinFrozenLossCoefficient() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
@@ -385,12 +391,15 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 workOrder(9001L, "WO-9001", "100")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "90")));
-        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("100"));
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("100"), new BigDecimal("1.7"), new BigDecimal("170")));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(8101L, 6001L))
                 .thenReturn(List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(8101L).routeProcessId(5001L).processId(6001L)
+                        .erpFixedQuantitySnapshot(new BigDecimal("100"))
+                        .productionQuantityFactorSnapshot(new BigDecimal("1.7"))
+                        .plannedQuantitySnapshot(new BigDecimal("170"))
                         .overagePercentSnapshot(new BigDecimal("70"))
-                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+                        .productionConfigSnapshotJson("{\"lossCoefficient\":1.7,\"outputMaterialIds\":[]}").build()));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
             return 1;
@@ -402,7 +411,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .leaderUserId(3001L)
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
-                .reviewRemark("按已冻结的70%超产上限确认")
+                .reviewRemark("按已冻结生产系数1.7确认")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
@@ -419,6 +428,20 @@ class MesTeamLeaderReportConfirmationServiceTest {
         assertSavedLine(savedLine, 7003L, 8101L, 9001L, "80", MesProcessPoolReportAllocationDO.MODE_MANUAL);
         verify(orderProcessCompletionService).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
                 anyCollection());
+    }
+
+    private MesProcessPoolActiveOrderProcessSnapshotDO frozenConfirmationSnapshot(Long activeId, Long routeProcessId, Long processId) {
+        var order = java.util.stream.Stream.concat(
+                        activeOrderMapper.selectActiveListByLeader(3001L).stream(),
+                        activeOrderMapper.selectActiveListByLeader(3001L, true).stream())
+                .filter(row -> row.getId().equals(activeId)).findFirst().orElseThrow();
+        var target = orderProcessTargetService.requireTarget(order, routeProcessId, processId);
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(activeId)
+                .routeProcessId(routeProcessId).processId(processId)
+                .erpFixedQuantitySnapshot(target.erpFixedQuantity())
+                .productionQuantityFactorSnapshot(target.productionQuantityFactor())
+                .plannedQuantitySnapshot(target.plannedQuantity())
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build();
     }
 
     private static MesTeamLeaderReportAllocationLineReqBO line(Long activeOrderId, String quantity) {
@@ -542,8 +565,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     }
 
     private static MesTeamLeaderOrderProcessTarget target(String plannedQuantity) {
-        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("300"),
-                new BigDecimal("3.000000"), new BigDecimal(plannedQuantity));
+        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal(plannedQuantity),
+                BigDecimal.ONE, new BigDecimal(plannedQuantity));
     }
 
     private static void assertSavedLine(MesProcessPoolReportAllocationDO line, Long reviewId, Long activeOrderId,

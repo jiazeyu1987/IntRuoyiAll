@@ -6,16 +6,26 @@ import cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplatePoolPageReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import org.apache.ibatis.annotations.Mapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 
 @Mapper
 public interface FormTemplateVersionMapper extends BaseMapperX<FormTemplateVersionDO> {
 
     default PageResult<FormTemplateVersionDO> selectPage(FormCenterTemplatePoolPageReqVO reqVO) {
-        return selectPage(reqVO, new QueryWrapperX<FormTemplateVersionDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new QueryWrapperX<FormTemplateVersionDO>()
                 .eqIfPresent("tenant_id", reqVO.getTenantId())
                 .likeIfPresent("template_name", reqVO.getTemplateName())
                 .eqIfPresent("status", reqVO.getStatus())
-                .orderByDesc("id"));
+                .orderByDesc("id"), Map.ofEntries(
+                Map.entry("templateName", text("template_name")),
+                Map.entry("currentEffectiveVersion", text("version_no")),
+                Map.entry("pendingVersion", text("CONCAT(COALESCE(version_no, ''), ' ', CASE status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_APPROVAL' THEN '审批中' WHEN 'REJECTED' THEN '已驳回' WHEN 'READY' THEN '待发布' WHEN 'PUBLISHED' THEN '已发布' WHEN 'DISABLED' THEN '已停用' WHEN 'OBSOLETE' THEN '已作废' ELSE '' END)")),
+                Map.entry("status", text("CASE status WHEN 'DRAFT' THEN '草稿' WHEN 'PENDING_APPROVAL' THEN '审批中' WHEN 'REJECTED' THEN '已驳回' WHEN 'READY' THEN '待发布' WHEN 'PUBLISHED' THEN '已发布' WHEN 'DISABLED' THEN '已停用' WHEN 'OBSOLETE' THEN '已作废' ELSE '' END")),
+                Map.entry("updatedTime", dateTime("update_time")),
+                Map.entry("remark", text("remark"))
+        )));
     }
 
     default FormTemplateVersionDO selectByTemplateIdAndVersionNo(Long templateId, String versionNo) {

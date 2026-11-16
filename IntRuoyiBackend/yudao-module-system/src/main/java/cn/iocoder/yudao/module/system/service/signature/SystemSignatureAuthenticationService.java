@@ -39,6 +39,12 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
         this.configApi = configApi;
     }
     @Override public String identityDomain() { return "SYSTEM_USER"; }
+    @Override @Transactional(propagation = Propagation.MANDATORY)
+    public String credentialType(Long actorId) {
+        var user = users.selectPermissionSubjectForUpdate(TenantContextHolder.getRequiredTenantId(), actorId);
+        requireUser(user, TenantContextHolder.getRequiredTenantId(), actorId);
+        return SignatureCredentialPolicy.requireType(user.getSignatureCredentialType());
+    }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
@@ -48,13 +54,14 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
         requireUser(user, request.tenantId(), request.actorId());
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.SECONDS), SIGNING_ZONE);
         String rejected = eligibility(user, now);
-        if (rejected == null && !encoder.matches(request.credential(), user.getPassword())) {
-            recordFailure(user, now);
+        boolean pin = SignatureCredentialPolicy.isPin(user.getSignatureCredentialType());
+        if (rejected == null && !( (!pin || SignatureCredentialPolicy.validPin(request.credential())) && encoder.matches(request.credential(), SignatureCredentialPolicy.credentialHash(user.getSignatureCredentialType(), user.getSignaturePinHash(), user.getPassword())) )) {
+            if (!pin) recordFailure(user, now);
             user = users.selectPermissionSubjectForUpdate(request.tenantId(), request.actorId());
             requireUser(user, request.tenantId(), request.actorId());
             rejected = "BAD_CREDENTIALS";
         } else if (rejected == null) {
-            requireOne(users.resetSignatureFailures(request.tenantId(), user.getId()), "SIGNATURE_FAILURE_RESET");
+            if (!pin) requireOne(users.resetSignatureFailures(request.tenantId(), user.getId()), "SIGNATURE_FAILURE_RESET");
             user = users.selectPermissionSubjectForUpdate(request.tenantId(), request.actorId());
             requireUser(user, request.tenantId(), request.actorId());
         }
@@ -99,6 +106,10 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
         if (!CommonStatusEnum.isEnable(user.getStatus()) || user.getLifecycleDeactivatedTime() != null
                 || user.getLifecycleEffectiveTime() != null && !user.getLifecycleEffectiveTime().isAfter(now))
             return "IDENTITY_DISABLED";
+        if (SignatureCredentialPolicy.isPin(user.getSignatureCredentialType())) {
+            SignatureCredentialPolicy.credentialHash("PIN", user.getSignaturePinHash(), null);
+            return null;
+        }
         if (Objects.equals(user.getLoginLocked(), 1) && user.getLoginLockedTime() == null)
             throw new IllegalStateException("SIGNATURE_LOCK_METADATA_INVALID");
         if (Objects.equals(user.getLoginLocked(), 1)
@@ -125,7 +136,7 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
         SignatureAuthenticationEventDO event = new SignatureAuthenticationEventDO();
         event.setTenantId(request.tenantId()); event.setActorId(user.getId()); event.setIdentityDomain(identityDomain());
         event.setOperatorId(request.operatorId()); event.setRequestId(request.requestIdentity());
-        event.setOperationType("AUTHENTICATE"); event.setOutcome(outcome); event.setOccurredAt(now);
+        event.setOperationType("AUTHENTICATE_" + SignatureCredentialPolicy.requireType(user.getSignatureCredentialType())); event.setOutcome(outcome); event.setOccurredAt(now);
         event.setCredentialVersion(user.getSignatureCredentialVersion());
         event.setCredentialGeneration(user.getSignatureCredentialGeneration());
         requireOne(events.insert(event), "SIGNATURE_AUTHENTICATION_EVENT_WRITE");

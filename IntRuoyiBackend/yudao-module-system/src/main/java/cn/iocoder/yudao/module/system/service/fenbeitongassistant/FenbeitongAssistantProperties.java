@@ -27,7 +27,7 @@ public class FenbeitongAssistantProperties implements InitializingBean {
 
     private String assistantScript = "server.js";
 
-    private String nodeCommand = "D:/Programs/node.exe";
+    private String nodeCommand = ".runtime/tools/node.exe";
 
     private String ticketValidateUrl = "http://127.0.0.1:48081/admin-api/system/auth/fenbeitong-assistant-ticket/validate";
 
@@ -65,6 +65,10 @@ public class FenbeitongAssistantProperties implements InitializingBean {
             return scriptPath.toAbsolutePath().normalize();
         }
         return getAssistantRootDirectoryPath().resolve(scriptPath).normalize();
+    }
+
+    public Path getNodeCommandPath() {
+        return Path.of(nodeCommand).toAbsolutePath().normalize();
     }
 
     @Override

@@ -38,13 +38,15 @@ public interface MesProProcessPoolEventRevisionMapper extends BaseMapperX<MesPro
 
     Long selectProductionReportRevisionLogCount(
             @Param("reqVO") MesProProductionReportRevisionLogPageReqVO reqVO,
-            @Param("employeeUserIds") List<Long> employeeUserIds);
+            @Param("employeeUserIds") List<Long> employeeUserIds,
+            @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filters);
 
     List<MesProProcessPoolEventRevisionDO> selectProductionReportRevisionLogPage(
             @Param("reqVO") MesProProductionReportRevisionLogPageReqVO reqVO,
             @Param("employeeUserIds") List<Long> employeeUserIds,
             @Param("offset") Integer offset,
-            @Param("pageSize") Integer pageSize);
+            @Param("pageSize") Integer pageSize,
+            @Param("ew") com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> filters);
 
     default int deleteByEventIds(Collection<Long> eventIds) {
         return eventIds == null || eventIds.isEmpty() ? 0 : physicalDeleteByEventIds(eventIds);

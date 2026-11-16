@@ -799,21 +799,12 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         }
 
         List<MesProRouteProcessDO> draftRouteProcesses = new ArrayList<>(draftRouteProcessMap.values());
-        List<Long> keyRouteProcessIds = draftRouteProcesses.stream()
-                .filter(routeProcess -> Boolean.TRUE.equals(routeProcess.getKeyFlag()))
-                .map(MesProRouteProcessDO::getId)
-                .toList();
-        if (keyRouteProcessIds.size() > 1) {
-            messages.add(message("ERROR", "DRAFT_UPDATE_KEY_DUPLICATE", "关键工序只能存在一个", keyRouteProcessIds));
-        }
         Set<Long> routeProcessIds = draftRouteProcesses.stream().map(MesProRouteProcessDO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Set<Integer> sorts = draftRouteProcesses.stream().map(MesProRouteProcessDO::getSort)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Set<Long> processIds = draftRouteProcesses.stream().map(MesProRouteProcessDO::getProcessId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        boolean keyProcessExists = draftRouteProcesses.stream()
-                .anyMatch(routeProcess -> Boolean.TRUE.equals(routeProcess.getKeyFlag()));
 
         for (MesProRouteProcessSaveReqVO createReqVO : safeList(reqVO.getRouteProcessCreates())) {
             Long clientRouteProcessId = createReqVO.getClientRouteProcessId();
@@ -837,13 +828,6 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             if (!processIds.add(createReqVO.getProcessId())) {
                 messages.add(message("ERROR", "DRAFT_CREATE_PROCESS_DUPLICATE", "新增草稿工序重复", impacted));
                 continue;
-            }
-            if (Boolean.TRUE.equals(createReqVO.getKeyFlag())) {
-                if (keyProcessExists) {
-                    messages.add(message("ERROR", "DRAFT_CREATE_KEY_DUPLICATE", "关键工序只能存在一个", impacted));
-                    continue;
-                }
-                keyProcessExists = true;
             }
             draftRouteProcesses.add(MesProRouteProcessDO.builder()
                     .id(clientRouteProcessId)

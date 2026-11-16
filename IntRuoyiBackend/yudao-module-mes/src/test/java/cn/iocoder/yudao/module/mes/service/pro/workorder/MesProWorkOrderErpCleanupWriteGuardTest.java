@@ -12,7 +12,6 @@ class MesProWorkOrderErpCleanupWriteGuardTest {
     static Stream<String> writers() {
         return Stream.of(
             "pro.andon.MesProAndonRecordServiceImpl#createAndonRecord",
-            "pro.batchrecord.MesIndependentBatchPrerequisiteReceiptServiceImpl#issue",
             "pro.card.MesProCardServiceImpl#createCard", "pro.card.MesProCardServiceImpl#updateCard",
             "pro.feedback.MesProFeedbackServiceImpl#createFeedback",
             "pro.feedback.MesProFeedbackServiceImpl#createFeedbackWithScheduleSnapshot",

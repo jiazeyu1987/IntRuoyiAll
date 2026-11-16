@@ -1,6 +1,14 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowBoundaryEdgeMapper;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.util.AssertUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -59,6 +67,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -78,6 +87,107 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteServiceImplTest {
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;
+
+    @Mock
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Mock
+    private DccProjectCodeMapper dccProjectCodeMapper;
+    @Mock
+    private MesProRouteProcessFlowEdgeMapper routeProcessFlowEdgeMapper;
+    @Mock
+    private MesProRouteProcessFlowBoundaryEdgeMapper routeProcessFlowBoundaryEdgeMapper;
+
+    @Test
+    void pageShowsDistinctFormalProductCountAndBoundProjectCode() {
+        var request = new MesProRoutePageReqVO();
+        when(routeMapper.selectPage(request)).thenReturn(new PageResult<>(
+                List.of(MesProRouteDO.builder().id(11L).build(), MesProRouteDO.builder().id(12L).build(),
+                        MesProRouteDO.builder().id(13L).build()), 3L));
+        when(routeProductMapper.selectListByRouteIds(Set.of(11L, 12L, 13L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(1L).routeId(11L).itemId(101L).build(),
+                MesProRouteProductDO.builder().id(2L).routeId(11L).itemId(102L).build(),
+                MesProRouteProductDO.builder().id(3L).routeId(11L).itemId(101L).build()));
+        when(routeDccProjectBindingMapper.selectCurrentListByRouteIds(Set.of(11L, 12L, 13L)))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO
+                        .builder().routeId(12L).dccProjectCodeId(201L).build()));
+        var project = new DccProjectCodeDO();
+        project.setId(201L);
+        project.setProjectCode("INT-201");
+        when(dccProjectCodeMapper.selectByIds(Set.of(201L))).thenReturn(List.of(project));
+
+        var page = routeService.getRoutePageRespVO(request);
+        assertEquals(3L, page.getTotal());
+        assertEquals(2, page.getList().get(0).getProductCount());
+        assertEquals(0, page.getList().get(1).getProductCount());
+        assertEquals("INT-201", page.getList().get(1).getDccProjectCode());
+        assertEquals(0, page.getList().get(2).getProductCount());
+        assertNull(page.getList().get(2).getDccProjectCode());
+        verify(routeDccProjectBindingMapper).selectCurrentListByRouteIds(Set.of(11L, 12L, 13L));
+        verify(dccProjectCodeMapper).selectByIds(Set.of(201L));
+    }
+
+    @Test
+    void deletionReferenceQueryDistinguishesTerminalDeletedAndOtherRoutes() throws Exception {
+        String sql = String.join(" ", MesProRouteMapper.class
+                .getMethod("existsUnfinishedBusinessByRouteId", Long.class)
+                .getAnnotation(org.apache.ibatis.annotations.Select.class).value())
+                .replace("#{routeId}", "12");
+        try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:route_delete_refs;MODE=MySQL");
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE mes_pro_process_pool_active_order(route_id BIGINT, deleted INT, active_status VARCHAR)");
+            statement.execute("CREATE TABLE mes_pro_schedule_order(route_id BIGINT, deleted INT, status INT)");
+            statement.execute("CREATE TABLE mes_pro_edhr_batch_execution(route_id BIGINT, deleted INT, status INT)");
+            statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(12,0,'CLOSED'),(12,1,'ACTIVE'),(99,0,'ACTIVE')");
+            statement.execute("INSERT INTO mes_pro_schedule_order VALUES(12,0,3),(12,0,4),(12,1,0),(99,0,0)");
+            statement.execute("INSERT INTO mes_pro_edhr_batch_execution VALUES(12,0,30),(12,0,40),(12,0,50),(12,0,60),(12,1,10),(99,0,10)");
+            try (var rows = statement.executeQuery(sql)) { rows.next(); assertFalse(rows.getBoolean(1)); }
+            for (String table : List.of("mes_pro_process_pool_active_order", "mes_pro_schedule_order", "mes_pro_edhr_batch_execution")) {
+                String status = table.endsWith("active_order") ? "'ACTIVE'" : "0";
+                statement.execute("INSERT INTO " + table + " VALUES(12,0," + status + ")");
+                try (var rows = statement.executeQuery(sql)) { rows.next(); assertTrue(rows.getBoolean(1), table); }
+                statement.execute("DELETE FROM " + table);
+            }
+        }
+    }
+
+    @Test
+    void deletedRouteDetailMustNotReadHistoricalRow() {
+        AssertUtils.assertServiceException(() -> routeService.getRouteRespVO(12L),
+                ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
+        verify(routeMapper, never()).selectByIdIgnoreDeleted(anyLong());
+    }
+
+    @Test
+    void unfinishedBusinessPreventsAllDeletionSideEffects() {
+        when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
+                .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
+        when(routeMapper.existsUnfinishedBusinessByRouteId(12L)).thenReturn(true);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> routeService.deleteRoute(12L));
+        assertTrue(error.getMessage().contains("仍被活跃订单"));
+        verify(routeMapper, never()).deleteById(anyLong());
+        org.mockito.Mockito.verifyNoInteractions(routeVersionMapper, routeProcessFlowService,
+                routeProcessService, routeProductService, routeProductBomService);
+    }
+
+    @Test
+    void unusedDisabledRouteCanBeDeleted() {
+        when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
+                .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
+        routeService.deleteRoute(12L);
+        verify(routeProcessFlowService).deleteByRouteId(12L);
+        verify(routeProcessService).deleteRouteProcessByRouteId(12L);
+        verify(routeProductService).deleteRouteProductByRouteId(12L);
+        verify(routeProductBomService).deleteRouteProductBomByRouteId(12L);
+        verify(routeMapper).deleteById(12L);
+    }
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
     @InjectMocks
     private MesProRouteServiceImpl routeService;
@@ -122,11 +232,14 @@ class MesProRouteServiceImplTest {
     private MesProProcessMapper processMapper;
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProRouteWorkstationService routeWorkstationService;
 
     private MesProRouteCreateReqVO creationRequest(List<Long> processIds) {
         MesProRouteCreateReqVO request = new MesProRouteCreateReqVO();
         request.setName("  新建流程  ");
         request.setProcessIds(processIds);
+        request.setWorkshopId(70L);
         return request;
     }
 
@@ -154,7 +267,7 @@ class MesProRouteServiceImplTest {
     @Test
     void createWithProcesses_concurrentNameConflictReturnsBusinessError() {
         when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-0001");
         when(routeMapper.insert(any(MesProRouteDO.class))).thenThrow(
                 new org.springframework.dao.DuplicateKeyException("Duplicate uk_mes_pro_route_name_live"));
         AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(8L))),
@@ -174,6 +287,8 @@ class MesProRouteServiceImplTest {
     }
 
     private void assertInitialCreation(List<Long> processIds) {
+        when(routeWorkstationService.create(eq(500L), org.mockito.ArgumentMatchers.anyInt(), any(), eq(70L)))
+                .thenAnswer(call -> 900L + (int) call.getArgument(1));
         java.util.List<MesProRouteProcessDO> insertedProcesses = new java.util.ArrayList<>();
         java.util.List<MesProRouteScheduleConfigDO> scheduleConfigs = new java.util.ArrayList<>();
         java.util.List<MesProRouteFlowProcessConfigDO> useConfigs = new java.util.ArrayList<>();
@@ -181,7 +296,7 @@ class MesProRouteServiceImplTest {
         for (Long id : processIds) {
             when(processMapper.selectById(id)).thenReturn(new MesProProcessDO());
         }
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-10000");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-10000");
         org.mockito.Mockito.doAnswer(invocation -> {
             ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
             return 1;
@@ -233,6 +348,7 @@ class MesProRouteServiceImplTest {
                 MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
                 node.setRouteProcessId(process.getId());
                 node.setProcessId(process.getProcessId());
+                node.setRouteProcessWorkstationId(process.getWorkstationId());
                 graph.getNodes().add(node);
             }
             return null;
@@ -262,6 +378,12 @@ class MesProRouteServiceImplTest {
         assertEquals(processIds, configs.getJSONArray("productionProcessConfigs").stream()
                 .map(value -> ((JSONObject) value).getLong("processId")).toList());
         assertEquals(processIds.size(), configs.getJSONObject("flowGraph").getJSONArray("nodes").size());
+        for (int i = 0; i < processIds.size(); i++) {
+            assertEquals(901L + i, insertedProcesses.get(i).getWorkstationId());
+            assertEquals(901L + i, configs.getJSONObject("flowGraph").getJSONArray("nodes")
+                    .getJSONObject(i).getLong("routeProcessWorkstationId"));
+            verify(routeWorkstationService).create(eq(500L), eq(i + 1), any(), eq(70L));
+        }
         assertEquals(processIds.size(), configs.getJSONArray("scheduleConfigs").size());
         assertEquals(processIds.size(), configs.getJSONArray("scheduleUseConfigs").size());
         assertEquals("V1", storedVersion[0].getVersionNo());
@@ -276,8 +398,15 @@ class MesProRouteServiceImplTest {
         org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE route_create_test(id BIGINT PRIMARY KEY)");
         jdbc.execute("CREATE TABLE route_process_create_test(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE workstation_create_test(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE workstation_machine_create_test(id BIGINT PRIMARY KEY)");
+        when(routeWorkstationService.create(eq(500L), eq(1), any(), eq(70L))).thenAnswer(call -> {
+            jdbc.update("INSERT INTO workstation_create_test VALUES(900)");
+            jdbc.update("INSERT INTO workstation_machine_create_test VALUES(901)");
+            return 900L;
+        });
         when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-0001");
         org.mockito.Mockito.doAnswer(invocation -> {
             ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
             return jdbc.update("INSERT INTO route_create_test VALUES(500)");
@@ -298,6 +427,8 @@ class MesProRouteServiceImplTest {
                 () -> transactionalService.createRouteWithProcesses(creationRequest(List.of(8L))));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_create_test", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_process_create_test", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM workstation_create_test", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM workstation_machine_create_test", Integer.class));
         org.mockito.Mockito.verifyNoInteractions(platformAdapter);
     }
 
@@ -582,8 +713,6 @@ class MesProRouteServiceImplTest {
             targetRoute.setId(targetRouteId);
             return 1;
         }).when(routeMapper).insert(any(MesProRouteDO.class));
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(emptyList());
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
         when(routeVersionMapper.selectActiveByRouteId(sourceRouteId)).thenReturn(null);
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -592,7 +721,7 @@ class MesProRouteServiceImplTest {
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName);
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         ArgumentCaptor<MesProRouteDO> routeCaptor = ArgumentCaptor.forClass(MesProRouteDO.class);
@@ -657,19 +786,7 @@ class MesProRouteServiceImplTest {
             targetRoute.setId(targetRouteId);
             return 1;
         }).when(routeMapper).insert(any(MesProRouteDO.class));
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of(MesProRouteProductDO.builder()
-                .id(9706L)
-                .routeId(sourceRouteId)
-                .itemId(9806L)
-                .quantity(1)
-                .build()));
-        when(routeProductMapper.selectListByRouteId(targetRouteId)).thenReturn(List.of(MesProRouteProductDO.builder()
-                .id(9707L)
-                .routeId(targetRouteId)
-                .itemId(9806L)
-                .quantity(1)
-                .build()));
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(List.of());
+        when(routeProductMapper.selectListByRouteId(targetRouteId)).thenReturn(List.of());
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of(sourceProcess));
         org.mockito.Mockito.doAnswer(invocation -> {
             MesProRouteProcessDO targetProcess = invocation.getArgument(0);
@@ -683,7 +800,7 @@ class MesProRouteServiceImplTest {
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
                 .routeSnapshotJson("""
-                        {"routeId":9006,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":9006,"configSnapshots":{"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{"routeProcessId":9306,"processId":9406,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build());
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -701,6 +818,9 @@ class MesProRouteServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
                 targetRouteId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
                 .thenReturn(List.of(targetBatchUseConfig));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                targetRouteId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of());
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
         graph.setRouteId(targetRouteId);
         MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
@@ -711,7 +831,7 @@ class MesProRouteServiceImplTest {
         graph.setNodes(List.of(node));
         when(routeProcessFlowService.getGraph(targetRouteId)).thenReturn(graph);
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName);
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         ArgumentCaptor<MesProRouteVersionDO> updateCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
@@ -722,7 +842,12 @@ class MesProRouteServiceImplTest {
         JSONObject snapshot = JSON.parseObject(update.getRouteSnapshotJson());
         assertEquals(targetRouteId, snapshot.getLong("routeId"));
         assertEquals(targetCode, snapshot.getString("routeCode"));
-        assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("products").size());
+        assertEquals(targetVersionId, snapshot.getLong("routeVersionId"));
+        JSONObject copiedProductionConfig = snapshot.getJSONObject("configSnapshots")
+                .getJSONArray("productionProcessConfigs").getJSONObject(0);
+        assertEquals(9307L, copiedProductionConfig.getLong("routeProcessId"));
+        assertEquals(9406L, copiedProductionConfig.getLong("processId"));
+        assertEquals(0, snapshot.getJSONObject("configSnapshots").getJSONArray("products").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleUseConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs").size());
@@ -883,7 +1008,7 @@ class MesProRouteServiceImplTest {
                 .id(routeVersionId)
                 .routeId(routeId)
                 .routeSnapshotJson("""
-                        {"routeId":922119,"configSnapshots":{"routeStartProductionLeaders":[{"productionLineId":71,"candidateSourceType":"USERS","candidateSourceIds":[912397],"candidateSourceNames":["王五"],"sort":1}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":922119,"configSnapshots":{"lossCoefficient":1.25,"routeStartProductionLeaders":[{"productionLineId":71,"candidateSourceType":"USERS","candidateSourceIds":[912397],"candidateSourceNames":["王五"],"sort":1}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build();
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
@@ -902,6 +1027,7 @@ class MesProRouteServiceImplTest {
 
         JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
 
+        assertEquals(new BigDecimal("1.25"), snapshot.getJSONObject("configSnapshots").getBigDecimal("lossCoefficient"));
         JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
         assertEquals(4, owners.size());
         assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
@@ -951,7 +1077,7 @@ class MesProRouteServiceImplTest {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(copierUserId);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
 
-            routeService.copyRoute(sourceRouteId, targetCode, targetName);
+            routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
         }
 
         ArgumentCaptor<MesProEdhrPermissionScopeSaveCommand> scopeCaptor =
@@ -977,7 +1103,7 @@ class MesProRouteServiceImplTest {
     void writeMethodsThatCreateRouteVersions_shouldBeTransactionalWithPlatformRefs() throws NoSuchMethodException {
         assertTransactional("createRoute", MesProRouteSaveReqVO.class);
         assertTransactional("updateRoute", MesProRouteSaveReqVO.class);
-        assertTransactional("copyRoute", Long.class, String.class, String.class);
+        assertTransactional("copyRoute", Long.class, String.class, String.class, Long.class);
         assertTransactional("maintainRouteVersionAfterProcessChange", Long.class);
     }
 

@@ -7,7 +7,8 @@ export const EDHR_EXECUTION_STATUS = {
   SUBMITTED: 1,
   REJECTED: 2,
   APPROVED: 3,
-  FILL_COMPLETED: 4
+  FILL_COMPLETED: 4,
+  REOPENED: 5
 } as const
 
 export type EdhrExecutionStatus =

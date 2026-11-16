@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-enterprise">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 关联公司</span>
-    </div>
     <UnifiedListTemplate
       table-key="mdm.enterprise.main"
       :query-model="queryParams"
@@ -21,6 +18,9 @@
       @quick-filter-query="handleQuery"
       @column-change="saveEnterpriseColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -33,13 +33,13 @@
           新增
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="mdm-enterprise-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="mdm.enterprise.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :allow-drag-last-column="true"
           :show-overflow-tooltip="true"
@@ -188,6 +188,9 @@
 </template>
 
 <script setup lang="ts">
+import { useLatestListRequest } from '@/hooks/web/useServerListFilter'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import { dateFormatter2 } from '@/utils/formatTime'
@@ -263,7 +266,8 @@ const {
 
 const message = useMessage()
 
-const loading = ref(false)
+const listRequest = useLatestListRequest()
+const loading = listRequest.loading
 const total = ref(0)
 const list = ref<MdmEnterpriseRespVO[]>([])
 type MdmEnterprisePageQuery = MdmEnterpriseApi.MdmEnterprisePageReqVO & {
@@ -272,6 +276,7 @@ type MdmEnterprisePageQuery = MdmEnterpriseApi.MdmEnterprisePageReqVO & {
 }
 
 const queryParams = reactive<MdmEnterprisePageQuery>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   keyword: undefined,
@@ -308,14 +313,10 @@ const formatEnterpriseType = (type: string) =>
   })[type] || type
 
 const getList = async () => {
-  loading.value = true
-  try {
-    const data = await MdmEnterpriseApi.getEnterprisePage(queryParams)
+  return await listRequest.run(() => MdmEnterpriseApi.getEnterprisePage({ ...queryParams }), (data) => {
     list.value = data.list
     total.value = data.total
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
 const enterpriseQuickFilter = useTableQuickFilter(
@@ -438,6 +439,21 @@ watch(
     await getList()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '公司类型',
+    type: 'text',
+    getValue: (row) => [formatEnterpriseType(row.type)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatStatus(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

@@ -14,6 +14,7 @@ import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.rolecategory.RoleCategorySaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantSaveReqVO;
 import cn.iocoder.yudao.module.system.convert.tenant.TenantConvert;
@@ -27,6 +28,7 @@ import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryService;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantInfoHandler;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -35,6 +37,8 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
+import cn.iocoder.yudao.module.system.api.tenant.TenantCreatedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -78,9 +82,16 @@ public class TenantServiceImpl implements TenantService {
     @Resource
     private RoleService roleService;
     @Resource
+    private RoleCategoryService roleCategoryService;
+    @Resource
     private MenuService menuService;
     @Resource
     private PermissionService permissionService;
+    @Resource
+    private ApplicationEventPublisher eventPublisher;
+
+    @Resource
+    private cn.iocoder.yudao.module.infra.api.config.ConfigApi configApi;
 
     @Override
     public List<Long> getTenantIdList() {
@@ -120,6 +131,7 @@ public class TenantServiceImpl implements TenantService {
         }
         // 创建租户的管理员
         TenantUtils.execute(tenant.getId(), () -> {
+            configApi.initializeTenantConfiguration();
             // Administrator provisioning writes permission audit events in this transaction.
             approvalAuditService.acquireLedgerLock();
             if (approvalAuthorityRevisionMapper.initializeNewTenant(tenant.getId()) != 1) {
@@ -131,6 +143,8 @@ public class TenantServiceImpl implements TenantService {
             Long userId = createUser(roleId, createReqVO);
             // 修改租户的管理员
             tenantMapper.updateById(new TenantDO().setId(tenant.getId()).setContactUserId(userId));
+            // 同步初始化业务模块；监听器失败时连同租户创建事务一起回滚。
+            eventPublisher.publishEvent(new TenantCreatedEvent(tenant.getId()));
         });
         return tenant.getId();
     }
@@ -147,10 +161,17 @@ public class TenantServiceImpl implements TenantService {
     }
 
     private Long createRole(TenantPackageDO tenantPackage) {
+        // 与历史角色分类迁移保持一致，在新租户内初始化管理员所属的菜单分类。
+        Long categoryId = roleCategoryService.createRoleCategory(new RoleCategorySaveReqVO()
+                .setName("菜单").setCode("menu").setSort(60)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setRemark("菜单权限角色"));
+        if (categoryId == null || categoryId <= 0) {
+            throw new IllegalStateException("TENANT_ADMIN_ROLE_CATEGORY_CREATE_FAILED");
+        }
         // 创建角色
         RoleSaveReqVO reqVO = new RoleSaveReqVO();
         reqVO.setName(RoleCodeEnum.TENANT_ADMIN.getName()).setCode(RoleCodeEnum.TENANT_ADMIN.getCode())
-                .setSort(0).setRemark("系统自动生成");
+                .setCategoryId(categoryId).setSort(0).setRemark("系统自动生成");
         Long roleId = roleService.createRole(reqVO, RoleTypeEnum.SYSTEM.getType());
         // 分配权限
         permissionService.assignTenantRoleMenu(TenantContextHolder.getRequiredTenantId(), roleId, tenantPackage.getMenuIds(),

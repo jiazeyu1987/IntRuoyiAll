@@ -30,7 +30,9 @@ public class MesQaCommonRegulationProductBindingDO extends TenantBaseDO {
     @TableId
     private Long id;
 
+    /** Historical MDM identity; no longer used for production binding. */
     private Long productId;
+    private Long productDccProjectCodeId;
     private Long dccProjectCodeId;
     private Long commonRegulationSetId;
     private Long commonRegulationSetVersionId;

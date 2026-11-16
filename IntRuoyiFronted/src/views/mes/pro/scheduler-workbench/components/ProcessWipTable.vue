@@ -9,6 +9,7 @@
     :selected-filter-definition="selectedFilterDefinition"
     :operator-options="operatorOptions"
     :columns="columns"
+    :column-filter-definitions="columnFilterDefinitions"
     :column-saving="columnSaving"
     :sort-state="sortState"
     :total="total"
@@ -23,13 +24,15 @@
     @update:sort-state="emit('update:sortState', $event)"
     @sort-change="emit('sortChange', $event)"
     @pagination="emit('pagination', $event)"
-    >
+    :filter-rows="filterRows"
+  >
       <template #actions>
       <slot name="actions"></slot>
     </template>
-    <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+    <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <slot
         name="table"
+        :resolve-rows="resolveRows"
         :sort-column-attrs="sortColumnAttrs"
         :handle-sort-change="handleTemplateSortChange"
       ></slot>
@@ -39,6 +42,7 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue'
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import type {
   TableQuickFilterDefinition,
@@ -49,6 +53,8 @@ import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
 defineOptions({ name: 'ProcessWipTable' })
 
 defineProps({
+  columnFilterDefinitions: { type: Array as PropType<ListColumnFilterDefinition[]>, required: true },
+  filterRows: { type: Array as PropType<any[]>, required: true },
   queryModel: { type: Object as PropType<Record<string, unknown>>, required: true },
   filterDefinitions: { type: Array as PropType<TableQuickFilterDefinition[]>, required: true },
   quickFilterState: { type: Object as PropType<Record<string, unknown>>, required: true },
@@ -77,4 +83,6 @@ const emit = defineEmits([
 
 const getPage = (queryModel: Record<string, unknown>) => Number(queryModel.pageNo || 1)
 const getLimit = (queryModel: Record<string, unknown>) => Number(queryModel.pageSize || 10)
+
+
 </script>

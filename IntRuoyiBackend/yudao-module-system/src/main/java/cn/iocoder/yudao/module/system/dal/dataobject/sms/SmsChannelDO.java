@@ -1,8 +1,8 @@
 package cn.iocoder.yudao.module.system.dal.dataobject.sms;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
-import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIsolated;
 import cn.iocoder.yudao.module.system.framework.sms.core.enums.SmsChannelEnum;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -16,13 +16,13 @@ import lombok.ToString;
  * @author zzf
  * @since 2021-01-25
  */
-@TableName(value = "system_sms_channel", autoResultMap = true)
+@TenantIsolated
+@TableName(value = "system_tenant_sms_channel", autoResultMap = true)
 @KeySequence("system_sms_channel_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@TenantIgnore
-public class SmsChannelDO extends BaseDO {
+public class SmsChannelDO extends TenantBaseDO {
 
     /**
      * 渠道编号

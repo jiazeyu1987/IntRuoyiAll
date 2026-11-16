@@ -97,6 +97,7 @@ class MesCompletionAuditFragmentContractTest {
         var collector = mock(MesReleaseAffectedStateCollector.class);
         when(collector.captureCompletion(10L,30L)).thenReturn(after);
         var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(null,null,null,null,null,null,null);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service,"gxpAuditService",audits);
         ReflectionTestUtils.setField(service,"affectedStateCollector",collector);

@@ -16,6 +16,9 @@ public interface MesProBatchRecordJimuReportGateway {
 
     String getReportJson(String reportId);
 
+    /** Read source content without creating or updating a designer report. */
+    String getReportJsonReadOnly(String reportId);
+
     void updateReportJson(String reportId, String jsonStr);
 
     void renameReportName(String reportId, String reportName);

@@ -19,7 +19,43 @@ import static org.mockito.Mockito.*;
 
 /** Real projection/validators/precheck reader. Owner provenance and file APIs are explicit boundary doubles. */
 class EdhrReleaseContentResolverTest {
-    @Test void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate() throws Exception {
+    @Test void activePrecheckAcceptsProducerOmittedNullButNeverAnIndependentGateHash() throws Exception {
+        var f = new Fixture(true, true);
+        f.checks.removeIf(row -> row.getCheckCode().startsWith("DOSSIER_"));
+        f.release.setRequiredCheckCount(6);
+        var raw = (ObjectNode) ApprovalContentJson.parse(f.release.getPrecheckSnapshotJson());
+        var items = a();
+        for (var row : f.checks) items.add(o("checkCode", row.getCheckCode(), "checkResult", row.getCheckResult(),
+                "severity", row.getSeverity(), "responsibilityModule", row.getResponsibilityModule(), "sourceObjectCode", row.getSourceObjectCode()));
+        raw.set("items", items);
+        var producerTime = ApprovalContentJson.parse(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                Map.of("checkedAt", f.release.getLastPrecheckAt()))).get("checkedAt");
+        assertTrue(producerTime.isIntegralNumber());
+        raw.set("checkedAt", producerTime);
+        raw.put("evidencePolicy", "ACTIVE_ORDER_FORMAL_FACTS_V1").put("formalFactsHash", "ACTIVE_ORDER_FACTS:" + H);
+        var mapper = mock(MesProEdhrReleaseCheckItemMapper.class);
+        when(mapper.selectCurrentOpen(f.release.getId(), false)).thenReturn(f.checks);
+        var reader = new EdhrReleasePrecheckContentReader(mapper);
+        raw.remove("materialGateManifestHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertEquals(6, reader.read(f.release, false).path("items").size());
+        raw.put("checkedAt", producerTime.longValue() + 1000);
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+        raw.set("checkedAt", producerTime);
+        raw.putNull("materialGateManifestHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertEquals(6, reader.read(f.release, false).path("items").size());
+        raw.put("materialGateManifestHash", H);
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+        raw.remove("materialGateManifestHash"); raw.remove("evidencePolicy"); raw.remove("formalFactsHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"95","94"})
+    void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate(String uploadApplicationId) throws Exception {
         var f=new Fixture(true,true);
         var old=f.releases.readForApproval(10L,2L,false);
         f.checks.removeIf(row -> row.getCheckCode().startsWith("DOSSIER_"));
@@ -37,7 +73,7 @@ class EdhrReleaseContentResolverTest {
         var graph=new MesEdhrApprovalFinalizationGraph(old.tenantId(),old.task(),old.transaction(),old.batch(),true,
                 old.origin(),old.sourceContext(),null,old.sourceCreationEvidence(),95L,1L,fact);
         when(f.releases.readForApproval(10L,2L,false)).thenReturn(graph);
-        var manifest=o("tenantId","1","activeOrderId","60","applicationId","95","batchExecutionId","30","revision","0","files",a(o("attachmentId","501","activeOrderId","60","applicationId","95",
+        var manifest=o("tenantId","1","activeOrderId","60","applicationId","95","batchExecutionId","30","revision","0","files",a(o("attachmentId","501","activeOrderId","60","applicationId",uploadApplicationId,
                 "categoryKey","STERILIZATION_FILE","fileId","601","fileName","灭菌报告.pdf","fileSize","12","contentType","application/pdf","sha256",H)));
         manifest.put("manifestHash",ApprovalContentJson.hash(manifest));
         var dossiers=mock(EdhrActiveOrderDossierManifest.class);
@@ -49,7 +85,32 @@ class EdhrReleaseContentResolverTest {
         assertEquals(1,prepared.attachments().size());
         var content=ApprovalContentJson.parse(prepared.canonicalBusinessContentJson());
         assertTrue(content.at("/finalization/materialManifest/files").isArray());
+        assertEquals(uploadApplicationId,content.at("/finalization/materialManifest/files/0/applicationId").asText());
+        assertEquals("95",content.at("/finalization/applicationId").asText());
+        var withoutOptionalFiles=content.deepCopy();
+        var emptyManifest=(ObjectNode)withoutOptionalFiles.at("/finalization/materialManifest");
+        emptyManifest.set("files",a());emptyManifest.remove("manifestHash");
+        emptyManifest.put("manifestHash",ApprovalContentJson.hash(emptyManifest));
+        assertDoesNotThrow(()->f.semantic.validate(withoutOptionalFiles));
+        var foreign=content.deepCopy();
+        ((ObjectNode)foreign.at("/finalization/materialManifest/files/0")).put("activeOrderId","61");
+        var foreignManifest=(ObjectNode)foreign.at("/finalization/materialManifest");
+        foreignManifest.remove("manifestHash");foreignManifest.put("manifestHash",ApprovalContentJson.hash(foreignManifest));
+        assertThrows(IllegalArgumentException.class,()->f.semantic.validate(foreign));
         assertEquals(6,content.at("/release/precheckSnapshot/items").size());
+        var developmentContent = content.deepCopy();
+        var developmentFacts = (ObjectNode) developmentContent.at("/finalization/activeOrderFormalFacts");
+        developmentFacts.put("completionCreationEventId", "-80").put("completionCreationEventHash", "DEVELOPMENT_DISABLED")
+                .put("pqcCreationEventId", "-96");
+        assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        try (var mode = mockStatic(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.class)) {
+            mode.when(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode::disabled).thenReturn(true);
+            assertDoesNotThrow(() -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "-96");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "96").put("sourceSnapshotHash", "DEVELOPMENT_DISABLED");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        }
         verifyNoInteractions(f.materials,f.files);
         String beforeVersion = f.semantic.subjectVersion(content, guard());
         manifest.put("revision","1");manifest.remove("manifestHash");manifest.put("manifestHash",ApprovalContentJson.hash(manifest));
@@ -60,15 +121,14 @@ class EdhrReleaseContentResolverTest {
         ((ObjectNode)content).put("contentPolicyVersion","approval-content-v1");
         assertThrows(IllegalArgumentException.class,()->f.semantic.validate(content));
     }
-    @Test void fourQuadrantsProjectExactOwnerReceiptAndFourVerifiedFileContents() throws Exception {
-        for(boolean active:new boolean[]{true,false})for(boolean managed:new boolean[]{true,false}){
+    @Test void activeBranchesProjectExactOwnerReceiptAndFourVerifiedFileContents() throws Exception {
+        for(boolean active:new boolean[]{true})for(boolean managed:new boolean[]{true,false}){
             var f=new Fixture(active,managed);var result=f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null);
             assertEquals(ApprovalContentJson.canonical(f.root),result.canonicalBusinessContentJson());
             assertEquals(ApprovalContentJson.hash(f.root),result.contentHash());
             assertEquals(f.semantic.subjectVersion(f.root,guard()),result.subjectVersion());
             assertEquals(4,result.attachments().size());assertEquals(List.of("APPROVE"),result.allowedActions());
-            if(active){verify(f.completion).requireVerifiedByReceiptId(80L,1L);verifyNoInteractions(f.independent);}
-            else{verify(f.independent).getCreationVerifiedByReceiptId(1L,"independent-80","MANUAL",H);verifyNoInteractions(f.completion);}
+            verify(f.completion).requireVerifiedByReceiptId(80L,1L);
             verify(f.rows).selectCurrentOpen(20L,false);
             for(int i=0;i<4;i++)verify(f.files).getFileContent(1L,"report-"+i);
             assertEquals(result.contentHash(),f.resolver.lockAndAuthorize(2L,result.identity()).contentHash());
@@ -76,10 +136,15 @@ class EdhrReleaseContentResolverTest {
             verify(f.releases).readForApproval(10L,2L,true);
         }
     }
+    @Test void retiredIndependentApprovalCannotLoadOrApproveReceipt() throws Exception {
+        var f=new Fixture(false,true);
+        assertThrows(IllegalArgumentException.class,()->f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
+        verifyNoInteractions(f.completion,f.materials,f.files);
+    }
     @Test void changedFilesAndChangedMaterialManifestAreRejected() throws Exception {
         var f=new Fixture(true,false);when(f.files.getFileContent(1L,"report-0")).thenReturn("tampered".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var tampered=f;assertThrows(IllegalArgumentException.class,()->tampered.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
-        f=new Fixture(false,true);when(f.materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,"b".repeat(64),f.attachments));
+        f=new Fixture(true,true);when(f.materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,"b".repeat(64),f.attachments));
         var changed=f;assertThrows(IllegalArgumentException.class,()->changed.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
     }
     @Test void currentRowsMustMatchFrozenSnapshotAndPersistedCounts() throws Exception {
@@ -118,7 +183,6 @@ class EdhrReleaseContentResolverTest {
         final MesProEdhrReleaseService releases=mock(MesProEdhrReleaseService.class);
         final MesProEdhrReleaseCheckItemMapper rows=mock(MesProEdhrReleaseCheckItemMapper.class);
         final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completion=mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
-        final MesIndependentBatchPrerequisiteReceiptService independent=mock(MesIndependentBatchPrerequisiteReceiptService.class);
         final MesProEdhrFourMaterialGateService materials=mock(MesProEdhrFourMaterialGateService.class);
         final FileService files=mock(FileService.class);
         final EdhrReleaseContentSemanticValidator semantic=new EdhrReleaseContentSemanticValidator(new EdhrReleaseContentPolicy());
@@ -157,10 +221,6 @@ class EdhrReleaseContentResolverTest {
                 var c=(ObjectNode)root.at("/finalization/completionBackfillReceipt").deepCopy();
                 c.put("createdAt","2026-10-10T10:00:00").put("formalSourceSnapshotJson",c.get("formalSourceSnapshotJsonRaw").asText()).put("signatureSnapshotJson",c.get("signatureSnapshotJsonRaw").asText()).put("lossConditionFactsJson","[]").put("zeroLossConfirmationSnapshot",c.get("zeroLossConfirmationSnapshotRaw").asText()).put("batchRecordSourceIdsJson","[82]").put("processInspectionSourceIdsJson","[83]");
                 when(completion.requireVerifiedByReceiptId(80L,1L)).thenReturn(new MesEdhrVerifiedCompletionReceiptFact(map(c,MesFlow6CompletionBackfillReceipt.class),provenance,"completion-1"));
-            }else{
-                var c=(ObjectNode)root.at("/finalization/independentPrerequisiteReceipt").deepCopy();
-                c.put("issuedAt","2026-10-10T10:00:00").put("expiresAt","2026-10-11T10:00:00").put("canonicalPayload",c.get("canonicalPayloadRaw").asText());
-                when(independent.getCreationVerifiedByReceiptId(1L,"independent-80","MANUAL",H)).thenReturn(new MesEdhrVerifiedIndependentReceiptFact(map(c,MesIndependentBatchPrerequisiteReceipt.class),provenance));
             }
             index=0;for(var m:root.at("/finalization/materialManifest/materials")){
                 var n=(ObjectNode)m.deepCopy();n.put("id",200+index);
@@ -170,7 +230,7 @@ class EdhrReleaseContentResolverTest {
                 when(files.presignGetUrl(file.getUrl(),900)).thenReturn("https://files.invalid/signed-"+index++);
             }
             when(materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,H,attachments));
-            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,independent,materials,files);
+            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,materials,files);
         }
     }
 }

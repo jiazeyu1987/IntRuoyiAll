@@ -9,9 +9,15 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
+import java.util.Collection;
 
 @Mapper
 public interface MesRouteDccProjectBindingMapper extends BaseMapperX<MesRouteDccProjectBindingDO> {
+
+    default List<MesRouteDccProjectBindingDO> selectCurrentListByRouteIds(Collection<Long> routeIds) {
+        return selectList(new LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
+                .in(MesRouteDccProjectBindingDO::getRouteId, routeIds));
+    }
 
     default MesRouteDccProjectBindingDO selectCurrentByRouteId(Long routeId) {
         return selectOne(new LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()

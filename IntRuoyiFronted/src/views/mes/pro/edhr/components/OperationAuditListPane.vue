@@ -1,6 +1,9 @@
 <template>
   <div class="edhr-operation-audit-pane">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
+      single-line-toolbar
       table-key="mes.pro.edhr.operationAudit"
       :query-model="queryParams"
       :filter-definitions="operationAuditQuickFilterDefinitions"
@@ -18,6 +21,9 @@
       @quick-filter-query="operationAuditQuickFilter.applyQuickFilter"
       @column-change="saveOperationAuditColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #extra-filters>
         <el-form-item v-if="showObjectFilters" label="对象类型" required>
@@ -68,12 +74,7 @@
         </el-form-item>
       </template>
 
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">查询</el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
-
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -87,7 +88,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.operationAudit"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="id"
@@ -189,35 +190,85 @@
       </template>
     </UnifiedListTemplate>
 
-    <Dialog title="操作审计详情" v-model="detailVisible" width="860px">
+    <Dialog class="edhr-detail-surface" title="操作审计详情" v-model="detailVisible" width="860px" :fullscreen="false">
+      <template #title><div class="edhr-detail-heading"><h2>操作审计详情</h2><p>查看操作结果、业务对象与审计证据</p></div></template>
       <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" show-icon />
       <div v-else-if="detail" class="edhr-operation-audit-pane__detail">
-        <el-descriptions title="事件摘要" :column="2" border>
-          <el-descriptions-item label="事件ID">{{ detail.id }}</el-descriptions-item>
-          <el-descriptions-item label="请求ID">{{ detail.requestId || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="对象">
-            {{ resolveOperationAuditObjectTypeLabel(detail.objectType) }}（ID：{{ detail.objectId || '--' }}）
-          </el-descriptions-item>
-          <el-descriptions-item label="动作">
-            {{ resolveOperationActionLabel(detail) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="结果">
-            <el-tag :type="resolveResultTagType(detail.resultStatus)">
-              {{ resolveResultStatusLabel(detail.resultStatus) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="权限决策">
-            <el-tag :type="resolvePermissionDecisionTagType(detail.permissionDecision)">
-              {{ resolvePermissionDecisionLabel(detail.permissionDecision) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="操作者">
-            {{ detail.actorUsername || detail.actorUserId || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="发生时间">{{ formatEdhrDateTime(detail.occurredAt) }}</el-descriptions-item>
-          <el-descriptions-item label="失败码">{{ detail.failureCode || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="失败说明">{{ detail.failureMessage || '--' }}</el-descriptions-item>
-        </el-descriptions>
+        <div>
+          <dl class="edhr-detail-summary">
+            <div>
+              <dt>动作</dt>
+              <dd>
+                {{ resolveOperationActionLabel(detail) }}
+              </dd>
+            </div>
+            <div>
+              <dt>操作者</dt>
+              <dd>
+                {{ detail.actorUsername || detail.actorUserId || "--" }}
+              </dd>
+            </div>
+            <div>
+              <dt>发生时间</dt>
+              <dd>{{ formatEdhrDateTime(detail.occurredAt) }}</dd>
+            </div>
+          </dl>
+          <section class="edhr-detail-section">
+            <h3>操作信息</h3>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>事件ID</dt>
+                <dd>{{ detail.id }}</dd>
+              </div>
+              <div>
+                <dt>对象</dt>
+                <dd>
+                  {{ resolveOperationAuditObjectTypeLabel(detail.objectType) }}（ID：{{
+                    detail.objectId || "--"
+                  }}）
+                </dd>
+              </div>
+              <div>
+                <dt>结果</dt>
+                <dd>
+                  <el-tag :type="resolveResultTagType(detail.resultStatus)">
+                    {{ resolveResultStatusLabel(detail.resultStatus) }}
+                  </el-tag>
+                </dd>
+              </div>
+              <div>
+                <dt>权限决策</dt>
+                <dd>
+                  <el-tag :type="resolvePermissionDecisionTagType(detail.permissionDecision)">
+                    {{ resolvePermissionDecisionLabel(detail.permissionDecision) }}
+                  </el-tag>
+                </dd>
+              </div>
+            </dl>
+          </section>
+          <section class="edhr-detail-section">
+            <h3>执行说明</h3>
+            <dl class="edhr-detail-fields edhr-detail-fields--soft">
+              <div>
+                <dt>失败码</dt>
+                <dd>{{ detail.failureCode || "--" }}</dd>
+              </div>
+              <div>
+                <dt>失败说明</dt>
+                <dd>{{ detail.failureMessage || "--" }}</dd>
+              </div>
+            </dl>
+          </section>
+          <details class="edhr-detail-proof">
+            <summary>请求标识<span>展开查看</span></summary>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>请求ID</dt>
+                <dd>{{ detail.requestId || "--" }}</dd>
+              </div>
+            </dl>
+          </details>
+        </div>
 
         <el-collapse
           v-model="operationAuditDetailTechnicalEvidenceNames"
@@ -225,31 +276,54 @@
         >
           <el-collapse-item title="技术证据" name="technical-evidence">
             <div class="edhr-operation-audit-pane__technical-title">审计证据</div>
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="变更前摘要哈希">
-                {{ detail.beforeSummaryHash || '--' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="变更后摘要哈希">
-                {{ detail.afterSummaryHash || '--' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="前序审计哈希">
-                {{ detail.previousAuditHash || '--' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="当前审计哈希">
-                {{ detail.auditHash || '--' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="元数据" :span="2">
-                <pre class="edhr-operation-audit-pane__metadata">{{ detail.metadataJson || '--' }}</pre>
-              </el-descriptions-item>
-            </el-descriptions>
+            <div>
+              <section class="edhr-detail-section">
+                <h3>审计证据</h3>
+                <dl class="edhr-detail-fields">
+                  <div>
+                    <dt>变更前摘要哈希</dt>
+                    <dd>
+                      {{ detail.beforeSummaryHash || "--" }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>变更后摘要哈希</dt>
+                    <dd>
+                      {{ detail.afterSummaryHash || "--" }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>前序审计哈希</dt>
+                    <dd>
+                      {{ detail.previousAuditHash || "--" }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>当前审计哈希</dt>
+                    <dd>
+                      {{ detail.auditHash || "--" }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>元数据</dt>
+                    <dd>
+                      <pre class="edhr-operation-audit-pane__metadata">{{ detail.metadataJson || "--" }}</pre>
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
           </el-collapse-item>
         </el-collapse>
       </div>
-    </Dialog>
+    <template #footer><el-button type="primary" @click="detailVisible = false">关闭</el-button></template></Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   EdhrOperationAuditApi,
@@ -330,6 +404,7 @@ const parseQueryText = (value: unknown) => {
 const normalizeText = (value: unknown) => (value == null ? '' : String(value).trim())
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: props.pageSize,
   objectType: normalizeText(props.objectType) || parseQueryText(route.query.objectType),
@@ -430,6 +505,7 @@ const assertObjectContext = () => {
 const buildQuery = () => {
   assertObjectContext()
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     objectType: shouldQueryBatchContextOnly.value ? undefined : queryParams.objectType.trim(),
@@ -452,20 +528,27 @@ const buildQuery = () => {
   }
 }
 
+let columnRequestSequence = 0
 async function getList() {
+  const sequence = ++columnRequestSequence
+  const isCurrent = () => sequence === columnRequestSequence
   syncExternalContext()
   loading.value = true
   loadError.value = ''
   try {
     const data = await EdhrOperationAuditApi.getPage(buildQuery())
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '电子批记录操作审计加载失败，请联系管理员。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -481,10 +564,6 @@ const openDetail = async (id: number) => {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
 
 const resetQuery = async () => {
   queryParams.pageNo = 1
@@ -511,7 +590,10 @@ const resetQuery = async () => {
     operationAuditQuickFilter.updateState({
       fieldKey: operationAuditQuickFilterDefinitions[0]?.key,
       operator: 'contains',
-      value: undefined
+      value: undefined,
+      conditions: [],
+      appliedConditions: [],
+      activeConditionId: undefined
     })
     return
   }
@@ -534,6 +616,45 @@ watch(
 )
 
 defineExpose({ reload: getList })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'object',
+    label: '对象',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveOperationAuditObjectTypeLabel(row.objectType),
+        row.objectId || '--',
+        row.executionId || '--'
+      ].join(' ')
+  },
+  {
+    key: 'action',
+    label: '动作',
+    type: 'text',
+    getValue: (row) =>
+      [resolveOperationActionLabel(row), resolveOperationTypeLabel(row.operationType)].join(' ')
+  },
+  {
+    key: 'resultStatus',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [resolveResultStatusLabel(row.resultStatus)].join(' ')
+  },
+  {
+    key: 'permissionDecision',
+    label: '权限决策',
+    type: 'text',
+    getValue: (row) => [resolvePermissionDecisionLabel(row.permissionDecision)].join(' ')
+  },
+  {
+    key: 'actor',
+    label: '操作者',
+    type: 'text',
+    getValue: (row) => [row.actorUsername || row.actorUserId || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

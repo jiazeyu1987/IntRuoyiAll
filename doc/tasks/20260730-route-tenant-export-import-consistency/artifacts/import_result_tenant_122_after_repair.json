@@ -1,8 +1,0 @@
-{
-  "httpStatus": 200,
-  "payload": {
-    "code": 500,
-    "msg": "系统异常",
-    "data": null
-  }
-}

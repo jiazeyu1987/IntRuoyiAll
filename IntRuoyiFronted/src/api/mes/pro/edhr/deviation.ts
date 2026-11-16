@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 
 export interface DeviationPageReqVO extends PageParam {
+  listFilters?: string
   status?: 'OPEN' | 'CLOSED'
   level?: 'NORMAL' | 'CRITICAL'
   batchExecutionId?: number | string
@@ -28,6 +29,8 @@ export interface DeviationCreateReqVO {
   levelBasis: string
   discoveryLocation?: string
   emergencyAction?: string
+  receiverId?: number | string
+  receiverName?: string
   idempotencyKey: string
   signaturePassword: string
 }
@@ -72,17 +75,21 @@ export interface DeviationHandlingRespVO {
   deviationId: number
   contentVersion?: number
   contentHash?: string
+  reviewerAssignments?: Record<string, number | string>
+  reviewReady?: boolean
+  effectiveSignatureIds?: Record<string, number | string>
+  correctiveOwnerId?: number | string
   nonconformanceReviewCode?: string
-  investigationStartedAt?: string
-  plannedCompletedAt?: string
-  completedAt?: string
+  investigationStartedAt?: string | number
+  plannedCompletedAt?: string | number
+  completedAt?: string | number
   investigationMembersJson?: string
   rootCauseAnalysis?: string
   impactScope?: string
   riskAssessment?: string
   productDisposition?: string
   correctiveOwnerName?: string
-  correctiveDueAt?: string
+  correctiveDueAt?: string | number
   capaRequired?: boolean
   capaCode?: string
   capaAttachmentsJson?: string
@@ -95,7 +102,7 @@ export interface DeviationHandlingRespVO {
     actorId?: number
     actorDisplayName?: string
     meaningLabel?: string
-    signedAt?: string
+    signedAt?: string | number
     timeZone?: string
     timeEvidenceId?: string
     verificationStatus?: string
@@ -111,7 +118,7 @@ export interface DeviationHandlingRespVO {
     actorId?: number
     actorDisplayName?: string
     meaningLabel?: string
-    signedAt?: string
+    signedAt?: string | number
     timeZone?: string
     timeEvidenceId?: string
     verificationStatus?: string
@@ -129,7 +136,7 @@ export interface DeviationHandlingRespVO {
     afterContent?: string
     actorUserId?: number
     actorUsername?: string
-    occurredAt?: string
+    occurredAt?: string | number
     beforeSummaryHash?: string
     afterSummaryHash?: string
     previousAuditHash?: string
@@ -170,3 +177,15 @@ export const signDeviationHandling = (data: { deviationId: number; node: string;
 
 export const closeDeviationHandling = (deviationId: number, expectedContentVersion: number, expectedContentHash: string) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/close', data: { deviationId, expectedContentVersion, expectedContentHash } })
+
+export const getActiveOrderDeviationCreationBatches = (activeOrderId: number | string) =>
+  request.get<DeviationBatchOptionRespVO[]>({
+    url: '/mes/pro/edhr-deviation/creation-batch-options-by-active-order',
+    params: { activeOrderId }
+  })
+
+export const createActiveOrderDeviation = (activeOrderId: number | string, data: DeviationCreateReqVO) =>
+  request.post<DeviationRespVO>({
+    url: '/mes/pro/edhr-deviation/create-by-active-order',
+    params: { activeOrderId }, data
+  })

@@ -31,6 +31,8 @@ const walk = node => [node, ...(node.children || []).flatMap(walk)]
 test('actual readonly template preserves before/after and routes exact correction signature to the existing viewer', () => {
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: component, id: 'corrections' }).errors, [])
   const nodes = walk(descriptor.template.ast).filter(n => n.type === 1)
+  assert.equal(nodes.some(n => n.tag === 'el-dialog'), false)
+  assert.equal(nodes.some(n => n.props.some(p => p.name === 'data-active-order-correction-history-entry')), false)
   assert.deepEqual(nodes.filter(n => n.tag === 'el-table-column').map(n => n.props.find(p => p.name === 'label').value.content),
     ['修改字段', '本次修改前', '本次修改后'])
   assert.equal(nodes.filter(n => ['el-input', 'el-select', 'el-input-number', 'el-form'].includes(n.tag)).length, 0)
@@ -41,6 +43,11 @@ test('actual readonly template preserves before/after and routes exact correctio
   assert.deepEqual(emitted, [['signature', '1900000000000000002']])
   const parent = parse(fs.readFileSync(path.join(root, 'views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'), 'utf8')).descriptor
   const entries = walk(parent.template.ast).filter(n => n.type === 1 && n.tag === 'ActiveOrderCorrectionHistoryPanel')
+  assert.deepEqual(compileTemplate({ source: parent.template.content, filename: 'detail.vue', id: 'detail' }).errors, [])
+  const tab = walk(parent.template.ast).find(n => n.type === 1 && n.tag === 'el-tab-pane' && n.props.some(p => p.name === 'name' && p.value?.content === 'correctionHistory'))
+  assert.ok(tab)
+  assert.equal(tab.props.some(p => p.type === 7 && p.name === 'if'), false)
+  assert.ok(walk(tab).includes(entries[0]))
   assert.equal(entries.length, 1)
   assert.ok(entries[0].props.some(p => p.type === 7 && p.name === 'bind' && p.arg.content === 'context' && p.exp.content === 'signatureEvidenceContext'))
   assert.ok(entries[0].props.some(p => p.type === 7 && p.name === 'on' && p.arg.content === 'signature' && p.exp.content === 'signatureEvidenceViewer.open'))
@@ -84,17 +91,23 @@ test('response integrity failures stay errors and never display an empty success
   const empty = createActiveOrderCorrectionHistory(() => context(), async () => ({ activeOrderId: '413', corrections: [] })); await empty.open()
   assert.equal(empty.state.error, ''); assert.equal(empty.state.timeline.corrections.length, 0)
 })
-test('actual component context watcher clears rows when a detail changes', async () => {
+test('tab content loads automatically and reloads by active order for every business scope', async () => {
   const props = vue.reactive({ context: context() })
   const ast = ts.createSourceFile('corrections.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const body = ast.statements.filter(s => !ts.isImportDeclaration(s)).map(s => s.getText(ast)).join('\n')
+  const reads = []
   const dependencies = { ...vue, defineProps: () => props, defineEmits() {}, onBeforeUnmount() {},
-    formatDateTimeValue: value => value, createActiveOrderCorrectionHistory, getActiveOrderCorrections: async () => timeline() }
+    formatDateTimeValue: value => value, createActiveOrderCorrectionHistory,
+    getActiveOrderCorrections: async (scope, id) => { reads.push([scope, id]); return timeline(id) } }
   const code = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText
   const history = Function(...Object.keys(dependencies), `${code};return history;`)(...Object.values(dependencies))
-  await history.open(); assert.ok(history.state.timeline)
+  await vue.nextTick(); assert.ok(history.state.timeline)
   props.context = context('414'); await vue.nextTick()
-  assert.equal(history.state.timeline, undefined); assert.equal(history.state.visible, false)
+  await vue.nextTick()
+  assert.equal(history.state.timeline.activeOrderId, '414')
+  props.context = { scope: 'PQC', identity: '999', activeOrderId: '415' }; await vue.nextTick(); await vue.nextTick()
+  assert.equal(history.state.timeline.activeOrderId, '415')
+  assert.deepEqual(reads, [['TEAM', '413'], ['TEAM', '414'], ['TEAM', '415']])
 })
 test('three scopes use only their exact existing GET identity and preserve string Snowflake IDs', async () => {
   const calls = [], api = actualModule('api/mes/pro/edhr/activeOrderCorrection.ts', { '@/config/axios': {

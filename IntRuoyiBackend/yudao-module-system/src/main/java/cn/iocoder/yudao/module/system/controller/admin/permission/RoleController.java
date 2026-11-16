@@ -82,7 +82,7 @@ public class RoleController {
 
     @GetMapping("/get")
     @Operation(summary = "获得角色信息")
-    @PreAuthorize("@ss.hasPermission('system:role:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<RoleRespVO> getRole(@RequestParam("id") Long id) {
         RoleDO role = roleService.getRole(id);
         return success(buildRoleRespVO(role));
@@ -90,7 +90,7 @@ public class RoleController {
 
     @GetMapping("/page")
     @Operation(summary = "获得角色分页")
-    @PreAuthorize("@ss.hasPermission('system:role:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<PageResult<RoleRespVO>> getRolePage(RolePageReqVO pageReqVO) {
         PageResult<RoleDO> pageResult = roleService.getRolePage(pageReqVO);
         PageResult<RoleRespVO> result = BeanUtils.toBean(pageResult, RoleRespVO.class);
@@ -126,8 +126,8 @@ public class RoleController {
     @Operation(summary = "导出角色配置包")
     @PreAuthorize("@ss.hasPermission('system:role:export')")
     @ApiAccessLog(operateType = EXPORT)
-    public void exportConfigPackage(HttpServletResponse response) throws IOException {
-        byte[] data = roleConfigPackageService.exportPackage();
+    public void exportConfigPackage(@RequestParam("categoryIds") java.util.List<Long> categoryIds, HttpServletResponse response) throws IOException {
+        byte[] data = roleConfigPackageService.exportPackage(categoryIds);
         response.addHeader("Content-Disposition",
                 "attachment;filename=" + HttpUtils.encodeUtf8("权限角色配置包.json"));
         response.setContentType("application/json;charset=UTF-8");

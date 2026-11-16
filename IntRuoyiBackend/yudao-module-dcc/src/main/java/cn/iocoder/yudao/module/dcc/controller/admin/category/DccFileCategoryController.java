@@ -183,6 +183,14 @@ public class DccFileCategoryController {
         return success(true);
     }
 
+    @PutMapping("/{id:\\d+}/disable")
+    @Operation(summary = "停用文件类别")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")
+    public CommonResult<Boolean> disableCategory(@PathVariable("id") Long id) {
+        categoryAdminService.disableCategory(id);
+        return success(true);
+    }
+
     @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "删除文件类别")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")

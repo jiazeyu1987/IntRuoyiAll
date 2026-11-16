@@ -112,6 +112,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @BeforeEach
     void setUp() {
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(service, "marketReleaseAccess", org.mockito.Mockito.mock(MesMarketReleaseAccess.class));
         ReflectionTestUtils.setField(service, "workTaskService", org.mockito.Mockito.mock(MesProEdhrWorkTaskService.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         // Type-based optional injection keeps the pre-implementation RED at the missing behavior,
@@ -294,7 +295,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             return 1;
         });
 
-        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                 .setSourceType("PQC_RELEASE")
                 .setSourceId(7001L)
                 .setNonconformanceReason("检验结论需要评审")
@@ -328,7 +329,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L).setActiveOrderId(8101L)
                         .setNonconformanceReason("完工前发现检验异常"));
 
         assertEquals(1202L, result.getId());
@@ -353,7 +354,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .thenReturn(List.of());
 
         ServiceException error = assertThrows(ServiceException.class, () -> service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L).setActiveOrderId(8101L)
                         .setNonconformanceReason("已完工来源损坏")));
 
         assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID.getCode(), error.getCode());
@@ -391,7 +392,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setActiveOrderId(8101L)
                         .setNonconformanceReason("活跃订单直接创建评审"));
 
@@ -412,7 +413,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void legacyCreationStillRequiresSignature() {
         ServiceException error = assertThrows(ServiceException.class, () -> service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_RELEASE")
                         .setBatchExecutionId(9001L)
                         .setNonconformanceReason("legacy入口缺少签名")));
@@ -466,11 +467,11 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 MesProEdhrNonconformanceReviewCounterDO.builder().tenantId(122L).currentSerial(1L).build());
 
         MesProEdhrNonconformanceReviewRespVO first = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L).setActiveOrderId(8101L)
                         .setNonconformanceReason("第一次直接创建")
                         .setSignaturePassword("create-password"));
         MesProEdhrNonconformanceReviewRespVO second = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8102L)
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L).setActiveOrderId(8102L)
                         .setNonconformanceReason("第二次直接创建")
                         .setSignaturePassword("create-password"));
 
@@ -535,7 +536,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
 
         assertThrows(ServiceException.class, () -> service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_RELEASE")
                         .setSourceId(7001L)
                         .setNonconformanceReason("检验结论需要评审")
@@ -585,6 +586,40 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"reviewOpinion\":\"让步放行\""));
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"qaSignature\":\"电子签名#9101\""));
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"signatureId\":9101"));
+    }
+
+    @Test
+    void disposeAllowsAnEmptyMaterialList() {
+        assertDisposeWithoutMaterials(false);
+    }
+
+    @Test
+    void disposeAllowsOmittedMaterials() {
+        assertDisposeWithoutMaterials(true);
+    }
+
+    private void assertDisposeWithoutMaterials(boolean omitted) {
+        stubPendingReview("concession_release");
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        var request = disposeRequest("concession_release")
+                .setReviewMaterialUrl(null)
+                .setReviewMaterials(omitted ? null : List.of())
+                .setReviewMaterialEvents(List.of());
+
+        service.dispose(request);
+
+        var updateCaptor = ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        var update = updateCaptor.getValue();
+        assertEquals("closed", update.getReviewStatus());
+        assertEquals("concession_release", update.getDisposition());
+        assertEquals("", update.getReviewMaterialUrl());
+        assertNull(update.getReviewMaterialFileId());
+        var payload = com.alibaba.fastjson.JSON.parseObject(update.getReviewMaterialsJson());
+        assertTrue(payload.getJSONArray("activeMaterials").isEmpty());
+        assertTrue(payload.getJSONArray("reviewMaterialEvents").isEmpty());
+        assertTrue(update.getTraceSnapshotJson().contains("\"reviewMaterialsJson\""));
+        verifyNoInteractions(fileMapper);
     }
 
     @Test
@@ -643,7 +678,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals(9401L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%.pdf\""));
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":10"));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9401/100%.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9401/100%.pdf\""));
         assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
     }
 
@@ -672,7 +707,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper).updateById(updateCaptor.capture());
         assertEquals(9402L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%25.pdf\""));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9402/100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9402/100%25.pdf\""));
         assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
     }
 
@@ -701,7 +736,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper).updateById(updateCaptor.capture());
         assertEquals(9403L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":21"));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9403/ncr/100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"tenants/122/mes/edhr-ncr/reviews/1001/upload-9403/ncr/100%25.pdf\""));
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"url\":\"" + url + "\""));
     }
 
@@ -767,7 +802,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_RELEASE")
                         .setSourceId(7001L)
                         .setNonconformanceReason("检验结论需要评审")
@@ -802,7 +837,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_RELEASE")
                         .setSourceId(7001L)
                         .setBatchExecutionId(9301L)
@@ -845,7 +880,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_SUBMISSION")
                         .setSourceId(160L)
                         .setNonconformanceReason("PQC提交不合格")
@@ -889,7 +924,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.create(
-                new MesProEdhrNonconformanceReviewCreateReqVO()
+                new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                         .setSourceType("PQC_SUBMISSION")
                         .setSourceId(161L)
                         .setBatchExecutionId(999_999L)
@@ -924,7 +959,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             return 1;
         });
 
-        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                 .setSourceType("PQC_RELEASE")
                 .setBatchExecutionId(9001L)
                 .setNonconformanceReason("批次不合格")
@@ -961,7 +996,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         });
 
         MesProEdhrNonconformanceReviewRespVO result = service.rejectBatch(
-                new MesProEdhrBatchExecutionRejectReqVO()
+                new MesProEdhrBatchExecutionRejectReqVO().setQaReviewerUserId(21L)
                         .setBatchExecutionId(9002L)
                         .setNonconformanceReason("末检结果不合格")
                         .setSignaturePassword("release-password"));
@@ -995,7 +1030,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
 
         assertThrows(ServiceException.class, () -> service.rejectBatch(
-                new MesProEdhrBatchExecutionRejectReqVO()
+                new MesProEdhrBatchExecutionRejectReqVO().setQaReviewerUserId(21L)
                         .setBatchExecutionId(9003L)
                         .setNonconformanceReason("末检结果不合格")
                         .setSignaturePassword("wrong-password")));
@@ -1341,7 +1376,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             return 1;
         });
 
-        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L)
                 .setSourceType("PQC_SUBMISSION")
                 .setSourceId(171L)
                 .setNonconformanceReason("第二份同轮评审")
@@ -1531,10 +1566,12 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals("pending_review", before.getString("reviewStatus"));
         assertEquals("closed", after.getString("reviewStatus"));
         assertEquals(disposition, after.getString("disposition"));
+        assertEquals("21", before.getString("qaReviewerUserId"));
+        assertEquals("21", after.getString("qaReviewerUserId"));
         assertEquals("9102", after.getJSONArray("materials").getJSONObject(0).getString("fileId"));
         assertEquals(java.util.Set.of("reviewId", "sourceType", "sourceId", "activeOrderId",
                 "batchExecutionId", "batchStatus", "workOrderId", "previousWorkOrderTemporaryFrozen",
-                "temporaryFrozen", "reviewStatus", "disposition", "nonconformanceReason", "reviewOpinion",
+                "temporaryFrozen", "reviewStatus", "disposition", "nonconformanceReason", "reviewOpinion", "qaReviewerUserId",
                 "materials", "signatureRecordId", "signatureContentHash", "applicationId",
                 "reworkActiveOrderId", "affectedState"), after.keySet());
         assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
@@ -1866,6 +1903,39 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"rework", "void"})
+    void marketRejectedDispositionKeepsCompletedManagerDecisionAndTask(String disposition) {
+        var application = stubDispositionAuditClosure(disposition);
+        application.setApplicationStatus(MesReleaseFlowStatus.MARKET_RELEASE_REJECTED);
+        var transactions = (cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper)
+                ReflectionTestUtils.getField(service, "releaseTransactionMapper");
+        var transaction = transactions.selectByIdForUpdate(9301L);
+        transaction.setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_REJECTED)
+                .setReleaseDecisionId(9401L).setRejectReason("正式不予上市");
+        var manager = workTaskMapper.selectByIdForUpdate(8002L);
+        manager.setStatus(MesProEdhrWorkTaskStatus.DONE).setReason("REJECT");
+        var tasks = (MesProEdhrWorkTaskService) ReflectionTestUtils.getField(service, "workTaskService");
+        org.mockito.Mockito.lenient().doThrow(new ServiceException(1040751400, "eDHR 工作任务不存在"))
+                .when(tasks).cancelReleaseApprovalTask(eq(9301L), any());
+
+        service.dispose(disposeRequest(disposition));
+
+        verify(tasks).cancelReleaseApprovalTaskById(eq(8002L), any());
+        verify(tasks, never()).cancelReleaseApprovalTask(any(), any());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, manager.getStatus());
+        assertEquals("REJECT", manager.getReason());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_REJECTED, transaction.getReleaseStatus());
+        assertEquals(9401L, transaction.getReleaseDecisionId());
+        assertEquals(4, transaction.getVersion());
+        assertEquals("正式不予上市", transaction.getRejectReason());
+        var after = auditClosureAffectedState(captureAuditClosureCommand().getAfterState());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, after.getJSONObject("managerReleaseTask").getString("status"));
+        assertEquals("NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT),
+                after.getJSONObject("releaseApplication").getString("applicationStatus"));
+        assertEquals("rework".equals(disposition), after.getJSONObject("reworkActiveOrder") != null);
+    }
+
     @Test
     void ncr05ReworkRecordsRetiredSourceAndEveryPersistedCycleChild() {
         stubDispositionAuditClosure("rework");
@@ -1920,7 +1990,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     private MesProEdhrNonconformanceReviewCreateReqVO unsignedAuditClosureRequest() {
-        return new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+        return new MesProEdhrNonconformanceReviewCreateReqVO().setQaReviewerUserId(21L).setActiveOrderId(8101L)
                 .setNonconformanceReason("Unsigned active-order NCR audit closure");
     }
 
@@ -2148,6 +2218,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     private void stubPendingReview(String disposition, boolean successfulSignature, boolean returnsResponse) {
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .id(1001L)
+                .qaReviewerUserId(21L)
                 .sourceType("PQC_RELEASE")
                 .sourceId(7001L)
                 .activeOrderId(8101L)
@@ -2226,7 +2297,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     private void stubFormalFile(String requestedUrl, FileDO file) {
-        file.setPath("mes/edhr-ncr/reviews/1001/upload-" + file.getId() + "/" + file.getPath());
+        file.setPath("tenants/122/mes/edhr-ncr/reviews/1001/upload-" + file.getId() + "/" + file.getPath());
         materialIds.put(requestedUrl, file.getId());
         lenient().when(fileMapper.selectById(file.getId())).thenReturn(file);
     }
@@ -2255,7 +2326,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         Long fileId = 100000L + reviewId;
         lenient().when(fileMapper.selectById(fileId)).thenReturn(FileDO.builder().id(fileId)
                 .configId(10L).name("review.pdf").url(REVIEW_MATERIAL_URL)
-                .path("mes/edhr-ncr/reviews/" + reviewId + "/upload-1/review.pdf").build());
+                .path("tenants/122/mes/edhr-ncr/reviews/" + reviewId + "/upload-1/review.pdf").build());
         request.getReviewMaterials().get(0).setFileId(fileId);
         return request;
     }

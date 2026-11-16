@@ -19,6 +19,7 @@
           class="batch-record-form-layout__alert"
         />
         <UnifiedListTemplate
+          single-line-toolbar
           table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"
           :query-model="queryParams"
           :filter-definitions="recordFormQuickFilterDefinitions"
@@ -36,6 +37,9 @@
           @quick-filter-query="recordFormQuickFilter.applyQuickFilter"
           @column-change="saveRecordFormColumnConfig"
           @pagination="getList"
+          server-filter
+          :server-filter-query="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
             <el-button
@@ -56,12 +60,12 @@
               />
             </div>
           </template>
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="listLoading"
-              :data="list"
+              :data="resolveRows(list)"
               row-key="rowKey"
-              height="calc(100vh - 260px)"
+              height="100%"
               highlight-current-row
               border
               @row-click="selectReport"
@@ -522,6 +526,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -641,6 +647,7 @@ let preserveWordImportDialogStateOnClose = false
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 20,
+  listFilters: '',
   name: '',
   productName: '',
   versionNo: normalizeRouteQueryText(route.query.versionNo),
@@ -1093,6 +1100,7 @@ const getList = async () => {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
+      listFilters: queryParams.listFilters,
       reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
@@ -1100,7 +1108,7 @@ const getList = async () => {
       formSlotType: queryParams.formSlotType || undefined,
       latestVersionOnly: queryParams.latestVersionOnly || undefined
     })
-    if (isStaleRecordFormListRequest(requestSerial)) return
+    if (isStaleRecordFormListRequest(requestSerial)) return false
     const nextList = (Array.isArray(data.list) ? data.list : []).map(toRecordFormRow)
     list.value = nextList
     total.value = Number(data.total) || 0
@@ -1118,13 +1126,15 @@ const getList = async () => {
     deferRecordFormSecondaryLoad(nextSelected, requestSerial)
     batchRecordFormListLastLoadedRouteStateKey = targetRouteStateKey
     batchRecordFormListHasLoadedRouteState.value = true
+    return true
   } catch (error) {
-    if (isStaleRecordFormListRequest(requestSerial)) return
+    if (isStaleRecordFormListRequest(requestSerial)) return false
     list.value = []
     total.value = 0
     selectedReportId.value = ''
     clearTemplatePreview()
     listErrorMessage.value = resolveErrorMessage(error, '批记录表单列表加载失败，请联系管理员检查报表目录链路。')
+    throw error
   } finally {
     if (!isStaleRecordFormListRequest(requestSerial)) {
       listLoading.value = false
@@ -1545,7 +1555,7 @@ const buildWordImportSelection = () => {
   const selectedOptions = preflight?.routeProductOptions.filter((option) => selectedKeys.has(option.optionKey)) || []
   const selectedRouteProductIds = selectedOptions
     .map((option) => option.routeProductId)
-    .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number')
+    .filter((routeProductId): routeProductId is number | string => routeProductId != null)
   const selectedProductNames = selectedOptions
     .filter((option) => !option.routeProductId)
     .map((option) => option.productName)
@@ -1580,7 +1590,7 @@ type WordImportConfirmedSelection = {
   expectedRouteId?: number
   expectedRouteVersionId?: number
   expectedRouteCandidateVersionId?: number
-  selectedRouteProductIds: number[]
+  selectedRouteProductIds: Array<number | string>
   selectedProductNames: string[]
 }
 
@@ -1609,7 +1619,7 @@ const buildWordImportConfirmedSelection = (
       : undefined,
     selectedRouteProductIds: selectedOptions
       .map((option) => option.routeProductId)
-      .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number'),
+      .filter((routeProductId): routeProductId is number | string => routeProductId != null),
     selectedProductNames: selectedOptions
       .filter((option) => !option.routeProductId)
       .map((option) => option.productName)
@@ -1888,7 +1898,7 @@ const runUploadedWordImport = async (
     expectedRouteId?: number
     expectedRouteVersionId?: number
     expectedRouteCandidateVersionId?: number
-    selectedRouteProductIds: number[]
+    selectedRouteProductIds: Array<number | string>
     selectedProductNames: string[]
   }
 ) => {
@@ -2205,6 +2215,21 @@ watch(
     await getList()
   }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'formSlotType',
+    label: '类型',
+    type: 'text',
+    getValue: (row) => [resolveFormSlotTypeLabel(row.formSlotType)].join(' ')
+  },
+  {
+    key: 'versionStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveVersionStatusPresentation(row.versionStatus).label].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -2398,10 +2423,14 @@ watch(
 }
 
 .batch-record-form-layout {
+  --form-panel-height: max(640px, calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding)));
+
   display: grid;
   grid-template-columns: minmax(640px, 58%) minmax(420px, 42%);
+  grid-template-rows: minmax(0, 1fr);
   gap: 14px;
-  min-height: 640px;
+  height: var(--form-panel-height);
+  box-sizing: border-box;
   padding: 14px;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -2411,6 +2440,28 @@ watch(
 .batch-record-form-layout__list,
 .batch-record-form-preview {
   min-width: 0;
+  min-height: 0;
+}
+
+.batch-record-form-layout__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template),
+.batch-record-form-layout__list :deep(.unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template__table-shell) {
+  overflow: hidden;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template__query-form),
+.batch-record-form-layout__list :deep(.el-pagination),
+.batch-record-form-layout__alert {
+  flex-shrink: 0;
 }
 
 .batch-record-form-layout__alert {
@@ -2575,6 +2626,8 @@ watch(
 @media (max-width: 1280px) {
   .batch-record-form-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, var(--form-panel-height));
+    height: auto;
   }
 }
 </style>

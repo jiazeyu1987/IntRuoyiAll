@@ -14,7 +14,7 @@ function moduleFrom(source, dependencies = {}) {
 }
 function component(file, dependencies) {
   const compiled = compileScript(parse(read(file)).descriptor, { id: file, inlineTemplate: true })
-  return moduleFrom(compiled.content, dependencies).default
+  return moduleFrom(compiled.content, { ...dependencies, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } }).default
 }
 const actions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
 const { FileSelectorState } = moduleFrom(read('src/views/dcc/controlled-file/relations/selector-state.ts'))
@@ -87,7 +87,7 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError,
         vue.h('button', { onClick: () => emit('update:modelValue', false) }, 'unit:取消候选')
       ]) : null
     } }
-  const Signing = component('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue', { './workflow-actions': actions })
+  const Signing = component('src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue', { './workflow-actions': actions, '@/views/system/user/components/UserSelectV2.vue': { default: control('select', ['modelValue', 'placeholder', 'disabled']) } })
   const Arrangements = component('src/views/dcc/controlled-file/detail/DetailRelationArrangements.vue', {
     '../shared/version-display': { getDccVersionDisplayText: value => value }, '../workflow/workflow-actions': actions })
   const lifecycle = moduleFrom(read('src/api/dcc/controlledFile/workflowLifecycle.ts'), {
@@ -139,7 +139,7 @@ function fixture(processDefinitionKey = 'dcc-controlled-file-upload', saveError,
   const sign = async () => {
     await input('搜索并选择本部门会签人', ASSIGNEE)
     await input('请输入指派意见', 'DCC241016C22 本人签名指派')
-    await input('请输入当前登录密码', 'unit-only')
+    await input('请输入所选签名方式的六位 PIN 码或密码', 'unit-only')
     await click('确认指派并签名')
   }
   return { app, host, writes, selectorQueries, selectorErrors, selectors, history, context, click, open, sign, input, one, blocked,
@@ -241,7 +241,7 @@ test('real assignment footer disables reject and duplicate signing while pending
     await drain(); await h.selectRel2()
     await h.input('搜索并选择本部门会签人', ASSIGNEE)
     await h.input('请输入指派意见', '本次指派意见')
-    await h.input('请输入当前登录密码', 'unit-only')
+    await h.input('请输入所选签名方式的六位 PIN 码或密码', 'unit-only')
     const confirm = () => h.one(n => n.type === 'button' && text(n) === '确认指派并签名')
     const rejection = () => h.one(n => n.type === 'button' && text(n) === '驳回')
     assert.equal(Boolean(rejection().props.disabled), false)

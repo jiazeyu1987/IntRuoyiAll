@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +26,16 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
     private final MesProcessPoolWorkOrderAbnormalMapper abnormalMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
+    private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
 
     public MesWorkOrderAbnormalReportServiceImpl(MesProcessPoolWorkOrderAbnormalMapper abnormalMapper,
                                                  MesProcessPoolActiveOrderMapper activeOrderMapper,
-                                                 MesWorkOrderAbnormalStateService abnormalStateService) {
+                                                 MesWorkOrderAbnormalStateService abnormalStateService,
+                                                 MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper) {
         this.abnormalMapper = abnormalMapper;
         this.activeOrderMapper = activeOrderMapper;
         this.abnormalStateService = abnormalStateService;
+        this.applicationMapper = applicationMapper;
     }
 
     @Override
@@ -45,6 +49,14 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
         Long workOrderId = activeOrder.getWorkOrderId();
+        // QA disposition holds this same active-order lock. Recheck the original cycle,
+        // not the work order shared with a successor rework cycle.
+        var application = applicationMapper.selectLatestByActiveOrderId(activeOrder.getId());
+        if (application != null && ("NONCONFORMANCE_VOID".equals(application.getApplicationStatus())
+                || "NONCONFORMANCE_REWORK".equals(application.getApplicationStatus()))) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,
+                    "该生产周期已由QA作废或转入返工，仅可查看，不能上报异常");
+        }
         if (abnormalStateService.hasOpenAbnormal(workOrderId)) {
             throw exception(PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS, workOrderId);
         }

@@ -3,6 +3,7 @@
     <el-form
       ref="formRef"
       v-loading="formLoading"
+      :disabled="formLoading"
       :model="formData"
       :rules="formRules"
       label-width="118px"
@@ -61,6 +62,7 @@ const formLoading = ref(false)
 const formRef = ref()
 const targetUserText = ref('')
 const supervisorImpact = ref('')
+const targetUser = ref<UserApi.UserVO>()
 const formData = ref<UserApi.UserLifecycleDeactivateReqVO>({
   id: 0,
   documentType: 'RESIGNATION',
@@ -92,30 +94,47 @@ const resetForm = (user: UserApi.UserVO) => {
 }
 
 const open = async (user: UserApi.UserVO) => {
+  if (formLoading.value) return
   if (user.lifecycleDeactivatedTime) {
     message.warning('该账号已按离职/转岗单联动停用')
     return
   }
   const affected = await UserApi.getSupervisorImpact([user.id])
   resetForm(user)
+  targetUser.value = user
   supervisorImpact.value = affected.length
-    ? '到生效时间才解除主管配置：' + affected.map((dept) => dept.name).join('、') + '。已有待办需另外办理交接。'
-    : '未担任部门主管。到生效时间停用账号，已有待办需另外办理交接。'
+    ? '到生效时间才解除主管配置：' +
+      affected.map((dept) => dept.name).join('、') +
+      '。登记后将自动打开现有待办交接确认。'
+    : '到生效时间停用账号。登记后将自动打开现有待办交接确认。'
   dialogVisible.value = true
 }
 
 defineExpose({ open })
 
-const emit = defineEmits(['success'])
+const emit = defineEmits(['success', 'handover'])
 const submitForm = async () => {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate()
-  if (!valid) return
+  if (!formRef.value || formLoading.value) return
   formLoading.value = true
+  const target = targetUser.value
   try {
-    await UserApi.recordUserLifecycleDeactivation(formData.value)
+    const valid = await formRef.value.validate()
+    if (!valid || !dialogVisible.value || targetUser.value !== target) return
+    const payload = { ...formData.value }
+    try {
+      await message.confirm(
+        `目标账号：${targetUserText.value}\n单据类型：${payload.documentType === 'RESIGNATION' ? '离职单' : '转岗单'}\n单号：${payload.documentNo}\n生效时间：${payload.effectiveTime.replace('T', ' ')}\n到期立即或由定时任务停用账号并解除主管配置；启用账号停用时现有登录会话失效。\n${supervisorImpact.value}\n待办不会自动转交，登记成功后另行确认交接；取消交接不会撤销本次登记。`,
+        '确认登记离职/转岗停用'
+      )
+    } catch (cause) {
+      if (cause === 'cancel' || cause === 'close') return
+      throw cause
+    }
+    if (!dialogVisible.value) return
+    await UserApi.recordUserLifecycleDeactivation(payload)
     message.success('离职/转岗联动停用已登记')
     dialogVisible.value = false
+    emit('handover', target)
     emit('success')
   } finally {
     formLoading.value = false

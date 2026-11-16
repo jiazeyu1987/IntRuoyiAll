@@ -36,6 +36,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
 
+    @Mock private MesActiveOrderReplenishmentBindingService replenishmentBindings;
+
     private static final Long ACTIVE_ORDER_ID = 8101L;
     private static final Long WORK_ORDER_ID = 9001L;
     private static final Long ROUTE_ID = 7001L;
@@ -64,8 +66,10 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     void setUp() {
         reader = new MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl(
                 eventMapper, feedbackMapper, allocationMapper, reviewMapper,
-                workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper);
+                workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper,
+                org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
         org.springframework.test.util.ReflectionTestUtils.setField(reader, "productionSignatureEvidenceService", signatureEvidenceService);
+        org.springframework.test.util.ReflectionTestUtils.setField(reader, "replenishmentBindings", replenishmentBindings);
         org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
                 .thenReturn(MesProWorkOrderDO.builder().id(WORK_ORDER_ID).code("MO-9001").build());
@@ -87,7 +91,7 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                 reader, null, null, null, null, null, null, null, null, null, null);
 
         org.springframework.test.util.ReflectionTestUtils.setField(writer, "productionSignatureEvidenceService", signatureEvidenceService);
-        var plan = writer.plan(command().setConfirmNoReplenishmentInfo(true));
+        var plan = writer.plan(command());
 
         assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
         assertEquals("NO_LOSS", plan.getLossDecision());
@@ -95,23 +99,42 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     @Test
+    void signedReallocationUsesItsOwnTimeAndRetainsOriginalApproval() {
+        var corrected = allocation().setCreatedVersion(2)
+                .setConfirmedAt(review().getReviewedAt().plusHours(1));
+        when(allocationMapper.selectListByActiveOrderIdForUpdate(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(corrected));
+        var writer = new MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(
+                reader, null, null, null, null, null, null, null, null, null, null);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer,
+                "productionSignatureEvidenceService", signatureEvidenceService);
+        var plan = writer.plan(command());
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals(review().getReviewedAt().plusHours(1), corrected.getConfirmedAt());
+    }
+
+    @Test
     void crossOrderFeedbackMustStillBelongToItsSourceEvent() {
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(List.of(1001L)))
                 .thenReturn(List.of(event("{}").setWorkOrderId(9000L)));
-        var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
+        var result = reader.read(command());
         assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_SOURCE_REQUIRED".equals(b.getBlockerType())));
     }
 
     @Test
-    void noReplenishmentMustAskForCompletionConfirmation() {
+    void noReplenishmentContinuesWithoutCompletionConfirmation() {
         var result = reader.read(command());
-        assertTrue(result.getBlockers().stream().anyMatch(blocker ->
-                "NO_REPLENISHMENT_CONFIRMATION_REQUIRED".equals(blocker.getBlockerType())));
+        assertTrue(result.getBlockers().isEmpty());
+        var source = result.getProcessSources().get(0);
+        assertEquals(BigDecimal.ZERO, source.getFormalLossQuantity());
+        assertEquals("NO_LOSS", source.getLossDecision());
+        assertTrue(source.getReplenishmentSources().isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(replenishmentMapper, replenishmentBindings, materialService);
     }
 
     @Test
-    void confirmedNoReplenishmentIgnoresReusableProductionLoss() {
-        var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
+    void noReplenishmentIgnoresReusableProductionLoss() {
+        var result = reader.read(command());
         assertTrue(result.getBlockers().isEmpty());
         var source = result.getProcessSources().get(0);
         assertEquals(new BigDecimal("2.500"), source.getFeedback().getUnqualifiedQuantity());
@@ -160,16 +183,16 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     @Test
-    void invalidOrUnauditedReplenishmentCannotBeConfirmedAway() {
+    void invalidOrUnauditedReplenishmentStillBlocks() {
         stubReplenishment("A", new BigDecimal("3.000"));
-        var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
+        var result = reader.read(command());
         assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_SOURCE_INVALID".equals(b.getBlockerType())));
     }
 
     @Test
     void absentActualQuantityCannotUseRequestedOrBaseQuantity() {
         stubReplenishment("C", null);
-        var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
+        var result = reader.read(command());
         assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_SOURCE_INVALID".equals(b.getBlockerType())));
     }
 
@@ -178,8 +201,37 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
         stubReplenishment("C", BigDecimal.ONE);
         when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(List.of());
-        var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
-        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_MATERIAL_UNBOUND".equals(b.getBlockerType())));
+        var result = reader.read(command());
+        var blocker = result.getBlockers().stream()
+                .filter(b -> "LOSS_REPLENISHMENT_MATERIAL_UNBOUND".equals(b.getBlockerType())).findFirst().orElseThrow();
+        assertEquals("BL-91", blocker.getObjectCode());
+        assertTrue(blocker.getReason().contains("BL-91"));
+        assertTrue(blocker.getSuggestion().contains("补料工序关联"));
+        assertTrue(blocker.getSuggestion().contains("签名"));
+    }
+
+    @Test
+    void signedSupplementAssociationFreezesItsEvidenceWithoutChangingRouteInputs() {
+        stubReplenishment("C", BigDecimal.ONE);
+        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(List.of());
+        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
+                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
+        var result = reader.read(command());
+        assertTrue(result.getBlockers().isEmpty());
+        var line = result.getProcessSources().get(0).getReplenishmentSources().get(0);
+        assertEquals(9901L, line.getBindingEventId());
+        assertEquals(9902L, line.getBindingSignatureId());
+        assertEquals("signed-challenge", line.getBindingChallengeHash());
+        assertEquals(BigDecimal.ONE, line.getActualQuantity());
+    }
+
+    @Test
+    void explicitAssociationCannotOverrideFrozenInputs() {
+        stubReplenishment("C", BigDecimal.ONE);
+        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
+                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
+        var result = reader.read(command());
+        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_BINDING_CONFLICT".equals(b.getBlockerType())));
     }
 
     @Test
@@ -214,7 +266,6 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
 
     private static MesTeamLeaderActiveOrderReleaseLossReportPlanCommand command() {
         return new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
-                .setRequireNoReplenishmentConfirmation(true)
                 .setTenantId(1L)
                 .setActiveOrderId(ACTIVE_ORDER_ID)
                 .setWorkOrderId(WORK_ORDER_ID)

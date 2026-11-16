@@ -4,6 +4,9 @@ import cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthentic
 import cn.iocoder.yudao.module.system.api.signature.dto.*;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import org.junit.jupiter.api.*;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -20,9 +23,30 @@ class MesPqcReleaseAuthenticationBoundaryTest {
     @AfterEach void clear(){TenantContextHolder.clear();}
     @Test void failedPasswordAttemptCommitsBeforeReleaseFailureAndNeverAcquiresBusinessLocks() {
         var f=new Fixture(false);
-        assertThrows(RuntimeException.class,()->new TransactionTemplate(f.transactions).executeWithoutResult(tx->f.proxy.approve(2L,f.command())));
+        var command = f.command().setUdiControlDocumentNo(" UDI-TEST ").setApprovalOpinion(" 核对通过 ");
+        var failure = assertThrows(MesReleaseFlowBlockerException.class,
+                ()->new TransactionTemplate(f.transactions).executeWithoutResult(tx->f.proxy.approve(2L,command)));
         assertEquals(1,f.db.queryForObject("SELECT attempts FROM auth",Integer.class));
         verifyNoInteractions(f.ledger,f.authority);
+        assertEquals(MesReleaseFlowBlockerType.SIGNATURE_AUTHENTICATION_FAILED,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+        var receipt = failure.getFailure().getRejectedDecision();
+        assertEquals("NOT_STARTED", receipt.getOutcome());
+        assertEquals("3", receipt.getApplicationId());
+        assertEquals("4", receipt.getWorkTaskId());
+        assertEquals("2", receipt.getActorId());
+        assertEquals(1, receipt.getExpectedVersion());
+        assertEquals("approve", receipt.getIdempotencyKey());
+        assertEquals(MesReleaseFlowIdempotency.payloadHash("APPROVE", "3", "4", "1", "2", "核对通过", "UDI-TEST"),
+                receipt.getPayloadHash());
+    }
+    @Test void uncertainAuthenticationFailureNeverBecomesCorrectableDecisionRejection() {
+        var f = new Fixture(false);
+        var original = new IllegalStateException("authentication audit outcome unknown");
+        doThrow(original).when(f.authentication).authenticate(any());
+        assertSame(original, assertThrows(IllegalStateException.class, () -> f.proxy.approve(2L, f.command())));
+        assertEquals(0, f.db.queryForObject("SELECT attempts FROM auth", Integer.class));
+        verifyNoInteractions(f.ledger, f.authority);
     }
     @Test void successfulAuthenticationIsRevalidatedInsideBusinessTransactionAndSurvivesBusinessFailure() {
         var f=new Fixture(true);
@@ -46,7 +70,7 @@ class MesPqcReleaseAuthenticationBoundaryTest {
             var ds=new DriverManagerDataSource("jdbc:h2:mem:"+UUID.randomUUID()+";DB_CLOSE_DELAY=-1","sa","");
             transactions=new DataSourceTransactionManager(ds);db=new JdbcTemplate(ds);
             db.execute("CREATE TABLE auth(attempts INT)");db.update("INSERT INTO auth VALUES(0)");
-            var service=new MesPqcProductionReleaseServiceImpl(null,null,null,null,null,null,null,null,null,null,null,null);
+            var service=new MesPqcProductionReleaseServiceImpl(null,null,null,null,null,null,null,null,null,null,null,java.time.Clock.systemUTC());
             ReflectionTestUtils.setField(service,"signatureAuthentication",authentication);ReflectionTestUtils.setField(service,"transactionManager",transactions);
             ReflectionTestUtils.setField(service,"gxpAuditService",ledger);ReflectionTestUtils.setField(service,"approvalAuthority",authority);
             when(authentication.authenticate(any())).thenAnswer(c->{

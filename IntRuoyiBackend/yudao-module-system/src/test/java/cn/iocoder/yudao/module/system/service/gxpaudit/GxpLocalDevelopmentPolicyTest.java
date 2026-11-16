@@ -13,21 +13,17 @@ class GxpLocalDevelopmentPolicyTest {
     private final GxpAuditPolicyBundleLoader loader = new GxpAuditPolicyBundleLoader();
 
     @Test
-    void disabledByDefaultAndExplicitlyFalse() {
-        var context = new ApplicationContextRunner()
-                .withUserConfiguration(GxpLocalDevelopmentPolicy.class, GxpAuditPolicyBundleLoader.class);
+    void formalModeDoesNotCreateLocalPolicy() {
+        var context = context(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL);
         context.run(c -> assertEquals(0, c.getBeansOfType(GxpLocalDevelopmentPolicy.class).size()));
-        context.withPropertyValues(GxpLocalDevelopmentPolicy.PROPERTY + "=false")
-                .run(c -> assertEquals(0, c.getBeansOfType(GxpLocalDevelopmentPolicy.class).size()));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "prod", "dev", "test", "local,prod", "local,test",
             "dcc-local-development,prod", "local,dcc-local-development"})
     void explicitFlagCannotEnableOutsideExclusiveLocalProfile(String profiles) {
-        new ApplicationContextRunner()
-                .withUserConfiguration(GxpLocalDevelopmentPolicy.class, GxpAuditPolicyBundleLoader.class)
-                .withPropertyValues(GxpLocalDevelopmentPolicy.PROPERTY + "=true", "spring.profiles.active=" + profiles)
+        context(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY)
+                .withPropertyValues("spring.profiles.active=" + profiles)
                 .run(c -> assertNotNull(c.getStartupFailure()));
     }
 
@@ -48,13 +44,10 @@ class GxpLocalDevelopmentPolicyTest {
         assertThrows(IllegalStateException.class, () -> new GxpLocalDevelopmentPolicy(env, loader));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"local", "dcc-local-development"})
-    void explicitLocalModeUsesValidatedPackagedOperationsAndDistinctVersion(String profile) {
-        assertEquals("20261027-approval-opinion-optional", loader.load().policyVersion());
-        new ApplicationContextRunner()
-                .withUserConfiguration(GxpLocalDevelopmentPolicy.class, GxpAuditPolicyBundleLoader.class)
-                .withPropertyValues(GxpLocalDevelopmentPolicy.PROPERTY + "=true", "spring.profiles.active=" + profile,
+    @Test
+    void explicitLocalModeUsesValidatedPackagedOperationsAndDistinctVersion() {
+        context(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY)
+                .withPropertyValues("spring.profiles.active=local",
                         "spring.datasource.dynamic.datasource.master.url=jdbc:mysql://127.0.0.2:23306/local")
                 .run(c -> {
                     assertNull(c.getStartupFailure());
@@ -95,6 +88,23 @@ class GxpLocalDevelopmentPolicyTest {
         when(broken.load()).thenThrow(failure);
         assertSame(failure, assertThrows(IllegalStateException.class,
                 () -> new GxpLocalDevelopmentPolicy(localEnvironment(), broken)));
+    }
+
+    private static ApplicationContextRunner context(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode mode) {
+        return new ApplicationContextRunner()
+                .withUserConfiguration(GxpAuditRuntimeConfiguration.class, GxpAuditDevelopmentMode.class, GxpAuditPolicyBundleLoader.class)
+                .withBean(cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper.class, () -> {
+                    var mapper = mock(cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper.class);
+                    var row = new cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO();
+                    row.setValue(mode.name()); row.setVisible(true); row.setType(1);
+                    when(mapper.selectByKey(cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.CONFIG_KEY)).thenReturn(row);
+                    return mapper;
+                });
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreFormalMode() {
+        new GxpAuditDevelopmentMode(new MockEnvironment(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL);
     }
 
     static MockEnvironment localEnvironment() {

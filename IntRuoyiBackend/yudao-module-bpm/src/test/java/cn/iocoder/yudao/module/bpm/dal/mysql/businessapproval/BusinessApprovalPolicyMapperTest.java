@@ -35,6 +35,28 @@ class BusinessApprovalPolicyMapperTest extends BaseDbUnitTest {
     }
 
     @Test
+    void columnFiltersApplyDerivedLabelsAndCountBeforePagination() {
+        insertPolicy(BusinessApprovalPolicyMode.BPM_REQUIRED, BusinessApprovalPolicy.STATUS_PUBLISHED, "READY_TO_PUBLISH");
+        insertPolicy(BusinessApprovalPolicyMode.BPM_REQUIRED, BusinessApprovalPolicy.STATUS_PUBLISHED, "DRAFT");
+        insertPolicy(BusinessApprovalPolicyMode.DIRECT, BusinessApprovalPolicy.STATUS_PUBLISHED, "ALL");
+        var request = new BusinessApprovalPolicyPageReqVO();
+        request.setTenantId(122L);
+        request.setStatus(BusinessApprovalPolicy.STATUS_PUBLISHED);
+        request.setPageSize(1);
+        request.setListFilters("[{\"key\":\"policyMode\",\"operator\":\"eq\",\"value\":\"BPM审批\"},{\"key\":\"dataDomain\",\"operator\":\"contains\",\"value\":\"生产\"}]");
+        var first = policyMapper.selectPage(request);
+        assertEquals(2L, first.getTotal());
+        assertEquals(1, first.getList().size());
+        request.setPageNo(2);
+        var second = policyMapper.selectPage(request);
+        assertEquals(2L, second.getTotal());
+        assertFalse(first.getList().get(0).getId().equals(second.getList().get(0).getId()));
+        request.setListFilters("[{\"key\":\"policyMode\",\"operator\":\"eq\",\"value\":\"BPM审批\"},{\"key\":\"objectState\",\"operator\":\"eq\",\"value\":\"草稿\"}]");
+        request.setPageNo(1);
+        assertEquals(1L, policyMapper.selectPage(request).getTotal());
+    }
+
+    @Test
     void selectPageWithoutStatusFilterReturnsOnlyLatestPolicyVersionPerBusinessAction() {
         insertPolicy(BusinessApprovalPolicyMode.BPM_REQUIRED, BusinessApprovalPolicy.STATUS_DISABLED);
         insertPolicy(BusinessApprovalPolicyMode.DIRECT, BusinessApprovalPolicy.STATUS_DISABLED);

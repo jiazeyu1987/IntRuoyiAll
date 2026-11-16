@@ -209,6 +209,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private DccFileDirectoryMapper directoryMapper;
     @Mock
     private DccControlledFileMapper controlledFileMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccStorageBrowserMapper storageBrowserMapper;
+    @Mock private DccBrowserSqlAuthorization browserSqlAuthorization;
+    private com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> browserPermission;
+    private com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object> browserHistoryPermission;
     @Mock
     private DccControlledFileCheckoutMapper checkoutMapper;
     @Mock
@@ -328,8 +332,79 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock private DccArchiveAccessService archiveAccess;
     private DccW08PreparedUnitFixture preparedFixture;
 
+    /** SQL owns authorization/selection/count. Fixtures declare its exact result page, with no Java filtering. */
+    private void stubStorageBrowserPage(List<DccControlledFileDO> selected) {
+        when(storageBrowserMapper.count(eq(31L), any(), any(), same(browserPermission), same(browserHistoryPermission),
+                any(), anyBoolean(), anyBoolean())).thenReturn((long) selected.size());
+        when(storageBrowserMapper.page(eq(31L), any(), any(), same(browserPermission), same(browserHistoryPermission),
+                any(), anyBoolean(), anyBoolean(), org.mockito.ArgumentMatchers.anyInt(), anyLong())).thenReturn(selected);
+    }
+
+    @Test
+    void storageBrowserUsesIdenticalBoundScopesAndFiltersForCountAndDeepPage() {
+        DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
+        request.setPageNo(3); request.setPageSize(2); request.setDirectoryId(20L);
+        request.setListFilters("[{\"key\":\"fileName\",\"operator\":\"contains\",\"value\":\"验证' OR 1=1 --\"}]");
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(storageBrowserMapper.count(eq(31L), same(request), any(), same(browserPermission),
+                same(browserHistoryPermission), any(), eq(true), eq(false))).thenReturn(7L);
+        when(storageBrowserMapper.page(eq(31L), same(request), any(), same(browserPermission),
+                same(browserHistoryPermission), any(), eq(true), eq(false), eq(2), eq(4L))).thenReturn(List.of());
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, request);
+        assertEquals(7L, result.getTotal()); assertTrue(result.getList().isEmpty());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileDO>> candidates =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Object>> filters =
+                ArgumentCaptor.forClass((Class) com.baomidou.mybatisplus.core.conditions.query.QueryWrapper.class);
+        verify(storageBrowserMapper).count(eq(31L), same(request), candidates.capture(), same(browserPermission),
+                same(browserHistoryPermission), filters.capture(), eq(true), eq(false));
+        verify(storageBrowserMapper).page(eq(31L), same(request), same(candidates.getValue()), same(browserPermission),
+                same(browserHistoryPermission), same(filters.getValue()), eq(true), eq(false), eq(2), eq(4L));
+        String filterSql = filters.getValue().getSqlSegment();
+        assertTrue(filterSql.contains("f.filter_file_name")); assertFalse(filterSql.contains("OR 1=1"));
+        assertTrue(filters.getValue().getParamNameValuePairs().containsValue("%验证' or 1=1 --%"));
+        assertTrue(candidates.getValue().getSqlSegment().contains("directory_id"));
+        assertTrue(candidates.getValue().getParamNameValuePairs().containsValue(20L));
+        verify(controlledFileMapper, never()).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class));
+        verify(controlledFileMapper, never()).selectListByMasterId(anyLong());
+    }
+
+    @Test
+    void storageBrowserRejectsSqlRowsOutsideTenantDeletedOrFormalAuthorization() {
+        DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class))).thenReturn(false);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY)).thenReturn(Set.of());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        DccControlledFileDO denied = DccControlledFileDO.builder().id(98001L).tenantId(32L).masterId(98000L)
+                .categoryId(10L).directoryId(22L).requesterId(11L).dccProjectCodeId(300L)
+                .status("ACTIVE").controlledTime(LocalDateTime.of(2026,10,1,10,0))
+                .activatedTime(LocalDateTime.of(2026,10,1,10,1)).build();
+        stubStorageBrowserPage(List.of(denied));
+        assertThrows(IllegalStateException.class, () -> queryService.getControlledFileBrowserPage(99L, request));
+        denied.setTenantId(31L); denied.setDeleted(true);
+        assertThrows(IllegalStateException.class, () -> queryService.getControlledFileBrowserPage(99L, request));
+        denied.setDeleted(false);
+        assertThrows(IllegalStateException.class, () -> queryService.getControlledFileBrowserPage(99L, request));
+        verify(controlledFileMapper, never()).selectListByMasterId(anyLong());
+    }
+
     @BeforeEach
     void setUpDirectoryAccessDefaults() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                DccControlledFileDO.class);
+        lenient().when(controlledFileMapper.buildBrowserSummaryQuery(any())).thenCallRealMethod();
+        browserPermission = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        browserPermission.eq("f.tenant_id", 31L).setParamAlias("permission");
+        browserHistoryPermission = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        browserHistoryPermission.eq("f.tenant_id", 31L).setParamAlias("historyPermission");
+        lenient().when(browserSqlAuthorization.scope(eq(99L), anyBoolean(), any(), eq(false), anyBoolean(), any()))
+                .thenReturn(browserPermission);
+        lenient().when(browserSqlAuthorization.historyScope(eq(99L), anyBoolean(), any(), any()))
+                .thenReturn(browserHistoryPermission);
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TransactionSynchronizationManager.initSynchronization();
         preparedFixture=new DccW08PreparedUnitFixture(controlledFileMapper,controlledFileMapper::selectById,
@@ -2081,14 +2156,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         future.setControlledTime(LocalDateTime.of(2026,10,1,10,0));
         var master = controlledFileMasterMapper.selectByIdForUpdate(700L); master.setLatestControlledFileId(901L);
         lenient().when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L)))).thenReturn(List.of(future));
+        stubStorageBrowserPage(List.of());
         when(directoryMapper.selectEnabledList()).thenReturn(List.of());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(future));
         var request = new DccControlledFilePageReqVO(); request.setDirectoryId(20L); request.setLatestVersionOnly(true);
         var result = queryService.getControlledFileBrowserPage(99L, request);
         assertEquals(0L, result.getTotal());assertTrue(result.getList().isEmpty());
         var passed = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
-        verify(controlledFileMapper).selectBrowserSummaryList(passed.capture(), eq(Set.of(20L)));
+        verify(controlledFileMapper).buildBrowserSummaryQuery(passed.capture());
         assertFalse(Boolean.TRUE.equals(passed.getValue().getLatestVersionOnly()));
         assertTrue(request.getLatestVersionOnly());
     }
@@ -5491,7 +5566,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         browserReqVO.setPageSize(10);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(controlledFileMapper.selectWorkflowList(pageReqVO)).thenReturn(List.of(activeFile));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class))).thenReturn(List.of(activeFile));
+        stubStorageBrowserPage(List.of(activeFile));
         when(controlledFileMapper.selectListByMasterId(812L)).thenReturn(List.of(activeFile));
         stubFilePermission(12L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE, true, 1012L);
         when(fileMapper.selectById(7012L)).thenReturn(FileDO.builder()
@@ -5692,8 +5767,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         reqVO.setDirectoryId(20L);
         reqVO.setLatestVersionOnly(Boolean.TRUE);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
-                .thenReturn(List.of(
+        stubStorageBrowserPage(List.of(
                         DccControlledFileDO.builder().tenantId(31L).dccProjectCodeId(300L).controlledTime(LocalDateTime.of(2026,10,1,10,0)).activatedTime(LocalDateTime.of(2026,10,1,10,1))
                                 .id(925L)
                                 .masterId(725L)
@@ -5731,7 +5805,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(925L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         ArgumentCaptor<DccControlledFilePageReqVO> reqCaptor = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
-        verify(controlledFileMapper).selectBrowserSummaryList(reqCaptor.capture(), eq(Set.of(20L)));
+        verify(controlledFileMapper).buildBrowserSummaryQuery(reqCaptor.capture());
         assertNull(reqCaptor.getValue().getDirectoryId());
     }
 
@@ -5749,8 +5823,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(directoryMapper.selectEnabledList()).thenReturn(List.of(
                 directory(20L, null, "父目录"),
                 directory(21L, 20L, "子目录")));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L, 21L))))
-                .thenReturn(List.of(
+        stubStorageBrowserPage(List.of(
                         DccControlledFileDO.builder().tenantId(31L).dccProjectCodeId(300L).controlledTime(LocalDateTime.of(2026,10,1,10,0)).activatedTime(LocalDateTime.of(2026,10,1,10,1))
                                 .id(925L)
                                 .masterId(725L)
@@ -5812,7 +5885,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(2L, result.getTotal());
         assertEquals(List.of(925L, 926L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         ArgumentCaptor<DccControlledFilePageReqVO> reqCaptor = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
-        verify(controlledFileMapper).selectBrowserSummaryList(reqCaptor.capture(), eq(Set.of(20L, 21L)));
+        verify(controlledFileMapper).buildBrowserSummaryQuery(reqCaptor.capture());
         assertNull(reqCaptor.getValue().getDirectoryId());
     }
 
@@ -5870,8 +5943,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .build();
         when(browserSettingsService.getBlacklistedExtensionPatterns()).thenReturn(List.of("*.db", "*.pyc"));
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
-                .thenReturn(List.of(pdfFile, dbFile, pycFile));
+        stubStorageBrowserPage(List.of(pdfFile));
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
         stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD, true, 970L, 971L, 972L);
         when(controlledFileMapper.selectListByMasterId(770L)).thenReturn(List.of(pdfFile));
@@ -5881,6 +5953,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(970L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(browserSettingsService, atLeastOnce()).getBlacklistedExtensionPatterns();
+        verify(browserSqlAuthorization).scope(eq(99L), eq(false), isNull(), eq(false), eq(true), eq(List.of("*.db", "*.pyc")));
     }
 
     @Test
@@ -5920,8 +5993,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
         when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class)))
                 .thenReturn(List.of(firstFile, secondFile));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(List.of(firstFile, secondFile));
+        stubStorageBrowserPage(List.of(firstFile, secondFile));
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
                 .thenReturn(true);
         stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD, true, 973L, 974L);
@@ -5935,7 +6007,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getControlledFileBrowserPage_readsDirectoryGrantsOncePerRequestAndRechecksRevocation() {
+    void getControlledFileBrowserPage_pageVerificationReadsDirectoryGrantsOnceAndNewRequestRecompilesScope() {
         DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
         request.setPageNo(1);
         request.setPageSize(10);
@@ -5956,12 +6028,11 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                     .controlledTime(LocalDateTime.of(2026, 10, 1, 10, 0))
                     .activatedTime(LocalDateTime.of(2026, 10, 1, 10, 1)).build());
         }
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(candidates);
+        stubStorageBrowserPage(List.of(candidates.get(0), candidates.get(1), candidates.get(2)));
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
                 .thenReturn(false);
-        // Detail/binary authorization is a separate port: test actual browser filtering and name-only rows.
+        // SQL supplies the authorized page; the formal row guard must still keep these rows name-only.
         ReflectionTestUtils.setField(queryService, "detailAuthorizationGuard",
                 mock(DccControlledFileDetailAuthorizationGuard.class));
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
@@ -5987,20 +6058,23 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(Set.of());
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
                 .thenReturn(Set.of());
+        stubStorageBrowserPage(List.of());
         PageResult<DccControlledFileRespVO> second = queryService.getControlledFileBrowserPage(99L, request);
 
         assertEquals(0L, second.getTotal());
         assertTrue(second.getList().isEmpty(), "An independent request must observe revoked grants");
+        verify(browserSqlAuthorization, times(2)).scope(eq(99L), eq(false), isNull(), eq(false), eq(true), any());
+        verify(browserSqlAuthorization, times(2)).historyScope(eq(99L), eq(false), isNull(), any());
         verify(permissionApi, times(2)).hasAnyPermissions(99L, "dcc:controlled-file:scope:all");
         verify(permissionApi, times(2)).hasAnyPermissions(99L, "dcc:project-code-assignment:execute");
-        verify(directoryAccessPermissionService, times(2))
+        verify(directoryAccessPermissionService, times(1))
                 .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
-        verify(directoryAccessPermissionService, times(2))
+        verify(directoryAccessPermissionService, times(1))
                 .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW);
     }
 
     @Test
-    void getControlledFileBrowserPage_readsElectronicRecipientsOncePerRequestAndRechecksRevocation() {
+    void getControlledFileBrowserPage_pageVerificationReadsRecipientsOnceAndNewRequestRecompilesScope() {
         DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
         request.setPageNo(1);
         request.setPageSize(10);
@@ -6025,8 +6099,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                     .controlledTime(index == 3 ? null : LocalDateTime.of(2026, 10, 1, 10, 0))
                     .activatedTime(index == 3 ? null : LocalDateTime.of(2026, 10, 1, 10, 1)).build());
         }
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(candidates);
+        stubStorageBrowserPage(List.of(candidates.get(0), candidates.get(1)));
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
                 .thenReturn(Set.of());
@@ -6060,11 +6133,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(List.of());
         when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9960L, 99L)).thenReturn(0L);
         when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9961L, 99L)).thenReturn(0L);
+        stubStorageBrowserPage(List.of());
         PageResult<DccControlledFileRespVO> second = queryService.getControlledFileBrowserPage(99L, request);
 
         assertEquals(0L, second.getTotal());
         assertTrue(second.getList().isEmpty(), "A new request must observe electronic-recipient revocation");
-        verify(distributionRecipientMapper, times(2)).selectActiveElectronicControlledFileIdsByUserId(31L, 99L);
+        verify(distributionRecipientMapper, times(1)).selectActiveElectronicControlledFileIdsByUserId(31L, 99L);
+        verify(browserSqlAuthorization, times(2)).scope(eq(99L), eq(false), isNull(), eq(false), eq(false), any());
         verify(distributionRecipientMapper, never()).selectActiveElectronicControlledFileIdsByUserId(32L, 99L);
         verify(distributionRecipientMapper, never()).countActiveElectronicRecipientAccess(anyLong(), anyLong(), anyLong());
     }
@@ -6097,8 +6172,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
-                .thenReturn(List.of(assignedFile));
+        stubStorageBrowserPage(List.of());
         when(controlledFileMapper.selectListByMasterId(781L)).thenReturn(List.of(assignedFile));
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
                 .thenReturn(false);
@@ -6108,7 +6182,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(0L, result.getTotal());
         assertEquals(List.of(), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(controlledFileMapper, never()).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class));
-        verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
+        verify(browserSqlAuthorization).scope(eq(99L), anyBoolean(), eq(Set.of(981L)), eq(false), eq(true), any());
     }
 
     @Test
@@ -6151,10 +6225,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(List.of(assignedFile, outsideFile));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
-                .thenReturn(List.of(assignedFile));
+        stubStorageBrowserPage(List.of(assignedFile));
         when(controlledFileMapper.selectListByMasterId(781L)).thenReturn(List.of(assignedFile));
         when(controlledFileMapper.selectListByMasterId(782L)).thenReturn(List.of(outsideFile));
 
@@ -6162,7 +6233,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(981L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
-        verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
+        verify(browserSqlAuthorization).scope(eq(99L), anyBoolean(), eq(Set.of(981L)), eq(false), eq(true), any());
     }
 
     @Test
@@ -6207,8 +6278,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
-                .thenReturn(List.of(assignedFile));
+        stubStorageBrowserPage(List.of(assignedFile));
         when(controlledFileMapper.selectListByMasterId(781L)).thenReturn(List.of(assignedFile));
         when(controlledFileMapper.selectListByMasterId(782L)).thenReturn(List.of(outsideFile));
 
@@ -6216,7 +6286,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(981L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
-        verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
+        verify(browserSqlAuthorization).scope(eq(99L), anyBoolean(), eq(Set.of(981L)), eq(false), eq(true), any());
     }
 
     @Test
@@ -6244,8 +6314,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(List.of(matrixFile));
+        stubStorageBrowserPage(List.of(matrixFile));
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L, matrixFile)).thenReturn(true);
         when(controlledFileMapper.selectListByMasterId(783L)).thenReturn(List.of(matrixFile));
 
@@ -6253,7 +6322,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(983L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
-        verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class));
+        verify(browserSqlAuthorization).scope(eq(99L), eq(true), eq(Set.of()), eq(false), eq(true), any());
     }
 
     @Test
@@ -6302,13 +6371,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
                 .thenReturn(false);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
-                .thenReturn(List.of(unrelated));
+        stubStorageBrowserPage(List.of());
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
         assertEquals(0L, result.getTotal());
         assertTrue(result.getList().isEmpty());
+        verify(browserSqlAuthorization).scope(eq(99L), eq(true), eq(Set.of()), eq(false), eq(true), any());
     }
 
     @Test
@@ -6784,8 +6853,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 6, 17))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
-                .thenReturn(List.of(file));
+        stubStorageBrowserPage(List.of(file));
         stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD, true, 960L);
         when(controlledFileMapper.selectListByMasterId(730L)).thenReturn(List.of(file));
         when(fileMapper.selectById(560L)).thenReturn(FileDO.builder()
@@ -6838,8 +6906,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
-                .thenReturn(List.of(file));
+        stubStorageBrowserPage(List.of(file));
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class))).thenReturn(false);
         stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD, false, 961L);
         when(controlledFileMapper.selectListByMasterId(731L)).thenReturn(List.of(file));

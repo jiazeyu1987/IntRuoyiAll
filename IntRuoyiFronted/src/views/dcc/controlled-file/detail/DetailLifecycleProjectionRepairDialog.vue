@@ -5,21 +5,23 @@
       <template v-if="preview">
         <el-alert title="本次维护仅修正共享生命周期投影；原文件、审批历史和电子签名保持原有事实。" type="info" :closable="false" class="mb-12px" />
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="文件 / Master / 共享投影">{{ preview.fileId }} / {{ preview.masterId ?? '未记录' }} / {{ preview.versionRefId ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="租户 / 版本">{{ preview.tenantId }} / {{ preview.versionNo }}</el-descriptions-item>
-          <el-descriptions-item label="原 DCC 状态">{{ preview.dccStatus }}</el-descriptions-item>
-          <el-descriptions-item label="原共享状态">{{ preview.canonicalStatus ?? '未记录' }} / {{ preview.domainStatus ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="原 BPM">{{ preview.processInstanceId ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="原签名记录">{{ preview.signatureIds.join('、') || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="受控 / 实际生效">{{ preview.controlledTime ?? '未记录' }} / {{ preview.activatedTime ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="批准 / 发布">{{ preview.approvedTime ?? '未记录' }} / {{ preview.publishedTime ?? '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="文件版本">{{ preview.versionNo }}</el-descriptions-item>
+          <el-descriptions-item label="文件当前状态">{{ projectionStatusLabel(preview.dccStatus) }}</el-descriptions-item>
+          <el-descriptions-item label="共享生命周期状态">{{ projectionStatusLabel(preview.canonicalStatus) }}</el-descriptions-item>
+          <el-descriptions-item label="共享业务状态">{{ projectionStatusLabel(preview.domainStatus) }}</el-descriptions-item>
+          <el-descriptions-item label="受控时间">{{ preview.controlledTime ?? '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="实际生效时间">{{ preview.activatedTime ?? '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="批准时间">{{ preview.approvedTime ?? '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="发布时间">{{ preview.publishedTime ?? '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="预设生效日期">{{ preview.effectiveDate ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="发布 / 盖章文件">{{ preview.publishedFileId ?? '未记录' }} / {{ preview.stampedFileId ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="最新受控 / 当前执行文件">{{ preview.latestControlledFileId ?? '未记录' }} / {{ preview.currentActiveControlledFileId ?? '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="拟修正状态 / 正式动作">{{ preview.expectedTargetStatus ?? '未记录' }} / {{ preview.expectedActions.join('、') || '无' }}</el-descriptions-item>
-          <el-descriptions-item label="原事实摘要" :span="2"><span class="break-all">{{ preview.sourceFactsHash }}</span></el-descriptions-item>
-          <el-descriptions-item label="原投影预像摘要" :span="2"><span class="break-all">{{ preview.preimageHash }}</span></el-descriptions-item>
+          <el-descriptions-item label="拟修正状态">{{ projectionStatusLabel(preview.expectedTargetStatus) }}</el-descriptions-item>
+          <el-descriptions-item label="对应正式动作" :span="2">
+            <ol v-if="preview.expectedActions.length"><li v-for="action in preview.expectedActions" :key="action">{{ projectionActionLabel(action) }}</li></ol><span v-else>无</span>
+          </el-descriptions-item>
         </el-descriptions>
+        <details class="projection-technical"><summary>查看内部编号、原始状态与校验信息</summary>
+          <dl><template v-for="item in projectionTechnicalFields(preview)" :key="item.label"><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></template></dl>
+        </details>
         <el-alert v-if="!preview.canRepair" title="当前正式校验结果不允许维护；本窗口只读展示。" type="warning" :closable="false" class="mt-12px" />
         <el-form v-else class="mt-12px" label-width="100px">
           <el-form-item label="修复原因" required><el-input v-model="reason" type="textarea" :maxlength="500" :disabled="saving" show-word-limit data-testid="dcc-lifecycle-projection-repair-reason" /></el-form-item>
@@ -38,6 +40,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { generateUUID } from '@/utils'
 import { getLifecycleProjectionRepairPreview, repairLifecycleProjection, type LifecycleProjectionRepairPreview } from '@/api/dcc/controlledFile/lifecycleProjectionRepair'
+import { projectionStatusLabel, projectionActionLabel, projectionTechnicalFields } from './projectionRepairDisplay'
 const props = defineProps<{ modelValue: boolean; fileId: string; allowed: boolean; contextKey: string; readContextKey: () => string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; repaired: [context: { fileId: string; contextKey: string }] }>()
 const preview = ref<LifecycleProjectionRepairPreview>(), reason = ref(''), error = ref(''), loading = ref(false), saving = ref(false)
@@ -76,3 +79,9 @@ const submit = async () => {
 watch(() => [props.modelValue, props.fileId, props.allowed, props.contextKey], () => { sequence++; preview.value = undefined; loadedContext = ''; loading.value = false; saving.value = false; if (props.modelValue) void load() }, { immediate: true, flush: 'sync' })
 onBeforeUnmount(() => { sequence++; preview.value = undefined; loadedContext = '' })
 </script>
+<style scoped>
+.projection-technical { margin-top: 12px; overflow-wrap: anywhere; }
+.projection-technical summary { cursor: pointer; }
+.projection-technical dl { display: grid; grid-template-columns: minmax(100px, 160px) minmax(0, 1fr); gap: 8px; }
+.projection-technical dd { margin: 0; }
+</style>

@@ -117,7 +117,7 @@ class DccProjectApplicationNotificationTest extends BaseDbUnitTest {
         var r=new DccProjectProductCreateReqVO();r.setProjectName("通知项目");r.setProjectCode("G49-P");r.setProjectLeaderUserId(7L);r.setFolderTemplateId(f.getId());
         r.setDefaultAttributes(new DccProjectAttributes(List.of("CE"),null,"Y","N","N",null));r.setProductCode("G49-PR");r.setProductName("通知产品");r.setClassification("一类");r.setCreationReason("新建真实原因");r.setResubmissionReason("修正真实原因");return r;
     }
-    List<Map<String,Object>> messages() { return jdbc().queryForList("SELECT user_id,business_key,template_params FROM system_notify_message WHERE tenant_id=1 ORDER BY id"); }
+    List<Map<String,Object>> messages() { return jdbc().queryForList("SELECT user_id,business_key,template_params FROM system_tenant_notify_message WHERE tenant_id=1 ORDER BY id"); }
     @Test void createFreezesReviewerAndPersistsOneOfficialMessageWithRequestAndLedger() {
         Long id=service.createRequest(9L,input());
         assertEquals(1,messages().size());assertEquals(2L,((Number)messages().get(0).get("user_id")).longValue());
@@ -147,7 +147,7 @@ class DccProjectApplicationNotificationTest extends BaseDbUnitTest {
         var page=adapter.page(ApprovalTaskQueryContext.of(2L,ApprovalTaskViewType.TODO,ApprovalModuleCode.DCC,null,1,10));
         assertEquals(1,page.getTotal());var row=page.getList().get(0);
         assertEquals(String.valueOf(id),row.getBusinessKey());assertEquals("DCC_PROJECT_PRODUCT_REVIEW",row.getSourceTaskType());
-        assertNull(row.getProcessInstanceId());assertEquals(Boolean.FALSE,row.getRequiresSignature());assertEquals(Set.of("PROCESS_IN_MODULE"),row.getAvailableActions());
+        assertNull(row.getProcessInstanceId());assertEquals(Boolean.TRUE,row.getRequiresSignature());assertEquals(Set.of("APPROVE","REJECT"),row.getAvailableActions());
     }
 
     @Test void lateFailureAfterActualOfficialMessageInsertRollsBackAllSameTransactionRows() {

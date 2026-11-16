@@ -45,8 +45,8 @@ class DccRegistrationCertificateHistoricalImportServiceTest {
 
     @Test
     void getPageReadsHistoricalImportDetailAndKeepsRestrictedReasons() {
-        when(auditMapper.countHistoricalImportPage(1L, "ABC")).thenReturn(1L);
-        when(auditMapper.selectHistoricalImportPage(1L, "ABC", 10, 0))
+        when(auditMapper.countHistoricalImportPage(eq(1L), eq("ABC"), any())).thenReturn(1L);
+        when(auditMapper.selectHistoricalImportPage(eq(1L), eq("ABC"), any(), eq(10), eq(0)))
                 .thenReturn(List.of(audit("ABC", 2, 301L)));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(301L)), eq(List.of("OWNED_COMPANY"))))
                 .thenReturn(List.of(MdmEnterpriseRespDTO.builder()

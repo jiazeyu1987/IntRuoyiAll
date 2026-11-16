@@ -259,7 +259,7 @@
                           {{ currentVersionInfo.fileName || '-' }} · {{ currentVersionInfo.currentVersionNo || '-' }}
                         </div>
                         <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                          文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
+                          文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionStatusLabel }}
                         </div>
                         <el-alert
                           class="mt-8px"
@@ -288,17 +288,21 @@
                           type="error"
                           show-icon
                         />
-                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                          原版本路径：{{ currentVersionInfo.originalFilePath || '-' }}
-                        </div>
-                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                          源文件路径：{{ currentVersionInfo.sourceFilePath || '-' }}
-                        </div>
-                        <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                          受控文件路径：{{
-                            currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-'
-                          }}
-                        </div>
+              <dl class="current-version-files">
+                <template v-for="file in currentVersionFiles" :key="file.label">
+                  <dt>{{ file.label }}</dt>
+                  <dd>{{ file.name || '文件名未记录' }}</dd>
+                </template>
+              </dl>
+              <details class="current-version-storage">
+                <summary>查看存储信息与原始状态</summary>
+                <dl class="current-version-files">
+                  <dt>原始状态</dt><dd>{{ currentVersionInfo.status || '未记录' }}</dd>
+                  <template v-for="file in currentVersionFiles" :key="file.label">
+                    <dt>{{ file.label }}路径</dt><dd>{{ file.path || '路径未记录' }}</dd>
+                  </template>
+                </dl>
+              </details>
                       </template>
                       <template v-else>未查询到同编号受控版本，将创建新的受控文件主档，并按新建规则校验。</template>
                     </div>
@@ -850,6 +854,7 @@ import { getFileTypeTaxonomyUploadOptions, resolveFileTypeActiveCategory, type D
 import { buildUploadFileTypePaths, uploadFileTypeIdentity } from './file-type-options'
 import {
   cleanupControlledFileUploadTicket,
+  cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
   getControlledFileCurrentVersion,
   getControlledFileUploadDirectoryTree,
@@ -869,6 +874,7 @@ import {
 } from '@/api/dcc/controlledFile/workflow'
 import {
   DCC_ACTION_PROJECTION_MISSING_REASON,
+  DCC_CONTROLLED_FILE_STATUS_DEFINITIONS,
   hasDccControlledFileActionProjection,
   resolveDccActionProjectionReadonlyReason
 } from '../shared/lifecycle'
@@ -885,6 +891,7 @@ import {
   isFileNumberChainConflictMessage,
   isDccProductRequiredForCategoryCode,
   validateControlledFileSelection,
+  validateDrawingPdfUpload,
   validateSingleUploadFileSelection,
   validateDccProjectProductCode,
   buildUploadEffectiveChoice,
@@ -956,6 +963,25 @@ const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
+const currentVersionStatusLabel = computed(() => {
+  const status = currentVersionInfo.value?.status
+  if (!status) return '状态未记录'
+  return DCC_CONTROLLED_FILE_STATUS_DEFINITIONS.find((item) => item.value === status)?.label
+    ?? '状态无法识别，请查看原始状态'
+})
+const currentVersionFiles = computed(() => {
+  const info = currentVersionInfo.value
+  if (!info) return []
+  return [
+    { label: '原版本文件', name: info.originalFileName, path: info.originalFilePath },
+    { label: '源文件', name: info.sourceFileName, path: info.sourceFilePath },
+    {
+      label: '受控文件',
+      name: info.stampedFilePath ? info.stampedFileName : info.publishedFileName,
+      path: info.stampedFilePath || info.publishedFilePath
+    }
+  ]
+})
 const selectedHistoryVersion = ref<string | null>()
 const fileList = ref<UploadUserFile[]>([])
 const attachmentFileList = ref<UploadFiles>([])
@@ -1032,15 +1058,7 @@ const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
 const WINDCHILL_VERSION_PATTERN = /^[A-HJ-NP-Z]+(?:\/[1-9])+$/i
 const resolveTodayDate = () => formatToDate(new Date())
 const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
-const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
-  const matched = (currentVersionNo || '').trim().match(/^[Vv]?(\d+)(?:\.\d+)*$/)
-  if (!matched) {
-    return DEFAULT_MANUAL_VERSION_NO
-  }
-  const majorVersion = Number(matched[1])
-  const nextMajorVersion = Number.isFinite(majorVersion) ? majorVersion + 1 : 1
-  return `V${nextMajorVersion}.0`
-}
+
 
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
@@ -1195,11 +1213,7 @@ const selectedFileTypeTaxonomyBoundCategories = computed(() => {
 const availableCategories = computed(() =>
   selectedFileTypeTaxonomyBoundCategories.value.filter((category) => category.active)
 )
-const selectedFileTypeTaxonomyAutoCategory = computed(() =>
-  !isExternalReview.value && availableCategories.value.length === 1
-    ? availableCategories.value[0]
-    : undefined
-)
+
 const categoryPreflightMessage = computed(() => {
   if (!isExternalReview.value && (fileTypeOptionsError.value || fileTypeCategoryError.value)) return fileTypeOptionsError.value || fileTypeCategoryError.value
   if (categoryOptionsError.value) {
@@ -1252,6 +1266,8 @@ const uploadSubmitterService = createUploadSubmitterService({
   createWorking: createWorkingControlledFile
 })
 
+const formatProjectCodeOptionLabel = (project: DccDiscoveredProject) =>
+  [project.projectName, project.projectCode].filter(Boolean).join(' · ')
 const canLoadUploadNameOptions = computed(
   () =>
     Boolean(formData.dccProjectCodeId) &&
@@ -1454,9 +1470,11 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
     if (sequence !== fileTypeCategoryRequestSequence || String(formData.fileTypeTaxonomyId) !== String(typeId)) return
     const matches = availableCategories.value.filter(category => String(category.id) === uploadFileTypeIdentity(categoryId))
     if (availableCategories.value.length !== 1 || matches.length !== 1) throw new Error('文件类型没有唯一可用的正式分类')
-    formData.categoryId = matches[0].id
+    const resolvedCategoryId = matches[0].id
+    if (resolvedCategoryId == null) throw new Error('正式分类缺少编号')
+    formData.categoryId = resolvedCategoryId
     void applyDccProjectCodeProductNumber()
-    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(formData.categoryId)
+    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(resolvedCategoryId)
   } catch (error) {
     if (sequence === fileTypeCategoryRequestSequence && String(formData.fileTypeTaxonomyId) === String(typeId)) {
       formData.categoryId = null
@@ -1735,53 +1753,11 @@ const loadBaseData = async () => {
   }
 }
 
-const buildUploadNameOptionsKey = () => {
-  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
-    return ''
-  }
-  return `${formData.dccProjectCodeId}:${formData.fileTypeTaxonomyId}`
-}
 
-const loadUploadNameOptions = async (dccProjectCodeId: number | string, fileTypeTaxonomyId: number | string) => {
-  const requestKey = `${dccProjectCodeId}:${fileTypeTaxonomyId}`
-  uploadNameOptionsLoading.value = true
-  try {
-    const options = await getControlledFileUploadNameOptions({
-      dccProjectCodeId,
-      fileTypeTaxonomyId
-    })
-    if (buildUploadNameOptionsKey() !== requestKey) {
-      return
-    }
-    uploadNameOptions.value = options
-    uploadNameOptionsLoadedKey.value = requestKey
-  } catch (error) {
-    if (buildUploadNameOptionsKey() === requestKey) {
-      uploadNameOptions.value = []
-      uploadNameOptionsLoadedKey.value = ''
-      message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
-    }
-    throw error
-  } finally {
-    if (buildUploadNameOptionsKey() === requestKey) {
-      uploadNameOptionsLoading.value = false
-    }
-  }
-}
 
-const ensureUploadNameOptionsLoaded = async () => {
-  const optionsKey = buildUploadNameOptionsKey()
-  if (!optionsKey) {
-    return
-  }
-  if (uploadNameOptionsLoadedKey.value === optionsKey) {
-    return
-  }
-  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
-    return
-  }
-  await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
-}
+
+
+
 
 const uploadProjectAttributesEdited = ref(false)
 const autoUploadDepartmentSelections = ref<{ signoff: string[]; distribution: string[] }>({ signoff: [], distribution: [] })
@@ -3233,6 +3209,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.current-version-files {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+
+.current-version-files dt { color: var(--el-text-color-secondary); }
+.current-version-files dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.current-version-storage summary { cursor: pointer; color: var(--el-color-primary); }
 .upload-scope-project-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

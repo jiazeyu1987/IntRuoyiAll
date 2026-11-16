@@ -465,13 +465,14 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         }
     }
 
-    @Test
-    void getPermissionInfoKeepsInvoiceVoucherPrintMenuWhenUserHasFinancePrintRole() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"finance_invoice_voucher_print", "tenant_admin"})
+    void getPermissionInfoKeepsInvoiceVoucherPrintMenuWhenUserHasFinancePrintRole(String roleCode) {
         Long loginUserId = 203L;
         AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financePrinter");
         RoleDO financePrintRole = randomPojo(RoleDO.class)
                 .setId(6034L)
-                .setCode("finance_invoice_voucher_print")
+                .setCode(roleCode)
                 .setStatus(CommonStatusEnum.ENABLE.getStatus());
         MenuDO erpRoot = menu(2563L, 0L, "ERP 系统", "/erp", null, MenuTypeEnum.DIR.getType());
         MenuDO financeRoot = menu(2645L, 2563L, "财务管理", "finance", null, MenuTypeEnum.DIR.getType());

@@ -7,7 +7,7 @@ const viewPath = path.join(root, 'src/views/mes/pro/processpool/QaRegulationPage
 const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
 const columnsStart = source.indexOf('const qaItemsDefaultColumns')
-const columnsEnd = source.indexOf('const qaChecksDefaultColumns', columnsStart)
+const columnsEnd = source.indexOf('const {\n  columns: qaItemsColumns,', columnsStart)
 assert.ok(
   columnsStart >= 0 && columnsEnd > columnsStart,
   'QA item default column block must exist.'

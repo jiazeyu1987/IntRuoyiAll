@@ -1,8 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript')
 const code=ts.transpileModule(fs.readFileSync('src/store/modules/approvalTodoBadge.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
+const loaders={}
+new Function('exports',ts.transpileModule(fs.readFileSync('src/store/modules/approvalCenterInvalidationState.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(loaders)
 function host(allowed){
  const context={exports:{},require:id=>{
   if(id==='pinia')return{defineStore:(_name,definition)=>definition}
+  if(id==='vue')return require('vue')
+  if(id==='./approvalCenterInvalidation')return{useApprovalCenterInvalidationStore:()=>({syncSession:()=>({key:'test-session'}),contextKey:'test-session',todoRevision:0})}
+  if(id==='./approvalCenterInvalidationState')return loaders
   if(id==='@/api/approval-center')return{getApprovalTaskPage:async()=>{throw Error('The real authorized endpoint failed')}}
   if(id==='@/utils/permission')return{checkPermi:ps=>allowed&&ps.includes('bpm:task:query')}
   if(id==='../index')return{store:{}}

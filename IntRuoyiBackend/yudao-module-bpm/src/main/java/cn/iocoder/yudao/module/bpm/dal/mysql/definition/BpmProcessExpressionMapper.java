@@ -6,6 +6,9 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.module.bpm.controller.admin.definition.vo.expression.BpmProcessExpressionPageReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.definition.BpmProcessExpressionDO;
 import org.apache.ibatis.annotations.Mapper;
+import cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils;
+import java.util.Map;
+import static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.*;
 
 /**
  * BPM 流程表达式 Mapper
@@ -16,11 +19,17 @@ import org.apache.ibatis.annotations.Mapper;
 public interface BpmProcessExpressionMapper extends BaseMapperX<BpmProcessExpressionDO> {
 
     default PageResult<BpmProcessExpressionDO> selectPage(BpmProcessExpressionPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<BpmProcessExpressionDO>()
+        return selectPage(reqVO, ListFilterQueryUtils.apply(reqVO, new LambdaQueryWrapperX<BpmProcessExpressionDO>()
                 .likeIfPresent(BpmProcessExpressionDO::getName, reqVO.getName())
                 .eqIfPresent(BpmProcessExpressionDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(BpmProcessExpressionDO::getCreateTime, reqVO.getCreateTime())
-                .orderByDesc(BpmProcessExpressionDO::getId));
+                .orderByDesc(BpmProcessExpressionDO::getId), Map.ofEntries(
+                Map.entry("id", number("id")),
+                Map.entry("name", text("name")),
+                Map.entry("status", number("status")),
+                Map.entry("expression", text("expression")),
+                Map.entry("createTime", dateTime("create_time"))
+        )));
     }
 
 }

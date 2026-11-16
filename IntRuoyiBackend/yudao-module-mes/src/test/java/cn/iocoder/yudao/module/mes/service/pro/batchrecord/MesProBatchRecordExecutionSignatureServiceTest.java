@@ -379,7 +379,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
-    void recordPqcSubmitSignatureUsesTaskScopedIdempotencyIdentity() {
+    void recordPqcSubmitSignatureGivesRepeatedTaskFillingFreshEvidence() {
         when(authorizationService.isElectronicSignatureEnabled(9102L)).thenReturn(true);
         when(adminUserService.getUser(9102L)).thenReturn(AdminUserDO.builder()
                 .id(9102L)
@@ -394,7 +394,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .thenReturn(unifiedSignatureResult(7201L), unifiedSignatureResult(7202L));
 
         signatureService.recordPqcSubmitSignature(9102L, 10001L, "secret", "PQC任务10001正式提交");
-        signatureService.recordPqcSubmitSignature(9102L, 10002L, "secret", "PQC任务10002正式提交");
+        signatureService.recordPqcSubmitSignature(9102L, 10001L, "secret", "PQC任务10001正式提交");
 
         ArgumentCaptor<ElectronicSignatureCommand> captor =
                 ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
@@ -404,6 +404,10 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 captor.getAllValues().get(1).idempotencyKey());
         assertEquals("PQC_SUBMIT", captor.getAllValues().get(0).actionCode());
         assertEquals("PQC_SUBMIT", captor.getAllValues().get(1).actionCode());
+        for (var command : captor.getAllValues()) {
+            assertTrue(MesBatchRecordSignatureSubjectAdapter.canonicalBusinessContent(
+                    command.subjectId(), command.actionCode(), command.reason()).contains("\"reviewSourceId\":\"10001\""));
+        }
     }
 
     @Test

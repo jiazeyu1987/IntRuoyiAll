@@ -201,7 +201,16 @@
                     :value="option.value"
                   />
                 </el-select>
+                <UserSelectV2
+                  v-if="wholeFormFillRule.candidateSourceType === 'USERS'"
+                  v-model="wholeFormFillRule.candidateSourceIds"
+                  :user-options="simpleUserOptions"
+                  multiple
+                  placeholder="选择整表填写人"
+                  aria-label="整表填写人"
+                />
                 <el-select
+                  v-else
                   v-model="wholeFormFillRule.candidateSourceIds"
                   multiple
                   filterable
@@ -282,7 +291,14 @@
                       :value="option.value"
                     />
                   </el-select>
+                  <UserSelectV2
+                    v-if="pendingAssistSubjectType === 'USERS'"
+                    v-model="pendingAssistSubjectId"
+                    :user-options="simpleUserOptions"
+                    placeholder="选择责任人员"
+                  />
                   <el-select
+                    v-else
                     v-model="pendingAssistSubjectId"
                     filterable
                     clearable
@@ -656,6 +672,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import {

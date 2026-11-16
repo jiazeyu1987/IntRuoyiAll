@@ -100,6 +100,30 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void overLimitCreatesOnlyDraftBeforeAnyFormalWriteOrSignature() {
+        var cap=(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService)
+                org.springframework.test.util.ReflectionTestUtils.getField(submitService,"quantityCapacityService");
+        var drafts=(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityDraftService)
+                org.springframework.test.util.ReflectionTestUtils.getField(submitService,"quantityDrafts");
+        var draft=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProductionQuantityDraftDO();draft.setId(99L);
+        when(cap.evaluate(any())).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService.Capacity(
+                null,new BigDecimal("600"),new BigDecimal("600"),new BigDecimal("1200"),new BigDecimal("1100")));
+        when(drafts.capture(any(),any(),any(),any())).thenReturn(draft);
+        when(drafts.blocked(eq(draft),any())).thenReturn(new MesProFrontlineFeedbackSubmitRespVO()
+                .setSubmissionStatus("QUANTITY_BLOCKED").setQuantityDraftId(99L));
+        var request=MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().setActualEmployeeId(9102L)
+                .setSignatureEmployeeId(9102L).setSignatureIdentityDomain("SYSTEM_USER");
+        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            var result=MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService,request);
+            assertEquals("QUANTITY_BLOCKED",result.getSubmissionStatus());assertEquals(99L,result.getQuantityDraftId());
+        }
+        verifyNoInteractions(signatureService,feedbackService,feedbackMaterialService,parameterAuditService,autoCodeRecordService);
+        verify(processPoolSubmitEventService,never()).createSubmitEvent(any());
+        verify(processPoolSubmitEventService,never()).createInitialAllocation(any(),any(),any());
+    }
+
+    @Test
     void shouldSignAsSelectedEmployeeWhenDeviceAccountIsLoggedIn() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
@@ -445,7 +469,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertTrue(error.getMessage().contains("完成数量必须大于 0"));
         }
 
-        verifyNoInteractions(feedbackService, feedbackMaterialService, processPoolSubmitEventService, signatureService);
+        verifyNoInteractions(feedbackService, feedbackMaterialService,  signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -459,7 +485,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                     () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request));
         }
 
-        verifyNoInteractions(feedbackService, feedbackMaterialService, processPoolSubmitEventService, signatureService);
+        verifyNoInteractions(feedbackService, feedbackMaterialService,  signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -474,7 +502,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                     () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
-        verifyNoInteractions(feedbackService, processPoolSubmitEventService, signatureService);
+        verifyNoInteractions(feedbackService,  signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -558,7 +588,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         stubValidLossReason();
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(ServiceException.class,
+            assertThrows(IllegalArgumentException.class,
                     () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
         verifyNoInteractions(feedbackService, signatureService, autoCodeRecordService);
@@ -585,7 +615,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
                 eq(new BigDecimal("2.500")));
         verify(feedbackService, never()).createFrontlineFeedback(any());
-        verifyNoInteractions(processPoolSubmitEventService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -599,7 +630,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(feedbackService, never()).createFrontlineFeedback(any());
-        verifyNoInteractions(processPoolSubmitEventService, submitAuthorizationService);
+        verifyNoInteractions(submitAuthorizationService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -612,8 +645,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
-        verifyNoInteractions(submitAuthorizationService, feedbackService,
-                processPoolSubmitEventService, signatureService);
+        verifyNoInteractions(submitAuthorizationService, feedbackService,  signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -627,8 +661,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
-        verifyNoInteractions(submitAuthorizationService, feedbackService,
-                processPoolSubmitEventService, signatureService);
+        verifyNoInteractions(submitAuthorizationService, feedbackService,  signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -645,7 +680,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         verify(submitAuthorizationService).authorize(any());
         verify(feedbackService, never()).createFrontlineFeedback(any());
-        verifyNoInteractions(processPoolSubmitEventService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -688,8 +724,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(submitAuthorizationService).authorize(any());
-        verifyNoInteractions(feedbackService, processPoolSubmitEventService, feedbackMaterialService,
+        verifyNoInteractions(feedbackService,  feedbackMaterialService,
                 signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     @Test
@@ -710,8 +748,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(submitAuthorizationService, org.mockito.Mockito.times(2)).authorize(any());
-        verifyNoInteractions(feedbackService, processPoolSubmitEventService, feedbackMaterialService,
+        verifyNoInteractions(feedbackService,  feedbackMaterialService,
                 signatureService);
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createSubmitEvent(any());
+        org.mockito.Mockito.verify(processPoolSubmitEventService, org.mockito.Mockito.never()).createInitialAllocation(any(), any(), any());
     }
 
     private void stubValidLossReason() {

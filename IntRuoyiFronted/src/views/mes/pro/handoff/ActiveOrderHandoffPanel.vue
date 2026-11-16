@@ -1,38 +1,74 @@
 <template>
-  <el-card data-active-order-handoff-panel class="mb-4">
-    <template #header><span>我的生产交接</span><el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button></template>
+  <el-card v-show="resultOnly ? Boolean(error) : !hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
+
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
-    <el-table :data="pagedTasks" v-loading="loading" row-key="id">
-      <el-table-column label="交接编号" prop="id" width="120" />
-      <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
-      <el-table-column label="交接事项"><template #default="{ row }">{{ labels[row.taskType] }}</template></el-table-column>
-      <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />
-      <el-table-column label="状态" width="95"><template #default="{ row }">{{ states[row.status] }}</template></el-table-column>
-      <el-table-column label="操作" width="225"><template #default="{ row }">
-        <el-button link type="primary" :disabled="row.status === 'CANCELED'" @click="openTask(row)">{{ row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}</el-button>
-        <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
-      </template></el-table-column>
-    </el-table>
-    <el-pagination
-      v-if="tasks.length"
-      :current-page="page"
-      :page-size="PAGE_SIZE"
+    <UnifiedListTemplate
+      v-if="!resultOnly"
+      table-key="mes.handoff.mine"
       :total="tasks.length"
-      :disabled="loading"
-      background
-      layout="total, prev, pager, next, jumper"
-      class="mt-4"
-      @update:current-page="changePage"
-    />
-    <el-dialog v-model="resultOpen" title="原周期作废交接结果" width="680px">
+      :page="page"
+      :limit="handoffPageSize"
+      @update:page="changePage"
+      @update:limit="changePageSize"
+      class="unified-list-template--contained"
+      data-list-viewport="embedded"
+      :filter-rows="tasks"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
+    >
+      <template #actions>
+        <el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button>
+      </template>
+      <template #table="{ resolveRows }">
+        <el-table
+          stripe
+          border
+          ref="handoffTableRef"
+          :data="resolveRows(pagedTasks)"
+          v-loading="loading"
+          row-key="id"
+        >
+          <el-table-column label="交接编号" prop="id" width="190" />
+          <el-table-column label="当轮订单" prop="activeOrderId" width="120" />
+          <el-table-column label="交接事项" width="150">
+            <template #default="{ row }">{{ labels[row.taskType] }}</template>
+          </el-table-column>
+          <el-table-column label="交接说明" prop="reason" min-width="400">
+            <template #default="{ row }">
+              <BusinessMessageContent :description="describeHandoffMessage(row.taskType, row.reason)" :show-context="false" :show-title="false" />
+              <BusinessMessageContext :fields="describeHandoffMessage(row.taskType, row.reason).fields" />
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="95">
+            <template #default="{ row }">{{ isNcrNotice(row.taskType) && row.status === 'DONE' ? '仅告知' : states[row.status] }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="225">
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                :disabled="row.status === 'CANCELED'"
+                @click="openTask(row)"
+              >
+                {{ isNcrNotice(row.taskType) ? '查看通知' : row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
+              </el-button>
+              <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+
+    <el-dialog v-model="resultOpen" :title="result && isNcrNotice(result.taskType) ? labels[result.taskType] : '原周期作废交接结果'" width="680px">
       <el-descriptions v-if="result" :column="1" border>
         <el-descriptions-item label="活跃周期">{{ result.activeOrderId }}</el-descriptions-item>
         <el-descriptions-item label="原评审 / 轮次">{{ result.sourceId }} / {{ result.roundId }}</el-descriptions-item>
-        <el-descriptions-item label="正式处置意见">{{ result.reason }}</el-descriptions-item>
-        <el-descriptions-item label="完成者">{{ result.completedBy }}</el-descriptions-item>
-        <el-descriptions-item label="完成时间">{{ result.completedAt }}</el-descriptions-item>
+        <el-descriptions-item label="交接说明"><BusinessMessageContent :description="describeHandoffMessage(result.taskType, result.reason)" /></el-descriptions-item>
+        <el-descriptions-item v-if="result.taskType !== 'NCR_FREEZE_NOTICE'" :label="result.taskType === 'NCR_DISPOSITION_NOTICE' ? 'QA处置人' : '完成者'">{{ result.completedBy }}</el-descriptions-item>
+        <el-descriptions-item :label="isNcrNotice(result.taskType) ? '通知时间' : '完成时间'">{{ formatDateTimeValue(result.completedAt) }}</el-descriptions-item>
       </el-descriptions>
-      <el-alert title="这是原周期已正式完成的作废结果，只能查看。" type="info" :closable="false" class="mt-4" />
+      <el-alert :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '这是交接发生时的冻结通知，仅供查看；当前冻结状态以正式业务页面为准。' : result?.taskType === 'NCR_DISPOSITION_NOTICE' ? '这是原不合格评审的QA处置结果，仅供查看；后续操作以正式业务任务为准，处置结果不替代上市批准。' : '这是原周期已正式完成的作废结果，只能查看。'" type="info" :closable="false" class="mt-4" />
     </el-dialog>
     <el-dialog v-model="completedResultOpen" title="原周期交接完成记录" width="760px" @update:model-value="completedResultVisibilityChanged">
       <section data-active-order-handoff-completed-result>
@@ -46,7 +82,7 @@
           <el-descriptions-item label="交接事项">{{ labels[completedResult.taskType] }}</el-descriptions-item>
           <el-descriptions-item label="原正式来源"><span data-handoff-completed-source>{{ completedResult.sourceType }} / {{ completedResult.sourceId }}</span></el-descriptions-item>
           <el-descriptions-item label="原轮次"><span data-handoff-completed-round-id>{{ completedResult.roundId }}</span></el-descriptions-item>
-          <el-descriptions-item label="原通知原因 / 业务意见">{{ completedResult.reason }}</el-descriptions-item>
+          <el-descriptions-item label="原交接说明"><BusinessMessageContent :description="describeHandoffMessage(completedResult.taskType, completedResult.reason)" /></el-descriptions-item>
           <el-descriptions-item label="实际完成者"><span data-handoff-completed-actor>{{ completedResult.completedBy }}</span></el-descriptions-item>
           <el-descriptions-item label="实际完成时间">{{ formatDateTimeValue(completedResult.completedAt) }}</el-descriptions-item>
           <el-descriptions-item label="完成来源编号"><span data-handoff-completed-completion-source>{{ completedResult.completionSourceId }}</span></el-descriptions-item>
@@ -57,6 +93,10 @@
     </el-dialog>
     <el-dialog v-model="receiptOpen" title="本人交接通知回执" width="680px" @close="closeReceipt">
       <el-alert v-if="receiptError" :title="receiptError" type="error" :closable="false" class="mb-4" />
+      <el-alert v-if="receiptResponsibility.error" :title="receiptResponsibility.error" type="error" :closable="false" class="mb-4" />
+      <el-descriptions v-else-if="selected" :column="1" border class="mb-4">
+        <el-descriptions-item label="原任务候选用户编号"><span data-handoff-receipt-candidate-user-ids>{{ receiptResponsibility.ids.join('、') }}</span></el-descriptions-item>
+      </el-descriptions>
       <el-table :data="receipts" v-loading="receiptLoading">
         <el-table-column label="投递状态"><template #default="{ row }">{{ deliveryStates[row.status] }}</template></el-table-column>
         <el-table-column label="尝试次数" prop="attemptCount" />
@@ -72,12 +112,28 @@
   </el-card>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import type { TableInstance } from 'element-plus'
+const props = withDefaults(defineProps<{ hideWhenEmpty?: boolean; initialTasks?: api.HandoffTask[]; resultOnly?: boolean }>(), { hideWhenEmpty: false, resultOnly: false })
+const emit = defineEmits<{ (e: 'loaded', rows: api.HandoffTask[]): void }>()
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { readHandoffReceiptCandidates } from '@/utils/handoffReceiptResponsibility'
+import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
+import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
+import { describeHandoffMessage, HANDOFF_TASK_LABELS } from '@/utils/businessMessagePresentation'
 const router = useRouter(), route = useRoute()
+const handoffTableRef = ref<TableInstance>()
+const refreshLayout = async () => {
+  await nextTick()
+  handoffTableRef.value?.doLayout()
+}
+defineExpose({ refreshLayout })
 const resultOpen = ref(false), result = ref<api.HandoffTask>()
 let resultEpoch = 0
 const completedResultOpen = ref(false), completedResult = ref<api.HandoffTask>()
@@ -87,20 +143,31 @@ let completionEpoch = 0
 const tasks = ref<api.HandoffTask[]>([]), loading = ref(false), error = ref('')
 const PAGE_SIZE = 100
 const page = ref(1)
-const pagedTasks = computed(() => tasks.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+const handoffPageSize = ref(PAGE_SIZE)
+const pagedTasks = computed(() => tasks.value.slice((page.value - 1) * handoffPageSize.value, page.value * handoffPageSize.value))
 const changePage = (nextPage: number) => {
-  page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / PAGE_SIZE)))
+  page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / handoffPageSize.value)))
+}
+const changePageSize = (size: number) => {
+  handoffPageSize.value = size
+  changePage(1)
 }
 const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
+const receiptResponsibility = computed(() => {
+  if (!selected.value) return { ids: [] as string[], error: '' }
+  try { return { ids: readHandoffReceiptCandidates(selected.value), error: '' } }
+  catch (error) { return { ids: [] as string[], error: error instanceof Error ? error.message : String(error) } }
+})
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
 let listEpoch = 0, receiptEpoch = 0
-const labels: Record<string, string> = { PRODUCTION_HANDOFF: '生产接手', PRODUCTION_REVIEW: '生产组长复核', PQC_HANDOFF: 'PQC检验接手', PQC_REVIEW: 'PQC组长复核', PRODUCTION_RETURN: '本人生产退回更正', PQC_RETURN: '本人PQC退回更正', QA_REVIEW: 'QA不合格评审', QA_DECISION_HANDOFF: 'QA处置结果交接' }
+const labels = HANDOFF_TASK_LABELS
+const isNcrNotice = (type: string) => ['NCR_FREEZE_NOTICE', 'NCR_DISPOSITION_NOTICE'].includes(type)
 const states: Record<string, string> = { TODO: '待处理', DONE: '已完成', CANCELED: '周期已关闭' }
 const deliveryStates = { PENDING: '待投递', FAILED: '投递失败', SENT: '已发送' }
 const failure = (e: unknown) => e instanceof Error ? e.message : String(e)
 const load = async () => {
   const epoch = ++listEpoch; page.value = 1; loading.value = true; error.value = ''
-  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) { tasks.value = rows; changePage(page.value) } }
+  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) { tasks.value = rows; changePage(page.value); emit('loaded', rows) } }
   catch (e) { if (epoch === listEpoch) { tasks.value = []; page.value = 1; error.value = failure(e) } }
   finally { if (epoch === listEpoch) loading.value = false }
 }
@@ -108,7 +175,10 @@ const openTask = async (task: api.HandoffTask) => {
   try {
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
     if (!target) throw new Error('该交接缺少真实页面入口')
+    const previousPath = route.fullPath
     await navigateToActiveOrderHandoff(router, target)
+    // 同一路由不会触发监听，重复查看时需要重新打开原通知。
+    if (route.fullPath === previousPath && route.path === '/user/profile') await loadHandoffResult()
   } catch (e) { error.value = failure(e) }
 }
 const closeReceipt = () => { ++receiptEpoch; selected.value = undefined; receipts.value = []; receiptLoading.value = false; retrying.value = false }
@@ -142,11 +212,14 @@ const openVoidResult = async () => {
     if (epoch !== resultEpoch) return
     const task = context.task
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
-    if (!target || target.path !== '/user/profile' || task.taskType !== 'QA_DECISION_HANDOFF' || task.status !== 'DONE'
-      || !task.reason.startsWith('void：') || context.processable || route.query.handoffReadOnly !== '1'
+    const readOnlyResult = isNcrNotice(task.taskType)
+      ? task.notificationOnly === true && (context.current || isClosedHandoffCompletion(context))
+      : task.taskType === 'QA_DECISION_HANDOFF' && task.reason.startsWith('void：')
+    if (!target || target.path !== '/user/profile' || !readOnlyResult || task.status !== 'DONE'
+      || context.processable || route.query.handoffReadOnly !== '1'
       || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
       || Object.keys(route.query).some(key => !Object.hasOwn(target.query, key) && key !== 'handoffReadOnly'))
-      throw new Error('作废结果入口与原任务、周期或轮次不一致')
+      throw new Error('交接通知入口与原任务、周期或轮次不一致')
     result.value = task; resultOpen.value = true
   } catch (e) { if (epoch === resultEpoch) error.value = failure(e) }
 }
@@ -194,5 +267,76 @@ onBeforeUnmount(() => {
   ++listEpoch
   ++resultEpoch; result.value = undefined; resultOpen.value = false; closeCompletedResult()
 })
-onMounted(load)
+watch(() => props.initialTasks, (rows) => {
+  if (rows) { tasks.value = rows; changePage(page.value) }
+}, { immediate: true })
+onMounted(() => { if (props.initialTasks === undefined) void load() })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'taskType',
+    label: '交接事项',
+    type: 'text',
+    getValue: (row) => [labels[row.taskType]].join(' ')
+  },
+  {
+    key: 'taskType',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      [
+        isNcrNotice(row.taskType) && row.status === 'DONE'
+          ? '仅告知'
+          : states[row.status]
+      ].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '交接编号',
+    visible: true
+  },
+  {
+    key: 'activeOrderId',
+    label: '当轮订单',
+    visible: true
+  },
+  {
+    key: 'taskType',
+    label: '交接事项',
+    visible: true
+  },
+  {
+    key: 'reason',
+    label: '交接说明',
+    visible: true
+  },
+  {
+    key: 'displayColumn4',
+    label: '状态',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'taskType',
+    label: '交接事项',
+    type: 'text',
+    getValue: (row) => [labels[row.taskType]].join(' ')
+  },
+  {
+    key: 'displayColumn4',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      [
+        isNcrNotice(row.taskType) && row.status === 'DONE'
+          ? '仅告知'
+          : states[row.status]
+      ].join(' ')
+  }
+]
 </script>

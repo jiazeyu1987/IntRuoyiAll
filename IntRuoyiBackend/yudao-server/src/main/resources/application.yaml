@@ -349,8 +349,7 @@ yudao:
     ignore-visit-urls:
       - /admin-api/system/user/profile/**
       - /admin-api/system/auth/**
-    ignore-tables:
-      - dcc_product_catalog
+    ignore-tables: []
     ignore-caches:
       - user_role_ids
       - permission_menu_ids

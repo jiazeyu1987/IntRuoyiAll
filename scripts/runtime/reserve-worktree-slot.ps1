@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Path,
     [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Branch,
     [Parameter(Mandatory = $true)]
-    [ValidateSet('int_main_d', 'int_main', 'int_batch', 'int_shedule', 'int_qms')]
+    [ValidateSet('int_main', 'int_batch', 'int_shedule', 'int_qms')]
     [string]$Profile,
     [string]$WorktreeRoot,
     [string]$RegistryPath,

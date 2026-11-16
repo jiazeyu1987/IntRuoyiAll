@@ -5,6 +5,9 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
  */
 public interface MesProRouteCandidateConfigService {
 
+    /** 仅修改草稿快照中的路线名称，不改变生效路线。 */
+    void saveRouteName(Long candidateRouteVersionId, String expectedRouteSnapshotSha256, String name);
+
     /**
      * 保存候选版本的配置快照。
      *

@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProduc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,8 @@ class MesProFeedbackMaterialBatchQueryServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesProFeedbackMaterialBatchQueryServiceImpl(
-                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper));
+                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper,
+                        org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class)));
     }
 
     @Test

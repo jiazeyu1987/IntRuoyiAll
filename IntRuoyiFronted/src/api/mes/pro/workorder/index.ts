@@ -5,6 +5,57 @@ interface ProWorkOrderRequestOptions {
   ignoreErrorMessage?: boolean
 }
 
+export interface LocalTestApprovedProductVO {
+  requestId: string
+  projectId: string
+  catalogId: string
+  relationId: string
+  mesProductId: string | null
+  productCode: string
+  productName: string
+  projectCode: string
+}
+
+export interface LocalTestOrderInput {
+  slot: 'A' | 'B'
+  quantity: number
+  batchCode: string
+  includeReplenishment: boolean
+}
+
+export interface LocalTestDataRequest {
+  source: 'LOCAL_TEST_RUN'
+  runId: string
+  requestId: string
+  projectId: string
+  catalogId: string
+  relationId: string
+  mesProductId: string | null
+  orders: LocalTestOrderInput[]
+}
+
+export interface LocalTestPreparedOrderVO {
+  slot: 'A' | 'B'
+  manifestId: string | null
+  workOrderId: string | null
+  workOrderCode: string | null
+  status: string | number | null
+  reused: boolean
+}
+
+export interface LocalTestPreflightVO {
+  ready: boolean
+  checks: { code: string; message: string; path: string; ready: boolean }[]
+  missing: { code: string; message: string; path: string }[]
+  orders: LocalTestPreparedOrderVO[]
+}
+
+export interface LocalTestDataResultVO {
+  source: 'LOCAL_TEST_RUN'
+  runId: string
+  orders: LocalTestPreparedOrderVO[]
+}
+
 export interface ProWorkOrderVO {
   id: number
   code: string
@@ -119,6 +170,15 @@ export interface ProWorkOrderPageReqVO extends PageParam {
 }
 
 export const ProWorkOrderApi = {
+  getLocalTestApprovedProducts: async (): Promise<LocalTestApprovedProductVO[]> => {
+    return await request.get({ url: '/mes/pro/work-order/local-test-data/approved-products' })
+  },
+  preflightLocalTestData: async (data: LocalTestDataRequest): Promise<LocalTestPreflightVO> => {
+    return await request.post({ url: '/mes/pro/work-order/local-test-data/preflight', data })
+  },
+  prepareLocalTestData: async (data: LocalTestDataRequest): Promise<LocalTestDataResultVO> => {
+    return await request.post({ url: '/mes/pro/work-order/local-test-data/prepare', data })
+  },
   getWorkOrderPage: async (
     params: ProWorkOrderPageReqVO,
     options: ProWorkOrderRequestOptions = {}

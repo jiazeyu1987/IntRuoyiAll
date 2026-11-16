@@ -7,6 +7,9 @@
     >
       <el-tab-pane label="表单填写日志" name="FORM_FILL">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
+      single-line-toolbar
       class="edhr-form-fill-log-page"
       table-key="mes.pro.edhr.formFillLog.main"
       :query-model="queryParams"
@@ -25,16 +28,12 @@
       @quick-filter-query="formFillLogQuickFilter.applyQuickFilter"
       @column-change="saveFormFillLogColumnConfig"
       @pagination="getList"
+      server-filter
+      :server-filter-query="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="getList">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -47,7 +46,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.formFillLog.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="auditBatchId"
@@ -83,7 +82,7 @@
               <span v-else>
                 {{ row.batchCode || '--' }}
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
-                  批次上下文缺失
+                  {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
               </span>
             </template>
@@ -107,7 +106,7 @@
               <span v-else>
                 {{ row.workOrderCode || '--' }}
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
-                  批次上下文缺失
+                  {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
               </span>
             </template>
@@ -183,40 +182,7 @@
     </UnifiedListTemplate>
       </el-tab-pane>
       <el-tab-pane label="报工修改日志" name="PRODUCTION_REPORT_REVISION">
-        <div class="edhr-form-fill-log-page__revision-toolbar">
-          <el-input
-            v-model="productionReportRevisionQuery.workOrderCode"
-            clearable
-            placeholder="生产工单号"
-            @keyup.enter="getProductionReportRevisionList"
-          />
-          <el-input
-            v-model="productionReportRevisionQuery.processKeyword"
-            clearable
-            placeholder="工序编码或名称"
-            @keyup.enter="getProductionReportRevisionList"
-          />
-          <el-input
-            v-model="productionReportRevisionQuery.actualEmployeeName"
-            clearable
-            placeholder="原报工人"
-            @keyup.enter="getProductionReportRevisionList"
-          />
-          <el-input
-            v-model="productionReportRevisionQuery.modifiedByName"
-            clearable
-            placeholder="修改人"
-            @keyup.enter="getProductionReportRevisionList"
-          />
-          <el-button
-            type="primary"
-            :loading="productionReportRevisionLoading"
-            @click="getProductionReportRevisionList"
-          >
-            查询
-          </el-button>
-          <el-button @click="resetProductionReportRevisionQuery">重置</el-button>
-        </div>
+
         <el-alert
           v-if="productionReportRevisionLoadError"
           :title="productionReportRevisionLoadError"
@@ -225,48 +191,93 @@
           show-icon
           class="edhr-form-fill-log-page__alert"
         />
-        <el-table
-          v-loading="productionReportRevisionLoading"
-          data-production-report-revision-log-table
-          :data="productionReportRevisionList"
-          border
-          stripe
-          row-key="revisionId"
-          :show-overflow-tooltip="true"
-        >
-          <el-table-column label="生产工单号" prop="workOrderCode" min-width="160">
-            <template #default="{ row }">{{ row.workOrderCode || row.workOrderName || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="工序" prop="processName" min-width="140">
-            <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="原报工人" prop="actualEmployeeName" min-width="120">
-            <template #default="{ row }">{{ row.actualEmployeeName || '--' }}</template>
-          </el-table-column>
-          <el-table-column label="原提交时间" prop="submittedAt" width="210">
-            <template #default="{ row }">{{ formatFormLogDateTime(row.submittedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="修改人" prop="modifiedByName" min-width="120" />
-          <el-table-column label="修改时间" prop="modifiedAt" width="210">
-            <template #default="{ row }">{{ formatFormLogDateTime(row.modifiedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="修改原因" prop="changeReason" min-width="220" />
-          <el-table-column label="修改字段数" prop="fieldCount" width="120" align="center" />
-          <el-table-column label="修改摘要" prop="changeSummary" min-width="220" />
-          <el-table-column label="操作" width="100" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openProductionReportRevisionDetail(row)">
-                明细
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <Pagination
+        <UnifiedListTemplate
+          @query="getProductionReportRevisionList"
+          @reset="resetProductionReportRevisionQuery"
+          :query-loading="productionReportRevisionLoading"
+          table-key="mes.edhr.productionReportRevision"
+          :query-model="productionReportRevisionQuery"
           v-model:page="productionReportRevisionQuery.pageNo"
           v-model:limit="productionReportRevisionQuery.pageSize"
           :total="productionReportRevisionTotal"
           @pagination="getProductionReportRevisionList"
-        />
+      server-filter
+      :server-filter-query="getProductionReportRevisionList"
+          :columns="listFilterColumns1"
+          :column-filter-definitions="allColumnDisplayFilters1"
+          :show-column-settings="false"
+        >
+          <template #filters>
+            <div class="edhr-form-fill-log-page__revision-toolbar">
+              <el-input
+                v-model="productionReportRevisionQuery.workOrderCode"
+                clearable
+                placeholder="生产工单号"
+                @keyup.enter="getProductionReportRevisionList"
+              />
+              <el-input
+                v-model="productionReportRevisionQuery.processKeyword"
+                clearable
+                placeholder="工序编码或名称"
+                @keyup.enter="getProductionReportRevisionList"
+              />
+              <el-input
+                v-model="productionReportRevisionQuery.actualEmployeeName"
+                clearable
+                placeholder="原报工人"
+                @keyup.enter="getProductionReportRevisionList"
+              />
+              <el-input
+                v-model="productionReportRevisionQuery.modifiedByName"
+                clearable
+                placeholder="修改人"
+                @keyup.enter="getProductionReportRevisionList"
+              />
+            </div>
+          </template>
+
+          <template #table="{ resolveRows }">
+            <el-table
+              v-loading="productionReportRevisionLoading"
+              data-production-report-revision-log-table
+              :data="resolveRows(productionReportRevisionList)"
+              border
+              stripe
+              row-key="revisionId"
+              :show-overflow-tooltip="true"
+            >
+              <el-table-column label="生产工单号" prop="workOrderCode" min-width="160">
+                <template #default="{ row }">
+                  {{ row.workOrderCode || row.workOrderName || '--' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="工序" prop="processName" min-width="140">
+                <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
+              </el-table-column>
+              <el-table-column label="原报工人" prop="actualEmployeeName" min-width="120">
+                <template #default="{ row }">{{ row.actualEmployeeName || '--' }}</template>
+              </el-table-column>
+              <el-table-column label="原提交时间" prop="submittedAt" width="210">
+                <template #default="{ row }">{{ formatFormLogDateTime(row.submittedAt) }}</template>
+              </el-table-column>
+              <el-table-column label="修改人" prop="modifiedByName" min-width="120" />
+              <el-table-column label="修改时间" prop="modifiedAt" width="210">
+                <template #default="{ row }">{{ formatFormLogDateTime(row.modifiedAt) }}</template>
+              </el-table-column>
+              <el-table-column label="修改原因" prop="changeReason" min-width="220" />
+              <el-table-column label="修改字段数" prop="fieldCount" width="120" align="center" />
+              <el-table-column label="修改摘要" prop="changeSummary" min-width="220" />
+              <el-table-column label="操作" width="100" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openProductionReportRevisionDetail(row)">
+                    明细
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+
       </el-tab-pane>
     </el-tabs>
   </ContentWrap>
@@ -281,6 +292,9 @@
       class="edhr-form-fill-log-page__alert"
     />
     <el-descriptions v-if="detail" :column="2" border class="mb-12px">
+      <el-descriptions-item label="日志ID">{{ detail.auditBatchId }}</el-descriptions-item>
+      <el-descriptions-item label="原始执行ID">{{ detail.executionId }}</el-descriptions-item>
+      <el-descriptions-item label="上下文状态">{{ resolveEvidenceLabel(detail.contextStatus) }}</el-descriptions-item>
       <el-descriptions-item label="表单名称">{{ detail.formName || detail.batchRecordReportId || '--' }}</el-descriptions-item>
       <el-descriptions-item label="执行编号">{{ detail.executionCode || '--' }}</el-descriptions-item>
       <el-descriptions-item label="批号">{{ detail.batchCode || '--' }}</el-descriptions-item>
@@ -392,6 +406,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getFormFillLogDetail,
@@ -440,6 +456,7 @@ const {
 } = useUserTableColumns(FORM_FILL_LOG_TABLE_KEY, defaultColumns)
 
 const queryParams = reactive({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   formKeyword: '',
@@ -458,6 +475,7 @@ const detailLoading = ref(false)
 const detailError = ref('')
 const detail = ref<FormFillLogDetailRespVO>()
 const productionReportRevisionQuery = reactive<ProductionReportRevisionLogPageReqVO>({
+  listFilters: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   workOrderCode: '',
@@ -575,6 +593,7 @@ const formatCellLocationTooltip = (row: FormFillLogItemRespVO) => {
 const buildQuery = (): FormFillLogPageReqVO => {
   const changedAtRange = Array.isArray(queryParams.changedAtRange) ? queryParams.changedAtRange : []
   return {
+    listFilters: queryParams.listFilters,
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     formKeyword: normalizeTextParam(queryParams.formKeyword),
@@ -588,6 +607,7 @@ const buildQuery = (): FormFillLogPageReqVO => {
 }
 
 const buildProductionReportRevisionQuery = (): ProductionReportRevisionLogPageReqVO => ({
+  listFilters: productionReportRevisionQuery.listFilters,
   pageNo: productionReportRevisionQuery.pageNo,
   pageSize: productionReportRevisionQuery.pageSize,
   workOrderCode: normalizeTextParam(productionReportRevisionQuery.workOrderCode),
@@ -598,35 +618,49 @@ const buildProductionReportRevisionQuery = (): ProductionReportRevisionLogPageRe
   modifiedAtEnd: productionReportRevisionQuery.modifiedAtEnd
 })
 
+let getListSequence = 0
 const getList = async () => {
+  const sequence = ++getListSequence
+  const isCurrent = () => sequence === getListSequence
   loading.value = true
   loadError.value = ''
   try {
     const data = await getFormFillLogPage(buildQuery())
+    if (!isCurrent()) return false
     list.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '表单填写日志加载失败。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
+let getProductionReportRevisionListSequence = 0
 const getProductionReportRevisionList = async () => {
+  const sequence = ++getProductionReportRevisionListSequence
+  const isCurrent = () => sequence === getProductionReportRevisionListSequence
   productionReportRevisionLoading.value = true
   productionReportRevisionLoadError.value = ''
   try {
     const data = await getProductionReportRevisionLogPage(buildProductionReportRevisionQuery())
+    if (!isCurrent()) return false
     productionReportRevisionList.value = data.list || []
     productionReportRevisionTotal.value = data.total || 0
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     productionReportRevisionList.value = []
     productionReportRevisionTotal.value = 0
     productionReportRevisionLoadError.value = resolveErrorMessage(error, '报工修改日志加载失败。')
+    throw error
   } finally {
-    productionReportRevisionLoading.value = false
+    if (isCurrent()) productionReportRevisionLoading.value = false
   }
 }
 
@@ -722,6 +756,114 @@ onMounted(() => {
   void getList()
   void getProductionReportRevisionList()
 })
+
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'batchCode',
+    label: '批号',
+    type: 'text',
+    getValue: (row) =>
+      [row.batchCode, row.batchCode || '--', resolveEvidenceLabel(row.contextStatus)].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    type: 'text',
+    getValue: (row) =>
+      [row.workOrderCode, row.workOrderCode || '--', resolveEvidenceLabel(row.contextStatus)].join(
+        ' '
+      )
+  },
+  {
+    key: 'contextStatus',
+    label: '证据状态',
+    type: 'text',
+    getValue: (row) => [resolveEvidenceLabel(row.contextStatus)].join(' ')
+  }
+])
+
+
+const listFilterColumns1 = [
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    visible: true
+  },
+  {
+    key: 'processName',
+    label: '工序',
+    visible: true
+  },
+  {
+    key: 'actualEmployeeName',
+    label: '原报工人',
+    visible: true
+  },
+  {
+    key: 'submittedAt',
+    label: '原提交时间',
+    visible: true
+  },
+  {
+    key: 'modifiedByName',
+    label: '修改人',
+    visible: true
+  },
+  {
+    key: 'modifiedAt',
+    label: '修改时间',
+    visible: true
+  },
+  {
+    key: 'changeReason',
+    label: '修改原因',
+    visible: true
+  },
+  {
+    key: 'fieldCount',
+    label: '修改字段数',
+    visible: true
+  },
+  {
+    key: 'changeSummary',
+    label: '修改摘要',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || row.workOrderName || '--'].join(' ')
+  },
+  {
+    key: 'processName',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processName || row.processCode || '--'].join(' ')
+  },
+  {
+    key: 'actualEmployeeName',
+    label: '原报工人',
+    type: 'text',
+    getValue: (row) => [row.actualEmployeeName || '--'].join(' ')
+  },
+  {
+    key: 'submittedAt',
+    label: '原提交时间',
+    type: 'text',
+    getValue: (row) => [formatFormLogDateTime(row.submittedAt)].join(' ')
+  },
+  {
+    key: 'modifiedAt',
+    label: '修改时间',
+    type: 'text',
+    getValue: (row) => [formatFormLogDateTime(row.modifiedAt)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

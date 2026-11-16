@@ -35,6 +35,9 @@ import static org.mockito.Mockito.*;
 
 public class SmsSendServiceImplTest extends BaseMockitoUnitTest {
 
+    @Mock
+    private SmsReceiptTenantRouter receiptTenantRouter;
+
     @InjectMocks
     private SmsSendServiceImpl smsSendService;
 
@@ -287,12 +290,15 @@ public class SmsSendServiceImplTest extends BaseMockitoUnitTest {
         when(smsChannelService.getSmsClient(eq(channelCode))).thenReturn(smsClient);
         // mock SmsClient 的方法
         List<SmsReceiveRespDTO> receiveResults = randomPojoList(SmsReceiveRespDTO.class);
+        when(smsClient.parseSmsReceiveStatus(text)).thenReturn(receiveResults);
 
         // 调用
+        doAnswer(call -> { call.<java.util.function.Consumer<Long>>getArgument(2).accept(call.<SmsReceiveRespDTO>getArgument(1).getLogId()); return null; })
+                .when(receiptTenantRouter).route(eq(channelCode), any(), any());
         smsSendService.receiveSmsStatus(channelCode, text);
         // 断言
-        receiveResults.forEach(result -> smsLogService.updateSmsReceiveResult(eq(result.getLogId()), eq(result.getSerialNo()), eq(result.getSuccess()),
-                eq(result.getReceiveTime()), eq(result.getErrorCode()), eq(result.getErrorCode())));
+        receiveResults.forEach(result -> verify(smsLogService).updateSmsReceiveResult(eq(result.getLogId()), eq(result.getSerialNo()), eq(result.getSuccess()),
+                eq(result.getReceiveTime()), eq(result.getErrorCode()), eq(result.getErrorMsg())));
     }
 
 }

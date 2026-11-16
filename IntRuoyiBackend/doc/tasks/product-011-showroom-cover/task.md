@@ -20,5 +20,5 @@ Completed.
 
 ## Final Verification
 - Generated with a single native image-generation call
-- Saved PNG: `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\output\imagegen\product_011_showroom_cover.png`
+- Saved PNG: `./IntRuoyiBackend/output/imagegen/product_011_showroom_cover.png`
 - Verified dimensions: `1254 x 1254`

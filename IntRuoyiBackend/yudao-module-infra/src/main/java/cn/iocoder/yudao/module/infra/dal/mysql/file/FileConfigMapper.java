@@ -10,6 +10,9 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface FileConfigMapper extends BaseMapperX<FileConfigDO> {
 
+    @org.apache.ibatis.annotations.Select("SELECT tenant_id FROM infra_tenant_file_config_snapshot WHERE tenant_id=#{tenantId} FOR UPDATE")
+    Long lockTenantConfiguration(Long tenantId);
+
     default PageResult<FileConfigDO> selectPage(FileConfigPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<FileConfigDO>()
                 .likeIfPresent(FileConfigDO::getName, reqVO.getName())

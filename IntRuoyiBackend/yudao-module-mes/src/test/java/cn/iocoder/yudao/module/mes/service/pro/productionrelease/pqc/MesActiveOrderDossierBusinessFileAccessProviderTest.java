@@ -27,6 +27,11 @@ class MesActiveOrderDossierBusinessFileAccessProviderTest {
         var row = dossierFile();
         when(mapper.selectListByFileId(7001L)).thenReturn(List.of(row));
         try (var context = new AnnotationConfigApplicationContext()) {
+            context.getBeanFactory().registerSingleton("packagingAccess", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));
+            context.getBeanFactory().registerSingleton("correctionService", mock(MesPqcReleaseCorrectionService.class));
+            context.getBeanFactory().registerSingleton("dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
+            context.getBeanFactory().registerSingleton("staging", mock(MesDossierUploadStagingService.class));
+            context.getBeanFactory().registerSingleton("transactions", mock(org.springframework.transaction.PlatformTransactionManager.class));
             context.getBeanFactory().registerSingleton("gxpAuditService", mock(GxpAuditService.class));
             context.getBeanFactory().registerSingleton("lifecycleGuard", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
             context.getBeanFactory().registerSingleton("dossierReadScopeService", mock(MesActiveOrderDossierReadScopeService.class));

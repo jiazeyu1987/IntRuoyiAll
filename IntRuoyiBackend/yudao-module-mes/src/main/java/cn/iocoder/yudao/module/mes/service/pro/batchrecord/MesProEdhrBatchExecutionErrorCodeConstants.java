@@ -62,6 +62,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_423, "作废申请待处理，只能撤回作废申请");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED =
             new ErrorCode(1_040_750_424, "当前工单产品未绑定启用的工艺路线，请先完成产品与工艺路线绑定");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_IDENTITY_REQUIRED =
+            new ErrorCode(1_040_750_429, "工单 {} 的产品主数据缺失或编码、名称为空，无法创建批次：productId={}");
     ErrorCode PRO_EDHR_BATCH_ENTRY_TYPE_REQUIRED =
             new ErrorCode(1_040_750_470, "批次入口缺少 entryType");
     ErrorCode PRO_EDHR_BATCH_ENTRY_BUSINESS_ID_REQUIRED =
@@ -156,10 +158,6 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_456, "本地 eDHR 状态样本只能由芋道源码/admin 当前租户创建");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE =
             new ErrorCode(1_040_750_457, "当前用户不可查看该 eDHR 批次执行");
-    ErrorCode PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED =
-            new ErrorCode(1_040_750_458, "仅金手指角色允许执行该 eDHR 批次批量直通作废");
-    ErrorCode PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY =
-            new ErrorCode(1_040_750_459, "当前筛选条件下没有可作废的 eDHR 批次执行");
     ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_MISSING =
             new ErrorCode(1_040_750_460, "eDHR 记录本全局开关配置缺失：{}");
     ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_INVALID =
@@ -252,4 +250,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_511, "当前批次的正式活跃订单来源无效，请核查来源关联");
     ErrorCode PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED =
             new ErrorCode(1_040_750_512, "批次只能通过活跃订单正式流程生成，不支持独立或手动创建");
+    ErrorCode PRO_EDHR_BATCH_PRINT_RELEASE_REQUIRED =
+            new ErrorCode(1_040_750_513, "只有已正式上市放行的活跃订单批次才能生成打印版 PDF");
+    ErrorCode PRO_EDHR_BATCH_PRINT_SOURCE_INVALID =
+            new ErrorCode(1_040_750_514, "打印版 PDF 的正式来源校验失败：{}");
 }

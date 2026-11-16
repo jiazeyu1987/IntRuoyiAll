@@ -1,6 +1,12 @@
 package cn.iocoder.yudao.module.system.controller.admin.user;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.idev.excel.FastExcelFactory;
+import cn.idev.excel.exception.ExcelAnalysisException;
+import cn.idev.excel.support.ExcelTypeEnum;
+import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
+import org.apache.poi.poifs.filesystem.FileMagic;
+import java.io.InputStream;
 import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
@@ -132,6 +138,15 @@ public class UserController {
         return success(true);
     }
 
+    @PutMapping("/lock")
+    @Operation(summary = "锁定用户30分钟")
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<Boolean> lockUser(@RequestParam("id") Long id,
+            @RequestParam("reason") @NotBlank(message = "锁定原因不能为空") String reason) {
+        userService.lockUser(id, reason);
+        return success(true);
+    }
+
     @PutMapping("/unlock")
     @Operation(summary = "解锁用户")
     @Parameters({
@@ -158,6 +173,34 @@ public class UserController {
         return success(new PageResult<>(userDisplayService.describe(pageResult.getList()), pageResult.getTotal()));
     }
 
+    @GetMapping("/selection-page")
+    @Operation(summary = "获得人员选择候选分页（精简身份信息）")
+    public CommonResult<PageResult<UserSelectionRespVO>> getSelectionPage(@Valid UserPageReqVO reqVO) {
+        PageResult<AdminUserDO> page = userService.getUserPage(reqVO);
+        return success(new PageResult<>(toSelectionUsers(page.getList()), page.getTotal()));
+    }
+
+    @GetMapping("/selection-list")
+    @Operation(summary = "按编号回显人员精简身份信息")
+    public CommonResult<List<UserSelectionRespVO>> getSelectionList(
+            @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 200) List<Long> ids,
+            @Valid UserPageReqVO reqVO) {
+        reqVO.setIds(ids);
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(200);
+        return success(toSelectionUsers(userService.getUserPage(reqVO).getList()));
+    }
+
+    private List<UserSelectionRespVO> toSelectionUsers(List<AdminUserDO> users) {
+        Map<Long, DeptDO> depts = deptService.getDeptMap(convertSet(users, AdminUserDO::getDeptId));
+        return users.stream().map(user -> {
+            UserSelectionRespVO row = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(user, UserSelectionRespVO.class);
+            DeptDO dept = depts.get(user.getDeptId());
+            if (dept != null) row.setDeptName(dept.getName());
+            return row;
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
     @GetMapping("/department-tree")
     @Operation(summary = "用户查询所需的组织树及主管状态")
     @PreAuthorize("@ss.hasPermission('system:user:query')")
@@ -177,7 +220,7 @@ public class UserController {
             @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 200) List<Long> ids) {
         for (Long id : ids) {
             if (id == null || userService.getUser(id) == null) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                throw ServiceExceptionUtil.exception(
                         cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS);
             }
         }
@@ -243,8 +286,17 @@ public class UserController {
         // 输出 Excel
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
-        ExcelUtils.write(response, "用户数据.xls", "数据", UserRespVO.class,
+        ExcelUtils.write(response, "用户数据.xlsx", "数据", UserRespVO.class,
                 UserConvert.INSTANCE.convertList(list, deptMap));
+    }
+
+    @PostMapping("/export-excel")
+    @Operation(summary = "导出用户（JSON筛选条件）")
+    @PreAuthorize("@ss.hasPermission('system:user:export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportUserListPost(@Valid @RequestBody UserPageReqVO exportReqVO,
+                                   HttpServletResponse response) throws IOException {
+        exportUserList(exportReqVO, response);
     }
 
     @GetMapping("/export-generic-account-excel")
@@ -255,7 +307,7 @@ public class UserController {
         List<AdminUserDO> list = userService.getGenericAccountUserList();
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
-        ExcelUtils.write(response, "通用账户不合规清单.xls", "数据", UserRespVO.class,
+        ExcelUtils.write(response, "通用账户不合规清单.xlsx", "数据", UserRespVO.class,
                 UserConvert.INSTANCE.convertList(list, deptMap));
     }
 
@@ -282,8 +334,95 @@ public class UserController {
     @PreAuthorize("@ss.hasPermission('system:user:import')")
     public CommonResult<UserImportRespVO> importExcel(@RequestParam("file") MultipartFile file,
                                                       @RequestParam(value = "updateSupport", required = false, defaultValue = "false") Boolean updateSupport) throws Exception {
-        List<UserImportExcelVO> list = ExcelUtils.read(file, UserImportExcelVO.class);
-        return success(userService.importUserList(list, updateSupport));
+        return success(userService.importUserList(readUserImport(file), updateSupport));
+    }
+
+    private List<UserImportExcelVO> readUserImport(MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw ServiceExceptionUtil.invalidParamException("用户导入文件不能为空，请上传有效的 Excel 文件");
+        }
+        List<UserImportExcelVO> list;
+        try (InputStream input = FileMagic.prepareToCheckMagic(file.getInputStream())) {
+            FileMagic format = FileMagic.valueOf(input);
+            if (format != FileMagic.OLE2
+                    && format != FileMagic.OOXML) {
+                throw ServiceExceptionUtil.invalidParamException(
+                        "用户导入文件格式错误或文件已损坏，请使用用户导入模板");
+            }
+            ExcelTypeEnum excelType = format == FileMagic.OLE2 ? ExcelTypeEnum.XLS : ExcelTypeEnum.XLSX;
+            List<Map<Integer, String>> headers = new java.util.ArrayList<>();
+            // 两种正式文件的“用户名称”含义不同，必须先按表头确定格式，不能逐行猜测账号。
+            FastExcelFactory.read(input, new cn.idev.excel.event.AnalysisEventListener<Map<Integer, String>>() {
+                @Override
+                public void invokeHeadMap(Map<Integer, String> head, cn.idev.excel.context.AnalysisContext context) {
+                    headers.add(head);
+                }
+
+                @Override
+                public void invoke(Map<Integer, String> row, cn.idev.excel.context.AnalysisContext context) { }
+
+                @Override
+                public void doAfterAllAnalysed(cn.idev.excel.context.AnalysisContext context) { }
+
+                @Override
+                public boolean hasNext(cn.idev.excel.context.AnalysisContext context) {
+                    return headers.isEmpty();
+                }
+            }).excelType(excelType).autoCloseStream(false).sheet(0).doRead();
+            var columns = headers.isEmpty() ? List.<String>of() : headers.get(0).values();
+            boolean template = columns.contains("登录名称") && columns.contains("用户名称")
+                    && !columns.contains("用户昵称");
+            boolean exported = columns.contains("用户名称") && columns.contains("用户昵称")
+                    && !columns.contains("登录名称");
+            if (!template && !exported) {
+                throw ServiceExceptionUtil.invalidParamException(
+                        "用户导入表头不匹配：请上传用户导入模板（登录名称、用户名称）或导出用户文件（用户名称、用户昵称）");
+            }
+            try (InputStream rows = file.getInputStream()) {
+                if (exported) {
+                    List<UserRespVO> users = FastExcelFactory.read(rows, UserRespVO.class, null)
+                            .excelType(excelType).autoCloseStream(false).doReadAllSync();
+                    list = convertExportedUsersForImport(users);
+                } else {
+                    list = FastExcelFactory.read(rows, UserImportExcelVO.class, null)
+                            .excelType(excelType).autoCloseStream(false).doReadAllSync();
+                }
+            }
+        } catch (ExcelAnalysisException | IOException
+                 | org.apache.poi.openxml4j.exceptions.NotOfficeXmlFileException ex) {
+            var error = ServiceExceptionUtil.invalidParamException(
+                    "用户导入文件格式错误或文件已损坏，请使用用户导入模板");
+            error.initCause(ex);
+            throw error;
+        }
+        if (CollUtil.isEmpty(list)) {
+            throw ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_IMPORT_LIST_IS_EMPTY);
+        }
+        return list;
+    }
+
+    private List<UserImportExcelVO> convertExportedUsersForImport(List<UserRespVO> users) {
+        // 导出中的部门名称属于源环境，不使用源部门编号关联目标租户。
+        Map<String, List<DeptDO>> departments = users.stream()
+                .anyMatch(user -> user.getDeptName() != null && !user.getDeptName().isBlank())
+                ? deptService.getDeptList(new cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptListReqVO())
+                    .stream().collect(java.util.stream.Collectors.groupingBy(DeptDO::getName))
+                : Map.of();
+        return users.stream().map(user -> {
+            UserImportExcelVO row = cn.iocoder.yudao.framework.common.util.object.BeanUtils
+                    .toBean(user, UserImportExcelVO.class);
+            if (user.getDeptName() != null && !user.getDeptName().isBlank()) {
+                List<DeptDO> matches = departments.getOrDefault(user.getDeptName(), List.of());
+                if (matches.size() != 1) {
+                    throw ServiceExceptionUtil.invalidParamException("用户[" + user.getUsername() + "]的部门["
+                            + user.getDeptName() + "]在目标租户中" + (matches.isEmpty() ? "不存在" : "存在重名")
+                            + "，请先完善部门或使用导入模板明确填写目标部门编号");
+                }
+                row.setDeptId(matches.get(0).getId());
+            }
+            return row;
+        }).toList();
     }
 
     @PostMapping("/import-dingtalk")
@@ -293,6 +432,53 @@ public class UserController {
     public CommonResult<UserDingTalkImportRespVO> importDingTalkExcel(@RequestParam("file") MultipartFile file) throws Exception {
         List<UserDingTalkImportExcelVO> list = userDingTalkImportExcelParser.parse(file.getInputStream());
         return success(userService.importDingTalkUserList(list));
+    }
+
+    @PostMapping("/import-preview")
+    @Operation(summary = "预览用户导入文件范围", description = "仅展示文件人员和组织范围，最终写入重新校验")
+    @PreAuthorize("@ss.hasPermission('system:user:import')")
+    public CommonResult<UserImportPreviewRespVO> previewImport(@RequestParam("file") MultipartFile file) throws IOException {
+        List<UserImportExcelVO> rows = readUserImport(file);
+        List<String> personnel = new java.util.ArrayList<>();
+        java.util.Set<String> organizations = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < rows.size(); i++) {
+            UserImportExcelVO row = rows.get(i);
+            int line = i + 1;
+            personnel.add(previewValue(row.getUsername(), line, "账号") + " / "
+                    + previewValue(row.getNickname(), line, "姓名"));
+            organizations.add(row.getDeptId() == null ? "第" + line + "条记录：部门编号缺失"
+                    : "部门编号：" + row.getDeptId());
+        }
+        return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));
+    }
+
+    @PostMapping("/import-dingtalk-preview")
+    @Operation(summary = "预览钉钉导入文件范围", description = "仅展示文件人员和组织范围，最终写入重新校验")
+    @PreAuthorize("@ss.hasPermission('system:user:import')")
+    public CommonResult<UserImportPreviewRespVO> previewDingTalkImport(@RequestParam("file") MultipartFile file) throws IOException {
+        List<UserDingTalkImportExcelVO> rows;
+        try (InputStream input = file.getInputStream()) {
+            rows = userDingTalkImportExcelParser.parse(input);
+        }
+        List<String> personnel = new java.util.ArrayList<>();
+        java.util.Set<String> organizations = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < rows.size(); i++) {
+            UserDingTalkImportExcelVO row = rows.get(i);
+            int line = i + 1;
+            personnel.add(previewValue(row.getEmployeeUserId(), line, "员工UserID") + " / "
+                    + previewValue(row.getName(), line, "姓名"));
+            List<String> path = Arrays.asList(row.getCompanyName(), row.getLevel2DepartmentName(),
+                    row.getLevel3DepartmentName(), row.getLevel4DepartmentName(), row.getLevel5DepartmentName(),
+                    row.getLevel6DepartmentName(), row.getLevel7DepartmentName());
+            String organization = path.stream().filter(value -> value != null && !value.isBlank())
+                    .map(String::trim).collect(java.util.stream.Collectors.joining(" / "));
+            organizations.add(organization.isBlank() ? "第" + line + "条记录：部门路径缺失" : organization);
+        }
+        return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));
+    }
+
+    private String previewValue(String value, int line, String field) {
+        return value == null || value.isBlank() ? "第" + line + "条记录：" + field + "缺失" : value.trim();
     }
 
 }

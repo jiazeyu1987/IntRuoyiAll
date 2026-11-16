@@ -41,6 +41,10 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
     @Resource
     private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
+    @Resource
+    private MesActiveOrderReplenishmentBindingService replenishmentBindings;
+
+    private final MesLocalTestRunSourceGuard localSources;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProFeedbackMapper feedbackMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
@@ -58,7 +62,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             MesProWorkOrderMapper workOrderMapper,
             MesFrontlineProcessMaterialService materialService,
             ErpKingdeeProductionReplenishmentListItemMapper replenishmentItemMapper,
-            ErpKingdeeProductionReplenishmentListMapper replenishmentMapper) {
+            ErpKingdeeProductionReplenishmentListMapper replenishmentMapper,
+            MesLocalTestRunSourceGuard localSources) {
+        this.localSources = localSources;
         this.eventMapper = eventMapper;
         this.feedbackMapper = feedbackMapper;
         this.allocationMapper = allocationMapper;
@@ -268,7 +274,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                 && Objects.equals(review.getLeaderUserId(), review.getReviewSignatureUserId())
                 && Objects.equals(feedback.getApproveUserId(), review.getReviewSignatureUserId())
                 && Objects.equals(allocation.getLeaderUserId(), review.getLeaderUserId())
-                && Objects.equals(allocation.getConfirmedAt(), review.getReviewedAt());
+                && MesReportAllocationReviewBinding.matches(allocation, review);
     }
 
     private Map<Long, List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource>> readReplenishments(
@@ -282,18 +288,15 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                     null, "生产订单编号缺失，无法查询正式补料单", "请补齐正式生产订单"));
             return result;
         }
+        boolean localTest = localSources.validate(workOrder, true);
         var items = replenishmentItemMapper.selectListByProductionOrderNo(workOrder.getCode());
         if (items == null) {
             throw new IllegalStateException("生产补料单查询未返回结果集合");
         }
         if (items.isEmpty()) {
-            if (Boolean.TRUE.equals(command.getRequireNoReplenishmentConfirmation())
-                    && !Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo())) {
-                blockers.add(blocker("NO_REPLENISHMENT_CONFIRMATION_REQUIRED", null, "WORK_ORDER", workOrder.getId(),
-                        null, "完成时未查到生产补料单，需要确认无补料信息", "确认后按无正式损耗完成；取消则不完成"));
-            }
             return result;
         }
+        var explicitBindings = replenishmentBindings.read(command.getActiveOrderId());
         var headerIds = items.stream().map(item -> item.getProductionReplenishmentListId())
                 .filter(Objects::nonNull).distinct().sorted().toList();
         Map<Long, ErpKingdeeProductionReplenishmentListDO> headers = new LinkedHashMap<>();
@@ -312,7 +315,12 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
         for (var item : items) {
             var header = headers.get(item.getProductionReplenishmentListId());
             if (item.getId() == null || header == null || StrUtil.isBlank(header.getSourceBillNo())
-                    || !"C".equals(header.getDocumentStatus()) || StrUtil.isBlank(item.getMaterialNumber())
+                    || !(localTest ? MesLocalTestRunSourceGuard.STATUS.equals(header.getDocumentStatus())
+                        && MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                        : "C".equals(header.getDocumentStatus())
+                        && !MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                        && !MesLocalTestRunSourceGuard.SOURCE.equals(item.getSourceFormId()))
+                    || StrUtil.isBlank(item.getMaterialNumber())
                     || StrUtil.isBlank(item.getMaterialName()) || !Objects.equals(workOrder.getCode(), item.getProductionOrderNo())
                     || item.getActualQuantity() == null || item.getActualQuantity().signum() < 0) {
                 blockers.add(blocker("LOSS_REPLENISHMENT_SOURCE_INVALID", null, "REPLENISHMENT_ITEM", item.getId(),
@@ -321,18 +329,34 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             }
             var owners = snapshots.stream().filter(snapshot -> inputCodes.get(snapshot.getRouteProcessId())
                     .contains(item.getMaterialNumber().trim())).toList();
+            var explicit = explicitBindings.get(item.getId());
+            if (explicit != null) {
+                if (!owners.isEmpty()) {
+                    blockers.add(blocker("LOSS_REPLENISHMENT_BINDING_CONFLICT", null, "REPLENISHMENT_ITEM", item.getId(),
+                            null, "补料签名关联与冻结输入配置冲突", "请核对正式补料关联证据"));
+                    continue;
+                }
+                owners = snapshots.stream().filter(snapshot -> Objects.equals(snapshot.getRouteProcessId(), explicit.routeProcessId())).toList();
+            }
             if (owners.size() != 1) {
                 blockers.add(blocker(owners.isEmpty() ? "LOSS_REPLENISHMENT_MATERIAL_UNBOUND"
                                 : "LOSS_REPLENISHMENT_MATERIAL_AMBIGUOUS", null, "REPLENISHMENT_ITEM", item.getId(),
-                        null, "补料物料未能唯一匹配订单工序输入物料：" + item.getMaterialNumber(),
-                        "请核对补料物料与工序输入物料配置"));
+                        null, "补料单「" + header.getSourceBillNo() + "」的物料「"
+                                + item.getMaterialName() + "」（" + item.getMaterialNumber()
+                                + "）未能唯一匹配订单工序输入物料",
+                        owners.isEmpty() ? "请打开订单详情，进入“补料工序关联”，核对所属工序后由本人签名关联，再重新申请"
+                                : "请核对补料物料与工序输入物料配置，消除多工序匹配后重新申请")
+                        .setObjectCode(header.getSourceBillNo()));
                 continue;
             }
             result.computeIfAbsent(owners.get(0).getRouteProcessId(), ignored -> new ArrayList<>())
                     .add(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
                             .setHeaderId(header.getId()).setItemId(item.getId()).setSourceBillNo(header.getSourceBillNo())
                             .setMaterialCode(item.getMaterialNumber()).setMaterialName(item.getMaterialName())
-                            .setLotNumber(item.getLotNumber()).setActualQuantity(item.getActualQuantity()));
+                            .setLotNumber(item.getLotNumber()).setActualQuantity(item.getActualQuantity())
+                            .setBindingEventId(explicit == null ? null : explicit.eventId())
+                            .setBindingSignatureId(explicit == null ? null : explicit.signatureId())
+                            .setBindingChallengeHash(explicit == null ? null : explicit.challengeHash()));
         }
         result.values().forEach(lines -> lines.sort(Comparator.comparing(
                 MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getItemId)));

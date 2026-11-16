@@ -43,7 +43,7 @@ public class OperateLogController {
     @GetMapping("/get")
     @Operation(summary = "查看操作日志")
     @Parameter(name = "id", description = "编号", required = true, example = "1024")
-    @PreAuthorize("@ss.hasPermission('system:operate-log:query')")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'audit_admin', 'edhr_auditor') && @ss.hasPermission('system:operate-log:query')")
     public CommonResult<OperateLogRespVO> getOperateLog(@RequestParam("id") Long id) {
         OperateLogDO operateLog = operateLogService.getOperateLog(id);
         return success(BeanUtils.toBean(operateLog, OperateLogRespVO.class));
@@ -51,7 +51,7 @@ public class OperateLogController {
 
     @GetMapping("/page")
     @Operation(summary = "查看操作日志分页列表")
-    @PreAuthorize("@ss.hasPermission('system:operate-log:query')")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'audit_admin', 'edhr_auditor') && @ss.hasPermission('system:operate-log:query')")
     @TransMethodResult
     public CommonResult<PageResult<OperateLogRespVO>> pageOperateLog(@Valid OperateLogPageReqVO pageReqVO) {
         PageResult<OperateLogDO> pageResult = operateLogService.getOperateLogPage(pageReqVO);
@@ -60,7 +60,7 @@ public class OperateLogController {
 
     @Operation(summary = "导出操作日志")
     @GetMapping("/export-excel")
-    @PreAuthorize("@ss.hasPermission('system:operate-log:export')")
+    @PreAuthorize("@ss.hasAnyRoles('super_admin', 'tenant_admin', 'audit_admin', 'edhr_auditor') && @ss.hasPermission('system:operate-log:export')")
     @TransMethodResult
     @ApiAccessLog(operateType = EXPORT)
     public void exportOperateLog(HttpServletResponse response, @Valid OperateLogPageReqVO exportReqVO) throws IOException {
