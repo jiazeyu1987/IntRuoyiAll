@@ -4077,6 +4077,238 @@
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:query",
       "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-bom:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-inventory:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-material:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-order:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-pick:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-product:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-replenishment:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",
+      "kind": "permission",
+      "value": "erp:data-stock:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/config/ErpKingdeeConfigController.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/kingdeeautosync/ErpKingdeeTableAutoSyncController.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/production/ErpProductionPickListController.java",
+      "kind": "permission",
+      "value": "erp:data-pick:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/production/ErpProductionReplenishmentListController.java",
+      "kind": "permission",
+      "value": "erp:data-replenishment:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/ErpKingdeeSyncController.java",
+      "kind": "permission",
+      "value": "erp:data-inventory:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/ErpKingdeeSyncController.java",
+      "kind": "permission",
+      "value": "erp:data-order:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesKingdeeProductionMaterialListController.java",
+      "kind": "permission",
+      "value": "erp:data-material:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/businessConfigAccess.ts",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-bom:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-inventory:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-material:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-order:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-pick:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-product:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-replenishment:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/erpDataPermission.ts",
+      "kind": "permission",
+      "value": "erp:data-stock:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/components/RecentFullSyncButton.vue",
+      "kind": "permission",
+      "value": "erp:data-inventory:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/config/ErpKingdeeJobController.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/ErpKingdeeSyncController.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
     }
   ]
 }

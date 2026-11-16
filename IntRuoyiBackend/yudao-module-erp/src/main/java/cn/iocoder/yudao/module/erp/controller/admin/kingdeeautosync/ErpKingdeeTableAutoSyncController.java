@@ -33,7 +33,7 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @Validated
 public class ErpKingdeeTableAutoSyncController {
 
-    private static final String PROFILE_CONFIG_PERMISSION = "mes:pro-batch-record-execution:golden-finger";
+    private static final String PROFILE_CONFIG_PERMISSION = "erp:data-config:operate";
 
     @Resource
     private ErpKingdeeTableAutoSyncService tableAutoSyncService;

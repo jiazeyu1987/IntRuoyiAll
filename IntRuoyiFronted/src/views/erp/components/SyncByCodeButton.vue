@@ -1,5 +1,5 @@
 <template>
-  <el-button v-hasPermi="['erp:kingdee-sync:query']" type="primary" plain @click="open">
+  <el-button v-hasPermi="[erpSyncPermission(props.syncType)]" type="primary" plain @click="open">
     按编号同步
   </el-button>
   <el-dialog v-model="visible" title="按编号同步ERP数据" width="460px" :close-on-click-modal="!syncing" :close-on-press-escape="!syncing" :show-close="!syncing">
@@ -16,6 +16,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { erpSyncPermission } from '@/utils/erpDataPermission'
 import request from '@/config/axios'
 
 const props = defineProps<{

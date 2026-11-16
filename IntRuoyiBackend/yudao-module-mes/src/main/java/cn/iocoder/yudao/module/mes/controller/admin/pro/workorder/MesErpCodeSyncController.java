@@ -24,7 +24,7 @@ public class MesErpCodeSyncController {
 
     @PostMapping
     @Operation(summary = "按唯一编号同步ERP数据，完成写入后返回结果")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission(T(cn.iocoder.yudao.framework.common.enums.ErpDataPermission).forSyncType(#request.syncType))")
     public CommonResult<MesErpCodeSyncService.Result> sync(@Valid @RequestBody Request request) {
         return success(syncService.sync(request.getSyncType(), request.getCode()));
     }

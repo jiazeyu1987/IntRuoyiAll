@@ -18,6 +18,6 @@ import { useTestMode } from '@/store/modules/testMode'
 defineOptions({ name: 'ErpKingdeeSync' })
 const testMode = useTestMode()
 const canConfigure = computed(
-  () => testMode.value && hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query'])
+  () => testMode.value && hasErpConfigCapability(['erp:kingdee-sync:query'])
 )
 </script>

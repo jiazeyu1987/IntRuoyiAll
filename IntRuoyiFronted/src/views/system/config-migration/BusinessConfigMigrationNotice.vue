@@ -32,7 +32,7 @@ import {
   hasErpConfigCapability
 } from '@/utils/businessConfigAccess'
 const testMode = useTestMode()
-const canErp = computed(() => testMode.value && hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']))
+const canErp = computed(() => testMode.value && hasErpConfigCapability(['erp:kingdee-sync:query']))
 const canDcc = computed(() =>
   testMode.value && hasExplicitConfigPermission('dcc:registration-certificate:config:query')
 )

@@ -20,7 +20,7 @@ import FrontlineSequenceSetting from './components/FrontlineSequenceSetting.vue'
 defineOptions({ name: 'InfraBasicConfig' })
 const router = useRouter()
 const testMode = useTestMode()
-const canErp = computed(() => hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']))
+const canErp = computed(() => hasErpConfigCapability(['erp:kingdee-sync:query']))
 const canDcc = computed(() => hasExplicitConfigPermission('dcc:registration-certificate:config:query'))
 const canQuery = computed(() => hasInfraConfigPermission('infra:config:query'))
 const canUpdate = computed(() => hasInfraConfigPermission('infra:config:update'))

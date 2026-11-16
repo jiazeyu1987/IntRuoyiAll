@@ -50,7 +50,7 @@ public class ErpProductionReplenishmentListController {
 
     @PostMapping("/sync-kingdee")
     @Operation(summary = "同步半年内 ERP 生产补料单")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-work-order:create', 'mes:pro-schedule-order:create')")
+    @PreAuthorize("@ss.hasPermission('erp:data-replenishment:operate')")
     public CommonResult<ErpProductionReplenishmentListSyncRespVO> syncKingdeeProductionReplenishmentLists() {
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeProductionReplenishmentListSyncResult> resultReference =

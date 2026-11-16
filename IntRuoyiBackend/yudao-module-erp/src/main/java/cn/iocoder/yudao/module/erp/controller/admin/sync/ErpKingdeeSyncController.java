@@ -95,7 +95,7 @@ public class ErpKingdeeSyncController {
 
     @PostMapping("/incremental-sync")
     @Operation(summary = "增量同步 ERP 金蝶表格")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate') or (@ss.hasPermission(T(cn.iocoder.yudao.framework.common.enums.ErpDataPermission).forSyncType(#reqVO.syncType)) and (#reqVO.syncType != 'STOCK' or @ss.hasPermission('erp:data-inventory:operate')))")
     public CommonResult<ErpKingdeeFullSyncRespVO> runIncrementalSync(
             @Valid @RequestBody ErpKingdeeFullSyncReqVO reqVO) {
         return success(syncAdminService.runIncrementalSync(reqVO.getSyncType()));
@@ -103,7 +103,7 @@ public class ErpKingdeeSyncController {
 
     @PostMapping("/full-sync")
     @Operation(summary = "全量同步 ERP 金蝶表格")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate') or (@ss.hasPermission(T(cn.iocoder.yudao.framework.common.enums.ErpDataPermission).forSyncType(#reqVO.syncType)) and (#reqVO.syncType != 'STOCK' or @ss.hasPermission('erp:data-inventory:operate')))")
     public CommonResult<ErpKingdeeFullSyncRespVO> runFullSync(
             @Valid @RequestBody ErpKingdeeFullSyncReqVO reqVO) {
         return success(syncAdminService.runFullSync(reqVO.getSyncType()));
@@ -111,7 +111,7 @@ public class ErpKingdeeSyncController {
 
     @PostMapping("/full-sync-recent")
     @Operation(summary = "后台全量同步最近指定天数内的数据，跳过已有记录")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate') or (@ss.hasPermission(T(cn.iocoder.yudao.framework.common.enums.ErpDataPermission).forSyncType(#reqVO.syncType)) and (#reqVO.syncType != 'STOCK' or @ss.hasPermission('erp:data-inventory:operate')))")
     public CommonResult<ErpKingdeeFullSyncRespVO> runRecentFullSync(
             @Valid @RequestBody cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeRecentFullSyncReqVO reqVO) {
         return success(syncAdminService.runRecentFullSync(reqVO.getSyncType(), reqVO.getDays(), reqVO.getClickedAt()));
@@ -119,7 +119,7 @@ public class ErpKingdeeSyncController {
 
     @PostMapping("/production-order/create")
     @Operation(summary = "创建并提交 ERP 金蝶生产工单")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-order:operate')")
     public CommonResult<ErpKingdeeProductionOrderCreateRespVO> createProductionOrder(
             @Valid @RequestBody ErpKingdeeProductionOrderCreateReqVO reqVO) {
         return success(productionOrderCreateService.createProductionOrder(reqVO));
