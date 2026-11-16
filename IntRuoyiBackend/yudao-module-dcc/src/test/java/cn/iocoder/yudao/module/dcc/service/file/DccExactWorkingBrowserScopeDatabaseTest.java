@@ -16,7 +16,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
     private DccStorageBrowserProjectionFixture projection;
 
     @BeforeEach void exactFixture() {
-        jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2' WHERE id=?",CURRENT);
+        jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2',activated_time=controlled_time WHERE id=?",CURRENT);
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=?,current_active_controlled_file_id=? WHERE id=10",CURRENT,CURRENT);
         var history=new DccControlledFileDO();BeanUtils.copyProperties(files.selectById(CURRENT),history);
         history.setId(300L);history.setVersionNo("A/1");history.setStatus("OBSOLETE");history.setTitle("OLD-ONLY");files.insert(history);
@@ -30,6 +30,9 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
                 ReflectionTestUtils.getField(query,"offlineTraining"));
         projection = new DccStorageBrowserProjectionFixture(query, files);
         projection.rows(CURRENT);
+        var projects=(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService)
+                ReflectionTestUtils.getField(query,"projectAccessService");
+        when(projects.listReadableProjectIds(99L)).thenReturn(java.util.List.of(5L));
     }
     @Override @Test void nameOnlyHistoricalTargetMetadataDoesNotRequireDetailOrGrantBodyAndCarriesExactParents() throws Exception {
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
@@ -67,6 +70,7 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
 
     @Test void exactIdentityDoesNotGrantScopeAndWrongOrHalfIdentityNeverFallsBackToBroadScan() {
         var scope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(java.util.Set.of(400L));
         when(scope.isWithinAssignedFileScope(99L,CURRENT)).thenReturn(false);
         when(scope.isWithinAssignedFileScope(99L,300L)).thenReturn(false);
         when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(java.util.Set.of());
