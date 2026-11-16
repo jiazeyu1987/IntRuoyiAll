@@ -1279,7 +1279,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setClearanceConfirmations(submission.getClearanceConfirmations().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderClearanceConfirmationDetailRespVO)
                         .toList())
-                .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()));
+                .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()))
+                .setLossDetails(submission.getLossDetails().stream()
+                        .map(reason -> new MesTeamLeaderActiveOrderDetailRespVO.LossDetail()
+                                .setReasonId(reason.getReasonId())
+                                .setReasonCode(reason.getReasonCode())
+                                .setReasonName(reason.getReasonName())
+                                .setQuantity(reason.getQuantity()))
+                        .toList());
     }
 
     private static List<MesTeamLeaderActiveOrderDetailRespVO.SubmissionMaterialDetail>

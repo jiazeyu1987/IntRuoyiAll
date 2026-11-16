@@ -53,6 +53,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
     @Resource
     private MesProRouteMapper routeMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.lossreason.MesProLossReasonService lossReasonService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -154,6 +156,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             configSnapshots.put(entry.getKey(), jsonSnapshot);
         }
         MesRouteLossCoefficient.read(configSnapshots);
+        lossReasonService.validateBindings(previousConfigs, configSnapshots);
         craftService.validateBindingTransitions(previousConfigs, configSnapshots);
         craftService.validateBindings(configSnapshots);
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);

@@ -75,6 +75,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -595,6 +596,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -1560,8 +1562,38 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <ProductionQuantityDrafts leader />
+  </ContentWrap>
+
+  <ContentWrap v-if="isProductionLeader && (!showProductionModuleTabs || activeProductionModuleTab === 'lossReasons')" class="team-leader-workbench__production-module-card">
+    <el-tabs
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="超限填写待处理"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+    </el-tabs>
+    <LossReasonCatalog />
   </ContentWrap>
 
   <ContentWrap
@@ -1593,6 +1625,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -2368,6 +2401,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -2478,6 +2512,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -4167,6 +4202,7 @@
 </template>
 
 <script setup lang="ts">
+import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
 import ActiveOrderDeviationDialog from './components/ActiveOrderDeviationDialog.vue'
@@ -4464,7 +4500,7 @@ interface TeamLeaderReportAllocationDraftLine
 }
 
 interface ProductionReportCorrectionLossDetailRow {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName: string
   quantity: number
@@ -4557,7 +4593,7 @@ const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detai
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder'
+  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder' | 'lossReasons'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -5579,10 +5615,10 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
   }
 
   const originalLossMap = new Map(
-    (event.lossDetails || []).map((item) => [Number(item.reasonId), Number(item.quantity || 0)])
+    (event.lossDetails || []).map((item) => [String(item.reasonId), Number(item.quantity || 0)])
   )
   correctionForm.lossDetails.forEach((item) => {
-    const before = originalLossMap.get(item.reasonId) || 0
+    const before = originalLossMap.get(String(item.reasonId)) || 0
     const after = Number(item.quantity || 0)
     if (before !== after) {
       changes.push({
@@ -5756,6 +5792,12 @@ const requirePositiveNumber = (value: unknown, message: string) => {
     throw new Error(message)
   }
   return parsed
+}
+
+const requireLossReasonId = (value: unknown, message: string): string => {
+  const id = String(value ?? '')
+  if (!/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n) throw new Error(message)
+  return id
 }
 
 const resolveCurrentLeaderType = (): TeamLeaderType => {
@@ -7853,14 +7895,13 @@ const toProductionMaterialRow = (value: unknown): ProductionReportCorrectionMate
     lossDetails: normalizeSubmissionArray(value.lossDetails)
       .filter((detail): detail is Record<string, unknown> => isRecord(detail))
       .map((detail) => ({
-        reasonId: Number(detail.reasonId),
+        reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因编号无效'),
         reasonCode: String(detail.reasonCode ?? '').trim() || undefined,
         reasonName:
           String(detail.reasonName ?? detail.reasonCode ?? '').trim() ||
           `损耗原因 ${detail.reasonId}`,
         quantity: optionalCorrectionNumber(detail.quantity) ?? 0
-      }))
-      .filter((detail) => Number.isFinite(detail.reasonId) && detail.reasonId > 0),
+      })),
     selectedDevice: isRecord(value.selectedDevice)
       ? {
           deviceId: Number(value.selectedDevice.deviceId),
@@ -9300,9 +9341,9 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   const routeProcessId = requirePositiveNumber(event.routeProcessId, '报工记录缺少路线工序快照')
   const configuredReasons =
     processConfigRows.value.find((row) => row.routeProcessId === routeProcessId)?.lossReasons || []
-  const lossRowMap = new Map<number, ProductionReportCorrectionLossDetailRow>()
+  const lossRowMap = new Map<string, ProductionReportCorrectionLossDetailRow>()
   ;(event.lossDetails || []).forEach((item) => {
-    const reasonId = requirePositiveNumber(item.reasonId, '报工损耗明细缺少原因编号')
+    const reasonId = requireLossReasonId(item.reasonId, '报工损耗明细缺少原因编号')
     const quantity = Number(item.quantity)
     if (!Number.isFinite(quantity) || quantity < 0) {
       throw new Error('报工损耗明细数量无效，不能修改')
@@ -9317,8 +9358,8 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   configuredReasons
     .filter((item) => item.enabled)
     .forEach((item) => {
-      if (!lossRowMap.has(item.id)) {
-        lossRowMap.set(item.id, {
+      if (!lossRowMap.has(String(item.id))) {
+        lossRowMap.set(String(item.id), {
           reasonId: item.id,
           reasonCode: item.reasonCode,
           reasonName: item.reasonName,
@@ -9485,7 +9526,7 @@ const buildProductionCorrectionRequest = () => {
         lossDetails: item.lossDetails
           .filter((detail) => Number(detail.quantity) > 0)
           .map((detail) => ({
-            reasonId: requirePositiveNumber(detail.reasonId, '物料损耗原因不能为空'),
+            reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因不能为空'),
             quantity: Number(detail.quantity)
           })),
         selectedDevice: item.selectedDevice
@@ -9508,7 +9549,7 @@ const buildProductionCorrectionRequest = () => {
     lossDetails: materialLossDetails
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
-        reasonId: requirePositiveNumber(item.reasonId, '损耗原因不能为空'),
+        reasonId: requireLossReasonId(item.reasonId, '损耗原因不能为空'),
         quantity: Number(item.quantity)
       })),
     deviceParameterReadings: materialParameterReadings.flatMap((item) => {

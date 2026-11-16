@@ -50,6 +50,8 @@ class MesProRouteCandidateConfigServiceTest {
 
     @Mock
     private MesProRouteMapper routeMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.lossreason.MesProLossReasonService lossReasonService;
 
     @Test
     void lossCoefficient_isSavedIndependentlyInDraftSnapshot() {

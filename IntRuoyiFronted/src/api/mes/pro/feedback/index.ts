@@ -86,7 +86,7 @@ export interface ProFeedbackVO {
 }
 
 export interface ProFrontlineLossDetailReqVO {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName?: string
   quantity: number
@@ -578,7 +578,7 @@ export interface FrontlineRuntimeDeviceVO {
 }
 
 export interface FrontlineRuntimeDefectReasonVO {
-  reasonId: number
+  reasonId: number | string
   reasonType?: string
   reasonCode: string
   reasonName: string

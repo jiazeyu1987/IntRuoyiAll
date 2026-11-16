@@ -4029,6 +4029,36 @@
       "kind": "permission",
       "value": "mes:pro-edhr-nonconformance-review:dispose",
       "reason": "QA评审责任人复用已获授权的处置权限，展示其上级既有不合格评审菜单及目录；仅调整权限响应中的导航可见性，不新增菜单、权限、角色或租户套餐授权，不扩大创建及处置的数据范围。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/lossreason/MesProLossReasonController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/lossreason/MesProLossReasonController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/lossreason/MesProLossReasonController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/LossReasonCatalog.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/LossReasonCatalog.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
     }
   ]
 }

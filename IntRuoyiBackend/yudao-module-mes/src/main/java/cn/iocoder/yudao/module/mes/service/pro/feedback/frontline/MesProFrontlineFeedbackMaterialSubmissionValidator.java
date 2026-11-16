@@ -8,10 +8,12 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_MATERIAL_INVALID;
@@ -73,17 +75,12 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
         if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw invalid("损耗数量不能为空或小于 0");
         }
-        List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails = payload.getLossDetails();
-        BigDecimal detailTotal = lossDetails == null ? BigDecimal.ZERO : lossDetails.stream()
-                .map(detail -> detail == null || detail.getQuantity() == null
-                        ? BigDecimal.ZERO : detail.getQuantity())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (detailTotal.compareTo(lossQuantity) != 0) {
-            throw invalid("损耗数量必须等于各损耗原因数量之和");
-        }
-        List<MesFrontlineLossReasonSnapshot> snapshots = lossReasonValidator.requireSnapshotLossReasons(
-                frozenLossReasons, lossDetails, lossQuantity);
-        return snapshots == null || snapshots.isEmpty() ? null : snapshots.get(0);
+        List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> details =
+                normalizeLossDetails(frozenLossReasons, payload.getLossDetails(), lossQuantity);
+        payload.setLossDetails(details);
+        if (details.isEmpty()) return null;
+        var first = details.get(0);
+        return new MesFrontlineLossReasonSnapshot(first.getReasonId(), first.getReasonCode(), first.getReasonName());
     }
 
     private Map<Long, MesFrontlineProcessMaterial> indexFrozenMaterials(
@@ -129,16 +126,22 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
             List<MesFrontlineDefectReasonOption> frozenLossReasons,
             List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails,
             BigDecimal lossQuantity) {
+        Set<Long> reasonIds = new HashSet<>();
         List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> positiveDetails =
                 lossDetails == null ? List.of() : lossDetails.stream()
-                        .filter(Objects::nonNull)
                         .peek(detail -> {
-                            if (detail.getQuantity() == null
+                            if (detail == null || detail.getQuantity() == null
                                     || detail.getQuantity().compareTo(BigDecimal.ZERO) < 0) {
                                 throw invalid("损耗原因数量不能为空或小于 0");
                             }
                         })
                         .filter(detail -> detail.getQuantity().compareTo(BigDecimal.ZERO) > 0)
+                        .peek(detail -> {
+                            if (detail.getReasonId() == null || detail.getReasonId() <= 0
+                                    || !reasonIds.add(detail.getReasonId())) {
+                                throw invalid("同一报工明细中的损耗原因不能为空或重复");
+                            }
+                        })
                         .toList();
         BigDecimal detailTotal = positiveDetails.stream()
                 .map(MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO::getQuantity)

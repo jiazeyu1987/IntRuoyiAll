@@ -397,6 +397,7 @@
                 </button>
               </div>
               <el-button
+                v-if="field.key !== 'lossReasons'"
                 :disabled="processDetailInterestMutationDisabled"
                 circle
                 data-flow-action="remove-process-detail-field"
@@ -1048,6 +1049,15 @@
                 {{ formatProcessDetailText(selectedProcessDetailField.value) }}
               </strong>
             </div>
+            <RouteLossReasonBinding
+              v-if="selectedProcessDetailField.key === 'lossReasons' && selectedRouteProcessId && selectedProcessRouteConfigCache"
+              :key="`${selectedProcessRouteConfigCache.readableRouteVersionId}:${selectedRouteProcessId}`"
+              :route-process-id="selectedRouteProcessId"
+              :route-version-id="selectedProcessRouteConfigCache.readableRouteVersionId"
+              :snapshot="selectedProcessRouteConfigCache.productionProcessConfigSnapshot"
+              :read-only="!isProcessDetailFieldEditable('lossReasons')"
+              @saved="handleLossReasonBindingSaved"
+            />
             <el-input
               v-if="selectedProcessDetailField.key === 'productionProcessConfig' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
               :model-value="formatPublishedProductionProcessConfig()"
@@ -2072,6 +2082,7 @@
 
 <script setup lang="ts">
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import RouteLossReasonBinding from './components/RouteLossReasonBinding.vue'
 import RouteCraftBinding from './components/RouteCraftBinding.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -2097,6 +2108,7 @@ import {
   type RouteFullFlowReadinessVO,
   type MesRouteId,
   type ProRouteProductionProcessConfigVO,
+  type ProRouteProductionProcessConfigSnapshotVO,
   type ProRouteVO,
   type ProRouteScheduleConfigVO,
   type ProRouteVersionLifecycleStatus,
@@ -2483,6 +2495,7 @@ const PROCESS_DETAIL_HIDDEN_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
 const PROCESS_DETAIL_EDITABLE_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
   'productionQuantityFactor',
   'productionProcessConfig',
+  'lossReasons',
   'predecessor',
   'successors',
   'keyFlag',
@@ -2496,6 +2509,7 @@ const ROUTE_NODE_BINDING_STATUS_FIELD_KEYS = new Set<RouteProcessSettingColumnKe
   'batchRecordFormNames',
   'productionQuantityFactor',
   'productionProcessConfig',
+  'lossReasons',
   'keyFlag',
   'checkFlag',
   'workstation'
@@ -2566,6 +2580,7 @@ const DEFAULT_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
   'processName',
   'workstation',
   'productionProcessConfig',
+  'lossReasons',
   'batchRecordFormNames',
   'inputMaterialIds',
   'outputMaterialIds',
@@ -2573,6 +2588,7 @@ const DEFAULT_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
 ].filter((key): key is ProcessDetailFieldKey => PROCESS_DETAIL_FIELD_KEY_SET.has(key))
 const REQUIRED_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
   'productionProcessConfig',
+  'lossReasons',
   'batchRecordFormNames',
   'inputMaterialIds',
   'outputMaterialIds',
@@ -3740,6 +3756,13 @@ const saveSelectedProductionProcessConfig = async () => {
   } catch (error) {
     message.error(resolveErrorMessage(error, '生产配置保存失败'))
   }
+}
+
+const handleLossReasonBindingSaved = (snapshot: ProRouteProductionProcessConfigSnapshotVO) => {
+  const cache = selectedProcessRouteConfigCache.value
+  if (!cache || String(cache.readableRouteVersionId) !== String(snapshot.routeVersionId)) return
+  cache.productionProcessConfigSnapshot = snapshot
+  if (selectedRouteProcessId.value) syncProductionProcessConfigJsonDraftFromCache(selectedRouteProcessId.value)
 }
 
 const selectedRouteProcessDeviceParameterDevices = computed(
@@ -5233,6 +5256,11 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       value: buildRouteProcessMaterialSummaryValue('output'),
       links: [],
       loading: attributeLoading
+    },
+    {
+      key: 'lossReasons', label: '损耗原因',
+      value: findProductionProcessConfig(selectedRouteProcessId.value)?.lossReasons?.length || 0,
+      links: [], loading: loading.value || attributeLoading
     },
     {
       key: 'productionProcessConfig',

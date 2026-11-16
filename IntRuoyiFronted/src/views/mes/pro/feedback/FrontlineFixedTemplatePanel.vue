@@ -899,10 +899,17 @@
 
             <div class="frontline-production-operation-area">
               <div class="frontline-production-operation-fields">
-                <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
+                <section class="frontline-production-defect-section defect-section" aria-label="损耗原因明细">
+                  <el-select v-model="selectedProductionLossReasonKey" filterable clearable
+                    placeholder="输入编码或描述选择损耗原因" aria-label="选择生产损耗原因"
+                    :disabled="payloadLoading" @change="selectProductionLossReason">
+                    <el-option v-for="reason in configuredDefectReasons" :key="reason.key"
+                      :value="reason.key" :label="`${reason.reasonCode} / ${reason.label}`" />
+                  </el-select>
+                  <p v-if="!configuredDefectReasons.length">当前工序未关联损耗原因，可提交零损耗。</p>
                   <div class="frontline-production-defect-grid defect-grid">
                     <div
-                      v-for="defect in configuredDefectReasons"
+                      v-for="defect in visibleProductionLossReasons"
                       :key="defect.key"
                       class="frontline-production-defect-card defect-card"
                       :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
@@ -1786,7 +1793,7 @@ interface FrontlinePickerOption {
 
 interface ProductionDefectOption {
   key: ProductionDefectKey
-  reasonId: number
+  reasonId: number | string
   reasonCode: string
   label: string
 }
@@ -2871,6 +2878,20 @@ const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
     label: reason.reasonName
   }))
 )
+
+const selectedProductionLossReasonKey = ref<string>()
+const selectedProductionLossReasonKeys = ref<string[]>([])
+const visibleProductionLossReasons = computed(() => configuredDefectReasons.value.filter(reason =>
+  selectedProductionLossReasonKeys.value.includes(reason.key) || (productionDefectDraft[reason.key] || 0) > 0
+))
+const selectProductionLossReason = (key?: string) => {
+  if (key && !selectedProductionLossReasonKeys.value.includes(key)) selectedProductionLossReasonKeys.value.push(key)
+  selectedProductionLossReasonKey.value = undefined
+}
+watch(selectedProductionMaterialKey, () => {
+  selectedProductionLossReasonKeys.value = []
+  selectedProductionLossReasonKey.value = undefined
+})
 
 const configuredProductionMaterials = computed<ProductionMaterialOption[]>(() =>
   (deviceState.runtimeConfig?.materials || []).map((material) => ({

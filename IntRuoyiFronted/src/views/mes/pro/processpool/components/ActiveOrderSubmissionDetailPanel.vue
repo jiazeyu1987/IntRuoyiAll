@@ -416,6 +416,26 @@
           label="生产表单"
           name="productionSubmissions"
         >
+          <el-collapse class="mb-12px" data-active-order-loss-details>
+            <el-collapse-item title="工序损耗明细与汇总" name="lossReasons">
+              <h4>按工序、损耗原因汇总</h4>
+              <el-table :data="lossReasonSummary" border empty-text="暂无损耗记录">
+                <el-table-column prop="processName" label="工序" min-width="150" />
+                <el-table-column prop="reasonCode" label="损耗原因编码" width="170" />
+                <el-table-column prop="reasonName" label="损耗原因描述" min-width="180" />
+                <el-table-column prop="quantity" label="损耗数量" width="120" />
+              </el-table>
+              <h4>各次报工明细</h4>
+              <el-table :data="lossReasonDetails" border empty-text="暂无损耗记录">
+                <el-table-column prop="processName" label="工序" min-width="150" />
+                <el-table-column prop="reasonCode" label="损耗原因编码" width="170" />
+                <el-table-column prop="reasonName" label="损耗原因描述" min-width="180" />
+                <el-table-column prop="quantity" label="损耗数量" width="120" />
+                <el-table-column prop="submitterName" label="填写人" width="120" />
+                <el-table-column prop="submittedAt" label="报工时间" width="190" />
+              </el-table>
+            </el-collapse-item>
+          </el-collapse>
           <el-tabs
             v-model="productionActiveTab"
             data-team-leader-active-order-detail-production-process-tabs
@@ -2763,6 +2783,26 @@ const productionMaterialListDocuments = computed<ProductionMaterialListDocument[
       rows
     }
   })
+})
+
+const lossReasonDetails = computed(() => (props.detail?.processes || []).flatMap(process =>
+  process.submissions.flatMap(submission => (submission.lossDetails || []).map(reason => ({
+    ...reason, processName: process.processName, routeProcessId: process.routeProcessId,
+    eventId: submission.eventId, submitterName: submission.submitterName,
+    submittedAt: formatDateTime(submission.submittedAt)
+  })))
+))
+const lossReasonSummary = computed(() => {
+  const groups = new Map<string, { processName: string; reasonCode: string; reasonName: string; quantity: number }>()
+  for (const row of lossReasonDetails.value) {
+    const key = `${row.routeProcessId}:${row.reasonId}`
+    const quantity = Number(row.quantity)
+    if (!Number.isFinite(quantity) || quantity < 0) throw new Error('报工损耗数量无效')
+    const existing = groups.get(key)
+    if (existing) existing.quantity = Number((existing.quantity + quantity).toFixed(6))
+    else groups.set(key, { processName: row.processName, reasonCode: row.reasonCode, reasonName: row.reasonName, quantity })
+  }
+  return [...groups.values()]
 })
 
 const visibleProductionProcesses = computed(() => {

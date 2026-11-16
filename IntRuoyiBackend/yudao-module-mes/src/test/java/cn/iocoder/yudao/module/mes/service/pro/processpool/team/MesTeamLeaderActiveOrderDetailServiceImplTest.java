@@ -75,6 +75,26 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 // Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesTeamLeaderActiveOrderDetailServiceImplTest {
+    @Test
+    void submissionLossDetailsUseTheSubmittedSnapshotWithoutResolvingLiveConfiguration() {
+        var row = new MesTeamLeaderActiveOrderDetailReadDO();
+        row.setOriginalPayloadJson("{\"lossDetails\":[{\"reasonId\":\"2000000000000000001\",\"reasonCode\":\"SHYY-001\",\"reasonName\":\"调机损耗\",\"quantity\":2},{\"reasonId\":82,\"reasonCode\":\"SHYY-002\",\"reasonName\":\"裁切损耗\",\"quantity\":3}]}");
+        List<MesTeamLeaderActiveOrderDetail.LossDetail> losses = org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(MesTeamLeaderActiveOrderDetailServiceImpl.class, "resolveSubmissionLossDetails", row, 8101L);
+        assertEquals(2, losses.size());
+        assertEquals(2000000000000000001L, losses.get(0).getReasonId());
+        assertEquals("调机损耗", losses.get(0).getReasonName());
+        assertEquals(new BigDecimal("5"), losses.stream().map(MesTeamLeaderActiveOrderDetail.LossDetail::getQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        row.setOriginalPayloadJson("{}");
+        List<?> legacy = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                MesTeamLeaderActiveOrderDetailServiceImpl.class, "resolveSubmissionLossDetails", row, 8101L);
+        assertEquals(List.of(), legacy);
+        row.setOriginalPayloadJson("{\"lossDetails\":[{\"reasonId\":82,\"reasonCode\":\"SHYY-002\",\"reasonName\":\"裁切损耗\",\"quantity\":-1}]}");
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                MesTeamLeaderActiveOrderDetailServiceImpl.class, "resolveSubmissionLossDetails", row, 8101L));
+    }
+
     @Mock private MesPackagingLeaderAccess packagingAccess;
     @Test
     void replenishmentGroupingCountsEachSourceLineOnce() {
@@ -1763,8 +1783,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .judgement("PASS")
                         .build()));
 
-        var error = assertThrows(IllegalStateException.class, () -> service.getDetail(3001L, 8101L));
-        assertEquals("PQC task has no frozen matrix sampling evidence", error.getMessage());
+        var error = assertThrows(ServiceException.class, () -> service.getDetail(3001L, 8101L));
+        assertEquals(ErrorCodeConstants.PRO_PQC_SAMPLING_EVIDENCE_REQUIRED.getCode(), error.getCode());
     }
 
     @Test
