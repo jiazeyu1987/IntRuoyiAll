@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.iocoder.yudao.framework.common.enums.ErpDataPermission;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.*;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import org.junit.jupiter.api.Test;
@@ -76,5 +77,63 @@ class ErpDataRolePermissionTest extends BaseMockitoUnitTest {
         assertEquals("erp:data-inventory:operate",ErpDataPermission.forSyncType("INVENTORY_DETAIL"));
         assertThrows(IllegalArgumentException.class,()->ErpDataPermission.forSyncType("UNKNOWN"));
         assertThrows(IllegalArgumentException.class,()->ErpDataPermission.forSyncType(null));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"tenant_admin","super_admin","mes_workshop_director","mes_team_leader","mes_scheduler"})
+    void temporaryLegacyRolesCannotRestoreErpMenusOrExpandOtherBusinessMenus(String code) {
+        TenantContextHolder.setTenantId(7L);
+        try {
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(9L), any())).thenReturn(Set.of(1L));
+            var legacy = new RoleDO().setId(1L).setCode(code).setStatus(0); legacy.setTenantId(7L);
+            when(roles.getRoleListFromCache(Set.of(1L))).thenReturn(List.of(legacy));
+            when(menus.getMenuList()).thenReturn(List.of(
+                    new MenuDO().setId(2565L).setParentId(991511L),
+                    new MenuDO().setId(2566L).setParentId(2565L).setPermission("erp:product:query"),
+                    new MenuDO().setId(605073600L).setParentId(2565L).setPermission("erp:data-product:operate"),
+                    new MenuDO().setId(10L).setParentId(0L).setPermission("mes:pro-feedback:query"),
+                    new MenuDO().setId(11L).setParentId(0L).setPermission("mes:pro-feedback:create")));
+            when(grants.selectListByRoleId(Set.of(1L))).thenReturn(List.of(
+                    new RoleMenuDO().setRoleId(1L).setMenuId(991511L),
+                    new RoleMenuDO().setRoleId(1L).setMenuId(2565L),
+                    new RoleMenuDO().setRoleId(1L).setMenuId(2566L),
+                    new RoleMenuDO().setRoleId(1L).setMenuId(605073600L),
+                    new RoleMenuDO().setRoleId(1L).setMenuId(10L)));
+            assertEquals(Set.of(10L), service.getTemporaryMenuListByUserId(9L));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test void temporaryProductRoleKeepsExplicitMenusAndRevocationRemovesThem() {
+        TenantContextHolder.setTenantId(7L);
+        try {
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(9L), any()))
+                    .thenReturn(Set.of(2L)).thenReturn(Set.of());
+            var product = new RoleDO().setId(2L).setCode("erp_data_product_operator").setStatus(0); product.setTenantId(7L);
+            when(roles.getRoleListFromCache(Set.of(2L))).thenReturn(List.of(product));
+            when(menus.getMenuList()).thenReturn(List.of(new MenuDO().setId(2565L).setParentId(991511L)));
+            when(grants.selectListByRoleId(Set.of(2L))).thenReturn(List.of(
+                    new RoleMenuDO().setRoleId(2L).setMenuId(991511L),
+                    new RoleMenuDO().setRoleId(2L).setMenuId(2565L)));
+            assertEquals(Set.of(991511L,2565L), service.getTemporaryMenuListByUserId(9L));
+            assertTrue(service.getTemporaryMenuListByUserId(9L).isEmpty());
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test void temporaryRoleFromAnotherTenantCannotProvideMenus() {
+        TenantContextHolder.setTenantId(7L);
+        try {
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(9L), any())).thenReturn(Set.of(2L));
+            var foreignRole = new RoleDO().setId(2L).setCode("erp_data_product_operator").setStatus(0);
+            foreignRole.setTenantId(8L);
+            when(roles.getRoleListFromCache(Set.of(2L))).thenReturn(List.of(foreignRole));
+            assertTrue(service.getTemporaryMenuListByUserId(9L).isEmpty());
+            verifyNoInteractions(grants, menus);
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 }

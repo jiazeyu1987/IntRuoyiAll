@@ -90,7 +90,7 @@ public class ErpStockController {
 
     @PostMapping("/sync-kingdee")
     @Operation(summary = "从 Kingdee K3Cloud 同步即时库存")
-    @PreAuthorize("@ss.hasPermission('erp:stock:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-stock:operate') or @ss.hasPermission('erp:data-config:operate')")
     public CommonResult<ErpKingdeeStockSyncRespVO> syncKingdeeStocks() {
         ErpKingdeeStockSyncResult result = kingdeeStockSyncService.syncStocks();
         return success(BeanUtils.toBean(result, ErpKingdeeStockSyncRespVO.class));

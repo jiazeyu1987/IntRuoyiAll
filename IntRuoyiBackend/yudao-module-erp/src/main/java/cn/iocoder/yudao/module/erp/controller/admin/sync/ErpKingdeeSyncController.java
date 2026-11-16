@@ -53,7 +53,7 @@ public class ErpKingdeeSyncController {
 
     @org.springframework.web.bind.annotation.DeleteMapping("/run/delete")
     @Operation(summary = "先停止执行再删除同步运行记录")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate') and @ss.hasPermission('erp:kingdee-sync:query')")
     public CommonResult<Boolean> deleteRun(@RequestParam Long id) {
         try {
             return success(runRecoveryService.stopAndDelete(id));
@@ -66,7 +66,7 @@ public class ErpKingdeeSyncController {
 
     @PostMapping("/run/recover")
     @Operation(summary = "核验集群并结束已中断的同步记录")
-    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate') and @ss.hasPermission('erp:kingdee-sync:query')")
     public CommonResult<Boolean> recoverRun(@RequestParam Long id) {
         try {
             runRecoveryService.recover(id);

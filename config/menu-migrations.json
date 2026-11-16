@@ -4309,6 +4309,22 @@
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
       ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/stock/ErpStockController.java",
+      "kind": "permission",
+      "value": "erp:data-stock:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/stock/ErpStockController.java",
+      "kind": "permission",
+      "value": "erp:data-config:operate",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
+      ]
     }
   ]
 }

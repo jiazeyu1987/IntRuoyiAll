@@ -336,8 +336,20 @@ public class PermissionServiceImpl implements PermissionService {
             return Collections.emptySet();
         }
 
-        // ERP 数据目录及所有后代只使用显式授权，不能被超管/租户管理员自动补回。
         List<MenuDO> allMenus = menuService.getMenuList();
+        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        Set<Long> scopedIds = getErpScopedMenuIds(allMenus);
+        Set<Long> menuIds = getExplicitRoleMenuIds(roles, scopedIds);
+        boolean superAdmin = roleService.hasAnySuperAdmin(roleIds);
+        boolean tenantAdmin = TenantAdminBusinessPolicy.isTenantAdmin(roles);
+        allMenus.stream().filter(menu -> !scopedIds.contains(menu.getId()))
+                .filter(menu -> superAdmin || (tenantAdmin && TenantAdminBusinessPolicy.isBusinessMenu(menu)))
+                .map(MenuDO::getId).forEach(menuIds::add);
+        return menuIds;
+    }
+
+    private Set<Long> getErpScopedMenuIds(List<MenuDO> allMenus) {
+        // 永久与临时角色共用同一 ERP 目录及权限边界。
         Set<Long> scopedIds = new HashSet<>(ErpDataPermission.PAGE_IDS);
         boolean changed;
         do {
@@ -349,18 +361,15 @@ public class PermissionServiceImpl implements PermissionService {
                 }
             }
         } while (changed);
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        return scopedIds;
+    }
+
+    private Set<Long> getExplicitRoleMenuIds(List<RoleDO> roles, Set<Long> scopedIds) {
         Set<Long> legacyRoleIds = roles.stream().filter(role -> ErpDataPermission.LEGACY_ROLES.contains(role.getCode()))
                 .map(RoleDO::getId).collect(java.util.stream.Collectors.toSet());
-        Set<Long> menuIds = roleMenuMapper.selectListByRoleId(roleIds).stream()
+        return roleMenuMapper.selectListByRoleId(convertSet(roles, RoleDO::getId)).stream()
                 .filter(grant -> !scopedIds.contains(grant.getMenuId()) || !legacyRoleIds.contains(grant.getRoleId()))
                 .map(RoleMenuDO::getMenuId).collect(java.util.stream.Collectors.toCollection(HashSet::new));
-        boolean superAdmin = roleService.hasAnySuperAdmin(roleIds);
-        boolean tenantAdmin = TenantAdminBusinessPolicy.isTenantAdmin(roles);
-        allMenus.stream().filter(menu -> !scopedIds.contains(menu.getId()))
-                .filter(menu -> superAdmin || (tenantAdmin && TenantAdminBusinessPolicy.isBusinessMenu(menu)))
-                .map(MenuDO::getId).forEach(menuIds::add);
-        return menuIds;
     }
 
     @Override
@@ -570,9 +579,8 @@ public class PermissionServiceImpl implements PermissionService {
                 .filter(role->Objects.equals(role.getTenantId(),
                         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId())).toList();
         if (roles.isEmpty()) return Set.of();
-        // Use explicit role-menu grants, including TEMP roles carrying an admin code.
-        return roleMenuMapper.selectListByRoleId(roles.stream().map(RoleDO::getId).toList()).stream()
-                .map(RoleMenuDO::getMenuId).collect(java.util.stream.Collectors.toSet());
+        // 临时管理员不自动补齐菜单，旧角色也不能恢复 ERP 目录或按钮。
+        return getExplicitRoleMenuIds(roles, getErpScopedMenuIds(menuService.getMenuList()));
     }
 
     private List<RoleDO> getEnableTemporaryRoleListByUserId(Long userId) {
