@@ -44,12 +44,13 @@ function fixture(options = {}) {
  function evaluate(source){
   const m={exports:{}}
   Function('require','module','exports','crypto','window','document',compile(source))(id=>{
+   if(id==='@/utils/secureUuid')return evaluate(read('src/utils/secureUuid.ts'))
    if(id==='./queryContext')return load('@/workbench/queryContext')
    if(id==='./registryContract')return evaluate(read('src/workbench/registryContract.ts'))
    if(id==='./manifest.json')return {default:activeManifest}
    if(files[id])return load(id)
    assert.ok(deps[id],'unexpected dependency '+id);return deps[id]
-  },m,m.exports,require('node:crypto').webcrypto,dom,dom)
+  },m,m.exports,options.httpCrypto ? {getRandomValues: bytes=>require('node:crypto').webcrypto.getRandomValues(bytes)} : require('node:crypto').webcrypto,dom,dom)
   return m.exports
  }
  function load(id){

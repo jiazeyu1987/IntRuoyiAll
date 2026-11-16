@@ -1,4 +1,5 @@
 import { shallowRef, watch } from 'vue'
+import { createUuid } from '@/utils/secureUuid'
 import { authContextRevision, getAccessToken, getAuthSessionId, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
@@ -48,7 +49,7 @@ export interface WorkbenchReadLease {
 }
 export const beginWorkbenchRead = (): WorkbenchReadLease => {
   const identity = workbenchContextIdentity()
-  return { lifetime: workbenchLifetime.value, identity, contextEpoch: crypto.randomUUID() }
+  return { lifetime: workbenchLifetime.value, identity, contextEpoch: createUuid() }
 }
 export const isWorkbenchReadCurrent = (lease: WorkbenchReadLease) =>
   lease.identity === workbenchContextIdentity() && lease.lifetime === workbenchLifetime.value

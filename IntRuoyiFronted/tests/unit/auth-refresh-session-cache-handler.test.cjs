@@ -30,7 +30,7 @@ const provideViteEnv = (context) => {
   return (source) => ts.visitNode(source, visit)
 }
 
-function session({ visitTenant = true, authenticatedCache = true, refreshPayload, holdRefresh = false } = {}) {
+function session({ visitTenant = true, authenticatedCache = true, refreshPayload, holdRefresh = false, httpCrypto = false } = {}) {
   const values = new Map()
   const mutations = []
   const businessCalls = []
@@ -87,6 +87,7 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
   const sourceFiles = {
     '@/hooks/web/useCache': 'src/hooks/web/useCache.ts',
     '@/utils/auth': 'src/utils/auth.ts',
+    '@/utils/secureUuid': 'src/utils/secureUuid.ts',
     '@/config/axios/config': 'src/config/axios/config.ts',
     './errorCode': 'src/config/axios/errorCode.ts'
   }
@@ -134,7 +135,9 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
       window: { location },
       console,
       Response,
-      crypto: require('node:crypto').webcrypto
+      crypto: httpCrypto
+        ? { getRandomValues: (bytes) => require('node:crypto').webcrypto.getRandomValues(bytes) }
+        : require('node:crypto').webcrypto
     }, { filename: relativePath })
     return module.exports
   }
@@ -178,6 +181,20 @@ function assertPreservedIdentity(h) {
   assert.deepEqual(h.mutations.filter((entry) => h.protectedKeys.includes(entry.key)), [],
     'same-session refresh must not clear and recreate authenticated identity caches')
 }
+
+test('HTTP login creates a stable session, refresh preserves it and next login rotates it', () => {
+  const h = session({ httpCrypto: true })
+  h.auth.setToken(newTokens)
+  const first = h.auth.getAuthSessionId()
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  assert.equal(h.auth.getAuthSessionId(), first)
+  h.auth.setRefreshedToken(oldTokens)
+  assert.equal(h.auth.getAuthSessionId(), first)
+  h.auth.removeToken()
+  assert.equal(h.auth.getAuthSessionId(), undefined)
+  h.auth.setToken(newTokens)
+  assert.notEqual(h.auth.getAuthSessionId(), first)
+})
 
 function assertNewTokenPair(h) {
   assert.equal(h.auth.getAccessToken(), newTokens.accessToken)
