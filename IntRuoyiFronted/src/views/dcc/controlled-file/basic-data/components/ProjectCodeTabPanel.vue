@@ -35,6 +35,14 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
       </template>
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-alert v-if="governanceStatusError" type="error" :closable="false" show-icon>
+          工艺路线及主批记录状态加载失败：{{ governanceStatusError }}
+          <el-button link type="primary" @click="loadDccProjectGovernanceStatus(list)">重试</el-button>
+        </el-alert>
+        <el-alert v-if="qaRegulationStatusError" type="error" :closable="false" show-icon>
+          QA规程状态加载失败：{{ qaRegulationStatusError }}
+          <el-button link type="primary" @click="loadQaRegulationStatuses(list)">重试</el-button>
+        </el-alert>
         <div
           v-if="listUnclassifiedAutoClassifyProgressVisible"
           class="dcc-project-code-batch-ai-category-progress"
@@ -781,6 +789,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
     title="DCC基础条目"
     size="96%"
     data-testid="dcc-project-code-detail-drawer"
+    @close="closeProjectCodeDetail"
   >
     <div v-loading="detailLoading" class="dcc-project-code-detail">
       <el-descriptions v-if="selectedProjectCode" :column="2" border>
@@ -1716,6 +1725,11 @@ const list = ref<DccProjectCodeRespVO[]>([])
 const total = ref(0)
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const dccProjectGovernanceByProjectName = ref<Record<string, DccProjectGovernanceStatusVO>>({})
+type ProjectStatusLoadState = 'idle' | 'loading' | 'loaded' | 'error'
+const governanceStatusLoadState = ref<ProjectStatusLoadState>('idle')
+const governanceStatusError = ref('')
+const qaRegulationStatusLoadState = ref<ProjectStatusLoadState>('idle')
+const qaRegulationStatusError = ref('')
 const qaRegulationStatusByDccProjectCodeId = ref<
   Record<number, QaInspectionRegulationProjectStatusVO>
 >({})
@@ -2475,7 +2489,8 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
 const PROJECT_CODE_ROUTE_PATH = '/mdm/project-code'
 
-const isProjectCodeRoute = () => route.path === PROJECT_CODE_ROUTE_PATH
+const isProjectCodeRoute = () =>
+  [PROJECT_CODE_ROUTE_PATH, '/mes/md/dcc-project-code'].includes(route.path)
 
 const resolveRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
@@ -2540,13 +2555,15 @@ const getQaRegulationProjectStatus = (dccProjectCodeId?: number) =>
   dccProjectCodeId ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId] : undefined
 
 const formatDccProjectGovernanceStatus = (status?: string) => {
+  if (governanceStatusLoadState.value === 'error') return '加载失败'
+  if (governanceStatusLoadState.value !== 'loaded') return '加载中'
   if (status === 'OK') {
     return '已配置'
   }
   if (status === 'DUPLICATE') {
     return '重复'
   }
-  return '未配置'
+  return status === 'MISSING' ? '未配置' : '状态未知'
 }
 
 const formatDccProjectGovernanceVersions = (versionNos?: string[] | null) => {
@@ -2561,6 +2578,7 @@ const formatDccProjectGovernanceVersions = (versionNos?: string[] | null) => {
 }
 
 const resolveDccProjectGovernanceTagType = (status?: string) => {
+  if (governanceStatusLoadState.value === 'error') return 'danger'
   if (status === 'OK') {
     return 'success'
   }
@@ -2573,24 +2591,38 @@ const resolveDccProjectGovernanceTagType = (status?: string) => {
 let governanceStatusLoadSerial = 0
 const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
   const serial = ++governanceStatusLoadSerial
+  governanceStatusLoadState.value = 'loading'
+  governanceStatusError.value = ''
+  dccProjectGovernanceByProjectName.value = {}
   const projectNames = rows.map((row) => row.projectName).filter(Boolean)
   if (projectNames.length === 0) {
-    dccProjectGovernanceByProjectName.value = {}
+    governanceStatusLoadState.value = 'loaded'
     return
   }
-  const statuses = await getDccProjectGovernanceStatus(projectNames, {
-    routeStatusRequired: true,
-    mainBatchRecordStatusRequired: true,
-    formSlotStatusRequired: false
-  })
-  if (serial !== governanceStatusLoadSerial) return
-  dccProjectGovernanceByProjectName.value = Object.fromEntries(
-    statuses.map((item) => [item.projectName, item])
-  )
+  try {
+    const statuses = await getDccProjectGovernanceStatus(projectNames, {
+      routeStatusRequired: true,
+      mainBatchRecordStatusRequired: true,
+      formSlotStatusRequired: false
+    })
+    if (serial !== governanceStatusLoadSerial) return
+    dccProjectGovernanceByProjectName.value = Object.fromEntries(
+      statuses.map((item) => [item.projectName, item])
+    )
+    governanceStatusLoadState.value = 'loaded'
+  } catch (error) {
+    if (serial !== governanceStatusLoadSerial) return
+    governanceStatusLoadState.value = 'error'
+    governanceStatusError.value = resolveAiCategoryErrorMessage(error)
+  }
 }
 
 const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
   const loadSerial = ++qaRegulationStatusLoadSerial
+  qaRegulationStatusLoadState.value = 'loading'
+  qaRegulationStatusError.value = ''
+  qaRegulationStatusByDccProjectCodeId.value = {}
+  qaRegulationStatusPermissionDenied.value = false
   const dccProjectCodeIds = rows
     .map((row) => Number(row.id))
     .filter((id) => Number.isFinite(id) && id > 0)
@@ -2598,6 +2630,7 @@ const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
     if (loadSerial === qaRegulationStatusLoadSerial) {
       qaRegulationStatusPermissionDenied.value = false
       qaRegulationStatusByDccProjectCodeId.value = {}
+      qaRegulationStatusLoadState.value = 'loaded'
     }
     return
   }
@@ -2605,23 +2638,31 @@ const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
     if (loadSerial === qaRegulationStatusLoadSerial) {
       qaRegulationStatusPermissionDenied.value = true
       qaRegulationStatusByDccProjectCodeId.value = {}
+      qaRegulationStatusLoadState.value = 'loaded'
     }
     return
   }
-  const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(dccProjectCodeIds)
-  if (loadSerial !== qaRegulationStatusLoadSerial) {
-    return
+  try {
+    const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(dccProjectCodeIds)
+    if (loadSerial !== qaRegulationStatusLoadSerial) return
+    qaRegulationStatusByDccProjectCodeId.value = Object.fromEntries(
+      statuses.map((status) => [status.dccProjectCodeId, status])
+    )
+    qaRegulationStatusLoadState.value = 'loaded'
+  } catch (error) {
+    if (loadSerial !== qaRegulationStatusLoadSerial) return
+    qaRegulationStatusLoadState.value = 'error'
+    qaRegulationStatusError.value = resolveAiCategoryErrorMessage(error)
   }
-  qaRegulationStatusPermissionDenied.value = false
-  qaRegulationStatusByDccProjectCodeId.value = Object.fromEntries(
-    statuses.map((status) => [status.dccProjectCodeId, status])
-  )
 }
 
 const formatQaRegulationStatus = (status?: QaInspectionRegulationProjectStatusVO) => {
   if (qaRegulationStatusPermissionDenied.value) {
     return '无查询权限'
   }
+  if (qaRegulationStatusLoadState.value === 'error') return '加载失败'
+  if (qaRegulationStatusLoadState.value !== 'loaded') return '加载中'
+  if (!status) return '状态未知'
   if (status?.productionReady) {
     return '已发布'
   }
@@ -2632,6 +2673,7 @@ const formatQaRegulationStatus = (status?: QaInspectionRegulationProjectStatusVO
 }
 
 const resolveQaRegulationStatusTagType = (status?: QaInspectionRegulationProjectStatusVO) => {
+  if (qaRegulationStatusLoadState.value === 'error') return 'danger'
   if (status?.productionReady) {
     return 'success'
   }
@@ -2689,10 +2731,9 @@ const getList = async () => {
     if (generation !== projectListRequestGeneration) return false
     list.value = data.list
     total.value = data.total
-    await Promise.all([
-      loadDccProjectGovernanceStatus(data.list),
-      loadQaRegulationStatuses(data.list)
-    ])
+    // Each auxiliary source exposes its own loading/error state; details do not wait for it.
+    void loadDccProjectGovernanceStatus(data.list)
+    void loadQaRegulationStatuses(data.list)
     return generation === projectListRequestGeneration
   } finally {
     if (generation === projectListRequestGeneration) loading.value = false
@@ -3576,10 +3617,24 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
     detailLoading.value = false
   }
   detailDrawerVisible.value = true
+  if (String(route.query.projectCodeId || '') === id) {
+    await syncDetailFromRoute()
+    return
+  }
   await router.replace({
-    path: '/mdm/project-code',
+    path: route.path,
     query: { ...route.query, projectCodeId: id }
   })
+}
+
+const closeProjectCodeDetail = async () => {
+  if (!isProjectCodeRoute() || !route.query.projectCodeId) return
+  const query = { ...route.query }
+  delete query.projectCodeId
+  delete query.associatedFocus
+  delete query.associatedFileId
+  delete query.fileTypeTaxonomyId
+  await router.replace({ path: route.path, query })
 }
 
 const openControlledFileDetail = (row: ControlledFileVO) => {
@@ -3654,7 +3709,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [route.path, route.query.productMasterId],
+  [() => route.path, () => route.query.productMasterId],
   async () => {
     if (!isProjectCodeRoute()) {
       return
@@ -3667,7 +3722,7 @@ watch(
 )
 
 watch(
-  () => [route.path, route.query.projectCodeId],
+  [() => route.path, () => route.query.projectCodeId],
   async () => {
     if (!isProjectCodeRoute()) {
       return
