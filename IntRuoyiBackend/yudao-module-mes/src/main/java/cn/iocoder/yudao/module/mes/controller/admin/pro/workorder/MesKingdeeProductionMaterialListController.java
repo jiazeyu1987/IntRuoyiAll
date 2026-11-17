@@ -76,7 +76,7 @@ public class MesKingdeeProductionMaterialListController {
 
     @PostMapping("/sync-kingdee")
     @Operation(summary = "手动同步 ERP 生产用料清单")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-work-order:create', 'mes:pro-schedule-order:create')")
+    @PreAuthorize("@ss.hasPermission('erp:data-material:operate')")
     public CommonResult<MesKingdeeProductionMaterialListSyncRespVO> syncKingdeeProductionMaterialList() {
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<MesKingdeeProductionMaterialListSyncResult> resultReference = new AtomicReference<>();
@@ -97,7 +97,7 @@ public class MesKingdeeProductionMaterialListController {
 
     @PostMapping("/sync-kingdee-by-production-order-nos")
     @Operation(summary = "按生产订单号同步 ERP 生产用料清单")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-work-order:create', 'mes:pro-schedule-order:create')")
+    @PreAuthorize("@ss.hasPermission('erp:data-material:operate')")
     public CommonResult<MesKingdeeProductionMaterialListSyncRespVO> syncKingdeeProductionMaterialListByOrderNos(
             @Valid @RequestBody MesKingdeeProductionMaterialListOrderSyncReqVO reqVO) {
         MesKingdeeProductionMaterialListSyncResult result =

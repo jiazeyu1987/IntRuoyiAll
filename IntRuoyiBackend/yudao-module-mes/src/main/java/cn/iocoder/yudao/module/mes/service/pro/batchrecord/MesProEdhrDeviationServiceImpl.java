@@ -80,9 +80,13 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
 
     @Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
+    @Resource private MesDeviationAdministratorService administratorService;
 
     @Override
     public List<MesProEdhrDeviationBatchOptionRespVO> getCreationBatchOptionsByActiveOrder(Long actorUserId, Long activeOrderId) {
@@ -113,8 +117,12 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         return batchExecutionOriginMapper.selectListByTraceFilter(activeOrderId, null, null, null).stream()
-                .map(origin -> batchExecutionMapper.selectByTenantIdAndId(tenantId, origin.getBatchExecutionId()))
-                .filter(Objects::nonNull)
+                .filter(origin -> MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()))
+                .map(origin -> {
+                    var batch = batchExecutionMapper.selectByTenantIdAndId(tenantId, origin.getBatchExecutionId());
+                    if (batch == null) throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
+                    return batch;
+                })
                 .collect(java.util.stream.Collectors.toMap(MesProEdhrBatchExecutionDO::getId, batch -> batch,
                         (left, right) -> left, java.util.LinkedHashMap::new))
                 .values().stream()
@@ -186,6 +194,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         String payloadHash = buildCreatePayloadHash(reqVO);
 
         gxpAuditService.acquireLedgerLock();
+        var receiver = administratorService.requireReceiver(reqVO.getReceiverId());
         if (createRequestMapper.reserveOrLock(tenantId, idempotencyKey, payloadHash) < 0) {
             throw new IllegalStateException("EDHR_DEVIATION_IDEMPOTENCY_RESERVATION_FAILED");
         }
@@ -204,36 +213,33 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             throw exception(PRO_EDHR_DEVIATION_SIGNATURE_REQUIRED);
         }
 
-        // The batch row is the shared serialization boundary used by deviation creation and market release.
-        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(
-                tenantId, reqVO.getBatchExecutionId());
-        if (batch == null || !Objects.equals(tenantId, batch.getTenantId())
-                || !Objects.equals(reqVO.getBatchExecutionId(), batch.getId())
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionMapper.BATCH_STATUS_VOIDED)) {
-            throw exception(PRO_EDHR_DEVIATION_BATCH_NOT_EXISTS, reqVO.getBatchExecutionId());
-        }
-        boolean formallyLinked = batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId()).stream()
-                .anyMatch(origin -> origin.getActiveOrderId() != null
-                        && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()));
-        if (!formallyLinked) {
+        // The active-order lock serializes creation with completion/rework; a batch is never fabricated.
+        var order = reqVO.getActiveOrderId() == null ? null : activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
+        if (reqVO.getActiveOrderId() != null) validateOrderLeader(actorUserId, order);
+        if (order == null && reqVO.getBatchExecutionId() == null) throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
+        MesProEdhrBatchExecutionDO batch = null;
+        if (reqVO.getBatchExecutionId() != null) {
+            batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, reqVO.getBatchExecutionId());
+            if (batch == null || !Objects.equals(tenantId, batch.getTenantId())
+                    || !Objects.equals(reqVO.getBatchExecutionId(), batch.getId())
+                    || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionMapper.BATCH_STATUS_VOIDED))
+                throw exception(PRO_EDHR_DEVIATION_BATCH_NOT_EXISTS, reqVO.getBatchExecutionId());
+            var origins = batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId());
+            boolean formallyLinked = origins.stream().anyMatch(origin -> origin.getActiveOrderId() != null
+                    && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()));
+            if (!formallyLinked) throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
+            if (order != null && (!Objects.equals(order.getWorkOrderId(), batch.getWorkOrderId())
+                    || origins.stream().noneMatch(origin -> Objects.equals(origin.getActiveOrderId(), reqVO.getActiveOrderId())
+                    && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()))))
+                throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID);
+            if (releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(tenantId, batch.getId()).stream()
+                    .anyMatch(tx -> "RELEASED".equals(tx.getReleaseStatus())))
+                throw exception(PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED, batch.getId());
+        } else if (!getBatchOptionsByActiveOrder(order.getId()).isEmpty()) {
             throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
         }
-        if (reqVO.getActiveOrderId() != null) {
-            var order = activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
-            validateOrderLeader(actorUserId, order);
-            boolean matchesOrder = batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId()).stream()
-                    .anyMatch(origin -> Objects.equals(origin.getActiveOrderId(), reqVO.getActiveOrderId())
-                            && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType()));
-            if (order == null || !Objects.equals(order.getWorkOrderId(), batch.getWorkOrderId()) || !matchesOrder) {
-                throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID);
-            }
-        }
-        List<MesProEdhrReleaseTransactionDO> transactions =
-                releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(
-                        tenantId, batch.getId());
-        if (transactions.stream().anyMatch(tx -> "RELEASED".equals(tx.getReleaseStatus()))) {
-            throw exception(PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED, batch.getId());
-        }
+        var workOrder = batch != null || order == null ? null : workOrderMapper.selectById(order.getWorkOrderId());
+        if (batch == null && order != null && workOrder == null) throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
 
         String deviationCode = numberGenerator.nextCode(tenantId);
         LocalDateTime initiatedAt = LocalDateTime.now(MesProEdhrDeviationNumberGenerator.BUSINESS_ZONE);
@@ -241,11 +247,12 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         MesProEdhrDeviationDO deviation = new MesProEdhrDeviationDO()
                 .setTenantId(tenantId)
                 .setDeviationCode(deviationCode)
-                .setBatchExecutionId(batch.getId())
-                .setBatchExecutionCode(batch.getBatchExecutionCode())
-                .setWorkOrderId(batch.getWorkOrderId())
-                .setWorkOrderCode(batch.getWorkOrderCode())
-                .setBatchCode(batch.getBatchCode())
+                .setActiveOrderId(order == null ? null : order.getId())
+                .setBatchExecutionId(batch == null ? null : batch.getId())
+                .setBatchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
+                .setWorkOrderId(batch == null ? workOrder.getId() : batch.getWorkOrderId())
+                .setWorkOrderCode(batch == null ? workOrder.getCode() : batch.getWorkOrderCode())
+                .setBatchCode(batch == null ? workOrder.getBatchCode() : batch.getBatchCode())
                 .setLevel(reqVO.getLevel())
                 .setDiscoveryDepartmentId(reqVO.getDiscoveryDepartmentId())
                 .setDiscoveryDepartmentName(trimToNull(reqVO.getDiscoveryDepartmentName()))
@@ -258,7 +265,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                 .setEquipmentOrSystem(trimToNull(reqVO.getEquipmentOrSystem()))
                 .setReportedAt(reqVO.getReportedAt())
                 .setReceiverId(reqVO.getReceiverId())
-                .setReceiverName(trimToNull(reqVO.getReceiverName()))
+                .setReceiverName(receiver.getNickname())
                 .setCategoryCodesJson(JSON.toJSONString(normalizedCategoryCodes(reqVO)))
                 .setDescription(reqVO.getDescription().trim())
                 .setEmergencyAction(trimToNull(reqVO.getEmergencyAction()))
@@ -275,7 +282,9 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         }
         String canonicalContent = canonicalInitiationContent(deviation);
         String contentHash = DigestUtil.sha256Hex(canonicalContent);
-        Long signatureId = executionSignatureService.recordDeviationInitiationSignature(
+        Long signatureId = batch == null ? executionSignatureService.recordActiveOrderDeviationInitiationSignature(
+                actorUserId, order.getId(), deviation.getId(), deviationCode, workOrder.getCode(),
+                reqVO.getSignaturePassword(), contentHash) : executionSignatureService.recordDeviationInitiationSignature(
                 actorUserId,
                 batch.getId(),
                 deviation.getId(),
@@ -309,7 +318,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Page<MesProEdhrDeviationDO> page = deviationMapper.selectPageByTenant(
                 new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), tenantId, reqVO.getStatus(),
-                reqVO.getLevel(), reqVO.getBatchExecutionId(), reqVO.getSearch(), reqVO.getSortField(),
+                reqVO.getLevel(), reqVO.getBatchExecutionId(), reqVO.getActiveOrderId(), reqVO.getSearch(), reqVO.getSortField(),
                 reqVO.getSortOrder(), reqVO.getInitiatedAtStart(), reqVO.getInitiatedAtEnd(), reqVO);
         List<Long> batchIds = page.getRecords().stream()
                 .filter(row -> STATUS_OPEN.equals(row.getStatus()) && LEVEL_CRITICAL.equals(row.getLevel()))
@@ -367,7 +376,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     private MesProEdhrDeviationRespVO toRespWithTransferEligibility(MesProEdhrDeviationDO deviation) {
         MesProEdhrDeviationRespVO response = toResp(deviation);
         MesProEdhrBatchExecutionDO batch = STATUS_OPEN.equals(deviation.getStatus())
-                && LEVEL_CRITICAL.equals(deviation.getLevel())
+                && LEVEL_CRITICAL.equals(deviation.getLevel()) && deviation.getBatchExecutionId() != null
                 ? batchExecutionMapper.selectByTenantIdAndId(
                         TenantContextHolder.getRequiredTenantId(), deviation.getBatchExecutionId()) : null;
         return applyTransferEligibility(deviation, response, batch,
@@ -379,6 +388,24 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         response.setCanTransferToNcr(false);
         if (!STATUS_OPEN.equals(deviation.getStatus()) || !LEVEL_CRITICAL.equals(deviation.getLevel())) {
             return response.setTransferToNcrBlockedReason("仅未关闭的关键偏差可以转不合格审批");
+        }
+        if (deviation.getBatchExecutionId() == null && deviation.getActiveOrderId() != null) {
+            var order = activeOrderMapper.selectById(deviation.getActiveOrderId());
+            if (order == null || !Objects.equals(order.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                    || !"ACTIVE".equals(order.getActiveStatus()))
+                return response.setTransferToNcrBlockedReason("原订单已退役或不可转审，请继续调查并按常规关闭偏差");
+            var formalBatches = getBatchOptionsByActiveOrder(order.getId());
+            if (formalBatches.size() > 1 || (formalBatches.isEmpty() && !"ACTIVE".equals(order.getBusinessStatus())))
+                return response.setTransferToNcrBlockedReason("订单正式批记录关系不完整，不能转审");
+            if (!formalBatches.isEmpty()) {
+                var formalBatch = batchExecutionMapper.selectByTenantIdAndId(
+                        TenantContextHolder.getRequiredTenantId(), formalBatches.get(0).getBatchExecutionId());
+                String formalReason = batchTransferBlockedReason(formalBatch);
+                if (formalReason != null) return response.setTransferToNcrBlockedReason(formalReason);
+            }
+            if (nonconformanceReviewMapper.selectFirstBlockingByWorkOrderId(order.getWorkOrderId()) != null)
+                return response.setTransferToNcrBlockedReason("关联订单已有待处置不合格审批");
+            return response.setCanTransferToNcr(true);
         }
         String reason = batchTransferBlockedReason(batch);
         if (reason != null) {
@@ -469,6 +496,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         content.put("deviationId", deviation.getId());
         content.put("deviationCode", deviation.getDeviationCode());
         content.put("tenantId", deviation.getTenantId());
+        if (deviation.getActiveOrderId() != null) content.put("activeOrderId", deviation.getActiveOrderId());
         content.put("batchExecutionId", deviation.getBatchExecutionId());
         content.put("batchExecutionCode", deviation.getBatchExecutionCode());
         content.put("workOrderId", deviation.getWorkOrderId());
@@ -499,14 +527,16 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
 
     private void appendInitiationAudit(Long tenantId, MesProEdhrDeviationDO deviation,
                                        String canonicalContent, String contentHash) {
-        Map<String, Object> before = Map.of(
-                "exists", false,
-                "batchExecutionId", deviation.getBatchExecutionId());
+        Map<String, Object> before = new TreeMap<>();
+        before.put("exists", false);
+        before.put("batchExecutionId", deviation.getBatchExecutionId());
+        before.put("activeOrderId", deviation.getActiveOrderId());
         Map<String, Object> after = new TreeMap<>();
         after.put("exists", true);
         after.put("deviationId", deviation.getId());
         after.put("deviationCode", deviation.getDeviationCode());
         after.put("batchExecutionId", deviation.getBatchExecutionId());
+        after.put("activeOrderId", deviation.getActiveOrderId());
         after.put("level", deviation.getLevel());
         after.put("contentHash", contentHash);
         after.put("signatureId", deviation.getInitiatorSignatureId());
@@ -547,6 +577,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         MesProEdhrDeviationRespVO response = new MesProEdhrDeviationRespVO()
                 .setId(deviation.getId())
                 .setDeviationCode(deviation.getDeviationCode())
+                .setActiveOrderId(deviation.getActiveOrderId()).setWorkOrderCode(deviation.getWorkOrderCode())
                 .setBatchExecutionId(deviation.getBatchExecutionId())
                 .setBatchExecutionCode(deviation.getBatchExecutionCode())
                 .setBatchCode(deviation.getBatchCode())

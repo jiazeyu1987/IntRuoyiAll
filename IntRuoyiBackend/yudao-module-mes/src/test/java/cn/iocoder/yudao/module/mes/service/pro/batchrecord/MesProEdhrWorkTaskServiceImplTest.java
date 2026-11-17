@@ -95,6 +95,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         @org.springframework.context.annotation.Bean
         org.apache.ibatis.plugin.Interceptor mysqlBitsForIsolatedH2() { return new MesNcrScopeAuditTransactionTest.MysqlBitsForH2(); }
     }
+    @MockitoBean
+    private MesDeviationAdministratorService administratorService;
+
     @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @MockitoBean private MesMarketReleaseAccess marketReleaseAccess;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;

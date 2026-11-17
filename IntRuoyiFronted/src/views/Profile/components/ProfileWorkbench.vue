@@ -69,7 +69,7 @@
           :stripe="true"
           row-key="taskKey"
           height="100%"
-          :empty-text="loading ? silentLoading ? ' ' : '加载中' : total === undefined ? '待办列表尚未加载成功，请重试' : activeVisibilityTab === 'hidden' ? '暂无隐藏任务' : '当前没有待办任务'"
+          :empty-text="todoEmptyText"
           :show-overflow-tooltip="true"
           @header-dragend="handleTodoHeaderDragend"
           @sort-change="handleTemplateSortChange"
@@ -280,6 +280,12 @@ const todoQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => 
 
 
 const enabledSources = computed<ProfileWorkbenchTodoSourceId[]>(() => normalizeProfileWorkbenchSources(authorizedWorkbenchSources().map(source => source.sourceId)))
+const todoEmptyText = computed(() => {
+  if (loading.value) return silentLoading.value ? ' ' : '加载中'
+  if (total.value === undefined) return '待办列表尚未加载成功，请重试'
+  if (enabledSources.value.length === 0) return '当前账号暂无已授权的工作台任务来源'
+  return activeVisibilityTab.value === 'hidden' ? '暂无隐藏任务' : '当前没有待办任务'
+})
 
 const rawQueryKey = () => JSON.stringify([queryParams, activeVisibilityTab.value, sortState.value])
 interface PageToken {

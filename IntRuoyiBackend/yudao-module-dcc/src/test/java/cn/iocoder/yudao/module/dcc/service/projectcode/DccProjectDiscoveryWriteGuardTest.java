@@ -10,6 +10,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Actual VIEW project reader must not gain write capability merely because an update menu is present. */
 class DccProjectDiscoveryWriteGuardTest extends DccProjectDiscoveryReadTest {
+    @jakarta.annotation.Resource
+    cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService access;
+
+    @Test void projectCodeAdministratorCanSaveStorageLocationWithoutProjectFileEditAccess() throws Exception {
+        var project = project("METADATA-ADMIN", 7L);
+        when(permissions.hasAnyRoles(8L, "dcc_project_code_admin")).thenReturn(true);
+        when(permissions.hasAnyPermissions(8L, "dcc:project-code:update")).thenReturn(true);
+        discoveryMvc().perform(put("/dcc/project-codes/update").contentType("application/json")
+                        .content("{\"id\":\"" + project.getId() + "\",\"projectName\":\"METADATA-ADMIN\","
+                                + "\"projectCode\":\"METADATA-ADMIN\",\"storageLocation\":\"A-02\",\"status\":\"ENABLE\"}"))
+                .andExpect(jsonPath("$.code").value(0));
+        assertEquals("A-02", projects.selectById(project.getId()).getStorageLocation());
+        assertFalse(access.hasProjectEditorOrOwner(8L, project.getId()));
+        assertFalse(access.hasProjectOwner(8L, project.getId()));
+    }
     @Test void discoveryWriteMetadataViewCannotEditProjectWithUpdateMenu() throws Exception {
         var project=project("DISCOVERY-VIEW-WRITE",7L);view(project.getId());
         when(permissions.hasAnyPermissions(8L,"dcc:project-code:update")).thenReturn(true);

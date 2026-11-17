@@ -31,6 +31,7 @@ public class MesProEdhrDeviationDO extends BaseDO {
     private Long id;
     private Long tenantId;
     private String deviationCode;
+    private Long activeOrderId;
     private Long batchExecutionId;
     private String batchExecutionCode;
     private Long workOrderId;

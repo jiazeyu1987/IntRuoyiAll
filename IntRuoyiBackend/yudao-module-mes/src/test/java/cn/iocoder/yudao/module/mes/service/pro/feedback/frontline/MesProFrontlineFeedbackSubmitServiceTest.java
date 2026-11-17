@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -100,27 +101,42 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void overLimitCreatesOnlyDraftBeforeAnyFormalWriteOrSignature() {
-        var cap=(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService)
-                org.springframework.test.util.ReflectionTestUtils.getField(submitService,"quantityCapacityService");
-        var drafts=(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityDraftService)
-                org.springframework.test.util.ReflectionTestUtils.getField(submitService,"quantityDrafts");
-        var draft=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProductionQuantityDraftDO();draft.setId(99L);
-        when(cap.evaluate(any())).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService.Capacity(
-                null,new BigDecimal("600"),new BigDecimal("600"),new BigDecimal("1200"),new BigDecimal("1100")));
-        when(drafts.capture(any(),any(),any(),any())).thenReturn(draft);
-        when(drafts.blocked(eq(draft),any())).thenReturn(new MesProFrontlineFeedbackSubmitRespVO()
-                .setSubmissionStatus("QUANTITY_BLOCKED").setQuantityDraftId(99L));
-        var request=MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().setActualEmployeeId(9102L)
+    void overLimitSavesSignedFormalReportWithWarningAndOriginalFilling() {
+        var capacity = (cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService)
+                org.springframework.test.util.ReflectionTestUtils.getField(submitService, "quantityCapacityService");
+        var drafts = (cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityDraftService)
+                org.springframework.test.util.ReflectionTestUtils.getField(submitService, "quantityDrafts");
+        when(capacity.evaluate(any())).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityCapacityService.Capacity(
+                null, new BigDecimal("600"), new BigDecimal("600"), new BigDecimal("1200"), new BigDecimal("1100")));
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+                .thenReturn(4001L);
+        stubValidLossReason();
+        var request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().setActualEmployeeId(9102L)
                 .setSignatureEmployeeId(9102L).setSignatureIdentityDomain("SYSTEM_USER");
-        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
+        var originalQuantity = request.getFeedbackPayload().getOutputQuantity();
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            var result=MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService,request);
-            assertEquals("QUANTITY_BLOCKED",result.getSubmissionStatus());assertEquals(99L,result.getQuantityDraftId());
+            var result = MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request);
+            assertEquals("SUBMITTED", result.getSubmissionStatus());
+            assertEquals(501L, result.getFeedbackId());
+            assertEquals(801L, result.getProcessPoolEventId());
+            assertTrue(result.getQuantityWarningMessage().contains("1200"));
+            assertTrue(result.getQuantityWarningMessage().contains("1100"));
+            assertNull(result.getQuantityDraftId());
         }
-        verifyNoInteractions(signatureService,feedbackService,feedbackMaterialService,parameterAuditService,autoCodeRecordService);
-        verify(processPoolSubmitEventService,never()).createSubmitEvent(any());
-        verify(processPoolSubmitEventService,never()).createInitialAllocation(any(),any(),any());
+        verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, originalQuantity);
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            var warning = (Map<?, ?>) payload.getRawPayload().get("productionQuantityWarning");
+            assertEquals(new BigDecimal("1200"), warning.get("projectedQuantity"));
+            assertEquals(originalQuantity, payload.getOutputQuantity());
+            assertEquals(4001L, payload.getSignatureId());
+            return true;
+        }));
+        verify(drafts, never()).capture(any(), any(), any(), any());
+        verify(drafts, never()).blocked(any(), any());
     }
 
     @Test

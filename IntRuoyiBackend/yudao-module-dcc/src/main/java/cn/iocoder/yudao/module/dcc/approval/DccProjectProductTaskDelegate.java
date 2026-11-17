@@ -72,7 +72,13 @@ public class DccProjectProductTaskDelegate {
         if(!done && context.getViewType()!=ApprovalTaskViewType.TODO)throw new IllegalArgumentException("PROJECT_TASK_VIEW_UNSUPPORTED");
         var base=new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DccProjectProductCreateRequestDO>();
         base.eq("tenant_id",tenant).in("status","PENDING_REVIEW","PENDING_APPROVAL","REJECTED","WRITING","WRITE_FAILED","COMPLETED");
-        var invalid=base.clone().apply("COALESCE(((review_contract IS NULL AND reviewer_role_id IS NULL AND reviewer_role_code IS NULL) OR (review_contract='ROLE_SINGLE_REVIEW_V1' AND reviewer_role_id>0 AND reviewer_role_code='dcc_project_reviewer')),0)=0");
+        // Direct creation is a valid persisted contract, but never an approval task.
+        // Match isRoleContract's identity checks instead of rejecting every direct-create row.
+        var invalid=base.clone().apply("COALESCE(((review_contract IS NULL AND reviewer_role_id IS NULL AND reviewer_role_code IS NULL)"
+                + " OR (review_contract='ROLE_SINGLE_REVIEW_V1' AND reviewer_role_id>0 AND reviewer_role_code='dcc_project_reviewer')"
+                + " OR (review_contract={0} AND reviewer_role_id IS NULL AND reviewer_role_code IS NULL"
+                + " AND configured_reviewer_user_id IS NULL AND reviewer_user_id IS NULL AND approver_user_id IS NULL)),0)=0",
+                DccProjectProductCreateService.DIRECT_CREATE_CONTRACT);
         if(requests.selectCount(invalid)>0)throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerRoleService.CONTRACT_INVALID);
         Long role=!done && !context.isGlobalView() && requests.selectCount(base.clone().eq("status","PENDING_REVIEW").eq("review_contract","ROLE_SINGLE_REVIEW_V1"))>0?reviewerRoles.reviewableRoleId(actor):null;
         boolean isApprover=actors.isApprover(actor);

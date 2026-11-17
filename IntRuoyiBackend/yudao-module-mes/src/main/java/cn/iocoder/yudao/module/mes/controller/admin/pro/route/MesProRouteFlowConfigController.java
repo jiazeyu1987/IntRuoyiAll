@@ -72,6 +72,13 @@ public class MesProRouteFlowConfigController {
         return success(true);
     }
 
+    @GetMapping("/device-options")
+    @Operation(summary = "查询当前租户可配置的路线设备")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:query')")
+    public CommonResult<List<cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterDeviceRespVO>> getRouteDeviceOptions() {
+        return success(routeFlowConfigService.getRouteDeviceOptions());
+    }
+
     @GetMapping("/process-device-parameters")
     @Operation(summary = "获得工艺路线工序设备参数配置")
     @Parameter(name = "routeProcessId", description = "路线工序编号", required = true)

@@ -102,6 +102,37 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     }
 
     @Test
+    void engineFailureLogsCauseAndDoesNotSaveApprovalBinding() throws Exception {
+        var failure = new IllegalStateException("engine failure", new IllegalArgumentException("engine cause"));
+        var dto = new cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO();
+        dto.setProcessDefinitionKey("dcc-registration-certificate-access");
+        dto.setBusinessKey("DCC_REG_CERT_ACCESS:1001");
+        when(bpmProcessInstanceApi.createProcessInstance(ACTOR_ID, dto)).thenThrow(failure);
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+                DccRegistrationCertificateApprovalService.class);
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            var error = assertThrows(ServiceException.class, () ->
+                    org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                            service, "createNativeProcessInstance", ACTOR_ID, dto));
+            assertEquals(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT.getCode(), error.getCode());
+            org.junit.jupiter.api.Assertions.assertSame(failure, error.getCause());
+            assertEquals(1, appender.list.size());
+            var event = appender.list.get(0);
+            assertEquals(ch.qos.logback.classic.Level.ERROR, event.getLevel());
+            org.junit.jupiter.api.Assertions.assertTrue(event.getFormattedMessage().contains(dto.getBusinessKey()));
+            assertEquals(IllegalStateException.class.getName(), event.getThrowableProxy().getClassName());
+            assertEquals(IllegalArgumentException.class.getName(), event.getThrowableProxy().getCause().getClassName());
+            verify(bindingMapper, never()).insert(any(DccRegistrationCertificateBpmBindingDO.class));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
     void approvalDetailRequiresExactBindingAndTenantEvenForRequester() {
         var request = request("BPM_BOUND");
         request.setBpmProcessInstanceId("proc-1");

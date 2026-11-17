@@ -6,6 +6,8 @@
         :detail="orderDetail"
         :loading="orderDetailLoading"
         :error="orderDetailError"
+        signature-scope-type="NCR_REVIEW"
+        :signature-scope-id="orderDetailReview?.id"
         read-only
         @retry="retryOrderDetail"
       />
@@ -905,7 +907,7 @@ const loadReviewEntry = async () => {
   const query = { ...route.query }
   const handoffEntry = ['handoffTaskId', 'handoffType', 'roundId', 'handoffReadOnly']
     .some(key => query[key] !== undefined)
-  const exactEntry = query.reviewId !== undefined || query.from === 'deviation' ||
+  const exactEntry = query.reviewId !== undefined || query.from === 'deviation' || query.from === 'signature-governance' ||
     query.deviationId !== undefined || handoffEntry
   if (!exactEntry) {
     void loadReviews()
@@ -919,7 +921,11 @@ const loadReviewEntry = async () => {
   listLoading.value = true
   try {
     const reviewId = requireReviewIdentity(query.reviewId)
-    let readOnly = false
+    const fromSignatureGovernance = query.from === 'signature-governance'
+    if (fromSignatureGovernance && Object.keys(query).some(key => key !== 'reviewId' && key !== 'from')) {
+      throw new Error('签名治理评审详情入口不能混入其他业务参数。')
+    }
+    let readOnly = fromSignatureGovernance
     let handoffActiveOrderId: string | undefined
     if (handoffEntry) {
       const keys = ['reviewId', 'activeOrderId', 'handoffTaskId', 'roundId', 'handoffType']
@@ -943,7 +949,8 @@ const loadReviewEntry = async () => {
         throw new Error('交接与正式评审任务不一致，请重新进入。')
       }
       const url = new URL(task.actionUrl, 'http://handoff.invalid')
-      const urlKeys = Array.from(url.searchParams.keys())
+      const urlKeys: string[] = []
+      url.searchParams.forEach((_value, key) => urlKeys.push(key))
       if (url.origin !== 'http://handoff.invalid' || url.hash ||
         url.pathname !== '/mes/pro/feedback/edhr-nonconformance-review' ||
         urlKeys.length !== keys.length || new Set(urlKeys).size !== keys.length ||
@@ -959,10 +966,10 @@ const loadReviewEntry = async () => {
       }
       readOnly = !context.processable
     }
-    if (query.from !== undefined && query.from !== 'deviation') {
+    if (query.from !== undefined && query.from !== 'deviation' && !fromSignatureGovernance) {
       throw new Error('关联不合格评审入口来源无效。')
     }
-    if (query.autoCreate !== undefined || (!handoffEntry && query.activeOrderId !== undefined)) {
+    if (query.autoCreate !== undefined || (!handoffEntry && query.from !== 'deviation' && query.activeOrderId !== undefined)) {
       throw new Error('关联评审详情不能同时发起新的评审。')
     }
     const fromDeviation = query.from === 'deviation'
@@ -970,7 +977,9 @@ const loadReviewEntry = async () => {
       throw new Error('关联评审的偏差来源参数不完整。')
     }
     const deviationId = fromDeviation ? requireReviewIdentity(query.deviationId) : undefined
-    const batchId = fromDeviation ? requireReviewIdentity(query.batchExecutionId) : undefined
+    const batchId = fromDeviation && query.batchExecutionId !== undefined ? requireReviewIdentity(query.batchExecutionId) : undefined
+    const deviationOrderId = fromDeviation && query.activeOrderId !== undefined ? requireReviewIdentity(query.activeOrderId) : undefined
+    if (fromDeviation && (batchId === undefined) === (deviationOrderId === undefined)) throw new Error('偏差入口必须提供唯一订单或批次身份。')
     const review = await getNonconformanceReview(reviewId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     if (!review || requireReviewIdentity(review.id) !== reviewId) {
@@ -982,8 +991,8 @@ const loadReviewEntry = async () => {
     }
     if (fromDeviation) {
       if (review.sourceType !== SOURCE_TYPE_DEVIATION ||
-        requireReviewIdentity(review.batchExecutionId) !== batchId ||
-        requireReviewIdentity(review.sourceId) !== batchId) {
+        (batchId !== undefined ? (requireReviewIdentity(review.batchExecutionId) !== batchId ||
+        requireReviewIdentity(review.sourceId) !== batchId) : requireReviewIdentity(review.activeOrderId) !== deviationOrderId)) {
         throw new Error('关联评审的正式偏差来源或批次不一致，不能打开。')
       }
       if (!review.deviationIdsJson) throw new Error('关联评审缺少正式偏差成员记录。')

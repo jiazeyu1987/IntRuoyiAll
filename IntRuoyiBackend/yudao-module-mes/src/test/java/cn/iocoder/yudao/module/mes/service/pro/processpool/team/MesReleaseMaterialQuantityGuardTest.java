@@ -4,7 +4,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
-import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
@@ -14,8 +13,8 @@ import static org.mockito.Mockito.*;
 
 class MesReleaseMaterialQuantityGuardTest {
     @Test void fourMaterialsAtTenEachAreTenProcessUnits() { assertDoesNotThrow(() -> check("10")); }
-    @Test void oneMaterialOverTargetStillBlocksEvenWhenOtherMaterialsAreAtTarget() {
-        assertThrows(MesReleaseFlowBlockerException.class, () -> check("11"));
+    @Test void oneMaterialOverTargetIsAdvisoryWhenOtherMaterialsAreAtTarget() {
+        assertDoesNotThrow(() -> check("11"));
     }
     private void check(String firstQuantity) {
         var allocationMapper = mock(MesProcessPoolReportAllocationMapper.class);
@@ -26,6 +25,7 @@ class MesReleaseMaterialQuantityGuardTest {
         ReflectionTestUtils.setField(service,"productionEventMapper",eventMapper);
         var order = MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).routeId(3L).build();
         var process = MesProcessPoolActiveOrderProcessSnapshotDO.builder().routeProcessId(4L).processId(5L)
+                .erpFixedQuantitySnapshot(BigDecimal.TEN).productionQuantityFactorSnapshot(BigDecimal.ONE)
                 .plannedQuantitySnapshot(BigDecimal.TEN).productionConfigSnapshotJson("{\"outputMaterialIds\":[101,102,103,104]}").build();
         var allocations = new java.util.ArrayList<MesProcessPoolReportAllocationDO>();
         var events = new java.util.ArrayList<MesProProcessPoolEventDO>();
@@ -39,6 +39,6 @@ class MesReleaseMaterialQuantityGuardTest {
         }
         when(allocationMapper.selectListByActiveOrderIds(List.of(1L))).thenReturn(allocations);
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(List.of(301L,302L,303L,304L))).thenReturn(events);
-        ReflectionTestUtils.invokeMethod(service,"requireNoProductionQuantityConflict",order,List.of(process));
+        ReflectionTestUtils.invokeMethod(service,"requireValidProductionAllocations",order,List.of(process));
     }
 }

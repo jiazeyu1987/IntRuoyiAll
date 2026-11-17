@@ -91,6 +91,21 @@ public class MesProcessPoolFifoAllocationService {
         }
     }
 
+    /** Quantity corrections preserve every current FIFO consumer and only change the free balance. */
+    public void validateOutputQuantityMutationAllowed(Long fragmentId, BigDecimal quantity) {
+        requirePresent(fragmentId, "sourceQuantityFragmentId");
+        if (quantity == null || quantity.signum() <= 0) {
+            throw exception(PRO_PROCESS_POOL_FIFO_QUANTITY_INVALID, "outputQuantity");
+        }
+        BigDecimal allocated = allocationLineMapper
+                .selectListBySourceQuantityFragmentIdsForUpdate(List.of(fragmentId)).stream()
+                .map(MesProcessPoolFifoAllocationLineDO::getAllocatedQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (quantity.compareTo(allocated) < 0) {
+            throw exception(PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED, fragmentId);
+        }
+    }
+
     private void validateCommand(MesProcessPoolFifoAllocationCommand command) {
         Objects.requireNonNull(command, "command");
         requirePresent(command.getAllocationBatchNo(), "allocationBatchNo");

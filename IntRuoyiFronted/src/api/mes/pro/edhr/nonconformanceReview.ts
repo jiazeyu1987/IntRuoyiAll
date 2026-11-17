@@ -56,7 +56,8 @@ export interface EdhrNonconformanceReviewActiveOrderRespVO {
 
 export interface EdhrDeviationNcrCreateReqVO {
   qaReviewerUserId: string | number
-  batchExecutionId: EdhrRouteId
+  activeOrderId?: EdhrRouteId
+  batchExecutionId?: EdhrRouteId
   deviationIds: EdhrRouteId[]
   nonconformanceReason: string
   remark?: string

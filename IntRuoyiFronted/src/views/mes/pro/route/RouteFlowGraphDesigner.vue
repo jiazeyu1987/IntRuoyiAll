@@ -160,7 +160,7 @@
           </div>
         </div>
         <el-tag
-          v-if="graphDirty"
+          v-if="graphDirty || hasProductionProcessConfigJsonDraftChanges()"
           class="route-flow-graph-designer__unsaved"
           data-flow-status="unsaved"
           effect="dark"
@@ -181,6 +181,22 @@
       </div>
     </div>
 
+    <el-alert
+      v-if="operationError"
+      data-flow-status="save-error"
+      :title="operationError"
+      type="error"
+      :closable="false"
+      show-icon
+    />
+    <el-alert
+      v-if="productionConfigSavedMessage"
+      data-flow-status="production-config-saved"
+      :title="productionConfigSavedMessage"
+      type="success"
+      :closable="false"
+      show-icon
+    />
     <div v-loading="loading" class="route-flow-graph-designer__main">
       <aside
         :aria-busy="
@@ -1545,6 +1561,15 @@
                           保存
                         </el-button>
                       </div>
+                      <RouteOverageEditor
+                        v-if="selectedNode && selectedProcessRouteConfigCache"
+                        :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
+                        :disabled="recordBindingEditorDisabled"
+                        @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, value)"
+                      />
+                      <span class="route-flow-graph-designer__selected-detail-note">
+                        工序增删与配置请使用顶部保存一并提交。
+                      </span>
                       <el-input
                         :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
                         data-route-process-setting-field="production-process-config-json"
@@ -1572,6 +1597,27 @@
                           刷新
                         </el-button>
                       </div>
+                      <RouteOverageEditor
+                        v-if="selectedNode && selectedProcessRouteConfigCache"
+                        :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
+                        :disabled="recordBindingEditorDisabled"
+                        @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, value)"
+                      />
+                      <el-alert
+                        v-if="selectedNode && selectedProcessRouteConfigCache && (hasRouteProcessStructureChanges() || hasProductionProcessConfigJsonDraftChanges(selectedNode.routeProcessId))"
+                        title="请填写允许超量比例并点击顶部保存，再新增设备组、选择设备并保存设备组。"
+                        type="info"
+                        :closable="false"
+                      />
+                      <RouteDeviceGroups
+                        v-if="selectedNode && selectedProcessRouteConfigCache && props.routeVersionEditContext?.routeVersionId"
+                        :key="`${props.routeVersionEditContext.routeVersionId}-${selectedNode.routeProcessId}`"
+                        :route-process-id="selectedNode.routeProcessId"
+                        :route-version-id="props.routeVersionEditContext.routeVersionId"
+                        :snapshot="selectedProcessRouteConfigCache.productionProcessConfigSnapshot"
+                        :disabled="recordBindingEditorDisabled || hasProductionProcessConfigJsonDraftChanges(selectedNode.routeProcessId) || hasRouteProcessStructureChanges()"
+                        @saved="handleDeviceGroupsSaved"
+                      />
                       <RouteCraftBinding
                         v-if="routeProcessDeviceParameterConfig?.processId && props.routeVersionEditContext?.routeVersionId && selectedNode"
                         :key="selectedNode.routeProcessId"
@@ -2083,6 +2129,8 @@
 <script setup lang="ts">
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import RouteLossReasonBinding from './components/RouteLossReasonBinding.vue'
+import RouteDeviceGroups from './components/RouteDeviceGroups.vue'
+import RouteOverageEditor from './components/RouteOverageEditor.vue'
 import RouteCraftBinding from './components/RouteCraftBinding.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -2263,8 +2311,8 @@ type RecordBindingCandidateOption = {
 }
 type ProcessFormBindingCopySourceOption = {
   label: string
-  value: number
-  routeProcessId: number
+  value: MesRouteId
+  routeProcessId: MesRouteId
   bindings: RouteFlowRecordBinding[]
 }
 type ProcessDetailMachineryTarget = Pick<
@@ -2273,18 +2321,18 @@ type ProcessDetailMachineryTarget = Pick<
 >
 type AutoLayoutOptions = {
   notify?: boolean
-  focusRouteProcessId?: number
+  focusRouteProcessId?: MesRouteId
 }
 type RouteFlowLayoutPosition = {
   x: number
   y: number
 }
 type HeightAwareTailChainLayoutOptions = {
-  positions: Map<number, RouteFlowLayoutPosition>
-  incoming: Map<number, number[]>
-  outgoing: Map<number, number[]>
+  positions: Map<MesRouteId, RouteFlowLayoutPosition>
+  incoming: Map<MesRouteId, MesRouteId[]>
+  outgoing: Map<MesRouteId, MesRouteId[]>
   rowCapacity: number
-  compareRouteProcessIds: (leftId: number, rightId: number) => number
+  compareRouteProcessIds: (leftId: MesRouteId, rightId: MesRouteId) => number
 }
 const DEFAULT_AUTO_LAYOUT_OPTIONS: AutoLayoutOptions = {}
 
@@ -2296,7 +2344,7 @@ const props = defineProps<{
   formType: string
   submitting: boolean
   initialStartSetting?: RouteStartSetting
-  targetRouteProcessId?: number
+  targetRouteProcessId?: MesRouteId
   routeVersionEditContext?: RouteVersionEditContext
 }>()
 const emit = defineEmits<{
@@ -2382,8 +2430,8 @@ const LAYOUT_TOP_PADDING = 72
 const MAX_VISIBLE_COLUMNS = 5
 const PROCESS_START_NODE_ID = 'process-start'
 const PROCESS_END_NODE_ID = 'process-end'
-type ConnectionSourceRouteProcessId = number | typeof PROCESS_START_NODE_ID
-type ConnectionTargetRouteProcessId = number | typeof PROCESS_END_NODE_ID
+type ConnectionSourceRouteProcessId = MesRouteId | typeof PROCESS_START_NODE_ID
+type ConnectionTargetRouteProcessId = MesRouteId | typeof PROCESS_END_NODE_ID
 type ConnectionProcessOption = {
   routeProcessId: ConnectionSourceRouteProcessId | ConnectionTargetRouteProcessId
   processName?: string
@@ -2445,10 +2493,7 @@ type SelectedProcessRouteConfigCache = {
   scheduleConfigs: ProRouteFlowProcessConfigVO[]
   batchConfigs: ProRouteFlowProcessConfigVO[]
   routeScheduleConfigs: ProRouteScheduleConfigVO[]
-  productionProcessConfigSnapshot: {
-    routeSnapshotSha256: string
-    productionProcessConfigs: ProRouteProductionProcessConfigVO[]
-  }
+  productionProcessConfigSnapshot: ProRouteProductionProcessConfigSnapshotVO
 }
 type RouteNodeBindingStatus = 'none' | 'bound' | 'missing'
 type CapacityWorkstationRepairMode = 'reuse' | 'create'
@@ -2459,7 +2504,7 @@ type CapacityWorkstationRepairForm = {
 type CapacityWorkstationRepairSourceOption = {
   value: string
   sourceType: 'route-process' | 'workstation'
-  sourceRouteProcessId?: number
+  sourceRouteProcessId?: MesRouteId
   processId?: number
   processCode?: string
   processName?: string
@@ -2613,10 +2658,10 @@ const flowNodes = ref<RouteFlowVueNode[]>([])
 const flowEdges = ref<RouteFlowVueEdge[]>([])
 const graphCanvasRef = ref<HTMLElement>()
 const processOptions = ref<ProProcessVO[]>([])
-const pendingDeletedRouteProcessIds = ref<Set<number>>(new Set())
-const loadedRouteProcessIds = ref<Set<number>>(new Set())
+const pendingDeletedRouteProcessIds = ref<Set<MesRouteId>>(new Set())
+const loadedRouteProcessIds = ref<Set<MesRouteId>>(new Set())
 const nextDraftRouteProcessId = ref(-1)
-const invalidRouteProcessIds = ref<Set<number>>(new Set())
+const invalidRouteProcessIds = ref<Set<MesRouteId>>(new Set())
 const selectedRouteProcessId = ref<MesRouteId | null>(null)
 const selectedBoundaryType = ref<RouteFlowBoundaryType | null>(null)
 const selectedBoundaryDetailFieldKey = ref<BoundaryDetailFieldKey>()
@@ -2638,8 +2683,10 @@ const connectionTargetInputText = ref('')
 const connectionSourceRouteProcessId = ref<ConnectionSourceRouteProcessId | null>(null)
 const connectionTargetRouteProcessId = ref<ConnectionTargetRouteProcessId | null>(null)
 const graphDirty = ref(false)
+const operationError = ref('')
+const productionConfigSavedMessage = ref('')
 const autoLayoutRevision = ref(0)
-const highlightedRouteProcessId = ref<number | null>(null)
+const highlightedRouteProcessId = ref<MesRouteId | null>(null)
 const highlightedProcessDetailFieldKey = ref<ProcessDetailFieldKey>()
 const searchKeyword = ref('')
 const selectedProcessDetail = ref<ProProcessVO>()
@@ -2669,15 +2716,15 @@ const recordBindingUserOptionsError = ref('')
 const recordBindingRoleOptions = ref<RoleVO[]>([])
 const recordBindingRoleOptionsLoading = ref(false)
 const processFormBindingCopyPopoverVisible = ref(false)
-const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
+const processFormBindingCopySourceRouteProcessId = ref<MesRouteId | null>(null)
 const selectedProcessAttributeDrafts = reactive<Record<string, SelectedProcessAttributesDraft>>({})
 const selectedProcessAttributeBaselines = reactive<Record<string, string>>({})
 const productionProcessConfigJsonDrafts = reactive<Record<string, string>>({})
 const productionProcessConfigJsonBaselines = reactive<Record<string, string>>({})
 const selectedProcessRouteConfigCache = ref<SelectedProcessRouteConfigCache>()
-const routeProcessKeyFlagBaselines = reactive<Record<number, boolean>>({})
-const routeProcessCheckFlagBaselines = reactive<Record<number, boolean>>({})
-const routeProcessWorkstationIdBaselines = reactive<Record<number, number | null>>({})
+const routeProcessKeyFlagBaselines = reactive<Record<string, boolean>>({})
+const routeProcessCheckFlagBaselines = reactive<Record<string, boolean>>({})
+const routeProcessWorkstationIdBaselines = reactive<Record<string, number | null>>({})
 const capacityOverrideDialogVisible = ref(false)
 const capacityOverrideSaving = ref(false)
 const capacityOverrideFormRef = ref()
@@ -2764,7 +2811,7 @@ const {
 } = useUserTableColumns(ROUTE_PROCESS_SETTINGS_TABLE_KEY, routeProcessSettingsDefaultColumns)
 const routeProcessDialogVisible = ref(false)
 const routeProcessFormRef = ref()
-const routeProcessForm = reactive<{ processId?: number }>({
+const routeProcessForm = reactive<{ processId?: MesRouteId }>({
   processId: undefined
 })
 
@@ -2984,7 +3031,7 @@ const compareCapacityWorkstationRepairSourceOptions = (
 }
 
 const boundRouteProcessOptions = computed(() => {
-  const seenWorkstationIds = new Set<number>()
+  const seenWorkstationIds = new Set<MesRouteId>()
   return [
     ...buildRouteProcessRepairSourceOptions(),
     ...buildGlobalWorkstationRepairSourceOptions()
@@ -3160,7 +3207,7 @@ const handleProcessDetailLinkClick = async (link: ProcessDetailLinkItem) => {
   }
 }
 
-const focusRouteProcessNode = async (routeProcessId: number) => {
+const focusRouteProcessNode = async (routeProcessId: MesRouteId) => {
   if (!findNode(routeProcessId)) {
     throw new Error(`流转关系图定位失败：路线工序不存在 routeProcessId=${routeProcessId}`)
   }
@@ -3660,6 +3707,7 @@ const updateProductionProcessConfigJsonDraft = (
   value: string
 ) => {
   if (!node) return
+  productionConfigSavedMessage.value = ''
   productionProcessConfigJsonDrafts[routeProcessIdKey(node.routeProcessId)] = value
 }
 
@@ -3726,19 +3774,23 @@ const buildProductionProcessConfigSummary = () => {
 }
 
 const saveSelectedProductionProcessConfig = async () => {
-  const node = selectedNode.value
-  const cache = selectedProcessRouteConfigCache.value
-  if (!node || !cache) {
-    message.error('生产配置保存失败：路线版本配置尚未加载。')
-    return
-  }
-  const routeVersionId = requireCandidateRouteVersionId('生产配置保存')
-  const parsedConfig = parseProductionProcessConfigDraft(node)
-  const configs = cache.productionProcessConfigSnapshot.productionProcessConfigs
-    .filter((item) => !sameRouteProcessId(item.routeProcessId, node.routeProcessId))
-    .map(normalizeProductionProcessConfig)
-  configs.push(parsedConfig)
+  operationError.value = ''
+  productionConfigSavedMessage.value = ''
   try {
+    const node = selectedNode.value
+    const cache = selectedProcessRouteConfigCache.value
+    if (!node || !cache) {
+      throw new Error('生产配置保存失败：路线版本配置尚未加载。')
+    }
+    if (hasRouteProcessStructureChanges()) {
+      throw new Error('存在未保存的工序增删，请填写新工序的完整生产配置后点击顶部保存，一并保存工序与配置。')
+    }
+    const routeVersionId = requireCandidateRouteVersionId('生产配置保存')
+    const parsedConfig = parseProductionProcessConfigDraft(node)
+    const configs = cache.productionProcessConfigSnapshot.productionProcessConfigs
+      .filter((item) => !sameRouteProcessId(item.routeProcessId, node.routeProcessId))
+      .map(normalizeProductionProcessConfig)
+    configs.push(parsedConfig)
     await ProRouteApi.saveRouteProductionProcessConfig({
       routeVersionId,
       expectedRouteSnapshotSha256:
@@ -3752,9 +3804,11 @@ const saveSelectedProductionProcessConfig = async () => {
     productionProcessConfigJsonDrafts[routeProcessIdKey(node.routeProcessId)] = text
     productionProcessConfigJsonBaselines[routeProcessIdKey(node.routeProcessId)] = text
     resetSelectedRouteProcessDeviceParameterConfig()
+    productionConfigSavedMessage.value = '生产配置已保存并重新读取'
     message.success('生产配置已保存')
   } catch (error) {
-    message.error(resolveErrorMessage(error, '生产配置保存失败'))
+    operationError.value = resolveErrorMessage(error, '生产配置保存失败')
+    message.error(operationError.value)
   }
 }
 
@@ -3768,6 +3822,11 @@ const handleLossReasonBindingSaved = (snapshot: ProRouteProductionProcessConfigS
 const selectedRouteProcessDeviceParameterDevices = computed(
   () => routeProcessDeviceParameterConfig.value?.devices || []
 )
+
+const handleDeviceGroupsSaved = async (snapshot: ProRouteProductionProcessConfigSnapshotVO) => {
+  handleLossReasonBindingSaved(snapshot)
+  await loadSelectedRouteProcessDeviceParameterConfig()
+}
 
 const buildRouteProcessDeviceParameterSummaryValue = () => {
   const config = routeProcessDeviceParameterConfig.value
@@ -4288,7 +4347,7 @@ const hasDuplicateFormTemplate = (
 const validateDuplicateFormTemplate = (
   bindings: Array<{ formBindingKey?: string | null; formTemplateId?: number | null }>
 ) => {
-  const templateIds = new Set<number>()
+  const templateIds = new Set<MesRouteId>()
   for (const binding of bindings) {
     const templateId = Number(binding.formTemplateId || 0)
     if (!templateId) continue
@@ -4322,7 +4381,7 @@ const isRecordBindingGlobalSynced = (binding?: RouteFlowRecordBinding) =>
   Boolean(normalizeGlobalFormBindingSyncKey(binding?.globalSyncKey))
 
 const getCurrentRouteProcessId = () =>
-  Number(selectedProcessAttributes.routeProcessId || selectedRouteProcessId.value || 0)
+  selectedProcessAttributes.routeProcessId || selectedRouteProcessId.value
 
 const getAllRouteProcessAttributeDrafts = () =>
   routeNodes.value.map((node) => ({
@@ -4348,13 +4407,13 @@ const syncGlobalRecordBindingGroupsFromCurrentProcess = (
 ) => {
   const globalBindings = currentDraft.recordBindings.filter(isRecordBindingGlobalSynced)
   if (globalBindings.length === 0) return
-  const currentRouteProcessId = Number(currentDraft.routeProcessId)
+  const currentRouteProcessId = currentDraft.routeProcessId
   const processDrafts = getAllRouteProcessAttributeDrafts()
   globalBindings.forEach((sourceBinding) => {
     const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
     if (!globalSyncKey) return
     processDrafts.forEach(({ node, draft }) => {
-      if (Number(node.routeProcessId) === currentRouteProcessId) return
+      if (sameRouteProcessId(node.routeProcessId, currentRouteProcessId)) return
       const memberIndex = draft.recordBindings.findIndex(
         (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
       )
@@ -4397,7 +4456,7 @@ const syncGlobalRecordBindingGroupFromSource = (sourceBinding: RouteFlowRecordBi
   const currentRouteProcessId = getCurrentRouteProcessId()
   syncSelectedRecordBindingsToDraft(false)
   getAllRouteProcessAttributeDrafts().forEach(({ node, draft }) => {
-    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    if (sameRouteProcessId(node.routeProcessId, currentRouteProcessId)) return
     const memberIndex = draft.recordBindings.findIndex(
       (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
     )
@@ -4460,13 +4519,13 @@ const enableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding) 
   let addedCount = 0
   let replacedCount = 0
   processDrafts.forEach(({ node, draft }) => {
-    const bindings = Number(node.routeProcessId) === currentRouteProcessId
+    const bindings = sameRouteProcessId(node.routeProcessId, currentRouteProcessId)
       ? selectedRecordBindings.value
       : draft.recordBindings
     const hasTemplateInOtherSlot = bindings.some(
       (binding) => {
         const isCurrentSourceBinding =
-          Number(node.routeProcessId) === currentRouteProcessId &&
+          sameRouteProcessId(node.routeProcessId, currentRouteProcessId) &&
           binding.formBindingKey === sourceBinding.formBindingKey
         return (
           !isCurrentSourceBinding &&
@@ -4479,7 +4538,7 @@ const enableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding) 
       conflictProcessNames.push(nodeLabel(node))
       return
     }
-    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    if (sameRouteProcessId(node.routeProcessId, currentRouteProcessId)) return
     if (bindings.some((binding) => requireRecordBindingSlotType(binding) === sourceSlotType)) {
       replacedCount += 1
     } else {
@@ -4504,7 +4563,7 @@ const enableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding) 
     throw new Error('开启全局联动失败：当前工序附加表单草稿不存在。')
   }
   processDrafts.forEach(({ node, draft }) => {
-    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    if (sameRouteProcessId(node.routeProcessId, currentRouteProcessId)) return
     const sameSlotBinding = draft.recordBindings.find(
       (binding) => requireRecordBindingSlotType(binding) === sourceSlotType
     )
@@ -4538,14 +4597,14 @@ const disableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding)
   const processDrafts = getAllRouteProcessAttributeDrafts()
   const removedCount = processDrafts.filter(
     ({ node, draft }) =>
-      Number(node.routeProcessId) !== currentRouteProcessId &&
+      !sameRouteProcessId(node.routeProcessId, currentRouteProcessId) &&
       draft.recordBindings.some(
         (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
       )
   ).length
   if (!(await confirmDisableGlobalRecordBinding(removedCount))) return
   processDrafts.forEach(({ node, draft }) => {
-    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    if (sameRouteProcessId(node.routeProcessId, currentRouteProcessId)) return
     draft.recordBindings = draft.recordBindings.filter(
       (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey
     )
@@ -4591,11 +4650,11 @@ const handleRecordBindingGlobalSyncChange = async (
   }
 }
 
-const inheritGlobalRecordBindingsForRouteProcess = (routeProcessId: number) => {
+const inheritGlobalRecordBindingsForRouteProcess = (routeProcessId: MesRouteId) => {
   const targetDraft = getOrCreateRouteProcessAttributeDraft(routeProcessId)
   const sourceByGlobalSyncKey = new Map<string, RouteFlowRecordBinding>()
   routeNodes.value
-    .filter((node) => Number(node.routeProcessId) !== Number(routeProcessId))
+    .filter((node) => !sameRouteProcessId(node.routeProcessId, routeProcessId))
     .forEach((node) => {
       getOrCreateRouteProcessAttributeDraft(node.routeProcessId).recordBindings.forEach((binding) => {
         const globalSyncKey = normalizeGlobalFormBindingSyncKey(binding.globalSyncKey)
@@ -4821,12 +4880,9 @@ const findProcessFormBindingCopySourceOption = () => {
   )
 }
 
-const handleProcessFormBindingCopySourceChange = (routeProcessId?: number | string | null) => {
-  const normalizedRouteProcessId = Number(routeProcessId || 0)
+const handleProcessFormBindingCopySourceChange = (routeProcessId?: MesRouteId | string | null) => {
   processFormBindingCopySourceRouteProcessId.value =
-    Number.isFinite(normalizedRouteProcessId) && normalizedRouteProcessId > 0
-      ? normalizedRouteProcessId
-      : null
+    routeProcessId == null || routeProcessId === '' ? null : requireRouteProcessId(routeProcessId)
 }
 
 const handleProcessFormBindingCopyPopoverHide = () => {
@@ -5172,7 +5228,7 @@ const formatRouteProcessSuccessors = (row?: ProRouteProcessVO) => {
 const formatRouteProcessWorkstation = (row?: ProRouteProcessVO) =>
   row?.workstationCode || row?.workstationName || '-'
 
-function formatRouteProcessIdList(routeProcessIds: number[]) {
+function formatRouteProcessIdList(routeProcessIds: MesRouteId[]) {
   const names = routeProcessIds
     .map((routeProcessId) => routeNodes.value.find((node) => node.routeProcessId === routeProcessId))
     .map((node) => (node ? nodeLabel(node) : ''))
@@ -5482,7 +5538,7 @@ const clearRouteFlowLastSelectionDetailField = (fieldKey?: ProcessDetailFieldKey
   wsCache.set(buildRouteFlowLastSelectionCacheKey(), nextState)
 }
 
-const clearRouteFlowLastSelectionRouteProcess = (routeProcessIds: Set<number>) => {
+const clearRouteFlowLastSelectionRouteProcess = (routeProcessIds: Set<MesRouteId>) => {
   const cachedSelection = readRouteFlowLastSelection()
   if (!cachedSelection || !Array.from(routeProcessIds).some((id) => sameRouteProcessId(id, cachedSelection.routeProcessId))) return
   removeRouteFlowLastSelection()
@@ -5994,37 +6050,37 @@ const clearSelectedProcessRouteConfigCache = () => {
   selectedProcessRouteConfigCache.value = undefined
   selectedProcessRouteConfigCachePromise = undefined
   Object.keys(productionProcessConfigJsonDrafts).forEach((key) => {
-    delete productionProcessConfigJsonDrafts[Number(key)]
+    delete productionProcessConfigJsonDrafts[key]
   })
   Object.keys(productionProcessConfigJsonBaselines).forEach((key) => {
-    delete productionProcessConfigJsonBaselines[Number(key)]
+    delete productionProcessConfigJsonBaselines[key]
   })
 }
 
 const clearSelectedProcessAttributeDrafts = () => {
   Object.keys(selectedProcessAttributeDrafts).forEach((key) => {
-    delete selectedProcessAttributeDrafts[Number(key)]
+    delete selectedProcessAttributeDrafts[key]
   })
   Object.keys(selectedProcessAttributeBaselines).forEach((key) => {
-    delete selectedProcessAttributeBaselines[Number(key)]
+    delete selectedProcessAttributeBaselines[key]
   })
 }
 
 const clearRouteProcessKeyFlagBaselines = () => {
   Object.keys(routeProcessKeyFlagBaselines).forEach((key) => {
-    delete routeProcessKeyFlagBaselines[Number(key)]
+    delete routeProcessKeyFlagBaselines[key]
   })
 }
 
 const clearRouteProcessCheckFlagBaselines = () => {
   Object.keys(routeProcessCheckFlagBaselines).forEach((key) => {
-    delete routeProcessCheckFlagBaselines[Number(key)]
+    delete routeProcessCheckFlagBaselines[key]
   })
 }
 
 const clearRouteProcessWorkstationIdBaselines = () => {
   Object.keys(routeProcessWorkstationIdBaselines).forEach((key) => {
-    delete routeProcessWorkstationIdBaselines[Number(key)]
+    delete routeProcessWorkstationIdBaselines[key]
   })
 }
 
@@ -6291,10 +6347,10 @@ const loadSelectedProcessRouteConfigCache = async (
     productionProcessConfigSnapshot
   }
   Object.keys(productionProcessConfigJsonDrafts).forEach((draftKey) => {
-    delete productionProcessConfigJsonDrafts[Number(draftKey)]
+    delete productionProcessConfigJsonDrafts[draftKey]
   })
   Object.keys(productionProcessConfigJsonBaselines).forEach((draftKey) => {
-    delete productionProcessConfigJsonBaselines[Number(draftKey)]
+    delete productionProcessConfigJsonBaselines[draftKey]
   })
   selectedProcessRouteConfigCache.value = cache
   return cache
@@ -6707,9 +6763,9 @@ const applyCapacityWorkstationBindingLocally = (
   targetRouteProcess: ProRouteProcessVO,
   binding: CapacityWorkstationRepairBinding
 ) => {
-  const routeProcessId = Number(targetRouteProcess.id)
+  const routeProcessId = requireRouteProcessId(targetRouteProcess.id)
   routeNodes.value = routeNodes.value.map((node) =>
-    Number(node.routeProcessId) === routeProcessId
+    sameRouteProcessId(node.routeProcessId, routeProcessId)
       ? {
           ...node,
           routeProcessWorkstationId: binding.workstationId,
@@ -6722,7 +6778,7 @@ const applyCapacityWorkstationBindingLocally = (
 
   let rowUpdated = false
   routeProcessRows.value = routeProcessRows.value.map((row) => {
-    if (Number(row.id) !== routeProcessId) return row
+    if (!sameRouteProcessId(row.id, routeProcessId)) return row
     rowUpdated = true
     return {
       ...row,
@@ -6750,7 +6806,7 @@ const applyCapacityWorkstationBindingLocally = (
   }
 }
 
-const clearSelectedProcessAttributeDraftForRouteProcess = (routeProcessId: number) => {
+const clearSelectedProcessAttributeDraftForRouteProcess = (routeProcessId: MesRouteId) => {
   delete selectedProcessAttributeDrafts[routeProcessId]
   delete selectedProcessAttributeBaselines[routeProcessId]
 }
@@ -6828,7 +6884,7 @@ const createCapacityWorkstationForRouteProcess = async (
   }
 }
 
-const refreshCapacityWorkstationRepairBinding = async (routeProcessId: number) => {
+const refreshCapacityWorkstationRepairBinding = async (routeProcessId: MesRouteId) => {
   selectedRouteProcessId.value = routeProcessId
   const targetNode = findNode(routeProcessId)
   if (!targetNode) {
@@ -6865,7 +6921,7 @@ const submitCapacityWorkstationRepair = async () => {
       const workstationBinding = await createCapacityWorkstationForRouteProcess(targetRouteProcess)
       await bindCapacityWorkstationToRouteProcess(targetRouteProcess, workstationBinding)
     }
-    const routeProcessId = Number(targetRouteProcess.id)
+    const routeProcessId = requireRouteProcessId(targetRouteProcess.id)
     await refreshCapacityWorkstationRepairBinding(routeProcessId)
     capacityWorkstationRepairDialogVisible.value = false
     await openCapacityOverrideDialogForDraft()
@@ -7114,7 +7170,7 @@ const sortedActiveRouteNodes = computed(() => {
     .slice()
     .sort(
       (left, right) =>
-        (left.sort || 0) - (right.sort || 0) || left.routeProcessId - right.routeProcessId
+        (left.sort || 0) - (right.sort || 0) || String(left.routeProcessId).localeCompare(String(right.routeProcessId), undefined, { numeric: true })
     )
 })
 const connectionSourceOptions = computed(() => {
@@ -7218,7 +7274,7 @@ const visibleBoundaryRelationEdges = computed(() => {
   const routeProcessId = selectedRouteProcessId.value
   if (!routeProcessId) return boundaryEdges.value
   return boundaryEdges.value.filter(
-    (edge) => Number(edge.routeProcessId) === Number(routeProcessId)
+    (edge) => sameRouteProcessId(edge.routeProcessId, routeProcessId)
   )
 })
 const visibleRouteRelationEdges = computed(() => {
@@ -7251,9 +7307,9 @@ const selectedRelationTargetLabel = computed(() => {
   return nodeLabel(selectedEdgeTarget.value)
 })
 const availableProcessOptions = computed(() => {
-  const usedProcessIds = new Set(routeNodes.value.map((node) => Number(node.processId)))
+  const usedProcessIds = new Set(routeNodes.value.map((node) => routeProcessIdKey(node.processId)))
   return processOptions.value.filter(
-    (process) => process.id && !usedProcessIds.has(Number(process.id))
+    (process) => process.id && !usedProcessIds.has(routeProcessIdKey(process.id))
   )
 })
 const loadGraph = async () => {
@@ -7333,7 +7389,7 @@ const findDefaultKeyProcessNode = () => {
   if (routeNodes.value.length === 0) return undefined
   const sorted = routeNodes.value.slice().sort((left, right) => {
     const sortResult = (left.sort || 0) - (right.sort || 0)
-    return sortResult !== 0 ? sortResult : left.routeProcessId - right.routeProcessId
+    return sortResult !== 0 ? sortResult : String(left.routeProcessId).localeCompare(String(right.routeProcessId), undefined, { numeric: true })
   })
   return sorted[sorted.length - 1]
 }
@@ -7410,7 +7466,7 @@ const getChangedRouteProcessWorkstationNodes = () =>
   })
 
 const getChangedRouteProcessUpdateNodes = () => {
-  const nodesById = new Map<number, RouteFlowNodeVO>()
+  const nodesById = new Map<MesRouteId, RouteFlowNodeVO>()
   getChangedRouteProcessKeyFlagNodes().forEach((node) => {
     nodesById.set(node.routeProcessId, node)
   })
@@ -7453,9 +7509,9 @@ const syncFlowElements = () => {
   })
 }
 
-const removeRouteProcessesFromDraft = (removedRouteProcessIds: number[]) => {
+const removeRouteProcessesFromDraft = (removedRouteProcessIds: MesRouteId[]) => {
   if (removedRouteProcessIds.length === 0) return
-  const removedRouteProcessIdSet = new Set(removedRouteProcessIds)
+  const removedRouteProcessIdSet = new Set(removedRouteProcessIds.map(routeProcessIdKey))
   clearRouteFlowLastSelectionRouteProcess(removedRouteProcessIdSet)
   const persistedRemovedRouteProcessIds = removedRouteProcessIds.filter(isLoadedRouteProcessId)
   if (persistedRemovedRouteProcessIds.length > 0) {
@@ -7465,21 +7521,21 @@ const removeRouteProcessesFromDraft = (removedRouteProcessIds: number[]) => {
     ])
   }
   routeNodes.value = routeNodes.value.filter(
-    (node) => !removedRouteProcessIdSet.has(node.routeProcessId)
+    (node) => !removedRouteProcessIdSet.has(routeProcessIdKey(node.routeProcessId))
   )
   routeEdges.value = routeEdges.value.filter(
     (edge) =>
-      !removedRouteProcessIdSet.has(edge.sourceRouteProcessId) &&
-      !removedRouteProcessIdSet.has(edge.targetRouteProcessId)
+      !removedRouteProcessIdSet.has(routeProcessIdKey(edge.sourceRouteProcessId)) &&
+      !removedRouteProcessIdSet.has(routeProcessIdKey(edge.targetRouteProcessId))
   )
   boundaryEdges.value = boundaryEdges.value.filter(
-    (edge) => !removedRouteProcessIdSet.has(edge.routeProcessId)
+    (edge) => !removedRouteProcessIdSet.has(routeProcessIdKey(edge.routeProcessId))
   )
-  flowNodes.value = flowNodes.value.filter((node) => !removedRouteProcessIdSet.has(Number(node.id)))
+  flowNodes.value = flowNodes.value.filter((node) => !removedRouteProcessIdSet.has(String(node.id)))
   flowEdges.value = flowEdges.value.filter(
     (edge) =>
-      !removedRouteProcessIdSet.has(Number(edge.source)) &&
-      !removedRouteProcessIdSet.has(Number(edge.target))
+      !removedRouteProcessIdSet.has(String(edge.source)) &&
+      !removedRouteProcessIdSet.has(String(edge.target))
   )
   if (
     selectedRouteProcessId.value !== null &&
@@ -7490,14 +7546,14 @@ const removeRouteProcessesFromDraft = (removedRouteProcessIds: number[]) => {
   }
   if (
     selectedEdge.value &&
-    (removedRouteProcessIdSet.has(selectedEdge.value.sourceRouteProcessId) ||
-      removedRouteProcessIdSet.has(selectedEdge.value.targetRouteProcessId))
+    (removedRouteProcessIdSet.has(routeProcessIdKey(selectedEdge.value.sourceRouteProcessId)) ||
+      removedRouteProcessIdSet.has(routeProcessIdKey(selectedEdge.value.targetRouteProcessId)))
   ) {
     selectedEdgeKey.value = ''
   }
   if (
     selectedBoundaryEdge.value &&
-    removedRouteProcessIdSet.has(selectedBoundaryEdge.value.routeProcessId)
+    removedRouteProcessIdSet.has(routeProcessIdKey(selectedBoundaryEdge.value.routeProcessId))
   ) {
     selectedEdgeKey.value = ''
   }
@@ -7517,14 +7573,12 @@ const syncRouteNodesFromFlowModel = (nodes: RouteFlowVueNode[]) => {
   const previousRouteProcessIds = new Set(
     flowNodes.value
       .filter((node) => !isBoundaryNodeId(node.id) && !isPendingDeletedFlowNode(node))
-      .map((node) => Number(node.id))
-      .filter((routeProcessId) => Number.isFinite(routeProcessId))
+      .map((node) => requireRouteProcessId(node.id))
   )
   const nextRouteProcessIds = new Set(
     nodes
       .filter((node) => !isBoundaryNodeId(node.id) && !isPendingDeletedFlowNode(node))
-      .map((node) => Number(node.id))
-      .filter((routeProcessId) => Number.isFinite(routeProcessId))
+      .map((node) => requireRouteProcessId(node.id))
   )
   const removedRouteProcessIds = Array.from(previousRouteProcessIds).filter(
     (routeProcessId) => !nextRouteProcessIds.has(routeProcessId)
@@ -7604,10 +7658,43 @@ const applyValidation = (result: RouteFlowValidationVO) => {
   invalidRouteProcessIds.value = new Set(result.invalidRouteProcessIds || [])
 }
 
+const hasRouteProcessStructureChanges = () => {
+  const configs = selectedProcessRouteConfigCache.value?.productionProcessConfigSnapshot.productionProcessConfigs
+  if (!configs) throw new Error('生产配置尚未加载，请稍后重试。')
+  const activeNodes = routeNodes.value.filter(isActiveRouteNode)
+  return activeNodes.length !== configs.length || activeNodes.some((node) =>
+    !configs.some((config) => sameRouteProcessId(config.routeProcessId, node.routeProcessId))
+  )
+}
+
+const buildFlowProductionProcessConfig = () => {
+  const routeVersionId = resolveRouteVersionIdForSave()
+  if (routeVersionId == null) return undefined
+  const snapshot = selectedProcessRouteConfigCache.value?.productionProcessConfigSnapshot
+  if (!snapshot || !sameRouteProcessId(snapshot.routeVersionId, routeVersionId) || !snapshot.routeSnapshotSha256) {
+    throw new Error('当前候选版本的生产配置及快照标识尚未加载，不能保存。')
+  }
+  const productionProcessConfigs = routeNodes.value.filter(isActiveRouteNode).map((node) => {
+    ensureProductionProcessConfigJsonDraft(node)
+    try {
+      return parseProductionProcessConfigDraft(node)
+    } catch (error) {
+      throw new Error(`工序「${node.processName}」生产配置无效：${resolveErrorMessage(error, '请检查完整配置')}`)
+    }
+  })
+  return {
+    routeVersionId,
+    schemaVersion: snapshot.schemaVersion,
+    expectedRouteSnapshotSha256: snapshot.routeSnapshotSha256,
+    productionProcessConfigs
+  }
+}
+
 const buildPayload = (): RouteFlowGraphSaveReqVO => ({
   routeId: props.routeId,
   routeVersionId: resolveRouteVersionIdForSave(),
   graphVersion: graphVersion.value,
+  productionProcessConfig: buildFlowProductionProcessConfig(),
   edges: routeEdges.value.filter(isActiveRouteEdge).map((edge) => ({
     sourceRouteProcessId: edge.sourceRouteProcessId,
     targetRouteProcessId: edge.targetRouteProcessId,
@@ -7654,45 +7741,44 @@ const buildValidationErrorMessage = (result: RouteFlowValidationVO) => {
   )
 }
 
-function remapPersistedRouteProcessId(routeProcessId: number, idMap: Map<number, number>): number
-function remapPersistedRouteProcessId(routeProcessId: number | null, idMap: Map<number, number>): number | null
-function remapPersistedRouteProcessId(routeProcessId: number | undefined, idMap: Map<number, number>): number | undefined
-function remapPersistedRouteProcessId(routeProcessId: MesRouteId | null | undefined, idMap: Map<number, number>): MesRouteId | null | undefined
+function remapPersistedRouteProcessId(routeProcessId: MesRouteId, idMap: Map<MesRouteId, MesRouteId>): MesRouteId
+function remapPersistedRouteProcessId(routeProcessId: MesRouteId | null, idMap: Map<MesRouteId, MesRouteId>): MesRouteId | null
+function remapPersistedRouteProcessId(routeProcessId: MesRouteId | undefined, idMap: Map<MesRouteId, MesRouteId>): MesRouteId | undefined
+function remapPersistedRouteProcessId(routeProcessId: MesRouteId | null | undefined, idMap: Map<MesRouteId, MesRouteId>): MesRouteId | null | undefined
 function remapPersistedRouteProcessId(
   routeProcessId: MesRouteId | undefined | null,
-  persistedRouteProcessIdMap: Map<number, number>
+  persistedRouteProcessIdMap: Map<MesRouteId, MesRouteId>
 ) {
   if (routeProcessId === undefined || routeProcessId === null) return routeProcessId
   return Array.from(persistedRouteProcessIdMap.entries())
     .find(([id]) => sameRouteProcessId(id, routeProcessId))?.[1] ?? requireRouteProcessId(routeProcessId)
 }
 
-const normalizePersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, number>) => {
-  const entries: Array<[number, number]> = Object.entries(routeProcessIdMap || {})
+const normalizePersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, MesRouteId>) => {
+  const entries: Array<[MesRouteId, MesRouteId]> = Object.entries(routeProcessIdMap || {})
     .map(([draftRouteProcessId, persistedRouteProcessId]) => [
-      Number(draftRouteProcessId),
-      Number(persistedRouteProcessId)
-    ] as [number, number])
+      requireRouteProcessId(draftRouteProcessId),
+      requireRouteProcessId(persistedRouteProcessId)
+    ] as [MesRouteId, MesRouteId])
     .filter(
       ([draftRouteProcessId, persistedRouteProcessId]) =>
         isDraftRouteProcessId(draftRouteProcessId) &&
-        Number.isFinite(persistedRouteProcessId) &&
-        persistedRouteProcessId > 0
+        !String(persistedRouteProcessId).startsWith('-')
     )
-  return new Map<number, number>(entries)
+  return new Map<MesRouteId, MesRouteId>(entries)
 }
 
 const remapRouteProcessEdgeKey = (
   currentEdgeKey: string,
-  persistedRouteProcessIdMap: Map<number, number>
+  persistedRouteProcessIdMap: Map<MesRouteId, MesRouteId>
 ) => {
   if (!currentEdgeKey) return currentEdgeKey
   const parts = currentEdgeKey.split('->')
   if (parts.length !== 2) return currentEdgeKey
   return parts
     .map((part) => {
-      const routeProcessId = Number(part)
-      if (!Number.isFinite(routeProcessId)) return part
+      if (isBoundaryNodeId(part)) return part
+      const routeProcessId = requireRouteProcessId(part)
       return String(remapPersistedRouteProcessId(routeProcessId, persistedRouteProcessIdMap))
     })
     .join('->')
@@ -7719,11 +7805,12 @@ const buildRouteProcessRowFromNode = (node: RouteFlowNodeVO): ProRouteProcessVO 
 })
 
 const remapSelectedProcessAttributeDrafts = (
-  persistedRouteProcessIdMap: Map<number, number>
+  persistedRouteProcessIdMap: Map<MesRouteId, MesRouteId>
 ) => {
   Object.keys(selectedProcessAttributeDrafts).forEach((key) => {
-    const draftRouteProcessId = Number(key)
-    const persistedRouteProcessId = persistedRouteProcessIdMap.get(draftRouteProcessId)
+    const draftRouteProcessId = requireRouteProcessId(key)
+    const persistedRouteProcessId = remapPersistedRouteProcessId(draftRouteProcessId, persistedRouteProcessIdMap)
+    if (sameRouteProcessId(draftRouteProcessId, persistedRouteProcessId)) return
     if (!persistedRouteProcessId) return
     const draft = selectedProcessAttributeDrafts[draftRouteProcessId]
     delete selectedProcessAttributeDrafts[draftRouteProcessId]
@@ -7735,7 +7822,7 @@ const remapSelectedProcessAttributeDrafts = (
   })
 }
 
-const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, number>) => {
+const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, MesRouteId>) => {
   const persistedRouteProcessIdMap = normalizePersistedRouteProcessIdMap(routeProcessIdMap)
   if (persistedRouteProcessIdMap.size === 0) return
   const persistedRouteProcessIds = new Set(persistedRouteProcessIdMap.values())
@@ -7765,22 +7852,22 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
     )
   }))
   routeProcessRows.value = routeProcessRows.value
-    .filter((row) => !persistedRouteProcessIdMap.has(Number(row.id)))
+    .filter((row) => !Array.from(persistedRouteProcessIdMap.keys()).some((id) => sameRouteProcessId(id, row.id)))
     .map((row) => ({
       ...row,
-      id: remapPersistedRouteProcessId(row.id, persistedRouteProcessIdMap) as number | undefined
+      id: remapPersistedRouteProcessId(row.id, persistedRouteProcessIdMap)
     }))
   const routeProcessRowIds = new Set(
     routeProcessRows.value
-      .map((row) => Number(row.id))
-      .filter((routeProcessId) => Number.isFinite(routeProcessId))
+      .filter((row) => row.id != null)
+      .map((row) => routeProcessIdKey(row.id))
   )
   routeNodes.value
     .filter((node) => persistedRouteProcessIds.has(node.routeProcessId))
     .forEach((node) => {
-      if (routeProcessRowIds.has(node.routeProcessId)) return
+      if (routeProcessRowIds.has(routeProcessIdKey(node.routeProcessId))) return
       routeProcessRows.value.push(buildRouteProcessRowFromNode(node))
-      routeProcessRowIds.add(node.routeProcessId)
+      routeProcessRowIds.add(routeProcessIdKey(node.routeProcessId))
     })
   selectedRouteProcessId.value = remapPersistedRouteProcessId(
     selectedRouteProcessId.value,
@@ -7794,16 +7881,16 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
   invalidRouteProcessIds.value = new Set(
     Array.from(invalidRouteProcessIds.value).map(
       (routeProcessId) =>
-        remapPersistedRouteProcessId(routeProcessId, persistedRouteProcessIdMap) as number
+        remapPersistedRouteProcessId(routeProcessId, persistedRouteProcessIdMap)
     )
   )
-  if (typeof connectionSourceRouteProcessId.value === 'number') {
+  if (connectionSourceRouteProcessId.value != null && !isBoundaryNodeId(connectionSourceRouteProcessId.value)) {
     connectionSourceRouteProcessId.value = remapPersistedRouteProcessId(
       connectionSourceRouteProcessId.value,
       persistedRouteProcessIdMap
     )
   }
-  if (typeof connectionTargetRouteProcessId.value === 'number') {
+  if (connectionTargetRouteProcessId.value != null && !isBoundaryNodeId(connectionTargetRouteProcessId.value)) {
     connectionTargetRouteProcessId.value = remapPersistedRouteProcessId(
       connectionTargetRouteProcessId.value,
       persistedRouteProcessIdMap
@@ -7838,9 +7925,12 @@ const markGraphSaveClean = () => {
 }
 
 const validateBeforeSubmit = async () => {
+  operationError.value = ''
+  productionConfigSavedMessage.value = ''
   saving.value = true
   try {
     syncRouteNodesFromFlow()
+    await ensureSelectedProcessRouteConfigCache()
     getChangedSelectedProcessScheduleDrafts().forEach((draft) => {
       buildSelectedProcessConfigSaveRow(draft)
       if (normalizeScheduleCapacityMode(draft.capacityMode) === 'MANUAL_OVERRIDE') {
@@ -7858,27 +7948,44 @@ const validateBeforeSubmit = async () => {
       throw new Error(buildValidationErrorMessage(result))
     }
     return result
+  } catch (error) {
+    operationError.value = resolveErrorMessage(error, '工艺流程校验失败')
+    throw error
   } finally {
     saving.value = false
   }
 }
 
 const saveFromParent = async () => {
+  operationError.value = ''
   saving.value = true
   try {
     syncRouteNodesFromFlow()
+    await ensureSelectedProcessRouteConfigCache()
     const result = await persistRouteProcessDraftChanges()
     applyValidation(result)
     if (!result.valid) {
       throw new Error(buildValidationErrorMessage(result))
     }
     applyPersistedRouteProcessIdMap(result.routeProcessIdMap)
+    const routeVersionId = resolveRouteVersionIdForSave()
+    if (routeVersionId != null) {
+      const cache = selectedProcessRouteConfigCache.value
+      if (!cache) throw new Error('图已保存，但生产配置缓存不可用，请重新打开核对。')
+      cache.productionProcessConfigSnapshot = await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
+      routeNodes.value.filter(isActiveRouteNode).forEach((node) => {
+        syncProductionProcessConfigJsonDraftFromCache(node.routeProcessId)
+      })
+    }
     await saveRouteStartProductionLeadersIfChanged()
     await saveSelectedProcessAttributeDrafts()
     await lossCoefficientEditor.value?.save()
     markGraphSaveClean()
     emit('saved')
     return result
+  } catch (error) {
+    operationError.value = resolveErrorMessage(error, '工艺流程保存失败')
+    throw error
   } finally {
     saving.value = false
   }
@@ -7983,7 +8090,7 @@ const applyAutoLayout = async (options: AutoLayoutOptions = DEFAULT_AUTO_LAYOUT_
   if (!canMutateRouteFlow.value) return false
   const notify = options.notify !== false
   const normalizedStartRoots = normalizeStartBoundaryTargetsAsRoots()
-  let positions: Map<number, RouteFlowLayoutPosition>
+  let positions: Map<MesRouteId, RouteFlowLayoutPosition>
   try {
     positions = buildBranchLayoutPositions()
   } catch (error) {
@@ -8014,7 +8121,7 @@ const handleAutoLayout = async () => {
   return await applyAutoLayout()
 }
 
-const fitGraphAfterLayout = async (focusRouteProcessId?: number) => {
+const fitGraphAfterLayout = async (focusRouteProcessId?: MesRouteId) => {
   await nextTick()
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
@@ -8085,9 +8192,9 @@ const handleRouteFlowMaximizeKeydown = (event: KeyboardEvent) => {
   void handleExitRouteFlowMaximized()
 }
 
-const collectBranchRouteProcessIds = (sourceRouteProcessId: number) => {
+const collectBranchRouteProcessIds = (sourceRouteProcessId: MesRouteId) => {
   if (!findNode(sourceRouteProcessId)) return []
-  const branchRouteProcessIds = new Set<number>()
+  const branchRouteProcessIds = new Set<MesRouteId>()
   const pending = [sourceRouteProcessId]
   while (pending.length > 0) {
     const routeProcessId = pending.shift()
@@ -8101,7 +8208,7 @@ const collectBranchRouteProcessIds = (sourceRouteProcessId: number) => {
   return Array.from(branchRouteProcessIds)
 }
 
-const handleFitBranch = (sourceRouteProcessId: number) => {
+const handleFitBranch = (sourceRouteProcessId: MesRouteId) => {
   const branchRouteProcessIds = collectBranchRouteProcessIds(sourceRouteProcessId)
   if (branchRouteProcessIds.length === 0) {
     handleFitScreen()
@@ -8133,7 +8240,7 @@ const handleSearch = () => {
 const handleConnect = async (connection: Connection) => {
   if (!canMutateRouteFlow.value || !connection.source || !connection.target) return
   if (connection.source === PROCESS_START_NODE_ID && !isBoundaryNodeId(connection.target)) {
-    const boundaryEdgeAdded = addBoundaryEdge('START', Number(connection.target))
+    const boundaryEdgeAdded = addBoundaryEdge('START', requireRouteProcessId(connection.target))
     if (!boundaryEdgeAdded) return
     await applyAutoLayout({
       notify: false,
@@ -8142,11 +8249,11 @@ const handleConnect = async (connection: Connection) => {
     return
   }
   if (connection.target === PROCESS_END_NODE_ID && !isBoundaryNodeId(connection.source)) {
-    const boundaryEdgeAdded = addBoundaryEdge('END', Number(connection.source))
+    const boundaryEdgeAdded = addBoundaryEdge('END', requireRouteProcessId(connection.source))
     if (!boundaryEdgeAdded) return
     await applyAutoLayout({
       notify: false,
-      focusRouteProcessId: Number(connection.source)
+      focusRouteProcessId: requireRouteProcessId(connection.source)
     })
     return
   }
@@ -8154,11 +8261,11 @@ const handleConnect = async (connection: Connection) => {
     message.warning('工序开始只能连接首工序，末工序只能连接工序结束')
     return
   }
-  const edgeAdded = addEdge(Number(connection.source), Number(connection.target))
+  const edgeAdded = addEdge(requireRouteProcessId(connection.source), requireRouteProcessId(connection.target))
   if (!edgeAdded) return
   await applyAutoLayout({
     notify: false,
-    focusRouteProcessId: Number(connection.source)
+    focusRouteProcessId: requireRouteProcessId(connection.source)
   })
 }
 
@@ -8176,7 +8283,7 @@ const syncConnectionTargetForSource = (routeProcessId?: ConnectionSourceRoutePro
   if (
     routeProcessId === connectionTargetRouteProcessId.value ||
     (connectionTargetRouteProcessId.value === PROCESS_END_NODE_ID &&
-      typeof routeProcessId !== 'number')
+      (routeProcessId == null || isBoundaryNodeId(routeProcessId)))
   ) {
     clearConnectionTargetSelection()
   }
@@ -8229,7 +8336,7 @@ const handleConfirmConnection = async () => {
   const sourceId = connectionSourceRouteProcessId.value
   const targetId = connectionTargetRouteProcessId.value
   let edgeAdded = false
-  let focusRouteProcessId: number | undefined
+  let focusRouteProcessId: MesRouteId | undefined
   if (sourceId === PROCESS_START_NODE_ID) {
     if (targetId === PROCESS_END_NODE_ID) {
       message.warning('工序开始不能直接连接工序结束')
@@ -8389,14 +8496,25 @@ const handleRouteProcessAdd = async () => {
   await routeProcessFormRef.value?.validate?.()
   if (!routeProcessForm.processId) return
   const maxSort = routeNodes.value.reduce((max, node) => Math.max(max, node.sort || 0), 0)
-  const process = processOptions.value.find(
-    (item) => Number(item.id) === Number(routeProcessForm.processId)
-  )
+  let process: ProProcessVO | undefined
+  try {
+    const selectedProcessId = routeProcessIdKey(routeProcessForm.processId)
+    process = processOptions.value.find((item) => routeProcessIdKey(item.id) === selectedProcessId)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '添加工序失败：工序编号无效'))
+    return
+  }
   if (!process?.id) {
     message.error('添加工序失败：工序不存在')
     return
   }
   const routeProcessId = nextDraftRouteProcessId.value
+  try {
+    await ensureSelectedProcessRouteConfigCache()
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '添加工序失败：工序配置加载失败'))
+    return
+  }
   nextDraftRouteProcessId.value -= 1
   const position = defaultNodePosition(routeNodes.value.length)
   routeNodes.value = [
@@ -8488,15 +8606,15 @@ const loadSelectedProcessDetail = async (node?: RouteFlowNodeVO) => {
   await Promise.allSettled([processDetailPromise, machineryListPromise, attributesPromise])
 }
 
-const syncRouteNodeKeyFlag = (routeProcessId: number, keyFlag: boolean) => {
+const syncRouteNodeKeyFlag = (routeProcessId: MesRouteId, keyFlag: boolean) => {
   routeNodes.value = routeNodes.value.map((node) =>
-    Number(node.routeProcessId) === Number(routeProcessId) ? { ...node, keyFlag } : node
+    sameRouteProcessId(node.routeProcessId, routeProcessId) ? { ...node, keyFlag } : node
   )
 }
 
-const syncRouteNodeCheckFlag = (routeProcessId: number, checkFlag: boolean) => {
+const syncRouteNodeCheckFlag = (routeProcessId: MesRouteId, checkFlag: boolean) => {
   routeNodes.value = routeNodes.value.map((node) =>
-    Number(node.routeProcessId) === Number(routeProcessId) ? { ...node, checkFlag } : node
+    sameRouteProcessId(node.routeProcessId, routeProcessId) ? { ...node, checkFlag } : node
   )
 }
 
@@ -8525,18 +8643,18 @@ const markGraphDraftChanged = () => {
 }
 
 const wouldCreateCycle = (
-  sourceRouteProcessId: number,
-  targetRouteProcessId: number,
+  sourceRouteProcessId: MesRouteId,
+  targetRouteProcessId: MesRouteId,
   edges: RouteFlowEdgeVO[]
 ) => {
-  const outgoing = new Map<number, number[]>()
+  const outgoing = new Map<MesRouteId, MesRouteId[]>()
   edges.forEach((edge) => {
     const targets = outgoing.get(edge.sourceRouteProcessId) || []
     targets.push(edge.targetRouteProcessId)
     outgoing.set(edge.sourceRouteProcessId, targets)
   })
   const pending = [targetRouteProcessId]
-  const visited = new Set<number>()
+  const visited = new Set<MesRouteId>()
   while (pending.length > 0) {
     const routeProcessId = pending.shift()
     if (routeProcessId === undefined || visited.has(routeProcessId)) continue
@@ -8548,8 +8666,8 @@ const wouldCreateCycle = (
 }
 
 const addEdge = (
-  sourceRouteProcessId: number,
-  targetRouteProcessId: number,
+  sourceRouteProcessId: MesRouteId,
+  targetRouteProcessId: MesRouteId,
   replacedEdgeKey = ''
 ) => {
   if (sourceRouteProcessId === targetRouteProcessId) {
@@ -8585,14 +8703,10 @@ const addEdge = (
   return true
 }
 
-const normalizeRouteProcessIdList = (values: number[]) => {
-  const ids = values
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value) && value > 0)
-  return Array.from(new Set(ids))
-}
+const normalizeRouteProcessIdList = (values: MesRouteId[]) =>
+  Array.from(new Set(values.map(routeProcessIdKey)))
 
-const ensureRouteProcessRelationTargets = (routeProcessIds: number[]) => {
+const ensureRouteProcessRelationTargets = (routeProcessIds: MesRouteId[]) => {
   routeProcessIds.forEach((routeProcessId) => {
     if (!findNode(routeProcessId)) {
       throw new Error(`流转关系调整失败：路线工序 ${routeProcessId} 不存在。`)
@@ -8601,13 +8715,13 @@ const ensureRouteProcessRelationTargets = (routeProcessIds: number[]) => {
 }
 
 const replaceRouteProcessIncomingEdges = (
-  targetRouteProcessId: number,
-  sourceRouteProcessIds: number[]
+  targetRouteProcessId: MesRouteId,
+  sourceRouteProcessIds: MesRouteId[]
 ) => {
   const nextSourceRouteProcessIds = normalizeRouteProcessIdList(sourceRouteProcessIds)
   ensureRouteProcessRelationTargets([targetRouteProcessId, ...nextSourceRouteProcessIds])
   const retainedEdges = routeEdges.value.filter(
-    (edge) => Number(edge.targetRouteProcessId) !== Number(targetRouteProcessId)
+    (edge) => !sameRouteProcessId(edge.targetRouteProcessId, targetRouteProcessId)
   )
   const nextEdges: RouteFlowEdgeVO[] = []
   nextSourceRouteProcessIds.forEach((sourceRouteProcessId) => {
@@ -8632,13 +8746,13 @@ const replaceRouteProcessIncomingEdges = (
 }
 
 const replaceRouteProcessOutgoingEdges = (
-  sourceRouteProcessId: number,
-  targetRouteProcessIds: number[]
+  sourceRouteProcessId: MesRouteId,
+  targetRouteProcessIds: MesRouteId[]
 ) => {
   const nextTargetRouteProcessIds = normalizeRouteProcessIdList(targetRouteProcessIds)
   ensureRouteProcessRelationTargets([sourceRouteProcessId, ...nextTargetRouteProcessIds])
   const retainedEdges = routeEdges.value.filter(
-    (edge) => Number(edge.sourceRouteProcessId) !== Number(sourceRouteProcessId)
+    (edge) => !sameRouteProcessId(edge.sourceRouteProcessId, sourceRouteProcessId)
   )
   const nextEdges: RouteFlowEdgeVO[] = []
   nextTargetRouteProcessIds.forEach((targetRouteProcessId) => {
@@ -8691,7 +8805,7 @@ const handleProductionQuantityFactorChange = (value: number | undefined) => {
   }
 }
 
-const handlePredecessorChange = (values: number[]) => {
+const handlePredecessorChange = (values: MesRouteId[]) => {
   try {
     if (!selectedNode.value || !isProcessDetailFieldEditable('predecessor')) return
     replaceRouteProcessIncomingEdges(selectedNode.value.routeProcessId, values)
@@ -8703,7 +8817,7 @@ const handlePredecessorChange = (values: number[]) => {
   }
 }
 
-const handleSuccessorsChange = (values: number[]) => {
+const handleSuccessorsChange = (values: MesRouteId[]) => {
   try {
     if (!selectedNode.value || !isProcessDetailFieldEditable('successors')) return
     replaceRouteProcessOutgoingEdges(selectedNode.value.routeProcessId, values)
@@ -8753,7 +8867,7 @@ const handleRemoveProcessDetailField = async (fieldKey: ProcessDetailFieldKey) =
   }
 }
 
-const addBoundaryEdge = (boundaryType: RouteFlowBoundaryType, routeProcessId: number) => {
+const addBoundaryEdge = (boundaryType: RouteFlowBoundaryType, routeProcessId: MesRouteId) => {
   if (!findNode(routeProcessId)) {
     message.warning('边界关系必须连接当前路线工序')
     return false
@@ -8806,14 +8920,14 @@ const handleEdgeUpdate = async (event: EdgeUpdateEvent) => {
     return
   }
   const edgeAdded = addEdge(
-    Number(event.connection.source),
-    Number(event.connection.target),
+    requireRouteProcessId(event.connection.source),
+    requireRouteProcessId(event.connection.target),
     event.edge.id
   )
   if (!edgeAdded) return
   await applyAutoLayout({
     notify: false,
-    focusRouteProcessId: Number(event.connection.source)
+    focusRouteProcessId: requireRouteProcessId(event.connection.source)
   })
 }
 
@@ -8856,12 +8970,9 @@ const handleNodesChange = (changes: NodeChange[]) => {
   if (!canMutateRouteFlow.value) return
   const removedRouteProcessIds = changes
     .flatMap((change) => {
-      if (change.type !== 'remove' || !('id' in change)) return []
-      return [Number(change.id)]
+      if (change.type !== 'remove' || !('id' in change) || isBoundaryNodeId(change.id)) return []
+      return [requireRouteProcessId(change.id)]
     })
-    .filter(
-      (routeProcessId) => Number.isFinite(routeProcessId) && !isBoundaryNodeId(routeProcessId)
-    )
   removeRouteProcessesFromDraft(removedRouteProcessIds)
 }
 
@@ -8921,11 +9032,11 @@ const defaultNodePosition = (index: number) => {
 }
 
 const syncRouteNodesFromFlow = () => {
-  const positions = new Map(
+  const positions = new Map<MesRouteId, RouteFlowLayoutPosition>(
     flowNodes.value
       .filter((node) => !isBoundaryNodeId(node.id))
       .map((node) => [
-        Number(node.id),
+        requireRouteProcessId(node.id),
         { x: Math.round(node.position.x), y: Math.round(node.position.y) }
       ])
   )
@@ -8936,18 +9047,18 @@ const syncRouteNodesFromFlow = () => {
 }
 
 const buildTopologicalOrder = (
-  nodesById: Map<number, RouteFlowNodeVO>,
-  incoming: Map<number, number[]>,
-  outgoing: Map<number, number[]>,
-  roots: number[],
-  compareRouteProcessIds: (leftId: number, rightId: number) => number
+  nodesById: Map<MesRouteId, RouteFlowNodeVO>,
+  incoming: Map<MesRouteId, MesRouteId[]>,
+  outgoing: Map<MesRouteId, MesRouteId[]>,
+  roots: MesRouteId[],
+  compareRouteProcessIds: (leftId: MesRouteId, rightId: MesRouteId) => number
 ) => {
-  const remainingIncoming = new Map<number, number[]>()
+  const remainingIncoming = new Map<MesRouteId, MesRouteId[]>()
   nodesById.forEach((_node, routeProcessId) => {
     remainingIncoming.set(routeProcessId, [...(incoming.get(routeProcessId) || [])])
   })
   const pending = roots.slice().sort(compareRouteProcessIds)
-  const topologicalOrder: number[] = []
+  const topologicalOrder: MesRouteId[] = []
   while (pending.length > 0) {
     const routeProcessId = pending.shift()
     if (routeProcessId === undefined) continue
@@ -8970,9 +9081,9 @@ const buildTopologicalOrder = (
 }
 
 const resolveLayerYPositions = (
-  layerRouteProcessIds: number[],
-  yById: Map<number, number>,
-  compareRouteProcessIds: (leftId: number, rightId: number) => number
+  layerRouteProcessIds: MesRouteId[],
+  yById: Map<MesRouteId, number>,
+  compareRouteProcessIds: (leftId: MesRouteId, rightId: MesRouteId) => number
 ) => {
   if (layerRouteProcessIds.length === 0) return
   const sorted = layerRouteProcessIds.slice().sort((leftId, rightId) => {
@@ -8981,7 +9092,7 @@ const resolveLayerYPositions = (
     return Math.abs(yDelta) > 0.001 ? yDelta : compareRouteProcessIds(leftId, rightId)
   })
   const preferredAverage =
-    sorted.reduce(
+    sorted.reduce<number>(
       (total, routeProcessId) => total + (yById.get(routeProcessId) || LAYOUT_TOP_PADDING),
       0
     ) / sorted.length
@@ -8995,7 +9106,7 @@ const resolveLayerYPositions = (
     previousY = nextY
   })
   const adjustedAverage =
-    sorted.reduce(
+    sorted.reduce<number>(
       (total, routeProcessId) => total + (yById.get(routeProcessId) || LAYOUT_TOP_PADDING),
       0
     ) / sorted.length
@@ -9024,10 +9135,10 @@ const resolveAutoLayoutRowCapacity = () => {
 }
 
 const buildHeightAwareLinearLayoutPositions = (
-  topologicalOrder: number[],
+  topologicalOrder: MesRouteId[],
   rowCapacity: number
 ) => {
-  const positions = new Map<number, RouteFlowLayoutPosition>()
+  const positions = new Map<MesRouteId, RouteFlowLayoutPosition>()
   const shouldWrapByHeight = topologicalOrder.length > rowCapacity
   topologicalOrder.forEach((routeProcessId, index) => {
     if (!shouldWrapByHeight) {
@@ -9056,7 +9167,7 @@ const applyHeightAwareTailChainLayoutPositions = ({
   rowCapacity,
   compareRouteProcessIds
 }: HeightAwareTailChainLayoutOptions) => {
-  const positionedTailRouteProcessIds = new Set<number>()
+  const positionedTailRouteProcessIds = new Set<MesRouteId>()
   const maxTailY = LAYOUT_TOP_PADDING + (rowCapacity - 1) * ROW_GAP
   const anchorRouteProcessIds = Array.from(outgoing.keys()).sort(compareRouteProcessIds)
   anchorRouteProcessIds.forEach((anchorRouteProcessId) => {
@@ -9067,9 +9178,9 @@ const applyHeightAwareTailChainLayoutPositions = ({
     const anchorPosition = positions.get(anchorRouteProcessId)
     if (!anchorPosition) return
 
-    const chainRouteProcessIds: number[] = []
-    const activeRouteProcessIds = new Set<number>([anchorRouteProcessId])
-    let currentRouteProcessId: number | undefined = children[0]
+    const chainRouteProcessIds: MesRouteId[] = []
+    const activeRouteProcessIds = new Set<MesRouteId>([anchorRouteProcessId])
+    let currentRouteProcessId: MesRouteId | undefined = children[0]
     while (currentRouteProcessId !== undefined) {
       if (
         activeRouteProcessIds.has(currentRouteProcessId) ||
@@ -9113,11 +9224,11 @@ const applyHeightAwareTailChainLayoutPositions = ({
 }
 
 const buildMergedGraphLayoutPositions = (
-  nodesById: Map<number, RouteFlowNodeVO>,
-  incoming: Map<number, number[]>,
-  outgoing: Map<number, number[]>,
-  roots: number[],
-  compareRouteProcessIds: (leftId: number, rightId: number) => number,
+  nodesById: Map<MesRouteId, RouteFlowNodeVO>,
+  incoming: Map<MesRouteId, MesRouteId[]>,
+  outgoing: Map<MesRouteId, MesRouteId[]>,
+  roots: MesRouteId[],
+  compareRouteProcessIds: (leftId: MesRouteId, rightId: MesRouteId) => number,
   rowCapacity: number
 ) => {
   const topologicalOrder = buildTopologicalOrder(
@@ -9127,7 +9238,7 @@ const buildMergedGraphLayoutPositions = (
     roots,
     compareRouteProcessIds
   )
-  const depthById = new Map<number, number>()
+  const depthById = new Map<MesRouteId, number>()
   nodesById.forEach((_node, routeProcessId) => depthById.set(routeProcessId, 0))
   topologicalOrder.forEach((routeProcessId) => {
     const sourceDepth = depthById.get(routeProcessId) || 0
@@ -9135,11 +9246,11 @@ const buildMergedGraphLayoutPositions = (
       depthById.set(targetRouteProcessId, Math.max(depthById.get(targetRouteProcessId) || 0, sourceDepth + 1))
     })
   })
-  const hasIndirectPathToTarget = (sourceRouteProcessId: number, targetRouteProcessId: number) => {
+  const hasIndirectPathToTarget = (sourceRouteProcessId: MesRouteId, targetRouteProcessId: MesRouteId) => {
     const pending = (outgoing.get(sourceRouteProcessId) || []).filter(
       (nextRouteProcessId) => nextRouteProcessId !== targetRouteProcessId
     )
-    const visited = new Set<number>()
+    const visited = new Set<MesRouteId>()
     while (pending.length > 0) {
       const routeProcessId = pending.shift()
       if (routeProcessId === undefined || visited.has(routeProcessId)) continue
@@ -9188,7 +9299,7 @@ const buildMergedGraphLayoutPositions = (
     }
   }
 
-  const layers = new Map<number, number[]>()
+  const layers = new Map<number, MesRouteId[]>()
   topologicalOrder.forEach((routeProcessId) => {
     const depth = depthById.get(routeProcessId) || 0
     const layer = layers.get(depth) || []
@@ -9197,22 +9308,22 @@ const buildMergedGraphLayoutPositions = (
   })
   layers.forEach((layerRouteProcessIds) => layerRouteProcessIds.sort(compareRouteProcessIds))
   const layerDepths = Array.from(layers.keys()).sort((left, right) => left - right)
-  const yById = new Map<number, number>()
+  const yById = new Map<MesRouteId, number>()
   layers.forEach((layerRouteProcessIds) => {
     layerRouteProcessIds.forEach((routeProcessId, index) => {
       yById.set(routeProcessId, LAYOUT_TOP_PADDING + index * ROW_GAP)
     })
   })
 
-  const averageY = (routeProcessIds: number[]) => {
+  const averageY = (routeProcessIds: MesRouteId[]) => {
     return (
-      routeProcessIds.reduce(
+      routeProcessIds.reduce<number>(
         (total, routeProcessId) => total + (yById.get(routeProcessId) || LAYOUT_TOP_PADDING),
         0
       ) / routeProcessIds.length
     )
   }
-  const hasMultipleParents = (routeProcessId: number) =>
+  const hasMultipleParents = (routeProcessId: MesRouteId) =>
     (incoming.get(routeProcessId) || []).length > 1
   const alignMergeNodesToParents = () => {
     layerDepths.forEach((depth) => {
@@ -9246,7 +9357,7 @@ const buildMergedGraphLayoutPositions = (
   alignParentsToChildren()
   alignMergeNodesToParents()
 
-  const positions = new Map<number, RouteFlowLayoutPosition>()
+  const positions = new Map<MesRouteId, RouteFlowLayoutPosition>()
   nodesById.forEach((_node, routeProcessId) => {
     positions.set(routeProcessId, {
       x: LAYOUT_LEFT_PADDING + (depthById.get(routeProcessId) || 0) * COLUMN_GAP,
@@ -9267,8 +9378,8 @@ const buildBranchLayoutPositions = () => {
   const rowCapacity = resolveAutoLayoutRowCapacity()
   const nodesById = new Map(routeNodes.value.map((node) => [node.routeProcessId, node] as const))
   const startBoundaryRootIds = collectStartBoundaryRootIds()
-  const incoming = new Map<number, number[]>()
-  const outgoing = new Map<number, number[]>()
+  const incoming = new Map<MesRouteId, MesRouteId[]>()
+  const outgoing = new Map<MesRouteId, MesRouteId[]>()
   routeNodes.value.forEach((node) => {
     incoming.set(node.routeProcessId, [])
     outgoing.set(node.routeProcessId, [])
@@ -9284,10 +9395,10 @@ const buildBranchLayoutPositions = () => {
     outgoing.get(edge.sourceRouteProcessId)!.push(edge.targetRouteProcessId)
   })
 
-  const compareRouteProcessIds = (leftId: number, rightId: number) => {
+  const compareRouteProcessIds = (leftId: MesRouteId, rightId: MesRouteId) => {
     const left = nodesById.get(leftId)
     const right = nodesById.get(rightId)
-    return (left?.sort || 0) - (right?.sort || 0) || leftId - rightId
+    return (left?.sort || 0) - (right?.sort || 0) || String(leftId).localeCompare(String(rightId), undefined, { numeric: true })
   }
   outgoing.forEach((targetIds) => targetIds.sort(compareRouteProcessIds))
 
@@ -9318,12 +9429,12 @@ const buildBranchLayoutPositions = () => {
     )
     return buildHeightAwareLinearLayoutPositions(topologicalOrder, rowCapacity)
   }
-  const positions = new Map<number, RouteFlowLayoutPosition>()
-  const activeRouteProcessIds = new Set<number>()
-  const visitedRouteProcessIds = new Set<number>()
+  const positions = new Map<MesRouteId, RouteFlowLayoutPosition>()
+  const activeRouteProcessIds = new Set<MesRouteId>()
+  const visitedRouteProcessIds = new Set<MesRouteId>()
   let nextLeafRow = 0
 
-  const placeSubtree = (routeProcessId: number, depth: number): number => {
+  const placeSubtree = (routeProcessId: MesRouteId, depth: number): number => {
     if (activeRouteProcessIds.has(routeProcessId)) {
       throw new Error('关系图存在循环，无法自动布局')
     }
@@ -9460,13 +9571,13 @@ const findBoundaryRouteProcessIds = () => {
   }
 }
 
-const resolveTerminalBoundaryNode = (terminalRouteProcessIds: number[]) => {
+const resolveTerminalBoundaryNode = (terminalRouteProcessIds: MesRouteId[]) => {
   const terminalNodes = terminalRouteProcessIds
     .map(findNode)
     .filter((node): node is RouteFlowNodeVO => Boolean(node))
     .sort((left, right) => {
       const sortResult = (left.sort || 0) - (right.sort || 0)
-      return sortResult !== 0 ? sortResult : left.routeProcessId - right.routeProcessId
+      return sortResult !== 0 ? sortResult : String(left.routeProcessId).localeCompare(String(right.routeProcessId), undefined, { numeric: true })
     })
   return terminalNodes[terminalNodes.length - 1]
 }
@@ -9493,20 +9604,20 @@ const isBoundaryEdgeId = (edgeId: string | number) => {
   return id.startsWith(`${PROCESS_START_NODE_ID}->`) || id.endsWith(`->${PROCESS_END_NODE_ID}`)
 }
 
-const isDraftRouteProcessId = (routeProcessId: number) => {
-  return routeProcessId < 0
+const isDraftRouteProcessId = (routeProcessId: MesRouteId) => {
+  return String(routeProcessId).startsWith('-')
 }
 
-const isLoadedRouteProcessId = (routeProcessId: number) => {
-  return loadedRouteProcessIds.value.has(Number(routeProcessId))
+const isLoadedRouteProcessId = (routeProcessId: MesRouteId) => {
+  return loadedRouteProcessIds.value.has(routeProcessIdKey(routeProcessId))
 }
 
-const isNewDraftRouteProcess = (routeProcessId: number) => {
+const isNewDraftRouteProcess = (routeProcessId: MesRouteId) => {
   return isDraftRouteProcessId(routeProcessId) && !isLoadedRouteProcessId(routeProcessId)
 }
 
 const resetLoadedRouteProcessIds = () => {
-  loadedRouteProcessIds.value = new Set(routeNodes.value.map((node) => Number(node.routeProcessId)))
+  loadedRouteProcessIds.value = new Set(routeNodes.value.map((node) => routeProcessIdKey(node.routeProcessId)))
 }
 
 const resolveNextDraftRouteProcessId = () => {
@@ -9516,8 +9627,8 @@ const resolveNextDraftRouteProcessId = () => {
   return negativeRouteProcessIds.length === 0 ? -1 : Math.min(...negativeRouteProcessIds) - 1
 }
 
-const isActiveRouteProcessId = (routeProcessId: number) => {
-  return !pendingDeletedRouteProcessIds.value.has(Number(routeProcessId))
+const isActiveRouteProcessId = (routeProcessId: MesRouteId) => {
+  return !Array.from(pendingDeletedRouteProcessIds.value).some((id) => sameRouteProcessId(id, routeProcessId))
 }
 
 const isActiveRouteNode = (node: RouteFlowNodeVO) => {
@@ -9536,8 +9647,8 @@ const isActiveBoundaryEdge = (edge: RouteFlowBoundaryEdgeVO) => {
 }
 
 const isPendingDeletedFlowNode = (node: RouteFlowVueNode) => {
-  const routeProcessId = Number(node.id)
-  return Number.isFinite(routeProcessId) && pendingDeletedRouteProcessIds.value.has(routeProcessId)
+  if (isBoundaryNodeId(node.id)) return false
+  return !isActiveRouteProcessId(requireRouteProcessId(node.id))
 }
 
 const edgeKey = (edge: RouteFlowEdgeVO) => {

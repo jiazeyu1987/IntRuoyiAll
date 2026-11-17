@@ -1,4 +1,5 @@
 import type { App } from 'vue'
+import { requiresExplicitErpGrant } from '@/utils/erpDataPermission'
 import { useUserStore } from '@/store/modules/user'
 
 const { t } = useI18n() // 国际化
@@ -25,7 +26,7 @@ const userStore = useUserStore()
 const all_permission = '*:*:*'
 export const hasPermission = (permission: string[]) => {
   return (
-    userStore.permissions.has(all_permission) ||
-    permission.some((permission) => userStore.permissions.has(permission))
+    permission.some((item) => userStore.permissions.has(item) ||
+      (!requiresExplicitErpGrant(item) && userStore.permissions.has(all_permission)))
   )
 }

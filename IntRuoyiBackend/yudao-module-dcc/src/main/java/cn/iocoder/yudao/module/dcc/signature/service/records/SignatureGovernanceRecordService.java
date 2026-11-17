@@ -8,6 +8,8 @@ public interface SignatureGovernanceRecordService {
 
     PageResult<SignatureGovernanceRecordRespVO> getPage(SignatureGovernanceRecordPageReqVO reqVO);
 
+    SignatureGovernanceRecordEvidence getEvidence(String globalId);
+
     SignatureGovernanceRecordPdfArtifact exportRecordPdf(String globalId);
 
 }

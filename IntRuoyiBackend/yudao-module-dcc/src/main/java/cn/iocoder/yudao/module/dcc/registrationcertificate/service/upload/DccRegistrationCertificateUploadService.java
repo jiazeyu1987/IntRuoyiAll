@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload;
 
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
@@ -178,6 +179,11 @@ public class DccRegistrationCertificateUploadService {
                 .toList();
     }
 
+    public DccRegistrationCertificateProjectProduct
+            getProjectProduct(Long tenantId, Long actorId, Long projectCodeId) {
+        return prerequisiteValidator.resolveProjectProduct(requireProjectCode(tenantId, actorId, projectCodeId));
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateUploadSubmitResult submitUploadForApproval(
             Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
@@ -242,8 +248,18 @@ public class DccRegistrationCertificateUploadService {
         var facts = cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts.parse(command.factsJson());
         facts.validate();
         Long productMasterId = Boolean.TRUE.equals(facts.getOwnProduct()) && projectCode != null ? projectCode.getProductMasterId() : null;
-        if (Boolean.TRUE.equals(facts.getOwnProduct()) && productMasterId == null) {
-            prerequisiteValidator.validateCatalogProduct(projectCode, productName);
+        if (Boolean.TRUE.equals(facts.getOwnProduct())) {
+            var product = prerequisiteValidator.resolveProjectProduct(projectCode);
+            if (facts.getProjectProduct() != null && !Objects.equals(facts.getProjectProduct(), product)) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                        "项目的DCC产品关联已变更，请重新选择项目");
+            }
+            if (!Objects.equals(productName, product.productName())) {
+                throw new ServiceException(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+            }
+            facts.setProjectProduct(product);
+        } else if (projectCode != null || facts.getProjectProduct() != null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
         List<UploadFile> attachments = command.attachments() == null ? List.of() : command.attachments().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();
         List<UploadFile> descriptions = command.productDescriptionFiles() == null ? List.of() : command.productDescriptionFiles().stream().map(DccRegistrationCertificateUploadService::requireUploadFile).toList();

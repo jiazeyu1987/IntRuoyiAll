@@ -12,7 +12,7 @@
       :operator-options="productCatalogQuickFilter.operatorOptions.value"
       :columns="productCatalogColumns"
       :column-saving="productCatalogColumnSaving"
-      :total="total"
+      :total="selectedProductCatalogRows.length"
       single-line-toolbar
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
@@ -22,7 +22,6 @@
       @column-change="saveProductCatalogColumnConfig"
       @column-reset="resetProductCatalogColumnConfig"
       @sort-change="handleProductCatalogSortChange"
-      @pagination="getList"
       :filter-rows="selectedProductCatalogRows"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
@@ -40,7 +39,7 @@
           新建项目代码及产品
         </el-button>
       </template>
-      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ rows: filteredPageRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="dcc-product-catalog-split-layout">
           <aside class="dcc-product-catalog-tree-panel">
             <div class="dcc-product-catalog-tree-title">产品分类</div>
@@ -79,7 +78,7 @@
                 class="dcc-product-catalog-resizable-table"
                 data-user-table-column-explicit
                 data-user-table-key="dcc.productCatalog.main"
-                :data="resolveRows(selectedProductCatalogRows)"
+                :data="filteredPageRows || pagedProductCatalogRows"
                 height="100%"
                 scrollbar-always-on
                 border
@@ -709,7 +708,6 @@ const loading = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
-const total = ref(0)
 const formRef = ref()
 const bindingFormRef = ref()
 const bindingVisible = ref(false)
@@ -1245,7 +1243,9 @@ const submitProjectProductRequest = async () => {
   projectProductError.value = ''
   try {
     if (!projectRequestAccess().query || !checkPermi(['dcc:project-code:create'])) throw new Error('当前账号没有提交项目申请的权限')
-    const valid = await projectProductFormRef.value?.validate()
+    // 提供回调使字段校验失败返回 false；其他异常仍由外层正常报告。
+    const valid = await projectProductFormRef.value?.validate(() => {})
+    if (!valid) projectProductError.value = '请完善标红的必填信息'
     if (!valid || !current() || projectProductMode.value !== 'create') return
     validateAttributes(projectProductForm.defaultAttributes)
     const rejectedRequestId = projectProductResubmitRequestId.value
@@ -1402,6 +1402,15 @@ const selectedProductCatalogRows = computed<DccProductCatalogRespVO[]>(() =>
   )
 )
 
+const pagedProductCatalogRows = computed(() => selectedProductCatalogRows.value.slice(
+  (queryParams.pageNo - 1) * queryParams.pageSize,
+  queryParams.pageNo * queryParams.pageSize
+))
+
+watch([selectedProductCatalogRows, () => queryParams.pageSize], () => {
+  queryParams.pageNo = 1
+})
+
 const getList = async () => {
   loading.value = true
   try {
@@ -1413,7 +1422,6 @@ const getList = async () => {
       findProductCatalogTreeNode(nextTreeList, selectedProductCatalogTreeNode.value.treeNodeId) ||
       nextTreeList[0] ||
       createProductCatalogAllTreeNode()
-    total.value = rows.length
   } finally {
     loading.value = false
   }

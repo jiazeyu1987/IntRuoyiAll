@@ -1,7 +1,8 @@
 <template>
-  <el-card v-show="resultOnly ? Boolean(error) : !hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
+  <el-card v-show="resultOnly ? Boolean(error || resultError) : !hideWhenEmpty || tasks.length > 0 || Boolean(error || resultError)" data-active-order-handoff-panel class="mb-4">
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
+    <el-alert v-if="resultError" :title="resultError" type="error" :closable="false" class="mb-4" />
     <UnifiedListTemplate
       v-if="!resultOnly"
       table-key="mes.handoff.mine"
@@ -101,7 +102,9 @@
         <el-table-column label="投递状态"><template #default="{ row }">{{ deliveryStates[row.status] }}</template></el-table-column>
         <el-table-column label="尝试次数" prop="attemptCount" />
         <el-table-column label="失败原因" prop="lastErrorSummary" min-width="220" />
-        <el-table-column label="发送时间" prop="sentAt" />
+        <el-table-column label="发送时间（北京时间）" min-width="210">
+          <template #default="{ row }">{{ formatNotificationSentAt(row.sentAt) }}</template>
+        </el-table-column>
       </el-table>
       <el-input v-model="retryReason" type="textarea" maxlength="1000" placeholder="填写通知重试原因" class="mt-4" />
       <template #footer>
@@ -112,10 +115,11 @@
   </el-card>
 </template>
 <script setup lang="ts">
+import { formatNotificationSentAt } from '@/utils/notificationTime'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onActivated, onDeactivated, onBeforeUnmount, watch } from 'vue'
 import type { TableInstance } from 'element-plus'
 const props = withDefaults(defineProps<{ hideWhenEmpty?: boolean; initialTasks?: api.HandoffTask[]; resultOnly?: boolean }>(), { hideWhenEmpty: false, resultOnly: false })
 const emit = defineEmits<{ (e: 'loaded', rows: api.HandoffTask[]): void }>()
@@ -136,6 +140,9 @@ const refreshLayout = async () => {
 defineExpose({ refreshLayout })
 const resultOpen = ref(false), result = ref<api.HandoffTask>()
 let resultEpoch = 0
+let pageActive = true
+const ownsResultRoute = () => pageActive && route.path === '/user/profile'
+const resultError = ref('')
 const completedResultOpen = ref(false), completedResult = ref<api.HandoffTask>()
 const completedResultLoading = ref(false), completedResultError = ref('')
 const completionSnapshot = ref<{ workOrderCode: string; processName: string }>()
@@ -203,25 +210,28 @@ const retry = async () => {
   finally { if (selected.value?.id === task.id) retrying.value = false }
 }
 const openVoidResult = async () => {
-  const epoch = ++resultEpoch; result.value = undefined; resultOpen.value = false
-  if (route.query.handoffTaskId === undefined || route.query.handoffResult !== undefined) return
+  const epoch = ++resultEpoch; result.value = undefined; resultOpen.value = false; resultError.value = ''
+  if (!ownsResultRoute()) return
+  const query = route.query
+  const isCurrent = () => epoch === resultEpoch && ownsResultRoute() && route.query === query
+  if (query.handoffTaskId === undefined || query.handoffResult !== undefined) return
   try {
-    const id = route.query.handoffTaskId
+    const id = query.handoffTaskId
     if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务身份无效')
     const context = await api.handoffNavigationContext(id)
-    if (epoch !== resultEpoch) return
+    if (!isCurrent()) return
     const task = context.task
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
     const readOnlyResult = isNcrNotice(task.taskType)
       ? task.notificationOnly === true && (context.current || isClosedHandoffCompletion(context))
       : task.taskType === 'QA_DECISION_HANDOFF' && task.reason.startsWith('void：')
     if (!target || target.path !== '/user/profile' || !readOnlyResult || task.status !== 'DONE'
-      || context.processable || route.query.handoffReadOnly !== '1'
-      || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
-      || Object.keys(route.query).some(key => !Object.hasOwn(target.query, key) && key !== 'handoffReadOnly'))
+      || context.processable || query.handoffReadOnly !== '1'
+      || Object.entries(target.query).some(([key, value]) => query[key] !== value)
+      || Object.keys(query).some(key => !Object.hasOwn(target.query, key) && key !== 'handoffReadOnly'))
       throw new Error('交接通知入口与原任务、周期或轮次不一致')
     result.value = task; resultOpen.value = true
-  } catch (e) { if (epoch === resultEpoch) error.value = failure(e) }
+  } catch (e) { if (isCurrent()) resultError.value = failure(e) }
 }
 const closeCompletedResult = () => {
   ++completionEpoch; completedResultOpen.value = false; completedResult.value = undefined
@@ -229,20 +239,23 @@ const closeCompletedResult = () => {
 }
 const completedResultVisibilityChanged = (visible: boolean) => { if (!visible) closeCompletedResult() }
 const openCompletedResult = async () => {
+  if (!ownsResultRoute()) return
   const epoch = ++completionEpoch
+  const query = route.query
+  const isCurrent = () => epoch === completionEpoch && ownsResultRoute() && route.query === query
   completedResult.value = undefined; completionSnapshot.value = undefined; completedResultError.value = ''
   completedResultOpen.value = true; completedResultLoading.value = true
   try {
-    const id = route.query.handoffTaskId
-    if (route.query.handoffResult !== 'completed' || typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接完成记录入口身份无效')
+    const id = query.handoffTaskId
+    if (query.handoffResult !== 'completed' || typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接完成记录入口身份无效')
     const context = await api.handoffNavigationContext(id)
-    if (epoch !== completionEpoch) return
+    if (!isCurrent()) return
     const task = context.task
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
     if (!target || target.path === '/user/profile' || !isClosedHandoffCompletion(context)) throw new Error('该交接不是已关闭周期的正式完成记录')
     const expectedQuery = { ...target.query, tab: 'notifyMessage', handoffReadOnly: '1', handoffResult: 'completed' }
-    if (Object.entries(expectedQuery).some(([key, value]) => route.query[key] !== value)
-      || Object.keys(route.query).length !== Object.keys(expectedQuery).length) throw new Error('完成记录入口与原任务、周期、来源或轮次不一致')
+    if (Object.entries(expectedQuery).some(([key, value]) => query[key] !== value)
+      || Object.keys(query).length !== Object.keys(expectedQuery).length) throw new Error('完成记录入口与原任务、周期、来源或轮次不一致')
     if (typeof task.responsibilitySnapshotJson !== 'string') throw new Error('原交接冻结责任快照缺失')
     const snapshot = JSON.parse(task.responsibilitySnapshotJson)
     if (!snapshot || Array.isArray(snapshot) || snapshot.identityDomain !== 'SYSTEM_USER'
@@ -253,19 +266,34 @@ const openCompletedResult = async () => {
       || typeof snapshot.workOrderCode !== 'string' || !snapshot.workOrderCode.trim()
       || typeof snapshot.processName !== 'string' || !snapshot.processName.trim()) throw new Error('原交接冻结工单、工序或来源身份不匹配')
     completedResult.value = task; completionSnapshot.value = { workOrderCode: snapshot.workOrderCode, processName: snapshot.processName }
-  } catch (e) { if (epoch === completionEpoch) completedResultError.value = failure(e) }
-  finally { if (epoch === completionEpoch) completedResultLoading.value = false }
+  } catch (e) { if (isCurrent()) completedResultError.value = failure(e) }
+  finally { if (isCurrent()) completedResultLoading.value = false }
+}
+// KeepAlive 保留组件及 watch；离开个人中心时必须同步撤销原页面读取。
+const resetHandoffResult = () => {
+  ++resultEpoch; result.value = undefined; resultOpen.value = false; resultError.value = ''
+  closeCompletedResult()
 }
 const loadHandoffResult = async () => {
-  ++resultEpoch; result.value = undefined; resultOpen.value = false
-  closeCompletedResult()
+  resetHandoffResult()
+  if (!ownsResultRoute()) return
   if (route.query.handoffResult === undefined) await openVoidResult()
   else await openCompletedResult()
 }
-watch(() => route.query, loadHandoffResult, { immediate: true, deep: true })
+watch([() => route.path, () => route.query], loadHandoffResult, { immediate: true, deep: true, flush: 'sync' })
+onDeactivated(() => {
+  pageActive = false
+  resetHandoffResult()
+})
+onActivated(() => {
+  if (pageActive) return
+  pageActive = true
+  void loadHandoffResult()
+})
 onBeforeUnmount(() => {
+  pageActive = false
   ++listEpoch
-  ++resultEpoch; result.value = undefined; resultOpen.value = false; closeCompletedResult()
+  resetHandoffResult()
 })
 watch(() => props.initialTasks, (rows) => {
   if (rows) { tasks.value = rows; changePage(page.value) }

@@ -234,6 +234,20 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Long recordActiveOrderDeviationInitiationSignature(Long actorId, Long activeOrderId,
+            Long deviationId, String deviationCode, String workOrderCode, String password, String contentHash) {
+        if (activeOrderId == null || activeOrderId <= 0 || deviationId == null || deviationId <= 0
+                || StrUtil.isBlank(deviationCode) || StrUtil.isBlank(contentHash)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        String intent = "发起偏差 " + deviationCode + "，活跃订单#" + activeOrderId + "，工单 " + workOrderCode;
+        return recordSignatureForActor(actorId, 0L, password, intent, ACTION_DEVIATION_INITIATION,
+                null, null, null, null, null, null, null,
+                "EDHR_DEVIATION", deviationId, intent, ACTION_DEVIATION_INITIATION,
+                intent, null, null, contentHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Long recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId,
                                                  String deviationCode, String node, Integer contentVersion,
                                                  String contentHash, String password, String comment) {
@@ -880,7 +894,7 @@ public class MesProBatchRecordExecutionSignatureService {
                         : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),
                 businessTimeZone(signatureTimeEvidence));
-        if (!Set.of(ACTION_PRODUCTION_SUBMIT, ACTION_PQC_SUBMIT, ACTION_PQC_RELEASE, ACTION_QA_DISPOSITION,
+        if (!Set.of(ACTION_PRODUCTION_SUBMIT, ACTION_PQC_SUBMIT, ACTION_TEAM_LEADER_REVIEW, ACTION_PQC_RELEASE, ACTION_QA_DISPOSITION,
                 ACTION_MARKET_RELEASE, ACTION_MARKET_RELEASE_REJECT).contains(actionType)) {
             return electronicSignatureService.sign(command);
         }

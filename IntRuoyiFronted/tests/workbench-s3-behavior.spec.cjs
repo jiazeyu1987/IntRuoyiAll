@@ -2,6 +2,45 @@ const assert=require('node:assert/strict')
 const test=require('node:test')
 const {fixture,deferred,tick,descriptor,dir,row,read,compile}=require('./helpers/workbench-s3-fixture.cjs')
 
+test('empty authorized directory is distinguished from an authorized source with no tasks',async()=>{
+ const f=fixture()
+ assert.equal(f.page.todoEmptyText.value,'待办列表尚未加载成功，请重试')
+ f.setTransport(async(r,next)=>{
+  if(r.url.endsWith('/sources'))return {...dir,sources:[]}
+  return next(r)
+ })
+ assert.equal(await f.page.loadWorkbench(),true)
+ assert.equal(f.page.total.value,0)
+ assert.equal(f.page.todoEmptyText.value,'当前账号暂无已授权的工作台任务来源')
+ f.page.activeVisibilityTab.value='hidden'
+ assert.equal(f.page.todoEmptyText.value,'当前账号暂无已授权的工作台任务来源')
+ f.scope.stop()
+ const authorized=fixture()
+ authorized.setTransport(async(r,next)=>{
+  const result=await next(r)
+  if(r.url.endsWith('/page'))return {...result,rows:[],filteredTotal:0,businessTotal:0,hiddenTotal:0}
+  return result
+ })
+ assert.equal(await authorized.page.loadWorkbench(),true)
+ assert.equal(authorized.page.todoEmptyText.value,'当前没有待办任务')
+ authorized.page.activeVisibilityTab.value='hidden'
+ assert.equal(await authorized.page.loadWorkbench(),true)
+ assert.equal(authorized.page.todoEmptyText.value,'暂无隐藏任务')
+ authorized.scope.stop()
+})
+
+test('directory loading and failure never claim missing authorization or empty business tasks',async()=>{
+ const f=fixture(),gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/sources')?gate.promise.then(()=>next(r)):next(r))
+ const pending=f.page.loadWorkbench()
+ assert.equal(f.page.todoEmptyText.value,'加载中')
+ gate.reject(new Error('目录查询失败'))
+ assert.equal(await pending,false)
+ assert.equal(f.page.todoEmptyText.value,'待办列表尚未加载成功，请重试')
+ assert.match(f.page.loadErrorMessages.value[0],/目录查询失败/)
+ f.scope.stop()
+})
+
 test('visible and hidden snapshots survive round trips and browser reload independently',async()=>{
  const f=fixture();await f.page.loadWorkbench();const visible=f.page.todoRows.value
  f.setTransport(async(r,next)=>{

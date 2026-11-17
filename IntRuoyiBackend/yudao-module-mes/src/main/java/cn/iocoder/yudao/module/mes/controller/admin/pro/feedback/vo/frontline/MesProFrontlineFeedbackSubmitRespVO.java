@@ -18,6 +18,9 @@ public class MesProFrontlineFeedbackSubmitRespVO {
     private Long quantityDraftId;
     private String quantityBlockMessage;
 
+    @Schema(description = "数量超限提示；正式报工已保存，不阻止进度及放行")
+    private String quantityWarningMessage;
+
     @Schema(description = "报工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
     private Long feedbackId;
 

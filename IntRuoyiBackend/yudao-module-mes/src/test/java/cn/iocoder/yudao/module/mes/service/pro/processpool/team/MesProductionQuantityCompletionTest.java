@@ -25,11 +25,10 @@ class MesProductionQuantityCompletionTest {
     }
 
     @Test
-    void historicalOverLimitCannotPassCompletionEvenWithConfirmedPqc() {
-        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                () -> readProgress("1101", true));
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_PRODUCTION_QUANTITY_EXCEEDED.getCode(), error.getCode());
+    void overLimitCountsAsCompleteWhenProductionAndPqcAreComplete() {
+        var result = readProgress("1101", true);
+        assertEquals(0, new BigDecimal("100").compareTo(result.getProductionProgressPercent()));
+        assertTrue(result.isDoubleComplete());
     }
 
     private MesTeamLeaderActiveOrderCompletionProgress readProgress(String actual, boolean pqcConfirmed) {

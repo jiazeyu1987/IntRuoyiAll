@@ -1,6 +1,9 @@
 import request from '@/config/axios'
 import type { ActiveOrderAuditIdentity, ActiveOrderAuditScope } from './activeOrderAudit'
 
+export type ActiveOrderSignatureScope = ActiveOrderAuditScope | 'NCR_REVIEW'
+export type ActiveOrderSignatureIdentity = ActiveOrderAuditIdentity
+
 export interface ActiveOrderSignatureEvidence {
   activeOrderId: number | string
   signerName?: string
@@ -65,9 +68,13 @@ const requireExactId = (value: unknown) => {
 }
 
 export const buildActiveOrderSignatureRequest = (
-  scope: ActiveOrderAuditScope, identity: ActiveOrderAuditIdentity, signatureId: number | string
+  scope: ActiveOrderSignatureScope, identity: ActiveOrderSignatureIdentity, signatureId: number | string
 ) => {
   const signature = requireExactId(signatureId)
+  if (scope === 'NCR_REVIEW') {
+    return { url: '/mes/pro/edhr-nonconformance-review/signature/get',
+      params: { reviewId: requireExactId(identity), signatureId: signature } }
+  }
   if (scope === 'TEAM') {
     return { url: '/mes/pro/process-pool/team-leader/active-order/signature/get',
       params: { activeOrderId: requireExactId(identity), signatureId: signature } }
@@ -88,5 +95,5 @@ export const buildActiveOrderSignatureRequest = (
 }
 
 export const getActiveOrderSignatureEvidence = async (
-  scope: ActiveOrderAuditScope, identity: ActiveOrderAuditIdentity, signatureId: number | string
+  scope: ActiveOrderSignatureScope, identity: ActiveOrderSignatureIdentity, signatureId: number | string
 ) => await request.get<ActiveOrderSignatureEvidence>(buildActiveOrderSignatureRequest(scope, identity, signatureId))

@@ -49,7 +49,7 @@ export interface ProRouteBaseProcessVO {
 
 // MES 工艺路线工序 VO
 export interface ProRouteProcessVO {
-  id?: number // 编号
+  id?: MesRouteId // 编号
   routeId: MesRouteId // 工艺路线编号
   processId: number // 工序编号
   processCode?: string // 工序编码

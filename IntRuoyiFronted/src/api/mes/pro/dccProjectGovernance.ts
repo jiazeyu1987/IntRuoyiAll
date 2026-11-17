@@ -33,10 +33,14 @@ export interface DccProjectGovernanceStatusOptions {
   formSlotStatusRequired?: boolean
 }
 
-export const getDccProjectGovernanceStatus = async (
+// Keep the encoded request target below the server's request-header limit, including
+// room for the API prefix and authentication headers. Chinese names expand in URLs.
+const MAX_STATUS_URL_LENGTH = 4000
+
+const buildStatusUrl = (
   projectNames: string[],
-  options: DccProjectGovernanceStatusOptions = {}
-): Promise<DccProjectGovernanceStatusVO[]> => {
+  options: DccProjectGovernanceStatusOptions
+): string => {
   const params = new URLSearchParams()
   projectNames.forEach((projectName) => params.append('projectNames', projectName))
   if (options.routeStatusRequired !== undefined) {
@@ -48,7 +52,30 @@ export const getDccProjectGovernanceStatus = async (
   if (options.formSlotStatusRequired !== undefined) {
     params.append('formSlotStatusRequired', String(options.formSlotStatusRequired))
   }
-  return await request.get<DccProjectGovernanceStatusVO[]>({
-    url: `/mes/pro/dcc-project-governance/status?${params.toString()}`
-  })
+  return `/mes/pro/dcc-project-governance/status?${params.toString()}`
+}
+
+export const getDccProjectGovernanceStatus = async (
+  projectNames: string[],
+  options: DccProjectGovernanceStatusOptions = {}
+): Promise<DccProjectGovernanceStatusVO[]> => {
+  const batches: string[][] = []
+  let batch: string[] = []
+  for (const projectName of projectNames) {
+    if (buildStatusUrl([projectName], options).length > MAX_STATUS_URL_LENGTH) {
+      throw new Error('项目名称过长，无法查询治理状态')
+    }
+    if (buildStatusUrl([...batch, projectName], options).length > MAX_STATUS_URL_LENGTH) {
+      batches.push(batch)
+      batch = []
+    }
+    batch.push(projectName)
+  }
+  if (batch.length > 0) batches.push(batch)
+  const results = await Promise.all(
+    batches.map((names) =>
+      request.get<DccProjectGovernanceStatusVO[]>({ url: buildStatusUrl(names, options) })
+    )
+  )
+  return results.flat()
 }

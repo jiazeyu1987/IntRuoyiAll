@@ -253,7 +253,7 @@ const props = withDefaults(
     mode?: 'dialog' | 'page'
     basicReadonly?: boolean
     pageEditing?: boolean
-    targetRouteProcessId?: number
+    targetRouteProcessId?: MesRouteId
     routeVersionEditContext?: RouteVersionEditContext
     routeVersionActionLoading?: boolean
   }>(),

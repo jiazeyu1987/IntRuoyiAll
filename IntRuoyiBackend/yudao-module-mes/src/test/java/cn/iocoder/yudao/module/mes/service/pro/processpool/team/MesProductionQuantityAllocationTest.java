@@ -107,30 +107,35 @@ class MesProductionQuantityAllocationTest {
         assertEquals(original,event.getRawPayload());
         verify(dependency("eventMapper",MesProProcessPoolEventMapper.class),never()).updateById(any(MesProProcessPoolEventDO.class));
     }
-    @Test void unchangedApprovalCannotSkipTheFrozenCeiling(){
+    @Test void unchangedApprovalAboveReferenceCeilingRemainsFormal(){
         var snapshots=dependency("activeOrderProcessSnapshotMapper",MesProcessPoolActiveOrderProcessSnapshotMapper.class);
         when(snapshots.selectListByActiveOrderAndProcessForUpdate(10L,70L)).thenReturn(List.of(snapshot(10L)
             .setErpFixedQuantitySnapshot(qty("500")).setPlannedQuantitySnapshot(qty("550"))));
         var command=command("400","200");
         command.setAllocations(List.of(MesReportAllocationSaveLine.builder().activeOrderId(10L).allocatedQuantity(qty("600")).build()));
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->MesProductionDisplayedContextFixture.save(service,command));
-        verify(dependency("signatureService",MesProBatchRecordExecutionSignatureService.class),never())
-            .recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
-        verify(dependency("allocationMapper",MesProcessPoolReportAllocationMapper.class),never()).attachReviewToCurrentRowsByEventId(any(),any(),any(),any());
+        var reviews = dependency("reviewMapper", MesProcessPoolSubmissionReviewMapper.class);
+        var approved = reviews.selectLatestByEventIdForUpdate(100L);
+        when(reviews.selectListByEventIdForUpdate(100L)).thenReturn(List.of(approved));
+        var result = MesProductionDisplayedContextFixture.save(service, command);
+        assertEquals(0, qty("600").compareTo(result.getTotalAllocatedQuantity()));
+        assertEquals(0, qty("50").compareTo(result.getLines().get(0).getOverageQuantity()));
+
     }
     @Test void differentProductIsRejectedBeforeAnyAllocationWrites(){
         when(dependency("workOrderMapper",MesProWorkOrderMapper.class).selectById(30L)).thenReturn(work(30L).setProductId(91L));
         assertThrows(IllegalArgumentException.class,()->MesProductionDisplayedContextFixture.save(service,command("400","200")));
         verify(dependency("allocationMapper",MesProcessPoolReportAllocationMapper.class),never()).supersedeCurrentRows(anyCollection(),any());
     }
-    @Test void targetCeilingCountsItsOtherSubmissions(){
+    @Test void targetOverageCountsOtherSubmissionsWithoutBlockingAllocation(){
         var allocations=dependency("allocationMapper",MesProcessPoolReportAllocationMapper.class);
         when(allocations.selectListByActiveOrderIdsAndProcessForUpdate(anyCollection(),eq(70L))).thenReturn(List.of(
             MesProcessPoolReportAllocationDO.builder().eventId(101L).activeOrderId(11L).workOrderId(31L).routeProcessId(60L).processId(70L).allocatedQuantity(qty("901")).build()));
         when(dependency("eventMapper",MesProProcessPoolEventMapper.class).selectBatchIds(anyCollection())).thenReturn(List.of(
             MesProProcessPoolEventDO.builder().id(101L).eventType("PRODUCTION_SUBMIT").workOrderId(31L).routeId(50L).routeProcessId(60L).processId(70L).reportOutputQuantity(qty("901"))
             .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":901}]}").build()));
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->MesProductionDisplayedContextFixture.save(service,command("400","200")));
-        verify(allocations,never()).insertBatch(anyCollection());
+        var result = MesProductionDisplayedContextFixture.save(service, command("400", "200"));
+        assertEquals(0, qty("600").compareTo(result.getTotalAllocatedQuantity()));
+        assertEquals(0, qty("1").compareTo(result.getLines().get(1).getOverageQuantity()));
+        verify(allocations).insertBatch(anyCollection());
     }
 }

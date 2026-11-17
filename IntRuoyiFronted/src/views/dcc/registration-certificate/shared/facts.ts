@@ -1,7 +1,10 @@
+import type { DccRegistrationCertificateProjectProduct } from '@/api/dcc/registrationCertificate'
+
 export type CertificateType = 'DOMESTIC' | 'CE' | 'FDA'
 export interface CertificateFacts {
   certificateType: CertificateType
   ownProduct: boolean
+  projectProduct?: DccRegistrationCertificateProjectProduct
   certificateStatus?: string
   ceCertificates?: Array<{ revision: string; certificateNo?: string; issueDate?: string }>
   [field: string]: any

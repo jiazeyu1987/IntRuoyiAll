@@ -16,7 +16,6 @@ public class MesProEdhrDeviationCreateReqVO {
     // Supplied by the order-scoped entry, never used to infer a batch.
     private Long activeOrderId;
 
-    @NotNull
     private Long batchExecutionId;
 
     @NotBlank
@@ -39,6 +38,8 @@ public class MesProEdhrDeviationCreateReqVO {
     @Size(max = 255)
     private String equipmentOrSystem;
     private LocalDateTime reportedAt;
+    @NotNull
+    @jakarta.validation.constraints.Positive
     private Long receiverId;
     @Size(max = 128)
     private String receiverName;

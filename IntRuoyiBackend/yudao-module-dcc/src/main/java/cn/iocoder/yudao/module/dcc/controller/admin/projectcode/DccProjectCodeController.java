@@ -80,8 +80,7 @@ public class DccProjectCodeController {
     @Operation(summary = "更新 DCC 项目代码")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
     public CommonResult<Boolean> updateProjectCode(@Valid @RequestBody DccProjectCodeUpdateReqVO reqVO) {
-        projectCodeService.getReadableProjectCode(getLoginUserId(), reqVO.getId());
-        projectAccessService.assertProjectEditorOrOwner(getLoginUserId(), reqVO.getId());
+        projectAccessService.assertProjectMetadataEditable(getLoginUserId(), reqVO.getId());
         projectCodeService.updateProjectCode(reqVO);
         return success(true);
     }

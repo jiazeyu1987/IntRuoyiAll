@@ -395,6 +395,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setLossCoefficient(process.lossCoefficient());
         respVO.setTargetQuantity(process.targetQuantity());
         respVO.setSubmittedQuantity(process.submittedQuantity());
+        respVO.setOutputSubmittedQuantities(process.outputSubmittedQuantities());
         return respVO;
     }
 

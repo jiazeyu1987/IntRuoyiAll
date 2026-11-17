@@ -74,6 +74,7 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
     private GxpAuditService gxpAuditService;
 
     @MockitoBean private PermissionCommandProtocol permissionCommandProtocol;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
     @org.junit.jupiter.api.AfterEach void noPermissionAssignmentCommands() {
         verifyNoInteractions(permissionCommandProtocol);
     }

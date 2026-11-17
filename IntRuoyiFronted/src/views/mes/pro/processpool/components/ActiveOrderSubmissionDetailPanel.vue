@@ -286,17 +286,8 @@
           </section>
         </el-tab-pane>
         <el-tab-pane v-if="showSummaryTab" label="偏差" name="deviation" data-active-order-deviation-tab>
-          <el-skeleton v-if="deviationLoading" :rows="4" animated />
-          <el-alert v-else-if="deviationError" :title="deviationError" type="error" :closable="false">
-            <el-button link type="primary" @click="loadDeviationBatches">重试</el-button>
-          </el-alert>
-          <template v-else-if="deviationBatches.length">
-            <section v-for="batch in deviationBatches" :key="batch.batchExecutionId">
-              <h3 v-if="deviationBatches.length > 1">{{ batch.batchExecutionCode }}</h3>
-              <DeviationTracePane :batch-execution-id="batch.batchExecutionId" />
-            </section>
-          </template>
-          <el-empty v-else description="暂无正式批记录，无法查看偏差" data-active-order-deviation-empty />
+          <DeviationTracePane v-if="props.detail?.activeOrderId && activeTab === 'deviation'" :active-order-id="props.detail.activeOrderId" />
+          <el-empty v-else-if="!props.detail?.activeOrderId" description="缺少活跃订单编号，无法查看偏差" />
         </el-tab-pane>
         <el-tab-pane
           v-if="showSummaryTab"
@@ -1052,7 +1043,7 @@
                     v-for="link in renderActiveOrderDocumentLinks([document.billNo], [document.id], 'pick')"
                     :key="link.key"
                   >
-                    <el-button link type="primary" @click="openActiveOrderDocument(link)">
+                    <el-button link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
                   </template>
@@ -1134,7 +1125,7 @@
                     v-for="link in renderActiveOrderDocumentLinks(material.sourceReplenishmentListNos, material.sourceReplenishmentListIds, 'replenishment')"
                     :key="link.key"
                   >
-                    <el-button link type="primary" @click="openActiveOrderDocument(link)">
+                    <el-button link type="primary" :disabled="handoffReadOnly" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
                   </template>
@@ -1278,6 +1269,7 @@
                 link
                 type="primary"
                 data-active-order-work-order-link
+                :disabled="handoffReadOnly"
                 @click="openWorkOrderList(activeOrderWorkOrderDisplay.workOrderCode)"
               >
                 {{ activeOrderWorkOrderDisplay.workOrderCode }}
@@ -1338,6 +1330,7 @@
                     type="primary"
                     class="team-leader-workbench__work-order-list-link"
                     data-active-order-work-order-list-link
+                    :disabled="handoffReadOnly"
                     @click="openWorkOrderList(row.workOrderCode)"
                   >
                     {{ row.workOrderCode }}
@@ -2080,6 +2073,15 @@
             <div><span>业务动作</span><strong>{{ signatureActionLabel(signatureEvidenceViewer.state.selected.evidence.actionCode) }}</strong></div>
             <div><span>签署时间</span><strong>{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</strong></div>
           </div>
+          <el-alert
+            v-if="!signatureEvidenceViewer.state.selected.evidence.actorDisplayName?.trim()"
+            title="原签时姓名快照未记录"
+            description="该签名证据缺少签署时姓名，无法据此核实当时姓名；不会用当前账号姓名补写。姓名证据缺失与本地摘要、时间值核验分别展示。"
+            type="warning"
+            :closable="false"
+            show-icon
+            data-active-order-signature-identity-missing
+          />
           <section class="signature-detail__section">
             <h3>签署信息</h3>
             <dl class="signature-detail__fields">
@@ -2166,7 +2168,11 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { formatDateTimeValue } from '@/utils/formatTime'
-import { getActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
+import {
+  getActiveOrderSignatureEvidence,
+  type ActiveOrderSignatureScope,
+  type ActiveOrderSignatureIdentity
+} from '@/api/mes/pro/edhr/activeOrderSignature'
 import { signatureVerificationDisplay } from './activeOrderSignatureVerificationDisplay'
 import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
 import ActiveOrderCorrectionHistoryPanel from './ActiveOrderCorrectionHistoryPanel.vue'
@@ -2175,7 +2181,6 @@ import { resolveUrlPathFileName } from '@/utils/fileName'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
-import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO } from '@/api/mes/pro/edhr/deviation'
 
 const props = defineProps<{
   hideOrderSummary?: boolean
@@ -2188,12 +2193,15 @@ const props = defineProps<{
   error?: string
   embedded?: boolean
   readOnly?: boolean
+  handoffReadOnly?: boolean
   displayMode?: 'full' | 'production' | 'pqc'
   recordScope?: 'DETAIL_RECORD' | 'FORMAL_BATCH_SOURCE_DETAIL'
   productionRouteProcessId?: number | string
   pqcReleaseApplicationId?: number | string
   auditScopeType?: ActiveOrderAuditScope
   auditScopeId?: ActiveOrderAuditIdentity
+  signatureScopeType?: ActiveOrderSignatureScope
+  signatureScopeId?: ActiveOrderSignatureIdentity
   initialActiveTab?: string
 }>()
 
@@ -2300,6 +2308,14 @@ const auditScopeIdValue = computed<ActiveOrderAuditIdentity | undefined>(() => {
 })
 const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(() => {
   if (!props.detail?.activeOrderId || props.loading || props.error) return undefined
+  if (props.signatureScopeType) {
+    if (props.signatureScopeId === undefined) return undefined
+    return {
+      scope: props.signatureScopeType,
+      identity: props.signatureScopeId,
+      activeOrderId: props.detail.activeOrderId
+    }
+  }
   const scope = auditScopeTypeValue.value
   // Embedded formal batch panels have the explicit active-order identity of their authorized detail.
   const identity = scope === 'BATCH'
@@ -2338,39 +2354,6 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
-const deviationLoading = ref(false)
-const deviationError = ref('')
-const deviationBatches = ref<DeviationBatchOptionRespVO[]>([])
-let deviationSequence = 0
-const loadDeviationBatches = async () => {
-  const sequence = ++deviationSequence
-  const activeOrderId = props.detail?.activeOrderId
-  deviationBatches.value = []
-  deviationError.value = ''
-  if (!(typeof activeOrderId === 'string' ? /^[1-9]\d*$/.test(activeOrderId) : Number.isSafeInteger(activeOrderId) && Number(activeOrderId) > 0)) {
-    deviationError.value = '缺少有效活跃订单编号，无法查询偏差'
-    deviationLoading.value = false
-    return
-  }
-  deviationLoading.value = true
-  try {
-    const batches = await getDeviationBatchOptionsByActiveOrder(activeOrderId!)
-    if (sequence !== deviationSequence) return
-    deviationBatches.value = batches
-  } catch (cause: any) {
-    if (sequence !== deviationSequence) return
-    deviationError.value = cause?.response?.data?.msg || '偏差关联批记录加载失败，请重试'
-  } finally {
-    if (sequence === deviationSequence) deviationLoading.value = false
-  }
-}
-watch(() => [props.detail?.activeOrderId, activeTab.value], () => {
-  deviationSequence++
-  deviationBatches.value = []
-  deviationError.value = ''
-  deviationLoading.value = false
-  if (activeTab.value === 'deviation') void loadDeviationBatches()
-}, { immediate: true })
 const activeOrderStatusTagType = computed(() => {
   const status = props.detail?.activeOrderStatus?.status
   if (status === 'RELEASED') return 'success'
@@ -2380,7 +2363,7 @@ const activeOrderStatusTagType = computed(() => {
   return 'info'
 })
 const activeOrderDossierMutationLockReason = computed(() => {
-  if (props.readOnly && !dossierFiles.value?.uploadTasks?.length) return '当前详情仅可查看，不能修改资料文件'
+  if (props.handoffReadOnly || (props.readOnly && !dossierFiles.value?.uploadTasks?.length)) return '当前详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
   if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
     return '尚未申请放行，资料暂不可查询'
@@ -2420,6 +2403,7 @@ const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(v
 
 const activeOrderOperationTypeLabels: Record<string, string> = {
   RESET_FIXED_TEST_ORDER: '重置指定测试订单',
+  COPY_LATEST_SIMULATION_ACTIVE_ORDER: '复制最新版本测试订单',
   ADD_ACTIVE_ORDER: '加入活跃订单',
   APPROVE: '审批中心批准放行',
   ARCHIVE: '生成电子批记录归档',
@@ -2600,6 +2584,7 @@ const renderActiveOrderDocumentLinks = (
 }
 
 const openActiveOrderDocument = (link: ActiveOrderDocumentLink) => {
+  if (props.handoffReadOnly) { ElMessage.warning('当前为原轮次只读查看，请返回正常业务入口查看单据。'); return }
   if (link.type === 'pick') {
     router.push({
       path: '/erp/production/pick-list',
@@ -2618,6 +2603,7 @@ const openActiveOrderDocument = (link: ActiveOrderDocumentLink) => {
 }
 
 const openWorkOrderList = (workOrderCode: string) => {
+  if (props.handoffReadOnly) { ElMessage.warning('当前为原轮次只读查看，请返回正常业务入口查看生产工单。'); return }
   router.push({
     path: '/mes/pro/work-order',
     query: { code: workOrderCode }

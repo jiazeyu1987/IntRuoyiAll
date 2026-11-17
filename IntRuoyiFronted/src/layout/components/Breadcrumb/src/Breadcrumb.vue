@@ -48,18 +48,21 @@ export default defineComponent({
 
     const renderBreadcrumb = () => {
       const breadcrumbList = treeToList<AppRouteRecordRaw[]>(unref(levelList))
-      return breadcrumbList.map((v) => {
+      return breadcrumbList.map((v, index) => {
         const disabled = !v.redirect || v.redirect === 'noredirect'
         const meta = v.meta as RouteMeta
+        const title = index === breadcrumbList.length - 1
+          ? currentRoute.value.meta.breadcrumbTitle || meta?.title
+          : meta?.title
         return (
           <ElBreadcrumbItem to={{ path: disabled ? '' : v.path }} key={v.name}>
             {meta?.icon && breadcrumbIcon.value ? (
               <div class="flex items-center">
                 <Icon icon={meta.icon} class="mr-[2px]" svgClass="inline-block"></Icon>
-                {t(v?.meta?.title)}
+                {t(title)}
               </div>
             ) : (
-              t(v?.meta?.title)
+              t(title)
             )}
           </ElBreadcrumbItem>
         )

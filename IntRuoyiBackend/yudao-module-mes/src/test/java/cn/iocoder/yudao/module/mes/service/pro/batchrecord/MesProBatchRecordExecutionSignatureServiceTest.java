@@ -242,7 +242,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION", "PRODUCTION_REVIEW", "PQC_REVIEW"})
     void releaseSignaturePersistsFrozenIdentityThroughRealKernelAndQuery(String action) {
         var records = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
         var kernel = new cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl();
@@ -250,7 +250,11 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         org.springframework.test.util.ReflectionTestUtils.setField(kernel, "signatureRecordMapper", records);
         org.springframework.test.util.ReflectionTestUtils.setField(kernel, "gxpAuditService", gxpAuditService);
         org.springframework.test.util.ReflectionTestUtils.setField(kernel, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
-        String originalName = "PQC_RELEASE".equals(action) ? "eDHR测试PQC放行" : "eDHR测试上市放行";
+        var provider = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi.class);
+        when(provider.identityDomain()).thenReturn("SYSTEM_USER");
+        when(provider.credentialType(99L)).thenReturn("PASSWORD");
+        org.springframework.test.util.ReflectionTestUtils.setField(kernel, "authenticationProviders", List.of(provider));
+        String originalName = action + "原签姓名";
         var signer = snapshotUser(originalName);
         when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
         when(adminUserService.getUser(99L)).thenReturn(signer);
@@ -268,7 +272,10 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         TenantContextHolder.setTenantId(1L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
-            Long id = "QA_DISPOSITION".equals(action)
+            Long id = action.endsWith("_REVIEW")
+                    ? signatureService.recordTeamLeaderReviewSignature(99L, "unit-only-credential", "组长复核:" + action,
+                        new MesTeamLeaderReviewSignatureContext(1001L, "APPROVED", "a".repeat(64), null, null, null))
+                    : "QA_DISPOSITION".equals(action)
                     ? signatureService.recordQaDispositionSignature(99L, 90L, "unit-only-credential", "符合要求", "a".repeat(64))
                     : "PQC_RELEASE".equals(action)
                     ? signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求")
@@ -305,16 +312,31 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION", "TEAM_LEADER_REVIEW"})
     void releaseSignatureRejectsMissingNameBeforeKernelWrite(String action) {
         when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(" "));
         assertServiceException(() -> {
-            if ("QA_DISPOSITION".equals(action)) signatureService.recordQaDispositionSignature(99L, 90L, "unit-only-credential", "符合要求", "a".repeat(64));
+            if ("TEAM_LEADER_REVIEW".equals(action)) signatureService.recordTeamLeaderReviewSignature(99L, "unit-only-credential", "复核",
+                    new MesTeamLeaderReviewSignatureContext(1001L, "APPROVED", "a".repeat(64), null, null, null));
+            else if ("QA_DISPOSITION".equals(action)) signatureService.recordQaDispositionSignature(99L, 90L, "unit-only-credential", "符合要求", "a".repeat(64));
             else if ("PQC_RELEASE".equals(action)) signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求");
             else signatureService.recordMarketReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求");
         }, PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         org.mockito.Mockito.verifyNoInteractions(electronicSignatureService, signatureMapper);
+    }
+
+    @Test
+    void reviewAuthenticationFailureDoesNotReachUnifiedWriter() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("复核组长"));
+        org.mockito.Mockito.doThrow(exception(USER_PASSWORD_FAILED))
+                .when(adminUserApi).reauthenticateForSignature(99L, "wrong");
+        assertServiceException(() -> signatureService.recordTeamLeaderReviewSignature(99L, "wrong", "复核",
+                new MesTeamLeaderReviewSignatureContext(1001L, "APPROVED", "a".repeat(64), null, null, null)), USER_PASSWORD_FAILED);
+        verify(electronicSignatureService, never()).signAuthorized(any(), any(), any());
+        verify(electronicSignatureService, never()).sign(any());
+        verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
     }
 
     @Test
@@ -414,7 +436,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     void temporaryProfileWritesUnifiedEvidenceEvenWhenSystemUserHasSameId() {
         var profile = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(8801L).employeeCode("TMP-8801").employeeName("临时工甲").enabled(true)
-                .signaturePasswordHash("bcrypt-temp-sign").build();
+                .signatureCredentialType("PASSWORD").signaturePasswordHash("bcrypt-temp-sign").build();
         profile.setTenantId(1L);
         when(employeeProfileMapper.selectById(8801L)).thenReturn(profile);
         when(passwordEncoder.matches("tmp-secret", "bcrypt-temp-sign")).thenReturn(true);
@@ -442,7 +464,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .employeeName("临时工甲")
                 .displayName("临时工甲")
                 .employeeType("TEMPORARY")
-                .signaturePasswordHash("bcrypt-temp-sign")
+                .signatureCredentialType("PASSWORD").signaturePasswordHash("bcrypt-temp-sign")
                 .enabled(Boolean.TRUE)
                 .build());
         when(passwordEncoder.matches("bad-secret", "bcrypt-temp-sign")).thenReturn(false);

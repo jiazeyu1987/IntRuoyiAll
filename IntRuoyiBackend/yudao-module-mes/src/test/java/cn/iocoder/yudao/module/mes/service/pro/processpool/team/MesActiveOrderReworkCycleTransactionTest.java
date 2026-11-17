@@ -184,6 +184,7 @@ public class MesActiveOrderReworkCycleTransactionTest {
             var nextSnapshot = snapshots.selectListByActiveOrderId(next).get(0);
             assertEquals("{\"outputMaterialIds\":[]}", nextSnapshot.getProductionConfigSnapshotJson());
             assertEquals(0, BigDecimal.TEN.compareTo(nextSnapshot.getPlannedQuantitySnapshot()));
+            assertEquals(0, BigDecimal.TEN.compareTo(nextSnapshot.getErpFixedQuantitySnapshot()));
             var nextTask = tasks.selectListByActiveOrderId(next).get(0);
             assertEquals("PENDING", nextTask.getTaskStatus());
             assertNull(nextTask.getSubmittedEventId());
@@ -244,7 +245,8 @@ public class MesActiveOrderReworkCycleTransactionTest {
         orders.insert(order);
         var snapshot = new MesProcessPoolActiveOrderProcessSnapshotDO().setId(10L).setActiveOrderId(1L)
                 .setWorkOrderId(workOrderId).setRouteId(routeId).setRouteVersionId(routeVersionId).setRouteProcessId(12L).setProcessId(13L)
-                .setProductionConfigSnapshotJson("{\"outputMaterialIds\":[]}").setPlannedQuantitySnapshot(BigDecimal.TEN);
+                .setProductionConfigSnapshotJson("{\"outputMaterialIds\":[]}").setPlannedQuantitySnapshot(BigDecimal.TEN)
+                .setErpFixedQuantitySnapshot(BigDecimal.TEN);
         snapshot.setTenantId(1L);
         snapshot.setDeleted(false);
         snapshots.insert(snapshot);

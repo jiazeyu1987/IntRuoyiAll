@@ -34,6 +34,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Mock MesPqcReleaseOrderDetailService pqcDetailService;
     @Mock MesProEdhrBatchActiveOrderDetailService batchDetailService;
     @Mock ElectronicSignatureQueryService signatureQueryService;
+    @Mock cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Mock MesProProcessPoolEventMapper eventMapper;
     @Mock MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock MesProductionSubmissionReadBinding productionBinding;
@@ -43,7 +44,10 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Mock cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper revisionMapper;
     @InjectMocks MesActiveOrderSignatureEvidenceService service;
 
-    @BeforeEach void verifiedPort() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
+    @BeforeEach void verifiedPort() {
+        cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", nonconformanceReviewService);
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"VALID", "MISMATCH", "MISSING"})
@@ -234,6 +238,26 @@ class MesActiveOrderSignatureEvidenceServiceTest {
                 new MesProcessPoolSubmissionReviewDO().setEventId(240L).setReviewSignatureId(743L).setReviewSignatureUserId(341L)));
     }
 
+    @Test void reviewContextReadsPersistedCycleWithoutTeamLeaderPermission() {
+        when(nonconformanceReviewService.getActiveOrderSignatureDetail(501L, 742L)).thenReturn(production());
+        stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
+        assertEquals(409L, service.getNonconformanceReview(501L, 742L).activeOrderId());
+        verifyNoInteractions(teamDetailService, pqcDetailService, batchDetailService);
+    }
+
+    @Test void reviewContextRejectsSignatureFromAnotherOrderBeforeEvidenceLookup() {
+        when(nonconformanceReviewService.getActiveOrderSignatureDetail(501L, 999L)).thenReturn(production());
+        assertThrows(RuntimeException.class, () -> service.getNonconformanceReview(501L, 999L));
+        verifyNoInteractions(signatureQueryService);
+    }
+
+    @Test void reviewSourceAuthorizationFailureStopsEvidenceLookup() {
+        when(nonconformanceReviewService.getActiveOrderSignatureDetail(501L, 742L))
+                .thenThrow(new IllegalStateException("review source denied"));
+        assertThrows(IllegalStateException.class, () -> service.getNonconformanceReview(501L, 742L));
+        verifyNoInteractions(signatureQueryService, teamDetailService);
+    }
+
     @Test void nonOwnerCannotReadAnySignature() {
         when(teamDetailService.getDetail(399L, 409L)).thenThrow(new IllegalStateException("owner denied"));
         assertThrows(IllegalStateException.class, () -> service.getTeam(399L, 409L, 742L));
@@ -306,6 +330,35 @@ class MesActiveOrderSignatureEvidenceServiceTest {
                 original.taskId(), original.nodeCode(), original.nodeOrder(), content.toJSONString(),
                 original.beforeContentJson(), original.afterContentJson(), original.fieldDiffJson(),
                 original.actorDisplayName(), original.timeZone());
+    }
+
+    @ParameterizedTest @NullSource @ValueSource(strings = {"原签复核姓名"})
+    void reviewSummaryUsesOnlyFrozenNameAndKeepsLegacyEvidenceReadable(String frozenName) {
+        var detail = production();
+        detail.getProcesses().get(0).getSubmissions().get(0).getReviewerSignature().setSignerName("当前组长已改名");
+        when(teamDetailService.getDetail(341L, 409L)).thenReturn(detail);
+        stub(743L, "TEAM_LEADER_REVIEW", "PROCESS_POOL_EVENT", 240L, "VALID");
+        var original = evidence(743L, "TEAM_LEADER_REVIEW", "PROCESS_POOL_EVENT", 240L);
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(original));
+        if (frozenName == null) json.putNull("actorDisplayName");
+        else {
+            json.put("actorDisplayName", frozenName);
+            var content = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(original.canonicalContentJson());
+            content.putObject("signatureIdentity").put("domain", "SYSTEM_USER").put("signerId", 341L)
+                    .put("operatorId", 341L).put("tenantId", 1L).put("displayName", frozenName);
+            json.put("canonicalContentJson", content.toString());
+            json.put("authenticationMethod", "SESSION_PLUS_SELECTED_USER_PASSWORD");
+        }
+        var signedEvidence = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(json.toString(), ElectronicSignatureEvidenceDTO.class);
+        when(signatureQueryService.getById(743L)).thenReturn(signedEvidence);
+        var result = service.getTeam(341L, 409L, 743L);
+        assertEquals(frozenName, result.signerName());
+        assertSame(signedEvidence, result.evidence());
+        assertEquals("VALID", result.verification().verificationStatus());
+        assertEquals(signedEvidence.canonicalContentJson(), result.evidence().canonicalContentJson());
+        assertEquals(original.contentHash(), result.evidence().contentHash());
+        assertEquals(original.evidenceHash(), result.evidence().evidenceHash());
     }
 
     @Test void exactReviewEventIsAccepted() {

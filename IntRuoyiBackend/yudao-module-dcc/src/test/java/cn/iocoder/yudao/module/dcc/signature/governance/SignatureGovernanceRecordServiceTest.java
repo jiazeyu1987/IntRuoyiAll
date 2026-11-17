@@ -103,6 +103,30 @@ class SignatureGovernanceRecordServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void centralQaReviewMappingUsesReviewIdentityAndReadOnlyReviewEntry() throws Exception {
+        Configuration configuration = new Configuration();
+        String resource = "mapper/signature/governance/SignatureGovernanceRecordMapper.xml";
+        try (var input = getClass().getClassLoader().getResourceAsStream(resource)) {
+            new XMLMapperBuilder(input, configuration, resource, configuration.getSqlFragments()).parse();
+        }
+        for (String method : List.of("selectSignatureRecordPage", "selectSignatureRecordByGlobalId")) {
+            String sql = configuration.getMappedStatement(SignatureGovernanceRecordMapper.class.getName() + "." + method)
+                    .getBoundSql(Map.of("reqVO", new SignatureGovernanceRecordPageReqVO(), "globalId", "UNIFIED-62283"))
+                    .getSql().replaceAll("\\s+", " ");
+            String unified = sql.substring(sql.indexOf("CONVERT(CONCAT('UNIFIED-', sig.id)"));
+            String reviewGuard = "sig.module_code = 'MES' AND sig.subject_type = 'MES_BATCH_RECORD' "
+                    + "AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sig.canonical_content_json, '$.reviewSourceType')), 'null') = 'EDHR_NONCONFORMANCE_REVIEW' "
+                    + "AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sig.canonical_content_json, '$.reviewSourceId')), 'null') REGEXP '^[1-9][0-9]*$'";
+            assertEquals(5, unified.split(java.util.regex.Pattern.quote(reviewGuard), -1).length - 1);
+            assertTrue(unified.contains("THEN CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sig.canonical_content_json, '$.reviewSourceId')), 'null') AS UNSIGNED)"));
+            assertTrue(unified.contains("THEN 'MesProFeedbackEdhrNonconformanceReview'"));
+            assertTrue(unified.contains("THEN CONCAT('/mes/pro/feedback/edhr-nonconformance-review?reviewId=', "
+                    + "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sig.canonical_content_json, '$.reviewSourceId')), 'null'), '&from=signature-governance')"));
+            assertTrue(unified.indexOf("'&from=signature-governance'") < unified.indexOf("'/mes/pro/feedback/edhr-signatures?executionId='"));
+        }
+    }
+
+    @Test
     void centralPdfVerifiesEvidenceAndUsesOnlyFrozenImage() throws Exception {
         SignatureGovernanceRecordRespVO row = centralRecord();
         row.setSignatureImageId(701L);

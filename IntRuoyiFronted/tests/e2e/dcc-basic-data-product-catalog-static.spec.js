@@ -90,7 +90,6 @@ for (const apiToken of [
 }
 
 for (const requiredToken of [
-  '基础数据 / DCC产品目录',
   '关键词',
   '产品类别 I',
   '产品类别 II',
@@ -137,15 +136,9 @@ for (const permissionToken of [
 }
 
 for (const maintenanceToken of [
-  "openForm('create'",
-  "openForm('update'",
-  'handleDelete',
-  '产品目录维护',
-  'submitForm',
-  'formRules',
-  '新增产品目录成功',
-  '编辑产品目录成功',
-  '删除产品目录成功'
+  "openProjectProductDialog('create'",
+  'submitProjectProductRequest',
+  '项目及产品已创建，无需审核'
 ]) {
   assert.ok(
     productCatalogPanelSource.includes(maintenanceToken),
@@ -196,7 +189,7 @@ assert.match(
 )
 assert.match(
   productCatalogPanelSource,
-  /data-user-table-key="dcc\.productCatalog\.main"[\s\S]*:data="selectedProductCatalogRows"/,
+  /data-user-table-key="dcc\.productCatalog\.main"[\s\S]*:data="filteredPageRows \|\| pagedProductCatalogRows"/,
   '产品目录右侧表格必须只绑定当前树节点筛选后的正式明细行'
 )
 assert.match(
@@ -252,8 +245,8 @@ assert.ok(actionsMatch, '产品目录独立页面必须保留 actions 插槽')
 const actionsSource = actionsMatch[0]
 assert.match(
   actionsSource,
-  /openForm\('create'\)/,
-  '产品目录 actions 插槽必须保留新增产品目录入口'
+  /openProjectProductDialog\('create'\)/,
+  '产品目录 actions 插槽必须保留项目及产品新建入口'
 )
 assert.doesNotMatch(
   actionsSource,

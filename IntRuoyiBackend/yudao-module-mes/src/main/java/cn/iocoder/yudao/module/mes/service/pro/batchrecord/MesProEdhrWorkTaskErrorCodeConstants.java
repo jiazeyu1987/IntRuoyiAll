@@ -38,4 +38,6 @@ public interface MesProEdhrWorkTaskErrorCodeConstants {
             new ErrorCode(1_040_751_415, "eDHR 当前活跃工作任务不唯一");
     ErrorCode PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING =
             new ErrorCode(1_040_751_416, "所选偏差调查或纠正责任人缺少必要权限：{}");
+    ErrorCode PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED =
+            new ErrorCode(1_040_751_417, "接收调查人员必须是当前租户启用且具备完整接收权限的偏差管理员，请重新选择");
 }

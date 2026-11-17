@@ -3226,6 +3226,17 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setDecimalScale(rule.getDecimalScale());
     }
 
+    @Override
+    public List<MesProRouteProcessDeviceParameterDeviceRespVO> getRouteDeviceOptions() {
+        return teamDeviceMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamDeviceDO>()
+                        .eq(MesProcessPoolTeamDeviceDO::getEnabled, Boolean.TRUE)
+                        .eq(MesProcessPoolTeamDeviceDO::getDeviceStatus, DEVICE_STATUS_ENABLED)
+                        .orderByAsc(MesProcessPoolTeamDeviceDO::getDeviceCode)
+                        .orderByAsc(MesProcessPoolTeamDeviceDO::getId)).stream()
+                .map(device -> toRouteDeviceParameterDeviceRespFromSnapshot(device, List.of()))
+                .toList();
+    }
+
     private MesProcessPoolTeamDeviceDO requireRouteDevice(Long deviceId) {
         MesProcessPoolTeamDeviceDO device = teamDeviceMapper.selectById(deviceId);
         if (device == null) {

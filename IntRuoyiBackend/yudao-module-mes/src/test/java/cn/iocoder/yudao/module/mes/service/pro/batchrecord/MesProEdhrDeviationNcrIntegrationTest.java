@@ -102,6 +102,51 @@ class MesProEdhrDeviationNcrIntegrationTest {
     }
 
     @Test
+    void productionOrderCriticalDeviationTransfersWithSignatureFreezeAndAtomicClose() {
+        var orders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper.class);
+        ReflectionTestUtils.setField(service, "activeOrderMapper", orders);
+        var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO()
+                .setId(6001L).setWorkOrderId(8001L).setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
+        order.setTenantId(71L);
+        when(orders.selectByIdForUpdate(6001L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(8001L)).thenReturn(new MesProWorkOrderDO()
+                .setId(8001L).setCode("WO-8001").setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(any(), eq(true))).thenReturn(1);
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 3001L))
+                .thenReturn(critical(3001L).setBatchExecutionId(null).setActiveOrderId(6001L));
+        when(reviewMapper.insert(org.mockito.ArgumentMatchers.<MesProEdhrNonconformanceReviewDO>any())).thenAnswer(call -> {
+            call.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(7001L); return 1;
+        });
+        when(signatureService.recordNonconformanceReviewCreateSignature(eq(501L), eq(7001L), any(), any(), any())).thenReturn(99001L);
+        when(reviewMapper.attachCreateSignature(eq(71L), eq(7001L), eq(99001L), any(), eq(501L))).thenReturn(1);
+        when(deviationMapper.closeToNonconformance(eq(71L), org.mockito.ArgumentMatchers.isNull(), eq(6001L),
+                eq(List.of(3001L)), eq(7001L), any())).thenReturn(1);
+        var result = service.createCriticalDeviationReview(501L, request("order-ncr")
+                .setBatchExecutionId(null).setActiveOrderId(6001L).setDeviationIds(List.of(3001L)));
+        assertEquals(6001L, result.getActiveOrderId());
+        assertNull(result.getBatchExecutionId());
+        assertEquals(99001L, result.getQaCreateSignatureId());
+        verify(workOrderMapper).updateTemporaryFrozenByIds(any(), eq(true));
+        verify(batchExecutionMapper, never()).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
+        verify(workTaskService).completeDeviationTask(eq(3001L), eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE), any());
+    }
+
+    @Test
+    void productionTransferRejectsDeviationFromDifferentOrder() {
+        var orders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper.class);
+        ReflectionTestUtils.setField(service, "activeOrderMapper", orders);
+        var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO()
+                .setId(6001L).setWorkOrderId(8001L).setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
+        order.setTenantId(71L);
+        when(orders.selectByIdForUpdate(6001L)).thenReturn(order);
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 3001L))
+                .thenReturn(critical(3001L).setBatchExecutionId(null).setActiveOrderId(6002L));
+        assertThrows(ServiceException.class, () -> service.createCriticalDeviationReview(501L,
+                request("wrong-order").setBatchExecutionId(null).setActiveOrderId(6001L).setDeviationIds(List.of(3001L))));
+        verify(signatureService, never()).recordNonconformanceReviewCreateSignature(any(), any(), any(), any(), any());
+    }
+
+    @Test
     void ledgerLockPrecedesBusinessLocks() {
         assertThrows(ServiceException.class, () -> service.createCriticalDeviationReview(501L, request("lock-order")));
         var order = org.mockito.Mockito.inOrder(unifiedAudit, batchExecutionMapper);
@@ -126,7 +171,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
                 .thenReturn(1);
         when(deviationMapper.selectByTenantAndIdForUpdate(any(), eq(3001L))).thenReturn(critical(3001L));
         when(deviationMapper.selectByTenantAndIdForUpdate(any(), eq(3002L))).thenReturn(critical(3002L));
-        when(deviationMapper.closeToNonconformance(any(), eq(9001L),
+        when(deviationMapper.closeToNonconformance(any(), eq(9001L), org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any(), eq(7001L), any())).thenReturn(2);
 
         var result = service.createCriticalDeviationReview(501L, request("ncr-1"));
@@ -134,7 +179,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
         assertEquals(7001L, result.getId());
         verify(signatureService).recordNonconformanceReviewCreateSignature(
                 eq(501L), eq(7001L), eq("signature"), any(), any());
-        verify(deviationMapper).closeToNonconformance(any(), eq(9001L), eq(List.of(3001L, 3002L)), eq(7001L), any());
+        verify(deviationMapper).closeToNonconformance(any(), eq(9001L), org.mockito.ArgumentMatchers.isNull(), eq(List.of(3001L, 3002L)), eq(7001L), any());
         for (Long deviationId : List.of(3001L, 3002L)) {
             verify(workTaskService).completeDeviationTask(deviationId,
                     MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "偏差已转不合格评审#7001");
@@ -165,7 +210,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
         verify(reviewMapper, never()).insert(org.mockito.ArgumentMatchers.<MesProEdhrNonconformanceReviewDO>any());
         verify(batchExecutionMapper, never()).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
         verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
-        verify(deviationMapper, never()).closeToNonconformance(any(), any(), anyCollection(), any(), any());
+        verify(deviationMapper, never()).closeToNonconformance(any(), any(), any(), anyCollection(), any(), any());
         verifyNoInteractions(signatureService, operationAuditService);
     }
 
@@ -185,7 +230,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
         when(batchExecutionMapper.updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any()))
                 .thenReturn(1);
         when(deviationMapper.selectByTenantAndIdForUpdate(any(), eq(3001L))).thenReturn(critical(3001L));
-        when(deviationMapper.closeToNonconformance(any(), eq(9001L),
+        when(deviationMapper.closeToNonconformance(any(), eq(9001L), org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any(), eq(7006L), any())).thenReturn(1);
 
         var result = service.createCriticalDeviationReview(501L,
@@ -193,7 +238,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
 
         assertEquals(7006L, result.getId());
         assertEquals(6001L, result.getActiveOrderId());
-        verify(deviationMapper).closeToNonconformance(any(), eq(9001L), eq(List.of(3001L)), eq(7006L), any());
+        verify(deviationMapper).closeToNonconformance(any(), eq(9001L), org.mockito.ArgumentMatchers.isNull(), eq(List.of(3001L)), eq(7006L), any());
     }
 
     @Test
@@ -209,7 +254,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
                 () -> service.createCriticalDeviationReview(501L, request("ncr-2")));
         verify(reviewMapper, never()).insert(org.mockito.ArgumentMatchers.<MesProEdhrNonconformanceReviewDO>any());
         verify(signatureService, never()).recordNonconformanceReviewCreateSignature(any(), any(), any(), any(), any());
-        verify(deviationMapper, never()).closeToNonconformance(any(), any(),
+        verify(deviationMapper, never()).closeToNonconformance(any(), any(), any(),
                 org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any(), any(), any());
     }
 
@@ -229,7 +274,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
         assertThrows(ServiceException.class,
                 () -> service.createCriticalDeviationReview(501L, request("ncr-4")));
         verify(deviationMapper, never()).selectByTenantAndIdForUpdate(any(), any());
-        verify(deviationMapper, never()).closeToNonconformance(any(), any(),
+        verify(deviationMapper, never()).closeToNonconformance(any(), any(), any(),
                 org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any(), any(), any());
     }
 
@@ -277,7 +322,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
         assertThrows(IllegalStateException.class,
                 () -> service.createCriticalDeviationReview(501L, request("ncr-7")));
         verify(batchExecutionMapper, never()).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
-        verify(deviationMapper, never()).closeToNonconformance(any(), any(),
+        verify(deviationMapper, never()).closeToNonconformance(any(), any(), any(),
                 org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any(), any(), any());
     }
 

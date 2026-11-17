@@ -9,6 +9,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.*;
 
 class MesProCraftParametersTest {
+    @Test void emptyParametersExplainMinimumRequirement() {
+        ServiceException ex = assertThrows(ServiceException.class, () -> normalize(new JSONArray()));
+        assertEquals("工艺至少保留一项参数", ex.getMessage());
+    }
     @Test void httpRequestParametersUseTheSameValidationAsStoredJson() throws Exception {
         var request = new com.fasterxml.jackson.databind.ObjectMapper().readValue("""
             {"name":"清洗工艺","processId":22,"reason":"新增",

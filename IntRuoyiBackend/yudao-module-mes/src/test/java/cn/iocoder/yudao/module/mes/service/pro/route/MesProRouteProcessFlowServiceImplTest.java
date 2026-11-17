@@ -9,6 +9,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRout
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowValidationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionProcessConfigSaveReqVO;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -35,17 +39,24 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -479,12 +490,12 @@ class MesProRouteProcessFlowServiceImplTest {
 
         assertTrue(result.getValid());
         assertEquals(4L, result.getGraphVersion());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
-                argThat(snapshot -> snapshot.toString().contains("graphVersion=4")
-                        && snapshot.toString().contains("nodes")
-                        && snapshot.toString().contains("routeProcessId=21")
-                        && candidateNodeHasWorkstation(snapshot, 21L, 81001L)
-                        && candidateNodeOmitsDisplayWorkstation(snapshot, 21L)));
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId),
+                argThat(snapshots -> snapshots.get("flowGraph").toString().contains("graphVersion=4")
+                        && snapshots.get("flowGraph").toString().contains("nodes")
+                        && snapshots.get("flowGraph").toString().contains("routeProcessId=21")
+                        && candidateNodeHasWorkstation(snapshots.get("flowGraph"), 21L, 81001L)
+                        && candidateNodeOmitsDisplayWorkstation(snapshots.get("flowGraph"), 21L)));
         verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
         verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
         verify(flowLayoutMapper, never()).deleteByRouteId(routeId);
@@ -539,9 +550,9 @@ class MesProRouteProcessFlowServiceImplTest {
 
         assertTrue(result.getValid());
         assertEquals(13L, result.getGraphVersion());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
-                argThat(snapshot -> snapshot.toString().contains("graphVersion=13")
-                        && snapshot.toString().contains("routeProcessId=151")));
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId),
+                argThat(snapshots -> snapshots.get("flowGraph").toString().contains("graphVersion=13")
+                        && snapshots.get("flowGraph").toString().contains("routeProcessId=151")));
         verify(routeProcessMapper, never()).selectListByRouteId(routeId);
         verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
         verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
@@ -594,22 +605,223 @@ class MesProRouteProcessFlowServiceImplTest {
         MesProRouteProcessSaveReqVO createdProcess = draftCreate(-1L, routeId, 202L, 2);
         createdProcess.setWorkstationId(81401L);
         reqVO.setRouteProcessCreates(List.of(createdProcess));
+        reqVO.setProductionProcessConfig(productionConfig(candidateRouteVersionId,
+                List.of(productionProcess(21L, 201L), productionProcess(-1L, 202L))));
 
         MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
 
         assertTrue(result.getValid());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("scheduleConfigs"),
-                argThat(snapshot -> snapshot.toString().contains("\"21\"")
-                        && snapshot.toString().contains("\"hourlyCapacity\":12.5")
-                        && snapshot.toString().contains("\"-1\"")
-                        && snapshot.toString().contains("\"routeProcessId\":-1")
-                        && snapshot.toString().contains("\"sort\":2")
-                        && snapshot.toString().contains("\"capacityMode\":\"RESOURCE_CALCULATED\"")
-                        && snapshot.toString().contains("\"nightShiftEnabled\":false")));
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"), any());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
-                argThat(snapshot -> candidateNodeHasWorkstation(snapshot, -1L, 81401L)));
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId), eq("original-hash"),
+                argThat(snapshots -> snapshots.get("scheduleConfigs").toString().contains("\"21\"")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"hourlyCapacity\":12.5")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"-1\"")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"routeProcessId\":-1")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"sort\":2")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"capacityMode\":\"RESOURCE_CALCULATED\"")
+                        && snapshots.get("scheduleConfigs").toString().contains("\"nightShiftEnabled\":false")
+                        && snapshots.keySet().equals(Set.of("flowGraph", "scheduleConfigs",
+                                "productionProcessConfigSchemaVersion", "productionProcessConfigs"))
+                        && candidateNodeHasWorkstation(snapshots.get("flowGraph"), -1L, 81401L)));
+        verifyNoMoreInteractions(routeCandidateConfigService);
         verify(routeProcessService, never()).createRouteProcess(any(MesProRouteProcessSaveReqVO.class));
+    }
+
+    @Test
+    void saveGraph_shouldReplaceProcessAndSaveAllSnapshotsOnceWithoutMatchingScheduleBySort() {
+        MesProRouteVersionDO candidate = stubProductionCandidate();
+        String originalSnapshot = candidate.getRouteSnapshotJson();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        request.setRouteProcessDeletes(List.of(22L));
+        request.setRouteProcessCreates(List.of(draftCreate(-1L, 9002L, 203L, 2)));
+        request.setEdges(List.of(edge(21L, -1L)));
+        request.setBoundaryEdges(List.of(boundary("START", 21L, 1), boundary("END", -1L, 1)));
+        request.setLayouts(List.of(layout(21L, 10, 20), layout(-1L, 220, 20)));
+        when(processService.getProcess(203L)).thenReturn(processDefinition(203L, "PROC-203", "替换工序"));
+        Map<String, Object> preservedConfig = productionProcess(21L, 201L);
+        preservedConfig.put("overagePercent", new java.math.BigDecimal("7.25"));
+        preservedConfig.put("untouchedExtension", Map.of("enabled", true, "values", List.of("original")));
+        request.setProductionProcessConfig(productionConfig(9902L,
+                List.of(preservedConfig, productionProcess(-1L, 203L))));
+        doAnswer(invocation -> {
+            Map<String, Object> snapshots = invocation.getArgument(2);
+            JSONObject merged = mergeCandidateConfigs(candidate, snapshots);
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(9902L, merged);
+            assertEquals(request.getProductionProcessConfig().getProductionProcessConfigs(),
+                    snapshots.get("productionProcessConfigs"));
+            assertSame(preservedConfig,
+                    ((List<?>) snapshots.get("productionProcessConfigs")).get(0));
+            JSONObject schedules = merged.getJSONObject("scheduleConfigs");
+            assertEquals(Set.of("21", "-1"), schedules.keySet());
+            assertEquals("preserve-me", schedules.getJSONObject("21").getString("remark"));
+            assertEquals(new java.math.BigDecimal("12.5"),
+                    schedules.getJSONObject("21").getBigDecimal("hourlyCapacity"));
+            assertEquals("RESOURCE_CALCULATED", schedules.getJSONObject("-1").getString("capacityMode"));
+            assertNull(schedules.getJSONObject("-1").get("hourlyCapacity"));
+            assertNull(schedules.getJSONObject("-1").get("remark"));
+            return null;
+        }).when(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+
+        assertTrue(flowService.saveGraph(request).getValid());
+
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+        verifyNoMoreInteractions(routeCandidateConfigService);
+        assertEquals(originalSnapshot, candidate.getRouteSnapshotJson());
+        verify(routeProcessService, never()).createRouteProcess(any(MesProRouteProcessSaveReqVO.class));
+        verify(routeProcessMapper, never()).deleteById(any(Long.class));
+        verify(flowEdgeMapper, never()).deleteByRouteId(any());
+    }
+
+    @Test
+    void saveGraph_shouldAtomicallyRemoveDeletedProductionAndScheduleConfigs() {
+        MesProRouteVersionDO candidate = stubProductionCandidate();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        request.setRouteProcessDeletes(List.of(22L));
+        request.setEdges(List.of());
+        request.setBoundaryEdges(List.of(boundary("START", 21L, 1), boundary("END", 21L, 1)));
+        request.setLayouts(List.of(layout(21L, 10, 20)));
+        request.setProductionProcessConfig(productionConfig(9902L, List.of(productionProcess(21L, 201L))));
+        doAnswer(invocation -> {
+            JSONObject merged = mergeCandidateConfigs(candidate, invocation.getArgument(2));
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(9902L, merged);
+            assertEquals(Set.of("21"), merged.getJSONObject("scheduleConfigs").keySet());
+            assertEquals(1, merged.getJSONArray("productionProcessConfigs").size());
+            assertEquals(21L, merged.getJSONArray("productionProcessConfigs").getJSONObject(0).getLong("routeProcessId"));
+            return null;
+        }).when(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+
+        assertTrue(flowService.saveGraph(request).getValid());
+
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+        verifyNoMoreInteractions(routeCandidateConfigService);
+    }
+
+    @Test
+    void saveGraph_shouldKeepProductionConfigsUntouchedWhenOnlyGraphChanges() {
+        MesProRouteVersionDO candidate = stubProductionCandidate();
+        JSONObject originalConfigs = JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        doAnswer(invocation -> {
+            Map<String, Object> snapshots = invocation.getArgument(1);
+            assertEquals(Set.of("flowGraph", "scheduleConfigs"), snapshots.keySet());
+            JSONObject merged = mergeCandidateConfigs(candidate, snapshots);
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(9902L, merged);
+            assertEquals(originalConfigs.get("productionProcessConfigs"), merged.get("productionProcessConfigs"));
+            assertEquals(originalConfigs.get("productionProcessConfigSchemaVersion"),
+                    merged.get("productionProcessConfigSchemaVersion"));
+            return null;
+        }).when(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), any(Map.class));
+
+        assertTrue(flowService.saveGraph(productionCandidateRequest()).getValid());
+
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), any(Map.class));
+        verifyNoMoreInteractions(routeCandidateConfigService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void saveGraph_shouldRejectMembershipChangesWithoutExplicitProductionConfigs(boolean deleting) {
+        stubProductionCandidate();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        if (deleting) {
+            request.setRouteProcessDeletes(List.of(22L));
+            request.setEdges(List.of());
+            request.setLayouts(List.of(layout(21L, 10, 20)));
+            request.setBoundaryEdges(List.of(boundary("START", 21L, 1), boundary("END", 21L, 1)));
+        } else {
+            when(processService.getProcess(203L)).thenReturn(processDefinition(203L, "PROC-203", "新增工序"));
+            request.setRouteProcessCreates(List.of(draftCreate(-1L, 9002L, 203L, 3)));
+            request.setEdges(List.of(edge(21L, 22L), edge(22L, -1L)));
+            request.setLayouts(List.of(layout(21L, 10, 20), layout(22L, 220, 20), layout(-1L, 430, 20)));
+            request.setBoundaryEdges(List.of(boundary("START", 21L, 1), boundary("END", -1L, 1)));
+        }
+
+        ServiceException failure = assertThrows(ServiceException.class, () -> flowService.saveGraph(request));
+
+        assertTrue(failure.getMessage().contains("必须提供完整productionProcessConfig"));
+        verifyNoMoreInteractions(routeCandidateConfigService);
+        verify(routeProcessService, never()).createRouteProcess(any(MesProRouteProcessSaveReqVO.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"VERSION", "SCHEMA", "CONFIGS", "EMPTY_CONFIGS", "HASH"})
+    void saveGraph_shouldRejectIncompleteOrDifferentCandidateProductionContract(String missing) {
+        stubProductionCandidate();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        MesProRouteProductionProcessConfigSaveReqVO config = productionConfig(9902L,
+                List.of(productionProcess(21L, 201L), productionProcess(22L, 202L)));
+        switch (missing) {
+            case "VERSION" -> config.setRouteVersionId(9903L);
+            case "SCHEMA" -> config.setSchemaVersion(null);
+            case "CONFIGS" -> config.setProductionProcessConfigs(null);
+            case "EMPTY_CONFIGS" -> config.setProductionProcessConfigs(List.of());
+            case "HASH" -> config.setExpectedRouteSnapshotSha256(" ");
+            default -> throw new IllegalArgumentException(missing);
+        }
+        request.setProductionProcessConfig(config);
+
+        ServiceException failure = assertThrows(ServiceException.class, () -> flowService.saveGraph(request));
+
+        assertTrue(failure.getMessage().contains("productionProcessConfig必须包含"));
+        verifyNoMoreInteractions(routeCandidateConfigService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NULL_OVERAGE", "NEGATIVE_OVERAGE", "MISSING_PROCESS", "WRONG_PROCESS", "DUPLICATE", "SCHEMA"})
+    void saveGraph_shouldPropagateExistingProductionValidationFailures(String invalid) {
+        MesProRouteVersionDO candidate = stubProductionCandidate();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        Map<String, Object> first = productionProcess(21L, 201L);
+        Map<String, Object> second = productionProcess(22L, 202L);
+        MesProRouteProductionProcessConfigSaveReqVO config = productionConfig(9902L, List.of(first, second));
+        switch (invalid) {
+            case "NULL_OVERAGE" -> second.put("overagePercent", null);
+            case "NEGATIVE_OVERAGE" -> second.put("overagePercent", -1);
+            case "MISSING_PROCESS" -> config.setProductionProcessConfigs(List.of(first));
+            case "WRONG_PROCESS" -> second.put("processId", 203L);
+            case "DUPLICATE" -> config.setProductionProcessConfigs(List.of(first, first, second));
+            case "SCHEMA" -> config.setSchemaVersion(2);
+            default -> throw new IllegalArgumentException(invalid);
+        }
+        request.setProductionProcessConfig(config);
+        doAnswer(invocation -> {
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(9902L,
+                    mergeCandidateConfigs(candidate, invocation.getArgument(2)));
+            return null;
+        }).when(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+
+        AssertUtils.assertServiceException(() -> flowService.saveGraph(request),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 9902L);
+
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+        verifyNoMoreInteractions(routeCandidateConfigService);
+        verify(flowEdgeMapper, never()).deleteByRouteId(any());
+    }
+
+    @Test
+    void saveGraph_shouldPropagateSnapshotConflictWithoutRetryingSeparateWrites() {
+        stubProductionCandidate();
+        MesProRouteProcessFlowSaveReqVO request = productionCandidateRequest();
+        request.setProductionProcessConfig(productionConfig(9902L,
+                List.of(productionProcess(21L, 201L), productionProcess(22L, 202L))));
+        ServiceException conflict = new ServiceException(ErrorCodeConstants.PRO_ROUTE_VERSION_CONFLICT);
+        doThrow(conflict).when(routeCandidateConfigService)
+                .saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+
+        assertSame(conflict, assertThrows(ServiceException.class, () -> flowService.saveGraph(request)));
+
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(9902L), eq("original-hash"), any());
+        verifyNoMoreInteractions(routeCandidateConfigService);
+    }
+
+    @Test
+    void saveGraph_shouldNotSilentlyIgnoreProductionConfigWithoutCandidate() {
+        MesProRouteProcessFlowSaveReqVO request = saveReq(9002L, 3L, List.of(), List.of());
+        request.setProductionProcessConfig(productionConfig(9902L, List.of(productionProcess(21L, 201L))));
+
+        ServiceException failure = assertThrows(ServiceException.class, () -> flowService.saveGraph(request));
+
+        assertTrue(failure.getMessage().contains("仅支持随候选版本关系图保存"));
+        verifyNoMoreInteractions(routeCandidateConfigService);
+        verify(flowEdgeMapper, never()).deleteByRouteId(any());
     }
 
     @Test
@@ -715,11 +927,11 @@ class MesProRouteProcessFlowServiceImplTest {
 
         assertTrue(result.getValid());
         assertEquals(8L, result.getGraphVersion());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
-                argThat(snapshot -> snapshot.toString().contains("routeProcessId=101")
-                        && snapshot.toString().contains("keyFlag=false")
-                        && snapshot.toString().contains("routeProcessId=102")
-                        && snapshot.toString().contains("keyFlag=true")));
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId),
+                argThat(snapshots -> snapshots.get("flowGraph").toString().contains("routeProcessId=101")
+                        && snapshots.get("flowGraph").toString().contains("keyFlag=false")
+                        && snapshots.get("flowGraph").toString().contains("routeProcessId=102")
+                        && snapshots.get("flowGraph").toString().contains("keyFlag=true")));
         verify(routeProcessService, never()).updateRouteProcess(any(MesProRouteProcessSaveReqVO.class));
     }
 
@@ -763,9 +975,8 @@ class MesProRouteProcessFlowServiceImplTest {
 
         assertTrue(result.getValid());
         assertEquals(10L, result.getGraphVersion());
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
-                argThat((java.util.Map<String, Object> snapshot) ->
-                        candidateNodeHasWorkstation(snapshot, 142L, 81402L)));
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId),
+                argThat(snapshots -> candidateNodeHasWorkstation(snapshots.get("flowGraph"), 142L, 81402L)));
         verify(routeProcessService, never()).updateRouteProcess(any(MesProRouteProcessSaveReqVO.class));
     }
 
@@ -1176,6 +1387,66 @@ class MesProRouteProcessFlowServiceImplTest {
         reqVO.setRouteId(routeId);
         reqVO.setKeyFlag(keyFlag);
         return reqVO;
+    }
+
+    private MesProRouteVersionDO stubProductionCandidate() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9902L)
+                .routeId(9002L)
+                .active(false)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotSha256("original-hash")
+                .build();
+        Map<String, Object> snapshots = new LinkedHashMap<>();
+        snapshots.put("flowGraph", Map.of("graphVersion", 3L, "nodes", List.of(
+                Map.of("routeProcessId", 21L, "processId", 201L, "sort", 1, "keyFlag", true, "checkFlag", false),
+                Map.of("routeProcessId", 22L, "processId", 202L, "sort", 2, "keyFlag", false, "checkFlag", false)),
+                "edges", List.of(), "boundaryEdges", List.of(), "layouts", List.of()));
+        snapshots.put("scheduleConfigs", Map.of(
+                "21", Map.of("routeProcessId", 21L, "sort", 1, "capacityMode", "MANUAL_OVERRIDE",
+                        "hourlyCapacity", new java.math.BigDecimal("12.5"), "remark", "preserve-me"),
+                "22", Map.of("routeProcessId", 22L, "sort", 2, "capacityMode", "MANUAL_OVERRIDE",
+                        "hourlyCapacity", 99, "remark", "deleted-process-only")));
+        snapshots.put("productionProcessConfigSchemaVersion", 1);
+        snapshots.put("productionProcessConfigs", List.of(productionProcess(21L, 201L), productionProcess(22L, 202L)));
+        candidate.setRouteSnapshotJson(JSON.toJSONString(Map.of("routeId", 9002L, "configSnapshots", snapshots)));
+        when(routeMapper.selectById(9002L)).thenReturn(route(9002L));
+        when(routeVersionMapper.selectById(9902L)).thenReturn(candidate);
+        return candidate;
+    }
+
+    private static MesProRouteProcessFlowSaveReqVO productionCandidateRequest() {
+        MesProRouteProcessFlowSaveReqVO request = saveReq(9002L, 3L, List.of(edge(21L, 22L)),
+                List.of(layout(21L, 10, 20), layout(22L, 220, 20)));
+        request.setRouteVersionId(9902L);
+        return request;
+    }
+
+    private static MesProRouteProductionProcessConfigSaveReqVO productionConfig(
+            Long routeVersionId, List<Map<String, Object>> configs) {
+        MesProRouteProductionProcessConfigSaveReqVO request = new MesProRouteProductionProcessConfigSaveReqVO();
+        request.setRouteVersionId(routeVersionId);
+        request.setSchemaVersion(1);
+        request.setExpectedRouteSnapshotSha256("original-hash");
+        request.setProductionProcessConfigs(configs);
+        return request;
+    }
+
+    private static Map<String, Object> productionProcess(Long routeProcessId, Long processId) {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("routeProcessId", routeProcessId);
+        config.put("processId", processId);
+        config.put("overagePercent", new java.math.BigDecimal("6.25"));
+        config.put("lossReasons", List.of());
+        config.put("deviceSelectionGroups", List.of());
+        config.put("parameterRules", List.of());
+        return config;
+    }
+
+    private static JSONObject mergeCandidateConfigs(MesProRouteVersionDO candidate, Map<String, Object> snapshots) {
+        JSONObject merged = JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        snapshots.forEach((key, value) -> merged.put(key, JSON.parse(JSON.toJSONString(value))));
+        return merged;
     }
 
     private static boolean candidateNodeHasWorkstation(Object snapshotValue,

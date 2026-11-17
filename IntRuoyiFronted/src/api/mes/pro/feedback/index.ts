@@ -210,6 +210,7 @@ export interface ProFrontlineFeedbackSubmitRespVO {
   submissionStatus: 'SUBMITTED' | 'QUANTITY_BLOCKED'
   quantityDraftId?: number
   quantityBlockMessage?: string
+  quantityWarningMessage?: string
   feedbackId: number
   recordbookEntryId?: number
   recordbookEventId?: number
@@ -257,6 +258,7 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationCode?: string
   workstationName?: string
   submittedQuantity: number
+  outputSubmittedQuantities: Record<string, number>
   targetQuantity?: number
   lossCoefficient?: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]

@@ -8,8 +8,8 @@ export interface ReleaseTaskNotificationReceipt {
   status: 'PENDING' | 'FAILED' | 'SENT'
   rowVersion: number
   attemptCount: number
-  lastAttemptAt: string | null
-  sentAt: string | null
+  lastAttemptAt: string | number | null
+  sentAt: string | number | null
   systemMessageId: string | null
   lastErrorSummary: string | null
 }

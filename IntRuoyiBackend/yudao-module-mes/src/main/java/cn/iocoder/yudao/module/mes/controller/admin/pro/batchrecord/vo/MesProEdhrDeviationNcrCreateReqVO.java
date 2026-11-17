@@ -19,8 +19,7 @@ public class MesProEdhrDeviationNcrCreateReqVO {
     @Schema(description = "发起人明确选择的QA评审责任人", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long qaReviewerUserId;
 
-    @NotNull
-    @Schema(description = "正式批记录ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long activeOrderId;
     private Long batchExecutionId;
 
     @NotEmpty

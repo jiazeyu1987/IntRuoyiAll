@@ -290,7 +290,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
-    void shouldRejectConfirmedQuantityAboveFrozenCeilingBeforeWritingProgress() {
+    void shouldCompleteConfirmedQuantityAboveReferenceCeiling() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
         MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "201");
@@ -301,11 +301,12 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         stubProcessProgress("200", "221");
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
-        ServiceException failure = assertThrows(ServiceException.class,
-                () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(), failure.getCode());
-        verify(completionMapper, never()).insert(any(MesProcessPoolOrderProcessCompletionDO.class));
-        verify(scheduleOrderProcessMapper, never()).updateProgress(any(), any(), any(), any());
+        service.applyConfirmedAllocations(event, List.of(confirmedLine));
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> saved =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(saved.capture());
+        assertAmount("221", saved.getValue().getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getValue().getCompletionStatus());
     }
 
     @Test
@@ -396,7 +397,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
-    void shouldRetainHistoricalOverageForCorrectionWithoutMarkingTheProcessCompleted() {
+    void shouldCountOverageInCompletionAndPreserveActualScheduleQuantity() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO frontlineAllocation = allocation(9001L, "10")
                 .setAllocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED);
@@ -418,10 +419,10 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
         assertAmount("6", saved.getTargetQuantity());
         assertAmount("10", saved.getConfirmedQuantity());
-        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
                 saved.getBackfillStatus());
-        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("6.000000"),
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("10.000000"),
                 new BigDecimal("0.000000"), new BigDecimal("100.000000"));
         verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("6.000000"),
                 new BigDecimal("6.000000"), new BigDecimal("0.000000"), new BigDecimal("100.000000"),

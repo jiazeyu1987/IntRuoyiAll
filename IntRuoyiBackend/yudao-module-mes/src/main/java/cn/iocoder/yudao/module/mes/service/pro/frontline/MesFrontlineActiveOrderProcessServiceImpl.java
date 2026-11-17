@@ -84,7 +84,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (!snapshotIdentities.equals(nodes.keySet())) {
             throw snapshotInvalid(activeOrderId, "逐工序目标快照与锁定工艺版本工序不一致");
         }
-        Map<ProcessIdentity, BigDecimal> submittedQuantities =
+        Map<ProcessIdentity, ProcessProgress> submittedQuantities =
                 resolveSubmittedQuantities(activeOrder, processSnapshots);
         String routeCode = normalize(routeSnapshot.getString("routeCode"));
         String routeName = normalize(routeSnapshot.getString("routeName"));
@@ -178,7 +178,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
             String routeName,
             Map<ProcessIdentity, JSONObject> nodes,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
-            BigDecimal submittedQuantity) {
+            ProcessProgress progress) {
         if (snapshot == null || !Objects.equals(snapshot.getActiveOrderId(), activeOrder.getId())
                 || !Objects.equals(snapshot.getRouteId(), activeOrder.getRouteId())
                 || !Objects.equals(snapshot.getRouteVersionId(), routeVersion.getId())
@@ -197,7 +197,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (processCode == null || processName == null) {
             throw snapshotInvalid(activeOrder.getId(), "流程工序缺少冻结编码或名称");
         }
-        if (submittedQuantity == null) {
+        if (progress == null || progress.quantity() == null) {
             throw snapshotInvalid(activeOrder.getId(), "缺少工序已提交数量");
         }
         Long workstationId = node.getLong("routeProcessWorkstationId");
@@ -210,39 +210,35 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
                 node.getInteger("sort"), workstationId, normalize(node.getString("workstationCode")),
                 normalize(node.getString("workstationName")),
                 cn.iocoder.yudao.module.mes.service.pro.route.MesRouteLossCoefficient.frozen(snapshot.getProductionConfigSnapshotJson()),
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityRange.of(snapshot).lower(), submittedQuantity,
-                Boolean.TRUE.equals(node.getBoolean("checkFlag")));
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionQuantityRange.of(snapshot).lower(), progress.quantity(),
+                Boolean.TRUE.equals(node.getBoolean("checkFlag")), progress.outputQuantities());
     }
 
-    private Map<ProcessIdentity, BigDecimal> resolveSubmittedQuantities(
+    private record ProcessProgress(BigDecimal quantity, Map<Long, BigDecimal> outputQuantities) {}
+
+    private Map<ProcessIdentity, ProcessProgress> resolveSubmittedQuantities(
             MesProcessPoolActiveOrderDO activeOrder,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots) {
         List<MesProcessPoolReportAllocationDO> currentAllocations =
                 reportAllocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId()));
-        Map<ProcessIdentity, BigDecimal> result = new LinkedHashMap<>();
-        if (currentAllocations == null || currentAllocations.isEmpty()) {
-            for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
-                result.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                        zeroSubmittedQuantity(snapshot));
-            }
-            return result;
+        if (currentAllocations == null) {
+            throw snapshotInvalid(activeOrder.getId(), "正式分配查询结果为空");
         }
         List<Long> eventIds = currentAllocations.stream()
                 .map(MesProcessPoolReportAllocationDO::getEventId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+                .filter(Objects::nonNull).distinct().toList();
         List<MesProProcessPoolEventDO> productionEvents = eventIds.isEmpty()
                 ? List.of() : processPoolEventMapper.selectBatchIds(eventIds);
+        Map<ProcessIdentity, ProcessProgress> result = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
             ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
-            if (!hasSubmittedAllocation(identity, currentAllocations)) {
-                result.put(identity, zeroSubmittedQuantity(snapshot));
-                continue;
-            }
-            result.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
-                    MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
-                            productionEvents, currentAllocations));
+            BigDecimal quantity = hasSubmittedAllocation(identity, currentAllocations)
+                    ? MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
+                            productionEvents, currentAllocations)
+                    : zeroSubmittedQuantity(snapshot);
+            result.put(identity, new ProcessProgress(quantity,
+                    MesOutputMaterialProgressCalculator.cumulativeOutputQuantities(activeOrder, snapshot,
+                            productionEvents, currentAllocations)));
         }
         return result;
     }

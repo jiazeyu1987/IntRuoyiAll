@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionProcessConfigSaveReqVO;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -35,5 +37,9 @@ public class MesProRouteProcessFlowSaveReqVO {
     private List<MesProRouteProcessSaveReqVO> routeProcessUpdates = new ArrayList<>();
 
     private List<Long> routeProcessDeletes = new ArrayList<>();
+
+    @Schema(description = "候选图增删工序时必传：同一候选版本、当前快照哈希、schemaVersion及保存后全部工序的完整生产配置；未修改项原值传回，按routeProcessId关联")
+    @Valid
+    private MesProRouteProductionProcessConfigSaveReqVO productionProcessConfig;
 
 }

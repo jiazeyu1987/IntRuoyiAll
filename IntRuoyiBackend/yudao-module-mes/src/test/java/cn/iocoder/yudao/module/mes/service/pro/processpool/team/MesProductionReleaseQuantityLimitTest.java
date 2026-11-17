@@ -35,8 +35,8 @@ class MesProductionReleaseQuantityLimitTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1.1,1100,5000,false", "1.1,1101,5000,true", "1.25,1250,1050,false", "1.25,1251,5000,true"})
-    void releaseUsesLossCeilingIndependentlyOfScheduling(String coefficient, String quantity,
+    @CsvSource({"1.1,1100,5000,false", "1.1,1101,5000,false", "1.25,1250,1050,false", "1.25,1251,5000,false"})
+    void quantityAboveReferenceCeilingDoesNotBlockRelease(String coefficient, String quantity,
                                                        String plannedQuantity, boolean blocked) {
         var order = MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).build();
         var snapshot = MesProcessPoolActiveOrderProcessSnapshotDO.builder()
@@ -51,7 +51,7 @@ class MesProductionReleaseQuantityLimitTest {
         when(allocationMapper.selectListByActiveOrderIds(List.of(1L))).thenReturn(List.of(allocation));
         when(productionEventMapper.selectProductionSubmitsByIdsForUpdate(anyList())).thenReturn(List.of());
         Runnable validate = () -> ReflectionTestUtils.invokeMethod(service,
-                "requireNoProductionQuantityConflict", order, List.of(snapshot));
+                "requireValidProductionAllocations", order, List.of(snapshot));
         if (blocked) {
             var failure = assertThrows(MesReleaseFlowBlockerException.class, validate::run);
             assertEquals(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT,

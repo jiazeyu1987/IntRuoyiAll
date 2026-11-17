@@ -16,6 +16,8 @@ import java.util.List;
 
 public interface MesProRouteFlowConfigService {
 
+    List<cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterDeviceRespVO> getRouteDeviceOptions();
+
     List<MesProRouteFlowProcessConfigRespVO> getRouteFlowProcessConfigList(Long routeId, String useType);
 
     List<MesProRouteFlowProcessConfigRespVO> getRouteFlowProcessConfigList(Long routeId, String useType,

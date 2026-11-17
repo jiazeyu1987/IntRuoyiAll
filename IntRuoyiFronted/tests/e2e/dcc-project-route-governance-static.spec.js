@@ -54,6 +54,7 @@ const projectCodePage = read('src/views/dcc/controlled-file/basic-data/component
 const projectCodeApi = read('src/api/dcc/controlledFile/projectCodes.ts')
 const projectCodePageReqVO = read('../IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/DccProjectCodePageReqVO.java')
 const projectCodeMapper = read('../IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectCodeMapper.java')
+const projectCodeListQuery = read('../IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectCodeListQuery.java')
 const projectCodeService = read('../IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImpl.java')
 const mesConfigurationStatusApi = read('../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/api/dcc/projectcode/DccProjectCodeConfigurationStatusApiImpl.java')
 const mesGovernanceController = read('../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/dccprojectgovernance/MesProDccProjectGovernanceController.java')
@@ -99,7 +100,33 @@ assert.match(projectCodePageReqVO, /工艺路线是否已配置/)
 assert.match(projectCodePageReqVO, /主批记录是否已配置/)
 assert.match(projectCodePageReqVO, /QA 规程是否已配置/)
 assert.match(projectCodeService, /DccProjectCodeConfigurationStatusApi/)
-assert.match(projectCodeService, /applyConfigurationFilters/)
+// Configuration filters now belong to the shared SQL projection, before count and page.
+// Checking the removed Java filtering method would reject the server pagination contract.
+assert.match(projectCodeService, /DccProjectCodeListQuery\.filter\(/)
+assert.match(projectCodeService, /countDisplayPage\(tenantId, filter\)/)
+assert.match(projectCodeService, /selectDisplayPage\(tenantId, request, filter, offset\)/)
+assert.match(projectCodeMapper, /SelectProvider\(type = DccProjectCodeListQuery\.class, method = "count"\)/)
+assert.match(projectCodeMapper, /SelectProvider\(type = DccProjectCodeListQuery\.class, method = "page"\)/)
+for (const [field, column] of [
+  ['RouteConfigured', 'route_configured'],
+  ['MainBatchRecordConfigured', 'main_batch_configured'],
+  ['QaRegulationConfigured', 'qa_configured']
+]) {
+  assert(
+    projectCodeListQuery.includes(`query.eq(request.get${field}() != null, "q.${column}", request.get${field}());`),
+    `${field} 必须作为数据库分页前的独立筛选条件。`
+  )
+}
+assert.match(projectCodeListQuery, /count\(\) \{ return script\("COUNT\(\*\)", false\)/)
+assert.match(projectCodeListQuery, /page\(\) \{ return script\("q\.\*", true\)/)
+assert.match(projectCodeListQuery, /ew\.sqlSegment/)
+assert.match(projectCodeListQuery, /LIMIT #\{req\.pageSize\} OFFSET #\{offset\}/)
+// Keep the three formal sources independent in the read projection.
+assert.match(projectCodeListQuery, /mes_pro_route_product rp JOIN mes_md_item i/)
+assert.match(projectCodeListQuery, /TRIM\(pc\.project_code\)=i\.code/)
+assert.match(projectCodeListQuery, /br\.batch_record_definition_id=d\.id/)
+assert.match(projectCodeListQuery, /qr\.owner_module='MES_QA' AND qr\.dcc_project_code_id=p\.id/)
+assert.doesNotMatch(projectCodeListQuery, /formBindings|process_start|form_slot_type='(?:LOSS_REPORT|PROCESS_INSPECTION|PARAMETER_RECORD)'/)
 assert.doesNotMatch(projectCodeMapper, /FROM mes_|JOIN mes_|from mes_|join mes_/, 'DCC 项目代码 Mapper 不得复制 MES 配置状态 SQL。')
 assert.match(mesConfigurationStatusApi, /MesProDccProjectGovernanceService/)
 assert.match(mesConfigurationStatusApi, /MesQaInspectionRegulationService/)
@@ -151,5 +178,9 @@ assert.doesNotMatch(projectCodePage, /@click="[^"]*Version[^"]*"/)
 assert.doesNotMatch(projectCodePage, /<el-link[^>]*data-testid="dcc-project-code-governance-version/)
 assert.match(projectCodePage, /重复/)
 assert.match(projectCodePage, /未配置/)
+assert.match(projectCodePage, /if \(governanceStatusLoadState\.value === 'error'\) return '加载失败'/)
+assert.match(projectCodePage, /if \(governanceStatusLoadState\.value !== 'loaded'\) return '加载中'/)
+assert.match(projectCodePage, /return status === 'MISSING' \? '未配置' : '状态未知'/)
+assert.match(projectCodePage, /@click="loadDccProjectGovernanceStatus\(list\)">重试/)
 
 console.log('PASS: DCC project route governance frontend static contract')

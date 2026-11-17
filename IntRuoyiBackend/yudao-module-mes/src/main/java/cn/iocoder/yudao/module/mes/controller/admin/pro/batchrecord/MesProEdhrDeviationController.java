@@ -32,6 +32,16 @@ public class MesProEdhrDeviationController {
     @Resource
     private MesProEdhrDeviationService deviationService;
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesDeviationAdministratorService administratorService;
+
+    @GetMapping("/receiver-candidates")
+    @Operation(summary = "查询当前租户有效偏差管理员")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-deviation:create', 'mes:pro-process-pool-team-leader:deviation-create')")
+    public CommonResult<java.util.List<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO>> getReceiverCandidates() {
+        return success(administratorService.getCandidates());
+    }
+
     @GetMapping("/batch-options")
     @Operation(summary = "分页查询可关联的正式批记录")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:create')")

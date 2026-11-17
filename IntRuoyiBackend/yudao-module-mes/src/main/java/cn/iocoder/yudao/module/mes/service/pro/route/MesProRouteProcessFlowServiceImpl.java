@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRout
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowValidationMessageRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowValidationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionProcessConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -55,6 +56,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
@@ -368,6 +370,9 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     public MesProRouteProcessFlowValidationRespVO saveGraph(MesProRouteProcessFlowSaveReqVO reqVO) {
         MesProRouteVersionDO candidateVersion = resolveDraftCandidateVersion(
                 reqVO.getRouteVersionId(), reqVO.getRouteId());
+        if (candidateVersion == null && reqVO.getProductionProcessConfig() != null) {
+            throw invalidParamException("生产工序配置仅支持随候选版本关系图保存");
+        }
         Long currentVersion = resolveCurrentGraphVersion(reqVO.getRouteId(), candidateVersion);
         if (!Objects.equals(currentVersion, reqVO.getGraphVersion())) {
             throw exception(PRO_ROUTE_PROCESS_FLOW_VERSION_CONFLICT);
@@ -380,10 +385,31 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             Long nextVersion = currentVersion + 1;
             DraftRouteProcessValidation routeProcessDraftValidation =
                     validateRouteProcessDraftChanges(reqVO, candidateVersion);
-            routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), "flowGraph",
-                    buildCandidateFlowGraphSnapshot(reqVO, nextVersion, routeProcessDraftValidation.routeProcesses()));
-            routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), SCHEDULE_CONFIGS_KEY,
+            Map<String, Object> configSnapshots = new LinkedHashMap<>();
+            configSnapshots.put("flowGraph", buildCandidateFlowGraphSnapshot(
+                    reqVO, nextVersion, routeProcessDraftValidation.routeProcesses()));
+            configSnapshots.put(SCHEDULE_CONFIGS_KEY,
                     buildCandidateScheduleConfigSnapshot(candidateVersion, routeProcessDraftValidation.routeProcesses()));
+            MesProRouteProductionProcessConfigSaveReqVO productionConfig = reqVO.getProductionProcessConfig();
+            if (productionConfig == null) {
+                if (!safeList(reqVO.getRouteProcessCreates()).isEmpty()
+                        || !safeList(reqVO.getRouteProcessDeletes()).isEmpty()) {
+                    throw invalidParamException("候选关系图增删工序时必须提供完整productionProcessConfig及当前快照哈希");
+                }
+                routeCandidateConfigService.saveConfigSnapshots(candidateVersion.getId(), configSnapshots);
+            } else {
+                if (!Objects.equals(candidateVersion.getId(), productionConfig.getRouteVersionId())
+                        || productionConfig.getSchemaVersion() == null
+                        || productionConfig.getProductionProcessConfigs() == null
+                        || productionConfig.getProductionProcessConfigs().isEmpty()
+                        || StrUtil.isBlank(productionConfig.getExpectedRouteSnapshotSha256())) {
+                    throw invalidParamException("productionProcessConfig必须包含同一候选版本、schemaVersion、完整生产配置和当前快照哈希");
+                }
+                configSnapshots.put("productionProcessConfigSchemaVersion", productionConfig.getSchemaVersion());
+                configSnapshots.put("productionProcessConfigs", productionConfig.getProductionProcessConfigs());
+                routeCandidateConfigService.saveConfigSnapshots(candidateVersion.getId(),
+                        productionConfig.getExpectedRouteSnapshotSha256(), configSnapshots);
+            }
             return mark(new MesProRouteProcessFlowValidationRespVO(), true, STATUS_VALID, nextVersion, List.of());
         }
         Map<Long, Long> persistedRouteProcessIdMap = persistRouteProcessDraftChanges(reqVO);
@@ -571,9 +597,6 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                 .forEach(routeProcess -> {
                     String routeProcessKey = String.valueOf(routeProcess.getId());
                     JSONObject existingConfig = existingConfigs.getJSONObject(routeProcessKey);
-                    if (existingConfig == null) {
-                        existingConfig = findScheduleConfigBySort(existingConfigs, routeProcess.getSort());
-                    }
                     JSONObject config = existingConfig == null
                             ? buildDefaultScheduleConfigSnapshot(candidateVersion, routeProcess)
                             : copyScheduleConfigSnapshot(existingConfig, candidateVersion, routeProcess);
@@ -618,19 +641,6 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             return jsonObject;
         }
         return JSON.parseObject(JSON.toJSONString(value));
-    }
-
-    private JSONObject findScheduleConfigBySort(JSONObject configs, Integer sort) {
-        if (sort == null) {
-            return null;
-        }
-        for (Object value : configs.values()) {
-            JSONObject config = toScheduleConfigJson(value);
-            if (Objects.equals(sort, config.getInteger("sort"))) {
-                return config;
-            }
-        }
-        return null;
     }
 
     private JSONObject copyScheduleConfigSnapshot(JSONObject sourceConfig, MesProRouteVersionDO candidateVersion,
@@ -1056,6 +1066,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
 
         List<Long> isolated = routeProcessIds.stream()
                 .filter(id -> incoming.get(id).isEmpty() && outgoing.get(id).isEmpty())
+                .filter(id -> !startTargets.contains(id) || !endSources.contains(id))
                 .toList();
         if (routeProcessIds.size() > 1 && !isolated.isEmpty()) {
             messages.add(message("ERROR", "ISOLATED_NODE", "存在未连接工序", isolated));

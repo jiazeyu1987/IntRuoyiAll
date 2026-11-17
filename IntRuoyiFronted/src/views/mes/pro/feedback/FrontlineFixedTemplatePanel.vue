@@ -693,10 +693,13 @@
                 v-if="selectedProductionProcessSubmittedQuantityLabel"
                 class="frontline-production-process-submitted"
               >
-                <span>已提交</span>
+                <span>工序完成量</span>
                 <strong data-frontline-production-process-submitted-quantity>
                   {{ selectedProductionProcessSubmittedQuantityLabel }} 件
                 </strong>
+              </div>
+              <div class="frontline-production-process-submitted" data-production-progress-basis>
+                {{ configuredProductionMaterials.some(material => material.materialRole === 'OUTPUT') ? '按必需输出零件累计提交量的最小值计量（含待复核）' : '按正式分配累计量计量（含待复核）' }}
               </div>
             </button>
             <button
@@ -974,6 +977,7 @@
                         v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
                       > / {{ material.materialCode }}</small>
                     </strong>
+                    <small v-if="material.materialRole === 'OUTPUT'" data-production-output-submitted-quantity>{{ productionOutputSubmittedQuantity(material) }}</small>
                   </button>
                 </section>
               </div>
@@ -2254,6 +2258,14 @@ const formatProductionSubmittedQuantity = (quantity: number) => {
   return String(quantity)
 }
 
+const productionOutputSubmittedQuantity = (material: ProductionMaterialOption) => {
+  const process = deviceState.selectedProcess
+  if (!process || !isFrontlineProductionProcess(process)) throw new Error('缺少正式生产工序')
+  const quantity = process.outputSubmittedQuantities?.[String(material.materialId)]
+  if (quantity === undefined) return '累计提交量缺失，请刷新订单'
+  return `累计已提交 ${formatProductionSubmittedQuantity(quantity)} 件（含待复核）`
+}
+
 const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
   const selectedProcess = deviceState.selectedProcess
   if (!selectedProcess || !('routeProcessId' in selectedProcess)) {
@@ -2266,7 +2278,7 @@ const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selec
 const productionQuantityRangeLabel = computed(() => {
   const process = deviceState.selectedProcess
   if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.lossCoefficient === undefined) return ''
-  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；累计上限 ${formatProductionQuantity(process.targetQuantity * process.lossCoefficient)}`
+  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；参考上限 ${formatProductionQuantity(process.targetQuantity * process.lossCoefficient)}（超限仅提示）`
 })
 
 const productionSopFileUrl = ref('')
@@ -5872,17 +5884,13 @@ const handleProductionFormalSubmit = async () => {
     payloadLoading.value = true
     const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', formalPayload.processPoolContext.activeOrderId)
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvent.session.key) })
-    if (submitResult.submissionStatus === 'QUANTITY_BLOCKED') {
-      if (!isCurrent()) return
-      quantityDraftId.value = submitResult.quantityDraftId
-      quantityDraftMessage.value = submitResult.quantityBlockMessage || '本次填写已拦截，请生产组长核对处理后重新提交。'
-      showFrontlineError(quantityDraftMessage.value)
-      return
-    }
     if (submitResult.submissionStatus !== 'SUBMITTED' || !submitResult.processPoolEventId) {
       throw new Error('生产提交未返回有效正式回执，请核对后再操作。')
     }
     writeSucceeded = true
+    if (isCurrent() && submitResult.quantityWarningMessage) {
+      message.warning(submitResult.quantityWarningMessage)
+    }
     // 只在正式提交成功后保存；刷新工序可能重建草稿，必须先记住本次设备与参数。
     if (isCurrent()) {
       try { rememberProductionMaterialDeviceDrafts(materialDetails) }

@@ -98,7 +98,7 @@ const props = withDefaults(
 
 type RouteMesProcessMappingRow = {
   rowKey: string
-  routeProcessId?: number
+  routeProcessId?: number | string
   sort?: number
   mesProcessName?: string
   processCode?: string

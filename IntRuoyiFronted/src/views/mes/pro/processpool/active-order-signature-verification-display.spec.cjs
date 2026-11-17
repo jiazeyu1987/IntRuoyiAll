@@ -76,3 +76,17 @@ test('dialog renders every projected dimension, reason, scope and time trust', (
   assert.ok(type.includes("timeTrustStatus: 'NOT_BOUND'"))
   assert.ok(type.includes('reasonCodes: string[]'))
 })
+
+
+test('missing historical name stays separate from digest, time and disabled audit', () => {
+  const result = display(fact('VALID', ['IDENTITY_SNAPSHOT_MISSING', 'GXP_AUDIT_DEVELOPMENT_DISABLED'], 'CONSISTENT', 'DEVELOPMENT_DISABLED'))
+  assert.equal(result.digest, '一致')
+  assert.equal(result.time, '一致')
+  assert.equal(result.audit, '已停用（本地开发）')
+  assert.equal(result.label, '摘要与时间核验通过（审计已停用）')
+  assert.ok(result.reasons.includes('签时姓名快照未记录'))
+  const vue = fs.readFileSync(panel, 'utf8')
+  const warning = vue.slice(vue.indexOf('v-if="!signatureEvidenceViewer.state.selected.evidence.actorDisplayName?.trim()"'))
+  assert.ok(warning.includes('data-active-order-signature-identity-missing'))
+  assert.ok(warning.includes('不会用当前账号姓名补写'))
+})

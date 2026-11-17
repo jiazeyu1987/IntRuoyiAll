@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                              Long routeId,
@@ -19,7 +20,8 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                              BigDecimal lossCoefficient,
                                              BigDecimal targetQuantity,
                                              BigDecimal submittedQuantity,
-                                             Boolean checkFlag) {
+                                             Boolean checkFlag,
+                                             Map<Long, BigDecimal> outputSubmittedQuantities) {
 
     public MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           Long routeId,
@@ -38,7 +40,7 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           BigDecimal targetQuantity) {
         this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
                 processName, sort, workstationId, workstationCode, workstationName, lossCoefficient,
-                targetQuantity, BigDecimal.ZERO, Boolean.FALSE);
+                targetQuantity, BigDecimal.ZERO, Boolean.FALSE, Map.of());
     }
 
     public MesFrontlineActiveOrderProcess(Long activeOrderId,
@@ -59,7 +61,7 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           Boolean checkFlag) {
         this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
                 processName, sort, workstationId, workstationCode, workstationName, lossCoefficient,
-                targetQuantity, BigDecimal.ZERO, checkFlag);
+                targetQuantity, BigDecimal.ZERO, checkFlag, Map.of());
     }
 
     public MesFrontlineRouteProcessCandidate toRouteProcessCandidate() {
