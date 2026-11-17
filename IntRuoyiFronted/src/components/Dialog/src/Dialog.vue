@@ -10,6 +10,8 @@ const emits = defineEmits(['update:modelValue'])
 const props = defineProps({
   modelValue: propTypes.bool.def(false),
   title: propTypes.string.def('Dialog'),
+  closeOnClickModal: propTypes.bool.def(true),
+  closeOnPressEscape: propTypes.bool.def(true),
   fullscreen: propTypes.bool.def(true),
   defaultFullscreen: propTypes.bool.def(false),
   width: propTypes.oneOfType([String, Number]).def('40%'),
@@ -91,7 +93,8 @@ function closedHandler() {
 <template>
   <ElDialog
     v-bind="getBindValue"
-    :close-on-click-modal="true"
+    :close-on-click-modal="closeOnClickModal"
+    :close-on-press-escape="closeOnPressEscape"
     :fullscreen="isFullscreen"
     :width="width"
     destroy-on-close

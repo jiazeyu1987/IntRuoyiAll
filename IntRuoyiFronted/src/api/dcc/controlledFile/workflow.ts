@@ -640,6 +640,7 @@ export interface ControlledFileVersionHistoryVO extends ControlledFileOwnerFacts
   canDownload?: boolean
   canDownloadReadOnly?: boolean
   canDownloadEditable?: boolean
+  canDownloadCheckedOut?: boolean
   modifying?: boolean
   checkedOut?: boolean
   checkedOutBy?: number | null
@@ -951,6 +952,7 @@ export interface ControlledFileVO extends ControlledFileOwnerFacts {
   canDownload?: boolean
   canDownloadReadOnly?: boolean
   canDownloadEditable?: boolean
+  canDownloadCheckedOut?: boolean
   canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
   canEditFile?: boolean
@@ -2915,6 +2917,21 @@ export const downloadControlledFileVariantWithName = async (
   return { blob: response.data, fileName, evidence }
 }
 
+
+export const downloadCheckedOutFileWithName = async (
+  id: number | string, attachmentId?: number | string
+): Promise<ControlledFileDownloadResult> => {
+  const downloadRequestId = createControlledFileDownloadRequestId()
+  const response = await axios.get<Blob>(`${axiosConfig.base_url}/dcc/controlled-files/${id}/checkout/download`, {
+    headers: buildControlledFileBinaryHeaders(),
+    params: { nonControlledWarningConfirmed: true, downloadRequestId, attachmentId },
+    timeout: axiosConfig.request_timeout,
+    responseType: 'blob'
+  })
+  await assertControlledFileDownloadBusinessResult(response)
+  const { fileName, evidence } = assertControlledFileDownloadHeaders(response, downloadRequestId)
+  return { blob: response.data, fileName, evidence }
+}
 
 export const downloadControlledFileAttachmentWithName = async (
   id: number | string,

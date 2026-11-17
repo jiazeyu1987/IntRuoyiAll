@@ -148,6 +148,7 @@
                         <testInclude>**/MesProRouteVersionControllerTest.java</testInclude>
                         <testInclude>**/MesFrontlineActiveOrderControllerTest.java</testInclude>
                         <testInclude>**/MesProductionReleaseQuantityLimitTest.java</testInclude>
+                        <testInclude>**/MesReleaseMaterialQuantityGuardTest.java</testInclude>
                         <testInclude>**/MesTeamLeaderActiveOrderSimulationServiceTest.java</testInclude>
                     </testIncludes></configuration>
                 </plugin>
@@ -306,6 +307,12 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration><testIncludes>
                         <testInclude>**/MesDeviationTransferEligibilityTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationMapperScopeTest.java</testInclude>
+                        <testInclude>**/MesDeviationAdministratorTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationNcrIntegrationTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationHandlingServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationReviewTaskServiceTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationSignatureIntegrationTest.java</testInclude>
                         <testInclude>**/MesProEdhrDeviationServiceImplTest.java</testInclude>
                         <testInclude>**/MesPqcReleasePageRoundOwnershipTest.java</testInclude>
                         <testInclude>**/MesPqcReleaseBatchExecutionServiceTest.java</testInclude>
@@ -332,6 +339,12 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration><includes>
                         <include>**/MesDeviationTransferEligibilityTest.java</include>
+                        <include>**/MesProEdhrDeviationMapperScopeTest.java</include>
+                        <include>**/MesDeviationAdministratorTest.java</include>
+                        <include>**/MesProEdhrDeviationNcrIntegrationTest.java</include>
+                        <include>**/MesProEdhrDeviationHandlingServiceTest.java</include>
+                        <include>**/MesProEdhrDeviationReviewTaskServiceTest.java</include>
+                        <include>**/MesProEdhrDeviationSignatureIntegrationTest.java</include>
                         <include>**/MesProEdhrDeviationServiceImplTest.java</include>
                         <include>**/MesPqcReleasePageRoundOwnershipTest.java</include>
                         <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>

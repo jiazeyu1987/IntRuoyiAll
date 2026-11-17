@@ -1872,7 +1872,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setDevices(resolveSubmissionDevices(row, activeOrderId))
                     .setDeviceParameters(resolveSubmissionDeviceParameters(row, activeOrderId))
                     .setClearanceConfirmations(resolveClearanceConfirmations(row, activeOrderId))
-                    .setMaterials(resolveSubmissionMaterials(row, activeOrderId)));
+                    .setMaterials(resolveSubmissionMaterials(row, activeOrderId))
+                    .setLossDetails(resolveSubmissionLossDetails(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
         }
 
@@ -1932,6 +1933,28 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
         return List.copyOf(devices.values());
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.LossDetail> resolveSubmissionLossDetails(
+            MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload == null || payload.get("lossDetails") == null) return List.of();
+        if (!(payload.get("lossDetails") instanceof List<?> details))
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        List<MesTeamLeaderActiveOrderDetail.LossDetail> result = new ArrayList<>();
+        for (Object raw : details) {
+            if (!(raw instanceof Map<?, ?> detail))
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            BigDecimal quantity = bigDecimalValue(detail.get("quantity"), activeOrderId);
+            if (quantity == null || quantity.signum() < 0)
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            result.add(new MesTeamLeaderActiveOrderDetail.LossDetail()
+                    .setReasonId(requirePositiveLongValue(detail.get("reasonId"), activeOrderId))
+                    .setReasonCode(requireStringValue(detail.get("reasonCode"), activeOrderId))
+                    .setReasonName(requireStringValue(detail.get("reasonName"), activeOrderId))
+                    .setQuantity(quantity));
+        }
+        return result;
     }
 
     private static List<MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail> resolveSubmissionMaterials(

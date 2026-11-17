@@ -455,7 +455,7 @@ import type {
 } from '@/api/erp/config'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import type { ErpKingdeeSyncRunVO } from '@/api/erp/sync'
-import * as JobApi from '@/api/infra/job'
+import * as JobApi from '@/api/erp/config/job'
 import { InfraJobStatusEnum } from '@/utils/constants'
 import { formatDateTimeValue, toDateTimeValue } from '@/utils/formatTime'
 
@@ -478,13 +478,13 @@ interface ProfileErpSyncTableRow extends ProfileErpSyncType {
 defineOptions({ name: 'TableAutoSyncSetting' })
 
 const canSaveSchedule = computed(() =>
-  hasErpConfigCapability(['infra:job:query', 'infra:job:update', 'erp:kingdee-sync:query'])
+  hasErpConfigCapability(['erp:kingdee-sync:query'])
 )
 const canRunSync = computed(() => hasErpConfigCapability(['erp:kingdee-sync:query']))
 const canSaveConnection = computed(() => hasErpConfigCapability([]))
 const requireCapability = (allowed: boolean) => {
   if (allowed) return true
-  ElMessage.error('无权执行此配置操作，请检查对应 Job/ERP 权限。')
+  ElMessage.error('无权执行此配置操作，请检查ERP配置操作权限。')
   return false
 }
 

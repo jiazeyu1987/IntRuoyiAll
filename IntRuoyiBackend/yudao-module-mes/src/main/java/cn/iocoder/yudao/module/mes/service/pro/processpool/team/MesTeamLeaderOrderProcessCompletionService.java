@@ -81,18 +81,12 @@ public class MesTeamLeaderOrderProcessCompletionService {
                                           Collection<MesProcessPoolReportAllocationDO> confirmedAllocations) {
         // Process confirmation records source facts only. Final three-way backfill starts at
         // the active-order completion command after the authoritative dual-100% gate.
-        reconcileAffectedAllocations(event, confirmedAllocations, false);
+        reconcileAffectedAllocations(event, confirmedAllocations);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                              Collection<MesProcessPoolReportAllocationDO> affectedAllocations) {
-        reconcileAffectedAllocations(event, affectedAllocations, true);
-    }
-
-    private void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
-                                              Collection<MesProcessPoolReportAllocationDO> affectedAllocations,
-                                              boolean allowAdjustableOverage) {
         if (event == null || event.getId() == null || event.getRouteId() == null
                 || event.getRouteProcessId() == null || event.getProcessId() == null
                 || affectedAllocations == null || affectedAllocations.isEmpty()
@@ -169,15 +163,8 @@ public class MesTeamLeaderOrderProcessCompletionService {
             BigDecimal confirmedQuantity = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
                     activeOrder, snapshot, productionEvents, activeOrderSourceAllocations);
             var quantityRange = MesProductionQuantityRange.of(snapshot);
-            boolean quantityConflict = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
-                    activeOrder, snapshot, productionEvents, activeOrderSourceAllocations)
-                    .compareTo(quantityRange.upper()) > 0;
-            if (quantityConflict && !allowAdjustableOverage) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, workOrderId);
-            }
-            BigDecimal scheduleProgressQuantity = confirmedQuantity.min(quantityRange.upper());
             syncFormalScheduleProgress(workOrderId, key.routeProcessId(), key.processId(),
-                    scheduleProgressQuantity, target.plannedQuantity(), quantityRange.lower());
+                    confirmedQuantity, target.plannedQuantity(), quantityRange.lower());
 
             MesProcessPoolOrderProcessCompletionDO completion =
                     completionMapper.selectByWorkOrderAndProcessForUpdate(workOrderId, key.routeProcessId(),
@@ -192,7 +179,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .setConfirmedQuantity(confirmedQuantity)
                     .setLastEventId(currentRepresentative == null ? event.getId() : currentRepresentative.getEventId())
                     .setLastReviewId(currentRepresentative == null ? null : currentRepresentative.getReviewId());
-            if (!quantityConflict && confirmedQuantity.compareTo(quantityRange.lower()) >= 0) {
+            if (confirmedQuantity.compareTo(quantityRange.lower()) >= 0) {
                 requireSourceAllocations(activeOrderSourceAllocations);
                 applyPendingSourceTrace(key, completion, activeOrderSourceAllocations);
                 completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
@@ -287,7 +274,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
         if (plannedQuantity.compareTo(normalizedTargetQuantity) != 0) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, workOrderId);
         }
-        BigDecimal reportedQuantity = normalizeQuantity(confirmedQuantity).min(plannedQuantity);
+        BigDecimal reportedQuantity = normalizeQuantity(confirmedQuantity);
         BigDecimal remainingQuantity = completionFloor.subtract(reportedQuantity).max(BigDecimal.ZERO).setScale(6, RoundingMode.HALF_UP);
         BigDecimal progressPercent = calculateProgressPercent(reportedQuantity, completionFloor);
         scheduleOrderProcessMapper.updateProgress(currentProcess.getId(), reportedQuantity, remainingQuantity,

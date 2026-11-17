@@ -56,6 +56,8 @@ public class FlowableUtils {
         setAuthenticatedUserId(userId);
         try {
             return callable.call();
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {

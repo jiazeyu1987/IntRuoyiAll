@@ -20,5 +20,5 @@ export const hasInfraConfigPermission = (permission: string) => {
 }
 
 export const hasErpConfigCapability = (permissions: string[]) =>
-  hasExplicitConfigPermission(GOLDEN_FINGER_PERMISSION) &&
+  hasExplicitConfigPermission('erp:data-config:operate') &&
   permissions.every((permission) => checkPermi([permission]))

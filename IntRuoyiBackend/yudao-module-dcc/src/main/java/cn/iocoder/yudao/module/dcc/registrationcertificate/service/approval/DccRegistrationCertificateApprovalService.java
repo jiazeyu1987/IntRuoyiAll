@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -51,6 +52,7 @@ import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approv
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.UPLOAD_APPROVAL_PERMISSION;
 
 @Service
+@Slf4j
 public class DccRegistrationCertificateApprovalService {
 
     @jakarta.annotation.Resource
@@ -590,6 +592,9 @@ public class DccRegistrationCertificateApprovalService {
         } catch (ServiceException exception) {
             throw exception;
         } catch (RuntimeException exception) {
+            log.error("[createNativeProcessInstance][tenantId({}) actorId({}) definitionKey({}) businessKey({})]",
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId(),
+                    actorId, bpmRequest.getProcessDefinitionKey(), bpmRequest.getBusinessKey(), exception);
             ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
             mapped.initCause(exception);
             throw mapped;

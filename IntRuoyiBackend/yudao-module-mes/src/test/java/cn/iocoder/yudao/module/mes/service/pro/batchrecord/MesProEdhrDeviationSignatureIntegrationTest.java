@@ -54,6 +54,89 @@ class MesProEdhrDeviationSignatureIntegrationTest extends BaseDbUnitTest {
     @MockitoBean
     private GxpAuditService gxpAuditService;
 
+    @MockitoBean
+    private MesDeviationAdministratorService administratorService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubAdministrator() {
+        when(administratorService.requireReceiver(801L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO()
+                        .setId(801L).setNickname("偏差管理员"));
+    }
+
+    @MockitoBean
+    private MesProEdhrWorkTaskService workTaskService;
+
+    @MockitoBean
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @MockitoBean
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
+
+    private MesProEdhrDeviationCreateReqVO productionRequest() {
+        TenantContextHolder.setTenantId(1L);
+        var order = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO()
+                .setId(91001L).setWorkOrderId(81001L).setLeaderUserId(701L)
+                .setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE");
+        order.setTenantId(1L);
+        when(activeOrderMapper.selectById(91001L)).thenReturn(order);
+        when(activeOrderMapper.selectByIdForUpdate(91001L)).thenReturn(order);
+        when(workOrderMapper.selectById(81001L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO()
+                        .setId(81001L).setCode("WO-PRODUCTION").setBatchCode("LOT-PRODUCTION"));
+        return request(null).setActiveOrderId(91001L).setReceiverId(801L).setSignaturePassword("test-production-credential");
+    }
+
+    @Test
+    void productionOrderPersistsNullableBatchSignatureHashAndDispatchesExactSource() {
+        var req = productionRequest();
+        when(signatureService.recordActiveOrderDeviationInitiationSignature(eq(701L), eq(91001L), anyLong(),
+                anyString(), eq("WO-PRODUCTION"), anyString(), anyString())).thenReturn(88003L);
+        AtomicReference<GxpAuditCommand> audit = new AtomicReference<>();
+        doAnswer(call -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            audit.set(call.getArgument(0));
+            return new GxpAuditAppendResult(99003L, 1L, "order-audit-hash", false);
+        }).when(gxpAuditService).append(any(GxpAuditCommand.class));
+        var result = deviationService.create(701L, req);
+        var db = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        var stored = db.queryForMap("SELECT active_order_id,batch_execution_id,work_order_id,initiator_signature_id,initiator_content_hash FROM mes_pro_edhr_deviation WHERE id=?", result.getId());
+        assertEquals(91001L, ((Number)stored.get("active_order_id")).longValue());
+        org.junit.jupiter.api.Assertions.assertNull(stored.get("batch_execution_id"));
+        assertEquals(81001L, ((Number)stored.get("work_order_id")).longValue());
+        assertEquals(88003L, ((Number)stored.get("initiator_signature_id")).longValue());
+        assertEquals(result.getInitiatorContentHash(), stored.get("initiator_content_hash"));
+        assertEquals(result.getInitiatorContentHash(), audit.get().getSignatureContentHash());
+        assertTrue(audit.get().getAfterState().getCanonicalJson().contains("91001"));
+        var source = org.mockito.ArgumentCaptor.forClass(MesProEdhrDeviationDO.class);
+        verify(workTaskService).assignDeviationTask(source.capture(), eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE), eq(801L), anyString());
+        assertEquals(result.getId(), source.getValue().getId());
+        assertEquals(91001L, source.getValue().getActiveOrderId());
+        org.junit.jupiter.api.Assertions.assertNull(source.getValue().getBatchExecutionId());
+        assertEquals(81001L, source.getValue().getWorkOrderId());
+        assertEquals(0L, count("mes_pro_edhr_batch_execution"));
+        doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED))
+                .when(administratorService).requireReceiver(801L);
+        var revoked = assertThrows(ServiceException.class, () -> deviationService.create(701L, req));
+        assertEquals(MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED.getCode(), revoked.getCode());
+        assertEquals(1L, count("mes_pro_edhr_deviation"));
+        verify(signatureService, times(1)).recordActiveOrderDeviationInitiationSignature(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void productionOrderRejectedSignatureRollsBackDeviationReservationAndSequence() {
+        var req = productionRequest();
+        doThrow(new IllegalStateException("SIGNATURE_REJECTED"))
+                .when(signatureService).recordActiveOrderDeviationInitiationSignature(any(), any(), any(), any(), any(), any(), any());
+        var error = assertThrows(IllegalStateException.class, () -> deviationService.create(701L, req));
+        assertEquals("SIGNATURE_REJECTED", error.getMessage());
+        assertEquals(0L, count("mes_pro_edhr_deviation"));
+        assertEquals(0L, count("mes_pro_edhr_deviation_create_request"));
+        assertEquals(0L, count("mes_pro_edhr_deviation_sequence"));
+        verify(workTaskService, never()).assignDeviationTask(any(), any(), any(), any());
+        verify(gxpAuditService, never()).append(any());
+    }
+
     @Test
     void missingInitiationCredentialLeavesNoDeviationRequestOrSequenceWrite() {
         MesProEdhrBatchExecutionDO batch = createBatch();
@@ -191,7 +274,7 @@ class MesProEdhrDeviationSignatureIntegrationTest extends BaseDbUnitTest {
 
     private static MesProEdhrDeviationCreateReqVO request(Long batchExecutionId) {
         return new MesProEdhrDeviationCreateReqVO()
-                .setBatchExecutionId(batchExecutionId)
+                .setBatchExecutionId(batchExecutionId).setReceiverId(801L)
                 .setLevel("NORMAL")
                 .setDiscoveryLocation("工序A")
                 .setCategoryCodes(List.of("PRODUCTION_PROCESS"))

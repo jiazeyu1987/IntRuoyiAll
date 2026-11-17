@@ -50,7 +50,6 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
@@ -206,13 +205,8 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
         }
         assertActiveOrdersOpenForProduction(List.of(activeOrder));
-        var initialTarget = targetService.requireTarget(activeOrder, event.getRouteProcessId(), event.getProcessId());
-        var otherAllocations = allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(
-                List.of(activeOrderId), event.getProcessId());
-        var projectedMaximum = calculateAllocatedMaterialMaximum(activeOrder, initialTarget, event,
-                outputQuantity, otherAllocations, true);
-        assertWithinFrozenOverageLimit(activeOrderId, initialTarget.routeProcessId(), initialTarget.processId(),
-                projectedMaximum, true);
+        targetService.requireTarget(activeOrder, event.getRouteProcessId(), event.getProcessId());
+        requireFrozenProductionQuantityUpper(activeOrderId, event.getRouteProcessId(), event.getProcessId(), true);
         MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, event.getDeviceAccountId());
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
         if (!current.isEmpty() || state.getCurrentVersion() == null || state.getCurrentVersion() != 0) {
@@ -404,8 +398,11 @@ public class MesReportAllocationCommandService {
         AllocationValidation validation = validateAllocationTargets(event, quantitiesToValidate, activeById, workOrders);
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = validation.targets();
         BigDecimal desiredTotal = desired.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (lockedTotal.add(desiredTotal).compareTo(pool) != 0) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
+        BigDecimal allocationTotal = lockedTotal.add(desiredTotal);
+        if (allocationTotal.signum() <= 0 || allocationTotal.compareTo(pool) > 0) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                    PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(),
+                    "分配总量须大于0且不得超过本次报工数量：" + quantityText(pool));
         }
 
         Map<Long, BigDecimal> before = aggregateRows(editableOld);
@@ -813,8 +810,7 @@ public class MesReportAllocationCommandService {
             targets.put(order.getId(), target);
             BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(
                     order, target, event, entry.getValue(), allocatedElsewhere, true);
-            BigDecimal limit = assertWithinFrozenOverageLimit(order.getId(), target.routeProcessId(), target.processId(),
-                    totalForOrder, true);
+            BigDecimal limit = requireFrozenProductionQuantityUpper(order.getId(), target.routeProcessId(), target.processId(), true);
             BigDecimal overage = totalForOrder.subtract(limit).max(BigDecimal.ZERO);
             overageByActiveOrderId.put(order.getId(), overage);
         }
@@ -1114,8 +1110,7 @@ public class MesReportAllocationCommandService {
                     activeOrder, event.getProcessId());
             BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(activeOrder, target, event,
                     currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO), allocatedElsewhere, false);
-            BigDecimal limit = assertWithinFrozenOverageLimit(activeOrderId, target.routeProcessId(), target.processId(),
-                    totalForOrder, false);
+            BigDecimal limit = requireFrozenProductionQuantityUpper(activeOrderId, target.routeProcessId(), target.processId(), false);
             result.put(activeOrderId, totalForOrder.subtract(limit).max(BigDecimal.ZERO));
         }
         return result;
@@ -1144,16 +1139,11 @@ public class MesReportAllocationCommandService {
         return MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(order, frozen, events, projected);
     }
 
-    private BigDecimal assertWithinFrozenOverageLimit(Long activeOrderId, Long routeProcessId, Long processId,
-                                                BigDecimal submittedQuantity,
-                                                boolean forUpdate) {
+    /** Frozen quantity remains a warning threshold, never a production allocation limit. */
+    private BigDecimal requireFrozenProductionQuantityUpper(Long activeOrderId, Long routeProcessId,
+                                                            Long processId, boolean forUpdate) {
         var frozen = requireFrozenProcessSnapshot(activeOrderId, routeProcessId, processId, forUpdate);
-        BigDecimal limit = MesProductionQuantityRange.of(frozen).upper();
-        if (submittedQuantity.compareTo(limit) > 0) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED,
-                    submittedQuantity, limit, routeProcessId, processId);
-        }
-        return limit;
+        return MesProductionQuantityRange.of(frozen).upper();
     }
 
     private MesProcessPoolActiveOrderProcessSnapshotDO requireFrozenProcessSnapshot(

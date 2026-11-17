@@ -41,7 +41,7 @@ export interface CraftImpact {
   sources?: Array<{
     routeId: number
     routeName: string
-    routeProcessId: number
+    routeProcessId: number | string
     processName: string
     parameters: CraftParameter[]
     schemeNo: number
@@ -81,13 +81,13 @@ export const CraftApi = {
     request.post({ url: '/mes/pro/craft/cancel-change', params: { id } }),
   bind: (data: {
     routeVersionId: number | string
-    routeProcessId: number
+    routeProcessId: number | string
     bindings: Array<{ craftId: number; deviceIds: number[] }>
     expectedRouteSnapshotSha256: string
   }) => request.post({ url: '/mes/pro/craft/bind', data }),
   bindExisting: (data: {
     routeVersionId: number | string
-    routeProcessId: number
+    routeProcessId: number | string
     expectedRouteSnapshotSha256: string
   }) => request.post({ url: '/mes/pro/craft/bind-existing', data })
 }

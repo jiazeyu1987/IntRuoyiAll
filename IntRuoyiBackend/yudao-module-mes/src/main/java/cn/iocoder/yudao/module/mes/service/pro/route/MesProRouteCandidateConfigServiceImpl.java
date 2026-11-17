@@ -53,6 +53,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
     @Resource
     private MesProRouteMapper routeMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.lossreason.MesProLossReasonService lossReasonService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -154,6 +156,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             configSnapshots.put(entry.getKey(), jsonSnapshot);
         }
         MesRouteLossCoefficient.read(configSnapshots);
+        lossReasonService.validateBindings(previousConfigs, configSnapshots);
         craftService.validateBindingTransitions(previousConfigs, configSnapshots);
         craftService.validateBindings(configSnapshots);
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);
@@ -264,8 +267,14 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             Long deviceId = rule.getLong("deviceId");
             String parameterCode = cn.iocoder.yudao.module.mes.service.pro.processpool.team
                     .MesDeviceParameterSnapshotCodec.normalizeCode(rule.getString("parameterCode"));
-            if (!deviceIds.contains(deviceId) || parameterCode == null
-                    || !parameterKeys.add(deviceId + "|" + parameterCode)) {
+            if (!deviceIds.contains(deviceId)) {
+                throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                        "工序“" + config.getString("processName") + "”（路线工序ID="
+                                + config.getLong("routeProcessId") + "），参数“" + rule.getString("parameterName")
+                                + "”（" + rule.getString("parameterCode") + "）：该参数引用的设备未加入本工序设备组"
+                                + "（设备ID=" + deviceId + "）");
+            }
+            if (parameterCode == null || !parameterKeys.add(deviceId + "|" + parameterCode)) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
             }
             validateProductionParameterRule(routeVersionId, config, rule, deviceIds);

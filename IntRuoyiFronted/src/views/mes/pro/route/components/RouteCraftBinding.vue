@@ -91,7 +91,7 @@ import type {
 } from '@/api/mes/pro/route/flowconfig'
 const props = defineProps<{
   processId: number
-  routeProcessId: number
+  routeProcessId: number | string
   routeVersionId: number | string
   snapshotSha256: string
   bindings: ProRouteCraftBindingVO[]

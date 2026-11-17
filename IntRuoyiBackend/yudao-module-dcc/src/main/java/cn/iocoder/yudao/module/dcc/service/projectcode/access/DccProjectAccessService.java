@@ -23,6 +23,9 @@ public interface DccProjectAccessService {
 
     void assertProjectEditorOrOwner(Long userId, Long projectCodeId);
 
+    /** 项目代码基础资料维护：项目代码管理员或正式 EDIT/OWNER，不授予项目文件编辑权限。 */
+    void assertProjectMetadataEditable(Long userId, Long projectCodeId);
+
     record EditorScope(boolean administrator, java.util.Set<Long> projectIds, boolean qms, boolean general) { }
     /** Current permission configuration only; task rows remain selected/countable in SQL. */
     EditorScope editorScope(Long userId);

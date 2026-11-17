@@ -55,6 +55,40 @@ export interface SignatureGovernanceRecordPdfArtifact {
   fileName: string
 }
 
+export interface SignatureGovernanceEvidenceDetail {
+  globalId: string
+  evidence: {
+    id: number | string
+    actorId: number | string
+    actorDisplayName?: string
+    actionCode: string
+    subjectType: string
+    subjectId: string
+    subjectVersion?: string
+    meaningLabel?: string
+    reason?: string
+    signedAt?: string | number
+    canonicalContentJson: string
+    contentHash?: string
+    evidenceHash?: string
+  }
+  verification: {
+    signatureId: number | string
+    verificationStatus: string
+    digestStatus: string
+    timeConsistencyStatus: string
+    auditBindingStatus: string
+    timeSource: string
+    timeTrustStatus: string
+    verificationScope: string
+    evidenceFormatVersion: string
+    reasonCodes: string[]
+  }
+}
+
+export const getSignatureGovernanceRecordEvidence = (globalId: string): Promise<SignatureGovernanceEvidenceDetail> =>
+  request.get({ url: `/signature-governance/signature-records/${encodeURIComponent(globalId)}/evidence` })
+
 export const getSignatureGovernanceRecordPage = async (
   params: SignatureGovernanceRecordPageReqVO
 ): Promise<PageResult<SignatureGovernanceRecordRespVO[]>> => {

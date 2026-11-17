@@ -26,7 +26,7 @@ export interface ProcessPoolTimelineReadonlyActionsVO {
 }
 
 export interface ProcessPoolTimelineLossDetailVO {
-  reasonId?: number
+  reasonId?: number | string
   reasonCode?: string
   reasonName?: string
   quantity?: number

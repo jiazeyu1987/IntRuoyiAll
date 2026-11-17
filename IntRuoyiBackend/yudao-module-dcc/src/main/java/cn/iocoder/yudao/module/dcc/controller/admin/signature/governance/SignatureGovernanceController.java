@@ -175,6 +175,14 @@ public class SignatureGovernanceController {
         return success(signatureGovernanceRecordService.getPage(reqVO));
     }
 
+    @GetMapping("/signature-records/{globalId}/evidence")
+    @Operation(summary = "获取统一电子签名原始证据与核验诊断")
+    @PreAuthorize("@ss.hasPermission('signature-governance:policy:query')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.signature.service.records.SignatureGovernanceRecordEvidence>
+            getSignatureRecordEvidence(@PathVariable("globalId") String globalId) {
+        return success(signatureGovernanceRecordService.getEvidence(globalId));
+    }
+
     @GetMapping("/signature-records/{globalId}/pdf")
     @Operation(summary = "导出统一电子签名记录 PDF")
     @PreAuthorize("@ss.hasPermission('signature-governance:policy:query')")

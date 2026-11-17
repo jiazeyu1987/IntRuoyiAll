@@ -56,7 +56,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_NOT_ALLOCATABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
@@ -305,11 +304,11 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH,
                     submittedQuantity.stripTrailingZeros().toPlainString());
         }
-        assertWithinFrozenCapacity(event, prepared, existingAllocations);
+        requireValidFrozenAllocations(event, prepared, existingAllocations);
         return prepared;
     }
 
-    private void assertWithinFrozenCapacity(MesProProcessPoolEventDO event,
+    private void requireValidFrozenAllocations(MesProProcessPoolEventDO event,
                                             List<PreparedAllocationLine> prepared,
                                             List<MesProcessPoolReportAllocationDO> existingAllocations) {
         Map<Long, BigDecimal> requestedByActiveOrder = new LinkedHashMap<>();
@@ -342,12 +341,10 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                     .activeOrderId(activeOrder.getId()).workOrderId(activeOrder.getWorkOrderId())
                     .routeProcessId(target.routeProcessId()).processId(target.processId())
                     .allocatedQuantity(requestedByActiveOrder.get(activeOrder.getId())).build());
-            BigDecimal maximum = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+            MesProductionQuantityRange.of(snapshot);
+            MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
                     activeOrder, snapshot, events, projected);
-            BigDecimal limit = MesProductionQuantityRange.of(snapshot).upper();
-            if (maximum.compareTo(limit) > 0) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, activeOrder.getId());
-            }
+
         }
     }
 

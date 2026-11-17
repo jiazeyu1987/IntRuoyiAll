@@ -1,4 +1,8 @@
 <template>
+  <ContentWrap v-if="handoffReadOnly">
+    <el-alert title="当前为原轮次只读查看，业务办理请返回正常工作台。" type="info" :closable="false" show-icon />
+    <el-button class="mt-12px" @click="router.push({ path: route.path })">返回正常工作台</el-button>
+  </ContentWrap>
   <ContentWrap v-if="!showPqcModuleTabs && !showProductionModuleTabs">
     <div class="team-leader-workbench__header">
       <div>
@@ -10,7 +14,7 @@
     </div>
 
     <el-tabs
-      v-if="showLeaderTypeTabs"
+      v-if="showLeaderTypeTabs && !handoffReadOnly"
       v-model="activeLeaderTab"
       data-team-leader-type-tabs
       @tab-change="handleLeaderTypeChange"
@@ -48,12 +52,12 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showProductionPersonnelModule"
+    v-if="showProductionPersonnelModule && !handoffReadOnly"
     :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
     data-team-leader-production-personnel-tab
   >
     <el-tabs
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
@@ -66,7 +70,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -75,9 +79,10 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       class="team-leader-workbench__responsible-routes"
       data-production-leader-responsible-routes
       aria-label="生产组长负责的工艺路线"
@@ -413,12 +418,12 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showPqcPersonnelModule"
+    v-if="showPqcPersonnelModule && !handoffReadOnly"
     :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
     data-pqc-leader-personnel-tab
   >
     <el-tabs
-      v-if="showPqcModuleTabs"
+      v-if="showPqcModuleTabs && !handoffReadOnly"
       v-model="activePqcModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-pqc-leader-module-tabs
@@ -573,7 +578,7 @@
     data-team-leader-report-workbench
   >
     <el-tabs
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
@@ -586,7 +591,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -595,6 +600,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -620,7 +626,7 @@
       </span>
     </div>
     <el-tabs
-      v-if="showPqcModuleTabs"
+      v-if="showPqcModuleTabs && !handoffReadOnly"
       v-model="activePqcModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-pqc-leader-module-tabs
@@ -843,7 +849,7 @@
                 type="danger"
                 effect="dark"
               >
-                待调整 {{ resolveProductionReportOverageQuantity(row) }}
+                数量超限 {{ resolveProductionReportOverageQuantity(row) }}（仅提示）
               </el-tag>
             </template>
           </el-table-column>
@@ -1533,10 +1539,39 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showProductionQuantityDraftsModule"
+    v-if="showProductionQuantityDraftsModule && !handoffReadOnly"
     :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
     data-team-leader-quantity-drafts-tab
   >
+    <el-tabs
+      v-if="showProductionModuleTabs && !handoffReadOnly"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane
+        label="报工历史"
+        name="reportHistory"
+        data-production-leader-module-tab-report-history
+      />
+      <el-tab-pane
+        label="历史超限草稿"
+        name="quantityDrafts"
+        data-production-leader-module-tab-quantity-drafts
+      />
+      <el-tab-pane
+        label="活跃订单池"
+        name="activeOrder"
+        data-production-leader-module-tab-active-order
+      />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
+    </el-tabs>
+    <ProductionQuantityDrafts leader />
+  </ContentWrap>
+
+  <ContentWrap v-if="isProductionLeader && (!showProductionModuleTabs || activeProductionModuleTab === 'lossReasons')" class="team-leader-workbench__production-module-card">
     <el-tabs
       v-if="showProductionModuleTabs"
       v-model="activeProductionModuleTab"
@@ -1551,7 +1586,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -1560,8 +1595,9 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
-    <ProductionQuantityDrafts leader />
+    <LossReasonCatalog />
   </ContentWrap>
 
   <ContentWrap
@@ -1571,7 +1607,7 @@
     data-team-leader-active-order-pool-tab
   >
     <el-tabs
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
@@ -1584,7 +1620,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -1593,6 +1629,7 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -1649,7 +1686,7 @@
       :filter-rows="filteredActiveOrderRows"
       :column-filter-definitions="listColumnFilterDefinitions5"
     >
-      <template #actions>
+      <template #actions v-if="!handoffReadOnly">
         <el-input
           v-model="activeOrderWorkOrderKeyword"
           class="team-leader-workbench__active-order-filter"
@@ -1751,12 +1788,12 @@
                   data-team-leader-active-order-quantity-conflict
                   role="button"
                   tabindex="0"
-                  title="点击处理数量冲突"
+                  title="查看数量超限提示"
                   @click.stop="openActiveOrderConflictDrawer(row)"
                   @keydown.enter.prevent.stop="openActiveOrderConflictDrawer(row)"
                   @keydown.space.prevent.stop="openActiveOrderConflictDrawer(row)"
                 >
-                  数量冲突{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
+                  数量超限（仅提示）{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
                 </el-tag>
               </div>
             </template>
@@ -1768,7 +1805,7 @@
               {{ formatActiveOrderErpQuantity(row.erpFixedQuantitySnapshot) }}
             </template>
           </el-table-column>
-          <el-table-column label="生产进度" prop="productionProgressPercent" min-width="120">
+          <el-table-column label="生产进度（完成工序占比）" prop="productionProgressPercent" min-width="200">
             <template #default="{ row }">
               <span data-team-leader-active-order-production-progress>
                 {{ row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.productionProgressPercent) }}
@@ -1792,7 +1829,7 @@
               >
                 {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
               </el-tag>
-              <el-button v-if="row.releaseCorrectionReceivable && row.releaseApplicationId" link type="primary"
+              <el-button v-if="!handoffReadOnly && row.releaseCorrectionReceivable && row.releaseApplicationId" link type="primary"
                 v-hasPermi="['mes:pro-process-pool-team-leader:maintain']" :disabled="row.readBlocked || receivingPqcCorrection"
                 data-pqc-correction-receive @click="receivePqcCorrection(row.releaseApplicationId)">接收补正任务</el-button>
             </template>
@@ -1830,6 +1867,7 @@
                 :title="
                   isActiveOrderNcrClosed(row) ? '该生产周期已由QA处置结束，仅可查看' : row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
                 "
+                v-if="!handoffReadOnly"
                 data-team-leader-report-active-order-abnormal
                 @click="openAbnormalDialog(row)"
               >
@@ -1844,6 +1882,7 @@
                 "
                 :loading="releaseApplicationSubmittingId === row.id"
                 :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
+                v-if="!handoffReadOnly"
                 data-team-leader-active-order-release-apply
                 @click="submitActiveOrderReleaseApplication(row)"
               >
@@ -1851,6 +1890,7 @@
               </el-button>
               <el-dropdown
                 trigger="click"
+                v-if="!handoffReadOnly"
                 class="team-leader-workbench__active-order-test-menu"
               >
                 <el-button
@@ -2060,8 +2100,8 @@
       class="team-leader-workbench__active-order-conflict-drawer-panel"
       :title="
         activeOrderConflictDetail
-          ? `订单 ${activeOrderConflictDetail.workOrderCode} · 数量冲突处理`
-          : '数量冲突处理'
+          ? `订单 ${activeOrderConflictDetail.workOrderCode} · 数量超限提示`
+          : '数量超限提示'
       "
       size="760px"
       destroy-on-close
@@ -2098,7 +2138,7 @@
               <strong>{{ activeOrderConflictDetail.routeName }}</strong>
             </div>
             <div>
-              <span>冲突工序</span>
+              <span>超限工序</span>
               <strong class="team-leader-workbench__quantity-conflict-text">
                 {{ resolveActiveOrderConflictCount(activeOrderConflictDetail) }}
               </strong>
@@ -2114,6 +2154,7 @@
               type="primary"
               :loading="activeOrderConflictSubmitting"
               :disabled="resolveActiveOrderConflictCount(activeOrderConflictDetail) === 0"
+              v-if="!handoffReadOnly"
               data-team-leader-active-order-conflict-recommended-action
               @click="handleRecommendedActiveOrderConflictResolution"
             >
@@ -2139,7 +2180,7 @@
                   effect="plain"
                   size="small"
                 >
-                  {{ process.quantityConflict ? '冲突工序' : '无冲突' }}
+                  {{ process.quantityConflict ? '数量超限（仅提示）' : '未超限' }}
                 </el-tag>
               </div>
               <div class="team-leader-workbench__active-order-conflict-process-metrics">
@@ -2338,7 +2379,7 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showLegacyDailyCloseDashboardModule"
+    v-if="showLegacyDailyCloseDashboardModule && !handoffReadOnly"
     :class="{
       'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
       'team-leader-workbench__production-module-card': showProductionModuleTabs
@@ -2346,7 +2387,7 @@
     data-role-matrix-daily-close
   >
     <el-tabs
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
@@ -2359,7 +2400,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -2368,9 +2409,10 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       class="team-leader-workbench__responsible-routes"
       data-production-leader-responsible-routes
       aria-label="生产组长负责的工艺路线"
@@ -2393,7 +2435,7 @@
       </span>
     </div>
     <el-tabs
-      v-if="showPqcModuleTabs"
+      v-if="showPqcModuleTabs && !handoffReadOnly"
       v-model="activePqcModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-pqc-leader-module-tabs
@@ -2451,12 +2493,12 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showProductionProcessConfigModule"
+    v-if="showProductionProcessConfigModule && !handoffReadOnly"
     :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
     data-team-leader-process-config-tab
   >
     <el-tabs
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
@@ -2469,7 +2511,7 @@
         data-production-leader-module-tab-report-history
       />
       <el-tab-pane
-        label="超限填写待处理"
+        label="历史超限草稿"
         name="quantityDrafts"
         data-production-leader-module-tab-quantity-drafts
       />
@@ -2478,9 +2520,10 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
+      <el-tab-pane label="损耗" name="lossReasons" data-production-leader-module-tab-loss />
     </el-tabs>
     <div
-      v-if="showProductionModuleTabs"
+      v-if="showProductionModuleTabs && !handoffReadOnly"
       class="team-leader-workbench__responsible-routes"
       data-production-leader-responsible-routes
       aria-label="生产组长负责的工艺路线"
@@ -2738,7 +2781,7 @@
       </template>
     </el-dialog>
   </ContentWrap>
-  <ContentWrap v-if="showProductionConfigModule" data-team-leader-config-center>
+  <ContentWrap v-if="showProductionConfigModule && !handoffReadOnly" data-team-leader-config-center>
     <div class="team-leader-workbench__section-head">
       <div>
         <div class="team-leader-workbench__section-title">班组配置中心</div>
@@ -3524,11 +3567,15 @@
   <el-dialog
     v-model="reviewVisible"
     :title="reviewDialogTitle"
-    width="min(1120px, calc(100vw - 32px))"
+    width="min(760px, calc(100vw - 32px))"
     class="team-leader-workbench__review-dialog"
     data-team-leader-review-dialog
   >
-    <el-form :model="reviewForm" label-width="92px">
+    <el-form
+      v-if="reviewDialogMode !== 'ALLOCATION' || allocationConfirming"
+      :model="reviewForm"
+      label-width="92px"
+    >
       <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
         <el-select v-model="reviewForm.reviewStatus" data-team-leader-review-status>
           <el-option label="正确" value="APPROVED" />
@@ -3560,75 +3607,16 @@
       </el-form-item>
     </el-form>
     <div
-      v-if="isProductionLeader && reviewForm.reviewStatus === 'APPROVED'"
+      v-if="isProductionLeader && reviewForm.reviewStatus === 'APPROVED' && !allocationConfirming"
       class="team-leader-workbench__allocation"
     >
-      <div class="team-leader-workbench__allocation-toolbar">
-        <div>
-          <div class="team-leader-workbench__section-title">活跃订单分配</div>
-        </div>
-        <div>
-          <el-button
-            data-team-leader-fifo-allocation
-            type="primary"
-            plain
-            :loading="allocationPreviewLoading"
-            @click="previewFifoAllocation"
-          >
-            FIFO 自动分配
-          </el-button>
-          <el-button @click="addAllocationLine">新增分配行</el-button>
-          <el-button @click="startBlankAllocation">从空白开始</el-button>
-        </div>
+      <div class="team-leader-workbench__allocation-source" data-team-leader-allocation-source>
+        <span>一线生产：<strong>{{ reviewEvent?.actualEmployeeUserName || '未记录报工人' }}</strong></span>
+        <span>报工数量：<strong>{{ allocationSnapshot?.poolQuantity ?? reviewEvent?.outputQuantity }}</strong></span>
       </div>
-      <div
-        v-if="reviewMaterialRows.length || reviewDeviceItems.length || reviewParameterItems.length"
-        class="team-leader-workbench__allocation-context"
-      >
-        <div
-          v-if="reviewMaterialRows.length"
-          class="team-leader-workbench__context-block"
-          data-team-leader-allocation-material-context
-        >
-          <strong>物料</strong>
-          <span
-            v-for="materialRow in reviewMaterialRows"
-            :key="materialRow.materialId"
-            class="team-leader-workbench__structured-pill"
-          >
-            {{ materialRow.materialName || materialRow.materialCode }}（{{
-              correctionValueText(materialRow.outputQuantity)
-            }}/{{ correctionValueText(materialRow.lossQuantity) }}）
-          </span>
-        </div>
-        <div
-          v-if="reviewDeviceItems.length"
-          class="team-leader-workbench__context-block"
-          data-team-leader-allocation-devices
-        >
-          <strong>设备</strong>
-          <span
-            v-for="item in reviewDeviceItems"
-            :key="item.key"
-            class="team-leader-workbench__structured-pill"
-          >
-            {{ item.valueText }}
-          </span>
-        </div>
-        <div
-          v-if="reviewParameterItems.length"
-          class="team-leader-workbench__context-block"
-          data-team-leader-allocation-parameters
-        >
-          <strong>设备参数</strong>
-          <span
-            v-for="item in reviewParameterItems"
-            :key="item.key"
-            class="team-leader-workbench__structured-pill"
-          >
-            {{ item.label }}：{{ item.valueText }}
-          </span>
-        </div>
+      <div class="team-leader-workbench__allocation-toolbar">
+        <div class="team-leader-workbench__section-title">分配到订单</div>
+        <el-button @click="addAllocationLine">添加订单</el-button>
       </div>
       <el-table
         data-team-leader-allocation-table
@@ -3637,9 +3625,9 @@
         border
         size="small"
         table-layout="fixed"
-        empty-text="请点击 FIFO 自动分配或手动新增分配行"
+        empty-text="请添加需要分配的订单"
       >
-        <el-table-column label="活跃订单" min-width="360">
+        <el-table-column label="目标订单" min-width="240">
           <template #default="{ row }">
             <el-select
               v-model="row.activeOrderId"
@@ -3680,23 +3668,14 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="要生产数量" width="110" align="right">
-          <template #default="{ row }">
-            {{ formatAllocationOrderProductionQuantity(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="累计上限" width="110" align="right">
-          <template #default="{ row }">
-            {{ formatAllocationOrderProductionCeiling(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="分配数量" min-width="340">
+        <el-table-column label="分配数量" min-width="150">
           <template #default="{ row }">
             <div class="team-leader-workbench__allocation-quantity-cell">
               <el-input-number
                 v-model="row.allocatedQuantity"
                 :disabled="row.editable === false"
                 :min="0"
+                :max="row.editable === false ? undefined : getAllocationQuantityMax(row)"
                 :precision="0"
                 :step="1"
                 step-strictly
@@ -3704,46 +3683,7 @@
                 class="team-leader-workbench__allocation-quantity-input"
                 @change="markManualAllocation(row)"
               />
-              <el-button
-                size="small"
-                data-team-leader-allocation-max
-                :disabled="row.editable === false"
-                @click="applyAllocationShortcut(row, 'MAX')"
-              >
-                最大
-              </el-button>
-              <el-button
-                size="small"
-                data-team-leader-allocation-half
-                :disabled="row.editable === false"
-                @click="applyAllocationShortcut(row, 'HALF')"
-              >
-                一半
-              </el-button>
-              <el-button
-                size="small"
-                data-team-leader-allocation-clear
-                :disabled="row.editable === false"
-                @click="clearAllocationQuantity(row)"
-              >
-                清除
-              </el-button>
-              <el-tag
-                v-if="resolveAllocationOverageQuantity(row) > 0"
-                class="team-leader-workbench__allocation-overage"
-                data-team-leader-allocation-overage
-                type="danger"
-                effect="plain"
-              >
-                待调整 {{ resolveAllocationOverageQuantity(row) }}
-              </el-tag>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="88" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.released" type="success" effect="light">已放行</el-tag>
-            <el-tag v-else type="warning" effect="plain">未放行</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="72" align="center">
@@ -3759,17 +3699,19 @@
         </el-table-column>
       </el-table>
       <div class="team-leader-workbench__hint mt-8px" data-team-leader-allocation-summary>
-        超过允许上限的提交不会增加活跃订单生产进度。
-        池总量：{{
-          allocationSnapshot?.poolQuantity ?? reviewEvent?.outputQuantity ?? 0
-        }}，已分配：{{ allocationTotalQuantity }}，未分配：{{
-          allocationUnallocatedQuantity
-        }}，当前模式：{{ reviewForm.allocationMode }}
+        已分配：{{ allocationTotalQuantity }}，剩余可分配：{{ allocationUnallocatedQuantity }}
       </div>
     </div>
     <template #footer>
-      <el-button @click="reviewVisible = false">取消</el-button>
-      <el-button type="primary" :loading="reviewSubmitting" data-team-leader-review-submit @click="submitReview">{{
+      <el-button v-if="allocationConfirming" :disabled="reviewSubmitting" @click="backToAllocation">返回修改</el-button>
+      <el-button v-else @click="reviewVisible = false">取消</el-button>
+      <el-button
+        v-if="reviewDialogMode === 'ALLOCATION' && !allocationConfirming"
+        type="primary"
+        data-team-leader-allocation-next
+        @click="prepareAllocationConfirmation"
+      >确认分配</el-button>
+      <el-button v-else type="primary" :loading="reviewSubmitting" data-team-leader-review-submit @click="submitReview">{{
         reviewDialogSubmitText
       }}</el-button>
     </template>
@@ -4159,7 +4101,7 @@
     </template>
   </el-dialog>
   <ActiveOrderDeviationDialog
-    v-if="activeOrderDeviationTarget"
+    v-if="activeOrderDeviationTarget && !handoffReadOnly"
     :active-order-id="activeOrderDeviationTarget.id"
     :order-code="activeOrderDeviationTarget.workOrderCode"
     @close="activeOrderDeviationTarget = undefined"
@@ -4167,6 +4109,7 @@
 </template>
 
 <script setup lang="ts">
+import LossReasonCatalog from './components/LossReasonCatalog.vue'
 import SignatureCredentialInput from '@/components/SignatureCredentialInput/SignatureCredentialInput.vue'
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
 import ActiveOrderDeviationDialog from './components/ActiveOrderDeviationDialog.vue'
@@ -4222,7 +4165,6 @@ import {
   linkPqcFormalEmployee,
   linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
-  previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   previewTeamLeaderActiveOrderVersionUpgrade,
   rebuildTeamLeaderActiveOrder,
@@ -4451,7 +4393,6 @@ const CLEANING_WASH_DEVICE_PARAMETER_TEMPLATES_BY_KIND: Record<
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
 type ProductionClearanceConfirmationColumnKey = 'workplace' | 'material' | 'cleaning'
-type AllocationShortcutMode = 'MAX' | 'HALF'
 type ActiveOrderReleaseApplicationLockState =
   | 'CONFIRMED'
   | 'CONFIRMED_REFRESH_FAILED'
@@ -4464,7 +4405,7 @@ interface TeamLeaderReportAllocationDraftLine
 }
 
 interface ProductionReportCorrectionLossDetailRow {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName: string
   quantity: number
@@ -4543,6 +4484,7 @@ const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const router = useRouter()
 const receivingPqcCorrection = ref(false)
 const receivePqcCorrection = async (applicationId: number | string) => {
+  if (!requireWritableHandoff()) return
   if (receivingPqcCorrection.value) return
   receivingPqcCorrection.value = true
   try {
@@ -4553,11 +4495,19 @@ const receivePqcCorrection = async (applicationId: number | string) => {
   } finally { receivingPqcCorrection.value = false }
 }
 const route = useRoute()
+const handoffReadOnly = computed(() => route.query.handoffReadOnly === '1')
+const requireWritableHandoff = () => {
+  if (handoffReadOnly.value) {
+    ElMessage.warning('当前为原轮次只读查看，请返回正常工作台办理。')
+    return false
+  }
+  return true
+}
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder'
+  'personnel' | 'report' | 'reportHistory' | 'quantityDrafts' | 'activeOrder' | 'lossReasons'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -4565,7 +4515,7 @@ const getInitialSubmissionDate = (_leaderType: TeamLeaderType) => undefined
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
-const allocationPreviewLoading = ref(false)
+const allocationConfirming = ref(false)
 const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
@@ -5142,13 +5092,13 @@ const resolveProductionReportOverageQuantity = (event: ProcessPoolTimelineEventV
   const outputQuantity = Number(event.outputQuantity)
   if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) return 0
   if (event.reportAllocations?.length) {
-    const unallocatedQuantity = Number(event.reportUnallocatedQuantity)
-    return Number.isFinite(unallocatedQuantity) && unallocatedQuantity >= 0
-      ? unallocatedQuantity
-      : outputQuantity
+    return event.reportAllocations.reduce((total, allocation) => {
+      const overage = Number(allocation.overageQuantity)
+      return total + (Number.isFinite(overage) && overage > 0 ? overage : 0)
+    }, 0)
   }
   const orderQuantity = resolveActiveOrderProcessCeiling(findReportSelectedActiveOrder(event), event)
-  return orderQuantity === undefined ? outputQuantity : Math.max(0, outputQuantity - orderQuantity)
+  return orderQuantity === undefined ? 0 : Math.max(0, outputQuantity - orderQuantity)
 }
 
 const allocationTotalQuantity = computed(() =>
@@ -5166,12 +5116,12 @@ const allocationUnallocatedQuantity = computed(() => {
 })
 
 const reviewDialogTitle = computed(() => {
-  if (reviewDialogMode.value === 'ALLOCATION') return '分配报工'
+  if (reviewDialogMode.value === 'ALLOCATION') return allocationConfirming.value ? '确认分配' : '分配报工'
   if (reviewDialogMode.value === 'REJECTION') return '驳回生产报工'
   return '复核员工提交'
 })
 const reviewDialogSubmitText = computed(() => {
-  if (reviewDialogMode.value === 'ALLOCATION') return '确认分配'
+  if (reviewDialogMode.value === 'ALLOCATION') return '签名并提交'
   if (reviewDialogMode.value === 'REJECTION') return '确认驳回'
   return '提交复核'
 })
@@ -5579,10 +5529,10 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
   }
 
   const originalLossMap = new Map(
-    (event.lossDetails || []).map((item) => [Number(item.reasonId), Number(item.quantity || 0)])
+    (event.lossDetails || []).map((item) => [String(item.reasonId), Number(item.quantity || 0)])
   )
   correctionForm.lossDetails.forEach((item) => {
-    const before = originalLossMap.get(item.reasonId) || 0
+    const before = originalLossMap.get(String(item.reasonId)) || 0
     const after = Number(item.quantity || 0)
     if (before !== after) {
       changes.push({
@@ -5758,6 +5708,12 @@ const requirePositiveNumber = (value: unknown, message: string) => {
   return parsed
 }
 
+const requireLossReasonId = (value: unknown, message: string): string => {
+  const id = String(value ?? '')
+  if (!/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n) throw new Error(message)
+  return id
+}
+
 const resolveCurrentLeaderType = (): TeamLeaderType => {
   const leaderType = activeLeaderTab.value
   if (leaderType !== 'PRODUCTION' && leaderType !== 'PQC') {
@@ -5911,8 +5867,7 @@ const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRes
     : ''
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
-  if (row.readBlocked || row.abnormal) return false
-  if (row.hasQuantityConflict || row.quantityConflict) return false
+  if (handoffReadOnly.value || row.readBlocked || row.abnormal) return false
   if (row.releaseApplicationStatus) return false
   return (
     isActiveOrderProgressComplete(row.productionProgressPercent) &&
@@ -5921,12 +5876,12 @@ const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (handoffReadOnly.value) return '当前为原轮次只读查看'
   if (row.readBlocked) return row.readBlockReason || '订单数据异常，暂不可申请放行'
   if (releaseApplicationLocks.get(row.id) === 'UNCERTAIN') {
     return '申请结果未确认，请人工核对后刷新页面'
   }
   if (releaseApplicationLocks.has(row.id)) return '本次申请已提交，请先刷新列表'
-  if (row.hasQuantityConflict || row.quantityConflict) return '生产数量冲突未解决，需先由组长纠错'
   if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
   if (row.releaseApplicationStatus) {
     return `已进入${formatActiveOrderReleaseStatus(row.releaseApplicationStatus)}`
@@ -5937,7 +5892,7 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
 }
 
 const canGenerateStage1Forms = (row: TeamLeaderActiveOrderRespVO) =>
-  Boolean(row.simulated) &&
+  !handoffReadOnly.value && Boolean(row.simulated) &&
   row.simulationStage === 'STAGE1' &&
   isActiveOrderProgressComplete(row.productionProgressPercent) &&
   isActiveOrderProgressComplete(row.inspectionProgressPercent)
@@ -5968,9 +5923,10 @@ const navigateActiveOrderSubmissionDetail = (
   router.push({
     name: 'MesProcessPoolActiveOrderSubmissionDetail',
     params: { activeOrderId },
-    query: sourceWorkOrderCode
-      ? { sourceWorkOrderCode }
-      : undefined
+    query: {
+      ...(sourceWorkOrderCode ? { sourceWorkOrderCode } : {}),
+      ...(handoffReadOnly.value ? { handoffReadOnly: '1' } : {})
+    }
   })
 }
 
@@ -7263,11 +7219,6 @@ const removeAllocationLine = (index: number) => {
   allocationRows.value.splice(index, 1)
 }
 
-const startBlankAllocation = () => {
-  reviewForm.allocationMode = 'MANUAL'
-  allocationRows.value = allocationRows.value.filter((line) => line.editable === false)
-}
-
 const getAvailableAllocationOrderOptions = (line: TeamLeaderReportAllocationDraftLine) => {
   const selectedWorkOrderIds = new Set(
     allocationRows.value
@@ -7290,26 +7241,6 @@ const normalizeAllocationInteger = (value: unknown) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return 0
   return Math.floor(parsed)
-}
-
-const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
-  const activeOrderId = Number(line.activeOrderId)
-  if (!Number.isFinite(activeOrderId)) {
-    return undefined
-  }
-  return allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
-}
-
-const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  if (line.editable === false) return 0
-  const persistedOverageQuantity = normalizeAllocationInteger(line.overageQuantity)
-  if (line.needsAdjustment && persistedOverageQuantity > 0) return persistedOverageQuantity
-  const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
-  if (allocatedQuantity === 0) return 0
-  const orderQuantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
-  return orderQuantity === undefined
-    ? allocatedQuantity
-    : Math.max(0, allocatedQuantity - orderQuantity)
 }
 
 const prefillSelectedOrderAllocation = (
@@ -7336,115 +7267,16 @@ const prefillSelectedOrderAllocation = (
   ]
 }
 
-const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  const order = findAllocationActiveOrder(line)
-  return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
-}
+const getAllocationPoolQuantity = () => requirePositiveInteger(
+  allocationSnapshot.value?.poolQuantity ?? reviewEvent.value?.outputQuantity,
+  '本次报工数量必须为正整数'
+)
 
-const formatAllocationOrderProductionCeiling = (line: TeamLeaderReportAllocationDraftLine) => {
-  const quantity = resolveActiveOrderProcessCeiling(findAllocationActiveOrder(line))
-  return quantity === undefined ? '--' : formatTraceQuantity(quantity)
-}
-
-const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
-  const order = findAllocationActiveOrder(line)
-  if (!order) {
-    throw new Error('请选择活跃订单后再快捷分配')
-  }
-  return order
-}
-
-const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  const totalQuantity = requirePositiveInteger(
-    allocationSnapshot.value?.poolQuantity ?? reviewEvent.value?.outputQuantity,
-    '本次报工数量必须为正整数'
+const getAllocationQuantityMax = (line: TeamLeaderReportAllocationDraftLine) => {
+  const allocatedElsewhere = allocationRows.value.reduce((total, candidate) =>
+    candidate === line ? total : total + normalizeAllocationInteger(candidate.allocatedQuantity), 0
   )
-  const allocatedExceptCurrent = allocationRows.value.reduce((total, item) => {
-    if (item === line) return total
-    return total + normalizeAllocationInteger(item.allocatedQuantity)
-  }, 0)
-  const currentRemainingQuantity = totalQuantity - allocatedExceptCurrent
-  if (currentRemainingQuantity <= 0) {
-    throw new Error('本次报工剩余可分配数量必须大于 0')
-  }
-  return currentRemainingQuantity
-}
-
-const resolveAllocationOrderProcessRemainingQuantity = (order: TeamLeaderActiveOrderRespVO) => {
-  const processId = requirePositiveNumber(reviewEvent.value?.processId, '当前工序不能为空')
-  const processMatches =
-    order.processRemainingQuantities?.filter((item) => Number(item.processId) === processId) ?? []
-  if (processMatches.length !== 1) {
-    throw new Error('当前工序剩余可分配数量必须为正整数')
-  }
-  const remainingQuantity = processMatches[0].remainingQuantity
-  return requirePositiveInteger(remainingQuantity, '当前工序剩余可分配数量必须为正整数')
-}
-
-const resolveAllocationShortcutQuantity = (
-  line: TeamLeaderReportAllocationDraftLine,
-  mode: AllocationShortcutMode
-) => {
-  const order = resolveAllocationActiveOrder(line)
-  const orderProcessRemainingQuantity = resolveAllocationOrderProcessRemainingQuantity(order)
-  const currentRemainingQuantity = resolveCurrentAllocationRemainingQuantity(line)
-  if (mode === 'MAX') {
-    return Math.min(orderProcessRemainingQuantity, currentRemainingQuantity)
-  }
-  const halfOrderQuantity = Math.floor(orderProcessRemainingQuantity / 2)
-  const shortcutQuantity = Math.min(halfOrderQuantity, currentRemainingQuantity)
-  if (shortcutQuantity <= 0) {
-    throw new Error('订单一半数量必须大于 0')
-  }
-  return shortcutQuantity
-}
-
-const applyAllocationShortcut = (
-  line: TeamLeaderReportAllocationDraftLine,
-  mode: AllocationShortcutMode
-) => {
-  try {
-    line.allocatedQuantity = resolveAllocationShortcutQuantity(line, mode)
-    markManualAllocation()
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '快捷分配失败'))
-  }
-}
-
-const clearAllocationQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  if (line.editable === false) return
-  line.allocatedQuantity = 0
-  markManualAllocation()
-}
-
-const previewFifoAllocation = async () => {
-  const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
-  allocationPreviewLoading.value = true
-  try {
-    const preview = await previewTeamLeaderReportFifoAllocation({
-      eventId,
-      leaderType: resolveCurrentLeaderType()
-    })
-    reviewForm.allocationMode = 'FIFO'
-    allocationSnapshot.value = preview
-    allocationRows.value = (preview.lines || []).map((line) => ({
-      activeOrderId: requirePositiveNumber(line.activeOrderId, 'FIFO 分配返回活跃订单不能为空'),
-      workOrderId: line.workOrderId,
-      workOrderCode: line.workOrderCode,
-      allocatedQuantity: line.allocatedQuantity,
-      remainingQuantityBeforeAllocation: line.remainingQuantityBeforeAllocation,
-      allocationId: line.allocationId,
-      routeProcessId: line.routeProcessId,
-      processId: line.processId,
-      allocationMode: line.allocationMode,
-      released: line.released === true,
-      editable: line.editable !== false
-    }))
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, 'FIFO 自动分配失败'))
-  } finally {
-    allocationPreviewLoading.value = false
-  }
+  return Math.max(0, getAllocationPoolQuantity() - allocatedElsewhere)
 }
 
 const assertUniqueAllocationActiveOrders = () => {
@@ -7469,6 +7301,12 @@ const assertUniqueAllocationActiveOrders = () => {
 
 const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   assertUniqueAllocationActiveOrders()
+  const totalQuantity = allocationRows.value.reduce((total, line) =>
+    total + normalizeAllocationSubmitQuantity(line.allocatedQuantity, '分配数量必须为0或正整数'), 0
+  )
+  if (totalQuantity > getAllocationPoolQuantity()) {
+    throw new Error('分配总量不能超过本次报工数量')
+  }
   return allocationRows.value
     .filter((line) => line.editable !== false)
     .flatMap((line) => {
@@ -7483,6 +7321,20 @@ const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
         }
       ]
     })
+}
+
+const prepareAllocationConfirmation = () => {
+  try {
+    buildAllocationSubmitLines()
+    allocationConfirming.value = true
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '请检查分配订单和数量'))
+  }
+}
+
+const backToAllocation = () => {
+  allocationConfirming.value = false
+  reviewForm.reviewSignaturePassword = ''
 }
 
 const allocationSaveRequestIdentity = (request: {
@@ -7853,14 +7705,13 @@ const toProductionMaterialRow = (value: unknown): ProductionReportCorrectionMate
     lossDetails: normalizeSubmissionArray(value.lossDetails)
       .filter((detail): detail is Record<string, unknown> => isRecord(detail))
       .map((detail) => ({
-        reasonId: Number(detail.reasonId),
+        reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因编号无效'),
         reasonCode: String(detail.reasonCode ?? '').trim() || undefined,
         reasonName:
           String(detail.reasonName ?? detail.reasonCode ?? '').trim() ||
           `损耗原因 ${detail.reasonId}`,
         quantity: optionalCorrectionNumber(detail.quantity) ?? 0
-      }))
-      .filter((detail) => Number.isFinite(detail.reasonId) && detail.reasonId > 0),
+      })),
     selectedDevice: isRecord(value.selectedDevice)
       ? {
           deviceId: Number(value.selectedDevice.deviceId),
@@ -8727,16 +8578,6 @@ const resolveSubmissionParameterSummaryItems = (
   ]
 }
 
-const reviewMaterialRows = computed(() =>
-  reviewEvent.value ? resolveProductionMaterialRows(reviewEvent.value) : []
-)
-const reviewDeviceItems = computed(() =>
-  reviewEvent.value ? resolveSubmissionEquipmentItems(reviewEvent.value) : []
-)
-const reviewParameterItems = computed(() =>
-  reviewEvent.value ? resolveSubmissionParameterItems(reviewEvent.value) : []
-)
-
 const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>
   detail.sampleValues?.length ? detail.sampleValues.join('、') : '未填写'
 
@@ -9022,7 +8863,7 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
 }
 
 const leaderReviewGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, reviewEvent.value?.id, reviewDialogMode.value]))
-const resetLeaderReviewContext = () => { leaderReviewGuard.invalidate(); reviewSubmitting.value = false; reviewForm.reviewSignaturePassword = '' }
+const resetLeaderReviewContext = () => { leaderReviewGuard.invalidate(); reviewSubmitting.value = false; reviewForm.reviewSignaturePassword = ''; allocationConfirming.value = false }
 watch(reviewVisible, resetLeaderReviewContext, { flush: 'sync' })
 watch(() => route.fullPath, () => { resetLeaderReviewContext(); reviewVisible.value = false }, { flush: 'sync' })
 onBeforeUnmount(resetLeaderReviewContext)
@@ -9077,6 +8918,7 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
 }
 
 const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
+  if (!requireWritableHandoff()) return
   resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canRejectProductionSubmission(event)) {
@@ -9093,6 +8935,7 @@ const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
 }
 
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
+  if (!requireWritableHandoff()) return
   resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
@@ -9117,6 +8960,8 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
     if (!isCurrent()) return
     applyAllocationSnapshot(snapshot)
     prefillSelectedOrderAllocation(event, snapshot)
+    reviewForm.allocationMode = 'MANUAL'
+    if (!allocationRows.value.length) addAllocationLine()
     // Do not expose editable rows until the initial snapshot and prefill settle.
     reviewVisible.value = true
   } catch (error) {
@@ -9137,6 +8982,7 @@ const requireProductionDisplayedReview = () => {
 }
 
 const submitReview = async () => {
+  if (!requireWritableHandoff()) return
   if (reviewSubmitting.value) return
   let isCurrent = leaderReviewGuard.capture()
   const mode = reviewDialogMode.value
@@ -9300,9 +9146,9 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   const routeProcessId = requirePositiveNumber(event.routeProcessId, '报工记录缺少路线工序快照')
   const configuredReasons =
     processConfigRows.value.find((row) => row.routeProcessId === routeProcessId)?.lossReasons || []
-  const lossRowMap = new Map<number, ProductionReportCorrectionLossDetailRow>()
+  const lossRowMap = new Map<string, ProductionReportCorrectionLossDetailRow>()
   ;(event.lossDetails || []).forEach((item) => {
-    const reasonId = requirePositiveNumber(item.reasonId, '报工损耗明细缺少原因编号')
+    const reasonId = requireLossReasonId(item.reasonId, '报工损耗明细缺少原因编号')
     const quantity = Number(item.quantity)
     if (!Number.isFinite(quantity) || quantity < 0) {
       throw new Error('报工损耗明细数量无效，不能修改')
@@ -9317,8 +9163,8 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   configuredReasons
     .filter((item) => item.enabled)
     .forEach((item) => {
-      if (!lossRowMap.has(item.id)) {
-        lossRowMap.set(item.id, {
+      if (!lossRowMap.has(String(item.id))) {
+        lossRowMap.set(String(item.id), {
           reasonId: item.id,
           reasonCode: item.reasonCode,
           reasonName: item.reasonName,
@@ -9396,6 +9242,7 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
 }
 
 const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
+  if (!requireWritableHandoff()) return
   try {
     const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
     if (isPqcSubmissionRow(event) && event.released) {
@@ -9485,7 +9332,7 @@ const buildProductionCorrectionRequest = () => {
         lossDetails: item.lossDetails
           .filter((detail) => Number(detail.quantity) > 0)
           .map((detail) => ({
-            reasonId: requirePositiveNumber(detail.reasonId, '物料损耗原因不能为空'),
+            reasonId: requireLossReasonId(detail.reasonId, '物料损耗原因不能为空'),
             quantity: Number(detail.quantity)
           })),
         selectedDevice: item.selectedDevice
@@ -9508,7 +9355,7 @@ const buildProductionCorrectionRequest = () => {
     lossDetails: materialLossDetails
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
-        reasonId: requirePositiveNumber(item.reasonId, '损耗原因不能为空'),
+        reasonId: requireLossReasonId(item.reasonId, '损耗原因不能为空'),
         quantity: Number(item.quantity)
       })),
     deviceParameterReadings: materialParameterReadings.flatMap((item) => {
@@ -9613,6 +9460,7 @@ const buildPqcCorrectionRequest = () => {
 }
 
 const submitCorrection = async () => {
+  if (!requireWritableHandoff()) return
   const eventId = requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
   const approvalEvent = correctionEvent.value?.submissionReviewStatus === 'REJECTED'
     ? approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId) : undefined
@@ -9654,6 +9502,7 @@ const resetAbnormalForm = () => {
 }
 
 const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   if (isActiveOrderNcrClosed(row)) {
     ElMessage.warning('该生产周期已由QA处置结束，仅可查看')
@@ -9669,6 +9518,7 @@ const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const submitAbnormal = async () => {
+  if (!requireWritableHandoff()) return
   const valid = await abnormalFormRef.value?.validate?.()
   if (valid === false) return
   if (activeOrderTestResetSubmitting.value) return
@@ -9688,6 +9538,7 @@ const submitAbnormal = async () => {
     if (isActiveOrderNcrClosed(currentActiveOrder)) {
       throw new Error('该生产周期已由QA处置结束，仅可查看，不能上报异常')
     }
+    if (!requireWritableHandoff()) return
     await markAndReportWorkOrderAbnormal({
       activeOrderId,
       abnormalDescription: abnormalForm.abnormalDescription.trim()
@@ -9715,6 +9566,7 @@ const resetActiveOrderForm = () => {
 }
 
 const openActiveOrderDialog = () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   resetActiveOrderForm()
   activeOrderAddDialogVisible.value = true
@@ -9805,6 +9657,7 @@ const searchActiveOrderCandidates = async (keyword: string) => {
 }
 
 const syncActiveOrderFromErp = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderErpSyncing.value || maintenanceSubmitting.value) return
   const code = activeOrderErpCode.value.trim()
   if (!code) return
@@ -9814,6 +9667,7 @@ const syncActiveOrderFromErp = async () => {
   let synced = false
   let resultMessage = ''
   try {
+    if (!requireWritableHandoff()) return
     const result = await syncTeamLeaderProductionOrder(code)
     synced = true
     // 同步与加入分开：刷新本地候选，但必须由用户重新选择并确认路线。
@@ -9903,6 +9757,7 @@ const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitActi
 }
 
 const submitAddActiveOrder = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value || activeOrderErpSyncing.value) return
   if (!activeOrderSelectedCandidate.value) {
     ElMessage.warning('请先从下拉框选择订单，并确认工艺路线正确')
@@ -9913,6 +9768,7 @@ const submitAddActiveOrder = async () => {
   try {
     const workOrderId = await requireSelectedActiveOrderCandidateWorkOrderId()
     const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('WORK_ORDER', workOrderId)
+    if (!requireWritableHandoff()) return
     const receipt = await addTeamLeaderActiveOrder({
       workOrderId
     })
@@ -10094,6 +9950,7 @@ const assertActiveOrderReleaseApplicationReceipt = (
 }
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value || releaseApplicationSubmittingId.value !== undefined) return
   leaderReleaseGuard.invalidate()
   const guardIsCurrent = leaderReleaseGuard.capture()
@@ -10209,6 +10066,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
 }
 
 const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   activeOrderRebuildSubmittingId.value = row.id
   let writeCompleted = false
@@ -10225,6 +10083,7 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
       confirmButtonText: '确认重建',
       cancelButtonText: '取消'
     })
+    if (!requireWritableHandoff()) return
     const result = await rebuildTeamLeaderActiveOrder({
       activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
       confirmDeleteHistoricalRuntimeData: false
@@ -10248,6 +10107,7 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   activeOrderVersionUpgradeSubmittingId.value = row.id
   try {
@@ -10266,6 +10126,7 @@ const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO)
 }
 
 const submitActiveOrderVersionUpgrade = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   const preview = activeOrderVersionUpgradePreview.value
   if (!preview) {
@@ -10274,6 +10135,7 @@ const submitActiveOrderVersionUpgrade = async () => {
   }
   activeOrderVersionUpgradeSubmittingId.value = preview.activeOrderId
   try {
+    if (!requireWritableHandoff()) return
     const result = await submitTeamLeaderActiveOrderVersionUpgrade({
       activeOrderId: requirePositiveNumber(preview.activeOrderId, '活跃订单记录ID不能为空'),
       idempotencyKey: `active-order-version-upgrade-${preview.activeOrderId}-${Date.now()}`,
@@ -10293,6 +10155,7 @@ const submitActiveOrderVersionUpgrade = async () => {
 const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${crypto.randomUUID()}`
 
 const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let result: TeamLeaderActiveOrderSimulationCopyRespVO | undefined
@@ -10325,6 +10188,7 @@ const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderR
 }
 
 const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
@@ -10334,6 +10198,7 @@ const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrd
       '清理测试单',
       { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
     )
+    if (!requireWritableHandoff()) return
     await cleanupLatestTeamLeaderSimulationActiveOrder(
       requirePositiveNumber(row.id, '测试活跃订单ID不能为空')
     )
@@ -10357,6 +10222,7 @@ const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrd
 }
 
 const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
@@ -10367,6 +10233,7 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
     const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+    if (!requireWritableHandoff()) return
     const result = await simulateStage1ActiveOrderCompletion({
       simulationRunId: `STAGE1-${Date.now()}`,
       activeOrderId
@@ -10388,6 +10255,7 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   if (!canGenerateStage1Forms(row)) {
     ElMessage.warning(resolveStage1GenerateFormDisabledReason(row))
@@ -10406,6 +10274,7 @@ const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
       '确认P2生成',
       { type: 'warning', confirmButtonText: '开始生成', cancelButtonText: '取消' }
     )
+    if (!requireWritableHandoff()) return
     await simulateStage2_5BackfillBatchExecution({
       simulationRunId: 'STAGE2_5-' + Date.now(),
       activeOrderId,
@@ -10423,6 +10292,7 @@ const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   if (!row.version && row.version !== 0) {
     ElMessage.error('活跃订单版本缺失，无法安全执行模拟完工')
@@ -10435,6 +10305,7 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
       '确认模拟完工',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
+    if (!requireWritableHandoff()) return
     const result = await simulateStage2_5BackfillBatchExecution({
       simulationRunId: 'STAGE2_5-' + Date.now(),
       activeOrderId: row.id,
@@ -10451,6 +10322,7 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   if (!canApplyActiveOrderRelease(row)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
@@ -10464,6 +10336,7 @@ const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) =
       '确认P3推送',
       { type: 'warning', confirmButtonText: '推送PQC', cancelButtonText: '取消' }
     )
+    if (!requireWritableHandoff()) return
     const result = await pushGeneratedTeamLeaderActiveOrderRelease({
       activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
       idempotencyKey: getOrCreateActiveOrderReleaseIdempotencyKey(row),
@@ -10485,6 +10358,7 @@ const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) =
 }
 
 const handleRecommendedActiveOrderConflictResolution = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   const row = activeOrderConflictSelectedOrder.value
   if (!row) {
@@ -10509,6 +10383,7 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
     activeOrderRebuildSubmittingId.value = undefined
     activeOrderSimulationSubmittingId.value = row.id
 
+    if (!requireWritableHandoff()) return
     const result = await simulateTeamLeaderActiveOrderCompletion({ activeOrderId })
     writeCompletedPhase = 'SIMULATED'
     ElMessage.success(
@@ -10534,10 +10409,12 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
 }
 
 const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
+    if (!requireWritableHandoff()) return
     await removeTeamLeaderActiveOrder({
       activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     })
@@ -10557,6 +10434,7 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetBlocked.value) return
   activeOrderTestDataSet.value = dataSet
   activeOrderTestDataSubmitting.value = true
@@ -10589,6 +10467,7 @@ const handlePrepareFixedTestOrderData = async (dataSet: 1 | 2) => {
 }
 
 const handleResetFixedSimulationActiveOrder = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetBlocked.value) return
   activeOrderTestResetSubmitting.value = true
   let writeStarted = false
@@ -10601,6 +10480,7 @@ const handleResetFixedSimulationActiveOrder = async () => {
     )
     activeOrderTestResetReceipt.value = undefined
     writeStarted = true
+    if (!requireWritableHandoff()) return
     const result = await resetFixedSimulationActiveOrder()
     if (!result?.workOrderCode?.trim() || !/^[1-9]\d*$/.test(String(result.activeOrderId))) {
       throw new Error('重置回执缺少正式工单号或活跃订单身份，请刷新核对后再操作')
@@ -10656,6 +10536,7 @@ const handleActiveOrderWorkOrderKeywordChange = () => {
 }
 
 const handleTeamLeaderDataCleanup = async () => {
+  if (!requireWritableHandoff()) return
   if (activeOrderTestResetSubmitting.value) return
   teamLeaderDataCleanupSubmitting.value = true
   try {
@@ -10675,6 +10556,7 @@ const handleTeamLeaderDataCleanup = async () => {
       '一键清理生产数据',
       { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
     )
+    if (!requireWritableHandoff()) return
     const result = await executeTeamLeaderDataCleanup({
       orderIds: preview.orderIds.map((id) => Number(id)),
       orderVersions: preview.orderVersions,
@@ -10888,6 +10770,15 @@ const requireProductionHandoffDetail = (
     task.completedAt != null && Number.isFinite(new Date(task.completedAt).getTime())
   if (!originalAllocations.length && !awaitingReallocation && !completedRejection) throw new Error('原周期正式生产分配不存在')
 }
+
+watch(() => route.fullPath, () => {
+  activeOrderAddDialogVisible.value = false
+  abnormalDialogVisible.value = false
+  activeOrderVersionUpgradeDialogVisible.value = false
+  activeOrderDeviationTarget.value = undefined
+  reviewVisible.value = false
+  correctionVisible.value = false
+}, { flush: 'sync' })
 
 const leaderHandoffRoutePath = route.path
 let handoffNavigationEpoch = 0
@@ -11795,13 +11686,6 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
   margin-bottom: 10px;
 }
 
-.team-leader-workbench__allocation-toolbar > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .team-leader-workbench__allocation-table {
   width: 100%;
   font-size: 13px;
@@ -11843,29 +11727,17 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
 .team-leader-workbench__allocation-quantity-cell {
   display: grid;
   align-items: center;
-  grid-template-columns: minmax(100px, 1fr) repeat(3, max-content);
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
-.team-leader-workbench__report-overage,
-.team-leader-workbench__allocation-overage {
+.team-leader-workbench__report-overage {
   color: #fff;
   font-weight: 700;
 }
 
-.team-leader-workbench__allocation-overage {
-  grid-column: 1 / -1;
-  width: 100%;
-  justify-content: center;
-  color: var(--el-color-danger);
-}
-
 .team-leader-workbench__allocation-quantity-input {
   width: 100%;
-}
-
-.team-leader-workbench__allocation-quantity-cell .el-button + .el-button {
-  margin-left: 0;
 }
 
 .team-leader-workbench__qa-layout {
@@ -12673,14 +12545,12 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
   width: 100%;
 }
 
-.team-leader-workbench__allocation-context {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid #dfe7e2;
-  border-radius: 6px;
-  background: #f8fbf9;
+.team-leader-workbench__allocation-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: 16px;
+  color: var(--el-text-color-regular);
 }
 
 .team-leader-workbench__pqc-content {

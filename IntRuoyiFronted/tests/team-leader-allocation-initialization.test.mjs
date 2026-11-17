@@ -17,10 +17,11 @@ const harness = () => {
   const snapshot = deferred(), orders = deferred(), errors = [], applied = []
   let current = true
   const context = {
-    resetLeaderReviewContext() {}, requirePositiveNumber: value => value,
+    resetLeaderReviewContext() {}, requireWritableHandoff: () => true, requirePositiveNumber: value => value,
     canAllocateSubmission: () => true, reviewDialogMode: { value: 'REVIEW' },
     reviewEvent: { value: undefined }, structuredClone, toRaw: value => value,
     reviewForm: {}, resetReviewAllocation() {}, reviewVisible: { value: false },
+    allocationRows: { value: [] }, addAllocationLine() { context.allocationRows.value.push({ allocatedQuantity: 0 }) },
     leaderReviewGuard: { capture: () => () => current },
     getCurrentTeamLeaderReportAllocation: () => snapshot.promise,
     resolveCurrentLeaderType: () => 'PRODUCTION', loadActiveOrders: () => orders.promise,

@@ -17,6 +17,7 @@ final class TeamMaintenanceAuditSupport {
         insertAudit(auditMapper, leaderUserId, leaderUserId, actionType, targetType, targetId,
                 "SUCCESS", switch (actionType) {
                     case "RESET_FIXED_TEST_ORDER" -> "重置固定测试订单";
+                    case "COPY_LATEST_SIMULATION_ACTIVE_ORDER" -> "复制最新版本测试订单";
                     case "ADD_ACTIVE_ORDER" -> "加入活跃订单";
                     case "CLOSE_ACTIVE_ORDER_BY_RELEASE" -> "按上市放行关闭活跃订单";
                     default -> actionType;

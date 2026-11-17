@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviationDO> {
 
     default Page<MesProEdhrDeviationDO> selectPageByTenant(Page<MesProEdhrDeviationDO> page, Long tenantId,
-                                                            String status, String level, Long batchExecutionId,
+                                                            String status, String level, Long batchExecutionId, Long activeOrderId,
                                                             String search, String sortField, String sortOrder,
                                                             LocalDateTime initiatedAtStart, LocalDateTime initiatedAtEnd,
                                                             cn.iocoder.yudao.framework.common.pojo.PageParam filters) {
@@ -25,7 +25,10 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
                 .eq(MesProEdhrDeviationDO::getTenantId, tenantId)
                 .eq(status != null && !status.isBlank(), MesProEdhrDeviationDO::getStatus, status)
                 .eq(level != null && !level.isBlank(), MesProEdhrDeviationDO::getLevel, level)
-                .eq(batchExecutionId != null, MesProEdhrDeviationDO::getBatchExecutionId, batchExecutionId)
+                .and(activeOrderId != null, w -> w.eq(MesProEdhrDeviationDO::getActiveOrderId, activeOrderId)
+                        .or().apply("batch_execution_id IN (SELECT batch_execution_id FROM mes_pro_edhr_batch_execution_origin WHERE tenant_id = {0} AND active_order_id = {1} AND deleted = 0 AND entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED','ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY'))", tenantId, activeOrderId))
+                .and(batchExecutionId != null, w -> w.eq(MesProEdhrDeviationDO::getBatchExecutionId, batchExecutionId)
+                        .or().apply("active_order_id IN (SELECT active_order_id FROM mes_pro_edhr_batch_execution_origin WHERE tenant_id = {0} AND batch_execution_id = {1} AND deleted = 0 AND entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED','ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY'))", tenantId, batchExecutionId))
                 .and(search != null && !search.isBlank(), w -> w.like(MesProEdhrDeviationDO::getDeviationCode, search)
                         .or().like(MesProEdhrDeviationDO::getBatchExecutionCode, search)
                         .or().like(MesProEdhrDeviationDO::getBatchCode, search))
@@ -118,7 +121,10 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
             SELECT id
             FROM mes_pro_edhr_deviation
             WHERE tenant_id = #{tenantId}
-              AND batch_execution_id = #{batchExecutionId}
+              AND (batch_execution_id = #{batchExecutionId} OR active_order_id IN (
+                  SELECT active_order_id FROM mes_pro_edhr_batch_execution_origin
+                  WHERE tenant_id = #{tenantId} AND batch_execution_id = #{batchExecutionId}
+                    AND deleted = 0 AND entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED','ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY')))
               AND status = 'OPEN'
               AND deleted = 0
             ORDER BY id ASC
@@ -149,7 +155,9 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
             "UPDATE mes_pro_edhr_deviation",
             "SET status = 'CLOSED', close_reason = 'TRANSFERRED_TO_NCR',",
             "    nonconformance_review_id = #{reviewId}, closed_at = #{closedAt}, version = version + 1",
-            "WHERE tenant_id = #{tenantId} AND batch_execution_id = #{batchExecutionId}",
+            "WHERE tenant_id = #{tenantId}",
+            "<choose><when test='batchExecutionId != null'>AND batch_execution_id = #{batchExecutionId}</when>",
+            "<otherwise>AND batch_execution_id IS NULL AND active_order_id = #{activeOrderId}</otherwise></choose>",
             "  AND status = 'OPEN' AND deleted = 0 AND id IN",
             "<foreach collection='deviationIds' item='deviationId' open='(' separator=',' close=')'>",
             "  #{deviationId}",
@@ -158,6 +166,7 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
     })
     int closeToNonconformance(@Param("tenantId") Long tenantId,
                               @Param("batchExecutionId") Long batchExecutionId,
+                              @Param("activeOrderId") Long activeOrderId,
                               @Param("deviationIds") java.util.Collection<Long> deviationIds,
                               @Param("reviewId") Long reviewId,
                               @Param("closedAt") java.time.LocalDateTime closedAt);

@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class MesProEdhrDeviationPageReqVO extends PageParam {
     private String status;
     private String level;
+    private Long activeOrderId;
     private Long batchExecutionId;
     private String search;
     private String sortField;

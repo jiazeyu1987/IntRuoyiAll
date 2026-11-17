@@ -50,6 +50,14 @@ async function mount(port = {}) {
 }
 const file=(uid,name=`${uid}.pdf`)=>({uid,name,type:'application/pdf',size:12})
 const uploadOptions=f=>({file:f,onSuccess(){},onError(){}})
+test('attachments are optional: empty selection is ready and returns an empty manifest without uploading',async()=>{
+  const h=await mount();try{
+    assert.equal(h.events.at(-1).ready,true)
+    assert.equal(h.exposed.readReadyManifest().length,0)
+    assert.equal(h.uploads.length,0)
+  }finally{h.app.unmount()}
+})
+
 test('actual component uploads two ordinary files using original CHECKIN API with independent slots and visible-order manifest',async()=>{
   const h=await mount();try{
     await h.state.uploadAttachment(uploadOptions(file(1)));await h.state.uploadAttachment(uploadOptions(file(2)))

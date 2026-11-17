@@ -573,7 +573,14 @@ export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   clearanceConfirmations?: TeamLeaderActiveOrderClearanceConfirmationRespVO[]
 }
 
+export interface TeamLeaderActiveOrderLossDetail {
+  reasonId: number | string
+  reasonCode: string
+  reasonName: string
+  quantity: number | string
+}
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
+  lossDetails?: TeamLeaderActiveOrderLossDetail[]
   eventId: number
   originalBusinessIdentityJson?: string
   submittedQuantity: number | string

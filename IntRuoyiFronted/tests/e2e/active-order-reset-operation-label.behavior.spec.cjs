@@ -24,6 +24,13 @@ test('unrecognized operation remains an explicit contract error', () => {
     /ACTIVE_ORDER_OPERATION_LABEL_UNMAPPED/)
 })
 
+test('copied simulation order facts render with both current Chinese and historical English summaries', () => {
+  for (const operationName of [undefined, 'COPY_LATEST_SIMULATION_ACTIVE_ORDER', '复制最新版本测试订单']) {
+    assert.equal(format({ operationType: 'COPY_LATEST_SIMULATION_ACTIVE_ORDER', operationName }),
+      '复制最新版本测试订单')
+  }
+})
+
 test('execution facts preserve the Chinese process and inspection round', () => {
   assert.equal(format({ operationType: 'PRODUCTION_SUBMIT', operationName: '提交生产记录：大包装' }), '提交生产记录：大包装')
   assert.equal(format({ operationType: 'PQC_REVIEW', operationName: '复核过程检验记录：中大包装（第3轮巡检）' }), '复核过程检验记录：中大包装（第3轮巡检）')

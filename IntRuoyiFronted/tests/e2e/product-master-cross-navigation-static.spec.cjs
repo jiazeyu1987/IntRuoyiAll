@@ -62,15 +62,15 @@ assert.match(projectCodePage, /const\s+resolveQueryProjectCodeId\s*=\s*\(\)\s*=>
   'project-code page must parse linked projectCodeId route query as a string identity')
 assert.match(projectCodePage, /const\s+syncDetailFromRoute\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*const\s+projectCode\s*=\s*await\s+getProjectCode\(id\)[\s\S]*selectedProjectCode\.value\s*=\s*projectCode/,
   'project-code page must open the linked project-code detail drawer from projectCodeId')
-assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*await\s+syncDetailFromRoute\(\)/,
+assert.match(projectCodePage, /watch\(\s*\[\(\)\s*=>\s*route\.path,\s*\(\)\s*=>\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*await\s+syncDetailFromRoute\(\)/,
   'project-code page must resync the detail drawer only when linked projectCodeId changes on the project-code route')
 assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mdm\/project-code['"]/,
   'project-code route path must be explicit')
-assert.match(projectCodePage, /const\s+isProjectCodeRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PROJECT_CODE_ROUTE_PATH/,
+assert.match(projectCodePage, /const\s+isProjectCodeRoute\s*=\s*\(\)\s*=>\s*\[PROJECT_CODE_ROUTE_PATH,\s*['"]\/mes\/md\/dcc-project-code['"]\]\.includes\(route\.path\)/,
   'project-code query sync must be scoped to the active project-code route')
 assert.match(projectCodePage, /onActivated\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*syncProjectCodeQueryFromRoute\(\)[\s\S]*await\s+getList\(\)/,
   'project-code cached activation must reload the linked filter when returning from product or registration pages')
-assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.productMasterId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return/,
+assert.match(projectCodePage, /watch\(\s*\[\(\)\s*=>\s*route\.path,\s*\(\)\s*=>\s*route\.query\.productMasterId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return/,
   'project-code productMasterId watcher must ignore same-named query keys while another page is active')
 assert.match(projectCodePage, /@click="openLinkedProductManagement\(row\)"/,
   'project-code rows must expose a product-management jump')

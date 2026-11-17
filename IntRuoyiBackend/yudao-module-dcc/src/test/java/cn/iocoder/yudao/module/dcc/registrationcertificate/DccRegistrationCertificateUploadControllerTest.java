@@ -39,6 +39,25 @@ import static org.mockito.Mockito.when;
 
 class DccRegistrationCertificateUploadControllerTest {
 
+    @Test
+    void projectProductUsesCurrentUserTenantAndExistingUploadPermission() throws Exception {
+        var uploadService = mock(DccRegistrationCertificateUploadService.class);
+        var controller = new DccRegistrationCertificateUploadController(uploadService,
+                mock(DccRegistrationCertificateApprovalService.class), mock(DccProjectCodeService.class));
+        var product = new cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct(
+                501L, 663L, "0313170202", "按压式压力泵", List.of());
+        when(uploadService.getProjectProduct(11L, 22L, 501L)).thenReturn(product);
+        TenantContextHolder.setTenantId(11L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
+            assertEquals(product, controller.projectProduct(501L).getData());
+        }
+        var permission = DccRegistrationCertificateUploadController.class.getMethod("projectProduct", Long.class)
+                .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        assertEquals("@ss.hasPermission('dcc:registration-certificate:upload:create')", permission.value());
+        verify(uploadService).getProjectProduct(11L, 22L, 501L);
+    }
+
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();

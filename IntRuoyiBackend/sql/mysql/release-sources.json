@@ -1207,7 +1207,11 @@
     "20261112_unified_operation_log_navigation.sql",
     "20261113_mes_production_leader_deviation_read.sql",
     "20261113_mes_release_attachment_upload_roles.sql",
-    "20261114_mes_production_leader_deviation_create.sql"
+    "20261114_mes_production_leader_deviation_create.sql",
+    "20261115_mes_loss_reason_catalog.sql",
+    "20261116_erp_data_operation_roles.sql",
+    "20261116_mes_active_order_deviation.sql",
+    "20261116_mes_deviation_administrator_role.sql"
   ],
   "migrationScopes": [
     {
@@ -1407,6 +1411,10 @@
     {
       "file": "20260822_mes_process_pool_active_order_completion_receipt_rollback.sql",
       "reason": "Manual rollback only; never execute during application upgrade."
+    },
+    {
+      "file": "20261116_dcc_merge_duplicate_roles.sql",
+      "reason": "Local fixed-role repair for IDs 990819799/990819811, dependent on local test-tenant permission sync. Excluded from server release under the user-confirmed no-local-repairs scope; never apply local role identities to server tenants."
     }
   ],
   "migrationDependencies": [

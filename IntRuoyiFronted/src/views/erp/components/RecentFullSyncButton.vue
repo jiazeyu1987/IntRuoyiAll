@@ -1,5 +1,5 @@
 <template>
-  <div v-hasPermi="['erp:kingdee-sync:query']" class="recent-full-sync">
+  <div v-if="canSync" class="recent-full-sync">
     <span>最近</span>
     <el-input-number v-model="days" :min="1" :precision="0" :step="1" :disabled="submitting"
       controls-position="right" aria-label="全量同步天数" class="recent-full-sync__days" />
@@ -11,11 +11,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { erpSyncPermission } from '@/utils/erpDataPermission'
+import { computed, ref } from 'vue'
+import { checkPermi } from '@/utils/permission'
 import { ElMessage } from 'element-plus'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 
 const props = defineProps<{ syncType: string }>()
+const canSync = computed(() => checkPermi([erpSyncPermission(props.syncType)]) &&
+  (props.syncType !== 'STOCK' || checkPermi(['erp:data-inventory:operate'])))
 const days = ref<number | undefined>(7)
 const submitting = ref(false)
 const submit = async () => {

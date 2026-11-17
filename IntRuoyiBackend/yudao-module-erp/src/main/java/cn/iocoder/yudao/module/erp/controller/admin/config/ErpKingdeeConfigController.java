@@ -48,14 +48,14 @@ public class ErpKingdeeConfigController {
 
     @GetMapping("/active-connection")
     @Operation(summary = "获取 ERP 金蝶当前连接")
-    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate')")
     public CommonResult<ErpKingdeeActiveConnectionRespVO> getActiveConnection() {
         return success(kingdeeConfigService.getActiveConnection());
     }
 
     @PutMapping("/active-connection")
     @Operation(summary = "保存 ERP 金蝶当前连接")
-    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
+    @PreAuthorize("@ss.hasPermission('erp:data-config:operate')")
     public CommonResult<ErpKingdeeActiveConnectionRespVO> updateActiveConnection(
             @Valid @RequestBody ErpKingdeeActiveConnectionSaveReqVO saveReqVO) {
         return success(kingdeeConfigService.updateActiveConnection(saveReqVO));

@@ -326,6 +326,12 @@ export const ProRouteFlowConfigApi = {
     })
   },
 
+  getRouteDeviceOptions: async () => {
+    return await request.get<ProRouteProcessDeviceParameterDeviceVO[]>({
+      url: '/mes/pro/route/flow-config/device-options'
+    })
+  },
+
   getRouteProcessDeviceParameterConfig: async (
     routeVersionId: MesRouteId,
     routeProcessId: MesRouteId

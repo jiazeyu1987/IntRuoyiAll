@@ -22,6 +22,7 @@ class DccCatalogPackageServiceTest {
     List<DccCatalogPackageService.Spec> specs;
     MdmCompanyScopeApi scope;
     cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService security;
+    cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService configurationAudit;
     @BeforeEach @SuppressWarnings("unchecked") void setup() {
         TenantContextHolder.setTenantId(10L);
         var ds = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
@@ -42,6 +43,10 @@ class DccCatalogPackageServiceTest {
         // Local responsibility remains in the database, independently of the workbook schema.
         jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader VARCHAR(128)");
         jdbc.execute("ALTER TABLE dcc_project_code ADD project_leader_user_id BIGINT");
+        jdbc.execute("ALTER TABLE dcc_folder_template ADD edited_by_user_id BIGINT NOT NULL DEFAULT 0");
+        jdbc.execute("ALTER TABLE dcc_folder_template ADD ever_used BIT NOT NULL DEFAULT 0");
+        jdbc.execute("ALTER TABLE dcc_folder_template ALTER COLUMN active BIT NOT NULL");
+        jdbc.execute("CREATE TABLE dcc_folder_template_history(id BIGINT AUTO_INCREMENT PRIMARY KEY,template_id BIGINT NOT NULL,operator_user_id BIGINT NOT NULL,operation VARCHAR(16),before_json VARCHAR(10000),after_json VARCHAR(10000),tenant_id BIGINT,creator VARCHAR(64),updater VARCHAR(64))");
         jdbc.execute("CREATE UNIQUE INDEX catalog_source_row ON dcc_product_catalog(tenant_id,data_source,original_row_no)");
         jdbc.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
         jdbc.execute("CREATE TABLE dcc_product_catalog_source_sequence(data_source VARCHAR(64) PRIMARY KEY,last_row_no INT)");
@@ -52,6 +57,8 @@ class DccCatalogPackageServiceTest {
         ReflectionTestUtils.setField(target, "security", security);
         ReflectionTestUtils.setField(target, "companyScope", scope);
         ReflectionTestUtils.setField(target, "json", new ObjectMapper());
+        configurationAudit = mock(cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService.class);
+        ReflectionTestUtils.setField(target, "configurationAudit", configurationAudit);
         ReflectionTestUtils.setField(target, "catalogSync", mock(cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService.class));
         ReflectionTestUtils.setField(target, "projection", mock(ControlledContentRegistrationProjectionService.class));
         var factory = new ProxyFactory(target);
@@ -68,7 +75,94 @@ class DccCatalogPackageServiceTest {
         jdbc.update("INSERT INTO dcc_registration_certificate_snapshot_entrusted(id,snapshot_id,enterprise_id,tenant_id) VALUES(1,'1','1',10)");
         jdbc.update("INSERT INTO dcc_data_relation(id,product_catalog_id,project_code_id,registration_certificate_id,tenant_id) VALUES(1,'1','1','1',10)");
     }
-    @AfterEach void clear() { TenantContextHolder.clear(); }
+    @AfterEach void clear() {
+        TenantContextHolder.clear();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+    private void loginTemplateImporter() {
+        cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.setLoginUser(
+            new cn.iocoder.yudao.framework.security.core.LoginUser().setId(7L).setTenantId(TenantContextHolder.getRequiredTenantId()).setUserType(2),
+            new org.springframework.mock.web.MockHttpServletRequest());
+    }
+    private static final String TEMPLATE_STRUCTURE = "{\"nodes\":[{\"key\":\"root\",\"parentKey\":null,\"name\":\"研发资料\",\"sortOrder\":0},{\"key\":\"child\",\"parentKey\":\"root\",\"name\":\"设计输入\",\"sortOrder\":1}]}";
+    private void seedTemplate() {
+        jdbc.update("INSERT INTO dcc_folder_template(id,name,description,active,structure_json,edited_by_user_id,ever_used,tenant_id) VALUES(700,'产品研发模板','含两级目录',1,?,77,1,10)", TEMPLATE_STRUCTURE);
+    }
+    @Test void transfersTemplatesAcrossTenantsWithIndependentIdsAndLocalMetadata() throws Exception {
+        when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
+        seedTemplate();
+        jdbc.update("INSERT INTO dcc_folder_template(id,name,active,structure_json,edited_by_user_id,ever_used,tenant_id) VALUES(701,'其他租户模板',0,?,88,0,11)", TEMPLATE_STRUCTURE);
+        byte[] workbook = service.exportWorkbook();
+        var sheet = read(workbook).stream().filter(s -> s.name().equals("目录模板")).findFirst().orElseThrow();
+        assertEquals(1, sheet.rows().size());
+        assertEquals(TEMPLATE_STRUCTURE, sheet.rows().get(0).get("structure_json"));
+        assertFalse(sheet.columns().contains("edited_by_user_id"));
+        assertFalse(sheet.columns().contains("ever_used"));
+        TenantContextHolder.setTenantId(11L);
+        loginTemplateImporter();
+        assertEquals(11, service.importWorkbook(workbook).get("created"));
+        Long id = jdbc.queryForObject("SELECT id FROM dcc_folder_template WHERE tenant_id=11 AND name='产品研发模板'", Long.class);
+        assertNotEquals(700L, id);
+        assertEquals(TEMPLATE_STRUCTURE, jdbc.queryForObject("SELECT structure_json FROM dcc_folder_template WHERE id=?", String.class, id));
+        assertEquals("含两级目录", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=?", String.class, id));
+        assertEquals(7L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=?", Long.class, id));
+        assertFalse(jdbc.queryForObject("SELECT ever_used FROM dcc_folder_template WHERE id=?", Boolean.class, id));
+        assertTrue(jdbc.queryForObject("SELECT active FROM dcc_folder_template WHERE id=?", Boolean.class, id));
+        assertEquals(0, service.importWorkbook(workbook).get("created"));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history WHERE tenant_id=11", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template WHERE tenant_id=11 AND name='其他租户模板'", Integer.class));
+        verify(configurationAudit).append(eq("dcc.folder-template.save"), eq(id), anyString(), anyString(), isNull(), anyString());
+    }
+    @Test void mergesTemplateByNameAndPreservesLocalUsageHistory() throws Exception {
+        seedTemplate();
+        loginTemplateImporter();
+        var workbook = read(service.exportWorkbook());
+        var template = row(workbook, "目录模板");
+        template.put("id", "999"); template.put("description", "更新说明"); template.put("active", "0");
+        template.put("structure_json", TEMPLATE_STRUCTURE.replace("设计输入", "设计输出"));
+        service.importWorkbook(DccCatalogWorkbook.write(workbook));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template WHERE tenant_id=10", Integer.class));
+        assertEquals("更新说明", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=700", String.class));
+        assertTrue(jdbc.queryForObject("SELECT ever_used FROM dcc_folder_template WHERE id=700", Boolean.class));
+        assertFalse(jdbc.queryForObject("SELECT active FROM dcc_folder_template WHERE id=700", Boolean.class));
+        assertTrue(jdbc.queryForObject("SELECT structure_json FROM dcc_folder_template WHERE id=700", String.class).contains("设计输出"));
+        assertEquals(7L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=700", Long.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history WHERE template_id=700 AND operator_user_id=7", Integer.class));
+        verify(configurationAudit).append(eq("dcc.folder-template.save"), eq(700L), anyString(), anyString(), contains("含两级目录"), contains("更新说明"));
+    }
+    @Test void rejectsInvalidTemplateBeforeWritingOtherData() throws Exception {
+        seedTemplate();
+        loginTemplateImporter();
+        for (String structure : List.of("{", "null", "{\"nodes\":[]}", TEMPLATE_STRUCTURE.replace("\"parentKey\":null", "\"parentKey\":\"child\""), TEMPLATE_STRUCTURE.replace("\"root\",\"name\":\"设计输入\"", "\"missing\",\"name\":\"设计输入\""))) {
+            var workbook = read(service.exportWorkbook());
+            row(workbook, "目录模板").put("structure_json", structure);
+            row(workbook, "关联公司").put("name", "不得写入");
+            assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
+        }
+        assertEquals("关联公司", jdbc.queryForObject("SELECT name FROM mdm_enterprise WHERE id=1", String.class));
+        verifyNoInteractions(configurationAudit);
+    }
+    @Test void duplicateTemplateNamesAndInvalidActiveFlagAreRejected() throws Exception {
+        seedTemplate(); loginTemplateImporter();
+        var workbook = read(service.exportWorkbook());
+        row(workbook, "目录模板").put("active", "true");
+        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
+        row(workbook, "目录模板").put("active", "1");
+        var duplicate = new LinkedHashMap<>(row(workbook, "目录模板")); duplicate.put("id", "999");
+        workbook.stream().filter(s -> s.name().equals("目录模板")).findFirst().orElseThrow().rows().add(duplicate);
+        assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template", Integer.class));
+    }
+    @Test void templateAuditFailureRollsBackWorkbookChanges() throws Exception {
+        seedTemplate(); loginTemplateImporter();
+        var workbook = read(service.exportWorkbook());
+        row(workbook, "目录模板").put("description", "不得保存");
+        doThrow(new IllegalStateException("audit unavailable")).when(configurationAudit).append(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(workbook)));
+        assertEquals("含两级目录", jdbc.queryForObject("SELECT description FROM dcc_folder_template WHERE id=700", String.class));
+        assertEquals(77L, jdbc.queryForObject("SELECT edited_by_user_id FROM dcc_folder_template WHERE id=700", Long.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_folder_template_history", Integer.class));
+    }
     @Test void transfersCompleteRegulatoryFactsAndRejectsMissingFactsBeforeWriting() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
         String facts = "{\"certificateType\":\"FDA\",\"ownProduct\":false,\"kpNumber\":\"K012345\",\"listingNumber\":\"D123456\",\"customerHeld\":true}";
@@ -131,7 +225,7 @@ class DccCatalogPackageServiceTest {
     }
     @Test void rejectsOldWorkbookBeforeWriting() throws Exception {
         var data = read(service.exportWorkbook());
-        row(data, "导入说明").put("format", "dcc-catalog-workbook.v5");
+        row(data, "导入说明").put("format", "dcc-catalog-workbook.v6");
         row(data, "关联公司").put("name", "不得写入");
         var error = assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(data)));
         assertTrue(error.getMessage().contains("重新导出"));

@@ -17,10 +17,10 @@ function setup() {
   const calls = []
   const context = {
     props: { activeOrderId: 991 }, loading: ref(false), submitting: ref(false), error: ref(''),
-    batches: ref([]), form: { batchExecutionId: 0, categoryCodes: ['INSPECTION'], signaturePassword: 'test-only' },
+    batchesLoaded: ref(false), batches: ref([]), form: { batchExecutionId: 0, categoryCodes: ['INSPECTION'], signaturePassword: 'test-only' },
     formRef: ref({ validate: async () => true }), captureContext: () => () => true,
     getActiveOrderDeviationCreationBatches: async id => { calls.push(['options', id]); return [{ batchExecutionId: 41 }] },
-    createActiveOrderDeviation: async (id, data) => { calls.push(['create', id, data]); return { id: 100, deviationCode: 'PC-100', batchExecutionId: 41 } },
+    createActiveOrderDeviation: async (id, data) => { calls.push(['create', id, data]); return { id: 100, deviationCode: 'PC-100', activeOrderId: 991, batchExecutionId: 41 } },
     message: { success: text => calls.push(['success', text]) }, emit: event => calls.push(['emit', event])
   }
   return { context, calls }
@@ -31,16 +31,23 @@ test('order entry resolves only selected order and auto-selects its sole formal 
   assert.equal(context.form.batchExecutionId, 41)
   assert.deepEqual(calls, [['options', 991]])
 })
-test('no formal batch or failed source read cannot submit or invent a batch', async () => {
+test('empty successful source read permits order deviation; failed read blocks submission', async () => {
   const { context, calls } = setup()
   context.getActiveOrderDeviationCreationBatches = async () => []
   await production('loadBatches', context)()
-  assert.match(context.error.value, /尚未形成正式批记录/)
+  assert.equal(context.error.value, '')
+  assert.equal(context.batchesLoaded.value, true)
+  context.createActiveOrderDeviation = async (id, data) => { calls.push(['create', id, data]); return { id: 101, deviationCode: 'PC-101', activeOrderId: 991, batchExecutionId: null } }
   await production('submit', context)()
-  assert.equal(calls.length, 0)
+  assert.equal(calls[0][0], 'create')
+  assert.equal(calls[0][2].batchExecutionId, undefined)
+  calls.length = 0
   context.getActiveOrderDeviationCreationBatches = async () => { throw new Error('source unavailable') }
   await production('loadBatches', context)()
   assert.equal(context.error.value, 'source unavailable')
+  assert.equal(context.batchesLoaded.value, false)
+  await production('submit', context)()
+  assert.equal(calls.length, 0)
   assert.deepEqual(context.batches.value, [])
 })
 test('submit binds the order and batch and clears signature credentials', async () => {
@@ -75,7 +82,7 @@ test('late source response cannot fill a closed or switched order dialog', async
   current = false
   finish([{ batchExecutionId: 999 }])
   await pending
-  assert.equal(context.form.batchExecutionId, 0)
+  assert.equal(context.form.batchExecutionId, undefined)
   assert.deepEqual(context.batches.value, [])
 })
 test('write errors stay visible and cannot show success', async () => {

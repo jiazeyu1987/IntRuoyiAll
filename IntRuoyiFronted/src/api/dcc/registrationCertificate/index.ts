@@ -292,6 +292,20 @@ export interface DccRegistrationCertificateUploadProjectCodeRespVO {
   projectName?: string
 }
 
+export interface DccRegistrationCertificateProjectProduct {
+  projectCodeId: number | string
+  productCatalogId: number | string
+  productCode: string
+  productName: string
+  bindings: Array<{ source: string; relationId: number | string }>
+}
+
+export const getUploadProjectProduct = async (projectCodeId: number | string) => {
+  return await request.get<DccRegistrationCertificateProjectProduct>({
+    url: '/dcc/registration-certificates/uploads/project-product', params: { projectCodeId }
+  })
+}
+
 export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
   certificateId: number | string
   requestType: 'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'

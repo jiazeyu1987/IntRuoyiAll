@@ -105,7 +105,7 @@
                 <el-dropdown-item v-if="canReadDistributionReceipts" @click="openDistributionReceipts">发送与签收</el-dropdown-item>
                 <el-dropdown-item v-if="canSubmitPublishAction" @click="openPublishDialog">生效申请</el-dropdown-item>
                 <el-dropdown-item v-if="detailActionState.canPreview" @click="openPreview">预览受控文件</el-dropdown-item>
-                <el-dropdown-item v-if="controlledDownloadAllowed" :disabled="controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">下载正文</el-dropdown-item>
+                <el-dropdown-item v-if="checkoutDownloadAllowed || controlledDownloadAllowed" :disabled="controlledDownloadLoading" @click="handleDetailMoreCommand('download-body')">下载正文</el-dropdown-item>
                 <el-dropdown-item v-if="controlledPrintAllowed" v-hasPermi="['dcc:controlled-file:print', 'dcc:controlled-file:edit']" @click="openControlledPrintDialog">受控打印</el-dropdown-item>
                 <el-dropdown-item v-if="canOpenBpmDetail" @click="handleDetailMoreCommand('bpm-detail')">BPM 详情</el-dropdown-item>
                 <el-dropdown-item v-if="canEditMetadata" @click="handleDetailMoreCommand('edit-metadata')">修改基础信息</el-dropdown-item>
@@ -363,9 +363,10 @@
       <ContentWrap
         v-loading="approvalLoading"
         class="dcc-detail-surface mt-16px"
+        :class="{ 'signoff-current-task-panel': isActualSignoffReviewPage || isMatrixApprovalPage }"
         data-testid="dcc-approval-upload-action-panel"
       >
-        <div v-if="!isActualSignoffReviewPage" class="mb-10px text-15px font-600">当前任务</div>
+        <div class="text-15px font-600" :class="isActualSignoffReviewPage || isMatrixApprovalPage ? 'mb-6px' : 'mb-10px'">当前任务</div>
         <div v-if="approvalTodoTask">
           <div v-if="isActualSignoffReviewPage" class="flex items-center justify-between gap-16px" data-testid="dcc-signoff-current-task">
             <div>
@@ -373,6 +374,10 @@
               <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">已完成 {{ actualSignoffStage?.completionText || '尚未读取' }}</div>
             </div>
             <el-tag>待处理</el-tag>
+          </div>
+          <div v-else-if="isMatrixApprovalPage" data-testid="dcc-matrix-approval-current-task">
+            <div class="text-15px font-600">{{ currentApprovalTaskName }}</div>
+            <div class="mt-4px text-13px text-[var(--el-text-color-secondary)]">已完成 {{ matrixApprovalStage?.completionText ?? '尚未读取' }} · {{ matrixApprovalStage ? (matrixApprovalStage.isCompleted ? '已完成' : matrixApprovalStage.isCurrent ? '待处理' : '待进入') : '尚未读取' }}</div>
           </div>
           <template v-else>
           <div v-if="!canShowSignoffAssignment" class="text-14px font-600">{{ currentApprovalTaskName }}</div>
@@ -400,7 +405,7 @@
               </el-button>
             </template>
           </DetailSignoffAssignment>
-          <div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage" class="mt-14px flex flex-wrap gap-8px">
+          <div v-if="!canShowSignoffAssignment && !isSupervisorReviewPage && !isActualSignoffReviewPage && !isMatrixApprovalPage" class="mt-14px flex flex-wrap gap-8px">
             <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
               去修改正文
             </el-button>
@@ -431,7 +436,7 @@
     </template>
 
     <ContentWrap class="dcc-detail-surface" v-if="!showLifecycleTraceSections && !isApprovalUploadHandlingPage">
-      <ControlledFileAttachments :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface" v-if="fileDetail && !isApprovalUploadHandlingPage" data-testid="dcc-detail-formal-version-facts">
@@ -472,7 +477,7 @@
         <el-descriptions-item label="申请详情"><el-button link type="primary" @click="openHistoryDetail(application.id)">查看本次变更及审批进度</el-button></el-descriptions-item>
       </el-descriptions>
     </ContentWrap>
-    <ContentWrap v-if="fileDetail?.canEditFile === true && showDetailManagementActions && isCurrentFileRequester && ['REJECTED', 'WITHDRAWN'].includes(fileDetail.status) && checkPermi(['dcc:controlled-file:submit', 'dcc:controlled-file:edit']) && ['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(fileDetail.processDefinitionKey || '')">
+    <ContentWrap v-if="fileDetail?.canEditFile === true && !fileChangesLocked && showDetailManagementActions && isCurrentFileRequester && ['REJECTED', 'WITHDRAWN'].includes(fileDetail.status) && checkPermi(['dcc:controlled-file:submit', 'dcc:controlled-file:edit']) && ['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(fileDetail.processDefinitionKey || '')">
       <p>原申请及签名保留。重新发起将带出上次填写的信息、正文和附件，可直接核对后提交。</p>
       <template v-if="fileDetail.changeType === 'REVISION'">
         <el-button type="primary" :loading="applicationRestartLoading" @click="restartCurrentApplication('PARTIAL')">发起局部变更</el-button>
@@ -533,10 +538,10 @@
       :read-authority="readDetailAuthority"
       :application-selection="relationApplicationSelection"
       :body-read-context="detailReadSelectionState.selection?.bodyReadContext || (detailBodyPreviewState.context?.intent !== 'DAILY' ? detailBodyPreviewState.context : undefined)"
-      :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
+      :allow-edit="showDetailManagementActions && !fileChangesLocked && !isExternalReviewProcess" />
     <ContentWrap v-else-if="isApprovalUploadHandlingPage" class="dcc-detail-surface">
       <p class="font-600">关联文件</p>
-      <p>当前文件未绑定项目关联信息。</p>
+      <p>暂无关联文件</p>
     </ContentWrap>
 
     </section>
@@ -750,7 +755,7 @@
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface">
-      <ControlledFileAttachments :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
+      <ControlledFileAttachments :checkout-download-allowed="checkoutDownloadAllowed" :file="fileDetail" :body-read-context="detailBodyPreviewState.context" :context-error="detailBodyPreviewState.error" />
     </ContentWrap>
 
     <ContentWrap class="dcc-detail-surface">
@@ -2469,6 +2474,12 @@
       </template>
     </el-dialog>
 
+    <SupervisorReviewActions v-if="isMatrixApprovalPage"
+      :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
+      :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
+      approve-text="批准通过"
+      :blocked-reason="matrixApprovalBlockedReason" :submitting="actionDialog.submitting || actionDialog.visible"
+      @approve="openActionDialog('approve')" @reject="openActionDialog('reject')" />
     <SupervisorReviewActions v-if="isActualSignoffReviewPage"
       :file-id="controlledFileId" :task-id="String(approvalTodoTask?.id || '')"
       :task-name="currentApprovalTaskName" :context-key="applicationRoundContextKey"
@@ -2864,6 +2875,8 @@ import {
   returnExternalFileReviewTask,
   transferExternalFileReviewTask,
   triggerControlledFileDownload,
+  downloadCheckedOutFileWithName,
+  confirmControlledFileDownload,
   uploadControlledFileTrainingRecord,
   uploadControlledFilePreview,
   withdrawControlledFile,
@@ -3073,6 +3086,7 @@ const signoffReadyForReview = computed(() => signoffAssignmentState.value?.assig
   && signoffAssignmentState.value.fileId === String(fileDetail.value?.id || ''))
 const currentApprovalTaskName = computed(() => {
   const task = approvalTodoTask.value
+  if (task?.taskDefinitionKey === 'MATRIX_APPROVAL') return '会签批准'
   if (isSignoffTask.value && currentApprovalApplicationType.value) {
     const state = signoffAssignmentState.value
     if (state?.fileId !== String(fileDetail.value?.id || '') || state.taskId !== String(task?.id || '')
@@ -3609,6 +3623,23 @@ const isSupervisorReviewPage = computed(() => isApprovalUploadHandlingPage.value
     || fileDetail.value?.status === 'PENDING_SUPERVISOR_REVIEW'))
 const isActualSignoffReviewPage = computed(() => isApprovalUploadHandlingPage.value && isSignoffTask.value && signoffReadyForReview.value)
 const actualSignoffStage = computed(() => displayStageProgressList.value.find(stage => stage.stageCode === 'MATRIX_REVIEW'))
+const isMatrixApprovalPage = computed(() => isApprovalUploadHandlingPage.value
+  && !isExternalReviewProcess.value && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL')
+const matrixApprovalStage = computed(() => displayStageProgressList.value.find(stage => stage.stageCode === 'MATRIX_APPROVAL'))
+const matrixApprovalBlockedReason = computed(() => {
+  if (approvalLoading.value) return '正在读取当前批准任务，请稍候。'
+  if (!checkPermi(['dcc:controlled-file:approve'])) return '当前账号缺少批准权限。'
+  if (!isWorkingBrowserDetailCurrent.value) return '文件或账号上下文已变化，请刷新页面后批准。'
+  if (approvalProgressError.value || applicationRoundSelection.value.blockedReason)
+    return approvalProgressError.value || applicationRoundSelection.value.blockedReason
+  const task = approvalTodoTask.value
+  const assignee = task?.assigneeUser?.id ?? task?.assigneeUserId ?? task?.assignee
+  if (!task?.id || task.taskDefinitionKey !== 'MATRIX_APPROVAL'
+    || task.processInstanceId !== approvalProcessInstanceId.value
+    || String(assignee || '') !== String(currentUserId.value || ''))
+    return '当前没有分配给您的会签批准任务，请刷新核对。'
+  return ''
+})
 const signoffReviewBlockedReason = computed(() => {
   if (approvalLoading.value) return '正在读取当前会签任务，请稍候。'
   if (!checkPermi(['dcc:controlled-file:review'])) return '当前账号缺少会签权限。'
@@ -3643,8 +3674,9 @@ const showSignatureTraceSections = computed(
   () => showFullDetailSections.value && (!isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature')
 )
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
+const fileChangesLocked = computed(() => fileDetail.value?.checkedOut === true)
 const canEditMetadata = computed(
-  () => !viewerMode.value && showDetailManagementActions.value
+  () => !viewerMode.value && showDetailManagementActions.value && !fileChangesLocked.value
     && hasMetadataEditorRole(userStore.getRoles) && fileDetail.value?.canEditFile === true && hasDccControlledFileActionProjection(fileDetail.value)
 )
 const currentApprovalApplicationType = computed(() => {
@@ -3679,7 +3711,7 @@ const approvalHandlingTrainingText = computed(() => {
 const approvalHandlingProcessText = computed(() => currentApprovalApplicationType.value
   ? getNativeApprovalProcessText(approvalProgressScope.value) : '本次申请身份尚未核验')
 const lifecycleProjectionRepairVisible = ref(false)
-const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && Boolean(fileDetail.value)
+const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && !fileChangesLocked.value && Boolean(fileDetail.value)
   && userStore.getRoles.includes(DOC_CONTROL_ROLE_CODE)
   && ['dcc:controlled-file:query', 'dcc:controlled-file:update', 'dcc:controlled-file:category:manage'].every(permission => checkPermi([permission])))
 const readLifecycleProjectionRepairContextKey = () => JSON.stringify([route.fullPath, String(fileDetail.value?.id || ''), String(currentUserId.value), String(getVisitTenantId() || getTenantId() || '')])
@@ -3697,6 +3729,8 @@ const handleLifecycleProjectionRepaired = async (context: { fileId: string; cont
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
 const controlledDownloadAllowed = computed(() => checkPermi(['dcc:controlled-file:edit'])
   && fileDetail.value?.canDownload === true && isDccControlledFileActionAllowed(fileDetail.value, 'DOWNLOAD'))
+const checkoutDownloadAllowed = computed(() => !viewerMode.value && showDetailManagementActions.value
+  && route.query.management === '1' && isWorkingBrowserDetailCurrent.value && fileDetail.value?.canDownloadCheckedOut === true)
 const controlledDownloadLoading = ref(false)
 const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print', 'dcc:controlled-file:edit']))
 const controlledPrintAllowed = computed(
@@ -3741,10 +3775,10 @@ const buildDccActionProjectionMessage = (
   return activeError || defaultMessage
 }
 const canSubmitObsoleteAction = computed(
-  () => dccObsoleteActionProjection.value.allowed
+  () => !fileChangesLocked.value && dccObsoleteActionProjection.value.allowed
 )
 const canSubmitPublishAction = computed(
-  () => dccPublishActionProjection.value.allowed
+  () => !fileChangesLocked.value && dccPublishActionProjection.value.allowed
 )
 const dccObsoleteActionProjection = computed(() => {
   const blockerMessage = buildDccActionProjectionMessage(
@@ -3914,6 +3948,13 @@ const currentSignerLabel = computed(() => {
   return user?.nickname || user?.username || '-'
 })
 const actionDialogSubmitFlowText = computed(() => {
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL') {
+    if (actionDialog.mode === 'reject') {
+      return '本轮审批结束，保留正文、意见和签名记录。申请人修改后重新提交，开启新一轮审批。'
+    }
+    // 批准合同可能要求全部或任一批准人完成，提交前不按人数预测下一节点。
+    return '提交后按本轮批准规则及实际进度流转，请以本次签名提交结果为准。'
+  }
   if (actionDialog.mode === 'reject') {
     return '驳回后由申请人修改并重新提交。'
   }
@@ -4569,6 +4610,9 @@ const approvalActionLabels = computed(() => {
   }
 })
 const actionDialogTitle = computed(() => {
+  if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL') {
+    return actionDialog.mode === 'reject' ? '会签批准驳回' : '会签批准通过'
+  }
   if (canShowSignoffAssignment.value && actionDialog.mode === 'reject') return '部门负责人驳回'
   if (approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW') {
     return actionDialog.mode === 'reject' ? '会签驳回' : '会签通过'
@@ -5611,10 +5655,11 @@ const openWorkingFileInBrowser = () => {
 
 const openReturnedApplicantReworkInBrowser = () => openWorkingFileInBrowser()
 
-const canPrepareFileApplication = computed(() => fileDetail.value?.canEditFile === true
+const canPrepareFileApplication = computed(() => !fileChangesLocked.value && fileDetail.value?.canEditFile === true
   && ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(fileDetail.value.status))
 const applicationRestartLoading = ref(false)
 const restartCurrentApplication = async (intent?: RevisionIntent) => {
+  if (fileChangesLocked.value) { message.warning('文件已检出，请先检入或撤销检出后再办理变更'); return }
   const file = fileDetail.value
   if (file?.canEditFile !== true) {
     message.warning('当前账号未获本文件编辑授权，不能重新发起申请')
@@ -5636,6 +5681,7 @@ const openRestartObsolete = async () => {
 }
 
 const prepareApplicationBody = async (targetVersion?: string, intent?: RevisionIntent) => {
+  if (fileChangesLocked.value) { message.warning('文件已检出，请先检入或撤销检出后再办理变更'); return }
   if (!targetVersion) return openWorkingFileInBrowser()
   if (!ensureCurrentDetailContext()) return
   const baseline = fileDetail.value
@@ -7179,8 +7225,27 @@ const handleExportProcessWord = async () => {
   }
 }
 
+const handleDownloadCheckoutWord = async () => {
+  if (controlledDownloadLoading.value || !checkoutDownloadAllowed.value) return
+  controlledDownloadLoading.value = true
+  const id = controlledFileId.value
+  try {
+    if (!await confirmControlledFileDownload()) return
+    if (!checkoutDownloadAllowed.value || id !== controlledFileId.value) throw new Error('文件或检出状态已变化，请刷新详情')
+    const result = await downloadCheckedOutFileWithName(id)
+    if (!checkoutDownloadAllowed.value || id !== controlledFileId.value) throw new Error('下载期间文件或检出状态已变化，请刷新详情')
+    downloadByData(result.blob, result.fileName, result.blob.type)
+  } catch (error) {
+    message.error(resolveReadSideErrorMessage(error, '检出 Word 下载失败'))
+  } finally { controlledDownloadLoading.value = false }
+}
+
 const handleDownloadControlledBody = async () => {
   if (controlledDownloadLoading.value) return
+  if (checkoutDownloadAllowed.value) {
+    await handleDownloadCheckoutWord()
+    return
+  }
   if (!controlledDownloadAllowed.value) {
     message.warning('当前账号未获本文件正文下载授权')
     return
@@ -7293,10 +7358,22 @@ const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
 
 const buildActionSuccessMessage = (
   mode: DccApprovalActionMode,
-  response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response']
+  response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response'],
+  taskDefinitionKey?: string
 ) => {
   const actionText = mode === 'approve' ? '本次审批已通过并签名' : '本次任务已驳回并签名'
   if (!response) return actionText
+  if (taskDefinitionKey === 'MATRIX_APPROVAL') {
+    if (mode === 'approve' && response.nextStatus === 'PENDING_MATRIX_APPROVAL') {
+      return `${actionText}；等待其他批准人完成批准。`
+    }
+    if (mode === 'approve' && response.nextStatus === 'PENDING_DOC_CONTROL_REVIEW') {
+      return `${actionText}；下一节点：文控审核`
+    }
+    if (mode === 'reject' && response.nextStatus === 'REJECTED') {
+      return `${actionText}；本轮审批结束，保留正文、意见和签名记录。申请人修改后重新提交，开启新一轮审批。`
+    }
+  }
   const status = getDccControlledFileStatusLabel(response.nextStatus as DccControlledFileStatus)
   return `${actionText}；当前状态：${status}`
 }
@@ -7306,6 +7383,7 @@ const readActionDialogRequest = () => ({
   contextKey: actionDialogContextKey.value,
   fileId: controlledFileId.value,
   taskId: String(approvalTodoTask.value?.id || ''),
+  taskDefinitionKey: approvalTodoTask.value?.taskDefinitionKey,
   processInstanceId: approvalProcessInstanceId.value,
   action: actionDialog.mode,
   fileNumber: fileDetail.value?.fileNumber || '',
@@ -7454,7 +7532,7 @@ const submitActionDialog = async () => {
       }
       return
     }
-    message.success(buildActionSuccessMessage(request.action, result.response))
+    message.success(buildActionSuccessMessage(request.action, result.response, request.taskDefinitionKey))
     const closed = await closeActionDialog(true)
     if (closed && actionDialogGeneration === request.generation + 1 && actionDialogContextKey.value === request.contextKey) {
       if (!await returnToCompletedTaskInbox()) await reloadAll()

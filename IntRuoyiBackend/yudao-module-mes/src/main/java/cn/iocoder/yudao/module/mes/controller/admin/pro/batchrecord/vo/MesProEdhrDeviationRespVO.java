@@ -14,9 +14,11 @@ public class MesProEdhrDeviationRespVO {
     private String transferToNcrBlockedReason;
     private Long id;
     private String deviationCode;
+    private Long activeOrderId;
     private Long batchExecutionId;
     private String batchExecutionCode;
     private String batchCode;
+    private String workOrderCode;
     private String level;
     private String status;
     private String description;

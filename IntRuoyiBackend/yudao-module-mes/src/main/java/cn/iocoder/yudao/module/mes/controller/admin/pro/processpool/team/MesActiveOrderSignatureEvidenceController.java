@@ -32,6 +32,14 @@ public class MesActiveOrderSignatureEvidenceController {
                 service.getPqc(SecurityFrameworkUtils.getLoginUserId(), applicationId, signatureId)));
     }
 
+    @GetMapping("/mes/pro/edhr-nonconformance-review/signature/get")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<MesActiveOrderSignatureEvidenceRespVO> nonconformanceReview(
+            @RequestParam("reviewId") Long reviewId, @RequestParam("signatureId") Long signatureId) {
+        return CommonResult.success(MesActiveOrderSignatureEvidenceRespVO.from(
+                service.getNonconformanceReview(reviewId, signatureId)));
+    }
+
     @GetMapping("/mes/pro/edhr-batch-execution/signature/get")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<MesActiveOrderSignatureEvidenceRespVO> batch(

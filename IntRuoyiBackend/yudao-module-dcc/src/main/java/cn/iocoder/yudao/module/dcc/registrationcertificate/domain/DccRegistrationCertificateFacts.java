@@ -10,6 +10,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 /** The certificate's stated facts, kept with each immutable approval snapshot. */
 @Data
 public class DccRegistrationCertificateFacts {
+    private DccRegistrationCertificateProjectProduct projectProduct;
     private String certificateType;
     private String certificateStatus;
     private String registrationLink;

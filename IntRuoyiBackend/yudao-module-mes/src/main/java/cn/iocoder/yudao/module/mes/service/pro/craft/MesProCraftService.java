@@ -38,7 +38,11 @@ public class MesProCraftService {
     public void lockCatalog() {
         Long tenant = TenantContextHolder.getRequiredTenantId();
         craftMapper.ensureSequence(tenant);
-        Objects.requireNonNull(craftMapper.lockSequence(tenant), "工艺编号序列缺失");
+        long lastNumber = Objects.requireNonNull(craftMapper.lockSequence(tenant), "工艺编号序列缺失");
+        // 先取得租户工艺锁，再对齐导入工艺占用的编号；保持既有较大序列，禁止重用编号。
+        long occupiedNumber = craftMapper.selectMaxCodeNumber(tenant);
+        if (occupiedNumber > lastNumber && craftMapper.advanceSequence(tenant, occupiedNumber) != 1)
+            throw invalid("工艺编号序列同步失败");
     }
 
     @Transactional(readOnly = true)

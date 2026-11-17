@@ -89,7 +89,7 @@ function fixture(options = {}) {
  const createPage=()=>scope.run(()=>{
   const pageScope=vue.effectScope()
   const pageBindings={...bindings,onBeforeUnmount:fn=>hooks.unmount=()=>{fn();pageScope.stop()}}
-  return pageScope.run(()=>Function(...Object.keys(pageBindings),compile(body)+';return { loadWorkbench,openTodo,handleHideTodo,handleRestoreTodo,handleVisibilityTabChange,todoRows,total,hiddenTotal,loading,silentLoading,actionsReady,loadErrorMessages,actionTaskKey,queryParams,activeVisibilityTab,sortState };')(...Object.values(pageBindings)))
+  return pageScope.run(()=>Function(...Object.keys(pageBindings),compile(body)+';return { loadWorkbench,openTodo,handleHideTodo,handleRestoreTodo,handleVisibilityTabChange,todoRows,total,hiddenTotal,loading,silentLoading,actionsReady,loadErrorMessages,actionTaskKey,queryParams,activeVisibilityTab,sortState,todoEmptyText };')(...Object.values(pageBindings)))
  })
  const page=createPage()
  const mountMenu=()=>{

@@ -198,7 +198,7 @@ export interface ProRouteProductionProcessConfigVO {
     craftFingerprint: string
     craftDeviceIds: number[]
   }>
-  routeProcessId: number
+  routeProcessId: MesRouteId
   processId: number
   processCode?: string | null
   processName?: string | null
@@ -255,7 +255,7 @@ export interface ProRouteProcessTemplateImportResultVO {
 }
 
 export interface RouteFlowNodeVO {
-  routeProcessId: number
+  routeProcessId: MesRouteId
   processId: number
   processCode?: string
   processName?: string
@@ -277,8 +277,8 @@ export interface RouteFlowNodeVO {
 
 export interface RouteFlowEdgeVO {
   id?: number
-  sourceRouteProcessId: number
-  targetRouteProcessId: number
+  sourceRouteProcessId: MesRouteId
+  targetRouteProcessId: MesRouteId
   relationType?: 'NORMAL'
 }
 
@@ -286,12 +286,12 @@ export type RouteFlowBoundaryType = 'START' | 'END'
 
 export interface RouteFlowBoundaryEdgeVO {
   boundaryType: RouteFlowBoundaryType
-  routeProcessId: number
+  routeProcessId: MesRouteId
   sort?: number
 }
 
 export interface RouteFlowLayoutVO {
-  routeProcessId: number
+  routeProcessId: MesRouteId
   x: number
   y: number
   width?: number
@@ -302,7 +302,7 @@ export interface RouteFlowValidationMessageVO {
   level: 'ERROR' | 'WARN' | string
   code: string
   message: string
-  routeProcessIds?: number[]
+  routeProcessIds?: MesRouteId[]
   edgeIds?: number[]
 }
 
@@ -311,10 +311,10 @@ export interface RouteFlowValidationVO {
   validationStatus: 'EMPTY_PROCESS' | 'UNINITIALIZED' | 'INVALID' | 'VALID' | string
   graphVersion: number
   validationMessages: RouteFlowValidationMessageVO[]
-  cyclePaths?: number[][]
-  invalidRouteProcessIds?: number[]
+  cyclePaths?: MesRouteId[][]
+  invalidRouteProcessIds?: MesRouteId[]
   invalidEdgeIds?: number[]
-  routeProcessIdMap?: Record<string, number>
+  routeProcessIdMap?: Record<string, MesRouteId>
 }
 
 export interface RouteFlowGraphVO extends RouteFlowValidationVO {
@@ -328,16 +328,17 @@ export interface RouteFlowGraphSaveReqVO {
   routeId: MesRouteId
   routeVersionId?: MesRouteId
   graphVersion: number
+  productionProcessConfig?: ProRouteProductionProcessConfigSaveReqVO
   edges: RouteFlowEdgeVO[]
   boundaryEdges: RouteFlowBoundaryEdgeVO[]
   layouts: RouteFlowLayoutVO[]
   routeProcessCreates?: RouteFlowRouteProcessCreateReqVO[]
   routeProcessUpdates?: RouteFlowRouteProcessUpdateReqVO[]
-  routeProcessDeletes?: number[]
+  routeProcessDeletes?: MesRouteId[]
 }
 
 export interface RouteFlowRouteProcessCreateReqVO {
-  clientRouteProcessId: number
+  clientRouteProcessId: MesRouteId
   routeId: MesRouteId
   processId: number
   sort: number
@@ -351,7 +352,7 @@ export interface RouteFlowRouteProcessCreateReqVO {
 }
 
 export interface RouteFlowRouteProcessUpdateReqVO {
-  id: number
+  id: MesRouteId
   routeId: MesRouteId
   processId: number
   sort: number

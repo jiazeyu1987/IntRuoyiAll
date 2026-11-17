@@ -633,4 +633,6 @@ public interface ErrorCodeConstants {
             "源文件仍被引用，请先在引用文件夹中取消指向该文件的全部引用关系，再按源文件升版流程办理");
     ErrorCode APPROVAL_MATRIX_PUBLIC_SOURCE_MISSING = new ErrorCode(1_080_000_367,
             "文件类别（{}）缺少可用的公共审批矩阵，请在类别审批矩阵中配置启用且已生效的公共规则；本次申请自定义审批配置不能替代公共规则");
+    ErrorCode CONTROLLED_FILE_CHECKIN_SOURCE_NAME_MISMATCH = new ErrorCode(1_080_000_370,
+            "检入不允许更改源文件名（含扩展名），原文件名：{}，本次文件名：{}");
 }

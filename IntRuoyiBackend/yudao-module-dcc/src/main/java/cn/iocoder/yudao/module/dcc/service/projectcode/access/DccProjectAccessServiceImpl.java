@@ -134,6 +134,15 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     }
 
     @Override
+    public void assertProjectMetadataEditable(Long userId, Long projectCodeId) {
+        // 先验证账号、租户、项目状态及可见范围，再按基础资料维护角色授权。
+        assertProjectViewerOrAbove(userId, projectCodeId);
+        if (!isProjectCodeAdministrator(userId)) {
+            assertProjectEditorOrOwner(userId, projectCodeId);
+        }
+    }
+
+    @Override
     public void assertProjectViewerOrAbove(Long userId, Long projectCodeId) {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         var project = projectCodeId == null || projectCodeId <= 0 ? null : projectCodeMapper.selectById(projectCodeId);

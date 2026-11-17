@@ -99,6 +99,7 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
 
         assertEquals("LOSS-001", result.reasonCode());
         assertEquals("正常损耗", result.reasonName());
+        assertEquals("正常损耗", payload.getLossDetails().get(0).getReasonName());
     }
 
     @Test
@@ -128,6 +129,41 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
         assertThrows(ServiceException.class, () -> validator.validateProcessPayload(mismatch, List.of()));
         assertThrows(ServiceException.class, () -> validator.validate(frozenMaterials(), List.of(),
                 List.of(material(501L, "10", "12"))));
+    }
+
+    @Test
+    void processLossRejectsNegativeOffsetAndDuplicateReasonBeforeSnapshotResolution() {
+        var positive = new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                .setReasonId(8301L).setQuantity(new BigDecimal("3"));
+        var negative = new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                .setReasonId(8302L).setQuantity(new BigDecimal("-1"));
+        var payload = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(BigDecimal.TEN)
+                .setLossQuantity(new BigDecimal("2")).setLossDetails(List.of(positive, negative));
+        assertThrows(ServiceException.class, () -> validator.validateProcessPayload(payload, List.of()));
+        payload.setLossQuantity(new BigDecimal("6")).setLossDetails(List.of(positive, positive));
+        assertThrows(ServiceException.class, () -> validator.validateProcessPayload(payload, List.of()));
+        org.mockito.Mockito.verifyNoInteractions(lossReasonValidator);
+    }
+
+    @Test
+    void processLossFreezesAllServerDescriptionsAndAllowsZeroLossWithoutReasons() {
+        var reasons = List.of(
+                new MesFrontlineDefectReasonOption(8301L, "LOSS", "SHYY-001", "裁切"),
+                new MesFrontlineDefectReasonOption(8302L, "LOSS", "SHYY-002", "调机"));
+        var realValidator = new MesProFrontlineFeedbackMaterialSubmissionValidator(
+                new MesFrontlineLossReasonValidatorImpl(null));
+        var payload = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(BigDecimal.TEN)
+                .setLossQuantity(new BigDecimal("3")).setLossDetails(List.of(
+                        new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO().setReasonId(8301L)
+                                .setReasonName("错误描述").setQuantity(BigDecimal.ONE),
+                        new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO().setReasonId(8302L)
+                                .setReasonCode("错误编码").setQuantity(new BigDecimal("2"))));
+        realValidator.validateProcessPayload(payload, reasons);
+        assertEquals(List.of("裁切", "调机"), payload.getLossDetails().stream()
+                .map(MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO::getReasonName).toList());
+        assertEquals("SHYY-002", payload.getLossDetails().get(1).getReasonCode());
+        payload.setLossQuantity(BigDecimal.ZERO).setLossDetails(List.of());
+        org.junit.jupiter.api.Assertions.assertNull(realValidator.validateProcessPayload(payload, List.of()));
     }
 
     private static List<MesFrontlineProcessMaterial> frozenMaterials() {

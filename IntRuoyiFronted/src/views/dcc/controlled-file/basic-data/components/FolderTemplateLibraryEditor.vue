@@ -94,6 +94,16 @@ const open = async () => {
 const save = async () => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
   if (!validateChangeReason()) return
+  if (form.structure.nodes.length === 0) { error.value = '请至少添加一个文件夹'; return }
+  const siblingNames = new Map<string | null, Set<string>>()
+  for (const node of form.structure.nodes) {
+    const name = node.name.trim()
+    if (!name) { error.value = '请填写每个文件夹的名称'; return }
+    const names = siblingNames.get(node.parentKey) || new Set<string>()
+    if (names.has(name)) { error.value = `同级文件夹名称重复：${name}`; return }
+    names.add(name)
+    siblingNames.set(node.parentKey, names)
+  }
   const revision = contextRevision
   const payload = JSON.parse(JSON.stringify(form))
   writing.value = true; loading.value = true; error.value = ''

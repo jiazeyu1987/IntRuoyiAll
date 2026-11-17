@@ -60,20 +60,15 @@ class MesProductionQuantityDraftTest {
         service.submitted(row,100L,"new-request-hash");
         assertEquals("SUBMITTED",row.getStatus());assertEquals(100L,row.getSubmittedEventId());
     }
-    @Test void historicalErrorCannotBeApprovedUntilActualReallocationFreesCapacity() {
-        row();when(capacity.evaluate(any())).thenReturn(new MesProductionQuantityCapacityService.Capacity(null,
-                new BigDecimal("600"),new BigDecimal("600"),new BigDecimal("1200"),new BigDecimal("1100")));
-        try(var security=mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(8L);
-            var error = assertThrows(ServiceException.class,()->service.review(command("HISTORY_ERROR")));
-            assertEquals(400, error.getCode());
-            assertTrue(error.getMessage().contains("请先完成历史归属更正"));
-        }
-        verifyNoInteractions(signatures);verify(drafts,never()).updateById(any(MesProductionQuantityDraftDO.class));
+    @Test void historicalDraftCanBeSubmittedWithoutLeaderQuantityApproval() {
+        var row = row();
+        service.submitted(row, 100L, "restored-request");
+        assertEquals("SUBMITTED", row.getStatus());
+        assertEquals(100L, row.getSubmittedEventId());
+        verifyNoInteractions(signatures, capacity);
     }
     @Test void historicalErrorCanBeSignedAfterConservedPartialReallocation() {
-        var row=row();signature();when(capacity.evaluate(any())).thenReturn(new MesProductionQuantityCapacityService.Capacity(null,
-                new BigDecimal("400"),new BigDecimal("600"),new BigDecimal("1000"),new BigDecimal("1100")));
+        var row=row();signature();
         try(var security=mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(8L);service.review(command("HISTORY_ERROR"));
         }

@@ -4,7 +4,8 @@
       <el-row :gutter="24">
         <el-col :span="12"><el-form-item label="数据所属公司" required><el-select v-model="companyId" filterable remote :remote-method="searchOwnerCompanies" :loading="companyLoading"><el-option v-for="item in companies" :key="item.id" :label="item.name" :value="item.id"/></el-select></el-form-item></el-col>
         <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="系统项目代码" :required="facts.ownProduct"><el-select v-model="projectCodeId" :disabled="!facts.ownProduct || !!taskProject" filterable remote clearable :remote-method="searchProjectCodes" :loading="projectLoading"><el-option v-for="item in projects" :key="item.id" :label="[item.projectCode,item.projectName].filter(Boolean).join(' - ')" :value="item.id"/></el-select></el-form-item></el-col>
-        <el-col :span="24"><el-form-item label="产品中文名称" required><el-input v-model="productName" maxlength="255"/></el-form-item></el-col>
+        <el-col v-if="facts.ownProduct" :span="12"><el-form-item label="DCC产品编码"><el-input :model-value="facts.projectProduct?.productCode" readonly placeholder="选择项目后自动显示"/></el-form-item></el-col>
+        <el-col :span="facts.ownProduct ? 12 : 24"><el-form-item label="产品中文名称" required><el-input v-model="productName" :readonly="facts.ownProduct" :placeholder="facts.ownProduct ? '选择项目后自动显示' : '请输入产品中文名称'" maxlength="255"/></el-form-item></el-col>
       </el-row>
       <FactsFields v-model="facts"/>
       <el-row v-if="facts.certificateType !== 'FDA'" :gutter="24">
@@ -16,15 +17,16 @@
       <el-form-item v-if="facts.certificateType === 'FDA'" label="产品描述文件" required><el-upload v-model:file-list="descriptions" action="#" multiple :auto-upload="false"><el-button>选择规格型号等产品描述材料</el-button><template #tip><div>必须上传批准后的产品描述文件，链接不能替代文件。</div></template></el-upload></el-form-item>
       <el-form-item label="证件附件"><el-upload v-model:file-list="attachments" action="#" multiple :auto-upload="false"><el-button>选择多个附件</el-button></el-upload></el-form-item>
       <el-form-item v-if="retainedFiles.length" label="原申请文件"><div><div v-for="file in retainedFiles" :key="file.id"><el-checkbox v-model="file.retained">{{file.originalName}}（{{file.fileKind}}）</el-checkbox></div><small>勾选保留原文件；替换注册证时上传新文件即可。</small></div></el-form-item>
+      <el-alert v-if="productError" :title="productError" type="error" :closable="false"/>
       <el-alert v-if="error" :title="error" type="error" :closable="false"/>
     </el-form>
-    <template #footer><el-button :disabled="saving" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" @click="submit">确认提交审批</el-button></template>
+    <template #footer><el-button :disabled="saving" @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="hydrating || (facts.ownProduct && (productLoading || !facts.projectProduct || !!productError))" @click="submit">确认提交审批</el-button></template>
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { UploadUserFile } from 'element-plus'
-import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getUploadOwnerCompanies, getUploadProjectCodes, submitRegistrationCertificateUpload,
+import { getMyRegistrationCertificateUpload, getUploadEntrustedEnterprises, getUploadOwnerCompanies, getUploadProjectCodes, getUploadProjectProduct, submitRegistrationCertificateUpload,
  type DccRegistrationCertificateUploadCompanyRespVO, type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO, type DccRegistrationCertificateUploadProjectCodeRespVO } from '@/api/dcc/registrationCertificate'
 import { generateUUID } from '@/utils'
 import FactsFields from '../shared/FactsFields.vue'
@@ -37,18 +39,37 @@ const facts=ref(emptyFacts()), productName=ref(''), companyId=ref<number|string>
 const entrustedProduction=ref<boolean>(),selfProduction=ref<boolean>(),entrustedEnterpriseIds=ref<Array<number|string>>([])
 const companies=ref<DccRegistrationCertificateUploadCompanyRespVO[]>([]),projects=ref<DccRegistrationCertificateUploadProjectCodeRespVO[]>([]),enterprises=ref<DccRegistrationCertificateUploadEntrustedEnterpriseRespVO[]>([])
 const companyLoading=ref(false), projectLoading=ref(false),saving=ref(false),error=ref('')
+const productLoading=ref(false), productError=ref(''), hydrating=ref(false)
+let productLoadVersion=0
+const loadProjectProduct=async()=>{
+ const version=++productLoadVersion
+ productError.value='';productLoading.value=false;delete facts.value.projectProduct
+ productName.value=''
+ if(!facts.value.ownProduct||!projectCodeId.value)return
+ const id=projectCodeId.value
+ productLoading.value=true
+ try{
+  const product=await getUploadProjectProduct(id)
+  if(version!==productLoadVersion)return
+  if(String(product.projectCodeId)!==String(id))throw new Error('项目与DCC产品关联不一致，请重新选择项目')
+  facts.value.projectProduct=product;productName.value=product.productName
+ }catch(e){if(version===productLoadVersion)productError.value=e instanceof Error?e.message:String(e)}
+ finally{if(version===productLoadVersion)productLoading.value=false}
+}
+watch([()=>facts.value.ownProduct,projectCodeId],()=>{if(!hydrating.value)void loadProjectProduct()})
 const files=ref<UploadUserFile[]>([]),attachments=ref<UploadUserFile[]>([]),descriptions=ref<UploadUserFile[]>([])
 const message=useMessage()
 const searchOwnerCompanies=async(keyword='')=>{companyLoading.value=true;try{companies.value=await getUploadOwnerCompanies({keyword})}finally{companyLoading.value=false}}
 const searchProjectCodes=async(keyword='')=>{projectLoading.value=true;try{projects.value=await getUploadProjectCodes({keyword})}finally{projectLoading.value=false}}
 const searchEnterprises=async(keyword='')=>{enterprises.value=await getUploadEntrustedEnterprises({keyword})}
 const onProductionChange=async()=>{if(!entrustedProduction.value) entrustedEnterpriseIds.value=[];else await searchEnterprises()}
-const resetForm=()=>{retainedFiles.value=[];facts.value=emptyFacts();productName.value='';companyId.value=undefined;projectCodeId.value=undefined;entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];attachments.value=[];descriptions.value=[];error.value=''}
+const resetForm=()=>{++productLoadVersion;productLoading.value=false;productError.value='';retainedFiles.value=[];facts.value=emptyFacts();productName.value='';companyId.value=undefined;projectCodeId.value=undefined;entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];attachments.value=[];descriptions.value=[];error.value=''}
 const appendFiles=(payload:FormData,key:string,list:UploadUserFile[])=>{for(const file of list){if(!file.raw)throw new Error('上传文件内容丢失，请重新选择');payload.append(key,file.raw)}}
 const submit=async()=>{
  error.value=''
  try{
   validateFacts(facts.value)
+  if(facts.value.ownProduct&&(productLoading.value||productError.value||!facts.value.projectProduct))throw new Error(productError.value||'请先选择已绑定DCC产品的项目')
   if(!companyId.value||!productName.value.trim())throw new Error('请填写数据所属公司和产品中文名称')
   if(facts.value.ownProduct&&!projectCodeId.value)throw new Error('请选择实际项目代码')
   if(facts.value.certificateType!=='FDA'&&(entrustedProduction.value===undefined||selfProduction.value===undefined||(!entrustedProduction.value&&!selfProduction.value)))throw new Error('请选择生产方式，两项不能同时为否')
@@ -67,11 +88,11 @@ const submit=async()=>{
 watch(()=>facts.value.certificateType,(type,previous)=>{
  if(!previous||type===previous||props.requestId)return
  const old=facts.value
- facts.value={certificateType:type,ownProduct:old.ownProduct,classification:old.classification,certificateHolder:old.certificateHolder,registrationLink:old.registrationLink,remark:old.remark,...(type==='FDA'?{}:{certificateStatus:'VALID'}),...(type==='CE'?{ceCertificates:[]}:{})}
+ facts.value={certificateType:type,projectProduct:old.projectProduct,ownProduct:old.ownProduct,classification:old.classification,certificateHolder:old.certificateHolder,registrationLink:old.registrationLink,remark:old.remark,...(type==='FDA'?{}:{certificateStatus:'VALID'}),...(type==='CE'?{ceCertificates:[]}:{})}
  entrustedProduction.value=undefined;selfProduction.value=undefined;entrustedEnterpriseIds.value=[];files.value=[];descriptions.value=[]
 })
 watch(()=>facts.value.ownProduct,own=>{if(props.taskProject&&!own){facts.value.ownProduct=true;return}if(!own)projectCodeId.value=undefined})
-watch(()=>props.modelValue,async visible=>{if(!visible)return;try{await searchOwnerCompanies();if(props.taskProject){facts.value.ownProduct=true;projectCodeId.value=props.taskProject.id;projects.value=[props.taskProject]}else await searchProjectCodes();if(props.requestId){
+watch(()=>props.modelValue,async visible=>{if(!visible)return;hydrating.value=true;try{await searchOwnerCompanies();if(props.taskProject){facts.value.ownProduct=true;projectCodeId.value=props.taskProject.id;projects.value=[props.taskProject]}else await searchProjectCodes();if(props.requestId){
  const result=await getMyRegistrationCertificateUpload(props.requestId),frozen=JSON.parse(result.request.detailJson),draft=frozen.draft
  if(!draft||!frozen.factsJson)throw new Error('该申请未保留完整提交内容，不能自动回填，请联系注册部核对')
  facts.value=JSON.parse(frozen.factsJson);productName.value=draft.productName;companyId.value=draft.ownerCompanyId;projectCodeId.value=draft.projectCodeId
@@ -79,6 +100,6 @@ watch(()=>props.modelValue,async visible=>{if(!visible)return;try{await searchOw
  entrustedProduction.value=draft.entrustedProduction;selfProduction.value=draft.selfProduction;entrustedEnterpriseIds.value=draft.entrustedEnterpriseIds??[]
  if(entrustedProduction.value)await searchEnterprises()
  retainedFiles.value=result.files.map(file=>({...file,retained:true}))
-}}catch(e){error.value=e instanceof Error?e.message:String(e)}})
+}}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{await nextTick();hydrating.value=false;if(facts.value.ownProduct)await loadProjectProduct()}})
 </script>
 <style scoped>.registration-certificate-upload-dialog :deep(.el-dialog__body){max-height:70vh;overflow:auto}.el-select,.el-date-editor{width:100%}</style>

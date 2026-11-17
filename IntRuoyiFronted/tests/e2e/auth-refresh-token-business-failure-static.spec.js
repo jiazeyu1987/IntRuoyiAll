@@ -46,8 +46,8 @@ assert.match(
 )
 assert.match(
   axiosService,
-  /if\s*\(\s*isRelogin\.show\s*\)\s*\{[\s\S]*?deleteUserCache\(\)[\s\S]*?removeToken\(\)[\s\S]*?window\.location\.href\s*=\s*['"]\/login\?redirect=['"]\s*\+\s*encodeURIComponent\(window\.location\.pathname\s*\+\s*window\.location\.search\)/,
-  'route-guard refresh failures must clear stale tokens and redirect to login even when the relogin flag is already set'
+  /const handleAuthorized[\s\S]*?deleteUserCache\(\)[\s\S]*?removeToken\(\)[\s\S]*?window\.location\.href\s*=\s*['"]\/login\?redirect=['"]\s*\+\s*encodeURIComponent\(window\.location\.pathname\s*\+\s*window\.location\.search\)/,
+  'refresh failures must clear stale tokens and redirect directly to login'
 )
 
 const validationIndex = axiosService.indexOf('refreshCode !== 0 && refreshCode !== 200')

@@ -86,7 +86,7 @@ export interface ProFeedbackVO {
 }
 
 export interface ProFrontlineLossDetailReqVO {
-  reasonId: number
+  reasonId: number | string
   reasonCode?: string
   reasonName?: string
   quantity: number
@@ -210,6 +210,7 @@ export interface ProFrontlineFeedbackSubmitRespVO {
   submissionStatus: 'SUBMITTED' | 'QUANTITY_BLOCKED'
   quantityDraftId?: number
   quantityBlockMessage?: string
+  quantityWarningMessage?: string
   feedbackId: number
   recordbookEntryId?: number
   recordbookEventId?: number
@@ -257,6 +258,7 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationCode?: string
   workstationName?: string
   submittedQuantity: number
+  outputSubmittedQuantities: Record<string, number>
   targetQuantity?: number
   lossCoefficient?: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
@@ -578,7 +580,7 @@ export interface FrontlineRuntimeDeviceVO {
 }
 
 export interface FrontlineRuntimeDefectReasonVO {
-  reasonId: number
+  reasonId: number | string
   reasonType?: string
   reasonCode: string
   reasonName: string

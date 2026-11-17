@@ -5,7 +5,8 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateProjectProductService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
@@ -166,14 +167,14 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private ControlledContentRegistrationProjectionService dbProjectionService;
     @MockitoBean
-    private DccApprovedProductIdentityMapper dbApprovedProductIdentityMapper;
+    private DccRegistrationCertificateProjectProductService dbProjectProductService;
 
     private DccRegistrationCertificateCommandService service;
 
     @BeforeEach
     void setUp() {
         reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService, dbProjectionService,
-                dbApprovedProductIdentityMapper);
+                dbProjectProductService);
         service = new DccRegistrationCertificateCommandService(
                 transactionService, failureAuditService, terminalAuditService,
                 new DccRegistrationCertificateCommandMutex());
@@ -402,7 +403,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"CATALOG", "REVOKED", "UNBOUND"})
+    @ValueSource(strings = {"CATALOG", "REVOKED", "CHANGED"})
     void projectProductIdentityCanCreateDraftAndIsRevalidatedAtApproval(String productSource) {
         TenantContextHolder.setTenantId(1L);
         try {
@@ -412,12 +413,9 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             project.setProjectCode("CATALOG-PROJECT");
             project.setProjectName("Catalog project");
             when(dbProjectCodeService.getProjectCode(99L, 40L)).thenReturn(project);
-            if (!"UNBOUND".equals(productSource)) {
-                when(dbApprovedProductIdentityMapper.selectApprovedProduct(1L, 40L)).thenReturn(List.of(
-                        new DccApprovedProductIdentityMapper.ApprovedProduct(40L, 663L, 56L, 61L,
-                                "PRODUCT-A", "Product A", "PRODUCT-A", "Product A")));
-                when(dbApprovedProductIdentityMapper.countDeclaredProductEvidence(1L, 40L)).thenReturn(2L);
-            }
+            when(dbProjectProductService.resolve(any())).thenReturn(new DccRegistrationCertificateProjectProduct(
+                    40L, 663L, "0313170202", "Product A",
+                    List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED", 56L))));
 
             var source = validDraft();
             var draft = new DccRegistrationCertificateDraftData(10L, null, "Product A", 40L,
@@ -438,11 +436,17 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
             assertNull(dbCertificateMapper.selectById(certificateId).getProductMasterId());
             assertEquals(40L, dbCertificateMapper.selectById(certificateId).getProjectCodeId());
 
-            if ("REVOKED".equals(productSource)) {
-                when(dbApprovedProductIdentityMapper.selectApprovedProduct(1L, 40L)).thenReturn(List.of());
+            if ("REVOKED".equals(productSource) || "CHANGED".equals(productSource)) {
+                if ("REVOKED".equals(productSource)) {
+                    when(dbProjectProductService.resolve(any())).thenThrow(new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH));
+                } else {
+                    when(dbProjectProductService.resolve(any())).thenReturn(new DccRegistrationCertificateProjectProduct(
+                            40L, 664L, "0313170202", "Product A",
+                            List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED", 57L))));
+                }
                 ServiceException error = assertThrows(ServiceException.class, () -> dbCommandService.formalizeApprovedUpload(
                         1L, 99L, 99L, "catalog-approval", "trace-approval", certificateId, 1, 1, file.getId()));
-                assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), error.getCode());
+                assertEquals("REVOKED".equals(productSource) ? REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode() : 400, error.getCode());
                 assertEquals("DRAFT", dbCertificateMapper.selectById(certificateId).getStatus());
                 assertEquals("STAGED", dbFileMapper.selectById(file.getId()).getStatus());
             } else {
@@ -1271,10 +1275,16 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     private DccRegistrationCertificatePrerequisiteValidator validatorAt(String instant) {
-        return new DccRegistrationCertificatePrerequisiteValidator(
+        var validator = new DccRegistrationCertificatePrerequisiteValidator(
                 companyScopeApi, enterpriseApi, productApi, projectCodeService,
                 new DccRegistrationCertificateBusinessClock(
                         Clock.fixed(Instant.parse(instant), ZoneId.of("Asia/Shanghai"))));
+        var products = mock(DccRegistrationCertificateProjectProductService.class);
+        lenient().when(products.resolve(any())).thenReturn(new DccRegistrationCertificateProjectProduct(
+                40L, 663L, "0313170202", "Product A",
+                List.of(new DccRegistrationCertificateProjectProduct.Binding("CONFIRMED", 56L))));
+        org.springframework.test.util.ReflectionTestUtils.setField(validator, "projectProductService", products);
+        return validator;
     }
 
     private DccRegistrationCertificatePrerequisiteValidator validValidator() {

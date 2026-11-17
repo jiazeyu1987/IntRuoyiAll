@@ -1,14 +1,19 @@
 <template>
-  <el-radio-group v-model="activeDocument" class="mb-10px" aria-label="正文与附件切换">
-    <el-radio-button value="body">主文档</el-radio-button>
-    <el-radio-button value="attachments">附件</el-radio-button>
-  </el-radio-group>
   <ProtectedPdfViewer
-    v-if="activeDocument === 'body' && source"
+    v-if="source && file?.canPreview"
     ref="bodyViewer" :controlled-file-id="controlledFileId" :preview-source="source"
-    title="主文档" compact :hide-reading-details="hideReadingDetails" review-toolbar
-  />
-  <ControlledFileAttachments v-if="activeDocument === 'attachments'" :file="file" :body-read-context="context" :context-error="contextError" compact inline />
+    title="主文档" compact hide-reading-details review-toolbar
+  >
+    <template #document-entry>
+      <el-tag effect="plain">主文档</el-tag>
+      <ControlledFileAttachments :file="file" :body-read-context="context" :context-error="contextError" compact toolbar review
+        @preview-open="bodyViewer?.pauseReading()" @preview-close="bodyViewer?.resumeReading()" />
+    </template>
+  </ProtectedPdfViewer>
+  <template v-else>
+    <el-alert v-if="file?.previewUnavailableReason" :title="file.previewUnavailableReason" type="info" :closable="false" />
+    <ControlledFileAttachments :file="file" :body-read-context="context" :context-error="contextError" compact toolbar review />
+  </template>
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
@@ -17,8 +22,7 @@ import type { DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContex
 import type { OnlineFilePreviewSource } from '@/api/common/filePreview'
 import ProtectedPdfViewer from '../view/index.vue'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
-defineProps<{ controlledFileId: number | string; source: OnlineFilePreviewSource | null; file?: ControlledFileVO; context?: DccBodyReadContext; contextError?: string; hideReadingDetails?: boolean }>()
-const activeDocument = ref('body')
+defineProps<{ controlledFileId: number | string; source: OnlineFilePreviewSource | null | undefined; file?: ControlledFileVO; context?: DccBodyReadContext; contextError?: string }>()
 const bodyViewer = ref<InstanceType<typeof ProtectedPdfViewer>>()
 defineExpose({
   pauseReading: () => bodyViewer.value?.pauseReading(),

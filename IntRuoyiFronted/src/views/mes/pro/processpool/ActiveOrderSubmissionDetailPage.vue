@@ -3,11 +3,13 @@
     <ActiveOrderDetailLayout data-team-leader-active-order-detail-page>
       <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
       <ReplenishmentProcessBinding
-        v-if="detail"
+        v-if="detail && !handoffReadOnly"
         :active-order-id="requireActiveOrderId()"
         @saved="loadDetail"
       />
       <ActiveOrderSubmissionDetailPanel
+        :read-only="handoffReadOnly"
+        :handoff-read-only="handoffReadOnly"
         :detail="detail"
         :source-work-order="sourceWorkOrder"
         :production-material-lists="productionMaterialLists"
@@ -22,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
@@ -40,6 +42,7 @@ import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
 const route = useRoute()
+const handoffReadOnly = computed(() => route.query.handoffReadOnly === '1')
 const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()

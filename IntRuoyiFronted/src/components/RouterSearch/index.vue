@@ -248,7 +248,7 @@ function routeMatchesSearchQuery(route: any, query: string) {
 
 function createSearchRecord(route: any, query: string): SearchHistoryRecord {
   return {
-    label: `${route.meta.title ?? String(route.name ?? route.path)}${route.path}`,
+    label: route.meta.title,
     value: route.path,
     query
   }

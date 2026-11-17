@@ -50,7 +50,8 @@ public class MesFixedTestOrderDataService {
     private Result prepare(Long actor, boolean rebuild, MesFixedTestOrderDataSet dataSet) {
         modeGuard.requireEnabled(actor);
         long tenant = TenantContextHolder.getTenantId();
-        if (tenant == SOURCE_TENANT) throw blocked("参考租户只读，不能在参考租户生成测试单据");
+        if (tenant == SOURCE_TENANT && !rebuild) throw blocked("当前租户（ID：" + SOURCE_TENANT
+                + "）是测试单据参考来源，不允许补齐测试单据；重置现有测试订单请使用重置测试订单功能");
         if (jdbc.queryForList("SELECT id FROM system_tenant WHERE id=? AND deleted=0 FOR UPDATE", Long.class, tenant).size() != 1)
             throw blocked("当前租户不存在，不能补齐测试单据");
         var existingOrder = existing("mes_pro_work_order", tenant, Map.of("code", dataSet.workOrderCode()));
@@ -59,11 +60,14 @@ public class MesFixedTestOrderDataService {
         if (order == null) throw blocked("测试生产订单创建后不存在");
         String materialBillNo = secondMaterialBillNo(dataSet);
         // Material documents must exist before the second fixture's issue references are written.
-        var materials = prepareMaterials(order, tenant, actor, rebuild, dataSet);
+        // The reference tenant resets runtime facts using its existing source documents.
+        // Validate and reuse those documents; only copied tenants rebuild document rows.
+        boolean rebuildDocuments = rebuild && tenant != SOURCE_TENANT;
+        var materials = prepareMaterials(order, tenant, actor, rebuildDocuments, dataSet);
         List<DocumentResult> results = new ArrayList<>();
         results.add(new DocumentResult("生产订单", existingOrder == null ? 1 : 0, 0, existingOrder == null ? 0 : 1, 0));
-        results.add(prepareIssues("pick", "领料单明细", tenant, actor, rebuild, dataSet, materialBillNo, order));
-        results.add(prepareIssues("replenishment", "补料单明细", tenant, actor, rebuild, dataSet, materialBillNo, order));
+        results.add(prepareIssues("pick", "领料单明细", tenant, actor, rebuildDocuments, dataSet, materialBillNo, order));
+        results.add(prepareIssues("replenishment", "补料单明细", tenant, actor, rebuildDocuments, dataSet, materialBillNo, order));
         results.add(materials);
         actionLog.recordPreparation(actor, ((Number) required(order, "id")).longValue(), rebuild, results);
         log.info("固定测试工单来源单据准备完成：租户={}，操作人={}，工单={}，结果={}", tenant, actor, dataSet.workOrderCode(), results);
@@ -76,7 +80,7 @@ public class MesFixedTestOrderDataService {
         String itemTable = headerTable + "_item";
         String fk = "production_" + kind + "_list_id";
         var sourceItems = source(itemTable, "production_order_no", WORK_ORDER_CODE);
-        int removedSimulations = "replenishment".equals(kind) && dataSet == MesFixedTestOrderDataSet.FIRST
+        int removedSimulations = tenant != SOURCE_TENANT && "replenishment".equals(kind) && dataSet == MesFixedTestOrderDataSet.FIRST
                 ? removeHistoricalReplenishments(tenant, actor, order, sourceItems) : 0;
         List<Map<String, Object>> items = sourceItems.stream()
                 .filter(item -> !"replenishment".equals(kind)

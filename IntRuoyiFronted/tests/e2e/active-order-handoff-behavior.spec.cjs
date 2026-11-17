@@ -55,7 +55,7 @@ test('冻结通知拒绝办理状态、伪造通知属性及非法路径和参�
   await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushed++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/);assert.equal(pushed,0)
  }
 })
-function panel(api, route={query:{}}, navigationContext=null){const nav=navigation(navigationContext), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineEmits:()=>()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['openTask','tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+function panel(api, route={query:{}}, navigationContext=null, lifecycle={}){route.path ??= '/user/profile';const nav=navigation(navigationContext), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineEmits:()=>()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onActivated:()=>{},onDeactivated:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion,...lifecycle},['openTask','tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','resultError','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
 
 const dispositionNotice = () => ({ ...freezeTask(), taskType: 'NCR_DISPOSITION_NOTICE', completionSourceId: '229',
   reason: 'NCR NCR-001 QA处置结果：让步放行；让步不代替PQC生产放行或上市批准。处置意见：材料已核实',
@@ -83,7 +83,7 @@ test('QA结果告知拒绝执行待办、伪造身份与业务办理路径', asy
  const context={task,current:true,processable:false}
  const query={...nav.resolveActiveOrderHandoffTarget(params(task)).query,handoffReadOnly:'1',reviewId:'230'}
  const p=panel({handoffNavigationContext:async()=>context},{query});await p.openVoidResult()
- assert.equal(p.resultOpen.value,false);assert.match(p.error.value,/入口与原任务/)
+ assert.equal(p.resultOpen.value,false);assert.match(p.resultError.value,/入口与原任务/)
 })
 const handoffRows = count => Array.from({length:count},(_,index)=>({
  id:(2100000000000000000n+BigInt(index)).toString(),activeOrderId:index<76?'422':'418',
@@ -139,7 +139,7 @@ test('真实回执失败可见，重试只发送准确本人通知版本及原�
 })
 test('作废面板展示原任务冻结结果和完成者，改周期入口显式失效',async()=>{
  const task=voidTask(),nav=navigation(null),query={...nav.resolveActiveOrderHandoffTarget(params(task)).query,handoffReadOnly:'1'};const route={query};const p=panel({handoffNavigationContext:async()=>({task,current:false,processable:false})},route)
- await p.openVoidResult();assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.completedBy,'345');assert.equal(p.result.value.reason,task.reason);route.query={...query,activeOrderId:'414'};await p.openVoidResult();assert.equal(p.resultOpen.value,false);assert.equal(p.result.value,undefined);assert.match(p.error.value,/原任务、周期或轮次/)
+ await p.openVoidResult();assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.completedBy,'345');assert.equal(p.result.value.reason,task.reason);route.query={...query,activeOrderId:'414'};await p.openVoidResult();assert.equal(p.resultOpen.value,false);assert.equal(p.result.value,undefined);assert.match(p.resultError.value,/原任务、周期或轮次/)
 })
 test('回执和列表读失败保留明确错误，取消周期无重试入口',async()=>{
  const p=panel({myHandoffs:async()=>{throw Error('formal list failed')},handoffReceipts:async()=>{throw Error('formal receipt failed')}});await p.load();assert.equal(p.error.value,'formal list failed');await p.showReceipts({...returnTask(),status:'CANCELED'});assert.equal(p.receiptError.value,'formal receipt failed');assert.equal(p.retryable.value,false)
@@ -248,4 +248,105 @@ for (const outcome of ['返工', '作废']) test('同一路由关闭后仍可再
  p.resultOpen.value=false
  await p.openTask(task);assert.equal(p.error.value,'');assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.reason,task.reason)
  assert.equal(route.fullPath,'/user/profile?'+new URLSearchParams(query))
+})
+
+// 使用 Vue 本身的 KeepAlive、调度器与生命周期运行实际 SFC script，验证缓存页面的归属。
+function cachedPanel(api, route) {
+ const node = type => ({ type, children: [], parent: null })
+ const renderer = vue.createRenderer({
+  createElement: node, createText: node, createComment: node,
+  insert(child, parent, anchor) {
+   if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1)
+   const index = anchor ? parent.children.indexOf(anchor) : -1
+   parent.children.splice(index < 0 ? parent.children.length : index, 0, child)
+   child.parent = parent
+  },
+  remove(child) { if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1); child.parent = null },
+  setText() {}, setElementText() {}, patchProp() {},
+  parentNode: child => child.parent,
+  nextSibling: child => child.parent?.children[child.parent.children.indexOf(child) + 1] || null
+ })
+ let instance
+ const visible = vue.ref(true)
+ const Profile = { name: 'Profile', setup() {
+  instance = panel(api, route, null, {
+   watch: vue.watch, onMounted: vue.onMounted, onBeforeUnmount: vue.onBeforeUnmount,
+   onActivated: vue.onActivated, onDeactivated: vue.onDeactivated,
+   defineProps: () => ({ initialTasks: [] })
+  })
+  return () => vue.h('section')
+ } }
+ const Other = { name: 'FormalHandoffPage', render: () => vue.h('main') }
+ const app = renderer.createApp({ render: () => vue.h(vue.KeepAlive, null, {
+  default: () => vue.h(visible.value ? Profile : Other)
+ }) })
+ app.mount(node('root'))
+ return { get panel() { return instance }, visible, unmount: () => app.unmount() }
+}
+
+test('真实KeepAlive：正式办理页及其query变化不会被缓存个人中心校验，返回个人中心才恢复原通知', async () => {
+ const task = dispositionNotice(), context = { task, current: true, processable: false }
+ const nav = navigation(null), query = { ...nav.resolveActiveOrderHandoffTarget(params(task)).query, handoffReadOnly: '1' }
+ const route = vue.reactive({ path: '/user/profile', query: {} })
+ let calls = 0
+ const mounted = cachedPanel({ handoffNavigationContext: async () => { calls++; return context } }, route)
+ try {
+  await flush(); assert.equal(calls, 0)
+  // Vue Router 先更新全局路由，后完成缓存组件的失活；这段窗口也不可误读。
+  route.path = '/mes/pro/process-pool/production-leader'
+  route.query = navigation(null).resolveActiveOrderHandoffTarget(params(returnTask())).query
+  await flush(); assert.equal(calls, 0); assert.equal(mounted.panel.resultError.value, '')
+  mounted.visible.value = false; await flush()
+  route.query = { ...query }; await flush(); assert.equal(calls, 0)
+  // query 未变化，仅页面路径变化；重新激活必须重新校验。
+  route.path = '/user/profile'; await flush(); assert.equal(calls, 0)
+  mounted.visible.value = true; await flush()
+  assert.equal(calls, 1); assert.equal(mounted.panel.resultOpen.value, true)
+  assert.equal(mounted.panel.result.value.id, task.id); assert.equal(mounted.panel.resultError.value, '')
+ } finally { mounted.unmount() }
+})
+
+for (const completed of [false, true]) for (const rejected of [false, true])
+ test(`真实KeepAlive：${completed ? '完成记录' : '只读通知'}失活后迟到${rejected ? '错误' : '成功'}无权写入，重新激活重读`, async () => {
+ const task = completed ? completedTask() : voidTask()
+ const context = completedContext(task)
+ const query = completed ? completedQuery(task)
+  : { ...navigation(null).resolveActiveOrderHandoffTarget(params(task)).query, handoffReadOnly: '1' }
+ const route = vue.reactive({ path: '/user/profile', query })
+ const pending = deferred(); let calls = 0
+ const mounted = cachedPanel({ handoffNavigationContext: () => ++calls === 1 ? pending.promise : Promise.resolve(context) }, route)
+ try {
+  await flush(); assert.equal(calls, 1)
+  // 保持相同路由，只由 KeepAlive 失活，验证生命周期本身能够撤销请求。
+  mounted.visible.value = false; await flush()
+  if (rejected) pending.reject(Error('已离开页面的旧请求失败'))
+  else pending.resolve(context)
+  await flush()
+  assert.equal(mounted.panel.resultOpen.value, false); assert.equal(mounted.panel.completedResultOpen.value, false)
+  assert.equal(mounted.panel.result.value, undefined); assert.equal(mounted.panel.completedResult.value, undefined)
+  assert.equal(mounted.panel.resultError.value, ''); assert.equal(mounted.panel.completedResultError.value, '')
+  assert.equal(mounted.panel.completedResultLoading.value, false)
+  mounted.visible.value = true; await flush()
+  assert.equal(calls, 2)
+  assert.equal(completed ? mounted.panel.completedResultOpen.value : mounted.panel.resultOpen.value, true)
+  assert.equal((completed ? mounted.panel.completedResult.value : mounted.panel.result.value).id, task.id)
+ } finally { mounted.unmount() }
+})
+
+test('真实route watch：身份篡改必须报错，修正入口撤销旧结果错误且保留列表失败', async () => {
+ const task = voidTask(), context = completedContext(task)
+ const query = { ...navigation(null).resolveActiveOrderHandoffTarget(params(task)).query, handoffReadOnly: '1' }
+ const route = vue.reactive({ path: '/user/profile', query: { ...query, roundId: '999' } })
+ const mounted = cachedPanel({ handoffNavigationContext: async () => context }, route)
+ try {
+  await flush(); assert.match(mounted.panel.resultError.value, /原任务、周期或轮次/)
+  assert.equal(mounted.panel.resultOpen.value, false)
+  mounted.panel.error.value = '列表读取失败'
+  route.query = query; await flush()
+  assert.equal(mounted.panel.resultError.value, ''); assert.equal(mounted.panel.error.value, '列表读取失败')
+  assert.equal(mounted.panel.resultOpen.value, true)
+  // 只改变path，缓存组件立即关闭自己的弹窗，也不会校验正式办理参数。
+  route.path = '/mes/pro/process-pool/production-leader'
+  assert.equal(mounted.panel.resultOpen.value, false); assert.equal(mounted.panel.result.value, undefined)
+ } finally { mounted.unmount() }
 })

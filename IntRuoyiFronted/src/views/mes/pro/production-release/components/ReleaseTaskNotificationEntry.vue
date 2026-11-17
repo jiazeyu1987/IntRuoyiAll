@@ -17,8 +17,12 @@
             <template #default="{ row }">{{ statusLabels[row.status] }}</template>
           </el-table-column>
           <el-table-column prop="attemptCount" label="投递次数" width="95" />
-          <el-table-column prop="lastAttemptAt" label="最近尝试时间" min-width="170" />
-          <el-table-column prop="sentAt" label="送达时间" min-width="170" />
+          <el-table-column label="最近尝试时间（北京时间）" min-width="210">
+            <template #default="{ row }">{{ formatNotificationSentAt(row.lastAttemptAt) }}</template>
+          </el-table-column>
+          <el-table-column label="送达时间（北京时间）" min-width="210">
+            <template #default="{ row }">{{ formatNotificationSentAt(row.sentAt) }}</template>
+          </el-table-column>
           <el-table-column prop="lastErrorSummary" label="失败原因" min-width="200" />
           <el-table-column label="操作" width="110">
             <template #default="{ row }">
@@ -67,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatNotificationSentAt } from '@/utils/notificationTime'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useUserStore } from '@/store/modules/user'
 import { getEdhrRelease } from '@/api/mes/pro/edhr/release'

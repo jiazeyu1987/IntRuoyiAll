@@ -380,7 +380,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     }
 
     @Test
-    void shouldPersistManualAllocationWithinFrozenLossCoefficient() {
+    void shouldConfirmManualAllocationAboveReferenceCeiling() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
@@ -391,15 +391,15 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 workOrder(9001L, "WO-9001", "100")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "90")));
-        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("100"), new BigDecimal("1.7"), new BigDecimal("170")));
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("100"), new BigDecimal("1.1"), new BigDecimal("110")));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(8101L, 6001L))
                 .thenReturn(List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(8101L).routeProcessId(5001L).processId(6001L)
                         .erpFixedQuantitySnapshot(new BigDecimal("100"))
-                        .productionQuantityFactorSnapshot(new BigDecimal("1.7"))
-                        .plannedQuantitySnapshot(new BigDecimal("170"))
+                        .productionQuantityFactorSnapshot(new BigDecimal("1.1"))
+                        .plannedQuantitySnapshot(new BigDecimal("110"))
                         .overagePercentSnapshot(new BigDecimal("70"))
-                        .productionConfigSnapshotJson("{\"lossCoefficient\":1.7,\"outputMaterialIds\":[]}").build()));
+                        .productionConfigSnapshotJson("{\"lossCoefficient\":1.1,\"outputMaterialIds\":[]}").build()));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
             return 1;
@@ -411,7 +411,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .leaderUserId(3001L)
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
-                .reviewRemark("按已冻结生产系数1.7确认")
+                .reviewRemark("按已冻结生产系数1.1确认")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")

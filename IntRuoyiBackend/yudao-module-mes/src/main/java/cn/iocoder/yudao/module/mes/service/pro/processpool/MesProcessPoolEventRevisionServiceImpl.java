@@ -109,7 +109,7 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
             routeProcessId = task.getRouteProcessId();
             processId = task.getProcessId();
         }
-        validateDiffAndFifoLocks(reqBO);
+        validateDiffAndFifoLocks(reqBO, revisionPolicy);
         RevisionSignatureEvidence signature = generateSignature
                 ? recordRevisionSignature(reqBO, event)
                 : validateProvidedSignature(reqBO, event);
@@ -284,7 +284,7 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 JsonUtils.toJsonString(reqBO.getChangedFields())));
     }
 
-    private void validateDiffAndFifoLocks(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+    private void validateDiffAndFifoLocks(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy policy) {
         for (MesProcessPoolEventRevisionFieldChangeBO field : reqBO.getChangedFields()) {
             validateFieldDiff(field);
             if (Boolean.TRUE.equals(field.getAffectsQuantityFragment())) {
@@ -292,8 +292,20 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                     throw exception(PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN,
                             field.getFieldCode());
                 }
-                fifoAllocationService.validateOriginalFieldMutationAllowed(
-                        field.getSourceQuantityFragmentId(), field.getOriginalField());
+                if (policy == RevisionPolicy.PRODUCTION_REPORT_CORRECTION
+                        && field.getOriginalField() == MesProcessPoolFragmentOriginalField.OUTPUT_QUANTITY
+                        && "OUTPUT_QUANTITY".equals(field.getFieldCode())) {
+                    java.math.BigDecimal quantity = new java.math.BigDecimal(field.getAfterValue());
+                    if (JsonUtils.parseTree(reqBO.getAfterPayload()).path("outputQuantity").decimalValue()
+                            .compareTo(quantity) != 0) {
+                        throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revision.outputQuantity");
+                    }
+                    fifoAllocationService.validateOutputQuantityMutationAllowed(
+                            field.getSourceQuantityFragmentId(), quantity);
+                } else {
+                    fifoAllocationService.validateOriginalFieldMutationAllowed(
+                            field.getSourceQuantityFragmentId(), field.getOriginalField());
+                }
             }
         }
     }
