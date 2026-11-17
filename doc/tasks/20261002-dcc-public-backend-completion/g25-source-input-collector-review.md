@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G25 fresh actual-source input collector preparation
 
 ready_for_closeout for Root Review.16 offline cases PASS. No actual source query, backup, collector invocation, S3GET, source upgrade, service/Maven/Git by this Agent. This tool only prepares the collection utility/queries and runs explicit fake transport/dump tests; Root performs actual collection. FrozenG21/G23/sourceproof/Rootsupport/materials remain unchanged.
@@ -12,10 +14,10 @@ The source input plan is g25-source-input-collector-prepared-plan.json. It conta
 
 ## Root must supply
 
-1. Exactactual user authorization file C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g25-user-authorization.json. Collector requires isolated-first/source-after-PASS authorization and no remote/prod scope; referenced in resulting source request by exactfile+SHA, never interpreted as conditionalaudit permission completion.
-2. Actualprotected clone journal C:/IntRuoyiBackups/20261003-dcc-integration/g25-rehearsal-run/driver-receipt.json. Its complete run artifacts are enumerated andrawhashed, then the frozenG23verify_clone_pass rechecksrestore/first-repeat/33config/19ledger/oldrows/new17/schema fromactual privatefacts, not a status label.
+1. Exactactual user authorization file ./doc/tasks/20261001-dcc-integration-unblock/g25-user-authorization.json. Collector requires isolated-first/source-after-PASS authorization and no remote/prod scope; referenced in resulting source request by exactfile+SHA, never interpreted as conditionalaudit permission completion.
+2. Actualprotected clone journal 历史外部材料（引用已移除） Its complete run artifacts are enumerated andrawhashed, then the frozenG23verify_clone_pass rechecksrestore/first-repeat/33config/19ledger/oldrows/new17/schema fromactual privatefacts, not a status label.
 3. Root's own real writer exclusion attestation JSON with database/UUID, allKnownWritersExcluded=true, attestedBy=Root and exclusionReference. It must represent application/session/async/Quartz/Flowable/integration/directDB/event writers actually excluded; a DBzero snapshot alone is not auto-converted into this statement. Root maintains exclusion during all queries/backups/upgrade. Collector never stops/services or fences another task.
-4. A new independent protection directory directly beneath BACKUPS, e.g. C:/IntRuoyiBackups/20261003-dcc-integration/g25-source-fresh-NEW. It must not exist, cannot overwrite priorcapture/backup. All real rawfacts,rowhashes,stderr,credential-freebackup/command/proof/request/prepared receipts stay there.
+4. A new independent protection directory directly beneath BACKUPS, e.g. 历史外部材料（引用已移除） It must not exist, cannot overwrite priorcapture/backup. All real rawfacts,rowhashes,stderr,credential-freebackup/command/proof/request/prepared receipts stay there.
 
 ## Root command sequence
 
@@ -25,7 +27,7 @@ Optional disk-only preparation:
 
 Actual Root collection, after explicitwriterexclusion and while within900s freshness:
 
-`python -B <own-task>/g25-source-input-collector.py collect --destination C:/IntRuoyiBackups/20261003-dcc-integration/g25-source-fresh-NEW --writer-attestation <Root-actual-attestation.json> --authorization C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g25-user-authorization.json --clone-journal C:/IntRuoyiBackups/20261003-dcc-integration/g25-rehearsal-run/driver-receipt.json`
+`python -B <own-task>/g25-source-input-collector.py collect --destination 历史外部材料（引用已移除） --writer-attestation <Root-actual-attestation.json> --authorization ./doc/tasks/20261001-dcc-integration-unblock/g25-user-authorization.json --clone-journal 历史外部材料（引用已移除）`
 
 Collector does not automatically upgrade. It returns FRESH_SOURCE_INPUTS_VERIFIED_NOT_UPGRADED, databaseWritesExecuted=false, upgradeInvoked=false only when complete strictG23prepare(request) succeeds. Root then independently validates/invokes the existing strictG23 source upgrade using protected source-upgrade-prepared.json and its explicitactual authorization gate. Audit25+1/quality/legacyclaim work is separate and not added to nineteenSQL.
 

@@ -15,6 +15,9 @@ import java.util.List;
 
 @Mapper
 public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTaskDO> {
+    @Select("SELECT * FROM mes_pro_edhr_work_task WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0")
+    MesProEdhrWorkTaskDO selectNotificationSource(@Param("id") Long id, @Param("tenantId") Long tenantId);
+
     @org.apache.ibatis.annotations.Select("SELECT * FROM mes_pro_edhr_work_task WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0 FOR UPDATE")
     MesProEdhrWorkTaskDO selectByIdAndTenantForUpdate(@org.apache.ibatis.annotations.Param("id") Long id,
             @org.apache.ibatis.annotations.Param("tenantId") Long tenantId);

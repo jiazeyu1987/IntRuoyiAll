@@ -123,7 +123,7 @@ defineSlots<{
   }) => any
 }>()
 
-const props = defineProps({
+defineProps({
   columnFilterDefinitions: { type: Array as PropType<ListColumnFilterDefinition[]>, required: true },
   serverFilterQuery: { type: Function as PropType<() => Promise<unknown>>, required: true },
   queryModel: { type: Object as PropType<Record<string, unknown>>, required: true },

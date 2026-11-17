@@ -38,11 +38,11 @@ P1 表示优先处理的数据、证据或主链路风险；P2 表示需要修�
 
 页面保存、发布进入同一个 `saveDraftInternal`。该方法先查版本状态，后按 ID 更新内容，再删除、重建子项。`publish` 在调用此方法后才完成旧版本退役、目标版本发布和主表当前版本指向更新。
 
-- [QA 页面保存、发布入口](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue:5070)
-- [保存与发布事务](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java:132)
-- [先检查状态、后无条件更新及重建子项](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java:715)
-- [已发布主配置不更新的分支](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java:777)
-- [活跃订单读取并冻结配置](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java:4032)
+- [QA 页面保存、发布入口](../../IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue#L5070)
+- [保存与发布事务](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java#L132)
+- [先检查状态、后无条件更新及重建子项](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java#L715)
+- [已发布主配置不更新的分支](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java#L777)
+- [活跃订单读取并冻结配置](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java#L4032)
 
 典型时序：已有正式 V1 和草稿 V2，甲、乙同时读取 V2 为草稿；甲发布成功；乙先前通过状态检查，随后继续按版本 ID 写入内容和重建子项。当前更新语句没有以“仍为草稿”为条件，发布后的内容和子项 ID 因而可能改变。
 
@@ -68,12 +68,12 @@ P1 表示优先处理的数据、证据或主链路风险；P2 表示需要修�
 
 生产组长页面先加载记录，再把完整字段提交给普通补正接口。后端已锁记录并重新读取最新内容，但将请求中的旧表单字段覆盖到最新对象上。PQC 补正同样接收完整检测结果、样本数据，并继续更新正式检测表、补正复核记录及汇总。
 
-- [生产补正表单组装及提交](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue:9237)
-- [生产普通补正入口及覆盖字段](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolProductionReportCorrectionService.java:138)
-- [普通生产补正请求](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/vo/ProcessPoolProductionReportCorrectionReqVO.java:19)
-- [PQC 补正命令](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionCommand.java:12)
-- [PQC 读取、重建明细及正式表同步](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionService.java:135)
-- [修订记录写入](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolEventRevisionServiceImpl.java:90)
+- [生产补正表单组装及提交](../../IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue#L9237)
+- [生产普通补正入口及覆盖字段](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolProductionReportCorrectionService.java#L138)
+- [普通生产补正请求](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/vo/ProcessPoolProductionReportCorrectionReqVO.java#L19)
+- [PQC 补正命令](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionCommand.java#L12)
+- [PQC 读取、重建明细及正式表同步](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionService.java#L135)
+- [修订记录写入](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolEventRevisionServiceImpl.java#L90)
 
 例：甲乙打开同一生产记录，原值“参数 20、损耗 1”。甲改参数为 25 并提交；乙只改损耗为 2，整份表单仍带参数 20。乙后提交时，即使等待行锁，仍可能把参数恢复为 20。PQC 的两个不同样本修改存在同类问题。
 
@@ -99,12 +99,12 @@ P1 表示优先处理的数据、证据或主链路风险；P2 表示需要修�
 
 活跃订单分支的审批正文纳入正式完工及 PQC 放行事实，但资料清单 `materialManifest` 和附件集合未从活跃订单上传资料构造。独立批次分支另有材料清单和文件完整性检查。活跃订单资料上传、删除不推进最终审批所依赖的内容版本。
 
-- [资料上传、删除前端入口](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue:4462)
-- [上市放行提交入口](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue:1848)
-- [两类来源的审批正文分支](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/content/EdhrReleaseContentResolver.java:42)
-- [活跃订单正式完工、PQC 放行事实校验](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesEdhrActiveOrderReleaseFactService.java:34)
-- [上市放行读取审批内容与校验](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java:679)
-- [资料写入及审计](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java:150)
+- [资料上传、删除前端入口](../../IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue#L4462)
+- [上市放行提交入口](../../IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue#L1848)
+- [两类来源的审批正文分支](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/content/EdhrReleaseContentResolver.java#L42)
+- [活跃订单正式完工、PQC 放行事实校验](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesEdhrActiveOrderReleaseFactService.java#L34)
+- [上市放行读取审批内容与校验](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java#L679)
+- [资料写入及审计](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java#L150)
 
 甲预览资料后，乙合法新增或删除资料，甲仍可能按原审批上下文完成上市放行。最终追溯能看到资料，不等于能证明那些资料正是甲当时确认的集合。
 
@@ -133,9 +133,9 @@ P1 表示优先处理的数据、证据或主链路风险；P2 表示需要修�
 
 删除资料时，方法先删资料关联，再调用文件服务物理删除，之后写业务及 GxP 审计。如果后续异常，数据库可以回滚，已删除的磁盘或对象存储文件不能随之恢复。上传时先创建文件，只有关联插入失败的一段执行清理，后续审计或提交失败不在该清理范围内。
 
-- [上传创建文件与局部清理](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java:125)
-- [删除关联、物理文件及后续审计](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java:192)
-- [基础文件服务的存储与数据库操作](E:/IntRuoyi/IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/file/FileServiceImpl.java:383)
+- [上传创建文件与局部清理](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java#L125)
+- [删除关联、物理文件及后续审计](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java#L192)
+- [基础文件服务的存储与数据库操作](../../IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/file/FileServiceImpl.java#L383)
 
 ### 本质问题
 
@@ -169,10 +169,10 @@ P1 表示优先处理的数据、证据或主链路风险；P2 表示需要修�
 
 偏差处理签字已经校验内容版本、哈希及有效签名。正常关闭也检查当前所需签名，因此**没有确认“未签完也能关闭”的漏洞**。但页面关闭只传偏差 ID，不传所见内容版本；关闭 SQL 更新状态、原因、时间和版本，没有显式更新关闭操作者，服务方法也未写专门的领域关闭审计。
 
-- [前端关闭操作](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/edhr-deviation/DeviationDetail.vue:566)
-- [关闭请求结构](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrDeviationHandlingCloseReqVO.java:7)
-- [关闭状态与有效签名校验](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java:204)
-- [关闭 SQL](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrDeviationMapper.java:81)
+- [前端关闭操作](../../IntRuoyiFronted/src/views/mes/pro/edhr-deviation/DeviationDetail.vue#L566)
+- [关闭请求结构](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrDeviationHandlingCloseReqVO.java#L7)
+- [关闭状态与有效签名校验](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java#L204)
+- [关闭 SQL](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrDeviationMapper.java#L81)
 
 R06 的触发条件是：甲查看旧内容，乙修订并完成新一轮签字，甲未刷新便关闭。后端校验的是新一轮完整签字，无法证明甲关闭的是自己看过的内容。R08 则是关闭证据不能只依赖通用 HTTP 日志；既有签名的签署人也不能代替实际关闭人。
 
@@ -194,10 +194,10 @@ R06 的触发条件是：甲查看旧内容，乙修订并完成新一轮签字�
 
 PQC 放行业务在外层事务里调用旧密码重认证接口。旧接口更新失败计数后抛业务异常，外层事务回滚使计数失效。内部声明 `noRollbackFor` 不能让已经加入外层的同一事务独立提交。
 
-- [PQC 放行事务](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java:145)
-- [旧密码认证调用](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java:255)
-- [错误密码更新计数后抛错](E:/IntRuoyi/IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java:438)
-- [现有独立签名认证及事务内身份重校验](E:/IntRuoyi/IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/signature/SystemSignatureAuthenticationService.java:39)
+- [PQC 放行事务](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java#L145)
+- [旧密码认证调用](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java#L255)
+- [错误密码更新计数后抛错](../../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java#L438)
+- [现有独立签名认证及事务内身份重校验](../../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/signature/SystemSignatureAuthenticationService.java#L39)
 
 ### 本质问题
 
@@ -221,9 +221,9 @@ PQC 放行业务在外层事务里调用旧密码重认证接口。旧接口更�
 
 | 容量项 | 代码与本质 | 解决方向 | 验证重点 |
 |---|---|---|---|
-| C01 同租户审计锁等待 | [GxP 审计服务](E:/IntRuoyi/IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java:53)使用租户级串行锁；部分业务较早取得该锁，文件 I/O、同步后续请求等可能延长持锁时间 | 保留审计链的一致性；先将可独立校验的外部读取移出持锁区，缩短写事务。进入事务后核对来源版本，失败明确中止；不能靠删除审计锁解决 | 生产/PQC 提交叠加 ERP 同步、文件上传时的持锁时长、等待、回滚率 |
-| C02 提交后通知仍占用请求 | [通知入口](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/notification/MesReleaseTaskNotificationService.java:31)已有持久化意图及失败处理，但提交后同步派发还会执行多次独立事务 | 复用现有通知持久化意图，交由有界工作器派发；保留认领、幂等、重试和可见失败。不用无持久化的后台线程 | 原业务提交与通知耗时分开统计，进程中断后能恢复，不重复制造业务待办 |
-| C03 普通用户历史列表放大 | [批次列表](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:495)普通权限分支先全量筛选可见性再内存分页，可能逐条追加查询；管理员分支不同 | 将同等授权谓词下推为 SQL `EXISTS`/关联条件，在授权集合上分页并批量读本页详情；统计总数使用同一谓词。不得先分页再删无权限行 | 普通角色深页及大数据量查询数、响应时间、总数准确性、权限撤销即时性 |
+| C01 同租户审计锁等待 | [GxP 审计服务](../../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java#L53)使用租户级串行锁；部分业务较早取得该锁，文件 I/O、同步后续请求等可能延长持锁时间 | 保留审计链的一致性；先将可独立校验的外部读取移出持锁区，缩短写事务。进入事务后核对来源版本，失败明确中止；不能靠删除审计锁解决 | 生产/PQC 提交叠加 ERP 同步、文件上传时的持锁时长、等待、回滚率 |
+| C02 提交后通知仍占用请求 | [通知入口](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/notification/MesReleaseTaskNotificationService.java#L31)已有持久化意图及失败处理，但提交后同步派发还会执行多次独立事务 | 复用现有通知持久化意图，交由有界工作器派发；保留认领、幂等、重试和可见失败。不用无持久化的后台线程 | 原业务提交与通知耗时分开统计，进程中断后能恢复，不重复制造业务待办 |
+| C03 普通用户历史列表放大 | [批次列表](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java#L495)普通权限分支先全量筛选可见性再内存分页，可能逐条追加查询；管理员分支不同 | 将同等授权谓词下推为 SQL `EXISTS`/关联条件，在授权集合上分页并批量读本页详情；统计总数使用同一谓词。不得先分页再删无权限行 | 普通角色深页及大数据量查询数、响应时间、总数准确性、权限撤销即时性 |
 
 ERP 同步优化需特别保护“来源读取失败”和“来源确实取消”的区别，不能为了缩短事务把未成功读取的数据当成已取消订单。大批量拆事务前，应明确原同步是否承诺整批原子性，不能隐式改变。
 
@@ -255,7 +255,7 @@ ERP 同步优化需特别保护“来源读取失败”和“来源确实取消�
 
 ## 13. 20261019 工作区实施记录
 
-实施位置：`E:/IntRuoyiWorktree/20261019`，分支 `codex/20261019`。基于本次审查时主工作区的代码建立工作副本；未修改主工作区，未提交或推送。
+实施位置：`../IntRuoyiWorktree/20261019`，分支 `codex/20261019`。基于本次审查时主工作区的代码建立工作副本；未修改主工作区，未提交或推送。
 
 | 风险 | 已实施的行为 |
 |---|---|

@@ -44,6 +44,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderA
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDefectReasonOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
@@ -1948,8 +1949,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             BigDecimal quantity = bigDecimalValue(detail.get("quantity"), activeOrderId);
             if (quantity == null || quantity.signum() < 0)
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            Long reasonId = longValue(detail.get("reasonId"), activeOrderId);
+            if (!MesFrontlineDefectReasonOption.isValidLossReasonId(reasonId)) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
             result.add(new MesTeamLeaderActiveOrderDetail.LossDetail()
-                    .setReasonId(requirePositiveLongValue(detail.get("reasonId"), activeOrderId))
+                    .setReasonId(reasonId)
                     .setReasonCode(requireStringValue(detail.get("reasonCode"), activeOrderId))
                     .setReasonName(requireStringValue(detail.get("reasonName"), activeOrderId))
                     .setQuantity(quantity));

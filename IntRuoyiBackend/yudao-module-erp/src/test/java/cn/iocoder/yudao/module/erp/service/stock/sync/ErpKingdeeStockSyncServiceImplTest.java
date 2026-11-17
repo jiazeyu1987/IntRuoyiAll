@@ -139,6 +139,22 @@ class ErpKingdeeStockSyncServiceImplTest {
         verify(stockMapper, never()).insertBatch(any(Collection.class));
     }
 
+    @Test
+    void fullSnapshotClearsRemovedErpStockGroups() {
+        when(inventoryClient.fetchInventoryRows(kingdeeProperties)).thenReturn(List.of());
+        when(warehouseSyncRecordMapper.selectList()).thenReturn(List.of(new ErpKingdeeWarehouseSyncRecordDO()
+                .setWarehouseId(30L).setSourceStockOrgNumber("O").setSourceWarehouseNumber("W")));
+        when(stockMapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(new ErpStockDO().setId(99L).setProductId(20L).setWarehouseId(30L).setCount(BigDecimal.TEN)));
+        when(productMapper.selectBatchIds(any())).thenReturn(List.of(new ErpProductDO().setId(20L).setBarCode("P")));
+        when(stockMapper.updateById(any(ErpStockDO.class))).thenReturn(1);
+        assertEquals(1, syncService.syncStocks().getUpdatedCount());
+        var saved = ArgumentCaptor.forClass(ErpStockDO.class);
+        verify(stockMapper).updateById(saved.capture());
+        assertEquals(BigDecimal.ZERO, saved.getValue().getCount());
+        assertEquals(99L, saved.getValue().getId());
+    }
+
     private static ErpKingdeeInventoryRow buildInventoryRow(String lotNumber, BigDecimal quantity) {
         ErpKingdeeInventoryRow row = new ErpKingdeeInventoryRow();
         row.setMaterialNumber("MAT-001");

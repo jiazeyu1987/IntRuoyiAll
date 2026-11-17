@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -35,7 +36,7 @@ public class MesProEdhrDeviationReviewTaskService {
     public static final String SIGN = "DEVIATION_SIGN";
     public static final String APPROVE = "DEVIATION_APPROVE";
     public static final String CLOSE = "DEVIATION_CLOSE";
-    private static final Set<String> TYPES = Set.of(SIGN, APPROVE, CLOSE);
+    private static final Set<String> TYPES = Set.of(SIGN, APPROVE, CLOSE, "DEVIATION_VERIFY");
     private static final Set<String> APPROVAL_NODES = Set.of("QA", "QUALITY_OWNER", "MANAGEMENT_REP");
 
     @Resource private MesProEdhrWorkTaskMapper taskMapper;
@@ -45,15 +46,20 @@ public class MesProEdhrDeviationReviewTaskService {
     @Resource private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
     public void validateAssignee(String node, Long userId) {
+        permission(node);
         var user = userId == null ? null : adminUserApi.getUser(userId);
-        if (user == null || !Objects.equals(user.getId(), userId)
-                || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                || !CommonStatusEnum.isEnable(user.getStatus())
-                || !permissionApi.hasAnyPermissions(userId, "mes:pro-edhr-deviation:query")
-                || !permissionApi.hasAnyPermissions(userId, "mes:pro-edhr-work-task:query")
-                || !permissionApi.hasAnyPermissions(userId, permission(node))) {
+        if (user == null || !Objects.equals(user.getId(), userId) || !isEligibleAssignee(node, user)) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
         }
+    }
+
+    public boolean isEligibleAssignee(String node, AdminUserRespDTO user) {
+        String nodePermission = permission(node);
+        return user != null && user.getId() != null
+                && Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                && CommonStatusEnum.isEnable(user.getStatus())
+                && permissionApi.hasAnyPermissions(user.getId(), "mes:pro-edhr-work-task:query")
+                && permissionApi.hasAnyPermissions(user.getId(), nodePermission);
     }
 
     public void assign(MesProEdhrDeviationDO deviation, MesProEdhrDeviationHandlingDO handling,
@@ -83,10 +89,12 @@ public class MesProEdhrDeviationReviewTaskService {
                 finish(task, MesProEdhrWorkTaskStatus.CANCELED, "偏差处理版本或接收人变更");
             }
         }
-        String type = "CLOSE".equals(node) ? CLOSE : APPROVAL_NODES.contains(node) ? APPROVE : SIGN;
-        String reason = "偏差" + deviation.getDeviationCode() + "：" + nodeLabel(node) + "（版本" + handling.getContentVersion() + "）";
+        String type = taskType(node);
+        String taskTitle = taskTitle(node, handling);
+        String reason = taskTitle;
         var task = new MesProEdhrWorkTaskDO().setTaskCode("EDHRD-" + UUID.randomUUID())
                 .setTaskType(type).setBusinessScopeType("EDHR_DEVIATION").setBusinessScopeId(deviation.getId())
+                .setRouteId(taskDeadlineService.requireDeviationRouteId(deviation))
                 .setBatchExecutionId(deviation.getBatchExecutionId()).setWorkOrderId(deviation.getWorkOrderId())
                 .setWorkOrderCode(deviation.getWorkOrderCode()).setBatchCode(deviation.getBatchCode())
                 .setAssigneeUserId(userId).setCandidateUserSnapshot(userId.toString())
@@ -96,7 +104,7 @@ public class MesProEdhrDeviationReviewTaskService {
                 .setResponsibilitySourceVersion(handling.getContentVersion().toString())
                 .setResponsibilitySourceDigest(handling.getContentHash())
                 .setStatus(MesProEdhrWorkTaskStatus.TODO).setReason(reason).setRemark(reason)
-                .setActionUrl("/mes/pro/feedback/edhr-deviation?deviationId=" + deviation.getId());
+                .setActionUrl("/mes/pro/feedback/edhr-deviation/detail?deviationId=" + deviation.getId());
         if (transferred) task.setDueTime(originalDeadline);
         else taskDeadlineService.applyToWorkTask(task);
         if (taskMapper.insert(task) != 1 || task.getId() == null) {
@@ -105,15 +113,17 @@ public class MesProEdhrDeviationReviewTaskService {
         var notification = new NotifySendSingleToUserReqDTO();
         notification.setUserId(userId);
         notification.setTemplateCode("MES_EDHR_DEVIATION_REVIEW_ASSIGNED");
-        notification.setTemplateParams(Map.of("reason", reason, "actionUrl", task.getActionUrl(),
-                "workTaskId", task.getId()));
+        notification.setTemplateParams(Map.of("taskTitle", taskTitle, "reason", reason,
+                "workOrderCode", Objects.toString(deviation.getWorkOrderCode(), ""),
+                "batchCode", Objects.toString(deviation.getBatchCode(), ""),
+                "actionUrl", task.getActionUrl(), "workTaskId", task.getId()));
         auxiliaryAudit.notifications(task, () -> List.of(notifyApi.sendSingleMessageToAdmin(notification)));
     }
 
     public MesProEdhrWorkTaskDO require(Long deviationId, MesProEdhrDeviationHandlingDO handling,
                                          String node, Long actor) {
         var tasks = taskMapper.selectList(scope(deviationId)
-                .eq(MesProEdhrWorkTaskDO::getTaskType, "CLOSE".equals(node) ? CLOSE : APPROVAL_NODES.contains(node) ? APPROVE : SIGN)
+                .eq(MesProEdhrWorkTaskDO::getTaskType, taskType(node))
                 .eq(MesProEdhrWorkTaskDO::getSignatureCellKey, node)
                 .eq(MesProEdhrWorkTaskDO::getReviewSourceType, "EDHR_DEVIATION_HANDLING")
                 .eq(MesProEdhrWorkTaskDO::getReviewSourceId, handling.getId())
@@ -174,10 +184,15 @@ public class MesProEdhrDeviationReviewTaskService {
                 .apply("tenant_id = {0}", TenantContextHolder.getRequiredTenantId());
     }
 
+    private String taskType(String node) {
+        return "CORRECTIVE_VERIFIER".equals(node) ? "DEVIATION_VERIFY"
+                : "CLOSE".equals(node) ? CLOSE : APPROVAL_NODES.contains(node) ? APPROVE : SIGN;
+    }
+
     static String permission(String node) {
         return switch (node) {
             case "PREPARER" -> "mes:pro-edhr-deviation:handle";
-            case "VERIFIER" -> "mes:pro-edhr-deviation:verify";
+            case "VERIFIER", "CORRECTIVE_VERIFIER" -> "mes:pro-edhr-deviation:verify";
             case "DEPARTMENT_OWNER" -> "mes:pro-edhr-deviation:department-confirm";
             case "QA", "CLOSE" -> "mes:pro-edhr-deviation:qa-close";
             case "QUALITY_OWNER" -> "mes:pro-edhr-deviation:quality-approve";
@@ -186,16 +201,7 @@ public class MesProEdhrDeviationReviewTaskService {
         };
     }
 
-    private String nodeLabel(String node) {
-        return switch (node) {
-            case "PREPARER" -> "处理记录编制";
-            case "VERIFIER" -> "纠正措施核验";
-            case "DEPARTMENT_OWNER" -> "部门负责人确认";
-            case "QA" -> "QA关闭确认";
-            case "QUALITY_OWNER" -> "质量负责人批准";
-            case "MANAGEMENT_REP" -> "管理者代表批准";
-            case "CLOSE" -> "偏差正式关闭";
-            default -> throw new IllegalArgumentException("未知偏差签署节点：" + node);
-        };
+    private String taskTitle(String node, MesProEdhrDeviationHandlingDO handling) {
+        return MesDeviationTaskDescription.title(taskType(node), node, handling.getCorrectiveOwnerId() != null);
     }
 }

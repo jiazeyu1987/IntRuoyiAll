@@ -95,7 +95,7 @@ const save = async () => {
   if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
   if (!validateChangeReason()) return
   if (form.structure.nodes.length === 0) { error.value = '请至少添加一个文件夹'; return }
-  const siblingNames = new Map<string | null, Set<string>>()
+  const siblingNames = new Map<string | null | undefined, Set<string>>()
   for (const node of form.structure.nodes) {
     const name = node.name.trim()
     if (!name) { error.value = '请填写每个文件夹的名称'; return }

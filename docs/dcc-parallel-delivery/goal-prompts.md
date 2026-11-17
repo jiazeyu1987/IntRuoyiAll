@@ -8,7 +8,7 @@
 
 把下面任务作为持续开发目标，接续现有进度。自主检查、开发、测试、修复、回归，直到本模块业务目标全部实现、验证证据完整、主管理Review问题关闭。可推进的工作未完成时不要结束；阶段汇报、一次测试通过或新增几个类均不算完成。
 
-工作目录C:/IntRuoyi/20260930-dcc-a，分支codex/20260930-dcc-a。沿用doc/tasks/20260930-dcc-a-workflow，保留当前实现和RED/GREEN，不重建任务或reset。依据最终需求HTML v1.3，读取AGENTS.md、对应docs规则、docs/dcc-parallel-delivery/task-a-workflow.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0只设计文案。
+工作目录../IntRuoyiWorktree/20260930-dcc-a，分支codex/20260930-dcc-a。沿用doc/tasks/20260930-dcc-a-workflow，保留当前实现和RED/GREEN，不重建任务或reset。依据最终需求HTML v1.3，读取AGENTS.md、对应docs规则、docs/dcc-parallel-delivery/task-a-workflow.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0只设计文案。
 
 最终目标：
 1. 上传/升版真实顺序为会签→批准→培训(如需)→文控审核→受控→下发；未选培训不创建培训待办。作废会签→批准，通过即作废结束，没有后续四节点。
@@ -30,7 +30,7 @@
 
 把下面任务作为持续开发目标，接续现有进度，自主推进到业务目标实现、验证证据完整、主管理Review问题关闭。可推进的工作未完成不要结束，不以计划、新DTO或一次测试通过当完成。
 
-目录C:/IntRuoyi/20260930-dcc-b，分支codex/20260930-dcc-b。沿用doc/tasks/20260930-dcc-b-project，保留现有工作，不重建/reset。读AGENTS.md、对应docs、需求HTML v1.3及task-b-project.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0只设计说明。
+目录../IntRuoyiWorktree/20260930-dcc-b，分支codex/20260930-dcc-b。沿用doc/tasks/20260930-dcc-b-project，保留现有工作，不重建/reset。读AGENTS.md、对应docs、需求HTML v1.3及task-b-project.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0只设计说明。
 
 最终目标：
 1. 项目实际保存目标市场及其他说明、注册人/生产方两个独立选择、文件转移及目标，前后端创建/编辑/读取事务完整。
@@ -52,7 +52,7 @@
 
 把下面任务作为持续开发目标，接续已有进度，自主检查、实现、测试、修复和回归，直到规则真实接入、验证完整、主管理Review问题关闭。可推进工作未完成不要结束，不以写完版本策略、枚举或一次测试通过当完成。
 
-目录C:/IntRuoyi/20260930-dcc-c，分支codex/20260930-dcc-c。沿用doc/tasks/20260930-dcc-c-version，保留现有源码/BDD/测试记录，不重建/reset。读AGENTS.md、对应docs规则、需求HTML v1.3及task-c-version.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0文案。
+目录../IntRuoyiWorktree/20260930-dcc-c，分支codex/20260930-dcc-c。沿用doc/tasks/20260930-dcc-c-version，保留现有源码/BDD/测试记录，不重建/reset。读AGENTS.md、对应docs规则、需求HTML v1.3及task-c-version.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0文案。
 
 最终目标：
 1. 按逻辑文件互斥检出，显示真实检出人和时间；仅检出人检入/撤销，并发重放/上传失败不留下错误锁或伪版本。
@@ -74,7 +74,7 @@
 
 把下面任务作为持续开发目标，接续现有进度，自主推进到业务目标真实实现、验证证据完整、主管理Review问题关闭。空接口、未接入组件或单次测试通过不算完成；还有可独立推进的工作就继续实现、验证和修复。
 
-目录C:/IntRuoyi/20260930-dcc-d，分支codex/20260930-dcc-d。沿用doc/tasks/20260930-dcc-d-relations，保留已有源码和记录，不重建/reset。读AGENTS.md、对应docs、需求HTML v1.3及task-d-relations.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0文案。
+目录../IntRuoyiWorktree/20260930-dcc-d，分支codex/20260930-dcc-d。沿用doc/tasks/20260930-dcc-d-relations，保留已有源码和记录，不重建/reset。读AGENTS.md、对应docs、需求HTML v1.3及task-d-relations.md、implementation-contract.md(IC-1)、ownership.md、verification-plan.md。IC-1覆盖旧G0文案。
 
 最终目标：
 1. 统一文件选择器/关联窗口可供真实上传和文件操作使用：顶部初始文件，左侧项目文件夹，右侧全局授权搜索；分页/多次搜索保留已选，去重、自关联禁止，上下文一致。

@@ -8,6 +8,6 @@
 
 需要保留的实际依据：质量批准人的职责/账号、批准的策略版本及完整SHA、覆盖报告SHA、批准意见、实际批准时间（Asia/Shanghai）、可核查的电子签名/批准记录引用。使用外部正式质量记录时，也必须能够核对批准内容与这两份固定文件一致；开发不能替质量负责人批准。
 
-批准资料：[现有配置方案](C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-public-browser/g22-gxp-local-test-configuration-plan.md)。现有方案中的旧“等待授权”状态仅为当时历史；此次写入已获条件授权，未满足的是实际质量批准，不能重复索取同一写入许可。
+批准资料：现有配置方案（联动项目或 worktree 相对布局示例：`../../../../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-public-browser/g22-gxp-local-test-configuration-plan.md`）。现有方案中的旧“等待授权”状态仅为当时历史；此次写入已获条件授权，未满足的是实际质量批准，不能重复索取同一写入许可。
 
 规则来源：`docs/system/gxp-audit-trail-config-security-deployment.md`明确“策略生效需要质量电子签名”；`docs/csv-validation/12-qms-training-approval.md`明确质量批准“不能由开发自批准”。如用户希望补充系统内的正式批准入口，应先提交具体模块、权限、签名绑定和影响方案；不偷偷新增流程，也不伪造已存在页面。

@@ -4737,18 +4737,7 @@ const getDailyCompareRowKey = (row: MesProScheduleOrderDailyCompareVO) => {
   return `${row.planDate}-${row.scheduleOrderProcessId}`
 }
 
-const getOperationTypeText = (type: string) => {
-  const textMap: Record<string, string> = {
-    FREEZE: '冻结',
-    UNFREEZE: '解冻',
-    UPDATE: '修改',
-    DELETE: '删除',
-    MANUAL_FINISH: '完成',
-    REVOKE_MANUAL_FINISH: '撤销完成',
-    SYNC_PROGRESS: '同步进度'
-  }
-  return textMap[type] || type || '-'
-}
+
 
 onBeforeUnmount(() => {
   resetReplanApplyProgress()

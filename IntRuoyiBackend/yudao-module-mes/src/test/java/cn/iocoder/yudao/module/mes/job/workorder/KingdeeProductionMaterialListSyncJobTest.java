@@ -84,7 +84,7 @@ class KingdeeProductionMaterialListSyncJobTest {
         ErpKingdeeSyncRuntimeService runtimeService = mock(ErpKingdeeSyncRuntimeService.class);
         cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult result =
                 cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(null, 1, 1, 1, 0);
-        when(syncService.syncAllSkipExisting(91L)).thenReturn(result);
+        when(syncService.syncAllWithUpdates(91L)).thenReturn(result);
         when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
                 .thenAnswer(invocation -> invocation.<ErpKingdeeSyncTask>getArgument(1).run(
                         ErpKingdeeSyncContext.builder().runId(91L)
@@ -98,7 +98,7 @@ class KingdeeProductionMaterialListSyncJobTest {
 
         assertTrue(output.contains("full sync"));
         assertTrue(output.contains("updated=1"));
-        verify(syncService).syncAllSkipExisting(91L);
+        verify(syncService).syncAllWithUpdates(91L);
         verify(syncService, never()).syncModifiedBetween(any(), any());
     }
 

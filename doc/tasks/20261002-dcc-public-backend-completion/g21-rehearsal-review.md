@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G21 isolated rehearsal driver preparation
 
 ready_for_closeout for Root Review. **31 offline tests PASS after independent R01/R02 repair**; no database connection, restore, SQL migration or actual driver invocation was performed. No MySQL rehearsal PASS is claimed. Production Java/SQL, Root support modules, other Owner files, service/Maven/Docker/Git were untouched.
@@ -9,7 +11,7 @@ ready_for_closeout for Root Review. **31 offline tests PASS after independent R0
 - g21-rehearsal-postflight-package.json: exact final detail Owner receipt and all query/environment/validator/contract/import dependency hashes. Unfinished or changed postflight rejects before transport creation.
 - g21-rehearsal-prepared-inputs.json: produced by offline unit setup from the actual frozen disk materials and complete25 prerequisite proofs. status prepared_verified_rehearsal_not_database_execution, databaseWritesExecuted=false, writeAuthorizationGranted=false. No Docker/MySQL transport was created by prepare.
 - g21-rehearsal-tests.py: offline positive/negative tests; full first/repeat pipeline uses explicit fake transport/snapshots, not a real MySQL result.
-- g21-rehearsal-delivery-fingerprints.json: five raw+normalized source/material fingerprints and frozen Root support hashes. All executable prepared scripts remain protected outside the repository at C:/IntRuoyiBackups/20261003-dcc-integration/exec-g21-0610.
+- g21-rehearsal-delivery-fingerprints.json: five raw+normalized source/material fingerprints and frozen Root support hashes. All executable prepared scripts remain protected outside the repository at 历史外部材料（引用已移除）
 
 ## Entry points
 
@@ -23,7 +25,7 @@ Disk-only revalidation:
 
 Future Root invocation only after actual explicit user write authorization is recorded:
 
-`python -B g21-rehearsal-driver.py rehearse --prepared g21-rehearsal-prepared-inputs.json --private-directory C:/IntRuoyiBackups/20261003-dcc-integration/rehearsal-g21-NEW --authorize-rehearsal-writes`
+`python -B g21-rehearsal-driver.py rehearse --prepared g21-rehearsal-prepared-inputs.json --private-directory 历史外部材料（引用已移除） --authorize-rehearsal-writes`
 
 The flag is a technical gate and receipt field; it never proves user permission. Current real authorization is still pending. Without it the function rejects before any transport/client/connection. Source/foreign DB modes reject; only fixed dcc_intqms_g18_rehearsal may receive restores/migrations. Parent protection-directory must be the exact task backup directory and private run directory must be new, so stdout/stderr/step proofs cannot silently overwrite earlier results.
 

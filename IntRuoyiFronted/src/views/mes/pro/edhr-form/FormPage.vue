@@ -1068,11 +1068,7 @@ const submitForm = async () => {
   }
 }
 
-const isFormInstanceRow = (
-  row: EdhrFormInstanceRespVO | EdhrFormTemplateRespVO
-): row is EdhrFormInstanceRespVO => {
-  return 'instanceCode' in row || 'templateId' in row
-}
+
 
 
 

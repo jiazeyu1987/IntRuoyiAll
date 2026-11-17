@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-将用户提供的旧项目 `AGENTS.md` 规则整理并改写为适合当前 `E:\IntRuoyi` 工作区的项目级 `AGENTS.md`，保留严格无 fallback、任务文档、BDD/TDD、真实 E2E、编码安全和收尾规则，并修正项目路径、仓库结构与本项目约束。
+将用户提供的旧项目 `AGENTS.md` 规则整理并改写为适合当前 `.` 工作区的项目级 `AGENTS.md`，保留严格无 fallback、任务文档、BDD/TDD、真实 E2E、编码安全和收尾规则，并修正项目路径、仓库结构与本项目约束。
 
 ## Milestones
 
@@ -16,7 +16,7 @@
 
 - `AGENTS.md` 存在于当前项目根目录。
 - `AGENTS.md` 使用 UTF-8 文本，中文内容可正常读取。
-- 文档中的项目路径指向当前 `E:\IntRuoyi` 工作区及其真实子目录。
+- 文档中的项目路径指向当前 `.` 工作区及其真实子目录。
 - 文档保留无 fallback、任务文档、BDD/TDD、E2E、Git、编码安全、收尾和 PowerShell 规则。
 
 ## 设计约束检查
@@ -36,4 +36,4 @@ completed
 
 ## Final Verification Result
 
-PASS。`AGENTS.md` 已按当前 `E:\IntRuoyi` 工作区适配完成；UTF-8 解码、关键规则覆盖、当前路径引用、旧项目绝对路径清理和 task-closeout-cleanup 均验证通过。当前工作区不是 Git 仓库，因此未执行提交。
+PASS。`AGENTS.md` 已按当前 `.` 工作区适配完成；UTF-8 解码、关键规则覆盖、当前路径引用、旧项目绝对路径清理和 task-closeout-cleanup 均验证通过。当前工作区不是 Git 仓库，因此未执行提交。

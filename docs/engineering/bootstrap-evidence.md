@@ -2,7 +2,7 @@
 
 ## Goal And Scope
 
-- Goal: initialize `E:\IntRuoyi` as a local Git repository that contains both frontend and backend source trees.
+- Goal: initialize `.` as a local Git repository that contains both frontend and backend source trees.
 - Scope: root repository metadata, root `.gitignore`, and local baseline commit only.
 
 ## Detected Stack
@@ -18,16 +18,16 @@
 
 ## Commands
 
-- Status: `git -C E:\IntRuoyi status --short`.
-- Ignore verification: `git -C E:\IntRuoyi check-ignore -v <path>`.
-- Commit: `git -C E:\IntRuoyi commit -m "chore: initialize local repository baseline"`.
+- Status: `git -C . status --short`.
+- Ignore verification: `git -C . check-ignore -v <path>`.
+- Commit: `git -C . commit -m "chore: initialize local repository baseline"`.
 - Install/dev/test/lint/format/build: not changed by this repository bootstrap task; use the existing frontend/backend commands already documented in their project files.
-- Smoke: `git -C E:\IntRuoyi status --short` and `git -C E:\IntRuoyi check-ignore -v <path>`.
+- Smoke: `git -C . status --short` and `git -C . check-ignore -v <path>`.
 
 ## RED Evidence
 
-- `git -C E:\IntRuoyi status --short` failed because `E:\IntRuoyi` was not a Git repository.
-- `Test-Path E:\IntRuoyi\.gitignore` returned `False`.
+- `git -C . status --short` failed because `.` was not a Git repository.
+- `Test-Path ./.gitignore` returned `False`.
 
 ## GREEN Evidence
 
@@ -39,7 +39,7 @@
 
 ## Verification
 
-- Local repository root: `E:\IntRuoyi`.
+- Local repository root: `.`.
 - Branch: `main`.
 - Baseline commit: `c67686a52e6f960820854536b5f3756c7cf9741f`.
 - Tracked files: 18300.

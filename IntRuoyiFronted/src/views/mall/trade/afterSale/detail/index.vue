@@ -127,7 +127,7 @@
 <script lang="ts" setup>
 import * as AfterSaleApi from '@/api/mall/trade/afterSale/index'
 import { fenToYuan } from '@/utils'
-import { DICT_TYPE,  getDictObj } from '@/utils/dict'
+import { DICT_TYPE } from '@/utils/dict'
 import { formatDate } from '@/utils/formatTime'
 import UpdateAuditReasonForm from '@/views/mall/trade/afterSale/form/AfterSaleDisagreeForm.vue'
 import { createImageViewer } from '@/components/ImageViewer'
@@ -145,22 +145,6 @@ const formData = ref<Record<string, any>>({
   logs: []
 })
 const updateAuditReasonFormRef = ref() // 拒绝售后表单 Ref
-
-/** 获得 userType 颜色 */
-const getUserTypeColor = (type: number) => {
-  const dict = getDictObj(DICT_TYPE.USER_TYPE, type)
-  switch (dict?.colorType) {
-    case 'success':
-      return '#67C23A'
-    case 'info':
-      return '#909399'
-    case 'warning':
-      return '#E6A23C'
-    case 'danger':
-      return '#F56C6C'
-  }
-  return '#409EFF'
-}
 
 /** 获得详情 */
 const getDetail = async () => {

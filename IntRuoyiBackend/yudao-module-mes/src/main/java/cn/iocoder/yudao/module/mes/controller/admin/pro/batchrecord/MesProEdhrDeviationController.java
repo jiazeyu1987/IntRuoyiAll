@@ -30,6 +30,9 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class MesProEdhrDeviationController {
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationAccessService accessService;
+
+    @Resource
     private MesProEdhrDeviationService deviationService;
 
     @Resource
@@ -58,12 +61,20 @@ public class MesProEdhrDeviationController {
         return success(deviationService.getBatchOptionsByActiveOrder(activeOrderId));
     }
 
+    @GetMapping("/order-options")
+    @Operation(summary = "分页查询可发起偏差的生产订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:create')")
+    public CommonResult<PageResult<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationOrderOptionRespVO>> getOrderOptions(
+            @Valid MesProEdhrDeviationBatchOptionPageReqVO reqVO) {
+        return success(deviationService.getOrderOptions(reqVO));
+    }
+
     @PostMapping("/create")
-    @Operation(summary = "发起一条关联正式批记录的偏差")
+    @Operation(summary = "按生产订单发起偏差")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:create')")
     public CommonResult<MesProEdhrDeviationRespVO> create(
             @Valid @RequestBody MesProEdhrDeviationCreateReqVO reqVO) {
-        return success(deviationService.create(SecurityFrameworkUtils.getLoginUserId(), reqVO));
+        return success(deviationService.createByWorkOrder(SecurityFrameworkUtils.getLoginUserId(), reqVO));
     }
 
     @GetMapping("/creation-batch-options-by-active-order")
@@ -97,6 +108,7 @@ public class MesProEdhrDeviationController {
     @Operation(summary = "获取偏差详情")
     @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrDeviationRespVO> get(@jakarta.validation.constraints.NotNull Long id) {
+        accessService.requireRead(id);
         return success(deviationService.get(id));
     }
 }

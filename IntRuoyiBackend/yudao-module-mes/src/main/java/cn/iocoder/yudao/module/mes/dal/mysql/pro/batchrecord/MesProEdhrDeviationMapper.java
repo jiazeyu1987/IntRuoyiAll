@@ -16,6 +16,16 @@ import java.time.LocalDateTime;
 @Mapper
 public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviationDO> {
 
+    @Update("""
+            UPDATE mes_pro_edhr_deviation
+            SET receiver_id=#{receiverId}, receiver_name=#{receiverName}, updater=#{actor}, version=version+1
+            WHERE tenant_id=#{tenantId} AND id=#{id} AND version=#{expectedVersion}
+              AND status='OPEN' AND receiver_id IS NULL AND deleted=0
+            """)
+    int assignMissingReceiver(@Param("tenantId") Long tenantId, @Param("id") Long id,
+            @Param("expectedVersion") Integer expectedVersion, @Param("receiverId") Long receiverId,
+            @Param("receiverName") String receiverName, @Param("actor") Long actor);
+
     default Page<MesProEdhrDeviationDO> selectPageByTenant(Page<MesProEdhrDeviationDO> page, Long tenantId,
                                                             String status, String level, Long batchExecutionId, Long activeOrderId,
                                                             String search, String sortField, String sortOrder,
@@ -31,8 +41,19 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
                         .or().apply("active_order_id IN (SELECT active_order_id FROM mes_pro_edhr_batch_execution_origin WHERE tenant_id = {0} AND batch_execution_id = {1} AND deleted = 0 AND entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED','ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY'))", tenantId, batchExecutionId))
                 .and(search != null && !search.isBlank(), w -> w.like(MesProEdhrDeviationDO::getDeviationCode, search)
                         .or().like(MesProEdhrDeviationDO::getBatchExecutionCode, search)
-                        .or().like(MesProEdhrDeviationDO::getBatchCode, search))
+                        .or().like(MesProEdhrDeviationDO::getBatchCode, search)
+                        .or().like(MesProEdhrDeviationDO::getWorkOrderCode, search))
                 ;
+        if (filters instanceof cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationPageReqVO request
+                && request.getScopedReaderId() != null) {
+            Long actor = request.getScopedReaderId();
+            wrapper.and(w -> w.eq(MesProEdhrDeviationDO::getInitiatorUserId, actor)
+                    .or().eq(MesProEdhrDeviationDO::getReceiverId, actor)
+                    .or().apply("id IN (SELECT deviation_id FROM mes_pro_edhr_deviation_handling "
+                            + "WHERE tenant_id = {0} AND deleted = 0 AND (corrective_owner_id = {1} "
+                            + "OR JSON_CONTAINS(JSON_EXTRACT(reviewer_assignments_json, '$.*'), CAST({1} AS JSON))))",
+                            tenantId, actor));
+        }
         if (initiatedAtStart != null) {
             wrapper.ge(MesProEdhrDeviationDO::getInitiatedAt, initiatedAtStart);
         }
@@ -41,6 +62,7 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
         }
         ListFilterQueryUtils.apply(filters, wrapper, java.util.Map.ofEntries(
                 java.util.Map.entry("deviationCode", text("deviation_code")),
+                java.util.Map.entry("workOrderCode", text("work_order_code")),
                 java.util.Map.entry("batchExecutionCode", text("batch_execution_code")),
                 java.util.Map.entry("batchCode", text("batch_code")),
                 java.util.Map.entry("level", text("CASE WHEN level = 'CRITICAL' THEN '重大' ELSE '普通' END")),

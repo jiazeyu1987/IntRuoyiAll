@@ -2820,7 +2820,7 @@ import SupervisorReviewActions from './SupervisorReviewActions.vue'
 import ReviewSectionNavigation from './ReviewSectionNavigation.vue'
 import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, requireDelayedConfirmationRound, type ApplicationApprovalRead } from './application-round-context'
 import { getControlledFileApplicationRounds, getControlledFileApplicationProgress } from '@/api/dcc/controlledFile/applicationRead'
-import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, getNativeApprovalProcessText, resolveSignatureDuty, resolveRecordedSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
+import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, resolveSignatureDuty, resolveRecordedSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
 import DetailRelationsPanel from './DetailRelationsPanel.vue'
 import DetailApplicationPanel from './DetailApplicationPanel.vue'
 import DetailLifecycleProjectionRepairDialog from './DetailLifecycleProjectionRepairDialog.vue'
@@ -3009,7 +3009,7 @@ const detailReadSelectionState = computed(() => {
 
 const DOC_CONTROL_ROLE_CODE = 'doc_control'
 const APPLICANT_REWORK_TASK_DEFINITION_KEY = 'APPLICANT_REWORK'
-const DCC_OBSOLETE_ACTION_CODE = 'OBSOLETE'
+
 const DCC_PUBLISH_ACTION_CODE = 'PUBLISH'
 const hasMetadataEditorRole = (roles: string[]) => roles.includes(DOC_CONTROL_ROLE_CODE) || checkPermi(['dcc:controlled-file:edit'])
 
@@ -3708,8 +3708,7 @@ const approvalHandlingTrainingText = computed(() => {
   if (scope?.applicationType === 'OBSOLETE') return '无需培训（作废流程批准后结束）'
   return scope?.flowContract?.needTraining ? '需要培训' : '无需培训'
 })
-const approvalHandlingProcessText = computed(() => currentApprovalApplicationType.value
-  ? getNativeApprovalProcessText(approvalProgressScope.value) : '本次申请身份尚未核验')
+
 const lifecycleProjectionRepairVisible = ref(false)
 const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && !fileChangesLocked.value && Boolean(fileDetail.value)
   && userStore.getRoles.includes(DOC_CONTROL_ROLE_CODE)
@@ -4851,29 +4850,7 @@ const loadControlledPrintRecords = async () => {
   }
 }
 
-const buildObsoleteBusinessActionContext = (
-  detail: ControlledFileVO | undefined,
-  reason = '作废当前版本'
-): BusinessActionContextVO | null => {
-  if (!detail?.id || !detail.versionNo || !detail.status) {
-    return null
-  }
-  return {
-    dataDomain: 'DCC',
-    systemCode: 'DCC',
-    objectType: 'CONTROLLED_FILE',
-    objectId: String(detail.id),
-    objectVersion: detail.versionNo,
-    actionCode: DCC_OBSOLETE_ACTION_CODE,
-    objectState: detail.status,
-    orgCode: '',
-    deptCode: String(userStore.getUser.deptId || ''),
-    roleCodes: userStore.getRoles,
-    productCode: detail.productCode || '',
-    categoryCode: detail.categoryId ? String(detail.categoryId) : '',
-    reason
-  }
-}
+
 
 const buildPublishBusinessActionContext = (
   detail: ControlledFileVO | undefined,

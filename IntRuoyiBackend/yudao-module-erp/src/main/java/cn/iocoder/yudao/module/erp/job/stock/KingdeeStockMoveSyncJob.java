@@ -66,11 +66,11 @@ public class KingdeeStockMoveSyncJob implements JobHandler, ErpKingdeeFullSyncHa
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeStockMoveSyncResult result = windowStart == null ? stockMoveListService.syncAllSkipExisting()
+            ErpKingdeeStockMoveSyncResult result = windowStart == null ? stockMoveListService.syncAll()
                     : stockMoveListService.syncAllSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
-                    result.getCreatedCount(), 0, result.getSkippedCount(), 0);
+                    result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeeStockMoveSyncResult result = resultReference.get();
         return String.format("ERP Kingdee stock move full sync: created=%d, skipped=%d",

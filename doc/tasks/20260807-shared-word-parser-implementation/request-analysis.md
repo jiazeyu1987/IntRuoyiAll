@@ -12,7 +12,7 @@
 
 ### Repository evidence inspected on 2026-08-07
 
-- 仓库根目录是 `E:/IntRuoyi`，当前分支是 `int_main`，跟踪 `origin/int_main`。
+- 仓库根目录是 `.`，当前分支是 `int_main`，跟踪 `origin/int_main`。
 - 检查时分支领先远端 11 个提交，且存在其他并发任务的已修改和未跟踪文件；这些改动不属于本任务，不能修改、回滚或混入本任务提交。
 - `IntRuoyiBackend/pom.xml` 当前包含 BPM 和 MES 模块，但没有共享 Word parser 模块。
 - `yudao-module-mes/pom.xml` 当前依赖 `yudao-module-bpm`。因此新增 BPM -> MES 依赖会形成循环依赖，不能采用。

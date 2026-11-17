@@ -7,8 +7,8 @@ PASS
 ## Evidence
 
 - 已创建 `docs/worktree-restrictions.md`。
-- `docs/worktree-restrictions.md` 包含 worktree 根目录 `D:\IntRuoyiWorktree\`。
-- `docs/worktree-restrictions.md` 包含端口登记表 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- `docs/worktree-restrictions.md` 包含 worktree 根目录 `../IntRuoyiWorktree/`。
+- `docs/worktree-restrictions.md` 包含端口登记表 `../IntRuoyiWorktree/.ports/worktree-ports.json`。
 - `docs/worktree-restrictions.md` 固化 `int_main` 专属端口：前端 `8081`、后端 `48081`。
 - `docs/worktree-restrictions.md` 固化非 `int_main` 端口槽位公式：前端 `8081 + slot`、后端 `48081 + slot`。
 - `docs/worktree-restrictions.md` 明确端口冲突和未知占用必须 fail fast。

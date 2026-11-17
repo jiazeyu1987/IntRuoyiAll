@@ -50,6 +50,14 @@ test('normal submit carries changed values, current signature and original rejec
   assert.equal(h.calls[0].payload.correction.changeReason, 'PQC组长退回后重新签名提交')
 })
 
+test('a returned inspection without item results fails before resubmitting', async () => {
+  const h = harness([], detail)
+  await assert.rejects(h.submitReturnedPqcInspection(detail, {
+    actualInspectionQuantity: 3, scrapQuantity: 0, signaturePassword: 'test-pin'
+  }), /必须包含检验项目结果/)
+  assert.equal(h.calls.length, 0)
+})
+
 test('unchanged return resubmits original values with a fresh signature and exact rejected round', async () => {
   const h = harness([], detail)
   await h.submitReturnedPqcInspection(detail, {

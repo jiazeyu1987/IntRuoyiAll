@@ -153,6 +153,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
@@ -3539,6 +3540,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 List<MesProcessPoolReportAllocationDO> allocations =
                         allocationsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of());
                 List<MesProProcessPoolEventDO> productionEvents = allocations.stream()
+                        .filter(allocation -> allocation.getAllocatedQuantity().signum() > 0)
                         .map(MesProcessPoolReportAllocationDO::getEventId).distinct()
                         .map(productionEventsById::get).filter(Objects::nonNull).toList();
                 Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess =
@@ -3569,7 +3571,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         processRemainingQuantities,
                         quantityConflictProcessCount > 0,
                         quantityConflictProcessCount,
-                        overageQuantity));
+                        overageQuantity,
+                        productionEvents.stream().anyMatch(event -> hasAbnormalProductionParameters(activeOrder.getId(), event))));
             } catch (ServiceException ex) {
                 if (!isKnownActiveOrderReadError(ex)) {
                     throw ex;
@@ -3585,6 +3588,44 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             List<MesProcessPoolActiveOrderDO> activeOrders,
             Map<Long, MesProRouteVersionDO> routeVersionsById) {
         return loadActiveOrderProgress(activeOrders, routeVersionsById, new LinkedHashMap<>());
+    }
+
+    /** 与生产明细一致，按已保存的状态和范围识别异常，不修改记录或人工异常状态。 */
+    private static boolean hasAbnormalProductionParameters(Long activeOrderId, MesProProcessPoolEventDO event) {
+        if (event.getRawPayload() == null || event.getRawPayload().isBlank()) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
+                    activeOrderId, "PRODUCTION_RAW_PAYLOAD eventId=" + event.getId());
+        }
+        JSONObject payload = JSON.parseObject(event.getRawPayload());
+        if (payload == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
+                    activeOrderId, "PRODUCTION_RAW_PAYLOAD eventId=" + event.getId());
+        }
+        if (hasAbnormalParameterReadings(payload.getJSONArray("deviceParameterReadings"))) return true;
+        JSONArray materials = payload.getJSONArray("materialDetails");
+        if (materials != null) {
+            for (int index = 0; index < materials.size(); index++) {
+                if (hasAbnormalParameterReadings(materials.getJSONObject(index)
+                        .getJSONArray("deviceParameterReadings"))) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasAbnormalParameterReadings(JSONArray readings) {
+        if (readings == null) return false;
+        for (int index = 0; index < readings.size(); index++) {
+            JSONObject reading = readings.getJSONObject(index);
+            String status = reading.getString("parameterStatus");
+            if (status != null && !status.isBlank() && !"NORMAL".equals(status)) return true;
+            BigDecimal value = reading.getBigDecimal("value");
+            if (value == null) continue;
+            BigDecimal lower = reading.getBigDecimal("lowerLimit");
+            BigDecimal upper = reading.getBigDecimal("upperLimit");
+            if ((lower != null && value.compareTo(lower) < 0)
+                    || (upper != null && value.compareTo(upper) > 0)) return true;
+        }
+        return false;
     }
 
     private static Map<ActiveOrderProcessIdentity, BigDecimal> resolveConservativeProcessProgressQuantities(
@@ -3840,6 +3881,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             || packagingAccess.canAccess(releaseApplication.getAppliedBy(), activeOrder)))
                 .setQuantityConflict(progress.hasQuantityConflict())
                 .setHasQuantityConflict(progress.hasQuantityConflict())
+                .setHasParameterAbnormal(progress.hasParameterAbnormal())
                 .setQuantityConflictProcessCount(progress.quantityConflictProcessCount())
                 .setOverageQuantity(progress.overageQuantity())
                 .setSimulated(activeOrder.getSimulated())
@@ -4745,7 +4787,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                processRemainingQuantities,
                                        boolean hasQuantityConflict,
                                        int quantityConflictProcessCount,
-                                       BigDecimal overageQuantity) {
+                                       BigDecimal overageQuantity,
+                                       boolean hasParameterAbnormal) {
     }
 
     private record Stage1GeneratedDetailTarget(Long activeOrderId, String workOrderCode,

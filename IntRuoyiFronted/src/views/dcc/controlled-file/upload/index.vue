@@ -854,11 +854,9 @@ import { getFileTypeTaxonomyUploadOptions, resolveFileTypeActiveCategory, type D
 import { buildUploadFileTypePaths, uploadFileTypeIdentity } from './file-type-options'
 import {
   cleanupControlledFileUploadTicket,
-  cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
   getControlledFileCurrentVersion,
   getControlledFileUploadDirectoryTree,
-  getControlledFileUploadNameOptions,
   checkControlledFileRouteReadiness,
   previewControlledFileProjectProduct,
   submitControlledFile,
@@ -891,8 +889,6 @@ import {
   isFileNumberChainConflictMessage,
   isDccProductRequiredForCategoryCode,
   validateControlledFileSelection,
-  validateDrawingPdfUpload,
-  validateSingleUploadFileSelection,
   validateDccProjectProductCode,
   buildUploadEffectiveChoice,
   validateUploadTickets,
@@ -914,7 +910,7 @@ const userStore = useUserStore()
 interface UploadNameSuggestionItem {
   value: string
   templateItemId?: number
-  fileTypeTaxonomyId?: number
+  fileTypeTaxonomyId?: number | null
   taxonomyPath?: string
   currentVersionNo?: string | null
   controlledFileId?: number | null
@@ -1266,14 +1262,8 @@ const uploadSubmitterService = createUploadSubmitterService({
   createWorking: createWorkingControlledFile
 })
 
-const formatProjectCodeOptionLabel = (project: DccDiscoveredProject) =>
-  [project.projectName, project.projectCode].filter(Boolean).join(' · ')
-const canLoadUploadNameOptions = computed(
-  () =>
-    Boolean(formData.dccProjectCodeId) &&
-    Boolean(formData.fileTypeTaxonomyId) &&
-    isFileTypeTaxonomyDepthValid.value
-)
+
+
 
 const formRules = reactive<FormRules>({
   dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],

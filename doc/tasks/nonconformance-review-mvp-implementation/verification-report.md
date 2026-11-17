@@ -12,9 +12,9 @@
 - `pnpm install --frozen-lockfile` -> PASS，锁文件未变更
 - `pnpm ts:check` -> PASS
 - `git diff --check` -> PASS，仅输出 CRLF 提示
-- `validate_quality_assurance.py --evidence D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830\doc\tasks\nonconformance-review-mvp-implementation\verification-report.md` -> PASS
+- `validate_quality_assurance.py --evidence ../IntRuoyiWorktree/nonconformance-review-mvp-20260830/doc/tasks/nonconformance-review-mvp-implementation/verification-report.md` -> PASS
 - `rg -n "No checked-out worktree for main branch|task-closeout 主线 worktree 可见性门禁" docs\experience-index.md docs\worktree-memory.md` -> PASS
-- `E:\IntRuoyi\scripts\runtime\reserve-worktree-slot.ps1 ... -Profile int_batch -AsJson` -> PASS，分配 `slot 1 / 8042 / 48042`
+- `./scripts/runtime/reserve-worktree-slot.ps1 ... -Profile int_batch -AsJson` -> PASS，分配 `slot 1 / 8042 / 48042`
 - `task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，未找到 `int_main` 的 checked-out worktree
 - `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS，完整运行 Jar 已生成并确认包含新增 Controller
 - `run-release-migration-policy-gate.py`（目标迁移 + 依赖迁移）-> PASS
@@ -111,7 +111,7 @@
 - 发现并修复：admin 金手指曾绕过前端不合格冻结提示；修复后不合格冻结对任何角色生效，其他锁定仍保持原有高权限语义。
 - 非目标遗留：全局审批待办角标接口报 `APPROVAL_ADAPTER_PAGE_INCONSISTENT`，已作为 `nonTargetConsoleErrors` 留证；不合格评审接口和页面未出现目标错误。
 - 安全收尾：所有 Playwright trace、任务运行日志和任务专属运行进程均已清理，`8309/48309` 已释放。
-- Git 状态：本轮 1 个前端修复、2 个 E2E 文件及任务文档已在 `E:\IntRuoyi` 工作树更新，但未暂存、未提交、未 push。
+- Git 状态：本轮 1 个前端修复、2 个 E2E 文件及任务文档已在 `.` 工作树更新，但未暂存、未提交、未 push。
 
 ## PQC提交入口迁移复验（2026-08-31）
 

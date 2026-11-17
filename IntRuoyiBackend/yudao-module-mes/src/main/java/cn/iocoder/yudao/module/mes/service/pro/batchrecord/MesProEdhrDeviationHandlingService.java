@@ -10,6 +10,21 @@ public interface MesProEdhrDeviationHandlingService {
     MesProEdhrDeviationHandlingRespVO save(Long actorUserId, Long deviationId,
                                             MesProEdhrDeviationHandlingSaveReqVO reqVO);
 
+    MesProEdhrDeviationHandlingRespVO submitInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingSubmitReqVO req);
+
+    MesProEdhrDeviationHandlingRespVO submitCorrective(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveReqVO req);
+
+    MesProEdhrDeviationHandlingRespVO verifyCorrective(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveVerifyReqVO req);
+
+    MesProEdhrDeviationHandlingRespVO returnToInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationReviewReturnReqVO req);
+
+    MesProEdhrDeviationHandlingRespVO withdrawInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationInvestigationWithdrawReqVO req);
+
     Long sign(Long actorUserId, Long deviationId, String node, String password, String comment,
               Integer expectedContentVersion, String expectedContentHash);
 

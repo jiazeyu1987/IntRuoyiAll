@@ -458,7 +458,7 @@
             <el-descriptions-item label="项目负责人">{{ row.projectLeader }}（账号 {{ row.projectLeaderUserId || '历史未记录' }}）</el-descriptions-item>
             <el-descriptions-item label="目录模板ID">{{ row.folderTemplateId || '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="驳回原因">{{ row.rejectReason || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="审批方式"><span v-if="row.reviewContract === 'ROLE_SINGLE_REVIEW_V1'">项目审核员：任一合格成员审批</span><span v-else>{{ row.configuredReviewerNickname || '历史未记录' }}<span v-if="row.configuredReviewerUsername">（{{ row.configuredReviewerUsername }}）</span>；原审核、批准两环节</span></el-descriptions-item>
+            <el-descriptions-item label="审批方式"><span v-if="row.reviewContract === 'DIRECT_CREATE_V1'">直接创建，无需审核</span><span v-else-if="row.reviewContract === 'ROLE_SINGLE_REVIEW_V1'">项目审核员：任一合格成员审批</span><span v-else>{{ row.configuredReviewerNickname || '历史未记录' }}<span v-if="row.configuredReviewerUsername">（{{ row.configuredReviewerUsername }}）</span>；原审核、批准两环节</span></el-descriptions-item>
             <el-descriptions-item label="新建原因">{{ row.creationReason || '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="本次写入原因">{{ row.writeReason || '尚未写入' }}</el-descriptions-item>
             <el-descriptions-item label="申请链">{{ row.previousRequestId ? '由申请 ' + row.previousRequestId + ' 重提' : '首次申请' }}{{ row.resubmittedRequestId ? '；已重提为 ' + row.resubmittedRequestId : '' }}</el-descriptions-item>
@@ -675,8 +675,6 @@ import {
 } from '@/api/dcc/controlledFile/productCatalog'
 import {
   createDccProjectProductRequest,
-  reviewDccProjectProductRequest,
-  approveDccProjectProductRequest,
   resubmitDccProjectProductRequest,
   dccProjectProductRequestIdentity,
   getDccProjectProductRequest,
@@ -1299,39 +1297,7 @@ const submitProjectProductRequest = async () => {
   }
 }
 
-const handleProjectProductAction = async (row: DccProjectProductCreateRespVO, node: 'review' | 'approve', approve: boolean) => {
-  if (projectProductRequestsLoading.value || projectProductLoading.value || !projectProductDialogVisible.value) return
-  if (!canPerformProjectAction(row, node)) { projectProductError.value = '当前账号不具备本申请的办理资格'; return }
-  const sequence = projectProductDialogSequence
-  const actor = projectProductActorScope()
-  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope() && projectProductDialogVisible.value
-  const reason = window.prompt(approve ? '可填写通过意见（选填）' : '请输入驳回原因', projectProductActionReason.value)
-  if (reason === null) return
-  projectProductActionReason.value = reason.trim()
-  if (!approve && !reason.trim()) { projectProductError.value = '请输入驳回原因'; return }
-  if (reason.length > 500) { projectProductError.value = '审批意见不能超过500字'; return }
-  if (!current() || !canPerformProjectAction(row, node)) return
-  projectProductRequestsLoading.value = true
-  projectProductError.value = ''
-  try {
-    const saved = node === 'review'
-      ? await reviewDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-      : await approveDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-    if (!current()) return
-    projectProductExactRequestId.value = saved.id
-    projectProductRequests.value = [saved]
-    await loadProjectProductRequests()
-    if (!current()) return
-    if (projectProductError.value) projectProductError.value = '决定已保存，但读取最新申请失败：' + projectProductError.value
-    else if (saved.status === 'WRITE_FAILED') projectProductError.value = saved.writeErrorMessage || '决定已保存，项目建档失败，请核对后重试'
-    else message.success('审批处理成功')
-  } catch (cause) {
-    if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
-    else if (current()) projectProductRequestsLoading.value = false
-  }
-}
+
 
 const handleProjectProductRetry = async (row: DccProjectProductCreateRespVO) => {
   if (projectProductRequestsLoading.value || projectProductLoading.value || !projectProductDialogVisible.value) return

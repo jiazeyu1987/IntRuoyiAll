@@ -88,7 +88,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ submitted: [command: RevisionCommand]; selectedIterationChanged: [id: string]; intentChanged: [intent: RevisionIntent | undefined]; prepareBody: [targetVersion?: string, intent?: RevisionIntent] }>()
 const selectedId = ref(props.initialSelectedIterationId || '')
-const intent = ref<RevisionIntent>(props.initialIntent)
+const intent = ref<RevisionIntent | undefined>(props.initialIntent)
 const description = ref(props.initialDescription || '')
 const busy = ref(false)
 const submissionError = ref('')

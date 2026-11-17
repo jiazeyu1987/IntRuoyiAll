@@ -157,7 +157,7 @@ public class ErpKingdeeInventoryClientImpl implements ErpKingdeeInventoryClient 
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow) {
-        return executeBillQuery(properties, cookieHeader, startRow, "FBaseQty > 0");
+        return executeBillQuery(properties, cookieHeader, startRow, "");
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow,

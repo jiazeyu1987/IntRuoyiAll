@@ -46,7 +46,7 @@
               :props="taxonomyCascaderProps"
               clearable
               filterable
-              placeholder="请选择至少三级文件分类"
+              placeholder="文件分类（可选）"
               @change="clearRowError($index)"
             />
             <div v-if="rowErrors[$index]?.fileTypeTaxonomyId" class="project-template-row-error">
@@ -143,7 +143,7 @@ defineOptions({ name: 'DccProjectFileTemplateEditor' })
 
 type EditorRow = {
   key: number
-  fileTypeTaxonomyId?: number
+  fileTypeTaxonomyId?: number | null
   fileName: string
   invalidReason?: string | null
 }
@@ -183,42 +183,11 @@ const activeTaxonomyRows = computed(() =>
     .filter((row) => row.id && row.active)
     .map((row) => ({ ...row, children: undefined }))
 )
-const selectableTaxonomyIds = computed(() => {
-  const parentIds = new Set(
-    activeTaxonomyRows.value
-      .map((row) => row.parentId)
-      .filter((id): id is number => Boolean(id))
-  )
-  return new Set(
-    activeTaxonomyRows.value
-      .filter((row) => row.id && !parentIds.has(row.id) && (taxonomyPathDepthMap.value.get(row.id) || 0) >= 3)
-      .map((row) => row.id as number)
-  )
-})
 const taxonomyTreeOptions = computed(
-  () =>
-    handleTree(
-      activeTaxonomyRows.value.map((row) => ({
-        ...row,
-        value: row.id,
-        label: row.name,
-        disabled: !row.id || !selectableTaxonomyIds.value.has(row.id)
-      }))
-    ) as DccFileTypeTaxonomyVO[]
+  () => handleTree(activeTaxonomyRows.value.map((row) => ({
+    ...row, value: row.id, label: row.name
+  }))) as DccFileTypeTaxonomyVO[]
 )
-const taxonomyPathDepthMap = computed(() => {
-  const depthMap = new Map<number, number>()
-  const sortedRows = [...activeTaxonomyRows.value].sort(
-    (left, right) => (left.levelNo || 0) - (right.levelNo || 0)
-  )
-  sortedRows.forEach((row) => {
-    if (!row.id) return
-    const parentDepth = row.parentId ? depthMap.get(row.parentId) : 0
-    if (row.parentId && parentDepth === undefined) return
-    depthMap.set(row.id, (parentDepth || 0) + 1)
-  })
-  return depthMap
-})
 const taxonomyCascaderProps = {
   value: 'value',
   label: 'label',
@@ -246,10 +215,6 @@ const open = async (project: DccProjectCodeRespVO) => {
     const template = await getProjectCodeFileTemplate(project.id)
     taxonomyRows.value = template.taxonomyOptions || []
     rows.value = toEditorRows(template)
-    if (taxonomyRows.value.length === 0) {
-      loadError.value = '当前没有绑定唯一启用文件类别的三级分类，无法配置项目模板'
-      return
-    }
     if (rows.value.length === 0) addItem()
   } catch (error) {
     taxonomyRows.value = []
@@ -292,23 +257,13 @@ const validateRows = () => {
   const uniqueKeys = new Set<string>()
   let valid = true
   rows.value.forEach((row, index) => {
-    if (!row.fileTypeTaxonomyId) {
-      errors[index].fileTypeTaxonomyId = '请选择文件分类'
-      valid = false
-    } else if ((taxonomyPathDepthMap.value.get(row.fileTypeTaxonomyId) || 0) < 3) {
-      errors[index].fileTypeTaxonomyId = '文件分类至少选择到第三级'
-      valid = false
-    } else if (!selectableTaxonomyIds.value.has(row.fileTypeTaxonomyId)) {
-      errors[index].fileTypeTaxonomyId = '请选择没有启用子分类的末级文件分类'
-      valid = false
-    }
     const fileName = row.fileName.trim()
     if (!fileName) {
       errors[index].fileName = '请输入文件名称'
       valid = false
     }
-    if (row.fileTypeTaxonomyId && fileName) {
-      const uniqueKey = `${row.fileTypeTaxonomyId}:${fileName.toLocaleLowerCase()}`
+    if (fileName) {
+      const uniqueKey = `${row.fileTypeTaxonomyId ?? ''}:${fileName.toLocaleLowerCase()}`
       if (uniqueKeys.has(uniqueKey)) {
         errors[index].fileName = '模板中存在重复的文件分类和文件名称'
         valid = false
@@ -326,7 +281,7 @@ const saveTemplate = async () => {
   try {
     const template = await replaceProjectCodeFileTemplate(currentProject.value.id, {
       items: rows.value.map((row, index) => ({
-        fileTypeTaxonomyId: Number(row.fileTypeTaxonomyId),
+        fileTypeTaxonomyId: row.fileTypeTaxonomyId || undefined,
         fileName: row.fileName.trim(),
         sortOrder: index + 1
       }))

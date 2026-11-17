@@ -4,14 +4,14 @@
 
 | 检查 | 命令 | 结果 |
 |---|---|---|
-| BDD/TDD acceptance plan | `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` | `PASS` |
-| Roadmap node development plan | `python -X utf8 C:\Users\BJB110\.codex\skills\roadmap-node-dev-plan\scripts\validate_node_dev_plan.py --task-dir E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` | `PASS` |
+| BDD/TDD acceptance plan | `python -X utf8 会话技能：bdd-tdd-acceptance-planner --root ./doc/tasks/20260801-role-requirement-matrix-excel` | `PASS` |
+| Roadmap node development plan | `python -X utf8 会话技能：roadmap-node-dev-plan --task-dir ./doc/tasks/20260801-role-requirement-matrix-excel` | `PASS` |
 
 ## Runtime Preconditions
 
 | 前置 | 结果 | 证据 |
 |---|---|---|
-| 前端 8081 | `PASS` | `node/vite` 监听 `8081`，命令行归属 `E:\IntRuoyi\IntRuoyiFronted`。 |
+| 前端 8081 | `PASS` | `node/vite` 监听 `8081`，命令行归属 `./IntRuoyiFronted`。 |
 | 后端 48081 | `PASS_CURRENT` | 最新本机端口复核发现 `48081` 监听进程 PID `29052`。 |
 | 后端 health | `PASS_CURRENT` | `http://127.0.0.1:48081/actuator/health` 返回 `UP`；最新 `real:check` 无 RUNTIME blocker。 |
 | 前端登录页 | `PASS` | `http://127.0.0.1:8081/login?redirect=/index` 返回 HTTP 200。 |

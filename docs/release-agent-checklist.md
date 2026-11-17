@@ -1,5 +1,7 @@
 # IntRuoyi Codex 发布执行检查清单
 
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
+
 ## 触发条件
 
 已授权发布任务涉及以下事项时，按需核对本文对应步骤；已读且未变化的规则不重复读取：
@@ -13,10 +15,10 @@
 
 本文面向 Codex 执行，不替代正式规则。正式边界仍以以下文档为准：
 
-- `E:\IntRuoyi\docs\release-backup-restore.md`
-- `E:\IntRuoyi\docs\server-access.md`
-- `E:\IntRuoyi\docs\login-access.md`
-- 仅测试服发布还必须先读：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`
+- `./docs/release-backup-restore.md`
+- `./docs/server-access.md`
+- `./docs/login-access.md`
+- 仅测试服发布还必须先读：`./docs/test-release-preflight.md`
 
 ## 执行模型
 
@@ -42,11 +44,11 @@ Codex 必须把完整发布任务视为以下严格顺序：
 - 核对用户已授权的发布范围和实际目标；记录按任务需要保留，不要求固定任务目录。
 - 有具体疑点时按关键词查找相关经验，不做全量经验预检。
 - 按需参考相关说明，已读且未变化的内容不重复读取：
-  - `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`（仅测试服发布或 publish-test 任务）
-  - `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-  - `E:\IntRuoyi\docs\release-backup-restore.md`
-  - `E:\IntRuoyi\docs\server-access.md`
-  - 如涉及登录验证，再读 `E:\IntRuoyi\docs\login-access.md`
+  - `./docs/test-release-preflight.md`（仅测试服发布或 publish-test 任务）
+  - `./docs/release-build-preflight-lessons.md`
+  - `./docs/release-backup-restore.md`
+  - `./docs/server-access.md`
+  - 如涉及登录验证，再读 `./docs/login-access.md`
 - 如实报告必要预检结果及阻塞；不要求固定日志文件或 experience-preflight 标记。
 - 按需要保留简短操作结果，不要求另写请求与命令流水。
 
@@ -66,14 +68,14 @@ Codex 必须把完整发布任务视为以下严格顺序：
 
 ### 必做动作
 
-- 确认发布源头在 `D:\ProjectPackage\Int\IntRuoyiMaintance`。
-- 确认后端、前端、维护仓三方主分支名、当前提交与 dirty 状态。
+- 确认发布源头为本项目当前 Git 仓库，入口按 `docs/server-access.md` 核对。
+- 确认当前仓库主分支名、当前提交与 dirty 状态，以及前后端构建输入。
 - 每次发布一律先创建本次专用的临时发布 `worktree`，禁止直接在主工作区执行构建、验证或发布。
 - 必须先核对测试服当前 releaseTag/manifest 与本次目标提交是否一致；不一致时不能复用旧发布结论。
 - 必须显式核对 runtime-control 当前 `repo-root` / `frontend-root` 指向的就是本次最新临时发布 worktree，而不是主工作区或旧 worktree。
 - 在临时发布 worktree 上先过前端 lockfile / 依赖恢复与后端目标模块构建门禁；未通过时，先提交修复再重建 worktree。
 - `build-release` 前先用脱敏/白名单方式核对本地 Docker 可用性和必需容器存在；不得直接打印 `docker inspect` 的完整 env。
-- 运行控制台指向 release worktree 后，再查一次三仓 `git status --porcelain --ignored=no`；`state-dir`、logs、operation state 和 cache 不得落在 release worktree 内造成 `dirty=true`。
+- 运行控制台指向 release worktree 后，再查一次当前仓库和本任务 release worktree 的 `git status --porcelain --ignored=no`；`state-dir`、logs、operation state 和 cache 不得落在 release worktree 内造成 `dirty=true`。
 - 先跑发布门禁或契约测试，尤其是：
   - migration policy gate
   - 影响发布链路的 SQL 契约测试
@@ -88,8 +90,8 @@ Codex 必须把完整发布任务视为以下严格顺序：
 ### 放行条件
 
 - migration / manifest / 脚本契约未报错。
-- 本次使用的后端、前端、维护仓输入关系清晰。
-- 三仓主分支状态、本次目标提交与临时发布 worktree 路径已明确记录。
+- 本次使用的后端、前端和本项目发布脚本输入关系清晰。
+- 当前仓库主分支状态、本次目标提交与临时发布 worktree 路径已明确记录。
 - 运行控制台预览命令指向正确 repo-root / frontend-root / scriptPath。
 
 ### 阻塞条件
@@ -111,8 +113,8 @@ Codex 必须把完整发布任务视为以下严格顺序：
 
 ### release worktree 路径长度门禁
 
-- 创建 release worktree 时，临时根目录必须短而稳定；推荐 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r<日期><短标识>`。
-- 维护仓、后端仓、前端仓子目录优先使用 `m`、`b`、`f`；不要使用完整任务 ID + 完整仓库名的深层嵌套路径。
+- 创建 release worktree 时，临时根目录必须短而稳定；推荐 `../IntRuoyiWorktree/r<日期><短标识>`。
+- 本项目 release worktree 直接保留 `IntRuoyiBackend`、`IntRuoyiFronted` 和发布脚本的仓库内布局；不要额外嵌套旧维护仓目录。
 - 若 checkout 报 `Filename too long`，必须冻结证据、清理已部分创建的 worktree、`git worktree prune`，再用短路径重建；不得继续沿用部分成功的 worktree。
 
 ## 2. 构建完成判定
@@ -275,7 +277,7 @@ Codex 必须把完整发布任务视为以下严格顺序：
 Codex 必须按这个顺序排查：
 
 1. migration / manifest / required SQL 契约
-2. 维护仓发布脚本与业务仓产物契约
+2. 本项目发布脚本与业务产物契约
 3. 运行控制台当前加载版本
 4. 测试服 / 正式服 / 审查服环境状态
 
@@ -353,7 +355,7 @@ Codex 必须按这个顺序排查：
 
 - 修改 `runtime-control.local.yaml` 的 `repo-root` / `frontend-root` 后，必须回读确认 YAML 缩进、实际路径和 `http://127.0.0.1:48181/actuator/health`。
 - 配置指向临时发布 worktree 后，收尾前必须恢复稳定主路径，或明确确认该 worktree 不会被删除。
-- 运行控制台启动入口以维护仓当前脚本为准；本轮确认入口是 `scripts\start.ps1`。
+- 运行控制台启动入口必须来自本项目实际提供并验证的实现；缺少入口时报告该能力不可执行，不读取外部维护仓脚本。
 
 ### no-data manifest
 

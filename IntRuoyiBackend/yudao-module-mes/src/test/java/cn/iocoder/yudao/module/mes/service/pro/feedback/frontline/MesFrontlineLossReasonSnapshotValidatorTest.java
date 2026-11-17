@@ -17,6 +17,39 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class MesFrontlineLossReasonSnapshotValidatorTest {
 
     @Test
+    void otherLossUsesServerIdentityForProcessAndMaterialSubmission() {
+        var mapper = mock(MesProcessPoolDefectReasonMapper.class);
+        var reasonValidator = new MesFrontlineLossReasonValidatorImpl(mapper);
+        var validator = new MesProFrontlineFeedbackMaterialSubmissionValidator(reasonValidator);
+        var detail = new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                .setReasonId(-1L).setReasonCode("FORGED").setReasonName("伪造名称").setQuantity(BigDecimal.ONE);
+        var reasons = List.of(MesFrontlineDefectReasonOption.OTHER_LOSS);
+        var payload = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(BigDecimal.TEN)
+                .setLossQuantity(BigDecimal.ONE).setLossDetails(List.of(detail));
+        assertEquals("其他损耗", validator.validateProcessPayload(payload, reasons).reasonName());
+        assertEquals("SYSTEM_OTHER_LOSS", payload.getLossDetails().get(0).getReasonCode());
+        var material = new cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackMaterialReqVO()
+                .setMaterialId(501L).setOutputQuantity(BigDecimal.TEN).setLossQuantity(BigDecimal.ONE)
+                .setLossDetails(List.of(detail));
+        var result = validator.validate(List.of(new cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial(
+                501L, "OUTPUT-501", "输出物料", null, BigDecimal.ONE)), reasons, List.of(material));
+        assertEquals(-1L, result.materials().get(0).lossDetails().get(0).getReasonId());
+        assertEquals("其他损耗", result.materials().get(0).lossDetails().get(0).getReasonName());
+        assertEquals(BigDecimal.ONE, result.totalLossQuantity());
+        assertEquals("其他损耗", reasonValidator.requireEnabledLossReason(1001L, -1L, BigDecimal.ONE).reasonName());
+        verifyNoInteractions(mapper);
+    }
+
+    @Test
+    void otherLossMustBePresentInSignedRuntimeSnapshot() {
+        var validator = new MesFrontlineLossReasonValidatorImpl(mock(MesProcessPoolDefectReasonMapper.class));
+        var detail = new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                .setReasonId(-1L).setQuantity(BigDecimal.ONE);
+        assertThrows(ServiceException.class, () -> validator.requireSnapshotLossReasons(
+                List.of(), List.of(detail), BigDecimal.ONE));
+    }
+
+    @Test
     void validatesLossReasonFromSnapshotWithoutDatabaseRead() {
         MesProcessPoolDefectReasonMapper mapper = mock(MesProcessPoolDefectReasonMapper.class);
         MesFrontlineLossReasonValidator validator = new MesFrontlineLossReasonValidatorImpl(mapper);

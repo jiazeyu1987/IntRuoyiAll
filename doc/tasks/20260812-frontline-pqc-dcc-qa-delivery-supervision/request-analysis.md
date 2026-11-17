@@ -4,17 +4,17 @@
 
 并发上限为最多 3 个工作子 Agent，不包含主管 Agent。当前平台容量为 4 个活跃 Agent，满足主管加 3 个工作子 Agent 的上限；若后续容量变化，主管必须先报告实际容量，不得静默降低并发。
 
-授权范围包括创建任务分支和 D:\IntRuoyiWorktree\ 下的独立 worktree、修改本任务代码和测试、运行本地验证、创建本地提交、合并进 int_main，以及清理已完成任务 worktree。未授权 push、部署、远程服务器操作或修改共享业务数据。
+授权范围包括创建任务分支和 ../IntRuoyiWorktree/ 下的独立 worktree、修改本任务代码和测试、运行本地验证、创建本地提交、合并进 int_main，以及清理已完成任务 worktree。未授权 push、部署、远程服务器操作或修改共享业务数据。
 
 # Current System
 
-- 工作区是 E:\IntRuoyi，后端 IntRuoyiBackend 和前端 IntRuoyiFronted 与根目录同属一个 Git 仓库。
+- 工作区是 .，后端 IntRuoyiBackend 和前端 IntRuoyiFronted 与根目录同属一个 Git 仓库。
 - 当前分支为 int_main；本地 int_main 与 origin/int_main 均指向 53f8ddc154a083193dbdfd3cc5a79fdd6fbf7b80。
 - 设计放行证据存在且通过：.review-fix-loop/runs/20260812T001009Z-e59e06/run.json 记录 status=passed、final_decision=pass；复审报告 report-round-2.md 的 Final Decision 为 pass。
 - 设计包 doc/tasks/20260811-frontline-pqc-dcc-qa-agent-design/ 已包含 common-background、architecture、interface-contracts、data-migration-contract、acceptance/system 文档，以及 14 个 agent-tasks 文档。
-- D:\IntRuoyiWorktree\ 已存在；端口预留脚本 scripts\runtime\reserve-worktree-slot.ps1 和端口保护脚本 scripts\preflight\branch-runtime-port-guard.ps1 已存在。
+- ../IntRuoyiWorktree/ 已存在；端口预留脚本 scripts\runtime\reserve-worktree-slot.ps1 和端口保护脚本 scripts\preflight\branch-runtime-port-guard.ps1 已存在。
 - 当前主工作区存在大量既有未提交和未跟踪变更，包含 AGENTS.md、历史任务文档、review-fix-loop 运行目录、设计包目录和 docs/changes 文件。后续每个子任务创建分支、评审和合并前必须核对任务真实增量与这些既有变更的文件交集。
-- 当前已有多个 worktree 位于 D:\IntRuoyiWorktree\；后续任务必须使用新的唯一目录，并在启动服务前通过端口预留脚本分配独立端口。
+- 当前已有多个 worktree 位于 ../IntRuoyiWorktree/；后续任务必须使用新的唯一目录，并在启动服务前通过端口预留脚本分配独立端口。
 - 当前生产功能尚未按本设计包完成；设计任务只是通过放行评审，不能替代后续代码实现、测试和真实页面验证。
 
 # Constraints
@@ -22,7 +22,7 @@
 - 必须遵守工作区 AGENTS.md、触发规则、严格 no-fallback、BDD + 严格 TDD、PowerShell UTF-8、worktree、端口登记和 Git 操作边界。
 - 所有任务必须按 Wave 0 至 Wave 9 调度；前置任务未通过主管评审、独立验证并合入 int_main 前，后继任务不得启动。
 - 某个波次任务少于 3 个时，不得用后续波次任务补满并发。
-- 每个实现任务必须从包含全部前置任务的最新 int_main 创建独立分支和 D:\IntRuoyiWorktree\ 下的独立 worktree。
+- 每个实现任务必须从包含全部前置任务的最新 int_main 创建独立分支和 ../IntRuoyiWorktree/ 下的独立 worktree。
 - 启动任何本地服务前必须用 scripts\runtime\reserve-worktree-slot.ps1 原子预留端口，不得随机换端口。
 - 工作子 Agent 只能修改对应任务文档明确归属的文件，不得自行合并 int_main，不得删除 worktree，不得修改主管状态文件。
 - 主管必须亲自复核完整 diff、提交范围、任务文档、接口统一性、当前系统复用、过度设计风险和 RED/GREEN 真实性，并独立重跑验证。
@@ -65,6 +65,6 @@
 
 - C00 启动前必须确认分支和 worktree 从最新 int_main 创建，并且与当前主工作区既有脏改动无未归属交集。
 - C00 必须证明 schema preflight、迁移脚本、backfill/postflight/rollback 脚本、批准清单和验证命令可用。
-- 启动任何本地服务前必须成功运行端口预留脚本；端口登记冲突或目录不在 D:\IntRuoyiWorktree\ 下必须阻塞。
+- 启动任何本地服务前必须成功运行端口预留脚本；端口登记冲突或目录不在 ../IntRuoyiWorktree/ 下必须阻塞。
 - 真实页面或写类型 E2E 必须确认本地前后端、测试租户、测试账号和任务自有测试数据；缺任一项不得用 API-only、mock 或共享业务数据替代。
 - 任何任务若需要修改未在其任务文档中归属的文件，必须退回主管重新划分所有权，不得自行扩权。

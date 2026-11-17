@@ -27,23 +27,23 @@
 
 ### SP-02
 
-SP-02 是并行任务中唯一需要 `install` 分支制品的 executor，必须从第一次 Maven 调用开始使用任务独占本地仓库 `D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02`，不能先污染共享 Maven 仓库再补隔离，也不能复制未知来源的共享缓存作为种子。该空目录仅由本任务 Maven 从项目配置的正式仓库解析依赖；解析失败即前置阻塞。executor/tester 的 prepare、focused、regression 每条 Maven 命令都必须显式使用同一 `maven.repo.local`。任务 cache 保留到 integration 复验结束，再按 closeout 只清理本任务目录。
+SP-02 是并行任务中唯一需要 `install` 分支制品的 executor，必须从第一次 Maven 调用开始使用任务独占本地仓库 `../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02`，不能先污染共享 Maven 仓库再补隔离，也不能复制未知来源的共享缓存作为种子。该空目录仅由本任务 Maven 从项目配置的正式仓库解析依赖；解析失败即前置阻塞。executor/tester 的 prepare、focused、regression 每条 Maven 命令都必须显式使用同一 `maven.repo.local`。任务 cache 保留到 integration 复验结束，再按 closeout 只清理本任务目录。
 
 - `CMD-SP02-PREPARE-BASELINE`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-dcc -am -Dmaven.test.skip=true -DskipITs install`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-dcc -am -Dmaven.test.skip=true -DskipITs install`
 - `CMD-SP02-PREPARE-AFTER-INFRA`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-dcc -am -Dmaven.test.skip=true -DskipITs install`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-dcc -am -Dmaven.test.skip=true -DskipITs install`
 
 - `CMD-SP02-A-FOCUSED`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-infra -DskipITs -Dtest=BusinessFileAccessServiceTest,FileServiceImplTest,FileControllerTest test`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-infra -DskipITs -Dtest=BusinessFileAccessServiceTest,FileServiceImplTest,FileControllerTest test`
 - `CMD-SP02-B-FOCUSED`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-dcc -DskipITs -Dtest=DccBusinessFileAccessProviderTest,DccBusinessFileAccessProviderContextTest,DccFileDirectLinkAccessGuardTest,DccOnlineFilePreviewServiceTest,DccOnlineFilePreviewControllerTest test`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-dcc -DskipITs -Dtest=DccBusinessFileAccessProviderTest,DccBusinessFileAccessProviderContextTest,DccFileDirectLinkAccessGuardTest,DccOnlineFilePreviewServiceTest,DccOnlineFilePreviewControllerTest test`
 - `CMD-SP02-C-FOCUSED`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-dcc -DskipITs -Dtest=DccBusinessFileAccessProviderTest,DccOnlyOfficePreviewTokenServiceTest,DccOnlyOfficeControlledPreviewTest,DccOnlineFilePreviewServiceTest,DccOnlyOfficeDocumentPdfConversionServiceTest,DccControlledFileUploadApiTest,DccControlledFilePrintServiceImplTest,DccControlledFileQueryServiceTest,DccControlledFilePreviewDownloadApiTest test`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-dcc -DskipITs -Dtest=DccBusinessFileAccessProviderTest,DccOnlyOfficePreviewTokenServiceTest,DccOnlyOfficeControlledPreviewTest,DccOnlineFilePreviewServiceTest,DccOnlyOfficeDocumentPdfConversionServiceTest,DccControlledFileUploadApiTest,DccControlledFilePrintServiceImplTest,DccControlledFileQueryServiceTest,DccControlledFilePreviewDownloadApiTest test`
 - `CMD-SP02-INFRA-REGRESSION`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-infra -DskipITs '-Dtest=File*Test,BusinessFile*Test' test`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-infra -DskipITs '-Dtest=File*Test,BusinessFile*Test' test`
 - `CMD-SP02-DCC-REGRESSION`:
-  `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp02 -pl yudao-module-dcc -DskipITs '-Dtest=Dcc*File*Test,DccOnlyOffice*Test' test`
+  `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp02 -pl yudao-module-dcc -DskipITs '-Dtest=Dcc*File*Test,DccOnlyOffice*Test' test`
 
 SP-02 必须分三次完成 test-first：先只新增/修改 A 测试并让 `CMD-SP02-A-FOCUSED` 产生已发现测试的断言 RED，完成 A 最小实现和同命令 GREEN；再新增 B 测试并产生 B RED，完成 B 最小实现/GREEN；最后新增 C 测试并产生 C RED，完成 C 最小实现/GREEN。B 前运行 `CMD-SP02-PREPARE-AFTER-INFRA` 使 DCC 使用已 GREEN 的 Infra 制品。任何 A/B/C RED 出现前不得先写该切片生产实现，也不得一次写完全部生产代码再倒填三个 RED。
 
@@ -62,11 +62,11 @@ SP-02 必须分三次完成 test-first：先只新增/修改 A 测试并让 `CMD
   `mvn -pl yudao-module-bpm,yudao-module-dcc,yudao-module-infra,yudao-module-mes,yudao-module-showroom -am -DskipITs test`
   This is retained as a baseline diagnostic. Four unrelated Infra runtime-control cases fail identically on current `int_main` without SP-03 and stop the reactor before the actual callers, so this command is not allowed to substitute for or invalidate the targeted caller gate below.
 - `CMD-SP03-CALLER-REGRESSION` consists of all of these non-skipped targeted commands against the task-owned current SP-03 System artifact:
-  - `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp03 -pl yudao-module-bpm -DskipITs -Dtest=BpmMessageServiceImplTest#sendMessageWhenTaskAssigned_dccProcess_usesNotifyInbox test`
-  - `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp03 -pl yudao-module-dcc -DskipITs -Dtest=DccControlledFileMessageReplayServiceTest#replayMessageJobs_distributionPendingJob_sendsAndMarksSent+replayMessageJobs_downstreamFailure_marksFailedAndRethrows test`
-  - `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp03 -pl yudao-module-infra -DskipITs -Dtest=RuntimeOpsAlertServiceImplTest test`
-  - `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp03 -pl yudao-module-mes -DskipITs -Dtest=MesProEdhrWorkTaskOwnershipTransferTest#reconcileProcessFormFillTaskOwnership_transfersSameSourceActiveTaskAndSendsReassignmentNotify+reconcileProcessFormFillTaskOwnership_failsFastWhenReassignmentNotifyFails test`
-  - `mvn -Dmaven.repo.local=D:\IntRuoyiWorktree\.codex-task-cache\20260815-reg-cert-platform\m2-sp03 -pl yudao-module-showroom -DskipITs -Dtest=ShowroomAssignmentWorkflowTest#assignmentShouldRequirePersistedNotifyMessageId,ShowroomHttpApiIntegrationTest#productWorkflowShouldCreateNotifyMessagesForReviewersAndSubmitter test`
+  - `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp03 -pl yudao-module-bpm -DskipITs -Dtest=BpmMessageServiceImplTest#sendMessageWhenTaskAssigned_dccProcess_usesNotifyInbox test`
+  - `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp03 -pl yudao-module-dcc -DskipITs -Dtest=DccControlledFileMessageReplayServiceTest#replayMessageJobs_distributionPendingJob_sendsAndMarksSent+replayMessageJobs_downstreamFailure_marksFailedAndRethrows test`
+  - `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp03 -pl yudao-module-infra -DskipITs -Dtest=RuntimeOpsAlertServiceImplTest test`
+  - `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp03 -pl yudao-module-mes -DskipITs -Dtest=MesProEdhrWorkTaskOwnershipTransferTest#reconcileProcessFormFillTaskOwnership_transfersSameSourceActiveTaskAndSendsReassignmentNotify+reconcileProcessFormFillTaskOwnership_failsFastWhenReassignmentNotifyFails test`
+  - `mvn -Dmaven.repo.local=../IntRuoyiWorktree/.codex-task-cache/20260815-reg-cert-platform/m2-sp03 -pl yudao-module-showroom -DskipITs -Dtest=ShowroomAssignmentWorkflowTest#assignmentShouldRequirePersistedNotifyMessageId,ShowroomHttpApiIntegrationTest#productWorkflowShouldCreateNotifyMessagesForReviewersAndSubmitter test`
 - `CMD-SP03-IOT-CALLER-REGRESSION`:
   `mvn -f yudao-module-iot/yudao-module-iot-biz/pom.xml -DskipITs -Dtest=IotAlertTriggerSceneRuleActionTest test`
 - `CMD-SP03-TRADE-CALLER-CONTRACT`:

@@ -137,7 +137,7 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
                         })
                         .filter(detail -> detail.getQuantity().compareTo(BigDecimal.ZERO) > 0)
                         .peek(detail -> {
-                            if (detail.getReasonId() == null || detail.getReasonId() <= 0
+                            if (!MesFrontlineDefectReasonOption.isValidLossReasonId(detail.getReasonId())
                                     || !reasonIds.add(detail.getReasonId())) {
                                 throw invalid("同一报工明细中的损耗原因不能为空或重复");
                             }

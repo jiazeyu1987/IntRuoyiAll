@@ -54,6 +54,8 @@ public class MesTeamLeaderActiveOrderRow {
     private Integer releaseApplicationVersion;
     private Boolean quantityConflict;
     private Boolean hasQuantityConflict;
+    /** 当前正式分配的生产记录存在参数异常，仅提示。 */
+    private Boolean hasParameterAbnormal;
     private Integer quantityConflictProcessCount;
     private BigDecimal overageQuantity;
     private Boolean simulated;

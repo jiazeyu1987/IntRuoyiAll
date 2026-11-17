@@ -73,7 +73,7 @@
             去审批
           </el-button>
           <el-button v-if="edhrWorkTaskNavigation" type="primary" @click="navigateToEdhrWorkTask">
-            处理批记录任务
+            {{ detailData.templateCode?.startsWith('MES_EDHR_DEVIATION_') ? '处理偏差任务' : '处理批记录任务' }}
           </el-button>
           <el-button v-if="dccPublicationNavigation" type="primary" @click="navigateToDccPublication">
             查看发布文件
@@ -194,6 +194,8 @@ const templateParamLabels: Record<string, string> = {
   processName: '工序名称',
   startUserNickname: '申请人',
   reason: '原因',
+  taskTitle: '办理职责',
+  dueTime: '截止时间',
   businessTitle: '业务标题',
   businessCode: '业务编号',
   moduleName: '来源模块',
@@ -223,8 +225,14 @@ const templateParamEntries = computed(() => {
   if (!templateParams) {
     return []
   }
+  if (detailData.value.templateCode?.startsWith('MES_EDHR_DEVIATION_')) {
+    // Use the same readable business fields as the inbox and header; never
+    // serialize raw deviation parameters or navigation identities into details.
+    return messageDescription.value.fields.map(({ label, value }) => ({ key: label, label, value }))
+  }
   return Object.entries(templateParams)
     .filter(([key, value]) => !hiddenTemplateParamKeys.has(key) && value !== undefined && value !== null && value !== ''
+      && !(detailData.value.templateCode?.startsWith('MES_EDHR_DEVIATION_') && key === 'reason')
       && !(detailData.value.templateCode === 'MES_ACTIVE_ORDER_HANDOFF' && ['reason', 'taskName'].includes(key)))
     .map(([key, value]) => ({
       key,

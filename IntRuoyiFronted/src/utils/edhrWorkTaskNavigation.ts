@@ -8,6 +8,8 @@ export const EDHR_BATCH_EXECUTION_LIST_PATH = '/mes/pro/feedback/edhr-batch-exec
 export const EDHR_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-execution/detail'
 export const EDHR_EXECUTION_FORM_PATH = '/mes/pro/feedback/edhr-execution/form'
 export const EDHR_APPROVAL_DETAIL_PATH = '/mes/pro/feedback/edhr-approval/detail'
+export const EDHR_DEVIATION_DETAIL_PATH = '/mes/pro/feedback/edhr-deviation/detail'
+const EDHR_DEVIATION_LIST_PATH = '/mes/pro/feedback/edhr-deviation'
 export const PQC_PRODUCTION_RELEASE_PATH = '/mes/production-release/pqc'
 export const PRODUCTION_RELEASE_MENU_PATH = '/mes/pro/production-release/pqc'
 export const EDHR_FILL_CARRIER_FORM = 'FORM'
@@ -22,7 +24,8 @@ export const EDHR_WORK_TASK_NOTIFY_PATHS = new Set([
   EDHR_APPROVAL_DETAIL_PATH,
   PQC_PRODUCTION_RELEASE_PATH,
   PRODUCTION_RELEASE_MENU_PATH,
-  '/mes/pro/feedback/edhr-deviation',
+  EDHR_DEVIATION_LIST_PATH,
+  EDHR_DEVIATION_DETAIL_PATH,
   '/mes/pro/feedback/edhr-change',
   '/mes/pro/feedback/edhr-dossier-completion',
   '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
@@ -95,6 +98,43 @@ const requireTaskIdentity = (value: number | string | null | undefined, label: s
   return requireExactJavaLong(value, `eDHR 工作任务${label}`)
 }
 
+const DEVIATION_TASK_TYPES = new Set([
+  'DEVIATION_RECEIVE', 'DEVIATION_CORRECT', 'DEVIATION_VERIFY',
+  'DEVIATION_SIGN', 'DEVIATION_APPROVE', 'DEVIATION_CLOSE'
+])
+
+// Only a server-resolved responsibility selects the work area; query parameters are not authority.
+export const resolveDeviationTaskTab = (task: EdhrWorkTaskRouteLike, workTaskId: string, deviationId: string) => {
+  if (requireTaskIdentity(task.id, '工作任务编号') !== requireTaskIdentity(workTaskId, '工作任务编号')
+    || task.businessScopeType !== 'EDHR_DEVIATION'
+    || requireTaskIdentity(task.businessScopeId, '偏差编号') !== requireTaskIdentity(deviationId, '偏差编号')
+    || !DEVIATION_TASK_TYPES.has(task.taskType || '')) {
+    throw new Error('工作任务与偏差详情不匹配，请从本人待办重新进入')
+  }
+  return task.taskType === 'DEVIATION_CORRECT' || task.taskType === 'DEVIATION_VERIFY'
+    ? 'corrective' as const : 'disposition' as const
+}
+
+const resolveDeviationTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL) => {
+  const deviationTask = DEVIATION_TASK_TYPES.has(normalizeTaskType(item.taskType))
+  const deviationEntry = [EDHR_DEVIATION_LIST_PATH, EDHR_DEVIATION_DETAIL_PATH].includes(url.pathname)
+  if (!deviationTask && !deviationEntry) return url
+  if (!deviationTask || !deviationEntry || item.businessScopeType !== 'EDHR_DEVIATION') {
+    throw new Error('偏差任务入口缺少正式职责身份或与任务类型不一致。')
+  }
+  const deviationId = requireTaskIdentity(item.businessScopeId, '偏差编号')
+  const workTaskId = requireTaskIdentity(item.id, '工作任务编号')
+  const deviations = url.searchParams.getAll('deviationId')
+  const tasks = url.searchParams.getAll('workTaskId')
+  if (deviations.length !== 1 || deviations[0] !== deviationId || tasks.length > 1 ||
+    (tasks.length === 1 && tasks[0] !== workTaskId)) {
+    throw new Error('偏差任务入口与正式偏差或工作任务编号不一致。')
+  }
+  // Upgrade only the known list entry, using the formal task scope as authority.
+  url.pathname = EDHR_DEVIATION_DETAIL_PATH
+  return url
+}
+
 const resolveMarketReleaseTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL, origin: string) => {
   const actions = url.searchParams.getAll('action')
   if (actions.length > 1) {
@@ -142,7 +182,8 @@ const resolveMarketReleaseTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL, orig
 
 const resolveTaskNavigationUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
   if (item.actionUrl) {
-    const url = resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin)
+    const url = resolveDeviationTaskUrl(item,
+      resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin))
     if (isRouteValuePresent(item.id)) {
       const workTaskId = requireTaskIdentity(item.id, '工作任务编号')
       const existing = url.searchParams.getAll('workTaskId')
@@ -335,6 +376,7 @@ export const navigateToEdhrWorkTask = async (
     return
   }
   const normalized = normalizeEdhrWorkTaskRouteParts(item, origin)
+  if (!isCurrent()) throw new Error('eDHR 工作任务导航上下文已变化。')
   await router.push({
     path: normalized.path,
     query: normalized.query

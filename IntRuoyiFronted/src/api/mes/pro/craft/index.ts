@@ -29,6 +29,7 @@ export interface CraftSave {
   parameters: CraftParameter[]
   expectedFingerprint?: string
   impactToken?: string
+  requestId?: string
   reason: string
 }
 export interface CraftImpact {

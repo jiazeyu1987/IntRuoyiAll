@@ -47,6 +47,16 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
 
     @Override
     public ErpKingdeeSyncRunResult syncAllSkipExisting(Long runId, LocalDateTime windowStart, LocalDateTime windowEnd) {
+        return syncAllPages(runId, windowStart, windowEnd, false);
+    }
+
+    @Override
+    public ErpKingdeeSyncRunResult syncAllWithUpdates(Long runId) {
+        return syncAllPages(runId, null, null, true);
+    }
+
+    private ErpKingdeeSyncRunResult syncAllPages(Long runId, LocalDateTime windowStart,
+                                                LocalDateTime windowEnd, boolean updateExisting) {
         java.util.Objects.requireNonNull(runId, "生产用料清单同步任务编号不能为空");
         ErpKingdeeProperties properties = configService.getEffectiveProperties();
         properties.validateProductionOrderSyncConfig();
@@ -54,7 +64,8 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         long[] sourceRows = {0};
         try {
             java.util.function.Consumer<List<ErpKingdeeProductionMaterialList>> consumer = page -> {
-                ErpKingdeeSyncRunResult result = windowStart == null ? batchWriter.writePage(runId, page)
+                ErpKingdeeSyncRunResult result = updateExisting ? batchWriter.writeRefreshPage(runId, page)
+                        : windowStart == null ? batchWriter.writePage(runId, page)
                         : batchWriter.writePage(runId, page, true);
                 counts[0] = Math.addExact(counts[0], result.getCreatedCount());
                 counts[1] = Math.addExact(counts[1], result.getUpdatedCount());
@@ -70,7 +81,7 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
             }
         } catch (RuntimeException failure) {
             throw new IllegalStateException("生产用料清单全量同步失败，已提交源数据 " + sourceRows[0]
-                    + " 行；已提交批次保留，重新全量同步会跳过已有记录。原因：" + failure.getMessage(), failure);
+                    + " 行；已提交批次保留，失败批次已回滚。原因：" + failure.getMessage(), failure);
         }
         return ErpKingdeeSyncRunResult.success(null, counts[0], counts[1], counts[2], 0);
     }

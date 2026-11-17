@@ -11,6 +11,7 @@ public interface ErpKingdeeInventoryListService {
     PageResult<ErpKingdeeInventoryListRespVO> getPage(ErpKingdeeInventoryListPageReqVO pageReqVO);
 
     int syncAll();
+    ErpKingdeeInventoryListSyncResult syncAllWithUpdates();
 
     ErpKingdeeInventoryListSyncResult syncAllSkipExisting();
 

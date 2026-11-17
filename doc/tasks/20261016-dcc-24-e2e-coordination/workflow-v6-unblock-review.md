@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 01 / 03 / 05 流程定义阻塞续修
 
 状态 in_progress：共享流程部署/资源隔离、精确映射及账号ID传输修复已完成，01/03/05真实路线预检全部GREEN。完整业务用例由三个原线程继续，不将前置通过等同整例PASS。
@@ -12,7 +14,7 @@ workflow-definition-before.json与原始XML冻结精确定义，workflow-definit
 
 - 后端核心3类10项PASS；历史继承/最新定义选择/精确启动3类59项PASS；前端模型导入5项PASS。JUnit与命令回执保存在本协调目录。
 - C05通过真实前端分别导入、保存、发布两图，发布为upload 49065d37-c970-11f1-aae9-b082e25ec548、revision 59c2e12a-c970-11f1-aae9-b082e25ec548，均v6。
-- 备份及冻结：workflow-deployment-backup.json。5表完整只读SQL备份位于C:/IntRuoyiBackups/20261016-dcc-workflow-v6/20261016-223602/；另冻结10旧资源SHA和97旧实例定义绑定。
+- 备份及冻结：workflow-deployment-backup.json。5表完整只读SQL备份位于历史外部材料（引用已移除）；另冻结10旧资源SHA和97旧实例定义绑定。
 - 发布后Root发现旧seed模型编辑源ID共用旧v4部署resource，正常addModelEditorSource更新导致两份旧资源变化。Root在发布前未识别该共享引用，未把此轮历史校验记PASS；已立即停止文件业务。C05通过页面导入原备份XML仅保存、零再次发布，完成精确恢复。
 - 恢复后workflow-deployment-verified.json核对10旧资源SHA、97历史实例绑定、模型metadata均保持。workflow-definition-digests-after.json再次确认两个实际新部署canonical命中V2。当前模型编辑源暂为恢复后的旧图，须等待隔离修复后重新导入V2，仅保存，不重复发布。
 

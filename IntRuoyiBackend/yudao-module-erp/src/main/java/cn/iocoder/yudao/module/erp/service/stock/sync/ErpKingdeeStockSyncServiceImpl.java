@@ -57,7 +57,34 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(kingdeeProperties);
-        return syncRows(rows, false);
+        ErpKingdeeStockSyncResult result = syncRows(rows, false);
+        // A complete source snapshot also clears stock groups removed at the source.
+        // Restrict this to warehouses explicitly bound to ERP; local warehouses stay local.
+        java.util.Set<Long> sourceWarehouses = warehouseSyncRecordMapper.selectList().stream()
+                .map(ErpKingdeeWarehouseSyncRecordDO::getWarehouseId).collect(java.util.stream.Collectors.toSet());
+        java.util.Set<String> sourceGroups = rows.stream().map(row -> row.getStockOrgNumber() + "|"
+                + row.getWarehouseNumber() + "|" + row.getMaterialNumber()).collect(java.util.stream.Collectors.toSet());
+        java.util.Map<Long, ErpKingdeeWarehouseSyncRecordDO> warehouseSources = new java.util.HashMap<>();
+        warehouseSyncRecordMapper.selectList().forEach(row -> warehouseSources.put(row.getWarehouseId(), row));
+        if (!sourceWarehouses.isEmpty()) {
+            java.util.List<ErpStockDO> current = stockMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<ErpStockDO>()
+                    .in(ErpStockDO::getWarehouseId, sourceWarehouses));
+            java.util.Map<Long, ErpProductDO> products = new java.util.HashMap<>();
+            if (!current.isEmpty()) productMapper.selectBatchIds(current.stream().map(ErpStockDO::getProductId).toList())
+                    .forEach(product -> products.put(product.getId(), product));
+            for (ErpStockDO stock : current) {
+                ErpProductDO product = products.get(stock.getProductId());
+                if (product == null) throw new IllegalStateException("ERP库存引用无效物料: " + stock.getProductId());
+                ErpKingdeeWarehouseSyncRecordDO warehouse = warehouseSources.get(stock.getWarehouseId());
+                String key = warehouse.getSourceStockOrgNumber() + "|" + warehouse.getSourceWarehouseNumber() + "|" + product.getBarCode();
+                if (!sourceGroups.contains(key) && stock.getCount().signum() != 0) {
+                    if (stockMapper.updateById(new ErpStockDO().setId(stock.getId()).setCount(BigDecimal.ZERO)) != 1)
+                        throw new IllegalStateException("ERP库存清零失败: " + stock.getId());
+                    result.addUpdated();
+                }
+            }
+        }
+        return result;
     }
 
     @Override
@@ -142,6 +169,7 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
             ErpStockDO existing = stockMapper.selectByProductIdAndWarehouseId(stock.getProductId(), stock.getWarehouseId());
             if (existing == null) {
                 stocksToCreate.add(stock);
+                result.addCreated();
                 continue;
             }
             if (skipExisting) {
@@ -153,6 +181,7 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
                     .setProductId(existing.getProductId())
                     .setWarehouseId(existing.getWarehouseId())
                     .setCount(stock.getCount()));
+            result.addUpdated();
         }
         if (!stocksToCreate.isEmpty()) {
             stockMapper.insertBatch(stocksToCreate);

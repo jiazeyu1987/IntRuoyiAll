@@ -1,8 +1,7 @@
 /**
  * 数据字典工具类
  */
-import { useDictStoreWithOut } from '@/store/modules/dict'
-import { ElementPlusInfoType } from '@/types/elementPlus'
+import { useDictStoreWithOut, type DictValueType } from '@/store/modules/dict'
 
 const dictStore = useDictStoreWithOut()
 
@@ -12,12 +11,8 @@ const dictStore = useDictStoreWithOut()
  * @param dictType 数据类型
  * @returns {*|Array} 数据字典数组
  */
-export interface DictDataType {
-  dictType: string
-  label: string
+export interface DictDataType extends Omit<DictValueType, 'value'> {
   value: string | number | boolean
-  colorType: ElementPlusInfoType | ''
-  cssClass: string
 }
 
 export interface NumberDictDataType extends DictDataType {

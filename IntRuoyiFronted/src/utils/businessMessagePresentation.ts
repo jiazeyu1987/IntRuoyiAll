@@ -57,6 +57,8 @@ const workTaskTitles: Record<string, string> = {
   MES_EDHR_PQC_PRODUCTION_RELEASE_TASK_ASSIGNED: '请完成PQC生产放行',
   MES_EDHR_DEVIATION_RECEIVE_ASSIGNED: '请接收偏差处理任务',
   MES_EDHR_DEVIATION_CORRECT_ASSIGNED: '请完成偏差整改',
+  MES_EDHR_DEVIATION_REVIEW_ASSIGNED: '请办理偏差责任任务',
+  MES_EDHR_DEVIATION_WORK_TASK_OVERDUE: '偏差任务已逾期，请及时处理',
   MES_EDHR_RECORD_CHANGE_REWORK: '请完成记录变更整改',
   MES_EDHR_FILL_TASK_REASSIGNED: '批记录填写任务已转交给您',
   MES_EDHR_WORK_TASK_OVERDUE: '批记录任务已超期，请及时处理'
@@ -70,6 +72,35 @@ export const describeNotifyMessage = (message: {
   const workTaskTitle = message.templateCode && workTaskTitles[message.templateCode]
   if (workTaskTitle) {
     const params = message.templateParams
+    const isDeviationTask = message.templateCode === 'MES_EDHR_DEVIATION_RECEIVE_ASSIGNED'
+      || message.templateCode === 'MES_EDHR_DEVIATION_CORRECT_ASSIGNED'
+      || message.templateCode === 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED'
+      || message.templateCode === 'MES_EDHR_DEVIATION_WORK_TASK_OVERDUE'
+    if (isDeviationTask) {
+      if (typeof params?.presentationError === 'string' && params.presentationError.trim()) {
+        return { title: params.presentationError, body: '', fields: [] }
+      }
+      if (!params || typeof params.taskTitle !== 'string' || !params.taskTitle.trim()
+        || typeof params.workOrderCode !== 'string' || !params.workOrderCode.trim()) {
+        return { title: '偏差任务通知信息不完整，请联系管理员', body: '', fields: [] }
+      }
+      const taskTitle = params.taskTitle.trim()
+      const workOrderCode = params.workOrderCode.trim()
+      const batchCode = typeof params.batchCode === 'string' && params.batchCode.trim()
+        ? params.batchCode.trim() : '未关联批次（按生产订单办理）'
+      const fields = [{ label: '生产订单', value: workOrderCode }, { label: '批次', value: batchCode }]
+      if (typeof params.processName === 'string' && params.processName.trim()) fields.push({ label: '工序', value: params.processName.trim() })
+      if (typeof params.dueTime === 'string' && params.dueTime.trim()) fields.push({ label: '截止时间', value: params.dueTime.trim() })
+      const isDeviationAssignment = message.templateCode === 'MES_EDHR_DEVIATION_RECEIVE_ASSIGNED'
+        || message.templateCode === 'MES_EDHR_DEVIATION_CORRECT_ASSIGNED'
+      return {
+        title: message.templateCode === 'MES_EDHR_DEVIATION_WORK_TASK_OVERDUE'
+          ? `偏差任务已逾期，请及时${taskTitle}` : `请${taskTitle}`,
+        body: isDeviationAssignment && typeof params.reason === 'string' && params.reason !== '正式放行任务候选交接'
+          ? params.reason : '',
+        fields
+      }
+    }
     if (!params || typeof params.workOrderCode !== 'string' || !params.workOrderCode
       || typeof params.batchCode !== 'string' || !params.batchCode) {
       return { title: '任务通知缺少工单或批次信息，请联系管理员', body: message.templateContent ?? '', fields: [] }
@@ -92,4 +123,10 @@ export const describeNotifyMessage = (message: {
     return { title: '交接通知信息不完整，请联系管理员', body: message.templateContent ?? '', fields: [] }
   }
   return describeHandoffMessage(params.handoffType, params.reason)
+}
+
+export const notifyMessageTooltip = (message: Parameters<typeof describeNotifyMessage>[0]): string => {
+  if (!message.templateCode?.startsWith('MES_EDHR_DEVIATION_')) return message.templateContent || '-'
+  const description = describeNotifyMessage(message)
+  return [description.title, description.body].filter(Boolean).join('\n')
 }

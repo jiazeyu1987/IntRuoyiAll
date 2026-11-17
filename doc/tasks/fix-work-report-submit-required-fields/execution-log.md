@@ -29,9 +29,9 @@
 - 已将可复用经验合并到 `docs/backend-development.md#第三方报工直报正式链路门禁`，并在 `docs/experience-index.md` 增加缺失字段与 `productionSubmitContext` 关键词路由。
 - 已完成验证报告 `doc/tasks/fix-work-report-submit-required-fields/verification-report.md`。
 - 真实 Playwright 写入 E2E 未执行：本轮未具备已确认的本地前后端运行态、测试租户账号、任务自有活跃订单/记录本/签名密码 fixture；未使用 API-only 或 mock 冒充真实路径。
-- 缺陷证据校验：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-work-report-submit-required-fields\bug-regression-evidence.md` -> PASS, output: `Bug regression evidence is valid.`
-- 收尾清理预览：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-work-report-submit-required-fields --mode preview` -> PASS, keep `task.md`、`execution-log.md`、`verification-report.md`，delete 已归档的 `bug-regression-evidence.md`，blocked/warnings 均为 `<none>`。
-- 收尾清理执行：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-work-report-submit-required-fields --mode apply` -> PASS, 删除已归档的临时缺陷证据文件，当前 workspace 为主 worktree 未执行 merge/remove。
+- 缺陷证据校验：`python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-work-report-submit-required-fields\bug-regression-evidence.md` -> PASS, output: `Bug regression evidence is valid.`
+- 收尾清理预览：`python 会话技能：task-closeout-cleanup --task-id fix-work-report-submit-required-fields --mode preview` -> PASS, keep `task.md`、`execution-log.md`、`verification-report.md`，delete 已归档的 `bug-regression-evidence.md`，blocked/warnings 均为 `<none>`。
+- 收尾清理执行：`python 会话技能：task-closeout-cleanup --task-id fix-work-report-submit-required-fields --mode apply` -> PASS, 删除已归档的临时缺陷证据文件，当前 workspace 为主 worktree 未执行 merge/remove。
 - 最终结构检查：`task-closeout-cleanup --mode preview` -> PASS, keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
 - 最终格式检查：路径限定 `git diff --check` -> PASS；UTF-8 读取检查 -> `UTF8_OK`。
 - 最终状态：`completed`。

@@ -16,7 +16,7 @@ ready_for_closeout — 最终现有三类证明15+46+13全部0，原XML已归档
 
 ## Command and evidence
 
-工作目录 `C:/IntRuoyiAll-int_main/IntRuoyiBackend`，Java17/offline：
+工作目录 `./IntRuoyiBackend`，Java17/offline：
 
 `mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccUploadNamePreflightDatabaseTest,DccLegacySourceNameOccupancyTest,DccProjectReferenceFormalAuthorityIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`
 

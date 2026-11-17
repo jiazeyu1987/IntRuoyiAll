@@ -39,10 +39,10 @@ blocked
 
 ## Worktree Setup
 
-- Worktree path: `D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830`
+- Worktree path: `../IntRuoyiWorktree/nonconformance-review-mvp-20260830`
 - Branch: `codex/nonconformance-review-mvp-20260830`
 - Runtime profile: `int_batch`
-- Integration worktree: `D:\IntRuoyiWorktree\nonconformance-review-mvp-int-main-20260830`
+- Integration worktree: `../IntRuoyiWorktree/nonconformance-review-mvp-int-main-20260830`
 - Integration branch: `codex/nonconformance-review-mvp-int-main-20260830`
 - Integration runtime profile: `int_main slot 54`（前端 `8309`、后端 `48309`，本轮仅用于端口门禁，未启动服务）
 

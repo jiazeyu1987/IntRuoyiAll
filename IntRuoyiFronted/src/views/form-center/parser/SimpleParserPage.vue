@@ -462,6 +462,7 @@
       :targets="parameterTargets"
       @save="saveParameter"
     />
+    <SimpleReuseDialog ref="reuseDialog" @confirm="confirmReuse" />
     <el-dialog
       v-model="publishVisible"
       :title="published ? '创建结果' : '预览发布'"
@@ -613,6 +614,7 @@ import {
 } from './simpleRecognition'
 import SimpleParserHeader from './components/SimpleParserHeader.vue'
 import SimpleParameterDialog from './components/SimpleParameterDialog.vue'
+import SimpleReuseDialog from './components/SimpleReuseDialog.vue'
 import SimpleTrialPreview from './components/SimpleTrialPreview.vue'
 import ParserProcessToolbar from './components/ParserProcessToolbar.vue'
 import ParserTrialNavigation from './components/ParserTrialNavigation.vue'
@@ -1225,6 +1227,9 @@ function chooseCraft(group: number, id?: number) {
   }
 }
 const parameterDialog = ref<InstanceType<typeof SimpleParameterDialog>>()
+const reuseDialog = ref<InstanceType<typeof SimpleReuseDialog>>()
+const reuseMatches = ref<import('@/api/mes/pro/batchrecordreport/simpleParser').SimpleParserReuseMatch[]>([])
+let reuseRequestId = ''
 let parameterOrigin: { processId: string; group: number; parameter?: number } | undefined
 const parameterTargets = computed(() =>
   processes.value.flatMap(
@@ -1413,6 +1418,49 @@ async function openPublish() {
     error.value = '请先成功加载设备目录，再预览发布'
     return
   }
+  previewLoading.value = true
+  publishError.value = ''
+  try {
+    const data = buildRequest()
+    const matches = await SimpleParserApi.reuseMatches(data)
+    if (data.requestId !== requestId.value) throw new Error('匹配期间内容已修改，请重新预览')
+    reuseMatches.value = matches
+    reuseRequestId = data.requestId
+    if (matches.some(row => row.candidates.length) || data.processSelections.some(row => row.processId)) {
+      reuseDialog.value!.open(matches, data.processSelections)
+      return
+    }
+    await generatePublishPreview()
+  } catch (cause) {
+    error.value = `发布预览失败：${errorText(cause)}`
+  } finally {
+    previewLoading.value = false
+  }
+}
+async function confirmReuse(selections: SimpleParserRequest['processSelections']) {
+  if (reuseRequestId !== requestId.value) {
+    error.value = '内容已修改，请重新预览'
+    return
+  }
+  mutate(() => {
+    for (const selection of selections) {
+      const process = processes.value[selection.processIndex]
+      process.processId = selection.processId
+      process.processCode = reuseMatches.value.find(r => r.processIndex === selection.processIndex)
+        ?.candidates.find(c => c.processId === selection.processId)?.code
+      process.craftSelections = Object.fromEntries(selection.craftSelections.map(c => [c.groupIndex, c.craftId]))
+    }
+  })
+  await nextTick()
+  if (issues.value.length) {
+    publishPreview.value = undefined
+    pendingRequest.value = undefined
+    publishVisible.value = true
+    return
+  }
+  await generatePublishPreview()
+}
+async function generatePublishPreview() {
   previewLoading.value = true
   publishError.value = ''
   try {

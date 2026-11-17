@@ -8,9 +8,9 @@ PASS
 
 - `AGENTS.md` 已创建于当前工作区根目录。
 - `python -X utf8` 成功按 UTF-8 解码 `AGENTS.md`。
-- 结构校验确认 `AGENTS.md` 包含当前根路径 `E:\IntRuoyi`、后端目录 `IntRuoyiBackend`、前端目录 `IntRuoyiFronted`。
+- 结构校验确认 `AGENTS.md` 包含当前根路径 `.`、后端目录 `IntRuoyiBackend`、前端目录 `IntRuoyiFronted`。
 - 结构校验确认保留 `Strict No-Fallback Policy`、`BDD and Strict TDD`、`Playwright`、`PowerShell and Encoding Safety` 等关键规则。
-- 结构校验确认不再包含旧项目绝对路径 `D:\ProjectPackage\Int\IntRuoyi`。
+- 结构校验确认不再包含旧项目绝对路径 `.`。
 
 ## Notes
 

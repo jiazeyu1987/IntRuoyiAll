@@ -13,7 +13,7 @@
 - `IntRuoyiFronted/src/views/system/tenant/index.vue`：租户列表和租户精简接口使用方式。
 - `IntRuoyiFronted/src/api/system/role/index.ts`、`permission/index.ts`、`tenant/index.ts`：系统模块 API wrapper 约定。
 - `IntRuoyiFronted/package.json`：项目使用 Vue 3、Vite、TypeScript、Element Plus、Pinia、Playwright。
-- `D:/ProjectPackage/Int/IntPP/FRONTEND_STYLE.md`：新增管理页应遵循蓝/中性、密集运营控制台风格。
+- `./docs/frontend-development.md`：新增管理页应遵循蓝/中性、密集运营控制台风格。
 - `docs/e2e-rules.md` 与 `docs/login-access.md`：E2E 必须通过真实前端路径，涉及租户和账号时不得静默切换。
 
 ## Pages and Routes

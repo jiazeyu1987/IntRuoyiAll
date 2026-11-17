@@ -7,6 +7,11 @@ public class ErpKingdeeStockSyncResult {
 
     private int syncedCount;
     private int skippedCount;
+    private int createdCount;
+    private int updatedCount;
+
+    public void addCreated() { createdCount++; }
+    public void addUpdated() { updatedCount++; }
 
     public void addSkipped() {
         skippedCount++;

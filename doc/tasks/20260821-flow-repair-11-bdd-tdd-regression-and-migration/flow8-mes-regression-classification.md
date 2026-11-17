@@ -4,7 +4,7 @@
 
 本清单只消费流程 8 独立 worktree 中已经产生的 Surefire XML，不重跑测试、不连接数据库、不写入运行态，也不修改流程 8 业务代码。证据源为：
 
-`D:\IntRuoyiWorktree\20260822-flow-repair-08-design-development\IntRuoyiBackend\yudao-module-mes\target\surefire-reports\TEST-*.xml`
+`../IntRuoyiWorktree/20260822-flow-repair-08-design-development/IntRuoyiBackend/yudao-module-mes/target/surefire-reports/TEST-*.xml`
 
 只读聚合结果为 479 个 suite、3575 tests、59 failures、93 errors、19 skipped。以下 152 条 failure/error 均从 XML 逐条列出；`skipped` 单独归入覆盖缺口，不作为业务 RED。直接属于流程 8 四材料/最终放行 gate 的 failure/error 为 0：流程 8 定向 215 tests 已在其报告中通过，但这不等同于全链路 Go。
 

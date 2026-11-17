@@ -6,8 +6,8 @@
 
 | 材料 | 当前可用事实 |
 |---|---|
-| 整合运行目录 | `C:/IntRuoyi/20261001-dcc-integration` |
-| 正式端口登记表 | `C:/IntRuoyiAll-int_main/.git/intrruoyi-runtime/worktree-ports.json`，精确匹配active entry：int_qms/slot6、frontend8067、backend48067、当前整合分支 |
+| 整合运行目录 | `../IntRuoyiWorktree/20261001-dcc-integration` |
+| 正式端口登记表 | `./.git/intrruoyi-runtime/worktree-ports.json`，精确匹配active entry：int_qms/slot6、frontend8067、backend48067、当前整合分支 |
 | 正式后端入口 | 整合目录 `scripts/runtime/start-branch-backend.ps1`；它按登记解析slot，仅用已存在server Jar，不带 `-Build` 时不构建；默认local profile及登记端口，追加 `ExtraArgs` |
 | 正式前端入口 | 整合目录 `scripts/runtime/start-branch-frontend.ps1`；slot6生成8067、后端/proxy48067并使用strictPort；不改共享.env |
 | 已审安全运行覆盖清单 | 主任务 `g21-runtime-plan.json`；来源于G18/G19实际审查，固定Flowable自动DDL禁用、RAMQuartz、独立scheduler名、关闭startup sync及无关workers、Shanghai/7天。它是计划JSON，不是已经生效配置 |

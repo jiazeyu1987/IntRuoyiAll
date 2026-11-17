@@ -103,46 +103,70 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void replaceProjectTemplate_withoutUniqueActiveCategoryFailsBeforeMutation() {
-        mockValidTemplateDependencies();
-        when(categoryMapper.selectList()).thenReturn(List.of());
-
-        assertServiceException(() -> service.replaceProjectTemplate(100L,
-                        saveRequest(item(103L, "总装图", 1))),
-                PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
-
-        verify(templateItemMapper, never()).deleteByProjectCodeId(100L);
-        verify(templateItemMapper, never()).insert(any(DccProjectFileTemplateItemDO.class));
+    void replaceProjectTemplate_allowsMissingTaxonomyAndCategory() {
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(List.of());
+        var result = service.replaceProjectTemplate(100L, saveRequest(item(null, " Template ", 1)));
+        assertEquals("Template", result.getItems().get(0).getFileName());
+        assertEquals(Boolean.TRUE, result.getItems().get(0).getValid());
+        verify(categoryMapper, never()).selectList();
     }
 
     @Test
-    void replaceProjectTemplate_nonLeafTaxonomyFailsBeforeMutation() {
-        mockNonLeafTemplateDependencies();
-
+    void replaceProjectTemplate_rejectsDuplicateUnclassifiedNames() {
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(List.of());
         assertServiceException(() -> service.replaceProjectTemplate(100L,
-                        saveRequest(item(103L, "总装图", 1))),
-                PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
-
+                saveRequest(item(null, " Template ", 1), item(null, "template", 2))),
+                PROJECT_FILE_TEMPLATE_DUPLICATE_ITEM);
         verify(templateItemMapper, never()).deleteByProjectCodeId(100L);
-        verify(templateItemMapper, never()).insert(any(DccProjectFileTemplateItemDO.class));
     }
 
     @Test
-    void getProjectTemplate_nonLeafSavedItemRemainsVisibleForRepair() {
+    void replaceProjectTemplate_allowsRootAndNonLeafTaxonomy() {
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
+        var result = service.replaceProjectTemplate(100L,
+                saveRequest(item(101L, "Root", 1), item(103L, "Branch", 2)));
+        assertEquals(Boolean.TRUE, result.getItems().get(0).getValid());
+        assertEquals(Boolean.TRUE, result.getItems().get(1).getValid());
+        verify(categoryMapper, never()).selectList();
+    }
+
+    @Test
+    void getProjectTemplate_readsUnclassifiedAndNonLeafAssociations() {
         when(projectCodeMapper.selectById(100L)).thenReturn(projectCode());
         when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
-        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
-                .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
         when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of(
-                DccProjectFileTemplateItemDO.builder()
-                        .id(900L).projectCodeId(100L).fileTypeTaxonomyId(103L)
-                        .fileName("总装图").sortOrder(1).build()));
+                DccProjectFileTemplateItemDO.builder().fileName("Unclassified").build(),
+                DccProjectFileTemplateItemDO.builder().fileTypeTaxonomyId(103L).fileName("Nonleaf").build()));
+        var response = service.getProjectTemplate(100L);
+        assertEquals(2, response.getItems().size());
+        response.getItems().forEach(item -> assertEquals(Boolean.TRUE, item.getValid()));
+        verify(categoryMapper, never()).selectList();
+    }
 
-        var result = service.getProjectTemplate(100L);
-        assertEquals(1, result.getItems().size());
-        assertEquals(900L, result.getItems().get(0).getId());
-        assertEquals(Boolean.FALSE, result.getItems().get(0).getValid());
-        assertEquals(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID.getCode(), result.getItems().get(0).getValidationCode());
+    @Test
+    void invalidAssociationsRejectSaveAndRemainVisibleForRepair() {
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
+        when(projectCodeMapper.selectById(100L)).thenReturn(projectCode());
+        for (var invalidRows : List.of(
+                List.of(DccFileTypeTaxonomyDO.builder().id(103L).parentId(999L).active(true).build()),
+                List.of(DccFileTypeTaxonomyDO.builder().id(103L).parentId(0L).active(false).build()),
+                List.of(DccFileTypeTaxonomyDO.builder().id(103L).parentId(104L).active(true).build(),
+                        DccFileTypeTaxonomyDO.builder().id(104L).parentId(103L).active(true).build()))) {
+            when(taxonomyAdminService.getTaxonomyList()).thenReturn(invalidRows);
+            assertServiceException(() -> service.replaceProjectTemplate(100L,
+                    saveRequest(item(103L, "Invalid", 1))), PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+            when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of(
+                    DccProjectFileTemplateItemDO.builder().id(900L).fileTypeTaxonomyId(103L)
+                            .fileName("Invalid").sortOrder(1).build()));
+            var response = service.getProjectTemplate(100L);
+            assertEquals(900L, response.getItems().get(0).getId());
+            assertEquals(Boolean.FALSE, response.getItems().get(0).getValid());
+        }
+        verify(templateItemMapper, never()).deleteByProjectCodeId(100L);
+        verify(categoryMapper, never()).selectList();
     }
 
     @Test
@@ -173,9 +197,9 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
                 PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
 
         when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRows());
-        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+        lenient().when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
                 new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
-        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+        lenient().when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
                 .id(501L).active(true).fileTypeTaxonomyId(103L).build()));
         service.validateUploadSelection(100L, 103L, "零件图");
     }
@@ -187,9 +211,9 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
                         .id(900L).projectCodeId(100L).fileTypeTaxonomyId(103L)
                         .fileName("旧模板名称").sortOrder(1).build()));
         when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRows());
-        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+        lenient().when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
                 new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
-        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+        lenient().when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
                 .id(501L).active(true).fileTypeTaxonomyId(103L).build()));
 
         service.validateUploadLocation(100L, 103L);
@@ -203,18 +227,9 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
     private void mockValidTemplateDependencies() {
         when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
         when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRows());
-        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+        lenient().when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
                 new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
-        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
-                .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
-    }
-
-    private void mockNonLeafTemplateDependencies() {
-        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
-        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
-        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
-                new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
-        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+        lenient().when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
                 .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
     }
 

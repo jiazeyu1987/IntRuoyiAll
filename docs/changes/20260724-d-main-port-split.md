@@ -1,3 +1,5 @@
+> 历史变更记录：该独立配置现已停用；当前主工作区默认使用 `int_main` 的 `8081/48081`，以 `docs/branch-runtime-ports.md` 为准。
+
 # D Main Runtime Port Split
 
 ## Decision

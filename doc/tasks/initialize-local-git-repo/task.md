@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-Create a local Git repository at `E:\IntRuoyi`, add a root `.gitignore` that protects generated artifacts and local runtime files, then commit the current frontend/backend source tree into the local repository.
+Create a local Git repository at `.`, add a root `.gitignore` that protects generated artifacts and local runtime files, then commit the current frontend/backend source tree into the local repository.
 
 ## Milestones
 
@@ -15,10 +15,10 @@ Create a local Git repository at `E:\IntRuoyi`, add a root `.gitignore` that pro
 
 ## Expected Verification
 
-- `git -C E:\IntRuoyi status --short` works after initialization.
-- `git -C E:\IntRuoyi check-ignore` confirms generated artifacts are ignored.
-- `git -C E:\IntRuoyi commit` creates a local baseline commit.
-- `git -C E:\IntRuoyi status --short` is clean or only shows intentionally ignored runtime artifacts.
+- `git -C . status --short` works after initialization.
+- `git -C . check-ignore` confirms generated artifacts are ignored.
+- `git -C . commit` creates a local baseline commit.
+- `git -C . status --short` is clean or only shows intentionally ignored runtime artifacts.
 
 ## Current Status
 

@@ -69,9 +69,13 @@ test('affected Vue scripts and templates compile', () => {
 })
 
 test('material totals display independently from the process minimum', () => {
-  const context = { deviceState: { selectedProcess: { submittedQuantity: 0, outputSubmittedQuantities: { 9001: 5000, 9002: 0 } } }, isFrontlineProductionProcess: () => true }
-  const subject = evaluate(declarations('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), ['formatProductionSubmittedQuantity', 'productionOutputSubmittedQuantity'], context)
-  assert.match(subject.productionOutputSubmittedQuantity({ materialId: 9001 }), /5000/)
-  assert.match(subject.productionOutputSubmittedQuantity({ materialId: 9002 }), /0 件/)
-  assert.match(subject.productionOutputSubmittedQuantity({ materialId: 9003 }), /缺失/)
+  const context = { deviceState: { selectedProcess: { submittedQuantity: 0, targetQuantity: 6000, outputSubmittedQuantities: { 9001: 5000, 9002: 0 } } }, isFrontlineProductionProcess: () => true }
+  const subject = evaluate(declarations('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), ['formatProductionSubmittedQuantity', 'productionOutputSubmittedQuantity', 'formatProductionMaterialTabLabel'], context)
+  assert.equal(subject.formatProductionMaterialTabLabel({ materialId: 9001, materialName: '螺杆', materialCode: 'HIDDEN' }), '螺杆 5000/6000')
+  assert.equal(subject.formatProductionMaterialTabLabel({ materialId: 9002, materialName: '按钮' }), '按钮 0/6000')
+  assert.throws(() => subject.productionOutputSubmittedQuantity({ materialId: 9003 }), /缺失/)
+  context.deviceState.selectedProcess.outputSubmittedQuantities[9001] = 6500
+  assert.equal(subject.productionOutputSubmittedQuantity({ materialId: 9001 }), '6500/6000')
+  context.deviceState.selectedProcess.targetQuantity = undefined
+  assert.throws(() => subject.productionOutputSubmittedQuantity({ materialId: 9001 }), /工序所需总数无效/)
 })

@@ -346,7 +346,7 @@ import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
 import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
 import EdhrPermissionTransfer from './EdhrPermissionTransfer.vue'
-import PermissionAuditDialog from './PermissionAuditDialog.vue'
+
 
 defineOptions({ name: 'SystemRole' })
 

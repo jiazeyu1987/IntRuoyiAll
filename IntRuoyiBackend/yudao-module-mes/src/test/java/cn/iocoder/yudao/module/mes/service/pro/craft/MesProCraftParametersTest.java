@@ -9,6 +9,36 @@ import static org.junit.jupiter.api.Assertions.*;
 import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.*;
 
 class MesProCraftParametersTest {
+    @Test void invalidRangesIdentifyParameterAndField() {
+        JSONArray parameters = definitions();
+        JSONObject temperature = parameters.getJSONObject(0);
+        temperature.put("lowerLimit", 50);
+        assertValidationMessage(parameters, "温度", "TEMP", "下限", "不能大于上限");
+        temperature.put("lowerLimit", 20);
+        temperature.put("defaultValue", 19);
+        assertValidationMessage(parameters, "温度", "TEMP", "目标值", "不能小于下限");
+        temperature.put("defaultValue", 41);
+        assertValidationMessage(parameters, "温度", "TEMP", "目标值", "不能大于上限");
+    }
+    @Test void invalidSelectionsIdentifyParameterAndField() {
+        JSONArray parameters = definitions();
+        JSONObject mode = parameters.getJSONObject(3);
+        mode.put("optionValuesJson", "[]");
+        assertValidationMessage(parameters, "模式", "MODE", "下拉选项", "至少填写一个");
+        mode.put("optionValuesJson", "[\"常规\",\" \"]");
+        assertValidationMessage(parameters, "模式", "MODE", "下拉选项", "空选项");
+        mode.put("optionValuesJson", "[\"常规\"]");
+        mode.put("defaultText", "加强");
+        assertValidationMessage(parameters, "模式", "MODE", "默认值", "下拉选项中的值");
+        mode.put("defaultText", "常规");
+        assertDoesNotThrow(() -> MesProCraftService.validateDefinitions(22L, parameters));
+    }
+    private void assertValidationMessage(JSONArray parameters, String... fragments) {
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> MesProCraftService.validateDefinitions(22L, parameters));
+        for (String fragment : fragments) assertTrue(ex.getMessage().contains(fragment), ex.getMessage());
+        assertFalse(ex.getMessage().contains("routeVersionId=0"));
+    }
     @Test void emptyParametersExplainMinimumRequirement() {
         ServiceException ex = assertThrows(ServiceException.class, () -> normalize(new JSONArray()));
         assertEquals("工艺至少保留一项参数", ex.getMessage());

@@ -516,6 +516,29 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     @Test
+    void correctionCanAddSystemOtherLossAndPersistItsSnapshot() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithBusinessDetails());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(lossReasonValidator.requireEnabledLossReason(928611L, -1L, new BigDecimal("2")))
+                .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonSnapshot(
+                        -1L, "SYSTEM_OTHER_LOSS", "其他损耗"));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(703L);
+        var request = command().setOutputQuantity(new BigDecimal("4"))
+                .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                        .setReasonId(-1L).setQuantity(new BigDecimal("2"))))
+                .setDeviceParameterReadings(List.of(new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                        .setDeviceId(41L).setParameterCode("pressure").setValue(new BigDecimal("20"))));
+        assertEquals(703L, service.correct(request));
+        var revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revision.capture());
+        var detail = JsonUtils.parseTree(revision.getValue().getAfterPayload()).path("lossDetails").get(0);
+        assertEquals(-1L, detail.path("reasonId").longValue());
+        assertEquals("其他损耗", detail.path("reasonName").asText());
+        assertEquals("SYSTEM_OTHER_LOSS", detail.path("reasonCode").asText());
+    }
+
+    @Test
     void correctsMaterialDetailsWithoutLosingMaterialIdentity() {
         when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithBusinessDetails());
         when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));

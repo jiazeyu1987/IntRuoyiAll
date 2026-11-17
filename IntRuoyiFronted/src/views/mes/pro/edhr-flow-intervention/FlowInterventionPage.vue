@@ -232,7 +232,7 @@ import {
   type EdhrFlowInterventionRespVO
 } from '@/api/mes/pro/edhr/flowIntervention'
 import * as UserApi from '@/api/system/user'
-import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+
 
 defineOptions({ name: 'MesProEdhrFlowIntervention' })
 
@@ -569,9 +569,7 @@ const resolveIntegrityTag = (result?: string) => {
   return 'warning'
 }
 
-const formatDateTime = (value?: string | number) => {
-  return formatEdhrDateTime(value)
-}
+
 
 onMounted(() => {
   getList()

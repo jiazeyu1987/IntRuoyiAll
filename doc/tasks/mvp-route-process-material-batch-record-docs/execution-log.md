@@ -8,7 +8,7 @@
 - READ: `product-requirements-docs` 技能、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/experience-index.md` 和命中的一线生产/路线工序/物料页签经验门禁。
 - WRITE: 新增 `docs/product/frontline-process-material-batch-record-mvp-prd.md`。
 - WRITE: 新增 `docs/product/frontline-process-material-batch-record-mvp-user-operation.md`。
-- VERIFY: `python -X utf8 C:\Users\BJB110\.codex\skills\product-requirements-docs\scripts\validate_product_requirements.py --self-test` -> PASS。
+- VERIFY: `python -X utf8 会话技能：product-requirements-docs --self-test` -> PASS。
 - VERIFY: 自定义结构校验 -> PASS，PRD 与用户操作文档章节完整、无弱占位词。
 - VERIFY: `rg` 关键词核对 -> PASS，MVP、工艺路线工序、灰/绿、完成数量、ERP 同步、最小值、快照、审批、删除旧逻辑等要求均已覆盖。
 - EXPERIENCE: 本次没有新增需要写入长期经验文档的通用工程经验；现有 `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见` 已覆盖多物料页签、最小值、系统内同步批号和禁止直连 ERP 等门禁。

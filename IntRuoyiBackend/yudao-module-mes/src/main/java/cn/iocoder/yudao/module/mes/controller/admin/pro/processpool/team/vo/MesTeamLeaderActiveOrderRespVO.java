@@ -114,6 +114,9 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "是否存在生产数量冲突", example = "true")
     private Boolean hasQuantityConflict;
 
+    @Schema(description = "当前生产记录是否存在参数异常（仅提示，不阻断业务）")
+    private Boolean hasParameterAbnormal;
+
     @Schema(description = "存在数量冲突的工序数", example = "1")
     private Integer quantityConflictProcessCount;
 

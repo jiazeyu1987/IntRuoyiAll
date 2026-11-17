@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # PRD：DCC 第一阶段逻辑文件身份与 Windchill 版本内核
 
 ## Purpose and Scope
@@ -11,7 +13,7 @@
 ## Evidence Reviewed
 
 - 用户在当前会话确认的五项核心口径及 Windchill 版本规则。
-- `D:\4\CE\文控系统拆解v0.txt` 中的文件身份、检出检入、版本、审批、发布和历史追溯要求。
+- `历史外部材料（引用已移除）` 中的文件身份、检出检入、版本、审批、发布和历史追溯要求。
 - 当前 DCC 的受控文件主档、版本记录、上传、审批、发布、浏览、检出检入、生命周期审计和关联文件实现。
 - `IntRuoyiBackend/docs/product/dcc-screenshot-requirements-prd.md` 及配套用户流程、验收标准。
 - `doc/tasks/20260903-dcc-controlled-file-checkout-checkin/` 和 `doc/tasks/20260903-dcc-upload-related-files/` 的现状证据。

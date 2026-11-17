@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-按用户要求将当前 `E:\IntRuoyi` 仓库主分支设置为 `int_main`，并在项目 `AGENTS.md` 中记录主分支约束，避免后续任务继续把 `main` 作为主分支。
+按用户要求将当前 `.` 仓库主分支设置为 `int_main`，并在项目 `AGENTS.md` 中记录主分支约束，避免后续任务继续把 `main` 作为主分支。
 
 ## Milestones
 

@@ -1,6 +1,8 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # UM-04 实施合同（等待主 Agent 评审）
 
-日期：2026-10-08。来源基线：主 Agent 提供的 `a3b8bedfeece394f286e23a9d5144361b951e8ac`；本文直接只读核对 `E:/IntRuoyi` 当前源码，未执行 Git、测试、构建、服务、数据库或 E2E。本文不是实现完成或放行证据。作者仅写本文和 `contract-author-result.md`，主 Agent 独占 task/task-state/execution-log。
+日期：2026-10-08。来源基线：主 Agent 提供的 `a3b8bedfeece394f286e23a9d5144361b951e8ac`；本文直接只读核对 `.` 当前源码，未执行 Git、测试、构建、服务、数据库或 E2E。本文不是实现完成或放行证据。作者仅写本文和 `contract-author-result.md`，主 Agent 独占 task/task-state/execution-log。
 
 ## 1. 目标、边界与优先规则
 
@@ -155,11 +157,11 @@ upstream的failIfNoSpecifiedTests=false不允许system零目标类；核对当�
 
 ## 9. 前置条件与交接门禁
 
-主 Agent 最新交接已实际核验：Java17 `C:/Users/BJB110/.jdks/jdk-17.0.20+8`、Maven3.9.16、Node24.12.0、pnpm10.22.0可用；执行Java/Maven需 `-Dfile.encoding=UTF-8`。真实MySQL `127.0.0.2:23306/ruoyi-vue-pro`、Redis `127.0.0.2:26379`已由主 Agent只读确认可用。作者未重跑这些核验，不能把环境可用转写成测试PASS。AdminUserServiceImplTest的BaseDb设施不依赖unit Redis16379，不应强加无关Redis前置。
+主 Agent 最新交接已实际核验：Java17 `历史外部材料（引用已移除）`、Maven3.9.16、Node24.12.0、pnpm10.22.0可用；执行Java/Maven需 `-Dfile.encoding=UTF-8`。真实MySQL `127.0.0.2:23306/ruoyi-vue-pro`、Redis `127.0.0.2:26379`已由主 Agent只读确认可用。作者未重跑这些核验，不能把环境可用转写成测试PASS。AdminUserServiceImplTest的BaseDb设施不依赖unit Redis16379，不应强加无关Redis前置。
 
 仍未核验：worktree frozen依赖安装、H2/Surefire/专用tenant上下文是否可启动、实际handler harness可执行、正式运行MySQL三表与任务数据状态、真实用户/岗位菜单和页面入口、任务runtime及浏览器。这些不是本文PASS。
 
-managed worktree创建由主 Agent管理，operation `50a967c3-8671-494f-a99e-06d246d57a5d` 已正式完成；主 Agent已核实clean/head基线与分支 `codex/user-inactive-post-retention`，路径 `E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi`，official slot7，前端8088/后端48088。作者继续仅写主仓两份文档，不在worktree改文件；主 Agent复制合同并维护worker任务文档。worker只在该最终managed路径与批准白名单实施。运行服务前重新核对profile/port/PID/归属，禁止占用48081/启停主int_main；不碰并行runtime。
+managed worktree创建由主 Agent管理，operation `50a967c3-8671-494f-a99e-06d246d57a5d` 已正式完成；主 Agent已核实clean/head基线与分支 `codex/user-inactive-post-retention`，路径 `../IntRuoyiWorktree/user-inactive-posts/IntRuoyi`，official slot7，前端8088/后端48088。作者继续仅写主仓两份文档，不在worktree改文件；主 Agent复制合同并维护worker任务文档。worker只在该最终managed路径与批准白名单实施。运行服务前重新核对profile/port/PID/归属，禁止占用48081/启停主int_main；不碰并行runtime。
 
 主 Agent须先评审本文并签署待实施任务单，再派worker代码实施；本文作者不自行放行。实施与独立评审完成后仍需主 Agent逐节点核验与本次授权真实E2E。任何缺依赖/正式数据/页面入口准确阻断，不安装其他框架或API造数作为替代，不将文档结构/静态字符串/历史测试结果写成本轮实际PASS。
 

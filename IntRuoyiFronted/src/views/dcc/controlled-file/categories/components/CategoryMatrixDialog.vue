@@ -635,6 +635,7 @@ const submitForm = async () => {
     dialogVisible.value = false
     return
   }
+  if (!context.categoryId) return
   saving.value = true
   previewError.value = ''
   try {

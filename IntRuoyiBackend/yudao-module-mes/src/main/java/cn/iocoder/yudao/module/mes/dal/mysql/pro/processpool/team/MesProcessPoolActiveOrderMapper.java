@@ -16,6 +16,16 @@ import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
+    default List<MesProcessPoolActiveOrderDO> selectDeviationSourcesForUpdate(Long tenantId, Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getTenantId, tenantId)
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE", "CLOSED")
+                .in(MesProcessPoolActiveOrderDO::getBusinessStatus, "ACTIVE", "COMPLETED", "RELEASED")
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     @Update("UPDATE mes_pro_process_pool_active_order SET dossier_revision=dossier_revision+1 WHERE id=#{id} AND dossier_revision=#{revision} AND deleted=0")
     int advanceDossierRevision(@Param("id") Long id, @Param("revision") Long revision);
 

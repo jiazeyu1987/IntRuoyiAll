@@ -90,9 +90,38 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
         return rows.size();
     }
 
-    private boolean upsert(ErpKingdeeInventoryRow row, LocalDateTime now, boolean skipExisting) {
-        String sourceLineKey = row.getStockOrgNumber() + "|" + row.getWarehouseNumber() + "|"
+    private String sourceLineKey(ErpKingdeeInventoryRow row) {
+        return row.getStockOrgNumber() + "|" + row.getWarehouseNumber() + "|"
                 + row.getMaterialNumber() + "|" + row.getLotNumber();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeInventoryListSyncResult syncAllWithUpdates() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(properties);
+        ErpKingdeeInventoryListSyncResult result = new ErpKingdeeInventoryListSyncResult();
+        LocalDateTime now = LocalDateTime.now();
+        for (ErpKingdeeInventoryRow row : rows) {
+            boolean exists = inventoryListMapper.selectBySourceLine(sourceLineKey(row)) != null;
+            upsert(row, now, false);
+            if (exists) result.addUpdated(); else result.addCreated();
+        }
+        java.util.Set<String> sourceKeys = rows.stream().map(this::sourceLineKey).collect(java.util.stream.Collectors.toSet());
+        for (ErpKingdeeInventoryListDO existing : inventoryListMapper.selectList()) {
+            if (!sourceKeys.contains(existing.getSourceLineKey()) && existing.getQuantity().signum() != 0) {
+                if (inventoryListMapper.updateById(new ErpKingdeeInventoryListDO().setId(existing.getId())
+                        .setQuantity(java.math.BigDecimal.ZERO).setLastSyncTime(now)) != 1)
+                    throw new IllegalStateException("ERP库存明细清零失败: " + existing.getId());
+                result.addUpdated();
+            }
+        }
+        return result;
+    }
+
+    private boolean upsert(ErpKingdeeInventoryRow row, LocalDateTime now, boolean skipExisting) {
+        String sourceLineKey = sourceLineKey(row);
         ErpKingdeeInventoryListDO existing = inventoryListMapper.selectBySourceLine(sourceLineKey);
         ErpKingdeeInventoryListDO record = ErpKingdeeInventoryListDO.builder()
                 .sourceFormId(ErpKingdeeInventoryRow.FORM_ID)

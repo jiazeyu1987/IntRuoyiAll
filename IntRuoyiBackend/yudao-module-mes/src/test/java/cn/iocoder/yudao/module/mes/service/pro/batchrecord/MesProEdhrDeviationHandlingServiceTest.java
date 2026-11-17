@@ -69,6 +69,8 @@ class MesProEdhrDeviationHandlingServiceTest {
     private MesProEdhrDeviationReviewTaskService reviewTaskService;
 
     @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+    @Mock private MesProEdhrDeviationAccessService accessService;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
     private MesProEdhrDeviationHandlingServiceImpl service;
 
     @BeforeEach
@@ -76,6 +78,9 @@ class MesProEdhrDeviationHandlingServiceTest {
         TenantContextHolder.setTenantId(71L);
         service = new MesProEdhrDeviationHandlingServiceImpl(
                 deviationMapper, handlingMapper, signatureRecordMapper, signatureService, operationAuditService);
+        ReflectionTestUtils.setField(service, "accessService", accessService);
+        ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
+        lenient().when(accessService.canEditInvestigation(any(), any(), any())).thenReturn(true);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "signatureQueryService", signatureQueryService);
         ReflectionTestUtils.setField(service, "operationAuditEventMapper", operationAuditEventMapper);
@@ -116,7 +121,7 @@ class MesProEdhrDeviationHandlingServiceTest {
 
         var first = service.save(201L, 901L, completeRequest(0));
         var revised = service.save(201L, 901L, completeRequest(1)
-                .setVerificationContent("重新验证通过")
+                .setRootCauseAnalysis("修订后的根因")
                 .setRevisionReason("验证不合格后修订调查结论"));
 
         assertEquals(7701L, first.getId());
@@ -126,10 +131,12 @@ class MesProEdhrDeviationHandlingServiceTest {
         assertNotEquals(first.getContentHash(), revised.getContentHash());
         verify(handlingMapper).updateContent(eq(71L), eq(901L), eq(1), any(MesProEdhrDeviationHandlingDO.class));
         verify(operationAuditService).recordInCallerTransaction(any(MesProEdhrOperationAuditCommand.class));
-        verify(workTaskService, org.mockito.Mockito.times(2)).completeDeviationTask(901L,
+        verify(workTaskService, never()).completeDeviationTask(901L,
                 MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
         verify(reviewTaskService).cancelAll(901L, "偏差处理内容已修订，原版本签署任务失效");
-        verify(reviewTaskService, org.mockito.Mockito.times(10)).assign(eq(deviation), any(), anyString(), eq(201L));
+        verify(reviewTaskService, never()).assign(any(), any(), anyString(), anyLong());
+        assertEquals(false, first.getInvestigationSubmitted());
+        assertEquals(null, first.getVerificationResult());
     }
 
     @Test
@@ -148,7 +155,7 @@ class MesProEdhrDeviationHandlingServiceTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1})
-    void completedCorrectiveRecordCompletesExistingTaskWithoutCancelOrAssignment(int version) {
+    void investigationDraftCannotSubmitAnotherPersonsCorrection(int version) {
         when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
         when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L))
                 .thenReturn(version == 0 ? null : newHandling(7701L, 1, "old-hash"));
@@ -160,14 +167,15 @@ class MesProEdhrDeviationHandlingServiceTest {
         } else {
             when(handlingMapper.updateContent(eq(71L), eq(901L), eq(1), any())).thenReturn(1);
         }
-        service.save(201L, 901L, completeRequest(version).setCorrectiveOwnerId(202L)
+        var result = service.save(201L, 901L, completeRequest(version).setCorrectiveOwnerId(202L)
                 .setCompletedAt(LocalDateTime.of(2026, 10, 27, 12, 0))
                 .setRevisionReason("完成纠正措施"));
 
-        verify(workTaskService).completeDeviationTask(901L,
-                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT, "已提交纠正措施完成记录");
-        verify(workTaskService, never()).assignDeviationTask(any(), anyString(),
-                org.mockito.ArgumentMatchers.nullable(Long.class), anyString());
+        assertEquals(null, result.getCompletedAt());
+        assertEquals("DRAFT", result.getCorrectiveStatus());
+        assertEquals(null, result.getVerificationResult());
+        verify(workTaskService, never()).completeDeviationTask(eq(901L),
+                eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT), anyString());
     }
 
     @Test
@@ -321,7 +329,8 @@ class MesProEdhrDeviationHandlingServiceTest {
     @Test
     void sameActorCanSignMultipleIndependentHandlingNodes() {
         MesProEdhrDeviationDO deviation = openDeviation("CRITICAL");
-        MesProEdhrDeviationHandlingDO handling = newHandling(7701L, 1, "current-hash");
+        MesProEdhrDeviationHandlingDO handling = newHandling(7701L, 1, "current-hash")
+                .setInvestigationSubmitted(true).setCorrectiveStatus("VERIFIED");
         when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(deviation);
         when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L)).thenReturn(handling);
         when(signatureService.recordDeviationHandlingSignature(eq(201L), eq(901L), eq(7701L),
@@ -345,7 +354,8 @@ class MesProEdhrDeviationHandlingServiceTest {
 
     @Test
     void permittedUserCannotSignAnotherPersonsExplicitResponsibility() {
-        var handling = newHandling(7701L, 1, "current-hash");
+        var handling = newHandling(7701L, 1, "current-hash")
+                .setInvestigationSubmitted(true).setCorrectiveStatus("VERIFIED");
         when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
         when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L)).thenReturn(handling);
         assertThrows(ServiceException.class,
@@ -356,10 +366,12 @@ class MesProEdhrDeviationHandlingServiceTest {
     @Test
     void completeHandlingCannotBeSubmittedWithoutExplicitResponsibilityOwners() {
         when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
-        assertThrows(ServiceException.class,
-                () -> service.save(201L, 901L, completeRequest(0).setReviewerAssignments(java.util.Map.of())));
-        verify(handlingMapper, never()).insert(any(MesProEdhrDeviationHandlingDO.class));
-        org.mockito.Mockito.verifyNoInteractions(reviewTaskService);
+        var current = newHandling(7701L, 1, "hash").setReviewerAssignmentsJson("{}");
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L)).thenReturn(current);
+        assertThrows(ServiceException.class, () -> service.submitInvestigation(201L,
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingSubmitReqVO()
+                        .setDeviationId(901L).setExpectedContentVersion(1).setExpectedContentHash("hash")));
+        verify(handlingMapper, never()).updateContent(any(), any(), any(), any());
     }
 
     @Test
@@ -370,14 +382,15 @@ class MesProEdhrDeviationHandlingServiceTest {
         var result = service.save(201L, 901L, completeRequest(0).setCorrectiveOwnerId(202L));
         assertEquals(false, result.getReviewReady());
         verify(workTaskService).assignDeviationTask(any(), eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT),
-                eq(202L), anyString());
+                org.mockito.ArgumentMatchers.isNull(), anyString());
         verify(reviewTaskService, never()).assign(any(), any(), anyString(), anyLong());
     }
 
     @Test
     void finalSignatureCompletesOnlyItsTaskAndDispatchesQaClosureResponsibility() {
         var deviation = openDeviation("NORMAL");
-        var handling = newHandling(7701L, 1, "current-hash");
+        var handling = newHandling(7701L, 1, "current-hash")
+                .setInvestigationSubmitted(true).setCorrectiveStatus("VERIFIED");
         var task = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO().setId(6001L);
         when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(deviation);
         when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L)).thenReturn(handling);
@@ -488,6 +501,115 @@ class MesProEdhrDeviationHandlingServiceTest {
                 .filter(signature -> "CURRENT_VALID".equals(signature.getValidityStatus())).count());
     }
 
+
+    @Test
+    void draftCanBeSavedWithoutAnySignatureOwners() {
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
+        doAnswer(call -> { ((MesProEdhrDeviationHandlingDO)call.getArgument(0)).setId(7701L); return 1; })
+                .when(handlingMapper).insert(any(MesProEdhrDeviationHandlingDO.class));
+        var saved = service.save(201L, 901L, completeRequest(0).setReviewerAssignments(java.util.Map.of()));
+        assertEquals(false, saved.getInvestigationSubmitted());
+        assertEquals(false, saved.getReviewReady());
+        verify(reviewTaskService, never()).assign(any(), any(), anyString(), anyLong());
+    }
+
+    @Test
+    void unrelatedHandlerCannotEditInvestigation() {
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
+        when(accessService.canEditInvestigation(any(), any(), any())).thenReturn(false);
+        assertThrows(ServiceException.class, () -> service.save(202L, 901L, completeRequest(0)));
+        verify(handlingMapper, never()).insert(any(MesProEdhrDeviationHandlingDO.class));
+    }
+
+    @Test
+    void correctionSubmissionNeedsNoGlobalHandlingPermissionAndDispatchesOnlyVerification() {
+        var current = correction("DRAFT");
+        stubMutation(current);
+        when(workTaskMapper.selectActiveByBusinessScopeAndType("EDHR_DEVIATION", 901L, "DEVIATION_CORRECT"))
+                .thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO().setAssigneeUserId(202L));
+        var result = service.submitCorrective(202L, correctionRequest());
+        assertEquals("SUBMITTED", result.getCorrectiveStatus());
+        assertEquals("已完成设备调整", result.getCorrectiveResult());
+        assertEquals(2, result.getContentVersion());
+        assertEquals(false, result.getReviewReady());
+        verify(reviewTaskService).assign(any(), any(), eq("CORRECTIVE_VERIFIER"), eq(201L));
+        verify(reviewTaskService, never()).assign(any(), any(), eq("QA"), anyLong());
+        verify(operationAuditService).recordInCallerTransaction(any());
+        verify(securityFrameworkService, never()).hasPermission("mes:pro-edhr-deviation:handle");
+    }
+
+    @Test
+    void correctionOwnerCannotSubmitForAnotherOwnerOrReuseOldVersion() {
+        var current = correction("DRAFT");
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L)).thenReturn(current);
+        assertThrows(ServiceException.class, () -> service.submitCorrective(203L, correctionRequest()));
+        assertThrows(ServiceException.class, () -> service.submitCorrective(202L, correctionRequest().setExpectedContentVersion(99)));
+        verify(handlingMapper, never()).updateContent(any(), any(), any(), any());
+    }
+
+    @Test
+    void returnedCorrectionIsReassignedAndCanBeResubmitted() {
+        var current = correction("SUBMITTED").setCorrectiveResult("初次整改");
+        stubMutation(current);
+        var result = service.verifyCorrective(201L, verifyRequest(false));
+        assertEquals("RETURNED", result.getCorrectiveStatus());
+        assertEquals("FAIL", result.getVerificationResult());
+        assertEquals("补充设备验证证据", result.getVerificationContent());
+        verify(workTaskService).assignDeviationTask(any(), eq("DEVIATION_CORRECT"), eq(202L), eq("退回整改：补充设备验证证据"));
+        verify(reviewTaskService, never()).assign(any(), any(), anyString(), anyLong());
+    }
+
+    @Test
+    void verificationOnlyUserCanApproveAndThenSignatureTasksAreDispatched() {
+        var current = correction("SUBMITTED").setCorrectiveResult("完成整改").setCompletedAt(LocalDateTime.now());
+        stubMutation(current);
+        var result = service.verifyCorrective(201L, verifyRequest(true));
+        assertEquals("VERIFIED", result.getCorrectiveStatus());
+        assertEquals(true, result.getReviewReady());
+        verify(reviewTaskService, org.mockito.Mockito.times(5)).assign(any(), any(), anyString(), eq(201L));
+    }
+
+    @Test
+    void noCorrectionInvestigationStillRequiresIndependentVerification() {
+        var current = correction("SUBMITTED").setCorrectiveOwnerId(null);
+        stubMutation(current);
+        var result = service.verifyCorrective(201L, verifyRequest(true));
+        assertEquals(true, result.getReviewReady());
+        assertEquals("VERIFIED", result.getCorrectiveStatus());
+    }
+
+    @Test
+    void designatedVerifierCannotApproveOwnCorrectionOrWrongResponsibility() {
+        var current = correction("SUBMITTED").setCorrectiveOwnerId(201L);
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L,901L)).thenReturn(openDeviation("NORMAL"));
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L,901L)).thenReturn(current);
+        assertThrows(ServiceException.class, () -> service.verifyCorrective(201L, verifyRequest(true)));
+        assertThrows(ServiceException.class, () -> service.verifyCorrective(203L, verifyRequest(true)));
+        verify(handlingMapper, never()).updateContent(any(),any(),any(),any());
+    }
+
+    private MesProEdhrDeviationHandlingDO correction(String status) {
+        return newHandling(7701L,1,"hash").setInvestigationSubmitted(true)
+                .setCorrectiveOwnerId(202L).setCorrectiveStatus(status);
+    }
+    private void stubMutation(MesProEdhrDeviationHandlingDO current) {
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L,901L)).thenReturn(openDeviation("NORMAL"));
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L,901L)).thenReturn(current);
+        when(handlingMapper.updateContent(eq(71L),eq(901L),eq(1),any())).thenReturn(1);
+    }
+    private cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveReqVO correctionRequest() {
+        return new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveReqVO()
+                .setDeviationId(901L).setExpectedContentVersion(1).setExpectedContentHash("hash")
+                .setResult("已完成设备调整").setCompletedAt(LocalDateTime.of(2026,11,17,10,0))
+                .setEvidenceUrls(List.of("https://example.com/correction.pdf"));
+    }
+    private cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveVerifyReqVO verifyRequest(boolean passed) {
+        return new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveVerifyReqVO()
+                .setDeviationId(901L).setExpectedContentVersion(1).setExpectedContentHash("hash")
+                .setPassed(passed).setComment("补充设备验证证据");
+    }
+
     private MesProEdhrDeviationDO openDeviation(String level) {
         return new MesProEdhrDeviationDO().setId(901L).setTenantId(71L)
                 .setActiveOrderId(991L).setWorkOrderId(801L).setWorkOrderCode("WO-801")
@@ -495,7 +617,8 @@ class MesProEdhrDeviationHandlingServiceTest {
     }
 
     private MesProEdhrDeviationHandlingDO completeHandling(Long id, int version) {
-        MesProEdhrDeviationHandlingDO handling = newHandling(id, version, null);
+        MesProEdhrDeviationHandlingDO handling = newHandling(id, version, null)
+                .setInvestigationSubmitted(true).setCorrectiveStatus("VERIFIED");
         handling.setContentHash(service.contentHash(handling));
         return handling;
     }

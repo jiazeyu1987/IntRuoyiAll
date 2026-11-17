@@ -67,51 +67,51 @@
 
 7、确认的缺口A：不合格评审“等QA处理”，但没有创建QA交接。`create`写评审、冻结和审计后直接返回；`QA_REVIEW`只保留类型、展示和处置时尝试关闭旧任务。不能因为存在QA_REVIEW常量就算已派单。业务后果是QA需要主动查列表，且冻结中的对象可能等待无人承接。
 
-依据：[不合格创建](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java:314)、[QA处置及结果交接](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java:297)。
+依据：[不合格创建](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java#L314)、[QA处置及结果交接](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java#L297)。
 
 8、确认的缺口B：偏差“有接收人/纠正责任人字段”，但填写这些人不会自动通知或派单。签署只按节点权限校验并记录当前内容签名，没有生成该节点责任人的审批待办。因此“页面可签署”与“审批已流转到个人”必须分别评价。
 
-依据：[偏差发起](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationServiceImpl.java:198)、[签署与关闭](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java:171)、[偏差详情操作](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/edhr-deviation/DeviationDetail.vue:239)。
+依据：[偏差发起](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationServiceImpl.java#L198)、[签署与关闭](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java#L171)、[偏差详情操作](../../IntRuoyiFronted/src/views/mes/pro/edhr-deviation/DeviationDetail.vue#L239)。
 
 9、确认的缺口C：QA让步/返工后原生产组长有真实接手动作，但记录被标为仅通知。交接保存并发消息，个人工作台却只接入EDHR_WORK_TASK等来源，没有接入该交接表；审批聚合也过滤notificationOnly。结果是消息可见不代表个人待办可见。QA作废后的只读告知应继续仅通知，不应一并改成待办。
 
-依据：[结果交接创建](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java:302)、[交接落库及通知](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java:403)、[工作台来源清单](E:/IntRuoyi/IntRuoyiFronted/src/workbench/manifest.json:1)、[审批交接过滤](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesActiveOrderHandoffApprovalProjection.java:41)。
+依据：[结果交接创建](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java#L302)、[交接落库及通知](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java#L403)、[工作台来源清单](../../IntRuoyiFronted/src/workbench/manifest.json#L1)、[审批交接过滤](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesActiveOrderHandoffApprovalProjection.java#L41)。
 
 10、确认的缺口D：重开/补录申请没有任务交接。`requestReopenBatch`、`requestSupplement`只保存申请；存在approve方法并不能保证审批人会收到任务。业务上应把已确认记录变更交给授权审批人，再把批准后的修订交给处理人。
 
-依据：[重开申请](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java:363)、[补录申请](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java:518)。
+依据：[重开申请](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java#L363)、[补录申请](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java#L518)。
 
 11、确认的缺口E：当前资料上传缺少按责任派单闭环。主页面的“其他文件”等实际调用活跃订单资料服务，该服务保存文件关联、版本和审计，没有生成补件任务。旧四类上传初始化虽会建立任务，但`initializeRequiredReportStage`在生产源码中只有接口和实现定义，未找到调用；当前PQC批准直接创建上市放行任务。
 
-依据：[当前详情组件](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue:16)、[实际上传](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue:4167)、[资料落库](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java:161)、[旧四类派单](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesProductionReleaseReportStageInitializerImpl.java:69)、[当前PQC后续](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java:218)。
+依据：[当前详情组件](../../IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue#L16)、[实际上传](../../IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue#L4167)、[资料落库](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java#L161)、旧四类派单（历史目标未收录：`../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesProductionReleaseReportStageInitializerImpl.java#L69`）、[当前PQC后续](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java#L218)。
 
 12、确认的缺口F：放行结果的告知没有与分派通知一样形成闭环。PQC驳回、上市放行拒绝分支写决定、完成原任务、记审计后返回。没有看到把驳回结果通知申请人并明确派出补正工作的链路。消息服务已实现的“分派”和“交接”不等于“结果告知”也已实现。
 
-依据：[PQC驳回](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java:247)、[上市放行拒绝](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java:365)、[放行分派通知](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/notification/MesReleaseTaskNotificationService.java:33)。
+依据：[PQC驳回](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java#L247)、[上市放行拒绝](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java#L365)、[放行分派通知](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/notification/MesReleaseTaskNotificationService.java#L33)。
 
 13、初审时怀疑普通执行任务混入审批中心，后续对照 `MesEdhrApprovalCenterQueryContractTest` 发现此判断不成立：候选签名任务可以使用 `FILL` 类型，测试专门证明候选分支必须保留。这不是已确认的多余实现，本次不改审批候选查询；若需进一步区分“签名填写”与普通填写，应依正式签名节点身份（如 `signatureCellKey`）和完整测试另行证明，不能仅按taskType删除。
 
-依据：[候选任务契约测试](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/approval/MesEdhrApprovalCenterQueryContractTest.java:57)。
+依据：[候选任务契约测试](../../IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/approval/MesEdhrApprovalCenterQueryContractTest.java#L57)。
 
 14、确认的待办状态问题：个人工作台读取TODO/OVERDUE任务，只排除终态批次及非归档的CLOSED批次，没有排除FROZEN=15。创建不合格评审后普通任务仍可列为“待处理”，但实际资料维护等入口拒绝冻结对象。应显示挂起/阻塞及原因，或移出可执行待办，而不是让用户反复进入才发现不能做。
 
-依据：[工作台查询](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml:4)、[批次过滤](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesOpenWorkTaskVisibility.java:16)、[冻结阻止资料修改](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java:269)。
+依据：[工作台查询](../../IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml#L4)、[批次过滤](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesOpenWorkTaskVisibility.java#L16)、[冻结阻止资料修改](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierFileService.java#L269)。
 
 15、主线外代码确实保留：旧四类报告上传阶段、人工关闭/归档分支、初始人工填写流、模拟及金手指批量作废。它们不能算当前活跃订单主线必须经过的节点。其中金手指批量作废直接调用生效执行器；正式生产若必须经过独立批准，该旁路不能充当合格实现。是否删除测试能力需结合其明确用途决定，本次未删改。
 
-依据：[当前受管放行直接进入历史状态](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java:1083)、[旧关闭并派归档](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:4904)、[创建后初始填写](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:1245)、[金手指直通作废](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:602)。
+依据：[当前受管放行直接进入历史状态](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java#L1083)、[旧关闭并派归档](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java#L4904)、[创建后初始填写](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java#L1245)、[金手指直通作废](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java#L602)。
 
 16、不能直接判定多余的代码：普通偏差关闭要求编制、验证、部门负责人、QA、质量负责人五类签署，重大偏差增加管理者代表。业务上需要职责确认和质量批准，但是否所有偏差都必须五/六签，需要正式业务规则支持；不能仅凭代码有这些节点就说它们必需，也不能在未核对规则时全删。
 
-依据：[签署节点集合](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java:49)、[关闭校验](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java:229)。
+依据：[签署节点集合](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java#L49)、[关闭校验](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java#L229)。
 
 17、已接通的核心不应重做：PQC/上市放行工作任务、候选人快照、分派通知、工作台读取、决定后任务完成，以及上市放行交接/收回。建议沿这些正式任务统一接入缺失场景，避免另造审批数据。消息需要实际投递回执；工作台需要匹配处理人、可操作状态和业务入口。
 
-依据：[PQC派发](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.java:91)、[管理者代表派发](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java:180)、[工作台适配器](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java:10)、[交接更新同一任务](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseHandoverService.java:143)。
+依据：[PQC派发](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.java#L91)、[管理者代表派发](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java#L180)、[工作台适配器](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java#L10)、[交接更新同一任务](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseHandoverService.java#L143)。
 
 18、普通作废审批已接入业务编排/BPM，BPM本身有任务分派和审批结果消息；个人工作台目前的来源清单不含BPM任务。因此应区分“审批中心有作废待审批”与“个人工作台也有”。不能为解决工作台缺入口，再创建第二个作废审批。
 
-依据：[作废提交](E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java:207)、[BPM任务通知](E:/IntRuoyi/IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmTaskServiceImpl.java:1515)、[BPM结果通知](E:/IntRuoyi/IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmProcessInstanceServiceImpl.java:1158)。
+依据：[作废提交](../../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrRecordChangeServiceImpl.java#L207)、[BPM任务通知](../../IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmTaskServiceImpl.java#L1515)、[BPM结果通知](../../IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmProcessInstanceServiceImpl.java#L1158)。
 
 19、原处理建议已部分完成：QA结果接手、偏差接收/纠正闭环、放行决定结果通知和冻结待办提示已接通。仍需明确QA评审、重开/补录的正式接收角色，以及放行驳回后的修订人。审批候选查询按已验证的签名任务契约保留，没有按普通 `FILL` 类型误删候选分支。历史查看、打印和普通附件整理不增加审批。
 
@@ -119,7 +119,7 @@
 
 21、本次核对依据包括当前前端五页签和详情入口、API映射、控制器权限、业务服务、任务/状态落库、通知发送、审批聚合、个人工作台来源和终态过滤。未核对运行数据库中的菜单授权、审批策略、通知模板、定时任务和实际投递记录；不能把本报告作为生产环境验收通过证明。
 
-22、业务背景参考：[五页签定义](E:/IntRuoyi/IntRuoyiFronted/src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue:8)、[角色操作口径](E:/IntRuoyi/docs/product/production-role-system-operations.md:11)、[较早90步流程](E:/IntRuoyi/docs/product/edhr-production-inspection-release-flow.md:77)。90步文档含当时实现说明，不是本次所有“应当”判断的唯一依据；其上传、归档顺序与当前代码差异已在上文显式说明。
+22、业务背景参考：[五页签定义](../../IntRuoyiFronted/src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue#L8)、[角色操作口径](../product/production-role-system-operations.md#L11)、[较早90步流程](../product/edhr-production-inspection-release-flow.md#L77)。90步文档含当时实现说明，不是本次所有“应当”判断的唯一依据；其上传、归档顺序与当前代码差异已在上文显式说明。
 
 23、2026-10-27 实施复核：QA让步/返工结果接手现为可操作交接任务，作废结果仍是只读通知；偏差接收人及纠正责任人会收到个人任务/通知，责任人修改会撤销旧任务并重派，关闭偏差会结束相关任务；冻结批次保留待办记录但响应标记不可办理并给出阻塞原因。偏差责任人必须已启用，且具备偏差查询、偏差处理和eDHR工作任务查询权限，避免派单后无法打开入口。
 

@@ -363,6 +363,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
                 class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 data-testid="dcc-project-code-access-rules-open"
+                v-if="canManageProjectAccessRules"
                 @click="openProjectAccessRules(row)"
                 v-hasPermi="['dcc:project-code:update']"
               >
@@ -826,6 +827,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           <el-button
             class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-access-rules-open"
+            v-if="canManageProjectAccessRules"
             size="small"
             type="primary"
             plain
@@ -1271,6 +1273,8 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
     data-testid="dcc-project-code-access-rules-dialog"
   >
     <div v-loading="projectAccessRulesLoading">
+      <el-alert v-if="projectAccessRulesLoadError" type="error" :closable="false" title="权限或人员加载失败，无法保存。请重新加载。" />
+      <el-button v-if="projectAccessRulesLoadError" @click="openProjectAccessRules(projectAccessRuleProject || undefined)">重新加载</el-button>
       <el-alert
         class="mb-12px"
         type="warning"
@@ -1286,16 +1290,17 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           </template>
         </span>
         <div class="flex gap-8px">
-          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('EDIT')">
+          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain :disabled="!projectAccessRulesLoaded || projectAccessRulesLoading" @click="addProjectAccessRuleRow('EDIT')">
             添加编辑
           </el-button>
-          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('VIEW')">
+          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain :disabled="!projectAccessRulesLoaded || projectAccessRulesLoading" @click="addProjectAccessRuleRow('VIEW')">
             添加浏览
           </el-button>
         </div>
       </div>
       <el-table
         :data="projectAccessRuleFormRows"
+        :empty-text="projectAccessRulesLoadError ? '加载失败，请重新加载' : '暂无数据'"
         border
         data-testid="dcc-project-code-access-rules-table"
       >
@@ -1406,6 +1411,7 @@ data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:qu
           type="primary"
           data-testid="dcc-project-code-access-rules-save"
           :loading="projectAccessRulesSaving"
+          :disabled="!projectAccessRulesLoaded || projectAccessRulesLoading"
           @click="submitProjectAccessRules"
         >
           保存正式权限
@@ -1580,6 +1586,11 @@ const submitProjectAccessRules = async () => {
     message.error('请选择项目代码')
     return
   }
+  if (!projectAccessRulesVisible.value || !projectAccessRulesLoaded.value || projectAccessRulesLoading.value || projectAccessRulesSaving.value) {
+    message.error('权限数据尚未完整加载，请重试后保存')
+    return
+  }
+  const requestVersion = projectAccessRulesRequestVersion
   const rules = normalizeProjectAccessRulePayload()
   if (!rules) {
     return
@@ -1587,6 +1598,7 @@ const submitProjectAccessRules = async () => {
   projectAccessRulesSaving.value = true
   try {
     const savedRules = await replaceProjectCodeAccessRules(projectCodeId, { rules })
+    if (requestVersion !== projectAccessRulesRequestVersion || !projectAccessRulesVisible.value) return
     projectAccessRules.value = savedRules
     projectAccessRuleFormRows.value = savedRules.map((rule) => buildProjectAccessRuleFormRow(rule))
     message.success('项目编辑/浏览授权已保存')
@@ -1696,6 +1708,7 @@ const route = useRoute()
 const router = useRouter()
 const canOpenLinkedPage = (path: string, permission: string) => canOpenProjectLinkedPage(router, path, permission)
 const canQueryAssociatedFiles = computed(() => checkPermi(['dcc:project-code:query']) && checkPermi(['dcc:controlled-file:query']))
+const canManageProjectAccessRules = computed(() => checkRole(['super_admin', 'tenant_admin', 'dcc_project_code_admin']))
 const associatedFilesError = ref('')
 const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
   path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
@@ -1767,7 +1780,16 @@ const assignmentRecordsLoading = ref(false)
 const assignmentRecords = ref<DccProjectCodeAssignmentRespVO[]>([])
 const assignmentRecordsTotal = ref(0)
 const projectAccessRulesVisible = ref(false)
+const projectAccessRulesLoaded = ref(false)
+const projectAccessRulesLoadError = ref(false)
+let projectAccessRulesRequestVersion = 0
 const projectAccessRulesLoading = ref(false)
+watch(projectAccessRulesVisible, (visible) => {
+  if (!visible) {
+    projectAccessRulesRequestVersion++
+    projectAccessRulesLoaded.value = false
+  }
+}, { flush: 'sync' })
 const projectAccessRulesSaving = ref(false)
 const projectAccessRuleUsersLoading = ref(false)
 const projectAccessRuleProject = ref<DccProjectCodeRespVO | null>(null)
@@ -1826,38 +1848,46 @@ const createProjectAccessRuleSeedRows = (): ProjectAccessRuleFormRow[] => [
   buildProjectAccessRuleFormRow({ subjectType: 'USER', accessLevel: 'EDIT', active: true })
 ]
 
-const loadProjectAccessRuleUsers = async () => {
-  projectAccessRuleUsersLoading.value = true
-  try {
-    projectAccessRuleUsers.value = (await getSimpleUserList()).filter(
-      (user: AssignmentUserOption) =>
-        user.disabled !== true && (typeof user.status === 'undefined' || user.status === 0)
-    )
-  } finally {
-    projectAccessRuleUsersLoading.value = false
-  }
-}
-
 const openProjectAccessRules = async (projectCode?: DccProjectCodeRespVO) => {
+  if (projectAccessRulesSaving.value) return
   const targetProject = projectCode || selectedProjectCode.value
   if (!targetProject?.id) {
     message.error('请选择项目代码')
     return
   }
+  const requestVersion = ++projectAccessRulesRequestVersion
   projectAccessRuleProject.value = targetProject
   projectAccessRulesVisible.value = true
+  projectAccessRulesLoaded.value = false
+  projectAccessRulesLoadError.value = false
+  projectAccessRules.value = []
+  projectAccessRuleFormRows.value = []
+  projectAccessRuleUsers.value = []
   projectAccessRulesLoading.value = true
+  projectAccessRuleUsersLoading.value = true
   try {
-    const [rules] = await Promise.all([
+    const [rules, users] = await Promise.all([
       getProjectCodeAccessRules(targetProject.id),
-      loadProjectAccessRuleUsers()
+      getSimpleUserList()
     ])
+    if (requestVersion !== projectAccessRulesRequestVersion || !projectAccessRulesVisible.value) return
+    projectAccessRuleUsers.value = users.filter(
+      (user: AssignmentUserOption) => user.disabled !== true && (typeof user.status === 'undefined' || user.status === 0)
+    )
     projectAccessRules.value = rules
     projectAccessRuleFormRows.value = rules.length > 0
       ? rules.map((rule) => buildProjectAccessRuleFormRow(rule))
       : createProjectAccessRuleSeedRows()
+    projectAccessRulesLoaded.value = true
+  } catch {
+    if (requestVersion !== projectAccessRulesRequestVersion || !projectAccessRulesVisible.value) return
+    projectAccessRulesLoadError.value = true
+    message.error('项目权限或人员加载失败，请重试')
   } finally {
-    projectAccessRulesLoading.value = false
+    if (requestVersion === projectAccessRulesRequestVersion) {
+      projectAccessRulesLoading.value = false
+      projectAccessRuleUsersLoading.value = false
+    }
   }
 }
 

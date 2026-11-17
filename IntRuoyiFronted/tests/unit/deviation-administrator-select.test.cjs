@@ -43,12 +43,12 @@ test('late response for switched session cannot populate current selector', asyn
   const pending = load(context)(); context.session.isCurrent = () => false
   finish([{ id: 1 }]); await pending; assert.deepEqual(context.candidates.value, [])
 })
-test('both real create entries use dedicated selector while downstream signers retain their own selection', () => {
-  for (const relative of ['src/views/mes/pro/edhr-deviation/index.vue', 'src/views/mes/pro/processpool/components/ActiveOrderDeviationDialog.vue']) {
-    const page = fs.readFileSync(path.resolve(__dirname, '../..', relative), 'utf8')
-    assert.match(page, /<DeviationReceiverSelect v-model="(?:createForm|form)\.receiverId"/)
-    assert.doesNotMatch(page, /<UserSelectV2[^>]*receiverId/)
-  }
+test('standalone creation uses the initiator while production leaders keep explicit administrator selection', () => {
+  const standalone = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/edhr-deviation/index.vue'), 'utf8')
+  assert.doesNotMatch(standalone, /DeviationReceiverSelect|receiverId|receiverName/)
+  const order = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/processpool/components/ActiveOrderDeviationDialog.vue'), 'utf8')
+  assert.match(order, /<DeviationReceiverSelect v-model="form\.receiverId"/)
+  assert.doesNotMatch(order, /<UserSelectV2[^>]*receiverId/)
   const detail = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/edhr-deviation/DeviationDetail.vue'), 'utf8')
-  assert.match(detail, /<UserSelectV2 v-model="handlingForm\.reviewerAssignments\[node\]"/)
+  assert.match(detail, /<DeviationReviewerSelect v-model="handlingForm\.reviewerAssignments\[node\]" :node="node"/)
 })

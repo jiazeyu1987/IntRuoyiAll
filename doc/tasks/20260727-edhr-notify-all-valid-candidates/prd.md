@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # PRD: MES 全量测试回归清零
 
 ## Goal
@@ -32,7 +34,7 @@
 ### Scenario 1: 完整 MES 回归
 
 Given 当前分支包含所有正式修复和真实测试依赖  
-When 在 `E:\IntRuoyi\IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`  
+When 在 `./IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`<br>
 Then Maven 返回 `BUILD SUCCESS`，完整套件没有 failure 或 error，且没有通过筛选或排除隐藏测试
 
 ### Scenario 2: 缺少真实 fixture
@@ -56,20 +58,20 @@ Then 每个有效候选账号每个任务收到一次通知，且目标 3 个测
 ### Scenario 4: 测试契约与生产行为不一致
 
 Given 某失败可能来自生产代码缺陷或陈旧测试期望  
-When 分析该套件的首个失败  
+When 分析该套件的首个失败<br>
 Then 依据当前正式 schema、业务规则和服务契约确定根因，并以 RED/GREEN 证明修复，而不是直接放宽断言
 
 ### Scenario 5: 并发文件冲突
 
 Given 共享工作区中另一任务已修改本任务计划触及的文件  
-When 本任务准备编辑该文件  
+When 本任务准备编辑该文件<br>
 Then 停止该文件的修改并协调所有权，不覆盖、回退或混入并发任务改动
 
 ## Functional Requirements
 
 - **FR-01 通知行为保护：** 系统必须继续按每个工作任务自身的有效候选快照发送站内信，并在任务内按账号去重。
 - **FR-02 Fixture 真实性：** 保留的 Word/Excel 解析和导入测试必须使用经确认的真实原始 fixture；缺失时必须 fail fast。若用户明确取消某个真实样本覆盖，则不得伪造 fixture 或跳过测试，只能删除该覆盖入口并保留可执行契约测试。
-- **FR-03 Fixture 可移植性：** 测试不得继续依赖 `C:\Users\BJB110\Desktop\...`、`D:\ocr2\resource\...` 等个人绝对路径。
+- **FR-03 Fixture 可移植性：** 测试不得继续依赖 `历史外部材料（引用已移除）`、`历史外部材料（引用已移除）` 等个人绝对路径。
 - **FR-04 前端契约定位：** MES 静态契约必须定位当前 `IntRuoyiFronted` 工程及其正式路由/共享批记录组件，不得引用废弃的 `yudao-ui-admin-vue3` 路径。
 - **FR-05 Schema 契约：** 运行时 schema、迁移和测试 schema 必须满足批记录、路线版本和当前服务所声明的正式字段及约束。
 - **FR-06 Spring 测试装配：** 数据库与集成测试所需 Bean、配置和依赖必须完整注入；ApplicationContext 必须成功启动。
@@ -99,7 +101,7 @@ Then 停止该文件的修改并协调所有权，不覆盖、回退或混入并
 - 真实 Excel fixture：`球囊扩张导管工序(1).xlsx`。2026-07-28 用户明确取消 Sheet1 Excel 真实样本覆盖后，该文件不再作为本任务验收前置。
 - Fixture 必须有可确认的来源、版本和完整性；在取得前，仍在范围内且依赖它们的修复为 blocked。
 - 禁止自行制作、裁剪、转换或用相似文件替代上述 fixture。
-- 技术环境为 Windows、Java 17、Maven，多模块后端根目录为 `E:\IntRuoyi\IntRuoyiBackend`。
+- 技术环境为 Windows、Java 17、Maven，多模块后端根目录为 `./IntRuoyiBackend`。
 - 当前共享分支为 `int_main`，工作区存在 unrelated concurrent changes，且分支相对 `origin/int_main` ahead 1。
 - 实施前和每次编辑前必须核对目标文件并发状态；文件冲突时停止并协调，不得覆盖他人改动。
 - 不得新增或扩大测试跳过、排除、禁用、条件假设或 Surefire 过滤。
@@ -115,7 +117,7 @@ mvn -pl yudao-module-mes test
 - **AC-01：** 保留范围内的真实 fixture 已从权威来源取得，版本和完整性已记录；用户取消的 Sheet1 Excel 真实样本覆盖已记录范围变更，且仓库中不存在任务伪造的替代文件。
 - **AC-02：** 所有依赖真实 Word fixture 的表格清单、结构校验、路线识别和打印探针测试通过。
 - **AC-03：** 仍保留的 Excel 解析契约测试通过；用户取消的 Sheet1 Excel 真实样本导入/DB 回滚覆盖入口已删除且未用跳过、排除或伪 fixture 替代。
-- **AC-04：** 前端静态契约不再访问 `E:\IntRuoyi\yudao-ui-admin-vue3`，并能基于当前 `IntRuoyiFronted` 结构完成验证。
+- **AC-04：** 前端静态契约不再访问 `./IntRuoyiFronted`，并能基于当前 `IntRuoyiFronted` 结构完成验证。
 - **AC-05：** `MesBatchRecordBaseSchemaTest` 及相关 schema/迁移契约通过，正式字段和约束与运行时 schema 一致。
 - **AC-06：** 基线中因 Spring Bean 注入或 ApplicationContext 创建失败的数据库/集成测试全部通过，且没有用 mock success 或删除上下文测试规避。
 - **AC-07：** `MesProBatchRecordReportServiceImplDbTest` 不再发生 H2 唯一键冲突，并能重复独立执行通过。
@@ -126,6 +128,6 @@ mvn -pl yudao-module-mes test
 - **AC-12：** 原通知目标 3 个测试通过，`MesProEdhrWorkTaskServiceImplTest` 66 个测试全部通过，通知收件人仍来自每个任务自身的有效候选快照。
 - **AC-13：** 2026-07-27 基线中的 41 个失败测试套件均不再报告 failure 或 error；没有通过删除仍在范围内的测试类、重命名逃避发现或减少测试扫描范围实现；用户明确取消的 Sheet1 Excel 真实样本覆盖入口除外。
 - **AC-14：** 本任务没有新增或扩大 `@Disabled`、条件跳过、Surefire excludes、测试 profile 排除或命令行测试筛选；基线 skipped 测试不得掩盖任何原失败套件。
-- **AC-15：** 在 `E:\IntRuoyi\IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test` 返回退出码 0 和 `BUILD SUCCESS`，完整汇总为 0 failures、0 errors。
+- **AC-15：** 在 `./IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test` 返回退出码 0 和 `BUILD SUCCESS`，完整汇总为 0 failures、0 errors。
 - **AC-16：** Git 差异审查确认只包含本任务拥有的修复与证据；任何并发文件冲突均已在修改前协调，没有覆盖、回退或提交无关改动。
 - **AC-17：** 最终实现未引入 fallback、默认成功、吞异常、伪 fixture、宽松 mock 或放宽断言。

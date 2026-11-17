@@ -26,10 +26,30 @@ public class ErpKingdeeSyncCancellation {
         if (!redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), syncType)).tryLock()) {
             throw new IllegalStateException("该同步任务仍在执行或停止中");
         }
+        if (writesProducts(syncType)) {
+            try {
+                if (!redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), "product-writers")).tryLock()) {
+                    throw new IllegalStateException("物料、库存或采购销售同步正在写入物料，请等待完成后重试");
+                }
+            } catch (RuntimeException failure) {
+                redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), syncType)).unlock();
+                throw failure;
+            }
+        }
     }
 
     public void unlock(String syncType) {
-        redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), syncType)).unlock();
+        try {
+            if (writesProducts(syncType)) {
+                redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), "product-writers")).unlock();
+            }
+        } finally {
+            redisson.getLock(lockKey(TenantContextHolder.getRequiredTenantId(), syncType)).unlock();
+        }
+    }
+
+    private boolean writesProducts(String syncType) {
+        return java.util.Set.of("PRODUCT", "STOCK", "PURCHASE_ORDER", "SALE_ORDER").contains(syncType);
     }
     private final ConcurrentHashMap<Long, Execution> executions = new ConcurrentHashMap<>();
 

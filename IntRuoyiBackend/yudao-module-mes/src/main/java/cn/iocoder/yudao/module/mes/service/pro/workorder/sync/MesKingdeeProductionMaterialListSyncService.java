@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 
 public interface MesKingdeeProductionMaterialListSyncService {
+    cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult syncAllWithUpdates(Long runId);
 
     cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult syncAllSkipExisting(Long runId);
 

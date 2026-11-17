@@ -270,7 +270,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
     }
 
     private void createDoneVisibilityTables(Connection db) throws SQLException {
-        for (String column : List.of("business_scope_type VARCHAR", "business_scope_id BIGINT", "work_order_id BIGINT",
+        for (String column : List.of(
                 "reason VARCHAR", "completed_at TIMESTAMP", "review_source_type VARCHAR", "review_source_id BIGINT")) {
             db.createStatement().execute("ALTER TABLE mes_pro_edhr_work_task ADD " + column);
         }
@@ -528,8 +528,12 @@ public class MesEdhrApprovalCenterQueryContractTest {
 
     private Connection fixture() throws SQLException {
         Connection db = DriverManager.getConnection("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL", "sa", "");
-        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR, signature_cell_key VARCHAR)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR, signature_cell_key VARCHAR, business_scope_type VARCHAR, business_scope_id BIGINT, work_order_id BIGINT)");
         db.createStatement().execute("CREATE TABLE mes_pro_edhr_batch_execution (id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_deviation(id BIGINT,tenant_id BIGINT,deleted INT,status VARCHAR,work_order_id BIGINT)");
+        db.createStatement().execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
+        db.createStatement().execute("INSERT INTO mes_pro_edhr_deviation VALUES(27,1,0,'OPEN',20)");
+        db.createStatement().execute("INSERT INTO mes_pro_work_order VALUES(20,1,0,1)");
         return db;
     }
 
@@ -550,6 +554,11 @@ public class MesEdhrApprovalCenterQueryContractTest {
             sql.setString(5, "batch-" + id);
             sql.setString(6, signatureCellKey);
             sql.executeUpdate();
+        }
+        if (type.startsWith("DEVIATION_")) {
+            try (PreparedStatement sql = db.prepareStatement("UPDATE mes_pro_edhr_work_task SET business_scope_type='EDHR_DEVIATION',business_scope_id=27,work_order_id=20 WHERE id=?")) {
+                sql.setLong(1,id); sql.executeUpdate();
+            }
         }
     }
 

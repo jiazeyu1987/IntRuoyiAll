@@ -22,4 +22,4 @@ Playwright在任务环境8312登录，选择IDI/DCC129，上传指定Word，识�
 
 前端5项逻辑测试、ESLint通过；后端2项测试通过；生产类编译通过；菜单迁移预检通过。全量类型检查有其他模块错误，不声明全库构建通过。本页已删除旧检查发现的未使用类型导入，复检结果见output/simple-pqc-typecheck-verified.log。
 
-任务环境：C:/Users/BJB110/.codex/worktrees/simple-parser-verification/IntRuoyi，前端8312/后端48312。主8081未切换到新版，未进行主服务部署、提交或推送。解析规则来源的标题截断清理已编译；本轮运行包仍含旧的末尾标题展示，未影响识别业务数据或发布结果。
+任务环境：../IntRuoyiWorktree/simple-parser-verification/IntRuoyi，前端8312/后端48312。主8081未切换到新版，未进行主服务部署、提交或推送。解析规则来源的标题截断清理已编译；本轮运行包仍含旧的末尾标题展示，未影响识别业务数据或发布结果。

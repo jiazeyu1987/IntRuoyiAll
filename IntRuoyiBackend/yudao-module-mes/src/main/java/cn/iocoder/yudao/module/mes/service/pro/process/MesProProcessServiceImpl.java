@@ -74,6 +74,8 @@ public class MesProProcessServiceImpl implements MesProProcessService {
     @Resource
     private MesProProcessCreationService processCreationService;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard sharedChangeGuard;
+    @Resource
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Resource
     private MesDvMachineryMapper machineryMapper;
@@ -116,7 +118,9 @@ public class MesProProcessServiceImpl implements MesProProcessService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateProcess(MesProProcessSaveReqVO updateReqVO) {
+        sharedChangeGuard.assertDirectUpdateAllowed("PROCESS", updateReqVO.getId());
         // 1.1 校验存在
         validateProcessExists(updateReqVO.getId());
         // 1.2 校验编码、名称唯一

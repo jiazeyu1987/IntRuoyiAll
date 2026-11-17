@@ -23,7 +23,6 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 
 | Profile | Workspace | Frontend | Backend |
 | --- | --- | ---: | ---: |
-| `int_main_d` | Explicit `INTRUOYI_RUNTIME_PROFILE=int_main_d` | `8101` | `48101` |
 | `int_main` | `int_main` default | `8081` | `48081` |
 | `int_batch` | `int_batch` default | `8041` | `48041` |
 | `int_shedule` | `int_shedule` / `int_schedule` default | `8021` | `48021` |

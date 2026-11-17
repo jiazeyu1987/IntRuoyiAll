@@ -956,6 +956,51 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     }
 
     @Test
+    void syncWorkOrders_rekeysExistingLinkWhenErpCorrectsMaterialOnSameDocument() {
+        var order = buildOrder();
+        var existing = MesProWorkOrderDO.builder().id(501L).code(order.getBillNo())
+                .name("Old material").productId(19L).build();
+        var record = new MesKingdeeProductionOrderSyncRecordDO().setId(77L)
+                .setSourceFid(order.getFid()).setSourceBillNo(order.getBillNo())
+                .setSourceMaterialNumber("OLD-MATERIAL").setWorkOrderId(501L);
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder(order.getBillNo())).thenReturn(existing);
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(existing);
+        when(syncRecordMapper.selectByWorkOrderId(501L)).thenReturn(record);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+
+        assertEquals(1, syncService.syncWorkOrders().getUpdatedCount());
+
+        var captor = ArgumentCaptor.forClass(MesKingdeeProductionOrderSyncRecordDO.class);
+        verify(syncRecordMapper).updateById(captor.capture());
+        assertEquals(77L, captor.getValue().getId());
+        assertEquals("MAT-001", captor.getValue().getSourceMaterialNumber());
+        assertEquals(501L, captor.getValue().getWorkOrderId());
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        verify(workOrderService, never()).createWorkOrder(any());
+    }
+
+    @Test
+    void syncWorkOrders_rejectsRebindingWorkOrderToDifferentSourceDocument() {
+        var order = buildOrder();
+        var existing = MesProWorkOrderDO.builder().id(501L).code(order.getBillNo()).build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder(order.getBillNo())).thenReturn(existing);
+        when(syncRecordMapper.selectByWorkOrderId(501L)).thenReturn(
+                new MesKingdeeProductionOrderSyncRecordDO().setId(77L)
+                        .setSourceFid("OTHER-FID").setSourceBillNo(order.getBillNo()).setWorkOrderId(501L));
+
+        var error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("不能重新绑定"));
+        verify(workOrderMapper, never()).updateErpSnapshot(any());
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        verify(syncRecordMapper, never()).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
     void syncWorkOrders_usesSourceRecordWorkOrderWhenBillNoChanges() {
         ErpKingdeeProductionOrder order = buildOrder();
         order.setBillNo("881MO091049-REV");

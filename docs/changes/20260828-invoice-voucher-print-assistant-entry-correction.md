@@ -2,7 +2,7 @@
 
 ## Request Summary And Source
 
-用户指出入口应定为 `ERP 系统 / 财务管理 / 发票凭证打印`，且页面内容应来自 `E:\ProjectPackage\erp-invoice-voucher-print-assistant`。上一版实现落成 `分贝通凭证`，不符合业务目标。
+用户指出入口应定为 `ERP 系统 / 财务管理 / 发票凭证打印`，且页面内容应来自 `../erp-invoice-voucher-print-assistant`。上一版实现落成 `分贝通凭证`，不符合业务目标。
 
 ## Current Baseline Reviewed
 

@@ -1,4 +1,8 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Worktree Memory
+
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
 
 ## 归档前保存任务记录与跨会话归属
 
@@ -33,7 +37,7 @@
 - 从任务自有物理SSD目录安装后用 junction 消费前，逐字节核对 manifest/lock/workspace 配置，并确认相对 file/link/workspace依赖、生命周期脚本和额外配置不会使复制少量配置文件丢失安装上下文；不满足即停止。安装、实际模块解析、定向验证、真实页面就绪分别记证据；保留中断/失败轮，收尾核对消费者已停止后再清理确切自有物理目录与链接。
 ## 同类需求 Worktree 复用门禁
 
-- Trigger: 用户要求在 worktree 中继续一个业务功能，且 `D:\IntRuoyiWorktree\` 下可能已有同类分支或半成品分支。
+- Trigger: 用户要求在 worktree 中继续一个业务功能，且 `../IntRuoyiWorktree/` 下可能已有同类分支或半成品分支。
 - Preflight check: 新建前先用 `git worktree list`、分支名和 `doc/tasks/<task-id>` 语义检索同类 worktree；若已有同类分支包含目标代码、任务文档和验证证据，优先在该 worktree 继续，不要重复创建新分支。
 - Blocker: 新建过程中被中断并留下 `locked initializing`、大量 staged deletion 或半 checkout 目录时，必须先确认路径属于当前任务且在 worktree 根目录内，再按 Git worktree 注册状态清理或改用既有同类 worktree；不得把半初始化目录当作可用工作区。
 - Verification: 记录最终采用的 worktree 路径、分支、端口槽位和 `git status --short --branch`；若放弃新建的半成品，需要记录 Git 注册、物理目录和端口登记的后续清理状态。
@@ -49,8 +53,8 @@
 
 ## Codex 临时 Worktree 提交迁移门禁
 
-- Trigger: 当前工作区位于 `C:\Users\<user>\.codex\worktrees\...`、处于 detached HEAD，或切到任务分支后 `branch-runtime-port-guard.ps1` 报当前路径属于 `int_main` 但分支不是 `int_main`。
-- Preflight check: 不在 C 盘临时 worktree 用 `--no-verify` 绕过提交钩子；先从最新 `int_main` 在 `D:\IntRuoyiWorktree\` 创建任务专属 worktree，运行 `reserve-worktree-slot.ps1` 登记 profile、slot、前后端端口，再迁移当前任务最小 diff。
+- Trigger: 当前工作区位于 Codex 创建的临时 checkout、处于 detached HEAD，或切到任务分支后 `branch-runtime-port-guard.ps1` 报当前路径属于 `int_main` 但分支不是 `int_main`。
+- Preflight check: 不在 C 盘临时 worktree 用 `--no-verify` 绕过提交钩子；先从最新 `int_main` 在 `../IntRuoyiWorktree/` 创建任务专属 worktree，运行 `reserve-worktree-slot.ps1` 登记 profile、slot、前后端端口，再迁移当前任务最小 diff。
 - Blocker: C 盘临时 worktree 混有其它任务 dirty/untracked、主工作区 dirty、或新 worktree 未登记端口槽位时，只能记录阻断并保留现场；不得把无关 dirty 整体提交、stash、reset 或混入任务分支。
 - Verification: 记录 C 盘 guard 失败摘要、D 盘 worktree 路径、分支、slot、`branch-runtime-port-guard.ps1` PASS、最小 diff 清单和后续 Maven/静态验证。
 - Forbidden action: 禁止在 profile 不匹配的临时 worktree 上 `git commit --no-verify`，禁止为通过 closeout 把 C 盘混合 dirty 改动全量提交，禁止绕过 D 盘 worktree 根目录和端口登记规则。
@@ -65,7 +69,7 @@
 
 ## Worktree 端口段与原子槽位门禁
 
-- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 101`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
+- Trigger: 新建、登记、启动、提交或推送 `../IntRuoyiWorktree/` 下的 worktree；出现 `slot >= 101`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或主工作区未使用默认 `int_main` 的 `8081/48081`。
 - Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..100`；槽位 `1..19` 保持原映射，`20..30`、`31..40`、`41..50`、`51..60`、`61..70`、`71..80`、`81..90` 和 `91..100` 分别使用集中定义的八段扩展端口。随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。长期任务分支还必须先核对自身 guard/profile 合同与当前 `docs\branch-runtime-ports.md` 的槽位范围一致；若旧分支仍只接受旧槽位范围，应先以任务相关的独立 Git 变更同步守卫，再判断共享登记是否合法。
 - Blocker: 槽位不在 `1..100`、登记端口不符合集中映射、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、提交钩子提示缺少当前 worktree registry active entry，或目标分支 guard 合同落后于共享登记合同且尚未完成范围可证明的同步时必须 fail fast。
 - Verification: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py`、`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`、目标工作区 `show-branch-runtime.ps1` 输出，或 `reserve-worktree-slot.ps1 -AsJson` 返回当前路径、分支、profile、slot、frontendPort、backendPort 且后续 `git commit` 钩子通过。
@@ -74,7 +78,7 @@
 
 ## Worktree 重命名与端口登记原子同步门禁
 
-- Trigger: 重命名 `D:\IntRuoyiWorktree\` 下已经具有活动端口登记项的 worktree，或要求只修改 worktree 显示名称和目录而保留原分支、slot 与端口。
+- Trigger: 重命名 `../IntRuoyiWorktree/` 下已经具有活动端口登记项的 worktree，或要求只修改 worktree 显示名称和目录而保留原分支、slot 与端口。
 - Preflight check: 先读取 `docs\worktree-restrictions.md`，逐个确认旧目录存在、目标目录不存在、目标绝对路径仍是固定 worktree 根目录的子路径；用 `git worktree list --porcelain`、目标分支和登记表旧路径唯一匹配每个活动项。执行时使用 `git worktree move` 更新 Git 元数据，并取得与 `reserve-worktree-slot.ps1` 相同的登记表 mutex，在同一受控操作中更新登记项 `name/path/updatedAt`；保留 `branch/profile/slot/frontendPort/backendPort/createdAt`。
 - Blocker: 任一目标名已占用、旧目录或 Git 注册缺失、登记项按旧路径和分支不能唯一命中、路径越界、登记表 mutex 超时、任一步移动或登记表校验失败时必须停止；多项批量重命名出现中途失败时必须报告并恢复已移动项和原登记内容，不能留下半完成状态。
 - Verification: 重命名后重新运行 `git worktree list --porcelain`，确认新目录存在、旧目录不存在；逐个核对分支、HEAD、`git status --short`、活动登记项唯一性以及原 slot/前后端端口未变化。任务证据同时记录 Git 路径和登记表最终名称、路径、槽位、端口。
@@ -83,7 +87,7 @@
 
 ## Worktree 旧无监听槽位释放门禁
 
-- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..100 全占用但多数端口未监听。
+- Trigger: 用户明确要求清理 当前 Git common directory 下的 `intrruoyi-runtime/worktree-ports.json`（或显式配置的登记表） 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..100 全占用但多数端口未监听。
 - Preflight check: 先读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和端口登记表；用 `Get-NetTCPConnection -State Listen` 复扫登记端口；释放前必须取得同 `reserve-worktree-slot.ps1` 一致的登记表 mutex；历史登记项可能缺少 `profile` 等字段，脚本必须显式可选读取字段并 fail fast。
 - Blocker: 未获得用户明确授权、端口仍有监听、创建时间不满足用户给定条件、登记表校验失败、active 项释放后出现重复 active slot/端口、或无法确认修改只影响用户指定范围时必须停止。
 - Verification: 重新读取登记表确认目标 active 项已变为 inactive；复扫 worktree 端口监听；运行 `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`；在任务日志记录清理和保留清单。
@@ -93,8 +97,8 @@
 ## 主工作区 Maven Target 冲突时的隔离验证 Worktree 门禁
 
 - Trigger: 主工作区目标模块 `target` 已损坏、`mvn clean` 卡在 `WinNTFileSystem.delete0`、存在其它任务 Maven 正在写同一模块输出目录，但当前任务仍需要运行定向 Maven 回归。
-- Preflight check: 先读取 `docs\worktree-restrictions.md` 并确认目标路径是 `D:\IntRuoyiWorktree\` 子路径；只创建 task-owned detached worktree（`git worktree add --detach`），不启动前后端服务时不登记端口；把当前任务的最小源码 diff 精确应用到该 worktree，并用 `git diff -- <path>` 复核。
-- Blocker: 目标路径不在 `D:\IntRuoyiWorktree\`、需要启动服务但未登记 slot、无法证明 applied diff 只含当前任务改动、或 isolated Maven 仍无法到达目标 Surefire 时必须停止；不得继续清理主工作区共享 `target`。
+- Preflight check: 先读取 `docs\worktree-restrictions.md` 并确认目标路径是 `../IntRuoyiWorktree/` 子路径；只创建 task-owned detached worktree（`git worktree add --detach`），不启动前后端服务时不登记端口；把当前任务的最小源码 diff 精确应用到该 worktree，并用 `git diff -- <path>` 复核。
+- Blocker: 目标路径不在本次选定的 worktree 根目录内、需要启动服务但未登记 slot、无法证明 applied diff 只含当前任务改动、或 isolated Maven 仍无法到达目标 Surefire 时必须停止；不得继续清理主工作区共享 `target`。
 - Verification: 记录 detached worktree 路径、HEAD、applied diff、目标 Maven PASS 摘要、未启动服务/未使用端口的说明；验证后从主工作区执行 `git worktree remove --force <path>`，并确认 `Test-Path <path>` 为 false。
 - Forbidden action: 禁止强杀其它任务 Maven/Java 进程、删除共享模块 `target`、改用随机 Maven 输出目录、把 isolated worktree 未验证 diff 的结果当作主工作区验证、或遗漏 worktree 删除记录。
 - Evidence: `doc/tasks/20260803-dcc-docx-preview-system-exception/verification-report.md`，主工作区 DCC target 与并发 Maven 冲突时，创建 detached verification worktree、应用单个 service diff、通过 focused/adjacent preview Maven 测试后删除 worktree。
@@ -103,7 +107,7 @@
 
 - Trigger: `git worktree add --detach <path> HEAD` 长时间停留在 `locked initializing`，或全量 checkout 因旧 target/残留目录拖慢但当前只需后端定向 Maven。
 - Preflight check: 先确认卡住的 git 进程命令行只属于当前任务目标路径；停止当前任务自己的 git 进程后，用 `git worktree remove -f -f <path>` 清理 initializing 登记，再改用 `git worktree add --detach --no-checkout`、`sparse-checkout init --cone`、`sparse-checkout set IntRuoyiBackend doc docs`、`checkout HEAD`。
-- Blocker: 卡住进程无法证明属于当前任务、目标路径不在 `D:\IntRuoyiWorktree\`、或 sparse 范围不足以运行目标验证时必须停止；不得停止其他任务 git 进程或扩大删除范围。
+- Blocker: 卡住进程无法证明属于当前任务、目标路径不在本次选定的 worktree 根目录内、或 sparse 范围不足以运行目标验证时必须停止；不得停止其他任务 git 进程或扩大删除范围。
 - Verification: 记录首次 initializing 清理、sparse worktree 路径、checkout 后 `git status --short --branch`、目标 Maven PASS 和删除后 `Test-Path=False`。
 - Forbidden action: 禁止把 initializing 目录直接当普通目录递归删除；禁止跳过 Git 注册清理；禁止用 sparse checkout 缺文件导致的编译失败冒充业务失败。
 - Evidence: `doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 首次全量 detached worktree 卡在 initializing，清理当前任务登记后改用 sparse checkout，应用目标 diff 和最小编译基线后 90 个 JUnit PASS 并删除 worktree。
@@ -137,7 +141,7 @@
 
 ## 多 Worktree 批量融合门禁
 
-- Trigger: 将 `D:\IntRuoyiWorktree\` 下多个功能分支批量合入 `int_main`，尤其是 worktree 存在 dirty 状态、多个分支修改同一服务/API/测试文件，或合并后需要立即删除 worktree。
+- Trigger: 将 `../IntRuoyiWorktree/` 下多个功能分支批量合入 `int_main`，尤其是 worktree 存在 dirty 状态、多个分支修改同一服务/API/测试文件，或合并后需要立即删除 worktree。
 - Preflight check: 先冻结 `int_main` 的 dirty 基线；逐个 worktree 记录 branch、HEAD、`git status --short`、任务文档 `## Current Status`、验证报告结论和目标验证命令；dirty 内容必须在原分支形成独立可追溯提交。按依赖和冲突风险顺序逐分支 merge，每次冲突修复后运行该分支目标测试，不得等全部 merge 完才判断冲突语义。
 - Blocker: 任一 dirty 内容无法归属或验证、分支 tip 未正式保存、任务文档仍为 `blocked` 或验证报告明确存在未达成目标、冲突只能靠整文件覆盖解决、目标回归失败、或无法证明 `git merge-base --is-ancestor <branch> int_main` 时必须停止，不得复制目录内容、跳过分支或直接删除 worktree。
 - Stale branch guard: 分支 clean 只代表文件已提交，不代表适合合并；若 `git diff int_main..<branch>` 会删除大量主线已存在任务证据、发布脚本门禁或其它与该任务无关的新主线文件，先按任务状态和验证报告判定合并资格，禁止把 clean-but-blocked 的旧分支强行合入主线。
@@ -164,7 +168,7 @@
 
 ### 子 Agent 主工作区溢出基线门禁
 
-- Trigger: 并行子 agent 本应只写 `D:\IntRuoyiWorktree\`，但主工作区出现同一任务的新增/修改文件，且这些文件会被后续分支 merge 覆盖或触发 untracked overwrite。
+- Trigger: 并行子 agent 本应只写 `../IntRuoyiWorktree/`，但主工作区出现同一任务的新增/修改文件，且这些文件会被后续分支 merge 覆盖或触发 untracked overwrite。
 - Preflight check: 子 agent 开始后先确认 shell `workdir` 是目标 worktree；凡使用 `apply_patch` 修改文件，文件路径必须写目标 worktree 下的绝对路径，不能使用相对路径。合并任何子分支前运行主工作区 `git status --short --branch`、`git diff --name-status`、`git ls-files --others --exclude-standard`，按任务范围判断溢出文件是否属于当前任务；属于当前任务的先形成单独“spillover baseline”提交并记录文件列表和提交 hash。
 - Blocker: 溢出文件无法确认归属、包含 unrelated 用户改动、包含 secret-bearing 输出、或与待合并分支语义冲突且无法证明保留策略时必须停止。
 - Verification: baseline 提交后重新运行 `git status --short --branch`，再执行目标分支 merge；若发生 add/add 冲突，必须语义合并并运行该分支目标测试。
@@ -183,7 +187,7 @@
 ## 并行主工作区远端快进融合门禁
 
 - Trigger: 主工作区持续被并行任务写入，任务分支已在干净 worktree 中完成实现、验证和推送，但本地 `int_main` 无法保持 clean 以接收 `task_closeout.py` 的 ff-only merge。
-- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；若不是祖先但任务分支干净且需要解除 closeout 的非 fast-forward blocker，先在隔离 worktree 内语义合入 `origin/int_main`，解决冲突后再重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。若 `E:\IntRuoyi` 主工作区持续 dirty，不要反复抢主工作区 clean 状态；可从 `origin/int_main` 新建一个 `D:\IntRuoyiWorktree\` 下的集成 worktree，登记 slot 后在该 worktree 内合并功能分支、验证、提交，并用 `git push origin HEAD:int_main` 更新远端主线。
+- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；若不是祖先但任务分支干净且需要解除 closeout 的非 fast-forward blocker，先在隔离 worktree 内语义合入 `origin/int_main`，解决冲突后再重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。若 `.` 主工作区持续 dirty，不要反复抢主工作区 clean 状态；可从 `origin/int_main` 新建一个 `../IntRuoyiWorktree/` 下的集成 worktree，登记 slot 后在该 worktree 内合并功能分支、验证、提交，并用 `git push origin HEAD:int_main` 更新远端主线。
 - Blocker: `origin/int_main` 不是任务 HEAD 的祖先且合入主线冲突无法语义解决、目标验证失败、远端主线又前进导致非快进推送被拒、任务分支存在未提交改动、或缺少可用 `origin` push remote 时必须停止。若目标验证使用 `mvn -pl <module> -am`，上游依赖模块的 compile/testCompile 失败也属于目标验证失败；必须阻塞并记录缺失类/Mapper/测试文件，不得因为当前任务源码未改该依赖模块就跳过、排除或降级验证。
 - Verification: `git merge-base --is-ancestor origin/int_main HEAD` 通过，目标验证命令 PASS，`git push origin HEAD:int_main` 成功，随后 `git fetch origin int_main` 并确认 `origin/int_main` 指向已验证 HEAD 或其后续已融合提交。若集成时触发相邻功能静态合同失败，必须先判断是否为当前融合后主线回归；可在同一集成提交中做最小语义修复并复跑相邻静态合同，禁止把失败静态合同记为无关后继续推送。
 - Forbidden action: 禁止为了 closeout 强行清理、回滚或提交并行任务文件；禁止 force push；禁止在未验证融合后 HEAD 的情况下直接更新 `int_main`；禁止把本地 dirty 主工作区清洁失败当作远端主线已集成。
@@ -217,7 +221,7 @@
 
 ## D-Main 本地主线滞后远端融合门禁
 
-- Trigger: `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` 的本地 `int_main` 在 `git fetch origin int_main` 后同时 `ahead` 和 `behind`，需要把远端 `origin/int_main` 融合回本地主线。
+- Trigger: `.` 的本地 `int_main` 在 `git fetch origin int_main` 后同时 `ahead` 和 `behind`，需要把远端 `origin/int_main` 融合回本地主线。
 - Preflight check: 先记录 `git status --short --branch`、`git rev-list --left-right --count HEAD...origin/int_main`、本地 ahead 提交清单和远端 behind 数量；融合前确认未跟踪/脏文件仅属于当前任务文档或已形成基线提交。
 - Blocker: 冲突文件无法通过语义合并保留双方门禁、当前任务文件可能被远端同名覆盖、远端更新后端口 guard 失败、或本地 ahead 提交无法解释时必须停止。
 - Verification: 冲突解决后先用 `rg -n "^(<<<<<<<|=======|>>>>>>>)" <冲突文件或 staged 文件>` 清除真正的 Git 冲突标记，再运行 `scripts\preflight\branch-runtime-port-guard.ps1`、受影响前端/后端验证和 `git status --short --branch`；不要用未锚定的 `=======` 全仓扫描判断冲突残留，因为大量 Java 注释分隔线会产生假阳性。若 `git diff --cached --check` 命中远端历史已存在的 whitespace，必须用 scoped diff 证明冲突解决文件和当前任务文件未新增 whitespace，再记录上游遗留项。
@@ -226,7 +230,7 @@
 
 ## Worktree 前端依赖启动门禁
 
-- Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行前端 `pnpm` 脚本、执行真实 E2E，或日志出现 `Command "vite" not found`、`node_modules\.bin\vite` 缺失、`cross-env is not recognized`。
+- Trigger: 在 `../IntRuoyiWorktree/` 下新增或恢复 worktree 后启动前端、运行 Vite、执行前端 `pnpm` 脚本、执行真实 E2E，或日志出现 `Command "vite" not found`、`node_modules\.bin\vite` 缺失、`cross-env is not recognized`。
 - Preflight check: 启动前端或运行前端脚本前先检查目标 worktree 的 `IntRuoyiFronted\package.json`、`pnpm-lock.yaml` 和目标命令需要的 `node_modules\.bin\<tool>.cmd`；例如 Vite/E2E 检查 `vite.cmd`，`pnpm ts:check` 检查 `cross-env.cmd` 与 `vue-tsc`。若依赖缺失，在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile`，不得复制其他工作区的 `node_modules`。若首次 install 超时但 `node_modules\.pnpm` 已有包而顶层 `.bin` 未链接，可在同一目标 worktree 中执行 `pnpm install --offline --frozen-lockfile --ignore-scripts --child-concurrency=2 --reporter append-only` 补齐链接；不得因此改锁文件或跳过类型检查。安装独立依赖后还要检查前端根目录是否残留 `node_modules.*` 目录联接或符号链接；即使 Vite watcher 已忽略该命名，源码扫描插件仍可能递归进入。
 - Blocker: `pnpm install --frozen-lockfile` 或离线补链失败、修改 lockfile、依赖目录仍缺目标脚本工具、目标路径不是当前任务 worktree，或页面长期停在启动页且 `/@id/@purge-icons/generated` 等虚拟模块请求不返回时必须停止。后者先核对前端根目录 reparse point 和请求状态，不得换端口、复用旧前端进程、直接调用残缺 `.pnpm` 内部包冒充完整脚本，或把后端/API 验证冒充真实页面 E2E。
 - Verification: 记录 `pnpm install --frozen-lockfile` 或离线补链命令退出码、目标 `node_modules\.bin\<tool>.cmd` 存在性、前端根目录不存在任务遗留依赖联接、目标前端脚本或前端入口 HTTP 200、关键虚拟模块请求完成、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
@@ -235,7 +239,7 @@
 
 ## Worktree Java 21 后端低内存启动门禁
 
-- Trigger: `D:\IntRuoyiWorktree\` 下附加 worktree 启动后端 jar、运行真实 E2E、或日志出现 `There is insufficient memory for the Java Runtime Environment to continue`、`Chunk::new`、`C2 CompilerThread`、Surefire fork 超时。
+- Trigger: `../IntRuoyiWorktree/` 下附加 worktree 启动后端 jar、运行真实 E2E、或日志出现 `There is insufficient memory for the Java Runtime Environment to continue`、`Chunk::new`、`C2 CompilerThread`、Surefire fork 超时。
 - Preflight check: 先确认后端端口来自已登记 profile/slot，端口未被未知进程占用，jar 来自当前 worktree 构建产物；再确认当前 `java -version` 是否为 Java 21 且项目编译目标仍为 Java 17。若 Java 21 fork/C2 native 内存失败，只允许在当前任务运行命令中收敛 JVM 资源参数，例如 `-Xms128m -Xmx768m -Xss512k -XX:ActiveProcessorCount=4 -XX:-TieredCompilation -XX:ReservedCodeCacheSize=64m -XX:MaxMetaspaceSize=512m -XX:+UseSerialGC`。
 - Blocker: 端口归属不明、jar 非当前 worktree、低内存参数后 health 仍不上线、测试 fork 仍卡死且无同等目标验证可执行、或需要切换端口/数据源/旧 jar 才能继续时必须停止并记录；不得冒充运行态成功。
 - Verification: 记录启动命令、PID、端口监听命令行、`/actuator/health` 为 `UP`、前端入口 HTTP 200；若 Maven `-am` fork 在本机资源下超时，需保留 dumpstream 证据，并用同模块目标测试或禁用 fork 的目标测试完成复核，明确说明不是 API-only 或跳过测试。
@@ -253,7 +257,7 @@
 
 ## Worktree 真实 E2E 运行产物门禁
 
-- Trigger: 在 `D:\IntRuoyiWorktree\` 下执行真实 Playwright E2E，尤其需要通过登记 slot 启动前端与后端。
+- Trigger: 在 `../IntRuoyiWorktree/` 下执行真实 Playwright E2E，尤其需要通过登记 slot 启动前端与后端。
 - Preflight check: 创建 worktree 前先判断是否需要启动真实前后端；需要运行态时必须取得具名任务分支，并确认 `git branch --show-current` 非空，因为当前 `start-branch-backend.ps1` 与 `start-branch-frontend.ps1` 会先解析分支名，detached worktree 会在端口解析前失败。若当前 Git 策略要求用户明确授权创建分支，应在创建 worktree 前取得授权。启动前还要同时检查目标 worktree 的后端可执行 Jar（如 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`）、前端 Vite 依赖（`IntRuoyiFronted\node_modules\.bin\vite.cmd`）、端口登记项、目标端口监听状态和 worktree 本地前端 env；`.env.local` 或等效启动环境必须显式指向登记后端端口，并关闭无人值守 E2E 需要关闭的验证码开关。
 - Blocker: worktree 处于 detached HEAD 且启动脚本无法解析分支、未获授权创建具名任务分支、Jar 不存在、Vite 依赖不存在、端口未按登记 slot 成对启动、构建/安装失败、端口被非当前 worktree 占用、登录页验证码仍开启、或前端实际代理到其它后端端口时必须停止，不得静默切回 8081/48081、复用其他 worktree 进程、API-only 代替真实页面路径。
 - Verification: 记录 worktree 具名分支、Jar 存在性或构建命令退出码、Vite 依赖存在性、worktree env 中的前后端端口与验证码开关、前后端端口监听 PID 和命令行归属、前端 HTTP 200、后端 health UP，以及真实 E2E 命令和结果。
@@ -272,7 +276,7 @@
 ### 主工作区端口被并行任务占用时的成对运行态门禁
 
 - Trigger: 主工作区 `8081/48081` 被无关任务、旧 Jar 或无法替换的共享运行态占用，但当前任务仍需要真实前端路径 E2E 验证。
-- Preflight check: 先确认占用进程命令行、Jar 路径、端口和任务归属；若不是当前任务运行态，不得停止或覆盖。随后在 `D:\IntRuoyiWorktree\` 使用 `scripts\runtime\reserve-worktree-slot.ps1` 取得正式 slot，并用同一 worktree 的后端 Jar 与前端 Vite 组成成对端口运行态。
+- Preflight check: 先确认占用进程命令行、Jar 路径、端口和任务归属；若不是当前任务运行态，不得停止或覆盖。随后在 `../IntRuoyiWorktree/` 使用 `scripts\runtime\reserve-worktree-slot.ps1` 取得正式 slot，并用同一 worktree 的后端 Jar 与前端 Vite 组成成对端口运行态。
 - Blocker: 主端口占用进程归属不明、worktree 未登记 slot、前端代理仍指向主工作区后端、后端 Jar 不是当前修复产物、或无法证明前后端 PID 均来自当前 worktree 时必须停止。
 - Verification: 记录 slot、前端端口、后端端口、前后端 PID 和命令行归属；确认后端 health 为 `UP`、前端 HTTP 200、真实 Playwright 使用 worktree 前端 URL，并验证目标列表和业务进度输出。
 - Forbidden action: 禁止强杀并行任务进程、把旧 `48081` Jar 当作修复验证、只替换嵌套 class 拼混合 Jar、前端走 worktree 但后端仍代理到主工作区、或在未确认运行态成对归属前宣称真实 E2E 通过。
@@ -289,8 +293,8 @@
 ## Worktree 删除门禁
 
 - Trigger: 删除、清理、合并后移除、修复残留目录、处理 `git worktree remove` 失败、`Directory not empty`、`Invalid argument`、或断链 worktree。
-- Preflight check: 先读取 `docs\worktree-restrictions.md`，确认目标绝对路径位于 `D:\IntRuoyiWorktree\` 下；用 `git worktree list --porcelain` 确认 Git 注册状态；用 `git status --short` 记录每个目标 worktree 的未提交变更；用 `git merge-base --is-ancestor <branch> int_main` 或等效命令确认分支提交是否已合入目标基线。
-- Blocker: 目标不在 `D:\IntRuoyiWorktree\` 下、目标不是用户明确指定的当前任务对象、分支仍有未合入提交、存在未提交变更但用户未明确授权丢弃、目录被运行进程占用、或端口登记表需要释放但无法验证目录已删除。
+- Preflight check: 先读取 `docs\worktree-restrictions.md`，确认目标绝对路径位于 `../IntRuoyiWorktree/` 下；用 `git worktree list --porcelain` 确认 Git 注册状态；用 `git status --short` 记录每个目标 worktree 的未提交变更；用 `git merge-base --is-ancestor <branch> int_main` 或等效命令确认分支提交是否已合入目标基线。
+- Blocker: 目标不在本次选定的 worktree 根目录内、目标不是用户明确指定的当前任务对象、分支仍有未合入提交、存在未提交变更但用户未明确授权丢弃、目录被运行进程占用、或端口登记表需要释放但无法验证目录已删除。
 - Verification: 删除后必须重新运行 `git worktree list --porcelain`，并对每个目标执行 `Test-Path`；若存在端口登记项，只有在目录已删除且任务记录完成后才允许将槽位标记为可复用；验证结果写入当前 `doc\tasks\<task-id>\execution-log.md`。
 - Forbidden action: 禁止用 `Remove-Item -Recurse` 替代正常 `git worktree remove` 作为首选路径；禁止删除未指定 worktree；禁止因为 `Directory not empty` 就扩大清理范围；禁止静默丢弃未提交变更；禁止删除或释放其他任务的端口登记项。
 - Evidence: 2026-07-26 删除已合入 worktree 前补齐长期经验门禁，要求先确认合入状态、未提交变更授权、路径边界和删除后注册状态。
@@ -333,7 +337,7 @@
 ### Git 注册已移除但物理目录被运行态锁住
 
 - Trigger: `git worktree remove <path>` 返回 `Invalid argument`、Git 注册列表已不再显示目标 worktree，但物理目录仍存在，或残留目录内 `runtime-backend.err.log` / Vite / Java / esbuild 文件被占用。
-- Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下；再按命令行和端口定位只属于该残留 worktree 的进程，例如 `Get-CimInstance Win32_Process` 匹配目标路径，`Get-NetTCPConnection` 核对登记端口；进程扫描脚本必须排除当前 PowerShell PID，避免命令行中的目标路径导致自杀式停止。
+- Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `../IntRuoyiWorktree/` 下；再按命令行和端口定位只属于该残留 worktree 的进程，例如 `Get-CimInstance Win32_Process` 匹配目标路径，`Get-NetTCPConnection` 核对登记端口；进程扫描脚本必须排除当前 PowerShell PID，避免命令行中的目标路径导致自杀式停止。
 - Blocker: 若仍有 Git 注册、残留目录存在 `.git`、占用进程无法证明属于目标 worktree、占用端口属于其他 profile/任务、或目录路径越界，必须停止，不得删除目录或停止进程。
 - Verification: 记录被停止进程的 PID、名称、命令行、端口和归属依据；停止后确认目标端口不再监听、目标路径 `Test-Path` 为 `False`、端口登记项仅对该目标标记 `active=false/deletedAt/cleanupTask`。
 - Forbidden action: 禁止因残留目录删除失败就强杀未知 Java/Node/PowerShell；禁止用父目录批量删除；禁止在未确认 `.git` 已消失前把注册 worktree 当普通目录删除；禁止释放其他 active worktree 的端口登记项。
@@ -342,36 +346,36 @@
 ### Git 注册已移除但空目录删除被当前进程占用
 
 - Trigger: `task-closeout-cleanup --mode apply` 已完成 ff-only merge 和 cleanup commit，但 `git worktree remove --force <path>` 返回 `Permission denied`；`git worktree list` 已不再显示目标 worktree，残留目录为空且没有 `.git`。
-- Preflight check: 从主工作区或目标外部目录执行核对，确认 `git worktree list` 无该路径、`Test-Path <path>\.git` 为 false、`Get-ChildItem -Force <path>` 计数为 0、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下。
+- Preflight check: 从主工作区或目标外部目录执行核对，确认 `git worktree list` 无该路径、`Test-Path <path>\.git` 为 false、`Get-ChildItem -Force <path>` 计数为 0、目标绝对路径仍在 `../IntRuoyiWorktree/` 下。
 - Blocker: 残留目录非空、存在 `.git`、仍有 Git 注册、路径越界、或目录内有无法归属文件时必须停止；不得用递归删除扩大清理范围。
 - Verification: 仅对确认空目录执行 `Remove-Item -LiteralPath <path>`，随后记录 `Test-Path <path>` 为 false、`git worktree list` 不含该路径、主工作区 `git status --short --branch` clean 或仅 ahead。
 - Cleanup rule: 若执行策略拒绝 `Remove-Item`，但已证明目录为空、无 `.git`、无 Git 注册且路径在目标 worktree 根下，可从主工作区使用 `[System.IO.Directory]::Delete(<resolvedPath>, $false)` 删除空目录；删除后仍必须按登记表 mutex 将目标 slot 标记为 `active=false/deletedAt/cleanupTask` 并运行 registry 校验。
-- Forbidden action: 禁止从残留 worktree 当前目录反复运行删除；禁止把 `Permission denied` 直接升级为 `Remove-Item -Recurse`；禁止删除父级 `D:\IntRuoyiWorktree\` 或其他任务目录。
-- Evidence: `doc/tasks/20260731-dcc-file-category-rules/execution-log.md`，cleanup apply 已创建清理提交并从 Git 注册移除 worktree，但 Windows 因当前目录占用留下空目录，确认无 `.git` 且子项计数 0 后从 `E:\IntRuoyi` 删除空目录；`doc/tasks/20260914-edhr-static-025-multi-inspection-backfill/execution-log.md`，cleanup apply 已移除 Git 注册但物理目录 `Permission denied`，随后确认空目录、无 `.git`、无非当前进程引用，用 `.NET Directory.Delete` 删除残留并将 slot 23 标记 inactive。
+- Forbidden action: 禁止从残留 worktree 当前目录反复运行删除；禁止把 `Permission denied` 直接升级为 `Remove-Item -Recurse`；禁止删除父级 `../IntRuoyiWorktree/` 或其他任务目录。
+- Evidence: `doc/tasks/20260731-dcc-file-category-rules/execution-log.md`，cleanup apply 已创建清理提交并从 Git 注册移除 worktree，但 Windows 因当前目录占用留下空目录，确认无 `.git` 且子项计数 0 后从 `.` 删除空目录；`doc/tasks/20260914-edhr-static-025-multi-inspection-backfill/execution-log.md`，cleanup apply 已移除 Git 注册但物理目录 `Permission denied`，随后确认空目录、无 `.git`、无非当前进程引用，用 `.NET Directory.Delete` 删除残留并将 slot 23 标记 inactive。
 
 ### Git 注册已移除但前端依赖目录残留
 
 - Trigger: `git worktree remove <path>` 已移除 Git 注册，但返回 `Directory not empty`、`Result too large`，且残留主要位于 `IntRuoyiFronted\node_modules`、pnpm/esbuild 依赖目录、或 Windows 报 `Access to the path '<name>' is denied`。
-- Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下、目标登记端口没有监听、且 `Get-CimInstance Win32_Process` 未发现命令行指向该目标路径的 Node/Java/PowerShell 进程。
+- Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `../IntRuoyiWorktree/` 下、目标登记端口没有监听、且 `Get-CimInstance Win32_Process` 未发现命令行指向该目标路径的 Node/Java/PowerShell 进程。
 - Blocker: 若仍有 Git 注册、残留目录存在 `.git`、仍有归属不明进程或端口、路径越界、或拒绝访问文件不在当前目标目录内，必须停止，不得扩大删除范围。
 - Cleanup rule: 若 PowerShell `Remove-Item -Recurse` 或 `cmd /c rmdir /s /q <path>` 对 pnpm `node_modules` 输出大量 `The system cannot find the path specified`、`Could not find a part of the path` 或留下空壳目录，先用当前任务专用空目录对目标 `node_modules` 执行 `robocopy <empty-dir> <target-node_modules> /MIR /R:0 /W:0`，确认子项计数为 0 后再逐层删除 `node_modules`、`IntRuoyiFronted` 和目标 worktree 根目录。若删除仅因目标依赖文件的 `ReadOnly` 属性报 `Access denied`，可在上述路径、注册、进程和端口门禁全部通过后，只清除目标目录树内的 `ReadOnly` 属性再重试；不得修改目标外文件属性。若当前执行环境策略拒绝递归删除，记录 Git 登记已移除、路径边界、端口登记和残留范围，停止自动清理并等待人工或明确授权的同等边界清理方式。
 - Verification: 仅对目标残留目录清理属性或空目录镜像后删除，之后重新验证 `Test-Path <path>` 为 `False`、`git worktree list --porcelain` 不含该路径、目标登记项已标记 `active=false/deletedAt/cleanupTask`。
 - Forbidden action: 禁止为了处理 `node_modules` 残留删除父级 worktree 根目录；禁止跳过进程和端口核验；禁止在 Git 注册仍存在时把 worktree 当普通目录强删。
-- Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链；`doc/tasks/20260813-scheduler-seven-issues-closure/verification-report.md`，验证 worktree 的 Git 注册移除后仅残留 pnpm 依赖目录，清理目标只读属性后删除成功，并复核端口、物理路径和 slot 登记全部释放；`doc/tasks/20260920-delete-stale-worktrees/verification-report.md`，批量删除 2026-09-17 前 worktree 时，先用 `git worktree remove --force --force` 移除 Git 注册，再逐项核对无 `.git`、候选路径仍在 `D:\IntRuoyiWorktree` 下、无 Git 注册残留，最后清理 pnpm `gen-mapping` 等依赖残留并将登记表候选 active 项置为 inactive。
+- Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链；`doc/tasks/20260813-scheduler-seven-issues-closure/verification-report.md`，验证 worktree 的 Git 注册移除后仅残留 pnpm 依赖目录，清理目标只读属性后删除成功，并复核端口、物理路径和 slot 登记全部释放；`doc/tasks/20260920-delete-stale-worktrees/verification-report.md`，批量删除 2026-09-17 前 worktree 时，先用 `git worktree remove --force --force` 移除 Git 注册，再逐项核对无 `.git`、候选路径仍在 `../IntRuoyiWorktree` 下、无 Git 注册残留，最后清理 pnpm `gen-mapping` 等依赖残留并将登记表候选 active 项置为 inactive。
 
 ### 发布 release worktree 物理根复核门禁
 
-- Trigger: 仅测试服或三环境发布完成后清理临时 release worktree，尤其路径位于 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r*\m`、`D:\IntRuoyiWorktree\r*-release-app` 或对应 state dir。
+- Trigger: 仅测试服或三环境发布完成后清理临时 release worktree，尤其路径位于 `../IntRuoyiWorktree/r*/m`、`../IntRuoyiWorktree/r*-release-app` 或对应 state dir。
 - Preflight check: 分别在维护仓和主程序仓运行 `git worktree list --porcelain`，确认本轮 release 标识已无 Git 注册；再检查固定物理根、子目录和 state dir `Test-Path`；同时用进程命令行确认没有 Java/Node/PowerShell/Playwright 仍引用待删路径。
 - Blocker: Git 注册已删除但物理根仍存在、state dir 未删、路径不在本轮 allow-list、仍有归属不明进程引用、或残留目录中存在 `.git` 时必须停止，不得标记任务 `completed`。
 - Cleanup rule: 对确认属于本任务、无 Git 注册、无 `.git`、无进程引用的 ignored `node_modules` 残留，可用长路径安全删除或先清属性后删除；如果本地策略拒绝递归删除，改用同等 allow-list 和绝对路径边界校验的删除方式，不扩大到父目录或其他 release worktree。
 - Verification: closeout 记录必须同时包含 Git 注册不存在、物理根 `Test-Path=False`、state dir `Test-Path=False`、运行控制台已恢复稳定主路径且 health=`UP`。
 - Forbidden action: 禁止只凭 `git worktree list` 无记录判定清理完成；禁止删除其他 r260731a/b/c 等并发发布 worktree；禁止在运行控制台仍指向待删 worktree 时删除目录。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，`r260731d` Git 注册已删但 ignored `node_modules` 物理目录残留，最终按固定 allow-list 删除并复核所有路径不存在。
+- Evidence: `历史外部材料（引用已移除）`，`r260731d` Git 注册已删但 ignored `node_modules` 物理目录残留，最终按固定 allow-list 删除并复核所有路径不存在。
 
 ### 主工作区融合 worktree 切片后的合同复核门禁
 
-- Trigger: 将一个或多个已验证 worktree 切片同步回 `E:\IntRuoyi` 的 `int_main`，尤其主工作区已存在并行脏改动、后续补丁或相邻业务测试。
+- Trigger: 将一个或多个已验证 worktree 切片同步回 `.` 的 `int_main`，尤其主工作区已存在并行脏改动、后续补丁或相邻业务测试。
 - Preflight check: 先冻结来源 allow-list，并排除不属于本次切片的旧模型、临时证据和相邻问题；复制后对 allow-list 做 source/current hash 复核，区分“漏同步”和“主线后续上下文补丁”。如果 `int_main` 已经有相同修复但还叠着别的任务补丁，先用逐文件 diff 证明哪些内容已存在、哪些是本次切片的额外差异，只提交本次任务的 allow-list 文件，禁止为了统一基线而整文件覆盖或 `git add -A`。随后必须运行目标模块 `testCompile` 或聚焦 Surefire，让整个测试源码先编译；若相邻已有测试因被覆盖的生产合同无法编译，应恢复正式生产行为和测试夹具，而不是删除测试、调低 `failIfNoSpecifiedTests` 或只跑单个已编译类。
 - Blocker: source/current 存在未解释差异、同表双模型同时出现、主线已有测试合同编译失败、H2 夹具缺正式列、前端类型导出名和投影层不一致、或发布迁移门禁被已跟踪 SQL 缺元数据阻断时必须停下修正；不得宣称已融合完成。
 - Verification: 记录 copied/missing/different 计数、被排除路径、聚焦后端测试数、前端静态合同、`pnpm ts:check`、迁移策略门禁、`git diff --check` 和 staged 为空。发布 SQL 仅补元数据时也要重跑迁移门禁，证明不是绕过。
@@ -404,7 +408,7 @@
 ## 删除操作顺序
 
 1. 阶段 1：目标确认
-   必查项：用户指定路径、绝对路径、Git worktree 注册、当前分支、HEAD、是否在 `D:\IntRuoyiWorktree\` 下。
+   必查项：用户指定路径、绝对路径、Git worktree 注册、当前分支、HEAD、是否在 `../IntRuoyiWorktree/` 下。
    推荐命令：`git worktree list --porcelain`、`Resolve-Path`、`git -C <path> status --short`。
    Fail Fast：路径越界、路径不存在但仍有 Git 注册残留、或目标不是当前任务指定对象。
    必须记录：路径、分支、HEAD、dirty 文件数量。
@@ -423,7 +427,7 @@
 
 4. 阶段 4：收尾验证
    必查项：Git 注册列表、物理目录、端口登记项、任务日志。
-   推荐命令：`git worktree list --porcelain`、`Test-Path <path>`、读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+   推荐命令：`git worktree list --porcelain`、`Test-Path <path>`、读取 当前 Git common directory 下的 `intrruoyi-runtime/worktree-ports.json`（或显式配置的登记表）。
    Fail Fast：任一目标仍注册、物理目录仍存在、或端口登记状态无法解释。
    必须记录：最终 worktree 列表、目录存在性、端口登记表处理结果。
 
@@ -487,20 +491,20 @@
 - 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。
 - 阻断处理：主工作区 dirty 属于其它任务时，只记录文件清单和阻断原因，不做 stash、restore、clean、reset，也不手工绕过 closeout guard。
 - 验证方式：记录最终分支领先提交数、任务提交 hash、目标静态/单测结果、`git diff --check` 和 closeout preview 输出。
-- Evidence: `doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` closeout preview 保留任务证据但阻塞于 `E:\IntRuoyi` 主 worktree dirty，未执行 cleanup apply、commit、merge 或 worktree remove。
+- Evidence: `doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` closeout preview 保留任务证据但阻塞于 `.` 主 worktree dirty，未执行 cleanup apply、commit、merge 或 worktree remove。
 
 ### Worktree 绝对路径补丁门禁
 
 - 触发场景：当前 shell 已在附加 worktree，但补丁或工具调用使用了主工作区相对路径、默认仓库根或混合盘符路径。
-- 经验规则：对附加 worktree 改文件时，补丁目标必须使用当前任务 worktree 下的绝对路径；首次补丁后立即用 `git -C <worktree> status --short -- <path>` 和 `git -C E:\IntRuoyi status --short -- <path>` 交叉确认没有误写主工作区。
+- 经验规则：对附加 worktree 改文件时，补丁目标必须使用当前任务 worktree 下的绝对路径；首次补丁后立即用 `git -C <worktree> status --short -- <path>` 和 `git -C . status --short -- <path>` 交叉确认没有误写主工作区。
 - 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
 - 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。
-- Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件；`doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 表单解析任务中首次补丁误落主工作区后，按任务文件精确删除误建文档并精确 restore 本任务误改测试，再用目标 worktree 绝对路径重写并复核主工作区同路径 diff 为空。
+- Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `../IntRuoyiWorktree/20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `.` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件；`doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 表单解析任务中首次补丁误落主工作区后，按任务文件精确删除误建文档并精确 restore 本任务误改测试，再用目标 worktree 绝对路径重写并复核主工作区同路径 diff 为空。
 
 ### 干净 Worktree 与主工作区未跟踪证据分离门禁
 
-- Trigger: 用户要求使用干净 worktree 修复，但缺陷清单、设计草稿或验收证据只存在于 `E:\IntRuoyi` 主工作区的未跟踪文件中，目标 clean worktree 不包含该文件。
-- Preflight check: 只读读取主工作区证据文件并记录 `git -C E:\IntRuoyi status --short -- <path>`；同时在目标 worktree 运行 `git status --short`，确认后续代码补丁只落入目标 worktree。不得把主工作区未跟踪证据复制进 clean worktree 来冒充基线文件。
+- Trigger: 用户要求使用干净 worktree 修复，但缺陷清单、设计草稿或验收证据只存在于 `.` 主工作区的未跟踪文件中，目标 clean worktree 不包含该文件。
+- Preflight check: 只读读取主工作区证据文件并记录 `git -C . status --short -- <path>`；同时在目标 worktree 运行 `git status --short`，确认后续代码补丁只落入目标 worktree。不得把主工作区未跟踪证据复制进 clean worktree 来冒充基线文件。
 - Blocker: 用户要求更新该共享证据文件但目标 clean worktree 不包含它，或无法判断证据文件是正式基线还是并行任务未跟踪资产时，先停止并请用户确认更新归属。
 - Verification: 任务日志记录主工作区证据路径、主工作区文件状态、目标 worktree 路径、目标 dirty 文件清单，以及未编辑主工作区证据文件的原因。
 

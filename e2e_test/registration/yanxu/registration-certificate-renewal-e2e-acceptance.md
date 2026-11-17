@@ -14,13 +14,13 @@
 - 租户：芋道源码。
 - 延续申请人 A：`wanglixuan`。 密码 111111
 - 注册经理 B：`chudongchuan`。 密码 Abcd1234!
-- 延续上传材料：`E:\IntRuoyi\e2e_test\registration\yanxu\yanxu.pdf`。
+- 延续上传材料：`./e2e_test/registration/yanxu/yanxu.pdf`。
 - 测试数据标识：注册证编号、产品名称、备注等字段必须包含本次任务唯一标识，例如 `E2E-RENEWAL-YYYYMMDD-HHMMSS`。
 
 ## Required Preflight
 
 1. 确认前端 `8081` 可访问，后端 `48081` health 为 `UP`。
-2. 确认延续上传材料文件存在：`E:\IntRuoyi\e2e_test\registration\yanxu\yanxu.pdf`。
+2. 确认延续上传材料文件存在：`./e2e_test/registration/yanxu/yanxu.pdf`。
 3. 用真实登录页确认租户为“芋道源码”。
 4. 确认 `wanglixuan` 已具备注册证延续提交权限，并能在 CURRENT 注册证行看到“延续”入口。
 5. 确认 `chudongchuan` 已绑定注册部经理权限角色，并能进入审批中心待办。
@@ -36,7 +36,7 @@
 每次执行创建或选取任务自有数据：
 
 - 基准注册证：状态为 CURRENT，当前列表可见，且行级“延续”入口可见。
-- 延续文件：`E:\IntRuoyi\e2e_test\registration\yanxu\yanxu.pdf`。
+- 延续文件：`./e2e_test/registration/yanxu/yanxu.pdf`。
 - 批准日期：不晚于当前真实日期，且不晚于生效日期。
 - 生效日期：
   - 未来生效场景：晚于当前业务日期。
@@ -57,7 +57,7 @@
 6. 在延续弹框中核对证件编号、产品、当前生效日、当前有效期。
 7. 填写批准日期、生效日期、有效期至。
 8. 选择“类别否变更=否”。
-9. 上传 `E:\IntRuoyi\e2e_test\registration\yanxu\yanxu.pdf`。
+9. 上传 `./e2e_test/registration/yanxu/yanxu.pdf`。
 10. 点击“提交审批”。
 
 ### Expected Result

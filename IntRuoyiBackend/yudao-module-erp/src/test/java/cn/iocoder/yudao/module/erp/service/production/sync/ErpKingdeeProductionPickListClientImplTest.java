@@ -28,6 +28,21 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeeProductionPickListClientImplTest {
 
     @Test
+    void allHistoryDoesNotIssueThousandsOfEmptyWeeklyQueries() {
+        RestTemplate rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        var client = new ErpKingdeeProductionPickListClientImpl(rest);
+        expectLogin(server);
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString("FDate+%3E%3D+%271970-01-01%27")))
+                .andExpect(content().string(containsString("FDate+%3C+%272026-11-18%27")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        assertTrue(client.fetchProductionPickLists(buildProperties(),
+                LocalDateTime.of(1970, 1, 1, 0, 0), LocalDateTime.of(2026, 11, 17, 12, 0)).isEmpty());
+        server.verify();
+    }
+
+    @Test
     void fetchProductionPickLists_usesExplicitOneYearWindowAndSmallerPageSize() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

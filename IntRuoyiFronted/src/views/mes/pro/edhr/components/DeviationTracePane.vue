@@ -13,9 +13,15 @@
       <el-table-column label="不合格评审" min-width="220"><template #default="{ row }">{{ row.nonconformanceReviewCode || (row.nonconformanceReviewId ? `#${row.nonconformanceReviewId}` : '—') }}<span v-if="row.nonconformanceDisposition"> / {{ row.nonconformanceDisposition }}</span></template></el-table-column>
       <el-table-column label="详情" width="160" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openDeviation(row)">查看发起与处理</el-button></template></el-table-column>
     </el-table>
-    <el-drawer v-model="detailVisible" title="偏差详情" size="780px" destroy-on-close>
-      <DeviationDetail v-if="selectedDeviationId" :id="selectedDeviationId" :readonly="true" />
-    </el-drawer>
+    <el-dialog v-model="detailVisible" title="偏差详情" width="min(1240px, calc(100vw - 32px))" top="5vh" class="edhr-detail-surface" destroy-on-close append-to-body>
+      <DeviationDetail v-if="detailVisible && selectedDeviationId" :id="selectedDeviationId" :actions-target="detailActionsTarget" :readonly="true" />
+      <template #footer>
+        <div class="flex flex-wrap items-center justify-between gap-12px">
+          <div ref="detailActionsTarget"></div>
+          <el-button size="default" @click="detailVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 <script setup lang="ts">
@@ -26,6 +32,7 @@ const loading = ref(false)
 const error = ref('')
 const rows = ref<DeviationRespVO[]>([])
 const detailVisible = ref(false)
+const detailActionsTarget = ref<HTMLElement | null>(null)
 const selectedDeviationId = ref<number>()
 let requestSerial = 0
 const openDeviation = (row: DeviationRespVO) => {

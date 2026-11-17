@@ -111,8 +111,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(responsibleLeaderUserId);
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds,
                 parameterSnapshot);
-        List<MesFrontlineDefectReasonOption> defectReasons = activeOrderId == null
-                ? toDefectReasonOptions(process, leaderUserIds) : parameterSnapshot.lossReasons();
+        List<MesFrontlineDefectReasonOption> defectReasons = new ArrayList<>(activeOrderId == null
+                ? toDefectReasonOptions(process, leaderUserIds) : parameterSnapshot.lossReasons());
+        defectReasons.add(MesFrontlineDefectReasonOption.OTHER_LOSS);
         List<MesFrontlineProcessMaterial> frozenMaterials = activeOrderId == null ? List.of()
                 : processMaterialService.listFrozenMaterials(activeOrderId, process.routeId(),
                 process.routeProcessId(), process.processId());

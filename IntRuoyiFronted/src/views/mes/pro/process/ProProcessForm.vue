@@ -143,12 +143,14 @@
       </div>
     </template>
     <template #footer>
+      <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('PROCESS', formData.id)">统一替换工序</el-button>
       <el-button v-if="!isDetail" type="primary" @click="submitForm" :loading="formLoading">
         确 定
       </el-button>
       <el-button @click="dialogVisible = false">{{ isDetail ? '关 闭' : '取 消' }}</el-button>
     </template>
   </Dialog>
+  <SharedChangeDialog ref="sharedChangeDialog" @submitted="handleSharedSubmitted" />
 </template>
 
 <script setup lang="ts">
@@ -158,6 +160,11 @@ import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/pr
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import ProProcessContentList from './ProProcessContentList.vue'
 import { UploadFile } from '@/components/UploadFile'
+import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
+import { SharedChangeApi } from '@/api/mes/pro/sharedChange'
+const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
+const sharedFingerprint = ref('')
+const handleSharedSubmitted = () => { dialogVisible.value = false; emit('success') }
 
 defineOptions({ name: 'ProProcessForm' })
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
@@ -238,6 +245,11 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
         id,
         selectedContextRouteId ? { routeId: selectedContextRouteId } : undefined
       )
+      if (type !== 'detail') {
+        const source = await SharedChangeApi.source('PROCESS', id)
+        Object.assign(fetchedData, source.data)
+        sharedFingerprint.value = source.fingerprint
+      }
       formData.value = {
         ...fetchedData,
         sopFileUrl: fetchedData.sopFileUrl ?? '',
@@ -329,6 +341,10 @@ const submitForm = async () => {
   if (!formRef) return
   const valid = await formRef.value.validate()
   if (!valid) return
+  if (formType.value !== 'create' && formData.value.id) {
+    await sharedChangeDialog.value?.open({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), process: { ...formData.value }, nodes: [], reason: '' })
+    return
+  }
   // 提交请求
   formLoading.value = true
   try {

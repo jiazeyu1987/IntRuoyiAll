@@ -57,8 +57,8 @@
 - `node tests\e2e\unified-list-template-static.spec.js` -> PASS。
 - `node tests\e2e\mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS（脚本退出码 `0`，无额外输出）。
 - `node tests\e2e\pqc-leader-standard-list-template-static.spec.js` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-1-filter-state.md` -> PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-1-filter-state.md` -> PASS。
+- `python -X utf8 会话技能：bug-regression-fix-loop --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-1-filter-state.md` -> PASS。
+- `python -X utf8 会话技能：frontend-feature-delivery --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-1-filter-state.md` -> PASS。
 - `git diff --check -- <6 个本问题文件>` -> PASS；只有 Git 的 LF/CRLF 工作区提示，无空白错误。
 - `pnpm ts:check:schedule` -> FAIL，失败仅在并发任务正在修改的 `src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue:1233,1379`：检查运行时报 `openAbnormalDialog` 和 `resetAbnormalForm` 不存在。该文件当时为 `581/277` 行的并发大幅脏改动，不属于本问题；本问题四个生产文件的聚焦静态/运行时契约和 TypeScript transpile 均通过。
 - `node tests\e2e\schedule-order-main-multi-filter-static.spec.js` -> FAIL，剩余失败为既存过期断言：仍要求 `scheduleOrderMultiFilter.setCondition({ id: 'completionFilter', ... })`。页面已遵守 `20260805-standard-list-empty-tabs` 空条件契约，本问题不扩大范围修改该相邻合同。

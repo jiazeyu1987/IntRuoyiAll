@@ -1467,3 +1467,33 @@
 - Preflight check: 核对 Spring 缓存 context 的复用顺序与 MyBatis Plus 的 TableInfo/GlobalConfig 静态实体配置。不同 context 重新绑定同一实体后，旧缓存 context 的批量 Db 操作可能使用另一 factory；先用原类单跑和独立 fork 定位，再检查新增类的上下文归属。
 - 处理边界：仅在新增测试的共同基类以 `@DirtiesContext(AFTER_CLASS)` 释放自身 context；不要清全局实体缓存、修改无关生产事务或弱化原断言来掩盖测试干扰。
 - Verification: 修复后必须重跑原默认组合并确认全部用例零 failure/error/skip。独立 fork 或单类 PASS 只是诊断证据，不能替代默认回归；H2/standalone MockMvc 也不能证明真实 MySQL、生产安全过滤器或浏览器 E2E。
+
+
+## 设备模块独立构建
+
+设备台账、设备类型、点检、保养、维修及设备工序产能已迁至 `yudao-module-mes-device`。
+Java 包名、REST 地址、数据库表和权限标识保持不变；仍由 `yudao-server` 统一启动。
+
+依赖方向：`yudao-server → yudao-module-mes → yudao-module-mes-device → yudao-module-mes-common`。
+`mes-common` 仅承载两侧已共用的车间/条码接口、数据类型、公共枚举及车间/工序 Mapper；
+车间和条码业务实现仍在 MES。设备通过 `MesProcessIdentityApi` 查询生产工序身份，
+由原有路线服务实现，禁止设备模块反向依赖 MES。跨模块调用仍在同一 Spring 容器及事务内。
+
+以下命令从仓库根目录运行，设备构建不会编译生产或 eDHR：
+
+```powershell
+mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes-device -am compile '-Dmaven.test.skip=true'
+mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes-device -am test '-Dtest=MesDv*Test,Sheet1MachineryProcessExcelParserTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DskipTests=false' '-Dmaven.test.skip=false'
+```
+
+日常增量构建不要加 `clean`。首次切换到拆分版本，原 MES 的 target 中可能残留迁移前的设备类，
+须先执行一次 `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes clean`，再构建应用。
+正式发布仍按完整应用构建；上述命令只用于开发编译/单元测试，不会更新正在运行的后端。
+设备独立单元测试使用自己的 H2 配置和表结构，不依赖原 MES 的测试目录。
+
+跨模块回归（工作站产能、路线资源、前线设备选择、PQC 设备配置）：
+
+```powershell
+mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am test '-Pmes-device-integration-tests' '-Dtest=MesMdWorkstationCapacityServiceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineDeviceSelectionValidationTest,MesProRouteScheduleConfigServiceImplTest,MesProRouteResourceServiceImplTest,MesProRouteProcessServiceImplTest,MesPqcItemEquipmentConfigServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DskipTests=false' '-Dmaven.test.skip=false'
+python IntRuoyiBackend/script/tests/test_mes_device_module_boundaries.py
+```

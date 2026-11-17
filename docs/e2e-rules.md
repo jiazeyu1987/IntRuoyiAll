@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # IntRuoyi E2E Rules
 
 ## Windows 长脚本与签名哈希核验经验
@@ -297,7 +299,7 @@
 ### Playwright 浏览器可执行文件门禁
 
 - Trigger: `browserType.launch: Executable doesn't exist`、`npx playwright install` 提示、`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`、本机 Chrome/Edge 已安装但 Playwright 缓存浏览器缺失。
-- Preflight check: 先检查本机正式浏览器路径，例如 `C:\Program Files\Google\Chrome\Application\chrome.exe` 或 Edge；若存在，可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 显式传给登录预检和任务 E2E，并在任务日志记录路径来源。
+- Preflight check: 先确认本机已安装浏览器的实际可执行文件，并检查文件存在；通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 显式传给登录预检和任务 E2E，并在任务日志记录路径来源。
 - Blocker: 本机没有可用 Chrome/Edge、指定路径不存在、或浏览器版本无法启动时，必须记录 E2E 前置缺口；不得把浏览器缺失写成产品失败。
 - Verification: 复跑官方登录预检或目标真实 E2E，证明确实使用该可执行文件完成真实页面断言。
 - Forbidden action: 禁止静默下载或切换未知浏览器缓存、禁止用 API-only 代替页面验证、禁止把 Playwright 浏览器缓存缺失冒充业务页面不可达。
@@ -364,12 +366,12 @@
 - Blocker: CLI 在 Windows 出现 `UV_HANDLE_CLOSING` 断言、`open` 后同名会话不存在、登录快照含未脱敏预填凭据、任务输出目录存在未脱敏 `page-*.yml`/trace/视频/截图，或存在命令行可证明属于当前任务的 `cliDaemon.js <task-or-release>` 进程仍占用输出目录时，CLI 验证不得记 PASS，任务也不得 closeout。
 - Verification: CLI 会话异常必须先记录为工具链失败，再使用项目既有 Playwright 脚本承载同一真实页面路径，不能降级为 API-only；删除或脱敏任务自有 Playwright artifact；若目录被锁，只停止命令行明确属于当前任务的 daemon 和子进程；最终记录任务输出目录 `Test-Path=False` 或 artifact 清单为空。
 - Forbidden action: 禁止提交或回显原始 Playwright 登录快照；禁止把 CLI 会话丢失或运行时断言归因成产品失败；禁止为了清理目录误停其他并发 E2E/Playwright 任务；禁止用旧页面快照代替本轮真实页面验证。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，发布验收后清理当前任务 `.playwright-cli` 快照，并只停止 `cliDaemon.js r260731c-r2 --headed` 任务归属进程树；`doc/tasks/20260807-frontline-pqc-all-active-orders-search/verification-report.md`，Windows CLI 会话未保持并出现运行时断言后，改用任务自有 Playwright 脚本完成同一真实页面任务边界验证。
+- Evidence: `历史外部材料（引用已移除）`，发布验收后清理当前任务 `.playwright-cli` 快照，并只停止 `cliDaemon.js r260731c-r2 --headed` 任务归属进程树；`doc/tasks/20260807-frontline-pqc-all-active-orders-search/verification-report.md`，Windows CLI 会话未保持并出现运行时断言后，改用任务自有 Playwright 脚本完成同一真实页面任务边界验证。
 
 ### Worktree / int_main 运行态 URL 门禁
 
-- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
-- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或按集中端口契约成对分配的 `int_main slot 1..100`。当验收要求“融合后复跑”时，必须使用新的 run/event、独立证据目录和当前主运行态证据；worktree 上已经 PASS 的事件、截图和结果只能作为融合前历史。
+- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在当前仓库的 `int_main` 主端口复验。
+- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `.`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或按集中端口契约成对分配的 `int_main slot 1..100`。当验收要求“融合后复跑”时，必须使用新的 run/event、独立证据目录和当前主运行态证据；worktree 上已经 PASS 的事件、截图和结果只能作为融合前历史。
 - Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、后端业务接口返回配置缺失/404、运行 Jar 缺少本次关键方法/字段、或真实 E2E 仍只接受 worktree 模式时必须停止并记录真实原因，不得静默切换端口或 API-only。
 - Verification: 记录运行模式、base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、源码 revision/工作树指纹/运行产物哈希、关键目标接口业务响应、新的真实页面事件与断言，以及任务结束后的任务自有数据清理结果。融合后证据必须与融合前证据分目录保存，防止覆盖后无法证明各自运行态。
 - Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端、让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态，或把 worktree 旧事件复制/改名后冒充融合后复跑。

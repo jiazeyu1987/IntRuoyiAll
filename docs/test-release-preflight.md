@@ -1,17 +1,19 @@
 # 测试服发布前置门禁
 
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
+
 ## 目的
 
 本文是 Codex 执行 IntRuoyi 仅测试服构建发布前的主入口。目标是把长篇经验拆成可执行门禁：先按本文逐项检查，失败时再跳转到对应经验文档诊断。
 
 正式规则仍以以下文档为准：
 
-- `E:\IntRuoyi\docs\release-backup-restore.md`
-- `E:\IntRuoyi\docs\server-access.md`
-- `E:\IntRuoyi\docs\login-access.md`
-- `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
-- `E:\IntRuoyi\docs\worktree-memory.md`
+- `./docs/release-backup-restore.md`
+- `./docs/server-access.md`
+- `./docs/login-access.md`
+- `./docs/release-build-preflight-lessons.md`
+- `./docs/powershell-preflight-lessons.md`
+- `./docs/worktree-memory.md`
 
 ## 使用顺序
 
@@ -23,7 +25,7 @@
 ## 可索引门禁摘要
 
 - Trigger: 任何“仅测试服发布”“当前提交发布到测试服”“publish-test”“测试服运行态验收”“运行控制台版本和变更说明验证”任务。
-- Preflight check: 创建任务目录，读取经验索引，冻结三仓提交到本轮专用 release worktree，构建前后校验 Manifest v1、legacy manifest、required SQL、publish-test 预览和测试服真实运行态。
+- Preflight check: 创建任务目录，读取经验索引，冻结当前仓库提交到本轮专用 release worktree，构建前后校验 Manifest v1、legacy manifest、required SQL、publish-test 预览和测试服真实运行态。
 - Blocker: 构建来源无法证明为冻结提交、manifest 缺失或 dirty、版本/变更说明无法确认、预览不是 test、operation 非 SUCCESS、实际镜像/health/HTTP/迁移/控制台版本任一失败。
 - Verification: `execution-log.md` 中记录冻结提交、worktree 路径、build/publish operation、manifest 校验、远端 `.env IMAGE_TAG`、实际镜像、容器、health、HTTP、Playwright 页面和 worktree 清理结果。
 - Forbidden action: 不得从脏主工作区构建，不得拼接不同 releaseTag，不得手工改库绕过 required SQL，不得跳过真实页面验证，不得在 worktree 未清理或控制台仍指向临时路径时宣称完成。
@@ -54,18 +56,16 @@
 
 ### 必查项
 
-- 维护仓、后端仓、前端仓当前分支、HEAD、dirty 状态。
+- 本项目当前分支、HEAD、dirty 状态和前后端构建输入。
 - 主工作区若存在未提交或未跟踪内容，必须创建本轮专用临时 release worktree。
-- release worktree 使用短路径，推荐 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r<日期><短标识>\m|b|f`。
+- release worktree 使用短路径，推荐 `../IntRuoyiWorktree/r<日期><短标识>\m|b|f`。
 - release worktree 必须检出本次冻结提交。
 - 构建开始后以冻结 release worktree 提交为来源基线；持续开发导致源分支后续新增提交，不要求本轮重复追逐重建。
 
 ### 推荐命令
 
 ```powershell
-git -C D:\ProjectPackage\Int\IntRuoyiMaintance status --short --branch
-git -C E:\IntRuoyi\IntRuoyiBackend status --short --branch
-git -C E:\IntRuoyi\IntRuoyiFronted status --short --branch
+git -C . status --short --branch
 git -C <release-worktree> rev-parse HEAD
 git -C <release-worktree> status --porcelain
 ```
@@ -79,7 +79,7 @@ git -C <release-worktree> status --porcelain
 
 ### 必须记录
 
-- 三仓冻结提交。
+- 当前仓库冻结提交。
 - worktree 路径。
 - 构建目录。
 - worktree 是否 clean。
@@ -260,7 +260,7 @@ ssh root@172.30.30.58 bash -s
 
 ## 必须自动化的候选项
 
-- 三仓 HEAD/dirty/worktree 冻结 JSON。
+- 当前仓库 HEAD/dirty/worktree 冻结 JSON。
 - Manifest v1 与 legacy manifest 分 schema 校验。
 - artifact 大小和 SHA256 校验。
 - publish-test preview 环境边界检查。

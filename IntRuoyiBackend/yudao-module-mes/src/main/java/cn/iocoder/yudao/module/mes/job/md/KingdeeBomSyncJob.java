@@ -70,11 +70,11 @@ public class KingdeeBomSyncJob implements JobHandler, ErpKingdeeFullSyncHandler 
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            MesKingdeeBomListSyncResult result = windowStart == null ? bomListService.syncAllSkipExisting()
+            MesKingdeeBomListSyncResult result = windowStart == null ? bomListService.syncAllWithUpdates()
                     : bomListService.syncAllSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null, result.getCreatedCount(),
-                    0, result.getSkippedCount(), 0);
+                    result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         MesKingdeeBomListSyncResult result = resultReference.get();
         return String.format("ERP BOM full sync: created=%d, skipped=%d",

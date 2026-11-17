@@ -845,6 +845,7 @@ export interface TeamLeaderActiveOrderRespVO {
   releaseApplicationVersion?: number
   quantityConflict?: boolean
   hasQuantityConflict?: boolean
+  hasParameterAbnormal?: boolean
   quantityConflictProcessCount?: number
   overageQuantity?: number | string
   simulated?: boolean

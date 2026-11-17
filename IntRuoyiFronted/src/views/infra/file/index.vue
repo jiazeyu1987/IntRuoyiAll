@@ -149,7 +149,7 @@ import { dateFormatter } from '@/utils/formatTime'
 import * as FileApi from '@/api/infra/file'
 import FileForm from './FileForm.vue'
 import FileUploadTimeForm from './FileUploadTimeForm.vue'
-import InternUserTimeAuditDialog from '@/views/intern-user/time-maintenance/InternUserTimeAuditDialog.vue'
+
 import { authContextRevision } from '@/utils/auth'
 
 defineOptions({ name: 'InfraFile' })

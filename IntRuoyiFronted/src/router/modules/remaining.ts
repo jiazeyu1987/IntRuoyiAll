@@ -1896,6 +1896,12 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-deviation/detail',
+        component: () => import('@/views/mes/pro/edhr-deviation/DeviationDetailPage.vue'),
+        name: 'MesProEdhrDeviationResponsibilityDetail',
+        meta: { noCache: true, hidden: true, canTo: true, title: '偏差详情' }
+      },
+      {
         path: 'pro/feedback/edhr-deviation',
         component: () => import('@/views/mes/pro/edhr-deviation/index.vue'),
         name: 'MesProEdhrDeviation',

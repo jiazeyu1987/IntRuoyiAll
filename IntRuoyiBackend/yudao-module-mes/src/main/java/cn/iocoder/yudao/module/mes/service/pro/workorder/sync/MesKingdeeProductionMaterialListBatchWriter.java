@@ -41,6 +41,16 @@ public class MesKingdeeProductionMaterialListBatchWriter {
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public ErpKingdeeSyncRunResult writePage(Long runId, List<ErpKingdeeProductionMaterialList> rows,
                                             boolean skipAllExisting) {
+        return writePageInternal(runId, rows, skipAllExisting, false);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public ErpKingdeeSyncRunResult writeRefreshPage(Long runId, List<ErpKingdeeProductionMaterialList> rows) {
+        return writePageInternal(runId, rows, false, true);
+    }
+
+    private ErpKingdeeSyncRunResult writePageInternal(Long runId, List<ErpKingdeeProductionMaterialList> rows,
+                                                      boolean skipAllExisting, boolean updateExisting) {
         Objects.requireNonNull(runId, "runId");
         if (rows.isEmpty() || rows.size() > 1000) {
             throw new IllegalArgumentException("生产用料清单批次必须为 1 至 1000 行");
@@ -48,8 +58,13 @@ public class MesKingdeeProductionMaterialListBatchWriter {
         Long requestingTenant = TenantContextHolder.getRequiredTenantId();
         Set<String> orderNos = rows.stream().map(ErpKingdeeProductionMaterialList::getProductionOrderNo)
                 .collect(Collectors.toSet());
-        Map<String, List<MesProWorkOrderDO>> orders = TenantUtils.executeIgnore(() ->
-                workOrderMapper.selectListByCodes(orderNos)).stream()
+        // Explicit tenant refresh must never fan out into other tenants' work orders.
+        List<MesProWorkOrderDO> matchingOrders = updateExisting ? workOrderMapper.selectListByCodes(orderNos)
+                : TenantUtils.executeIgnore(() -> workOrderMapper.selectListByCodes(orderNos));
+        if (updateExisting && matchingOrders.stream().anyMatch(order -> !requestingTenant.equals(order.getTenantId()))) {
+            throw new IllegalStateException("生产用料清单查询返回其他租户工单，当前批次未提交");
+        }
+        Map<String, List<MesProWorkOrderDO>> orders = matchingOrders.stream()
                 .collect(Collectors.groupingBy(MesProWorkOrderDO::getCode));
         // Preserve routing to every matching work order's tenant, or the requesting tenant when unmatched.
         Map<Long, List<Target>> tenants = new TreeMap<>();
@@ -66,7 +81,7 @@ public class MesKingdeeProductionMaterialListBatchWriter {
         }
         int[] counts = new int[3];
         tenants.forEach((tenantId, targets) -> TenantUtils.execute(tenantId, () -> {
-            ErpKingdeeSyncRunResult result = writeTenant(targets, skipAllExisting);
+            ErpKingdeeSyncRunResult result = writeTenant(targets, skipAllExisting, updateExisting);
             counts[0] = Math.addExact(counts[0], result.getCreatedCount());
             counts[1] = Math.addExact(counts[1], result.getUpdatedCount());
             counts[2] = Math.addExact(counts[2], result.getSkippedCount());
@@ -77,7 +92,7 @@ public class MesKingdeeProductionMaterialListBatchWriter {
         return result;
     }
 
-    private ErpKingdeeSyncRunResult writeTenant(List<Target> targets, boolean skipAllExisting) {
+    private ErpKingdeeSyncRunResult writeTenant(List<Target> targets, boolean skipAllExisting, boolean updateExisting) {
         Set<Long> orderIds = targets.stream().map(Target::workOrderId).filter(Objects::nonNull)
                 .collect(Collectors.toCollection(TreeSet::new));
         Map<Long, MesProWorkOrderDO> orders = new HashMap<>();
@@ -97,7 +112,7 @@ public class MesKingdeeProductionMaterialListBatchWriter {
         });
 
         Set<String> itemCodes = new HashSet<>();
-        targets.stream().filter(target -> (skipAllExisting ? !existing.containsKey(SourceKey.of(target.row()))
+        targets.stream().filter(target -> updateExisting || (skipAllExisting ? !existing.containsKey(SourceKey.of(target.row()))
                 : needsWrite(existing.get(SourceKey.of(target.row())), target.row())))
                 .forEach(target -> {
                     itemCodes.add(target.row().getProductCode());
@@ -127,7 +142,7 @@ public class MesKingdeeProductionMaterialListBatchWriter {
             ErpKingdeeProductionMaterialList row = target.row();
             SourceKey key = SourceKey.of(row);
             MesKingdeeProductionMaterialListDO previous = existing.get(key);
-            if (skipAllExisting ? previous != null : !needsWrite(previous, row)) {
+            if (!updateExisting && (skipAllExisting ? previous != null : !needsWrite(previous, row))) {
                 skipped++;
                 continue;
             }

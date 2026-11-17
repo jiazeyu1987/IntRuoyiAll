@@ -1,8 +1,10 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # rewrite-access-docs-current-system
 
 ## Task Goal
 
-将 `docs/login-access.md` 与 `docs/server-access.md` 改写为符合当前 `E:\IntRuoyi` 系统、目录结构、环境门禁与访问约定的文档。
+将 `docs/login-access.md` 与 `docs/server-access.md` 改写为符合当前 `.` 系统、目录结构、环境门禁与访问约定的文档。
 
 ## Milestones
 
@@ -25,9 +27,9 @@ completed
 ## Verification Evidence
 
 - `docs/experience-index.md`：缺失；本次为低风险访问说明文档改写，已记录该缺口，未新建经验门禁。
-- `rg -n "D:\\ProjectPackage|ruoyi-vue-pro" docs/login-access.md docs/server-access.md`：PASS，无旧项目路径匹配。
+- `rg -n "历史外部材料（引用已移除）|ruoyi-vue-pro" docs/login-access.md docs/server-access.md`：PASS，无旧项目路径匹配。
 - `rg -n "(admin123|111111|password\s*=|PASSWORD=|BEGIN .*PRIVATE KEY|token=|secret=|密钥=|密码=)" docs/login-access.md docs/server-access.md`：PASS，无明文凭据模式匹配。
-- 当前系统锚点验证：PASS，目标文档包含 `E:\IntRuoyi\IntRuoyiBackend`、`E:\IntRuoyi\IntRuoyiFronted`、`172.30.30.57/58/59`、`/opt/intruoyi/runtime` 和备用服务器 `/mnt/intruoyi-data` 参数。
+- 当前系统锚点验证：PASS，目标文档包含 `./IntRuoyiBackend`、`./IntRuoyiFronted`、`172.30.30.57/58/59`、`/opt/intruoyi/runtime` 和备用服务器 `/mnt/intruoyi-data` 参数。
 - `task-closeout-cleanup preview/apply`：PASS，无删除项、无阻塞、无警告，当前为主工作区非 linked worktree。
 - `project-experience-consolidation`：PASS，登录、租户、账号与环境访问经验已合并到现有 `docs/login-access.md` / `docs/server-access.md`，未新建长期经验文档。
 

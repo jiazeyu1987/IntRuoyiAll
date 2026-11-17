@@ -583,6 +583,7 @@ export interface ControlledFileOwnerFacts {
   fileOwnerSelectedTime?: number | string | null
 }
 export interface ControlledFileVersionHistoryVO extends ControlledFileOwnerFacts {
+  sourceOriginalFileName?: string | null
   importSource?: 'CONTROLLED_IMPORT' | null
   revisionSourceControlledFileId?: number | string | null
   changeType?: ControlledFileChangeType | null

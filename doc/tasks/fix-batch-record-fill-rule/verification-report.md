@@ -13,9 +13,9 @@
 - `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest' test`
 - `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test`
 - `mvn -pl yudao-module-mes '-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest,MesProRouteServiceImplTest#buildCurrentRouteSnapshotJson_shouldSerializeCurrentBatchRecordBindingsFromProcessSettings' test`
-- `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\fix-batch-record-fill-rule`
-- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md`
-- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md`
+- `python 会话技能：bdd-tdd-acceptance-planner --root doc\tasks\fix-batch-record-fill-rule`
+- `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md`
+- `python 会话技能：backend-api-delivery --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md`
 - `git diff --check`
 
 - `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext' test`

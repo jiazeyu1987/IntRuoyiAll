@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Development Plan
 
 ## Task Graph
@@ -18,7 +20,7 @@
   - 记录原文件路径、大小、SHA-256、来源和版本。
   - 定向运行所有依赖 Word/Excel fixture 的解析、导入和结构测试。
 - `done_definition`: 两个真实 fixture 均经确认并以可移植方式被测试消费，相关测试全部通过。
-- `status_note`: Word 已找到仓库固定资源 `src/test/resources/fixtures/pressure-pump-record.doc`，其长度 `905800`、SHA-256 `830A89A2E116ACA4AB9ECD63A9345F5A288998DD1DDE4A434A612B7BA57C103E` 与此前用户明确指定并用于真实回归的 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 完全一致。用户已明确取消 Sheet1 Excel 真实样本覆盖，因此 Excel 候选副本不再作为本任务验收前置；禁止复制候选副本或用合成 workbook 冒充真实 fixture。
+- `status_note`: Word 已找到仓库固定资源 `src/test/resources/fixtures/pressure-pump-record.doc`，其长度 `905800`、SHA-256 `830A89A2E116ACA4AB9ECD63A9345F5A288998DD1DDE4A434A612B7BA57C103E` 与此前用户明确指定并用于真实回归的 `历史外部材料（引用已移除）` 完全一致。用户已明确取消 Sheet1 Excel 真实样本覆盖，因此 Excel 候选副本不再作为本任务验收前置；禁止复制候选副本或用合成 workbook 冒充真实 fixture。
 
 ### T1
 
@@ -185,7 +187,7 @@
   - 独立测试报告；不得在测试阶段修产品代码
 - `acceptance_ids`: [AC-13, AC-14, AC-15, AC-16, AC-17]
 - `validation_steps`:
-  - 在 `E:\IntRuoyi\IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`。
+  - 在 `./IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`。
   - 检查 Surefire 汇总、失败套件和 skipped 变化。
 - `done_definition`: 退出码 0、`BUILD SUCCESS`、0 failures、0 errors，且无新增/扩大跳过。
 

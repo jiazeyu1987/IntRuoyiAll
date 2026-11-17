@@ -1,4 +1,8 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # IntRuoyi 登录访问说明
+
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
 
 ## 后续验收默认账号（用户于 2026-10-16 指定）
 
@@ -11,8 +15,8 @@
 
 ## 当前本机入口
 
-- 前端工程：`E:\IntRuoyi\IntRuoyiFronted`
-- 后端工程：`E:\IntRuoyi\IntRuoyiBackend`
+- 前端工程：`./IntRuoyiFronted`
+- 后端工程：`./IntRuoyiBackend`
 - 本机前端登录页：`http://localhost:8081/login?redirect=/index` 或 `http://127.0.0.1:8081/login?redirect=/index`
 - 本机后端健康检查：`http://127.0.0.1:48081/actuator/health`
 - 本机 API 前缀：`/admin-api`
@@ -64,7 +68,7 @@
 - Blocker: 目标账号登录权限响应不含精确 permission，或正式角色白名单明确排除该危险权限时，按钮隐藏属于授权边界；若业务确认该角色应具备此能力，必须单独走正式权限变更，不得直接归因于前端缓存。
 - Verification: 记录目标账号/租户标签、页面 URL、列表是否正常加载、精确 permission 是否存在、按钮可见数量、活动角色及角色菜单绑定；前端和后端必须使用同一 permission，且不能通过实际执行危险操作来证明按钮权限。
 - Forbidden action: 禁止改前端去掉权限指令、给账号临时绑定管理员角色、复用其它账号 token、清空全库权限缓存、点击最终删除/发布/审批确认，或仅凭“页面可进入”推断账号拥有按钮权限。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260911-zhaojie-production-order-delete-diagnosis\verification-report.md`。
+- Evidence: `历史外部材料（引用已移除）`。
 
 ### 审批中心入口角色菜单隔离门禁
 

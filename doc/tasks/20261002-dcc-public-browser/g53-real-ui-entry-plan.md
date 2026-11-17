@@ -4,7 +4,7 @@ Status: prepared_read_only_not_executed。依据`docs/product/dcc-final-requirem
 
 ## 唯一环境与执行前提
 
-- 唯一仓库`C:/IntRuoyiAll-int_main`，当前`.git/HEAD`为`refs/heads/int_qms`；槽位0、前端`http://127.0.0.1:8061`、后端48061（`docs/branch-runtime-ports.md`）。目录名含int_main不代表业务运行分支。不能用旧8067/48067或48081代本次环境。
+- 唯一仓库`.`，当前`.git/HEAD`为`refs/heads/int_qms`；槽位0、前端`http://127.0.0.1:8061`、后端48061（`docs/branch-runtime-ports.md`）。目录名含int_main不代表业务运行分支。不能用旧8067/48067或48081代本次环境。
 - Root先完成g50批准的四产品来源列/映射表/通知模板三个精确迁移，并核同源最终包、实际端口进程归属、启动成功与前端代理。最终g50源码包SHA已记录在Root交付，不把未启动包或旧界面当新实现运行证据。
 - 真实测试租户使用已确认本机租户。申请人A、冻结审核人R、合法批准人P、选定负责人L使用实际启用同租户账号及已有正式权限；不自动授角色、猜密码或把admin当任意actor。当前后端合法项目批准人仍为同租户准确username=admin并有project query/update权限；R来自实际配置快照，L来自创建表单选择。Root只读核身份和权限，缺账号/可见菜单准确留前置，不绕过。
 - 从真实登录和可见菜单进入模块。需要配置审核人时沿已有正式配置页面，不SQL造配置。自然网络只保方法/path/status和必要非敏感业务身份/字段，不保存token、cookie、密码、认证响应或全payload。Root若要声明逐步截图则遵守trace证据与敏感边界；原helper快照本身不能代替trace。
@@ -49,7 +49,7 @@ Status: prepared_read_only_not_executed。依据`docs/product/dcc-final-requirem
 
 | 旧helper事实 | Root新本机执行应处理 |
 | --- | --- |
-| 第7行repo固定已删除`C:/IntRuoyi/20261001-dcc-integration`，createRequire从该路径加载Playwright | 指向唯一main仓实际依赖；旧helper封存不原地改，本Agent不生成新平台。main分支/同源判断以当前Root证据 |
+| 第7行repo固定已删除`../IntRuoyiWorktree/20261001-dcc-integration`，createRequire从该路径加载Playwright | 指向唯一main仓实际依赖；旧helper封存不原地改，本Agent不生成新平台。main分支/同源判断以当前Root证据 |
 | startup硬断言registry slot6、8067/48067 | 本次是int_qms slot0 8061/48061，沿真实base归属门禁，不用降低guard或fallback旧端口 |
 | output固定旧g44-real-ui-r4，目录已存在就失败 | 用本次任务独立证据目录，保历史不覆盖；快照/截图函数本身可复用 |
 | locator支持role/name、placeholder、selector及scope；upload走setInputFiles | 能复用上述真实定位；按dialog/业务行scope，不全局first/nth冒真实身份 |

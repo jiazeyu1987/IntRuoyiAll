@@ -2,7 +2,7 @@
 
 - Task ID: task-6586818a22-20260814T121328
 - Created: 2026-08-14T12:13:28
-- Workspace: E:\IntRuoyi
+- Workspace: .
 - User Request: 将批记录表单导入、勾选工艺流程后重建工艺路线、已有路线生成候选版本并保留旧绑定关系的业务需求，根据当前代码分析后写成 PRD、开发计划和测试计划。
 
 ## Goal

@@ -686,9 +686,7 @@
               :disabled="isProductionProcessNavigationBlocked"
               @click="openPicker('process')"
             >
-              <div class="top-label">工序</div>
               <div class="top-value">{{ selectedProcessLabel }}</div>
-              <div v-if="productionQuantityRangeLabel" data-production-quantity-range>{{ productionQuantityRangeLabel }}</div>
               <div
                 v-if="selectedProductionProcessSubmittedQuantityLabel"
                 class="frontline-production-process-submitted"
@@ -697,9 +695,6 @@
                 <strong data-frontline-production-process-submitted-quantity>
                   {{ selectedProductionProcessSubmittedQuantityLabel }} 件
                 </strong>
-              </div>
-              <div class="frontline-production-process-submitted" data-production-progress-basis>
-                {{ configuredProductionMaterials.some(material => material.materialRole === 'OUTPUT') ? '按必需输出零件累计提交量的最小值计量（含待复核）' : '按正式分配累计量计量（含待复核）' }}
               </div>
             </button>
             <button
@@ -903,13 +898,14 @@
             <div class="frontline-production-operation-area">
               <div class="frontline-production-operation-fields">
                 <section class="frontline-production-defect-section defect-section" aria-label="损耗原因明细">
-                  <el-select v-model="selectedProductionLossReasonKey" filterable clearable
+                  <el-select v-model="selectedProductionLossReasonKey"
+                    class="frontline-production-device-param-select frontline-production-loss-reason-select"
+                    filterable clearable
                     placeholder="输入编码或描述选择损耗原因" aria-label="选择生产损耗原因"
                     :disabled="payloadLoading" @change="selectProductionLossReason">
                     <el-option v-for="reason in configuredDefectReasons" :key="reason.key"
                       :value="reason.key" :label="`${reason.reasonCode} / ${reason.label}`" />
                   </el-select>
-                  <p v-if="!configuredDefectReasons.length">当前工序未关联损耗原因，可提交零损耗。</p>
                   <div class="frontline-production-defect-grid defect-grid">
                     <div
                       v-for="defect in visibleProductionLossReasons"
@@ -972,12 +968,7 @@
                     :disabled="payloadLoading"
                     @click="switchProductionMaterial(material.key)"
                   >
-                    <strong>
-                      {{ material.materialName }}<small
-                        v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
-                      > / {{ material.materialCode }}</small>
-                    </strong>
-                    <small v-if="material.materialRole === 'OUTPUT'" data-production-output-submitted-quantity>{{ productionOutputSubmittedQuantity(material) }}</small>
+                    <strong data-production-output-submitted-quantity>{{ formatProductionMaterialTabLabel(material) }}</strong>
                   </button>
                 </section>
               </div>
@@ -2262,8 +2253,12 @@ const productionOutputSubmittedQuantity = (material: ProductionMaterialOption) =
   const process = deviceState.selectedProcess
   if (!process || !isFrontlineProductionProcess(process)) throw new Error('缺少正式生产工序')
   const quantity = process.outputSubmittedQuantities?.[String(material.materialId)]
-  if (quantity === undefined) return '累计提交量缺失，请刷新订单'
-  return `累计已提交 ${formatProductionSubmittedQuantity(quantity)} 件（含待复核）`
+  if (quantity === undefined) throw new Error('累计提交量缺失，请刷新订单')
+  const targetQuantity = process.targetQuantity
+  if (targetQuantity === undefined || !Number.isFinite(targetQuantity) || targetQuantity <= 0) {
+    throw new Error('工序所需总数无效，请刷新订单')
+  }
+  return `${formatProductionSubmittedQuantity(quantity)}/${targetQuantity}`
 }
 
 const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
@@ -2275,11 +2270,6 @@ const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
 })
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
-const productionQuantityRangeLabel = computed(() => {
-  const process = deviceState.selectedProcess
-  if (!process || !isFrontlineProductionProcess(process) || process.targetQuantity === undefined || process.lossCoefficient === undefined) return ''
-  return `完成下限 ${formatProductionQuantity(process.targetQuantity)}；参考上限 ${formatProductionQuantity(process.targetQuantity * process.lossCoefficient)}（超限仅提示）`
-})
 
 const productionSopFileUrl = ref('')
 const productionSopLoading = ref(false)
@@ -3321,28 +3311,7 @@ const isProductionMaterialCompletionEntered = (materialKey: string) =>
     : productionMaterialDrafts[materialKey]?.outputQuantity !== undefined
 
 const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) => {
-  const duplicatedName = configuredProductionMaterials.value.filter(
-    (candidate) => candidate.materialName === material.materialName
-  ).length > 1
-  if (duplicatedName && !material.materialCode?.trim()) {
-    throw new Error('同名输出物料缺少正式物料编码，不能区分填写页签')
-  }
-  const materialLabel = duplicatedName
-    ? `${material.materialName} / ${material.materialCode}`
-    : material.materialName
-  const materialDraft = material.key === selectedProductionMaterialKey.value
-    ? {
-        outputQuantity: productionDraft.outputQuantity,
-        defectQuantities: productionDefectDraft
-      }
-    : productionMaterialDrafts[material.key]
-  const outputQuantity = materialDraft?.outputQuantity
-  if (outputQuantity === undefined) {
-    return materialLabel
-  }
-  const lossQuantity = Object.values(materialDraft.defectQuantities)
-    .reduce((total, quantity) => total + quantity, 0)
-  return `${materialLabel}(${outputQuantity}/${lossQuantity})`
+  return `${material.materialName} ${productionOutputSubmittedQuantity(material)}`
 }
 
 const activeProductionDevice = computed(() =>

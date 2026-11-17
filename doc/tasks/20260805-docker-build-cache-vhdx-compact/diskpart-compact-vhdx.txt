@@ -1,4 +1,4 @@
-select vdisk file="D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx"
+select vdisk file="历史外部材料（引用已移除）"
 attach vdisk readonly
 compact vdisk
 detach vdisk

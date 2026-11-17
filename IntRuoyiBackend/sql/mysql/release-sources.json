@@ -1211,7 +1211,13 @@
     "20261115_mes_loss_reason_catalog.sql",
     "20261116_erp_data_operation_roles.sql",
     "20261116_mes_active_order_deviation.sql",
-    "20261116_mes_deviation_administrator_role.sql"
+    "20261116_mes_deviation_administrator_role.sql",
+    "20261117_dcc_file_type_taxonomy_menu_restore.sql",
+    "20261117_dcc_project_file_template_optional_taxonomy.sql",
+    "20261117_edhr_data_sync_root_menu.sql",
+    "20261117_mes_edhr_deviation_corrective_handling.sql",
+    "20261117_mes_edhr_deviation_task_readable_notifications.sql",
+    "20261117_mes_edhr_deviation_workbench_category.sql"
   ],
   "migrationScopes": [
     {

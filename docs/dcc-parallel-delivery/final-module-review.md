@@ -1,6 +1,6 @@
 # DCC 四模块最终交付 Review（F01）
 
-日期：2026-10-02。主管理主目录实际分支为 `int_qms`；代码整合与验证在 `C:/IntRuoyi/20261001-dcc-integration`、分支 `codex/20261001-dcc-integration`。四个原 worktree 保持只读，没有 Git 提交、推送或合入主目录，没有实库、服务、发布或真实页面 E2E 操作。
+日期：2026-10-02。主管理主目录实际分支为 `int_qms`；代码整合与验证在 `../IntRuoyiWorktree/20261001-dcc-integration`、分支 `codex/20261001-dcc-integration`。四个原 worktree 保持只读，没有 Git 提交、推送或合入主目录，没有实库、服务、发布或真实页面 E2E 操作。
 
 ## 当前结论
 

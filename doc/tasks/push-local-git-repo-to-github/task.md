@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-Configure `E:\IntRuoyi` to push the local `int_main` branch to `https://github.com/jiazeyu1987/IntRuoyiAll.git`.
+Configure `.` to push the local `int_main` branch to `https://github.com/jiazeyu1987/IntRuoyiAll.git`.
 
 ## Milestones
 

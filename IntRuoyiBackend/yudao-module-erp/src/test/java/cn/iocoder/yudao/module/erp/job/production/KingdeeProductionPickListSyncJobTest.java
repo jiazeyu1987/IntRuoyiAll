@@ -31,7 +31,7 @@ class KingdeeProductionPickListSyncJobTest {
                 new ErpKingdeeProductionPickListSyncResult();
         result.addCreated();
         result.addSkipped("FID-OLD");
-        when(pickListService.syncAllSkipExisting(any(LocalDateTime.class), any(LocalDateTime.class)))
+        when(pickListService.syncAll(any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(result);
         when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
                 .thenAnswer(invocation -> invocation.<ErpKingdeeSyncTask>getArgument(1).run(
@@ -47,15 +47,14 @@ class KingdeeProductionPickListSyncJobTest {
         String output = job.execute(ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
 
         assertTrue(output.contains("full sync"));
-        verify(pickListService).syncAllSkipExisting(
+        verify(pickListService).syncAll(
                 any(LocalDateTime.class), any(LocalDateTime.class));
         org.mockito.ArgumentCaptor<ErpKingdeeSyncCommand> commandCaptor =
                 org.mockito.ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);
         verify(runtimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
         assertTrue(commandCaptor.getValue().isForceInitialWindowStart());
         assertTrue(commandCaptor.getValue().getInitialWindowStart()
-                .equals(commandCaptor.getValue().getWindowEnd().toLocalDate()
-                        .minusDays(365).atStartOfDay()));
+                .equals(LocalDateTime.of(1970, 1, 1, 0, 0)));
         verify(pickListService, never()).syncModifiedBetween(any(), any());
     }
 

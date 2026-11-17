@@ -802,10 +802,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import * as RuntimeControlApi from '@/api/infra/runtimeControl'
 import type { RuntimeControlOperationVO, RuntimeControlStatusVO } from '@/api/infra/runtimeControl'
-import { formatDate } from '@/utils/formatTime'
+
 import { checkPermi } from '@/utils/permission'
 import { useMessage } from '@/hooks/web/useMessage'
 import OpsCandidatePicker from './components/OpsCandidatePicker.vue'
@@ -1840,52 +1840,25 @@ const normalizeAuditServerDisplayText = (value?: string) => {
     .replace(/(^|[^\\/])Backup(?![\\/])/gi, '$1审查服')
 }
 
-const operationHistoryEnvironmentText = (environment?: string) => {
-  return normalizeAuditServerDisplayText(environment ? environmentLabel(environment) : '-')
-}
 
-const operationActionText = (operation: RuntimeControlOperationVO) => {
-  const actionCode = operation.action?.trim() || ''
-  if (operationActions.some((item) => item.action === actionCode)) {
-    return operationActionLabel(actionCode)
-  }
-  return normalizeAuditServerDisplayText(operation.actionLabel || actionCode || '重启')
-}
+
+
 
 function operationActionLabel(action: string) {
   return operationActions.find((item) => item.action === action)?.label || action
 }
 
-const operationPublishScopeText = (operation: RuntimeControlOperationVO) => {
-  const publishScope = operation.parameters?.publishScope
-  if (publishScope === 'code-only') return '只发代码'
-  if (publishScope === 'with-data') return '带数据发布'
-  return '-'
-}
 
-const operationTargetText = (operation: RuntimeControlOperationVO) => {
-  if (operation.component === 'ops') return operationHistoryEnvironmentText(operation.environment)
-  return componentLabel(operation.component)
-}
 
-const operationReasonText = (operation: RuntimeControlOperationVO) => {
-  return normalizeAuditServerDisplayText(operation.reason) || '-'
-}
+
+
+
 
 const operationSummaryText = (operation: RuntimeControlOperationVO) => {
   return normalizeAuditServerDisplayText(operation.summary) || '-'
 }
 
-const operationRequestedAtText = (operation: RuntimeControlOperationVO) => {
-  const value = operation.requestedAt
-  if (!value) return '-'
-  if (Array.isArray(value)) {
-    const [year, month, day, hour = 0, minute = 0, second = 0] = value
-    return formatDate(new Date(year, month - 1, day, hour, minute, second))
-  }
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? String(value) : formatDate(date)
-}
+
 
 const openOperation = async (actionValue: string) => {
   const action = operationActions.find((item) => item.action === actionValue)
@@ -2022,7 +1995,7 @@ const submitOperation = async () => {
 
   operationSubmitting.value = true
   try {
-    const operation = await RuntimeControlApi.executeRuntimeControlAction(
+    await RuntimeControlApi.executeRuntimeControlAction(
       buildOperationActionRequest(reason, releaseTag)
     )
     operationDialog.visible = false

@@ -30,17 +30,20 @@ export const restoreReturnedPqcProcesses = async (processes: FrontlinePqcProcess
   }
 }
 
-export const submitReturnedPqcInspection = (returned: OwnReturnDetail, payload: FrontlinePqcInspectionSubmitReqVO,
-  options?: Parameters<typeof resubmitOwnPqc>[1]) => resubmitOwnPqc({
-  activeOrderId: returned.row.activeOrderId,
-  rejectedReviewId: returned.row.rejectedReviewId,
-  expectedRevisionId: returned.row.expectedRevisionId,
-  correction: {
-    eventId: returned.row.eventId,
-    actualInspectionQuantity: payload.actualInspectionQuantity,
-    scrapQuantity: payload.scrapQuantity,
-    itemResults: payload.itemResults,
-    changeReason: 'PQC组长退回后重新签名提交',
-    signaturePassword: payload.signaturePassword
-  }
-}, options)
+export const submitReturnedPqcInspection = async (returned: OwnReturnDetail, payload: FrontlinePqcInspectionSubmitReqVO,
+  options?: Parameters<typeof resubmitOwnPqc>[1]) => {
+  if (!Array.isArray(payload.itemResults)) throw new Error('退回检验重新提交必须包含检验项目结果。')
+  return resubmitOwnPqc({
+    activeOrderId: returned.row.activeOrderId,
+    rejectedReviewId: returned.row.rejectedReviewId,
+    expectedRevisionId: returned.row.expectedRevisionId,
+    correction: {
+      eventId: returned.row.eventId,
+      actualInspectionQuantity: payload.actualInspectionQuantity,
+      scrapQuantity: payload.scrapQuantity,
+      itemResults: payload.itemResults,
+      changeReason: 'PQC组长退回后重新签名提交',
+      signaturePassword: payload.signaturePassword
+    }
+  }, options)
+}

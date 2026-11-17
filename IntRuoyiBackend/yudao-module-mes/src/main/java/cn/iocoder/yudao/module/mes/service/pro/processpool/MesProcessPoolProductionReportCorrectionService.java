@@ -24,6 +24,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonSnapshot;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonValidator;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDefectReasonOption;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
@@ -414,7 +415,7 @@ public class MesProcessPoolProductionReportCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails");
         }
         if (command.getLossDetails().stream().anyMatch(item -> item == null
-                || item.getReasonId() == null || item.getReasonId() <= 0
+                || !MesFrontlineDefectReasonOption.isValidLossReasonId(item.getReasonId())
                 || item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails");
         }

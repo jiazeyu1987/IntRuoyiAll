@@ -269,6 +269,12 @@ const labels: Record<string, string> = {
   riskAssessment: '风险评估',
   productDisposition: '产品处置',
   correctiveOwnerName: '整改责任人',
+  correctiveOwnerId: '整改责任人编号',
+  correctiveStatus: '整改状态',
+  correctiveResult: '整改结果',
+  correctiveEvidenceUrlsJson: '整改证据',
+  investigationSubmitted: '调查已提交',
+  deviationId: '偏差编号',
   correctiveDueAt: '整改期限',
   investigationStartedAt: '调查开始时间',
   plannedCompletedAt: '计划完成时间',
@@ -472,7 +478,8 @@ const enums: Record<string, Record<string, string>> = {
     PRODUCT_RELEASE: '产品放行',
     OTHER_SYSTEM: '其他系统'
   },
-  handlingConclusion: { CLOSED_LOOP: '闭环完成' },
+  handlingConclusion: { CLOSED_LOOP: '闭环完成', RETURNED_TO_INVESTIGATION: '已退回调查' },
+  correctiveStatus: { DRAFT: '待整改', SUBMITTED: '待验证', RETURNED: '已退回整改', VERIFIED: '验证通过' },
   verificationResult: { PASS: '通过', FAIL: '不通过' },
   eventType: {
     PQC_INSPECTION: '过程质量检验',

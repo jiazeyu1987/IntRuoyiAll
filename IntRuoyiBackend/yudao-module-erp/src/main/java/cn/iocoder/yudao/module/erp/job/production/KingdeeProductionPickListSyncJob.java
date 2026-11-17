@@ -56,7 +56,7 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
-        return executeFullSync(windowEnd.toLocalDate().minusDays(365).atStartOfDay(), windowEnd, false);
+        return executeFullSync(LocalDateTime.of(1970, 1, 1, 0, 0), windowEnd, false);
     }
 
     @Override
@@ -75,7 +75,7 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
                 .windowEnd(windowEnd)
                 .build(), context -> {
             ErpKingdeeProductionPickListSyncResult result = recent ? productionPickListService.syncRecentSkipExisting(windowStart, windowEnd)
-                    : productionPickListService.syncAllSkipExisting(context.getWindowStart(), context.getWindowEnd());
+                    : productionPickListService.syncAll(context.getWindowStart(), context.getWindowEnd());
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(recent ? null : context.getWindowEnd(),
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);

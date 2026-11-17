@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class MesProEdhrDeviationPageReqVO extends PageParam {
+    /** Always overwritten by the server before constructing SQL. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Long scopedReaderId;
     private String status;
     private String level;
     private Long activeOrderId;

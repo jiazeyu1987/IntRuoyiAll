@@ -11,6 +11,7 @@ public interface MesKingdeeBomListService {
     PageResult<MesKingdeeBomListRespVO> getPage(MesKingdeeBomListPageReqVO pageReqVO);
 
     int syncAll();
+    MesKingdeeBomListSyncResult syncAllWithUpdates();
 
     MesKingdeeBomListSyncResult syncAllSkipExisting();
 

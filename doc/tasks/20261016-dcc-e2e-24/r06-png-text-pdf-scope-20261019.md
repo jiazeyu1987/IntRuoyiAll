@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # R1624-06 PNG/TXT最小完整修复提案
 
 状态：READY_FOR_ROOT_OWNERSHIP，生产未改。本文为主方案，取代同目录旧四格式原生发布提案。Root明确不采用publication_artifact_kind/NATIVE_SIGNED、无PDF章、迁移或跨生命周期改造。
@@ -22,7 +24,7 @@ Root当前运行证明`reboot1019-runtime-proof.json`：8061/PID20976、48061/PI
 | --- | --- | --- |
 | PDF库 | DCC pom已有PDFBox 2.0.32 | PDDocument/PDPage/PDPageContentStream，不添库。 |
 | PNG解码/无损嵌入 | JDK ImageIO；签名PDF类已用LosslessFactory | 实际像素嵌入，保比例、不裁切，不OCR。 |
-| 中文字形 | 签名PDF已用PDType0Font，现有路径C:/Windows/Fonts/simhei.ttf | 只复用字体嵌入技术，不能复制电脑路径为默认依赖。新增显式字体Resource配置，缺文件/字形准确失败。 |
+| 中文字形 | 签名PDF已用PDType0Font，现有路径历史外部材料（引用已移除） | 只复用字体嵌入技术，不能复制电脑路径为默认依赖。新增显式字体Resource配置，缺文件/字形准确失败。 |
 | 转换合同 | DccDocumentPdfConversionService、DccConvertedPdf | 接口不变，返回可解析真实PDF及派生.pdf名。 |
 | 源件读取权限 | OnlyOffice转换类requireConversionAccess | PNG/TXT读取真实bytes同样先通过CONVERT业务授权；不新增token旁路。 |
 | 盖章 | DccPdfStampService | 复用正式章资源与真实盖章方法，失败不推进受控。 |

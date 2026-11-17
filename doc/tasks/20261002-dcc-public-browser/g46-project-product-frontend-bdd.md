@@ -1,6 +1,6 @@
 # LD01/G46 上传页正式产品预览
 
-Status: ready_for_closeout_for_Root_review。仅主仓C:/IntRuoyiAll-int_main/int_qms；本Agent拥有上传页产品投影、产品helper、workflow.ts既有产品API声明及对应行为测试。后端/Java/Maven由legacy Owner，Root唯一运行/Git/E2E及fulltypes/build。原会签blocker3span、文件模板/目录后续问题不改。共享task仍in_progress，本批不是完整目标完成。
+Status: ready_for_closeout_for_Root_review。仅主仓./int_qms；本Agent拥有上传页产品投影、产品helper、workflow.ts既有产品API声明及对应行为测试。后端/Java/Maven由legacy Owner，Root唯一运行/Git/E2E及fulltypes/build。原会签blocker3span、文件模板/目录后续问题不改。共享task仍in_progress，本批不是完整目标完成。
 
 固定GET `/dcc/controlled-files/project-product?projectCodeId=...`：source为MDM_MASTER/DCC_CATALOG/UNBOUND；projectCodeId/productMasterId/productCatalogId/productRelationId/productCreateRequestId均正式Long字符串。MDM仅master有值；DCC masterNULL且catalog/relation/request完整；UNBOUND所有product身份及code/nameNULL。产品编码和名称来自正式服务器，与项目编码不同。
 

@@ -18,7 +18,6 @@ public class MesProProcessCreateReqVO {
     @Schema(description = "产品名称")
     private String productName;
 
-    @NotNull(message = "请选择所属项目")
     private Long projectId;
 
     @Schema(description = "工序名称", requiredMode = Schema.RequiredMode.REQUIRED)

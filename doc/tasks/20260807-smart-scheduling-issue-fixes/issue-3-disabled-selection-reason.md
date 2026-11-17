@@ -55,7 +55,7 @@ completed
 - `pnpm ts:check:schedule` -> PASS（exit 0）。
 - `pnpm exec prettier --check tests/e2e/mes-schedule-order-disabled-selection-reason-static.spec.js tests/e2e/mes-schedule-order-frozen-state-static.spec.js tests/e2e/mes-schedule-order-replan-finished-disabled-static.spec.js` -> PASS。
 - Playwright 当前页面 `console error` -> 0。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260807-smart-scheduling-issue-fixes/issue-3-disabled-selection-reason.md` -> PASS。
+- `python -X utf8 会话技能：bug-regression-fix-loop --evidence doc/tasks/20260807-smart-scheduling-issue-fixes/issue-3-disabled-selection-reason.md` -> PASS。
 
 ## Blockers
 

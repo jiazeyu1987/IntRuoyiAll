@@ -4,10 +4,10 @@
 
 | 模块 | 工作目录 | 分支 | 前端/后端预约端口 |
 |---|---|---|---|
-| A | C:/IntRuoyi/20260930-dcc-a | codex/20260930-dcc-a | 8063/48063 |
-| B | C:/IntRuoyi/20260930-dcc-b | codex/20260930-dcc-b | 8064/48064 |
-| C | C:/IntRuoyi/20260930-dcc-c | codex/20260930-dcc-c | 8065/48065 |
-| D | C:/IntRuoyi/20260930-dcc-d | codex/20260930-dcc-d | 8066/48066 |
+| A | ../IntRuoyiWorktree/20260930-dcc-a | codex/20260930-dcc-a | 8063/48063 |
+| B | ../IntRuoyiWorktree/20260930-dcc-b | codex/20260930-dcc-b | 8064/48064 |
+| C | ../IntRuoyiWorktree/20260930-dcc-c | codex/20260930-dcc-c | 8065/48065 |
+| D | ../IntRuoyiWorktree/20260930-dcc-d | codex/20260930-dcc-d | 8066/48066 |
 
 当前未启动服务。各worker的AGENTS.md与需求、任务书为主管理预置文档层，不要还原或当作本模块实现。implementation-contract.md（IC-1）已同步到每个worker，覆盖旧任务包中“G0基线未定、只设计”的过期说明。共同基线已经建立；跨模块尚未提供的实际接口仍需Review接入，不能伪造依赖。
 
@@ -18,7 +18,7 @@
 ```text
 你负责DCC模块A，实际开发和定向验证，不只输出计划。
 
-工作目录：C:/IntRuoyi/20260930-dcc-a
+工作目录：../IntRuoyiWorktree/20260930-dcc-a
 分支：codex/20260930-dcc-a
 共同HEAD：a801dc8b91579241e221d129ab34343997673f40
 预约端口：8063/48063；本次不启动服务。
@@ -47,7 +47,7 @@
 ```text
 你负责DCC模块B，实际开发和定向验证，不只输出计划。
 
-工作目录：C:/IntRuoyi/20260930-dcc-b
+工作目录：../IntRuoyiWorktree/20260930-dcc-b
 分支：codex/20260930-dcc-b
 共同HEAD：a801dc8b91579241e221d129ab34343997673f40
 预约端口：8064/48064；本次不启动服务。
@@ -76,7 +76,7 @@
 ```text
 你负责DCC模块C，实际开发和定向验证，不只输出计划。
 
-工作目录：C:/IntRuoyi/20260930-dcc-c
+工作目录：../IntRuoyiWorktree/20260930-dcc-c
 分支：codex/20260930-dcc-c
 共同HEAD：a801dc8b91579241e221d129ab34343997673f40
 预约端口：8065/48065；本次不启动服务。
@@ -105,7 +105,7 @@
 ```text
 你负责DCC模块D，实际开发独立服务/组件和定向测试，不只输出计划。
 
-工作目录：C:/IntRuoyi/20260930-dcc-d
+工作目录：../IntRuoyiWorktree/20260930-dcc-d
 分支：codex/20260930-dcc-d
 共同HEAD：a801dc8b91579241e221d129ab34343997673f40
 预约端口：8066/48066；本次不启动服务。

@@ -66,7 +66,7 @@ class MesProEdhrDeviationReviewTaskServiceTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"PREPARER,DEVIATION_SIGN", "VERIFIER,DEVIATION_SIGN",
             "DEPARTMENT_OWNER,DEVIATION_SIGN", "QA,DEVIATION_APPROVE", "QUALITY_OWNER,DEVIATION_APPROVE",
-            "MANAGEMENT_REP,DEVIATION_APPROVE", "CLOSE,DEVIATION_CLOSE"})
+            "MANAGEMENT_REP,DEVIATION_APPROVE", "CLOSE,DEVIATION_CLOSE", "CORRECTIVE_VERIFIER,DEVIATION_VERIFY"})
     void explicitResponsibilityCreatesCorrectTaskCategoryAndOneAuditedNotification(String node, String type) {
         when(taskMapper.selectList(any())).thenReturn(List.of());
         doAnswer(call -> { ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(6001L); return 1; })
@@ -80,14 +80,33 @@ class MesProEdhrDeviationReviewTaskServiceTest {
         var inserted = ArgumentCaptor.forClass(MesProEdhrWorkTaskDO.class);
         verify(taskMapper).insert(inserted.capture());
         assertEquals(type, inserted.getValue().getTaskType());
+        assertFalse(inserted.getValue().getReason().contains("版本"));
+        assertFalse(inserted.getValue().getReason().contains("[" + node + "]"));
+        if (!"QA".equals(node)) assertFalse(inserted.getValue().getReason().contains(node));
         assertEquals(node, inserted.getValue().getSignatureCellKey());
         assertEquals("1", inserted.getValue().getResponsibilitySourceVersion());
         assertEquals("hash-1", inserted.getValue().getResponsibilitySourceDigest());
         assertEquals(201L, inserted.getValue().getAssigneeUserId());
         assertEquals("201", inserted.getValue().getCandidateUserSnapshot());
-        assertEquals("/mes/pro/feedback/edhr-deviation?deviationId=901", inserted.getValue().getActionUrl());
+        assertEquals("/mes/pro/feedback/edhr-deviation/detail?deviationId=901", inserted.getValue().getActionUrl());
         verify(notifyApi).sendSingleMessageToAdmin(argThat(message -> message.getUserId().equals(201L)
-                && message.getTemplateCode().equals("MES_EDHR_DEVIATION_REVIEW_ASSIGNED")));
+                && message.getTemplateCode().equals("MES_EDHR_DEVIATION_REVIEW_ASSIGNED")
+                && inserted.getValue().getReason().equals(message.getTemplateParams().get("taskTitle"))
+                && message.getTemplateParams().containsKey("workOrderCode")
+                && message.getTemplateParams().containsKey("batchCode")));
+        if ("CORRECTIVE_VERIFIER".equals(node)) {
+            assertEquals("完成偏差调查结果验证", inserted.getValue().getReason());
+        }
+    }
+
+    @Test
+    void correctionVerificationUsesTheCorrectiveResponsibilityLabel() {
+        when(taskMapper.selectList(any())).thenReturn(List.of());
+        doAnswer(call -> { ((MesProEdhrWorkTaskDO) call.getArgument(0)).setId(6003L); return 1; })
+                .when(taskMapper).insert(any(MesProEdhrWorkTaskDO.class));
+        service.assign(deviation(), handling().setCorrectiveOwnerId(305L), "CORRECTIVE_VERIFIER", 201L);
+        verify(taskMapper).insert(argThat((MesProEdhrWorkTaskDO task) ->
+                "完成偏差整改结果验证".equals(task.getReason())));
     }
 
     @Test
@@ -121,6 +140,22 @@ class MesProEdhrDeviationReviewTaskServiceTest {
         when(adminUserApi.getUser(201L)).thenReturn(otherTenantUser);
         assertThrows(ServiceException.class, () -> service.assign(deviation(), handling(), "QA", 201L));
         verifyNoInteractions(taskMapper, auxiliaryAudit, notifyApi);
+    }
+
+    @Test
+    void scopedSignerDoesNotNeedGlobalDeviationQueryPermission() {
+        when(permissionApi.hasAnyPermissions(201L, "mes:pro-edhr-work-task:query")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(201L, "mes:pro-edhr-deviation:verify")).thenReturn(true);
+        assertDoesNotThrow(() -> service.validateAssignee("VERIFIER", 201L));
+        assertDoesNotThrow(() -> service.validateAssignee("CORRECTIVE_VERIFIER", 201L));
+        verify(permissionApi, never()).hasAnyPermissions(201L, "mes:pro-edhr-deviation:query");
+    }
+
+    @Test
+    void taskQueryPermissionStillRequiredForActionableAssignment() {
+        when(permissionApi.hasAnyPermissions(201L, "mes:pro-edhr-work-task:query")).thenReturn(false);
+        assertThrows(ServiceException.class, () -> service.assign(deviation(), handling(), "QA", 201L));
+        verifyNoInteractions(taskMapper, notifyApi);
     }
 
     @Test

@@ -15,7 +15,7 @@
 - 变更申请人 A：`wanglixuan`。
 - 注册经理 B：`chudongqian`。
 - 普通用户 C：优先使用 `wanglixuan` 执行普通用户下载授权分支，前提是该账号不是注册部经理且没有变更文件直接下载特权；若该账号已具备直接下载特权，执行前另选同租户内可查看注册证详情但无直接下载特权的普通用户账号，并记录账号名。
-- 变更批件文件：`E:\IntRuoyi\e2e_test\registration\biangeng\biangeng.pdf`。
+- 变更批件文件：`./e2e_test/registration/biangeng/biangeng.pdf`。
 - 测试数据标识：注册证编号、产品名称、变更后字段和备注等必须包含本次任务唯一标识，例如 `E2E-CHANGE-YYYYMMDD-HHMMSS`。
 
 密码由本次执行人按安全方式注入或手工输入，不写入文档、日志、截图、trace、脚本源码或提交记录。
@@ -23,7 +23,7 @@
 ## Required Preflight
 
 1. 确认前端 `8081` 可访问，后端 `48081` health 为 `UP`。
-2. 确认变更批件文件存在：`E:\IntRuoyi\e2e_test\registration\biangeng\biangeng.pdf`。
+2. 确认变更批件文件存在：`./e2e_test/registration/biangeng/biangeng.pdf`。
 3. 用真实登录页确认租户为“芋道源码”。
 4. 确认 `wanglixuan` 已具备注册证变更提交权限，并能在 CURRENT 注册证行看到“变更”入口。
 5. 确认 `chudongqian` 已绑定注册部经理权限角色，并能进入审批中心待办。
@@ -41,7 +41,7 @@
 每次执行创建或选取任务自有数据：
 
 - 基准注册证：状态为 CURRENT，当前列表可见，且行级“变更”入口可见。
-- 变更文件：`E:\IntRuoyi\e2e_test\registration\biangeng\biangeng.pdf`。
+- 变更文件：`./e2e_test/registration/biangeng/biangeng.pdf`。
 - 批准日期：选择不晚于当前真实日期的日期。
 - 单项变更场景：至少选择“产品名称”或“型号规格”之一，并填写带唯一标识的新值。
 - 生产地址变更场景：选择“生产地址”，填写新生产地址，并选择合法生产关系。
@@ -67,7 +67,7 @@
 10. 将所选字段改为带唯一标识的新值。
 11. 若选择“生产地址”，同步选择合法的“是否委托生产”和“是否自行生产”；委托生产为是时填写正式受托企业。
 12. 若选择“其他内容”，填写其他说明。
-13. 上传 `E:\IntRuoyi\e2e_test\registration\biangeng\biangeng.pdf`。
+13. 上传 `./e2e_test/registration/biangeng/biangeng.pdf`。
 14. 点击“确认”提交审批。
 
 ### Expected Result

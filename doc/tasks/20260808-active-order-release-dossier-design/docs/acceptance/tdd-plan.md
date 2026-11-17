@@ -25,32 +25,32 @@
 ## RED Commands
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=MesActiveOrderReleaseReadinessServiceTest" test
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=MesReleaseDossierMappingServiceTest" test
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderReleaseApplicationServiceTest" test
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 node yudao-module-mes/src/test/js/mes-team-leader-active-order-release-application-static.spec.cjs
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiFronted
+cd ./IntRuoyiFronted
 node tests/e2e/team-leader-active-order-release-application-static.spec.js
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiFronted
+cd ./IntRuoyiFronted
 pnpm ts:check
 ```
 
@@ -67,23 +67,23 @@ pnpm ts:check
 ## GREEN Commands
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=MesActiveOrderReleaseReadinessServiceTest,MesReleaseDossierMappingServiceTest,MesTeamLeaderActiveOrderReleaseApplicationServiceTest" test
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiBackend
+cd ./IntRuoyiBackend
 node yudao-module-mes/src/test/js/mes-team-leader-active-order-release-application-static.spec.cjs
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiFronted
+cd ./IntRuoyiFronted
 node tests/e2e/team-leader-active-order-release-application-static.spec.js
 pnpm ts:check
 ```
 
 ```powershell
-cd E:\IntRuoyi\IntRuoyiFronted
+cd ./IntRuoyiFronted
 pnpm test:e2e -- tests/e2e/team-leader-active-order-release-application-real.e2e.js
 ```
 

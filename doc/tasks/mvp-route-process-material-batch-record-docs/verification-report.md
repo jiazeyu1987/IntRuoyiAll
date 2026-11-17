@@ -8,7 +8,7 @@
 
 ## Verification Evidence
 
-- `python -X utf8 C:\Users\BJB110\.codex\skills\product-requirements-docs\scripts\validate_product_requirements.py --self-test` -> PASS，PRD 技能校验脚本自身结构检查通过。
+- `python -X utf8 会话技能：product-requirements-docs --self-test` -> PASS，PRD 技能校验脚本自身结构检查通过。
 - 自定义结构校验 -> PASS，新 PRD 包含 Purpose and Scope、Evidence Reviewed、Product Summary、Target Users、First Version Scope、Non-Goals、Functional Requirements、Business Rules、States and Transitions、Edge Cases、Acceptance Criteria、Open Questions、Product Blockers。
 - 自定义结构校验 -> PASS，新用户操作文档包含 Purpose and Scope、Evidence Reviewed、Roles、Primary User Flows、Alternate Flows、Error Flows、Out-of-Scope Flows、Frontend Operation Notes、Admin Configuration Notes、Acceptance Checklist、Open Questions。
 - 关键词核对 -> PASS，新文档包含工艺路线工序、灰色、绿色、完成数量、ERP 同步、最小值、快照、审批、删除、用料比例、产品 BOM 等关键约束。

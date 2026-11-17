@@ -30,4 +30,4 @@ Root准备输入内存载荷，重新读取并核对当前记录；新受保护�
 
 此范围不包含新增三张名称占用表、登记历史占用证据、25项审计启用、质量批准或前端业务动作。那些项按各自Review/用户条件执行，不把恢复当业务E2E。
 
-方案：[G26精确恢复方案](C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion/g26-exact-object-recovery-plan.md)。实际前置证据在保护目录g26-bucket-policy-probe、g26-silo-topology-readonly.json、g26-four-source-object-identity.jsonl及g25-missing-source-recovery-candidates.json。
+方案：G26精确恢复方案（联动项目或 worktree 相对布局示例：`../../../../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion/g26-exact-object-recovery-plan.md`）。实际前置证据在保护目录g26-bucket-policy-probe、g26-silo-topology-readonly.json、g26-four-source-object-identity.jsonl及g25-missing-source-recovery-candidates.json。

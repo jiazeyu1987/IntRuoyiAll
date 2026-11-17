@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFo
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrDeviationHandlingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
@@ -693,15 +694,20 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             respVO.setNodeType(batchTask.getNodeType());
             respVO.setNodeName(StrUtil.blankToDefault(batchTask.getProcessName(), batchTask.getNodeType()));
         }
-        MesProcessPoolActiveOrderReleaseApplicationDO application =
-                Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION, task.getBusinessScopeType())
-                        ? applicationById.get(task.getBusinessScopeId())
-                        : applicationByBatchExecutionId.get(task.getBatchExecutionId());
+        MesProcessPoolActiveOrderReleaseApplicationDO application = null;
+        if (Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION, task.getBusinessScopeType())
+                && task.getBusinessScopeId() != null) {
+            application = applicationById.get(task.getBusinessScopeId());
+        } else if (Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_REPORT_NODE, task.getBusinessScopeType())
+                && task.getBatchExecutionId() != null) {
+            application = applicationByBatchExecutionId.get(task.getBatchExecutionId());
+        }
         if (application != null) {
             respVO.setVersion(application.getVersion());
         }
         if (respVO.getVersion() == null
-                && Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_TRANSACTION, task.getBusinessScopeType())) {
+                && Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_TRANSACTION, task.getBusinessScopeType())
+                && task.getBusinessScopeId() != null) {
             MesProEdhrReleaseTransactionDO transaction = releaseTransactionById.get(task.getBusinessScopeId());
             if (transaction != null) {
                 respVO.setVersion(transaction.getVersion());
@@ -775,6 +781,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (Objects.equals(task.getCandidateSourceType(), CANDIDATE_SOURCE_TYPE_USER)) {
             return resolveUserName(userMap, task.getCandidateSourceId() != null
                     ? task.getCandidateSourceId() : task.getAssigneeUserId());
+        }
+        if (task.getCandidateSourceId() == null) {
+            return null;
         }
         if (Objects.equals(task.getCandidateSourceType(), "ROLE_GROUP")) {
             String roleName = roleNameMap.get(task.getCandidateSourceId());
@@ -906,10 +915,12 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (assigneeUserId != null) {
             validateAssignee(assigneeUserId);
             List<String> missingPermissions = new ArrayList<>();
-            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:query")) {
+            if (TASK_TYPE_DEVIATION_RECEIVE.equals(taskType)
+                    && !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:query")) {
                 missingPermissions.add("偏差查询");
             }
-            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:handle")) {
+            if (TASK_TYPE_DEVIATION_RECEIVE.equals(taskType)
+                    && !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:handle")) {
                 missingPermissions.add("偏差处理");
             }
             if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-work-task:query")) {
@@ -936,6 +947,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setTaskType(taskType)
                 .setBusinessScopeType(scopeType)
                 .setBusinessScopeId(deviation.getId())
+                .setRouteId(taskDeadlineService.requireDeviationRouteId(deviation))
                 .setBatchExecutionId(deviation.getBatchExecutionId())
                 .setWorkOrderId(deviation.getWorkOrderId())
                 .setWorkOrderCode(deviation.getWorkOrderCode())
@@ -3148,6 +3160,19 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 || Objects.equals(status, MesProEdhrWorkTaskStatus.OVERDUE);
     }
 
+    @Resource private MesProEdhrDeviationHandlingMapper deviationHandlingMapper;
+
+    private String deviationTaskTitle(MesProEdhrWorkTaskDO task) {
+        boolean hasCorrectiveOwner = false;
+        if ("DEVIATION_VERIFY".equals(task.getTaskType())) {
+            var handling = deviationHandlingMapper.selectByTenantAndDeviationId(
+                    TenantContextHolder.getRequiredTenantId(), task.getBusinessScopeId());
+            if (handling == null) throw new IllegalStateException("偏差验证任务缺少正式处理记录");
+            hasCorrectiveOwner = handling.getCorrectiveOwnerId() != null;
+        }
+        return MesDeviationTaskDescription.title(task.getTaskType(), task.getSignatureCellKey(), hasCorrectiveOwner);
+    }
+
     private void sendNotify(MesProEdhrWorkTaskDO task) {
         String templateCode = "RECORD_CHANGE".equals(task.getBusinessScopeType()) && TASK_TYPE_REWORK.equals(task.getTaskType())
                 ? "MES_EDHR_RECORD_CHANGE_REWORK" : resolveNotifyTemplateCode(task.getTaskType());
@@ -3157,6 +3182,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 "processName", Objects.toString(task.getProcessName(), ""),
                 "actionUrl", task.getActionUrl(),
                 "reason", Objects.toString(task.getReason(), ""),
+                "taskTitle", task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_")
+                        ? deviationTaskTitle(task) : Objects.toString(task.getReason(), ""),
                 "workTaskId", task.getId());
         auxiliaryAudit.notifications(task, () -> {
             List<Long> messageIds = new ArrayList<>();
@@ -3206,12 +3233,16 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             }
             NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
             reqDTO.setUserId(userId);
-            reqDTO.setTemplateCode("MES_EDHR_WORK_TASK_OVERDUE");
+            boolean deviationTask = task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_");
+            reqDTO.setTemplateCode(deviationTask ? "MES_EDHR_DEVIATION_WORK_TASK_OVERDUE" : "MES_EDHR_WORK_TASK_OVERDUE");
             reqDTO.setTemplateParams(Map.of(
                     "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
                     "batchCode", Objects.toString(task.getBatchCode(), ""),
                     "processName", Objects.toString(task.getProcessName(), ""),
                     "dueTime", Objects.toString(task.getDueTime(), ""),
+                    "taskTitle", task.getTaskType() != null && task.getTaskType().startsWith("DEVIATION_")
+                        ? deviationTaskTitle(task) : Objects.toString(task.getReason(), ""),
+                    "reason", Objects.toString(task.getReason(), ""),
                     "actionUrl", task.getActionUrl(),
                     "workTaskId", task.getId()));
             Long messageId = notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
@@ -3249,7 +3280,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private String buildActionUrl(MesProEdhrWorkTaskDO task) {
         if (TASK_TYPE_DEVIATION_RECEIVE.equals(task.getTaskType())
                 || TASK_TYPE_DEVIATION_CORRECT.equals(task.getTaskType())) {
-            return "/mes/pro/feedback/edhr-deviation?deviationId=" + task.getBusinessScopeId();
+            return "/mes/pro/feedback/edhr-deviation/detail?deviationId=" + task.getBusinessScopeId();
         }
         if (TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())) {
             return "/mes/pro/feedback/edhr-batch-execution/detail?id=" + task.getBatchExecutionId()

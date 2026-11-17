@@ -53,9 +53,7 @@ const props = withDefaults(defineProps<{
   blocked?: boolean
   save: (request: SignoffAssignment) => Promise<boolean>
 }>(), { arrangementsReady: true })
-const userLabel = (user: (typeof props.users)[number]) =>
-  user.username && user.username !== user.name && props.users.some(other => String(other.id) !== String(user.id) && other.name === user.name)
-    ? `${user.name}（${user.username}）` : user.name
+
 const emit = defineEmits<{ saved: [context: { fileId: WorkflowId; processInstanceId: string; taskId: string }] }>()
 const selected = ref<WorkflowId>('')
 const password = ref('')

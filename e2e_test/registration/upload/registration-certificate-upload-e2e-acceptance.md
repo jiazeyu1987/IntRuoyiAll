@@ -15,14 +15,14 @@
 - 上传人 A：`wanglixuan`。密码 `111111`。页面审计显示名：`王立轩`。
 - 注册经理 B：`chudongchuan`。密码 `Abcd1234!`。
 - 普通用户 C：固定使用 `wanglixuan`，密码 `111111`；若该账号已具备目标注册证文件直接下载特权或已有有效下载授权，则跳过普通用户下载申请、审批和授权下载相关 E2E 验证，并记录跳过原因。
-- 上传材料：`E:\IntRuoyi\e2e_test\registration\upload\upload_file.pdf`。
+- 上传材料：`./e2e_test/registration/upload/upload_file.pdf`。
 - 下载保存目录：任务目录 `artifacts/downloads/`。
 - 测试数据标识：注册证编号、产品名称、备注等字段必须包含本次任务唯一标识，例如 `E2E-UPLOAD-YYYYMMDD-HHMMSS`。
 
 ## Required Preflight
 
 1. 确认前端 `8081` 可访问，后端 `48081` health 为 `UP`。
-2. 确认上传材料文件存在：`E:\IntRuoyi\e2e_test\registration\upload\upload_file.pdf`。
+2. 确认上传材料文件存在：`./e2e_test/registration/upload/upload_file.pdf`。
 3. 用真实登录页确认租户为“芋道源码”。
 4. 确认 `wanglixuan` 已绑定注册证上传权限角色，并能看到“上传注册证”入口。
 5. 确认 `chudongchuan` 已绑定注册部经理权限角色，并能进入审批中心待办。
@@ -61,7 +61,7 @@
 6. 填写合法日期：首次获证日期 <= 生效日期 < 有效期至。
 7. 选择合法生产方式。
 8. 若委托生产为是，选择正式受托企业。
-9. 上传 `E:\IntRuoyi\e2e_test\registration\upload\upload_file.pdf`。
+9. 上传 `./e2e_test/registration/upload/upload_file.pdf`。
 10. 点击提交。
 
 ### Expected Result

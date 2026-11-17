@@ -136,6 +136,18 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
     }
 
     @Test
+    void emptyConfiguredRecipientsStillNotifyActorWithoutResolvingLegacyRoles() {
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(900099L);
+
+        var result = service.sendToUsers(command("NEW_CERTIFICATE_FORMALIZED"), List.of());
+
+        assertEquals(Map.of(99L, 900099L), result.recipientMessageIds());
+        assertEquals(List.of("REG_CERT:NEW_CERTIFICATE_FORMALIZED:EVENT-NEW_CERTIFICATE_FORMALIZED:USER:99"),
+                capturedBusinessKeysAndReset());
+        verify(recipientResolver, never()).resolve(any(), any(), any());
+    }
+
+    @Test
     void changeConfirmationSendsOnlyExplicitlyConfiguredRecipientsWithoutAddingApprover() {
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(invocation -> {
             NotifySendSingleToUserIdempotentReqDTO req=invocation.getArgument(0);

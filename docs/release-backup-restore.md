@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # IntRuoyi Release Backup Restore Rules
 
 ## 触发场景
@@ -56,11 +58,11 @@
 ### 按钮化备份恢复入口门禁
 
 - Trigger: 设计或实现 ChatGPT 网页、管理后台或运行控制台中的“立即备份”“选择备份包恢复”“恢复演练”“恢复数据”按钮。
-- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`，并从前端表单、后端 action 参数、linux-local `--backup-kind` / PowerShell `-BackupKind` 一路贯通到实际脚本；linux-local 配置的 MySQL 备份策略必须与请求备份类型一致，不一致必须阻断，不得静默改全量或增量。候选必须区分 `REHEARSAL`（允许 `COMPLETE + NOT_RUN`）与 `CONTROLLED_RESTORE`（绑定当前目标 `PASSED` 证明），不可变 manifest 与可变演练/兼容证据分离，候选 API 和 `rehearsal-report.json` 必须显式写出并校验 `manifestDigest`、`chainDigest`、`sourceFingerprint`、`targetFingerprint`，不能只用 `backupId` 或目录名授权恢复，并在 preview 中核对签名、全载荷 hash、chain digest、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host、容量、隔离副作用和候选失效时间。现状介绍必须区分静态已知配置与实时恢复就绪状态。
+- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `./IntRuoyiBackend/script/backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`，并从前端表单、后端 action 参数、linux-local `--backup-kind` / PowerShell `-BackupKind` 一路贯通到实际脚本；linux-local 配置的 MySQL 备份策略必须与请求备份类型一致，不一致必须阻断，不得静默改全量或增量。候选必须区分 `REHEARSAL`（允许 `COMPLETE + NOT_RUN`）与 `CONTROLLED_RESTORE`（绑定当前目标 `PASSED` 证明），不可变 manifest 与可变演练/兼容证据分离，候选 API 和 `rehearsal-report.json` 必须显式写出并校验 `manifestDigest`、`chainDigest`、`sourceFingerprint`、`targetFingerprint`，不能只用 `backupId` 或目录名授权恢复，并在 preview 中核对签名、全载荷 hash、chain digest、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host、容量、隔离副作用和候选失效时间。现状介绍必须区分静态已知配置与实时恢复就绪状态。
 - Blocker: `BackupKind` 缺失、候选不是服务端签发或已过期、备份集未 `COMPLETE`、checksum/签名/DCC manifest 缺失、`NOT_RUN` 候选尝试覆盖、演练证明与目标 fingerprint/chain digest 不匹配、外部 writer 或隔离副作用未处理、pre-restore snapshot/空目标证明不可创建、源账号可删除全部备份、或只读实时 preflight 未执行时，不得启用恢复数据按钮或宣称当前测试服可恢复。
 - Verification: 记录按钮请求体、operationId、targetEnvironment、backupKind、candidateType、candidateId、backupId、manifest/chain digest、source/target fingerprint、preview blockers、互斥租约、签名/全载荷 hash、rehearsal/restore report、目标模式、backend health、frontend HTTP、登录、样本文件 hash 和关键业务路径验证结果；静态验证至少覆盖候选类型拒绝、backupKind 参数链、digest/fingerprint 出参和前端按动作过滤；验证 `UNKNOWN` 终态保持写保护。静态设计任务只能标注“方案已形成”，不能标注“恢复演练成功”。
 - Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止把 `NOT_RUN` 强行标成 `PASSED`、让前端绕过候选状态、在隔离演练中连接真实外部系统、未演练包直接覆盖测试服、让源账号删除受保护副本，或用历史报告冒充当前实时就绪。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-test-backup-restore-design\verification-report.md`、`D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260919-backup-restore-implementation-static\verification-report.md` 与 `docs/recovery/backup-disaster-recovery.md`。
+- Evidence: `历史外部材料（引用已移除）`、`历史外部材料（引用已移除）` 与 `docs/recovery/backup-disaster-recovery.md`。
 
 ### 大数据量备份恢复首版里程碑顺序门禁
 
@@ -69,7 +71,7 @@
 - Blocker: 只有文件生成没有全量隔离恢复、只有数据库增量没有对象增删改、增量链缺 parent/base/position 或所需 binlog 已 purge、恢复控制平面随业务后端一起不可用、隔离演练会触发外部副作用、备份仓库与源系统共用可删除权限、数据库主方案未按实际规模验证、或只能依赖用户电脑中转几百 GB 数据时，不能进入按钮化放行。
 - Verification: M2 记录实际规模 FULL 和隔离全量恢复；M3 连续生成至少三个真实增量并恢复中间点和最新点，验证数据库与对象新增/修改/删除，并注入中间增量损坏、日志提前清理和对象并发修改；M4 区分演练候选与受控恢复候选、演练与覆盖恢复；M5 完成支持矩阵与换机/不兼容验证；M6 完成一个完整调度周期、依赖图保留模拟、最大链恢复、独立副本删除权限和故障注入。
 - Forbidden action: 禁止把真实增量、整链恢复、跨存储一致性和大数据容量验证推迟到按钮上线后；禁止用小样本成功外推几百 GB；禁止把“增量包小”当成“恢复只需传增量”；禁止把升级、降级、换机承诺写成任意环境自动兼容。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-backup-restore-milestone-review\verification-report.md`。
+- Evidence: `历史外部材料（引用已移除）`。
 
 ### 本机数据迁移包恢复门禁
 
@@ -101,12 +103,12 @@
 ## 正式服备份计划任务状态门禁
 
 - Trigger: 查询、启用、禁用、重注册或发布验证 `IntRuoyi Backup Scheduled` 等正式服备份计划任务。
-- Preflight check: 先确认唯一实现、测试和打包源为 `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`；不得用维护仓 `ops/backup-ops` 历史副本的测试结果证明实际后端已修复。随后同时核对计划任务查询退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run`、脚本/config/secrets 路径、受保护生产确认、`taskPrincipal.principalId`、S4U/Limited、batch-logon、ACL identity、`backup.repositoryEnvironment`、最新成功点 `completedAt` 和已批准的 `backup.maxFreshnessHours`。
+- Preflight check: 先确认唯一实现、测试和打包源为 `./IntRuoyiBackend/script/backup-ops`；不得用维护仓 `ops/backup-ops` 历史副本的测试结果证明实际后端已修复。随后同时核对计划任务查询退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run`、脚本/config/secrets 路径、受保护生产确认、`taskPrincipal.principalId`、S4U/Limited、batch-logon、ACL identity、`backup.repositoryEnvironment`、最新成功点 `completedAt` 和已批准的 `backup.maxFreshnessHours`。
 - Blocker: 运行/打包/测试源不一致，查询命令非 0，`NextRunTime=N/A`，任务禁用，脚本或配置路径漂移，受保护输入、principal 或 ACL 无效，仓库环境缺失/非法，`LastTaskResult` 非 0，成功备份点或 `completedAt` 缺失/不可解析，或 `now - completedAt` 超过新鲜度阈值时，不能宣布定时备份正常。
 - Verification: 记录后端 source-of-truth 合同测试、计划任务名称、principal/logon type、ACL 验证身份、启用状态、下次运行时间、上次运行时间、上次结果、脚本/config/secrets 路径、仓库环境、最新成功点 `completedAt`、新鲜度阈值及实际年龄；秘密字段只记录脱敏证明，不记录明文。
 - Implementation gate: 注册脚本合同转绿前，必须同时验证 `backup-ops.ps1` 主入口接受并校验同一个 `RepositoryEnvironment`，非交互正式备份只从 secrets 的 `auth.productionBackupConfirmText` 取得受保护确认；不得只让注册命令字符串或示例 JSON 变绿。
 - Forbidden action: 禁止把维护仓副本、`schtasks` 错误/空输出、旧路径、禁用任务、默认仓库、当前用户/SYSTEM/最高权限、命令行明文凭据、仅有历史备份文件或缺少恢复/新鲜度证据包装成“定时备份正常”。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260813-production-operations-hardening-plan\` 规划包及其独立复审报告。
+- Evidence: `历史外部材料（引用已移除）` 规划包及其独立复审报告。
 
 ## 审查服运行承载对齐门禁
 
