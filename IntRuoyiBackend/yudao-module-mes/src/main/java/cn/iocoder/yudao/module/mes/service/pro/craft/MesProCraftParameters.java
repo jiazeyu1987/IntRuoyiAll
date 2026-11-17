@@ -20,7 +20,7 @@ public final class MesProCraftParameters {
         return ServiceExceptionUtil.exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(1_017_990_001, "{}"), message);
     }
     public static JSONArray normalize(JSONArray source) {
-        if (source == null || source.isEmpty()) throw invalid("工艺至少需要一个参数");
+        if (source == null || source.isEmpty()) throw invalid("工艺至少保留一项参数");
         JSONArray result = new JSONArray();
         Set<String> codes = new HashSet<>();
         for (Object raw : source) {

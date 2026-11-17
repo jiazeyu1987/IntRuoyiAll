@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Schema(description = "管理后台 - MES 一线生产活跃订单冻结工序 Response VO")
 @Data
@@ -25,4 +26,6 @@ public class MesFrontlineActiveOrderProcessRespVO {
     private BigDecimal lossCoefficient;
     private BigDecimal targetQuantity;
     private BigDecimal submittedQuantity;
+    @Schema(description = "按冻结输出零件统计的累计提交量（含待复核），键为物料ID")
+    private Map<Long, BigDecimal> outputSubmittedQuantities;
 }

@@ -490,6 +490,7 @@ class MesProEdhrDeviationHandlingServiceTest {
 
     private MesProEdhrDeviationDO openDeviation(String level) {
         return new MesProEdhrDeviationDO().setId(901L).setTenantId(71L)
+                .setActiveOrderId(991L).setWorkOrderId(801L).setWorkOrderCode("WO-801")
                 .setDeviationCode("PC-202609-0001").setLevel(level).setStatus("OPEN");
     }
 

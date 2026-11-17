@@ -247,25 +247,33 @@ for (const [name, payload] of [
   ['success missing refreshToken', { code: 0, data: { accessToken: newTokens.accessToken } }],
   ['success missing accessToken', { code: 200, data: { refreshToken: newTokens.refreshToken } }]
 ]) {
-  test(`actual refresh ${name} writes no tokens and uses existing relogin confirmation`, async () => {
+  test(`actual refresh ${name} clears the invalid session and redirects without confirmation`, async () => {
     const h = session({ refreshPayload: payload })
     await assert.rejects(h.request(), (reason) => reason === 'sys.api.timeoutMessage')
     assert.equal(h.refreshCalls.length, 1)
     assert.equal(h.businessCalls.length, 1, 'the failed current request must not be replayed')
-    assert.deepEqual(h.mutations, [], 'rejected refresh must not persist token-shaped payload or clear identity early')
-    assert.equal(h.auth.getAccessToken(), oldTokens.accessToken)
-    assert.equal(h.auth.getRefreshToken(), oldTokens.refreshToken)
-    assert.equal(h.isRelogin.show, true)
-    assert.equal(h.prompts.length, 1)
-    assertPreservedIdentity(h)
-    h.prompts[0].decision.resolve()
-    await flush()
+    assert.equal(h.prompts.length, 0)
     for (const key of [...h.protectedKeys, 'ACCESS_TOKEN', 'REFRESH_TOKEN']) assert.equal(h.cache.get(key), undefined)
     assert.equal(h.isRelogin.show, false)
     assert.strictEqual(h.cache.get(h.keys.TenantId), h.before.get(h.keys.TenantId))
     assert.equal(h.mutations.filter((entry) => entry.operation === 'set').length, 0)
+    assert.equal(h.location.href, '/login?redirect=' + encodeURIComponent(h.location.pathname + h.location.search))
   })
 }
+
+test('late 401 after logout on the login page neither opens a modal nor redirects again', async () => {
+  const h = session()
+  h.auth.removeToken()
+  h.location.pathname = '/login'
+  h.location.search = '?redirect=/user/profile'
+  h.location.href = 'https://session-fixture.invalid/login?redirect=/user/profile'
+  const loginUrl = h.location.href
+  await assert.rejects(h.request(), (reason) => reason === 'sys.api.timeoutMessage')
+  assert.equal(h.refreshCalls.length, 0)
+  assert.equal(h.prompts.length, 0)
+  assert.equal(h.location.href, loginUrl)
+  assert.equal(h.auth.getAccessToken(), undefined)
+})
 
 test('already active relogin still clears invalid session and redirects on refresh business failure', async () => {
   const h = session({ refreshPayload: { code: 1002001, msg: 'unit refresh rejected', data: newTokens } })

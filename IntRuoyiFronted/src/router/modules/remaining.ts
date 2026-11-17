@@ -692,6 +692,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           title: 'DCC产品目录',
+          breadcrumbTitle: 'DCC产品目录',
           activeMenu: '/mes/md/dcc-project-code',
           permission: ['dcc:project-code:query']
         }

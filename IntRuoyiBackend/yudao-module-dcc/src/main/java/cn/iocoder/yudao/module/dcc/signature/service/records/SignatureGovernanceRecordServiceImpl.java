@@ -81,6 +81,30 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
     }
 
     @Override
+    public SignatureGovernanceRecordEvidence getEvidence(String globalId) {
+        // Resolve through the tenant-scoped governance source before reading unified evidence.
+        if (globalId == null || !globalId.matches("UNIFIED-[1-9][0-9]*")) {
+            throw exception(SIGNATURE_GOVERNANCE_RECORD_NOT_EXISTS, globalId);
+        }
+        SignatureGovernanceRecordRespVO record = recordMapper.selectSignatureRecordByGlobalId(globalId);
+        if (record == null || !UNIFIED_SIGNATURE_SOURCE_TABLE.equals(record.getSourceTable())
+                || !globalId.equals(record.getGlobalId()) || record.getSourceRecordId() == null
+                || !globalId.equals("UNIFIED-" + record.getSourceRecordId())) {
+            throw exception(SIGNATURE_GOVERNANCE_RECORD_NOT_EXISTS, globalId);
+        }
+        var evidence = signatureQueryService.getById(record.getSourceRecordId());
+        var verification = signatureQueryService.verifyEvidence(record.getSourceRecordId());
+        if (evidence == null || verification == null
+                || !Objects.equals(record.getSourceRecordId(), evidence.id())
+                || !Objects.equals(evidence.id(), verification.signatureId())
+                || !Objects.equals(evidence.contentHash(), verification.storedContentHash())
+                || !Objects.equals(evidence.evidenceHash(), verification.storedEvidenceHash())) {
+            throw exception(SIGNATURE_GOVERNANCE_RECORD_NOT_EXISTS, globalId);
+        }
+        return new SignatureGovernanceRecordEvidence(globalId, evidence, verification);
+    }
+
+    @Override
     public SignatureGovernanceRecordPdfArtifact exportRecordPdf(String globalId) {
         String normalizedGlobalId = StrUtil.trim(globalId);
         if (StrUtil.isBlank(normalizedGlobalId)) {

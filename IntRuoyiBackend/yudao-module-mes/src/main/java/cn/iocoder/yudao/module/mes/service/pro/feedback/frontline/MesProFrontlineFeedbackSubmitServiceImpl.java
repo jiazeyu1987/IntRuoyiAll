@@ -180,16 +180,13 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);
         var quantityDraft = quantityDrafts.requireRetry(reqVO);
-        if (quantityDraft != null && "BLOCKED".equals(quantityDraft.getStatus())) {
-            return quantityDrafts.blocked(quantityDraft, "本次超限填写已保留，请由生产组长核对本次与历史归属并签署处理后重提。");
-        }
         var quantityCapacity = quantityCapacityService.evaluate(reqVO);
-        if (quantityCapacity.exceeded()) {
-            var blockedDraft = quantityDrafts.capture(reqVO, originalRequestHash, quantityCapacity, quantityDraft);
-            return quantityDrafts.blocked(blockedDraft, "累计生产数量将达到" + quantityCapacity.projected().stripTrailingZeros().toPlainString()
-                    + "，超过生产数量×生产系数的上限" + quantityCapacity.upper().stripTrailingZeros().toPlainString()
-                    + "。本次未形成正式报工，请生产组长核对本次及历史提交归属、更正后重新提交。");
-        }
+        // Production quantity limits are advisory; retain the actual signed submission.
+        String quantityWarningMessage = quantityCapacity.exceeded()
+                ? "累计生产数量" + quantityCapacity.projected().stripTrailingZeros().toPlainString()
+                    + "超过参考上限" + quantityCapacity.upper().stripTrailingZeros().toPlainString()
+                    + "，已保存正式报工，待组长处理；数量超限不影响进度和放行。"
+                : null;
         MesFrontlineParameterAuditResult parameterAuditResult = resolveParameterAudit(reqVO, materialSubmission);
         attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
@@ -222,6 +219,14 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
                 .setRecordbookEventId(null);
         eventPayload.getRawPayload().put(MesProductionSubmitRequestIdentity.RAW_KEY,
                 Map.of("version", MesProductionSubmitRequestIdentity.VERSION, "hash", originalRequestHash));
+        if (quantityWarningMessage != null) {
+            eventPayload.getRawPayload().put("productionQuantityWarning", Map.of(
+                    "previousQuantity", quantityCapacity.previous(),
+                    "requestedQuantity", quantityCapacity.requested(),
+                    "projectedQuantity", quantityCapacity.projected(),
+                    "upperQuantity", quantityCapacity.upper(),
+                    "message", quantityWarningMessage));
+        }
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
         BigDecimal allocationQuantity = materialSubmission == null
@@ -239,7 +244,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
                 .setFeedbackId(feedbackId)
                 .setRecordbookEntryId(null)
                 .setRecordbookEventId(null)
-                .setProcessPoolEventId(processPoolEventId);
+                .setProcessPoolEventId(processPoolEventId)
+                .setQuantityWarningMessage(quantityWarningMessage);
         return applyParameterAudit(response, parameterAuditResult);
     }
     @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED,readOnly=true)
@@ -254,7 +260,10 @@ public class MesProFrontlineFeedbackSubmitServiceImpl {
         if(event==null || !productionReplayEvidence.isValidForEvent(event)) throw new IllegalStateException("PRODUCTION_REPLAY_EVIDENCE_INVALID");
         MesProductionSubmitRequestIdentity.requireMatches(MesProductionSubmitRequestIdentity.hash(request),
                 JsonUtils.parseTree(event.getRawPayload()).get(MesProductionSubmitRequestIdentity.RAW_KEY));
-        return toSubmitResp(found.get());
+        var response = toSubmitResp(found.get());
+        var warning = JsonUtils.parseTree(event.getRawPayload()).path("productionQuantityWarning").path("message");
+        if (warning.isTextual()) response.setQuantityWarningMessage(warning.asText());
+        return response;
     }
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper productionReplayEvents;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService productionReplayEvidence;

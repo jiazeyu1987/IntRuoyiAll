@@ -93,6 +93,7 @@ class DccProjectCodeControllerTest extends BaseMockitoUnitTest {
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
         assertTrue(Boolean.TRUE.equals(result.getData()));
         verify(projectCodeService).updateProjectCode(reqVO);
+        verify(projectAccessService).assertProjectMetadataEditable(SecurityFrameworkUtils.getLoginUserId(), 101L);
     }
 
     @Test

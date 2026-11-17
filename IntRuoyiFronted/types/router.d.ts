@@ -53,6 +53,7 @@ declare module 'vue-router' {
     icon?: string
     noCache?: boolean
     breadcrumb?: boolean
+    breadcrumbTitle?: string
     affix?: boolean
     activeMenu?: string
     noTagsView?: boolean

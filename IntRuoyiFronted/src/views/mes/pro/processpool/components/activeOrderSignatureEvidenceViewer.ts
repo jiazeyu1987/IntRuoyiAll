@@ -1,16 +1,15 @@
 import { reactive } from 'vue'
-import type { ActiveOrderAuditIdentity, ActiveOrderAuditScope } from '@/api/mes/pro/edhr/activeOrderAudit'
-import type { ActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
+import type { ActiveOrderSignatureEvidence, ActiveOrderSignatureScope, ActiveOrderSignatureIdentity } from '@/api/mes/pro/edhr/activeOrderSignature'
 
 export interface SignatureBusinessContext {
-  scope: ActiveOrderAuditScope
-  identity: ActiveOrderAuditIdentity
+  scope: ActiveOrderSignatureScope
+  identity: ActiveOrderSignatureIdentity
   activeOrderId: number | string
 }
 
 export const createActiveOrderSignatureEvidenceViewer = (
   context: () => SignatureBusinessContext | undefined,
-  load: (scope: ActiveOrderAuditScope, identity: ActiveOrderAuditIdentity, signatureId: number | string)
+  load: (scope: ActiveOrderSignatureScope, identity: ActiveOrderSignatureIdentity, signatureId: number | string)
     => Promise<ActiveOrderSignatureEvidence>
 ) => {
   const state = reactive({ visible: false, loading: false, error: '',

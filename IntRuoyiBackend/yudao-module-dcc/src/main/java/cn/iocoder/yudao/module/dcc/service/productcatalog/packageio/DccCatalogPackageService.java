@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.security.core.service.SecurityFrameworkService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
+import cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateStructure;
+import cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -28,12 +30,14 @@ public class DccCatalogPackageService {
     @Resource private ControlledContentRegistrationProjectionService projection;
     @Resource private ObjectMapper json;
     @Resource private DccProductCatalogRegistrationSyncService catalogSync;
-    private static final String FORMAT = "dcc-catalog-workbook.v6";
+    @Resource private DccProjectConfigurationAuditService configurationAudit;
+    private static final String FORMAT = "dcc-catalog-workbook.v7";
     record Spec(String name, String table, String fields, String identity, String filter) {
         List<String> columns() { return List.of(fields.split(",")); }
         List<String> keys() { return List.of(identity.split(",")); }
     }
     private static final List<Spec> SPECS = List.of(
+        new Spec("目录模板", "dcc_folder_template", "id,name,description,active,structure_json", "name", "1=1"),
         new Spec("关联公司", "mdm_enterprise", "id,enterprise_code,name,type,status,revision,deleted", "enterprise_code", "type='ENTRUSTED_PARTY'"),
         new Spec("授权公司", "mdm_enterprise", "id,enterprise_code,name,type,status,revision,deleted", "enterprise_code", "type='OWNED_COMPANY'"),
         new Spec("产品主数据", "mdm_product", "id,product_code,dcc_product_code,name_cn,name_en,model_specification,category,status,deleted", "product_code", "1=1"),
@@ -60,7 +64,7 @@ public class DccCatalogPackageService {
     private static final Set<String> VIRTUAL_FIELDS = Set.of("certificate_key");
     private static final Set<String> LOCAL_REFERENCES = Set.of("confirmed_by", "formalized_by", "voided_by", "source_change_id", "last_import_batch_id");
     private static final Set<String> USER_FIELDS = Set.of("confirmed_by", "formalized_by", "voided_by");
-    private static final Set<String> BIT_FIELDS = Set.of("deleted", "category_changed", "entrusted_production", "self_production");
+    private static final Set<String> BIT_FIELDS = Set.of("deleted", "category_changed", "entrusted_production", "self_production", "active", "ever_used");
 
     @Transactional(readOnly = true)
     public byte[] exportWorkbook() throws IOException {
@@ -120,6 +124,7 @@ public class DccCatalogPackageService {
                 List<String> key = key(spec, row);
                 if (!seen.add(key)) throw invalid(spec.name() + "：文件内业务编码重复 " + key);
                 var old = byKey.get(key);
+                boolean templateChanged = spec.name().equals("目录模板") && (old == null || !sameFacts(spec, row, old, false));
                 if (crossTenant) {
                     // Account grants and source workflow histories are outside this five-tab transfer.
                     // Preserve target-local references on updates; never assign source tenant IDs.
@@ -161,6 +166,7 @@ public class DccCatalogPackageService {
                 }
                 if (ids.computeIfAbsent(spec.table(), k -> new HashMap<>()).put(sourceId, targetId) != null)
                     throw invalid(spec.name() + "：文件内关联标识重复 " + sourceId);
+                if (templateChanged) recordTemplateImport(targetId, tenant, old, row);
             }
         }
         for (var spec : SPECS) {
@@ -209,7 +215,7 @@ public class DccCatalogPackageService {
         List<DccCatalogWorkbook.SheetData> sheets = new ArrayList<>();
         sheets.add(new DccCatalogWorkbook.SheetData("导入说明", List.of("format", "tenant", "说明"),
             List.of(Map.of("format", FORMAT, "tenant", String.valueOf(tenant), "说明",
-                "按业务标识合并，保留文件外数据。项目按名称及代码定位；产品目录按当前租户、数据来源及原行号合并，跨租户导入创建独立目录并重映射绑定。保留文本格式及关联标识。不导出导入项目负责人姓名及账号；已有项目保留负责人，新增项目不设置负责人。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
+                "按业务标识合并，保留文件外数据。目录模板按名称合并，包含说明、启停状态及目录树结构；不迁移模板编辑人员与使用历史，不改动已生成的项目目录。项目按名称及代码定位；产品目录按当前租户、数据来源及原行号合并，跨租户导入创建独立目录并重映射绑定。保留文本格式及关联标识。不导出导入项目负责人姓名及账号；已有项目保留负责人，新增项目不设置负责人。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
         for (var spec : SPECS) sheets.add(new DccCatalogWorkbook.SheetData(spec.name(), spec.columns(), List.of()));
         return sheets;
     }
@@ -221,7 +227,14 @@ public class DccCatalogPackageService {
                 + " WHERE tenant_id=? AND " + (spec.columns().contains("deleted") ? "" : "deleted=0 AND ") + spec.filter() + " ORDER BY id" + (lock ? " FOR UPDATE" : ""),
                 (rs, index) -> {
                     Map<String, String> row = new LinkedHashMap<>();
-                    for (String field : fields.split(",")) row.put(field, rs.getString(field));
+                    for (String field : fields.split(",")) {
+                        if (BIT_FIELDS.contains(field)) {
+                            boolean value = rs.getBoolean(field);
+                            row.put(field, rs.wasNull() ? null : value ? "1" : "0");
+                        } else {
+                            row.put(field, rs.getString(field));
+                        }
+                    }
                     return row;
                 }, tenant);
             result.put(spec.name(), rows);
@@ -264,6 +277,7 @@ public class DccCatalogPackageService {
             if (!all.computeIfAbsent(spec.table(), k -> new HashSet<>()).add(required(row, "id", spec.name())))
                 throw invalid(spec.name() + "：关联标识重复");
             key(spec, row);
+            if (spec.name().equals("目录模板")) validateTemplate(row);
             if (spec.name().equals("DCC产品目录") && Integer.parseInt(row.get("original_row_no")) < 2)
                 throw invalid("产品目录原行号必须大于等于2");
             if (spec.name().equals("关联公司") && !"ENTRUSTED_PARTY".equals(row.get("type"))
@@ -316,6 +330,41 @@ public class DccCatalogPackageService {
     private static Map<String, String> find(List<Map<String, String>> rows, String id) {
         return rows.stream().filter(r -> Objects.equals(id, r.get("id"))).findFirst().orElseThrow(() -> invalid("绑定对象不存在：" + id));
     }
+    private void validateTemplate(Map<String, String> row) {
+        String name = required(row, "name", "目录模板");
+        if (!name.equals(name.trim()) || name.length() > 128
+                || row.get("description") != null && row.get("description").length() > 2048)
+            throw invalid("目录模板：名称或说明格式不符");
+        if (!Set.of("0", "1").contains(required(row, "active", "目录模板")))
+            throw invalid("目录模板：启停状态必须为0或1");
+        try {
+            var structure = json.readValue(required(row, "structure_json", "目录模板"), DccFolderTemplateStructure.class);
+            if (structure == null) throw invalid("目录模板：目录树不能为空");
+            structure.validated();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | cn.iocoder.yudao.framework.common.exception.ServiceException exception) {
+            throw new IllegalArgumentException("目录模板：目录树结构无效", exception);
+        }
+    }
+    private void recordTemplateImport(String id, long tenant, Map<String, String> before, Map<String, String> after) throws IOException {
+        Long actor = getLoginUserId();
+        if (actor == null) throw invalid("目录模板：导入必须登录");
+        if (jdbc.update("UPDATE dcc_folder_template SET edited_by_user_id=? WHERE id=? AND tenant_id=? AND deleted=0", actor, id, tenant) != 1)
+            throw invalid("目录模板：编辑人员记录失败");
+        var afterState = new LinkedHashMap<>(after);
+        afterState.put("id", id);
+        String beforeJson = before == null ? null : json.writeValueAsString(before);
+        String afterJson = json.writeValueAsString(afterState);
+        var holder = new GeneratedKeyHolder();
+        int written = jdbc.update(connection -> {
+            var statement = connection.prepareStatement("INSERT INTO dcc_folder_template_history (template_id,operator_user_id,operation,before_json,after_json,tenant_id,creator,updater) VALUES (?,?,'SAVE',?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
+            statement.setString(1, id); statement.setLong(2, actor);
+            statement.setString(3, beforeJson); statement.setString(4, afterJson); statement.setLong(5, tenant);
+            statement.setString(6, actor.toString()); statement.setString(7, actor.toString());
+            return statement;
+        }, holder);
+        if (written != 1 || holder.getKey() == null) throw invalid("目录模板：变更历史记录失败");
+        configurationAudit.append("dcc.folder-template.save", Long.valueOf(id), holder.getKey().toString(), "产品目录工作簿导入目录模板", beforeJson, afterJson);
+    }
     private void remap(Map<String, String> row, Map<String, Map<String, String>> ids, boolean defer) throws IOException {
         for (var ref : REFERENCES.entrySet()) {
             String value = row.get(ref.getKey());
@@ -365,7 +414,7 @@ public class DccCatalogPackageService {
         for (String field : writable(spec, deferred)) {
             String a = row.get(field), b = old.get(field);
             if (Objects.equals(a, b)) continue;
-            if (Set.of("entrusted_enterprises_json", "facts_json").contains(field) && a != null && b != null && json.readTree(a).equals(json.readTree(b))) continue;
+            if (Set.of("entrusted_enterprises_json", "facts_json", "structure_json").contains(field) && a != null && b != null && json.readTree(a).equals(json.readTree(b))) continue;
             return false;
         }
         return true;
@@ -392,7 +441,13 @@ public class DccCatalogPackageService {
         return Integer.valueOf(value);
     }
     private String insert(Spec spec, Map<String, String> row, long tenant) {
-        var fields = writable(spec, false);
+        var fields = new ArrayList<>(writable(spec, false));
+        if (spec.name().equals("目录模板")) {
+            if (getLoginUserId() == null) throw invalid("目录模板：导入必须登录");
+            fields.addAll(List.of("edited_by_user_id", "ever_used"));
+            row.put("edited_by_user_id", getLoginUserId().toString());
+            row.put("ever_used", "0");
+        }
         List<Object> args = fields.stream().map(field -> databaseValue(field, row.get(field))).collect(Collectors.toCollection(ArrayList::new));
         args.add(tenant); args.add(String.valueOf(getLoginUserId())); args.add(String.valueOf(getLoginUserId()));
         String sql = "INSERT INTO " + spec.table() + " (" + String.join(",", fields) + ",tenant_id,creator,updater) VALUES ("

@@ -904,7 +904,10 @@ public class MesProcessPoolProductionReportCorrectionService {
         int updated = fragmentMapper.updateById(new MesProProcessPoolQuantityFragmentDO()
                 .setId(fragment.getId())
                 .setTotalQuantity(outputQuantity)
-                .setAvailableQuantity(available));
+                .setAvailableQuantity(available)
+                .setAllocationStatus(available.signum() > 0
+                        ? MesProProcessPoolQuantityFragmentDO.ALLOCATION_STATUS_AVAILABLE
+                        : MesProProcessPoolQuantityFragmentDO.ALLOCATION_STATUS_ALLOCATED));
         if (updated <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "outputQuantityFragment.update");
         }

@@ -96,6 +96,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Resource private MesEdhrTaskDeadlineService taskDeadlineService;
     @Resource private MesMarketReleaseAccess marketReleaseAccess;
 
+    @Resource private MesDeviationAdministratorService administratorService;
+
     private static final String BUSINESS_SCOPE_TYPE_BATCH_TASK = "BATCH_TASK";
     private static final String BUSINESS_SCOPE_TYPE_BATCH_ARCHIVE = "BATCH_ARCHIVE";
     private static final String BUSINESS_SCOPE_TYPE_RELEASE_TRANSACTION = "RELEASE_TRANSACTION";
@@ -896,6 +898,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
         if (deviation == null || deviation.getId() == null || (assigneeUserId != null && assigneeUserId <= 0)) {
             throw new IllegalArgumentException("Deviation and deviation id are required");
+        }
+        if (TASK_TYPE_DEVIATION_RECEIVE.equals(taskType)) {
+            sourceLedger.acquireLedgerLock();
+            administratorService.requireReceiver(assigneeUserId);
         }
         if (assigneeUserId != null) {
             validateAssignee(assigneeUserId);

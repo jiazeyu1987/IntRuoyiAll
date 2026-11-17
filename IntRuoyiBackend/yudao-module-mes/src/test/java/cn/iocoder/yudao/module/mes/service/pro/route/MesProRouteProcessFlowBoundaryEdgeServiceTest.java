@@ -72,6 +72,47 @@ class MesProRouteProcessFlowBoundaryEdgeServiceTest {
     }
 
     @Test
+    void validateGraph_shouldAllowParallelSingleProcessBranchConnectedToBothBoundaries() {
+        Long routeId = 9015L;
+        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
+        when(routeProcessMapper.selectListByRouteId(routeId)).thenReturn(List.of(
+                process(101L, routeId, 1001L, 1, true),
+                process(102L, routeId, 1002L, 2, false),
+                process(103L, routeId, 1003L, 3, false)
+        ));
+
+        MesProRouteProcessFlowValidationRespVO result = flowService.validateGraph(saveReq(routeId,
+                List.of(edge(101L, 102L)),
+                List.of(boundary("START", 101L, 1), boundary("END", 102L, 1),
+                        boundary("START", 103L, 2), boundary("END", 103L, 2))));
+
+        assertTrue(result.getValid());
+        assertEquals("VALID", result.getValidationStatus());
+    }
+
+    @Test
+    void validateGraph_shouldRejectSingleProcessBranchMissingEitherBoundary() {
+        Long routeId = 9016L;
+        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
+        when(routeProcessMapper.selectListByRouteId(routeId)).thenReturn(List.of(
+                process(111L, routeId, 1101L, 1, true),
+                process(112L, routeId, 1102L, 2, false),
+                process(113L, routeId, 1103L, 3, false)
+        ));
+
+        for (String boundaryType : List.of("START", "END")) {
+            MesProRouteProcessFlowValidationRespVO result = flowService.validateGraph(saveReq(routeId,
+                    List.of(edge(111L, 112L)),
+                    List.of(boundary("START", 111L, 1), boundary("END", 112L, 1),
+                            boundary(boundaryType, 113L, 2))));
+
+            assertFalse(result.getValid());
+            assertTrue(result.getValidationMessages().stream()
+                    .anyMatch(message -> message.getCode().equals("ISOLATED_NODE")));
+        }
+    }
+
+    @Test
     void validateGraph_shouldRejectMissingOrMismatchedBoundaryEdges() {
         Long routeId = 9011L;
         when(routeMapper.selectById(routeId)).thenReturn(route(routeId));

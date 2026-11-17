@@ -147,7 +147,7 @@ class MesProEdhrDeviationReviewTaskServiceTest {
     }
 
     private MesProEdhrDeviationDO deviation() {
-        return new MesProEdhrDeviationDO().setId(901L).setTenantId(71L).setDeviationCode("PC-202610-0001");
+        return new MesProEdhrDeviationDO().setId(901L).setTenantId(71L).setActiveOrderId(991L).setWorkOrderId(801L).setWorkOrderCode("WO-801").setDeviationCode("PC-202610-0001");
     }
     private AdminUserRespDTO user(int status) {
         var user = new AdminUserRespDTO();

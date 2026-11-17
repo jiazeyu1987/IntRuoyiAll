@@ -58,11 +58,12 @@ assert.match(
 )
 assert.match(template, /v-model:page="queryParams\.pageNo"/, '模板分页必须绑定 pageNo。')
 assert.match(template, /v-model:limit="queryParams\.pageSize"/, '模板分页必须绑定 pageSize。')
-assert.match(template, /@pagination="getList"/, '模板分页必须复用原列表查询。')
+assert.doesNotMatch(template, /@pagination="getList"/, '产品目录树筛选使用已加载结果分页，不应在翻页时重新读取全量数据。')
+assert.match(template, /:total="selectedProductCatalogRows\.length"/, '分页总数必须随分类树筛选结果变化。')
 const actionsMatch = template.match(/<template #actions>([\s\S]*?)<\/template>/)
 assert.ok(actionsMatch, '产品目录必须保留 actions 插槽承载新增入口。')
 const actions = actionsMatch[0]
-assert.match(actions, /openForm\('create'\)/, '产品目录 actions 插槽必须保留新增产品目录。')
+assert.match(actions, /openProjectProductDialog\('create'\)/, '产品目录 actions 插槽必须保留项目及产品新建入口。')
 assert.doesNotMatch(
   actions,
   /productCatalogQuickFilter\.resetQuickFilter|handleCompareRegistrationExpiry|>\s*重置\s*<|>\s*注册证有效期\s*</,
@@ -70,7 +71,7 @@ assert.doesNotMatch(
 )
 assert.match(
   template,
-  /<template\s+#table\b[^>]*>[\s\S]*<el-table[\s\S]*data-user-table-key="dcc\.productCatalog\.main"[\s\S]*@header-dragend="handleProductCatalogHeaderDragend"/,
+  /<template\s+#table\b[^>]*>[\s\S]*<el-table[\s\S]*data-user-table-key="dcc\.productCatalog\.main"[\s\S]*:data="filteredPageRows \|\| pagedProductCatalogRows"[\s\S]*@header-dragend="handleProductCatalogHeaderDragend"/,
   '产品目录表格必须接入列宽拖拽持久化。'
 )
 assert.match(

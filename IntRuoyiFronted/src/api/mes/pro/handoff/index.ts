@@ -12,7 +12,7 @@ export interface HandoffTask {
 }
 export interface HandoffReceipt {
   id: number | string; status: 'PENDING' | 'FAILED' | 'SENT'; rowVersion: number
-  attemptCount: number; sentAt?: string; lastErrorSummary?: string; systemMessageId?: number | string
+  attemptCount: number; sentAt?: string | number; lastErrorSummary?: string; systemMessageId?: number | string
 }
 export const myHandoffs = (): Promise<HandoffTask[]> => request.get({ url: `${base}/my-list` })
 export const handoffReceipts = (taskId: number | string): Promise<HandoffReceipt[]> => request.get({ url: `${base}/receipts`, params: { taskId } })

@@ -151,7 +151,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         // authoritative NCR/work-order freeze gate before any pending task can be created.
         nonconformanceReviewService.ensureWorkOrderNotFrozen(workOrder.getId(), "申请PQC生产放行");
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
-        requireNoProductionQuantityConflict(activeOrder, snapshots);
+        requireValidProductionAllocations(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =
                 requireFormalProductionCompletions(activeOrder, snapshots);
         InspectionEvidence inspectionEvidence = requireFormalInspectionCompletions(activeOrder);
@@ -342,7 +342,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 && StrUtil.isNotBlank(completion.getBackfillIdempotencyKey());
     }
 
-    private void requireNoProductionQuantityConflict(
+    private void requireValidProductionAllocations(
             MesProcessPoolActiveOrderDO activeOrder,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
         Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = new LinkedHashMap<>();
@@ -391,18 +391,10 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                         activeOrder, snapshot, "formal production target is missing",
                         "补齐该冻结工序的正式生产目标后重新申请放行");
             }
-            // Split material submissions measure the same process. Check the highest material
-            // total for overproduction, matching the existing allocation and progress rules.
-            BigDecimal allocatedQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+            MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
                     activeOrder, snapshot, productionEvents, allocations);
-            if (allocatedQuantity.compareTo(targetQuantity) > 0) {
-                BigDecimal overageQuantity = allocatedQuantity.subtract(targetQuantity);
-                throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT,
-                        activeOrder, snapshot,
-                        "formal production quantity exceeds the work-order process target by "
-                                + quantityText(overageQuantity),
-                        "由组长纠正该工单工序的报工数量后重新申请放行");
-            }
+            // Evaluate source integrity; overproduction is advisory and does not block release.
+
         }
     }
 

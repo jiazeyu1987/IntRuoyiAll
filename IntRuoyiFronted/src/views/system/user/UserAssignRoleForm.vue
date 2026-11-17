@@ -1,5 +1,10 @@
 <template>
-  <Dialog v-model="dialogVisible" title="分配角色">
+  <Dialog
+    v-model="dialogVisible"
+    title="分配角色"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+  >
     <el-form ref="formRef" v-loading="formLoading" :model="formData" label-width="80px">
       <el-form-item label="用户名称">
         <el-input v-model="formData.username" :disabled="true" />

@@ -98,6 +98,29 @@ class MesFrontlineActiveOrderProcessServiceTest {
 
         assertEquals(1, processes.size());
         assertEquals(new BigDecimal("40.000000"), processes.get(0).submittedQuantity());
+        assertEquals(0, new BigDecimal("40.000000").compareTo(processes.get(0).outputSubmittedQuantities().get(OUTPUT_MATERIAL_ID)));
+    }
+
+    @Test
+    void listProcesses_distinguishesMaterialTotalsFromProcessMinimumAndRefreshesAfterRemainingMaterial() {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion());
+        var snapshot = processSnapshotWithOutputMaterialConfig()
+                .setProductionConfigSnapshotJson("{\"outputMaterialIds\": [9001, 9002]}");
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(snapshot));
+        var allocation = reportAllocation().setAllocatedQuantity(new BigDecimal("5000"));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID))).thenReturn(List.of(allocation));
+        var event = productionSubmitEvent().setReportOutputQuantity(new BigDecimal("5000"))
+                .setRawPayload("{\"materialDetails\": [{\"materialId\":9001,\"outputQuantity\":5000}]}");
+        when(processPoolEventMapper.selectBatchIds(List.of(PRODUCTION_EVENT_ID))).thenReturn(List.of(event));
+        var first = service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID).get(0);
+        assertEquals(new BigDecimal("0.000000"), first.submittedQuantity());
+        assertEquals(0, new BigDecimal("5000.000000").compareTo(first.outputSubmittedQuantities().get(9001L)));
+        assertEquals(0, new BigDecimal("0.000000").compareTo(first.outputSubmittedQuantities().get(9002L)));
+        event.setRawPayload("{\"materialDetails\": [{\"materialId\":9001,\"outputQuantity\":5000},{\"materialId\":9002,\"outputQuantity\":5000}]}");
+        var completed = service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID).get(0);
+        assertEquals(new BigDecimal("5000.000000"), completed.submittedQuantity());
+        assertEquals(0, new BigDecimal("5000.000000").compareTo(completed.outputSubmittedQuantities().get(9002L)));
     }
 
     @Test
@@ -177,6 +200,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .erpFixedQuantitySnapshot(new BigDecimal("100.000000"))
                 .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
                 .plannedQuantitySnapshot(new BigDecimal("150.000000"))
+                .productionConfigSnapshotJson("{\"outputMaterialIds\": []}")
                 .build();
     }
 
@@ -194,6 +218,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .erpFixedQuantitySnapshot(new BigDecimal("100.000000"))
                 .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
                 .plannedQuantitySnapshot(new BigDecimal("150.000000"))
+                .productionConfigSnapshotJson("{\"outputMaterialIds\": []}")
                 .build();
     }
 

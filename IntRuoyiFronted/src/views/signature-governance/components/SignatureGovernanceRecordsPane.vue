@@ -207,6 +207,7 @@
                   PDF
                 </el-button>
                 <el-button link type="primary" @click="openRecordDetail(row)">详情</el-button>
+                <el-button v-if="row.sourceTable === 'system_electronic_signature' && row.detailPath" link type="primary" @click="openBusinessDetail(row)">业务详情</el-button>
               </div>
             </template>
           </el-table-column>
@@ -215,6 +216,7 @@
     </UnifiedListTemplate>
   </section>
 
+  <SignatureRecordEvidenceDialog ref="recordEvidenceDialog" />
   <el-dialog
     v-model="signatureRecordPdfPreviewDialog.visible"
     :title="signatureRecordPdfPreviewDialog.fileName || '签名证据 PDF'"
@@ -251,6 +253,7 @@
 </template>
 
 <script lang="ts" setup>
+import SignatureRecordEvidenceDialog from './SignatureRecordEvidenceDialog.vue'
 import { recordRoles, signatureCommentSummary } from './signatureRecordDisplay'
 import { buildSignatureRecordQuery, type SignatureRecordFilters } from './signatureRecordQuery'
 
@@ -689,7 +692,16 @@ const handleRecordPdfDownload = async (row: SignatureGovernanceRecordRespVO) => 
   }
 }
 
+const recordEvidenceDialog = ref<InstanceType<typeof SignatureRecordEvidenceDialog>>()
 const openRecordDetail = (row: SignatureGovernanceRecordRespVO) => {
+  if (row.sourceTable === 'system_electronic_signature') {
+    recordEvidenceDialog.value?.open(row.globalId)
+    return
+  }
+  openBusinessDetail(row)
+}
+
+const openBusinessDetail = (row: SignatureGovernanceRecordRespVO) => {
   if (!row.detailPath) {
     message.error('当前签名记录缺少详情路径')
     return

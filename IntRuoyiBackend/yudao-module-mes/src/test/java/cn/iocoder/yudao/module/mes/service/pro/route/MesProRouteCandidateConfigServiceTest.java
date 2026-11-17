@@ -420,6 +420,28 @@ class MesProRouteCandidateConfigServiceTest {
         assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_CONFLICT.getCode(), ex.getCode());
     }
 
+    @Test
+    void unmappedParameterReportsProcessParameterAndDeviceWithoutWriting() {
+        MesProRouteVersionDO candidate = productionCandidate();
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(activeSource());
+        Map<String, Object> config = Map.of(
+                "routeProcessId", 10L, "processId", 20L, "processName", "模拟工序",
+                "overagePercent", 0, "lossReasons", List.of(), "deviceSelectionGroups", List.of(),
+                "parameterRules", List.of(Map.of("deviceId", 501L,
+                        "parameterCode", "SIM_20261116_1616", "parameterName", "模拟整数参数")));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveConfigSnapshots(
+                candidate.getId(), candidate.getRouteSnapshotSha256(), Map.of(
+                        "productionProcessConfigSchemaVersion", 1, "productionProcessConfigs", List.of(config))));
+        assertTrue(ex.getMessage().contains("该参数引用的设备未加入本工序设备组"));
+        assertTrue(ex.getMessage().contains("模拟工序"));
+        assertTrue(ex.getMessage().contains("路线工序ID=10"));
+        assertTrue(ex.getMessage().contains("模拟整数参数"));
+        assertTrue(ex.getMessage().contains("SIM_20261116_1616"));
+        assertTrue(ex.getMessage().contains("设备ID=501"));
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
     private static MesProRouteVersionDO productionCandidate() {
         return MesProRouteVersionDO.builder()
                 .id(2002L)

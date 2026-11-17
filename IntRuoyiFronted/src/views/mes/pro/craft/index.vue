@@ -749,8 +749,12 @@ function discardImpact() {
 }
 async function saveOrPreview() {
   editorError.value = ''
-  if (!form.name.trim() || !form.processId || !form.reason.trim() || !form.parameters.length) {
-    editorError.value = '请填写工艺名称、所属工序、参数和修改原因'
+  if (!form.parameters.length) {
+    editorError.value = '工艺至少保留一项参数'
+    return
+  }
+  if (!form.name.trim() || !form.processId || !form.reason.trim()) {
+    editorError.value = '请填写工艺名称、所属工序和修改原因'
     return
   }
   saving.value = true

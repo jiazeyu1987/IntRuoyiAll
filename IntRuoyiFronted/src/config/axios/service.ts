@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import qs from 'qs'
 import { config } from '@/config/axios/config'
 import {
@@ -24,7 +24,7 @@ const ignoreMsgs = [
   '无效的刷新令牌', // 刷新令牌被删除时，不用提示
   '刷新令牌已过期' // 使用刷新令牌，刷新获取新的访问令牌时，结果因为过期失败，此时需要忽略。否则，会导致继续 401，无法跳转到登出界面
 ]
-// 是否显示重新登录
+// 路由初始化期间的认证处理标记
 export const isRelogin = { show: false }
 // Axios 无感知刷新令牌，参考 https://www.dashingdog.cn/article/11 与 https://segmentfault.com/a/1190000020210980 实现
 // 请求队列
@@ -270,7 +270,7 @@ service.interceptors.response.use(
           requestList.forEach((cb: any) => {
             cb()
           })
-          // 提示是否要登出。即不回放当前请求！不然会形成递归
+          // 刷新失败直接退出，不回放当前请求，避免递归。
           return handleAuthorized(config)
         } finally {
           requestList = []
@@ -368,36 +368,11 @@ const refreshToken = async () => {
 const handleAuthorized = (config?: RequestCustomConfig) => {
   assertRequestContextCurrent(config)
   const { t } = useI18n()
-  if (isRelogin.show) {
-    deleteUserCache()
-    removeToken()
+  // 认证失效直接回到登录页，避免退出后的在途请求留下重新登录弹框。
+  deleteUserCache()
+  removeToken()
+  if (window.location.pathname !== '/login') {
     window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search)
-    return Promise.reject(t('sys.api.timeoutMessage'))
-  }
-  if (!isRelogin.show) {
-    // 如果已经到登录页面则不进行弹窗提示
-    if (window.location.href.includes('login')) {
-      return Promise.reject(t('sys.api.timeoutMessage'))
-    }
-    isRelogin.show = true
-    ElMessageBox.confirm(t('sys.api.timeoutMessage'), t('common.confirmTitle'), {
-      showCancelButton: false,
-      closeOnClickModal: false,
-      showClose: false,
-      closeOnPressEscape: false,
-      confirmButtonText: t('login.relogin'),
-      type: 'warning'
-    }).then(() => {
-      if (config?.isRequestContextCurrent && !config.isRequestContextCurrent()) {
-        isRelogin.show = false
-        return
-      }
-      deleteUserCache() // 删除用户缓存
-      removeToken()
-      isRelogin.show = false
-      // 干掉token后再走一次路由让它过router.beforeEach的校验
-      window.location.href = window.location.href
-    })
   }
   return Promise.reject(t('sys.api.timeoutMessage'))
 }

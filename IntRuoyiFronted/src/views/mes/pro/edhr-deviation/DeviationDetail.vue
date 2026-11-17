@@ -20,6 +20,10 @@
         <section class="edhr-detail-section">
           <h3>关联业务</h3>
           <dl class="edhr-detail-fields">
+            <div v-if="detail.activeOrderId">
+              <dt>生产订单</dt>
+              <dd>{{ detail.workOrderCode || '—' }} / 活跃订单 #{{ detail.activeOrderId }}<span v-if="!detail.batchExecutionId">（生产中发起）</span></dd>
+            </div>
             <div>
               <dt>关联批记录</dt>
               <dd>
@@ -581,7 +585,7 @@ const openReview = () => {
         reviewId: String(detail.value.nonconformanceReviewId),
         from: 'deviation',
         deviationId: String(detail.value.id),
-        batchExecutionId: String(detail.value.batchExecutionId)
+        ...(detail.value.batchExecutionId != null ? { batchExecutionId: String(detail.value.batchExecutionId) } : { activeOrderId: String(detail.value.activeOrderId) })
       }
     })
   }
@@ -622,7 +626,7 @@ const submitNcrCreate = async () => {
   let isCurrent = ncrCreateGuard.capture()
   const nonconformanceReason = ncrCreateForm.nonconformanceReason.trim()
   const signaturePassword = ncrCreateForm.signaturePassword.trim()
-  if (!current || current.status !== 'OPEN' || current.level !== 'CRITICAL' || !current.batchExecutionId) {
+  if (!current || current.status !== 'OPEN' || current.level !== 'CRITICAL' || (!current.batchExecutionId && !current.activeOrderId)) {
     ncrCreateError.value = '当前偏差不满足发起不合格审批条件，请刷新后重试'
     return
   }
@@ -642,7 +646,7 @@ const submitNcrCreate = async () => {
   ncrCreateError.value = ''
   const payload = {
     qaReviewerUserId: ncrCreateForm.qaReviewerUserId,
-    batchExecutionId: current.batchExecutionId, deviationIds: [current.id], nonconformanceReason,
+    batchExecutionId: current.batchExecutionId, activeOrderId: current.batchExecutionId == null ? current.activeOrderId : undefined, deviationIds: [current.id], nonconformanceReason,
     remark: ncrCreateForm.remark.trim() || undefined, idempotencyKey: ncrCreateForm.idempotencyKey, signaturePassword
   }
   const submitSession = approvalInvalidation.syncSession()
@@ -650,7 +654,7 @@ const submitNcrCreate = async () => {
   try {
     const receipt = await createCriticalDeviationReview(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     writeSucceeded = true
-    if (String(receipt.batchExecutionId) !== String(payload.batchExecutionId) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
+    if ((payload.batchExecutionId != null ? String(receipt.batchExecutionId) !== String(payload.batchExecutionId) : String(receipt.activeOrderId) !== String(payload.activeOrderId)) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
     const event = approvalInvalidation.captureHandoffReceiptSuccess(submitSession, 'ACTIVE_ORDER', receipt.activeOrderId)
     approvalInvalidation.publishEdhrSuccess(event)
     if (!isCurrent()) return

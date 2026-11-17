@@ -164,7 +164,7 @@ class DccRegistrationCertificateFormalizationTest {
     @Test
     void formalize_rejectsProjectionDriftBeforeLookingUpTheFile() {
         DccRegistrationCertificateResolvedDraft drifted = new DccRegistrationCertificateResolvedDraft(
-                "other product", matchingResolvedDraft().productionRelation());
+                "other product", matchingResolvedDraft().productionRelation(), null);
 
         ServiceException error = assertThrows(ServiceException.class, () -> service.formalize(
                 draftState(LocalDate.of(2026, 8, 17)), drifted, 1L, 99L, 1, 5001L));
@@ -220,7 +220,7 @@ class DccRegistrationCertificateFormalizationTest {
     private static DccRegistrationCertificateResolvedDraft matchingResolvedDraft() {
         return new DccRegistrationCertificateResolvedDraft("Product A",
                 new DccRegistrationCertificateProductionRelation(true, false,
-                        List.of(new DccRegistrationCertificateEntrustedEnterprise(30L, "Factory A"))));
+                        List.of(new DccRegistrationCertificateEntrustedEnterprise(30L, "Factory A"))), null);
     }
 
     private static DccRegistrationCertificateFileDO stagedFile() {

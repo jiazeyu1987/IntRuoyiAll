@@ -348,6 +348,57 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
+    void partialAllocationPreservesUnallocatedPoolAndPersistsActualQuantity() {
+        MesProProcessPoolEventDO event = event().setReportOutputQuantity(new BigDecimal("500"));
+        event.setRawPayload(event.getRawPayload().replace(":300", ":500"));
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(0).build();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
+        MesProWorkOrderDO workOrder = workOrder(9001L, "A");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("500"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8101L), 6001L))
+                .thenReturn(List.of());
+        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("500"),
+                        BigDecimal.ONE, new BigDecimal("500")));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
+                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
+        when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(stateMapper.updateById(state)).thenReturn(1);
+        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
+
+        MesReportAllocationSnapshot snapshot = MesProductionDisplayedContextFixture.save(service, saveCommand(0, List.of(MesReportAllocationSaveLine.builder()
+                .activeOrderId(8101L).allocatedQuantity(new BigDecimal("499")).build())));
+
+        assertAmount("499", snapshot.getTotalAllocatedQuantity());
+        assertAmount("1", snapshot.getUnallocatedQuantity());
+        ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        MesProcessPoolSubmissionReviewDO review = reviewCaptor.getValue();
+        assertEquals("PRODUCTION", review.getLeaderType());
+        assertEquals(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED, review.getReviewStatus());
+        assertEquals(9901L, review.getReviewSignatureId());
+        assertEquals(3001L, review.getReviewSignatureUserId());
+        assertNotNull(review.getReviewedAt());
+        assertNotNull(review.getReviewSignatureSnapshotJson());
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"signatureId\":9901"));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":3001"));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"processPoolEventId\":1001"));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"reviewStatus\":\"APPROVED\""));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"reviewedAt\""));
+        assertInitialReviewContentEvidence(review, event);
+    }
+
+    @Test
     void shouldRejectAllocationReviewWithoutSignaturePasswordBeforeApprovedReviewIsCreated() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
@@ -383,7 +434,7 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
-    void shouldRejectAllocationAboveTheFrozenCoefficientCeiling() throws Exception {
+    void shouldSaveAllocationAboveReferenceCeilingWithAdvisoryOverage() throws Exception {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(0).build();
@@ -410,12 +461,18 @@ class MesReportAllocationCommandServiceTest {
                 .thenReturn(List.of(frozenSnapshot(5101L).setErpFixedQuantitySnapshot(new BigDecimal("100"))
                         .setPlannedQuantitySnapshot(new BigDecimal("100"))));
         when(eventMapper.selectBatchIds(Set.of(999L))).thenReturn(List.of(event().setId(999L).setReportOutputQuantity(new BigDecimal("80"))));
-        ServiceException failure = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service,
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
+        when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(stateMapper.updateById(state)).thenReturn(1);
+        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
+        MesReportAllocationSnapshot saved = MesProductionDisplayedContextFixture.save(service,
                 saveCommand(0, List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L)
-                        .allocatedQuantity(new BigDecimal("80")).build()))));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED.getCode(), failure.getCode());
-        verify(allocationMapper, never()).insertBatch(anyCollection());
-        org.mockito.Mockito.verifyNoInteractions(signatureService);
+                        .allocatedQuantity(new BigDecimal("80")).build())));
+        assertAmount("80", saved.getTotalAllocatedQuantity());
+        assertAmount("50", saved.getLines().get(0).getOverageQuantity());
+        verify(allocationMapper).insertBatch(anyCollection());
     }
 
     @Test

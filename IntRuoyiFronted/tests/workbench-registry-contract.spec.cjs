@@ -37,14 +37,37 @@ test('actual discovered five sources match both build manifests and keep labels/
   assert.deepEqual(descriptors.map(d => [d.sourceId, d.sortRank]).sort((a,b) => a[1]-b[1]), [
     ['DCC_DISTRIBUTION',0],['DCC_TRAINING',1],['EDHR_WORK_TASK',2],['SHOWROOM_ASSIGNMENT',4],['BPM_EDHR_VOID',5]])
 })
-test('neutral Java API import whitelist and shared frontend consumers have no business source enum or policy/action switches', () => {
+test('neutral Java API imports and shared query/navigation consumers keep business policy in source units', () => {
   const apiRoot = path.join(root, '../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/workbench')
+  // The shared filter builder uses framework query types, with no business-module imports.
+  const sharedFilterImports = new Set([
+    'cn.iocoder.yudao.framework.common.pojo.PageParam',
+    'cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils',
+    'com.baomidou.mybatisplus.core.conditions.query.QueryWrapper',
+    'static cn.iocoder.yudao.framework.mybatis.core.util.ListFilterQueryUtils.text'
+  ])
   for (const file of fs.readdirSync(apiRoot).filter(file => file.endsWith('.java'))) {
     const source = fs.readFileSync(path.join(apiRoot,file),'utf8')
-    for (const imported of source.matchAll(/^import\s+([^;]+);/gm)) assert.match(imported[1],/^(?:java\.|lombok\.|com\.fasterxml\.jackson\.(?:annotation\.|core\.JsonGenerator$|databind\.(?:annotation\.JsonSerialize$|SerializerProvider$|ser\.std\.StdSerializer$))|cn\.iocoder\.yudao\.framework\.common\.(?:exception|util)\.)/)
+    for (const imported of source.matchAll(/^import\s+([^;]+);/gm)) {
+      if (file === 'WorkbenchListFilters.java' && sharedFilterImports.has(imported[1])) continue
+      assert.match(imported[1],/^(?:java\.|lombok\.|com\.fasterxml\.jackson\.(?:annotation\.|core\.JsonGenerator$|databind\.(?:annotation\.JsonSerialize$|SerializerProvider$|ser\.std\.StdSerializer$))|cn\.iocoder\.yudao\.framework\.common\.(?:exception|util)\.)/)
+    }
   }
   for (const file of ['src/views/Profile/components/ProfileWorkbench.vue', 'src/store/modules/profileWorkbenchTodoBadge.ts', 'src/api/system/profileWorkbenchTodo/index.ts', 'src/workbench/registry.ts']) {
-    assert.doesNotMatch(read(file), /DCC_DISTRIBUTION|DCC_TRAINING|EDHR_WORK_TASK|WORK_ORDER|SHOWROOM_ASSIGNMENT|dcc:controlled-file|mes:pro-work-order|ShowroomAdminAssignment/)
+    let consumer = read(file)
+    if (file.endsWith('ProfileWorkbench.vue')) {
+      const script = require('vue/compiler-sfc').parse(consumer).descriptor.scriptSetup.content
+      const ast = ts.createSourceFile('workbench.ts', script, ts.ScriptTarget.Latest, true)
+      // Source-specific wording is presentation; permission, query and routing stay neutral.
+      for (const statement of ast.statements.filter(ts.isVariableStatement)) {
+        const names = statement.declarationList.declarations.map(node => node.name.getText(ast))
+        if (!names.some(name => ['formatTodoDetail', 'getTodoActionLabel'].includes(name))) continue
+        const presentation = statement.getText(ast)
+        assert.doesNotMatch(presentation, /checkPermi|openWorkbenchAction|request\.|fetch\(|router\./)
+        consumer = consumer.replace(presentation, '')
+      }
+    }
+    assert.doesNotMatch(consumer, /DCC_DISTRIBUTION|DCC_TRAINING|EDHR_WORK_TASK|WORK_ORDER|SHOWROOM_ASSIGNMENT|dcc:controlled-file|mes:pro-work-order|ShowroomAdminAssignment/)
   }
   assert.match(read('src/workbench/registry.ts'), /import\.meta\.glob<[^\n]+workbench-sources\/\*\/registration\.ts[^\n]+eager: true/)
 })

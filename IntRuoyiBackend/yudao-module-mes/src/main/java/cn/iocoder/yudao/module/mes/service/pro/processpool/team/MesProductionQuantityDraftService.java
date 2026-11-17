@@ -53,7 +53,7 @@ public class MesProductionQuantityDraftService {
         }).toList();
     }
 
-    /** A blocked request remains blocked even if the user changes its idempotency key. */
+    /** Restore historical drafts with their original ownership and audit trail. Quantity is advisory. */
     public MesProductionQuantityDraftDO requireRetry(MesProFrontlineFeedbackSubmitReqVO request) {
         MesProductionQuantityDraftDO row;
         if (request.getQuantityDraftId() != null) {
@@ -75,7 +75,7 @@ public class MesProductionQuantityDraftService {
                     .findFirst().orElse(null);
             if (row != null) row = drafts.lock(row.getId());
         }
-        if (row != null && "READY".equals(row.getStatus())) {
+        if (row != null) {
             var original = orders.selectByIdForUpdate(row.getActiveOrderId());
             var target = orders.selectByIdForUpdate(request.getProcessPoolContext().getActiveOrderId());
             if (original == null || target == null || !Objects.equals(original.getLeaderUserId(), row.getLeaderUserId())
@@ -154,12 +154,6 @@ public class MesProductionQuantityDraftService {
                 || command.getReason().isBlank() || command.getReason().length() > 1000) {
             throw invalidParamException("请选择本次填写有误或历史归属有误，并填写1000字以内的处理说明");
         }
-        if ("HISTORY_ERROR".equals(command.getDecision())) {
-            var original = JsonUtils.parseObject(row.getRequestJson(), MesProFrontlineFeedbackSubmitReqVO.class);
-            if (capacity.evaluate(original).exceeded()) {
-                throw invalidParamException("历史报工重新分配后，本次填写仍会超限；请先完成历史归属更正");
-            }
-        }
         String before = JsonUtils.toJsonString(row);
         String challenge = DigestUtil.sha256Hex(JsonUtils.toJsonString(Map.of(
                 "draftId", row.getId(), "version", row.getVersion(), "requestHash", row.getRequestHash(),
@@ -180,14 +174,14 @@ public class MesProductionQuantityDraftService {
 
     public void submitted(MesProductionQuantityDraftDO row, Long eventId, String requestHash) {
         if (row == null) return;
-        if (!"READY".equals(row.getStatus()) || row.getReviewSignatureId() == null) {
-            throw new IllegalStateException("超限草稿尚未由生产组长签署处理");
+        if (!List.of("BLOCKED", "READY").contains(row.getStatus())) {
+            throw new IllegalStateException("历史超限草稿已提交或失效");
         }
         String before = JsonUtils.toJsonString(row);
         row.setStatus("SUBMITTED"); row.setSubmittedEventId(eventId); row.setResubmittedRequestHash(requestHash);
         row.setVersion(row.getVersion() + 1);
         if (drafts.updateById(row) != 1) throw new IllegalStateException("草稿与正式报工关联失败");
-        appendAudit(row, "resubmit", "按组长处理结果重新提交并通过最新数量校验", row.getReviewSignatureId(), before);
+        appendAudit(row, "resubmit", "恢复原填写并保存正式报工，数量超限仅提示", row.getReviewSignatureId(), before);
     }
 
     private void appendAudit(MesProductionQuantityDraftDO row, String action, String reason, Long signatureId, String before) {

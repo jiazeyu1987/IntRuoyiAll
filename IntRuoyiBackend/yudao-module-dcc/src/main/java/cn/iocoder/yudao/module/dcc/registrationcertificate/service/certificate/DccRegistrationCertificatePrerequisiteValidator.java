@@ -1,9 +1,8 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate;
 
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper;
-import cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateEntrustedEnterprise;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProductionRelation;
@@ -40,7 +39,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 public class DccRegistrationCertificatePrerequisiteValidator {
 
     @jakarta.annotation.Resource
-    private DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+    private DccRegistrationCertificateProjectProductService projectProductService;
 
     private static final Set<String> OWNED_COMPANY = Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
     private static final Set<String> ENTRUSTED_TYPES = Set.of(
@@ -89,7 +88,23 @@ public class DccRegistrationCertificatePrerequisiteValidator {
                 || (!draft.entrustedProduction() && !draft.selfProduction()))) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
         validateRequiredText(draft);
         validateDates(draft);
-        String productName = resolveProductName(draft);
+        DccProjectCodeDO project = validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
+        DccRegistrationCertificateProjectProduct projectProduct = null;
+        String productName;
+        if (Boolean.TRUE.equals(facts.getOwnProduct()) && project != null) {
+            projectProduct = resolveProjectProduct(project);
+            if (facts.getProjectProduct() != null && !Objects.equals(facts.getProjectProduct(), projectProduct)) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                        "项目的DCC产品关联已变更，请重新核对后提交");
+            }
+            productName = projectProduct.productName();
+            if (!isBlank(draft.productName()) && !Objects.equals(trim(draft.productName()), productName)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+            }
+        } else {
+            if (facts.getProjectProduct() != null) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+            productName = resolveProductName(draft);
+        }
 
         validateCompanyScope(actorId, draft.ownerCompanyId());
         List<MdmEnterpriseRespDTO> owners;
@@ -100,12 +115,8 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         }
         requireExactEnterprises(owners, List.of(draft.ownerCompanyId()), tenantId,
                 REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
-        DccProjectCodeDO project = validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
-        if (Boolean.TRUE.equals(facts.getOwnProduct()) && draft.productMasterId() == null) {
-            validateCatalogProduct(project, productName);
-        }
         return new DccRegistrationCertificateResolvedDraft(productName,
-                resolveProductionRelation(tenantId, draft));
+                resolveProductionRelation(tenantId, draft), projectProduct);
     }
 
     private String resolveProductName(DccRegistrationCertificateDraftData draft) {
@@ -138,27 +149,9 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         requirePositive(ownerCompanyId, REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
     }
 
-    public void validateCatalogProduct(DccProjectCodeDO project, String productName) {
-        if (project == null || project.isLibrary() || project.getProductMasterId() != null) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
-        }
-        DccProjectProductIdentityResolver.Product product;
-        try {
-            product = DccProjectProductIdentityResolver.resolve(project, productApi, approvedProductIdentityMapper);
-        } catch (RuntimeException failure) {
-            throw dependencyFailure(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH, failure);
-        }
-        // An existing project may have no declared product; the certificate then keeps its explicit product name.
-        if (DccProjectProductIdentityResolver.UNBOUND.equals(product.source())) {
-            if (isBlank(productName)) throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
-            return;
-        }
-        if (!DccProjectProductIdentityResolver.DCC_CATALOG.equals(product.source())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
-        }
-        if (!Objects.equals(trim(productName), product.name())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
-        }
+    public DccRegistrationCertificateProjectProduct
+            resolveProjectProduct(DccProjectCodeDO project) {
+        return projectProductService.resolve(project);
     }
 
     private DccProjectCodeDO validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {

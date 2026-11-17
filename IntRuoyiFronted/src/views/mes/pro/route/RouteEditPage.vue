@@ -98,8 +98,7 @@ const routeDraftOrigin = computed(() => normalizeRouteQueryText(route.query.rout
 const isRouteEditing = computed(() => normalizeRouteQueryText(route.query.routeEditMode) === 'edit')
 const discardOnUnsavedExit = computed(() => normalizeRouteQueryText(route.query.discardOnUnsavedExit))
 const targetRouteProcessId = computed(() => {
-  const value = Number(route.query.routeProcessId)
-  return Number.isFinite(value) && value > 0 ? value : undefined
+  return parsePositiveRouteQueryId(route.query.routeProcessId)
 })
 const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(() => {
   const routeVersionId = parsePositiveRouteQueryId(route.query.routeVersionId)

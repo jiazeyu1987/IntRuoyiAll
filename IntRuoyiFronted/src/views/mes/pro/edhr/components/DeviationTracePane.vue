@@ -7,7 +7,7 @@
     <el-empty v-else-if="!rows.length" description="没有偏差" />
     <el-table v-else :data="rows" row-key="id" size="small">
       <el-table-column prop="deviationCode" label="偏差编号" min-width="170" />
-      <el-table-column prop="batchExecutionCode" label="批记录" min-width="160" />
+      <el-table-column label="来源" min-width="180"><template #default="{ row }">{{ row.batchExecutionCode || (row.activeOrderId ? `${row.workOrderCode || '订单'}（生产中发起）` : '—') }}</template></el-table-column>
       <el-table-column label="等级" width="110"><template #default="{ row }">{{ row.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</template></el-table-column>
       <el-table-column label="状态" width="90"><template #default="{ row }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</template></el-table-column>
       <el-table-column label="不合格评审" min-width="220"><template #default="{ row }">{{ row.nonconformanceReviewCode || (row.nonconformanceReviewId ? `#${row.nonconformanceReviewId}` : '—') }}<span v-if="row.nonconformanceDisposition"> / {{ row.nonconformanceDisposition }}</span></template></el-table-column>
@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import { getDeviationPage, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import DeviationDetail from '@/views/mes/pro/edhr-deviation/DeviationDetail.vue'
-const props = defineProps<{ batchExecutionId: number | string }>()
+const props = defineProps<{ batchExecutionId?: number | string; activeOrderId?: number | string }>()
 const loading = ref(false)
 const error = ref('')
 const rows = ref<DeviationRespVO[]>([])
@@ -35,20 +35,25 @@ const openDeviation = (row: DeviationRespVO) => {
 const load = async () => {
   const serial = ++requestSerial
   loading.value = true; error.value = ''
+  rows.value = []
+  detailVisible.value = false
+  selectedDeviationId.value = undefined
   const batchExecutionId = props.batchExecutionId
-  if (!(typeof batchExecutionId === 'string' ? /^[1-9]\d*$/.test(batchExecutionId) : Number.isSafeInteger(batchExecutionId) && batchExecutionId > 0)) {
+  const activeOrderId = props.activeOrderId
+  const identity = activeOrderId ?? batchExecutionId
+  if ((activeOrderId != null && batchExecutionId != null) || !(typeof identity === 'string' ? /^[1-9]\d*$/.test(identity) : Number.isSafeInteger(identity) && Number(identity) > 0)) {
     rows.value = []
-    error.value = '偏差追溯缺少有效批记录编号，请重试'
+    error.value = '偏差追溯缺少唯一有效订单或批记录编号，请重试'
     loading.value = false
     return
   }
   try {
-    const first = await getDeviationPage({ pageNo: 1, pageSize: 200, batchExecutionId })
+    const first = await getDeviationPage({ pageNo: 1, pageSize: 200, batchExecutionId, activeOrderId })
     const allRows = [...(first.list || [])]
     const total = Number(first.total || allRows.length)
     const pageCount = Math.ceil(total / 200)
     for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
-      const next = await getDeviationPage({ pageNo, pageSize: 200, batchExecutionId })
+      const next = await getDeviationPage({ pageNo, pageSize: 200, batchExecutionId, activeOrderId })
       allRows.push(...(next.list || []))
     }
     if (serial !== requestSerial) return
@@ -62,5 +67,5 @@ const load = async () => {
   }
   finally { if (serial === requestSerial) loading.value = false }
 }
-watch(() => props.batchExecutionId, load, { immediate: true })
+watch(() => [props.batchExecutionId, props.activeOrderId], load, { immediate: true })
 </script>

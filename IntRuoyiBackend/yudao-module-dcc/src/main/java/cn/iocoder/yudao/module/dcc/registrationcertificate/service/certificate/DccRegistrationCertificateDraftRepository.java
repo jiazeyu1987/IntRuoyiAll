@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate;
 
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateFacts;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
@@ -248,11 +249,13 @@ public class DccRegistrationCertificateDraftRepository {
             Long snapshotId, Long versionId, Long tenantId,
             DccRegistrationCertificateDraftData draft,
             DccRegistrationCertificateResolvedDraft resolved) {
+        var facts = DccRegistrationCertificateFacts.parse(draft.factsJson());
+        facts.setProjectProduct(resolved.projectProduct());
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
                 .id(snapshotId)
                 .versionId(versionId)
                 .revisionNo(1)
-                .factsJson(draft.factsJson())
+                .factsJson(facts.toJson())
                 .productName(resolved.productName())
                 .registrantName(trim(draft.registrantName()))
                 .modelSpecification(trim(draft.modelSpecification()))

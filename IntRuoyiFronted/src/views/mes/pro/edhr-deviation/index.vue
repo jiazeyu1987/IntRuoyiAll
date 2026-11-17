@@ -29,7 +29,7 @@
         <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="resolveRows(rows)" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
-          <el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
+          <el-table-column label="关联订单 / 批记录" min-width="180"><template #default="{ row }">{{ row.batchExecutionCode || (row.activeOrderId ? `${row.workOrderCode || '订单'} / #${row.activeOrderId}（生产中发起）` : '—') }}</template></el-table-column>
           <el-table-column prop="batchCode" label="批号" min-width="140" />
           <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大' : '普通' }}</el-tag></template></el-table-column>
           <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }"><span :style="{ color: row.status === 'OPEN' ? 'var(--el-color-danger)' : 'var(--el-color-success)' }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</span></template></el-table-column>
@@ -50,7 +50,7 @@
         <el-form-item label="等级依据" prop="levelBasis"><el-input v-model="createForm.levelBasis" type="textarea" :rows="2" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="发现位置"><el-input v-model="createForm.discoveryLocation" maxlength="255" /></el-form-item>
         <el-form-item label="紧急措施"><el-input v-model="createForm.emergencyAction" type="textarea" :rows="2" maxlength="4000" /></el-form-item>
-        <el-form-item label="接收调查人员" prop="receiverId"><UserSelectV2 v-model="createForm.receiverId" placeholder="请选择负责接收并调查偏差的人员" @change="value => createForm.receiverName = value?.nickname || ''" /></el-form-item>
+        <el-form-item label="接收调查人员" prop="receiverId"><DeviationReceiverSelect v-model="createForm.receiverId" @change="value => createForm.receiverName = value?.nickname || ''" /></el-form-item>
         <el-form-item label="签名凭据" prop="signaturePassword"><SignatureCredentialInput v-model="createForm.signaturePassword" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="createVisible = false">取消</el-button><el-button type="primary" :loading="createLoading" @click="submitCreate">签名并发起</el-button></template>
@@ -79,7 +79,7 @@ import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/we
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import dayjs from 'dayjs'
 import DeviationDetail from './DeviationDetail.vue'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import DeviationReceiverSelect from '@/views/mes/pro/edhr-deviation/components/DeviationReceiverSelect.vue'
 import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import { createCriticalDeviationReview } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
@@ -96,7 +96,7 @@ const batchNcrLoading = ref(false)
 const batchNcrForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '', qaReviewerUserId: undefined as string | number | undefined })
 const batchNcrGuard = createFormalActionGuard(() => JSON.stringify([
   approvalInvalidation.syncSession().key, route.fullPath,
-  selectedCritical.value.map(row => [row.id, row.batchExecutionId])
+  selectedCritical.value.map(row => [row.id, row.batchExecutionId, row.activeOrderId])
 ]))
 const resetBatchNcrContext = () => { batchNcrGuard.invalidate(); batchNcrLoading.value = false; batchNcrForm.signaturePassword = '' }
 watch(batchNcrVisible, resetBatchNcrContext, { flush: 'sync' })
@@ -183,7 +183,7 @@ const openDetail = (id: number) => { detailId.value = id; detailVisible.value = 
 const isCriticalOpen = (row: DeviationRespVO) => row.level === 'CRITICAL' && row.status === 'OPEN' && row.canTransferToNcr === true
 const handleSelectionChange = (selection: DeviationRespVO[]) => {
   const eligible = selection.filter(isCriticalOpen)
-  const batchIds = [...new Set(eligible.map(row => row.batchExecutionId))]
+  const batchIds = [...new Set(eligible.map(row => row.batchExecutionId != null ? `batch:${row.batchExecutionId}` : `order:${row.activeOrderId}`))]
   selectedCritical.value = batchIds.length <= 1 ? eligible : []
 }
 const openBatchNcr = () => {
@@ -202,11 +202,12 @@ const submitBatchNcr = async () => {
   if (!batchNcrForm.qaReviewerUserId) { message.error('请选择QA评审责任人'); return }
   if (!reason || !password || !selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   const batchExecutionId = selectedCritical.value[0].batchExecutionId
+  const activeOrderId = batchExecutionId == null ? selectedCritical.value[0].activeOrderId : undefined
   const payload = {
     qaReviewerUserId: batchNcrForm.qaReviewerUserId,
-    batchExecutionId, deviationIds: selectedCritical.value.map(row => row.id),
+    batchExecutionId, activeOrderId, deviationIds: selectedCritical.value.map(row => row.id),
     nonconformanceReason: reason, remark: batchNcrForm.remark.trim() || undefined,
-    idempotencyKey: `EDHR_DEVIATION_NCR_BATCH_${batchExecutionId}_${Date.now()}`, signaturePassword: password
+    idempotencyKey: `EDHR_DEVIATION_NCR_SOURCE_${batchExecutionId ?? activeOrderId}_${Date.now()}`, signaturePassword: password
   }
   let isCurrent = batchNcrGuard.capture()
   const submitSession = approvalInvalidation.syncSession()
@@ -215,7 +216,7 @@ const submitBatchNcr = async () => {
   try {
     const receipt = await createCriticalDeviationReview(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     writeSucceeded = true
-    if (String(receipt.batchExecutionId) !== String(payload.batchExecutionId) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
+    if ((payload.batchExecutionId != null ? String(receipt.batchExecutionId) !== String(payload.batchExecutionId) : String(receipt.activeOrderId) !== String(payload.activeOrderId)) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
     const event = approvalInvalidation.captureHandoffReceiptSuccess(submitSession, 'ACTIVE_ORDER', receipt.activeOrderId)
     approvalInvalidation.publishEdhrSuccess(event)
     if (!isCurrent()) return

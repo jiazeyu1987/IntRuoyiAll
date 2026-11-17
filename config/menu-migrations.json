@@ -1,6 +1,12 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/components/RouteDeviceGroups.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "reason": "工艺路线设备组内部组件沿用现有候选版本修改权限 mes:pro-route:version-update；通过既有路线配置页面进入，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
       "kind": "permission",
       "value": "dcc:controlled-file:approve",
@@ -3569,6 +3575,12 @@
     {
       "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
       "kind": "router",
+      "value": "b72811adeb548f0c6355c4262daa9ecb586ec9cbe6413c4183df74c170ca28e0",
+      "reason": "DCC产品目录隐藏路由显式使用自身标题展示末级面包屑，修正当前路由标题与高亮菜单路径不同导致的标题串页；复用既有菜单、权限及路由，不新增权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
       "value": "a2b912a2f148e6a70b375a2317351d759fce542e35780b7bfaf02f8c649adb04",
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261112_unified_operation_log_navigation.sql"
@@ -4025,7 +4037,8 @@
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:deviation-create",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql"
+        "IntRuoyiBackend/sql/mysql/20261114_mes_production_leader_deviation_create.sql",
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
       ]
     },
     {
@@ -4077,6 +4090,46 @@
       "kind": "permission",
       "value": "mes:pro-process-pool-team-leader:query",
       "reason": "损耗原因库是生产组长工作台内的损耗页签，沿用现有班组查询/维护权限；工艺图选择器沿用现有流程版本查询权限，无独立菜单或新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrDeviationController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-deviation/index.vue",
+      "kind": "page",
+      "value": "mes/pro/edhr-deviation/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesDeviationAdministratorMapper.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesDeviationAdministratorMapper.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesDeviationAdministratorMapper.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261116_mes_deviation_administrator_role.sql"
+      ]
     },
     {
       "source": "IntRuoyiBackend/yudao-framework/yudao-common/src/main/java/cn/iocoder/yudao/framework/common/enums/ErpDataPermission.java",

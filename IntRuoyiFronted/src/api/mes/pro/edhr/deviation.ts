@@ -4,6 +4,7 @@ export interface DeviationPageReqVO extends PageParam {
   listFilters?: string
   status?: 'OPEN' | 'CLOSED'
   level?: 'NORMAL' | 'CRITICAL'
+  activeOrderId?: number | string
   batchExecutionId?: number | string
   search?: string
   sortField?: string
@@ -22,7 +23,8 @@ export interface DeviationBatchOptionRespVO {
 }
 
 export interface DeviationCreateReqVO {
-  batchExecutionId: number
+  activeOrderId?: number | string
+  batchExecutionId?: number
   level: 'NORMAL' | 'CRITICAL'
   categoryCodes: string[]
   description: string
@@ -40,8 +42,10 @@ export interface DeviationRespVO {
   transferToNcrBlockedReason?: string
   id: number
   deviationCode: string
-  batchExecutionId: number
+  activeOrderId?: number | string
+  batchExecutionId?: number
   batchExecutionCode?: string
+  workOrderCode?: string
   batchCode?: string
   level: 'NORMAL' | 'CRITICAL'
   status: 'OPEN' | 'CLOSED'
@@ -189,3 +193,11 @@ export const createActiveOrderDeviation = (activeOrderId: number | string, data:
     url: '/mes/pro/edhr-deviation/create-by-active-order',
     params: { activeOrderId }, data
   })
+
+export interface DeviationAdministratorOption {
+  id: number | string
+  username: string
+  nickname: string
+}
+export const getDeviationReceiverCandidates = () =>
+  request.get<DeviationAdministratorOption[]>({ url: '/mes/pro/edhr-deviation/receiver-candidates' })

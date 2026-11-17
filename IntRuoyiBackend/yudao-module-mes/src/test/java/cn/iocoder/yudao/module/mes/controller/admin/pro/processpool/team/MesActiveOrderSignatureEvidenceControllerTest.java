@@ -7,6 +7,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class MesActiveOrderSignatureEvidenceControllerTest {
+    @Test void reviewEntryRetainsExistingReviewDetailAuthorization() throws Exception {
+        var method = MesActiveOrderSignatureEvidenceController.class.getMethod("nonconformanceReview", Long.class, Long.class);
+        var detail = cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrNonconformanceReviewController.class
+                .getMethod("getActiveOrderDetail", Long.class);
+        assertEquals(detail.getAnnotation(PreAuthorize.class).value(), method.getAnnotation(PreAuthorize.class).value());
+        assertEquals("/mes/pro/edhr-nonconformance-review/signature/get", method.getAnnotation(GetMapping.class).value()[0]);
+    }
+
     @Test void teamEntryRetainsTeamQueryPermission() throws Exception {
         var method = MesActiveOrderSignatureEvidenceController.class.getMethod("team", Long.class, Long.class);
         assertEquals("@ss.hasPermission('mes:pro-process-pool-team-leader:query')",

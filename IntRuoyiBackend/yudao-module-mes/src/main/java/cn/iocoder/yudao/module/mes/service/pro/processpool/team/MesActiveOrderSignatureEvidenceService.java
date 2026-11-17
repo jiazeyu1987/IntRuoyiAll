@@ -64,6 +64,7 @@ public class MesActiveOrderSignatureEvidenceService {
     }
 
     @Resource private MesActiveOrderCorrectionEvidenceService correctionEvidence;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     private static final ErrorCode IDENTITY_INVALID = new ErrorCode(1_040_760_450, "签名证据查询身份无效");
     private static final ErrorCode NOT_RELATED = new ErrorCode(1_040_760_451, "签名不属于当前订单正式记录");
     private static final ErrorCode EVIDENCE_INVALID = new ErrorCode(1_040_760_452, "签名证据与正式记录不一致");
@@ -94,6 +95,12 @@ public class MesActiveOrderSignatureEvidenceService {
     public Result getPqc(Long viewerId, Long applicationId, Long signatureId) {
         requirePositive(viewerId); requirePositive(applicationId); requirePositive(signatureId);
         return read(pqcDetailService.get(viewerId, applicationId).detail(), signatureId);
+    }
+
+    @Transactional(readOnly = true)
+    public Result getNonconformanceReview(Long reviewId, Long signatureId) {
+        requirePositive(reviewId); requirePositive(signatureId);
+        return read(nonconformanceReviewService.getActiveOrderSignatureDetail(reviewId, signatureId), signatureId);
     }
 
     @Transactional(readOnly = true)
@@ -218,6 +225,9 @@ public class MesActiveOrderSignatureEvidenceService {
             // The correction reader has verified the persisted revision/review signature snapshot and audit association.
             signerName = correctionSignerName;
             if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
+        } else if ("TEAM_LEADER_REVIEW".equals(evidence.actionCode())) {
+            // Historical reviews without a frozen name must not inherit a current roster name.
+            signerName = evidence.actorDisplayName();
         } else if ("PQC_RELEASE".equals(evidence.actionCode())) {
             signerName = pqcReadProjection(evidence, verification).getSignerName();
         } else {

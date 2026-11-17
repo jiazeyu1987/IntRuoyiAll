@@ -65,6 +65,44 @@ class DccProjectAccessServiceImplTest {
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
     }
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test
+    void projectCodeAdministratorCanMaintainMetadataWithoutGainingFormalEditOrOwner() {
+        var project = DccProjectCodeDO.builder().id(100L).status("ENABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        when(permissionApi.hasAnyRoles(eq(99L), any(String[].class)))
+                .thenAnswer(invocation -> java.util.Arrays.asList((String[]) invocation.getRawArguments()[1])
+                        .contains("dcc_project_code_admin"));
+        assertDoesNotThrow(() -> service.assertProjectMetadataEditable(99L, 100L));
+        assertThrows(ServiceException.class, () -> service.assertProjectEditorOrOwner(99L, 100L));
+        assertThrows(ServiceException.class, () -> service.assertProjectOwner(99L, 100L));
+
+        project.setTenantId(2L);
+        assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 100L));
+        project.setTenantId(1L);
+        project.setStatus("DISABLE");
+        assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 100L));
+        assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 999L));
+        project.setStatus("ENABLE");
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(1));
+        assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 100L));
+    }
+
+    @Test
+    void metadataMaintenanceForOrdinaryUsersStillRequiresFormalEditOrOwner() {
+        var project = DccProjectCodeDO.builder().id(100L).status("ENABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        for (String level : List.of("VIEW", "EDIT", "OWNER")) {
+            when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of(rule("USER", 99L, level)));
+            if ("VIEW".equals(level)) {
+                assertThrows(ServiceException.class, () -> service.assertProjectMetadataEditable(99L, 100L));
+            } else {
+                assertDoesNotThrow(() -> service.assertProjectMetadataEditable(99L, 100L));
+            }
+        }
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullAndEmptySource
     @org.junit.jupiter.params.provider.ValueSource(strings={"   ","\u00A0\uFEFF\u3000"})

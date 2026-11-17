@@ -26,7 +26,7 @@ class MesFrontlineSequenceGuardTest {
     private MesFrontlineActiveOrderProcess progress(long id, String quantity) {
         return new MesFrontlineActiveOrderProcess(1L, 2L, 3L, "R", "路线", id, id, "P" + id,
                 "工序" + id, (int) id, 1L, "W", "工位", BigDecimal.ONE,
-                new BigDecimal("100"), new BigDecimal(quantity), false);
+                new BigDecimal("100"), new BigDecimal(quantity), false, java.util.Map.of());
     }
     @Test void serialRequiresFullQuantityAndReportsBlockingProcess() {
         var failure = assertThrows(ServiceException.class, () -> MesFrontlineSequenceGuard.requirePredecessorsComplete(

@@ -45,6 +45,8 @@ public interface MesProEdhrNonconformanceReviewService {
 
     MesTeamLeaderActiveOrderDetail getActiveOrderDetail(Long id);
 
+    MesTeamLeaderActiveOrderDetail getActiveOrderSignatureDetail(Long id, Long signatureId);
+
     PageResult<MesProEdhrNonconformanceReviewRespVO> getPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO);
 

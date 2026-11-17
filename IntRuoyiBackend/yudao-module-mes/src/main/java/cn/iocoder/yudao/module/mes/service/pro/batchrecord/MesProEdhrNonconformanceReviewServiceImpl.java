@@ -436,9 +436,21 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         String idempotencyKey = requireText(reqVO.getIdempotencyKey());
         List<Long> deviationIds = normalizeDeviationIds(reqVO.getDeviationIds());
         unifiedAudit.acquireLedgerLock();
-        MesProEdhrBatchExecutionDO batch = requireBatchExecutionForUpdate(reqVO.getBatchExecutionId());
-        Long tenantId = batch.getTenantId() != null ? batch.getTenantId() : TenantContextHolder.getTenantId();
-        String payloadHash = buildDeviationTransferPayloadHash(batch, deviationIds, reason, reqVO.getRemark(), reqVO.getQaReviewerUserId());
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        MesProcessPoolActiveOrderDO order = null;
+        MesProEdhrBatchExecutionDO batch;
+        if (reqVO.getActiveOrderId() != null) {
+            order = activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
+            if (order == null || !Objects.equals(order.getTenantId(), tenantId)
+                    || reqVO.getBatchExecutionId() != null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            }
+            batch = null;
+        } else {
+            batch = requireBatchExecutionForUpdate(reqVO.getBatchExecutionId());
+        }
+        String payloadHash = buildDeviationTransferPayloadHash(reqVO.getBatchExecutionId(), reqVO.getActiveOrderId(),
+                deviationIds, reason, reqVO.getRemark(), reqVO.getQaReviewerUserId());
         MesProEdhrNonconformanceReviewDO replay = reviewMapper
                 .selectByTenantAndIdempotencyKeyForUpdate(tenantId, idempotencyKey);
         if (replay != null) {
@@ -447,25 +459,33 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             }
             return toResp(replay);
         }
-        validateBatchCanStartReview(batch);
-        lockAndValidateCriticalDeviations(tenantId, batch.getId(), deviationIds);
-        MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
+        if (order != null) {
+            if (!"ACTIVE".equals(order.getActiveStatus())) throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            batch = resolveUniqueActiveOrderBatchExecution(order);
+        }
+        if (batch != null) validateBatchCanStartReview(batch);
+        lockAndValidateCriticalDeviations(tenantId, reqVO.getBatchExecutionId(), reqVO.getActiveOrderId(), deviationIds);
+        Long workOrderId = order == null ? batch.getWorkOrderId() : order.getWorkOrderId();
+        if (reviewMapper.selectFirstBlockingByWorkOrderId(workOrderId) != null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
+        if (workOrder == null) throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
-        // Disposition requires this formal origin; reject before creating an unresolvable frozen review.
-        Long activeOrderId = requireActiveOrderId(resolveActiveOrderId(batch, null, null));
+        Long activeOrderId = order == null ? requireActiveOrderId(resolveActiveOrderId(batch, null, null)) : order.getId();
         String deviationIdsJson = JSON.toJSONString(deviationIds);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(now))
                 .sourceType(SOURCE_TYPE_DEVIATION)
-                .sourceId(batch.getId())
+                .sourceId(batch == null ? activeOrderId : batch.getId())
                 .activeOrderId(activeOrderId)
-                .batchExecutionId(batch.getId())
-                .batchExecutionCode(batch.getBatchExecutionCode())
-                .workOrderId(batch.getWorkOrderId())
-                .workOrderCode(batch.getWorkOrderCode())
-                .batchCode(batch.getBatchCode())
-                .previousBatchStatus(batch.getStatus())
+                .batchExecutionId(batch == null ? null : batch.getId())
+                .batchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode(workOrder.getBatchCode())
+                .previousBatchStatus(batch == null ? null : batch.getStatus())
                 .previousWorkOrderTemporaryFrozen(previousWorkOrderTemporaryFrozen)
                 .reviewStatus(STATUS_PENDING_REVIEW)
                 .nonconformanceReason(reason)
@@ -490,14 +510,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 "QA电子签名#" + signatureId, actorUserId) != 1) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
         }
-        if (batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+        if (batch != null && batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batch.getId()).setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) != 1) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         if (workOrder != null) {
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
-        if (deviationMapper.closeToNonconformance(tenantId, batch.getId(), deviationIds,
+        if (deviationMapper.closeToNonconformance(tenantId, reqVO.getBatchExecutionId(), reqVO.getActiveOrderId(), deviationIds,
                 review.getId(), now) != deviationIds.size()) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         }
@@ -526,11 +546,12 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     }
 
     private List<MesProEdhrDeviationDO> lockAndValidateCriticalDeviations(
-            Long tenantId, Long batchExecutionId, List<Long> deviationIds) {
+            Long tenantId, Long batchExecutionId, Long activeOrderId, List<Long> deviationIds) {
         List<MesProEdhrDeviationDO> deviations = new ArrayList<>();
         for (Long deviationId : deviationIds) {
             MesProEdhrDeviationDO deviation = deviationMapper.selectByTenantAndIdForUpdate(tenantId, deviationId);
-            if (deviation == null || !Objects.equals(deviation.getBatchExecutionId(), batchExecutionId)) {
+            if (deviation == null || !Objects.equals(deviation.getBatchExecutionId(), batchExecutionId)
+                    || (activeOrderId != null && !Objects.equals(deviation.getActiveOrderId(), activeOrderId))) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_BATCH_MISMATCH);
             }
             if (!"CRITICAL".equals(deviation.getLevel())) {
@@ -544,12 +565,13 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return deviations;
     }
 
-    private String buildDeviationTransferPayloadHash(MesProEdhrBatchExecutionDO batch, List<Long> deviationIds,
+    private String buildDeviationTransferPayloadHash(Long batchExecutionId, Long activeOrderId, List<Long> deviationIds,
                                                      String reason, String remark, Long qaReviewerUserId) {
         JSONObject payload = new JSONObject(true);
         payload.put("sourceType", SOURCE_TYPE_DEVIATION);
         payload.put("qaReviewerUserId", qaReviewerUserId);
-        payload.put("batchExecutionId", batch.getId());
+        payload.put("batchExecutionId", batchExecutionId);
+        if (activeOrderId != null) payload.put("activeOrderId", activeOrderId);
         payload.put("deviationIds", deviationIds);
         payload.put("nonconformanceReason", reason);
         payload.put("remark", StrUtil.trim(remark));
@@ -560,6 +582,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                                                         List<Long> deviationIds, String payloadHash) {
         JSONObject payload = new JSONObject(true);
         payload.put("reviewId", review.getId());
+        if (review.getActiveOrderId() != null) payload.put("activeOrderId", review.getActiveOrderId());
         payload.put("reviewCode", review.getReviewCode());
         payload.put("batchExecutionId", review.getBatchExecutionId());
         payload.put("deviationIds", deviationIds);
@@ -1160,12 +1183,29 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     @Override
     public MesTeamLeaderActiveOrderDetail getActiveOrderDetail(Long id) {
+        return activeOrderDetailService.getArchivedFormalDetail(requireReviewActiveOrder(id));
+    }
+
+    @Override
+    public MesTeamLeaderActiveOrderDetail getActiveOrderSignatureDetail(Long id, Long signatureId) {
+        return activeOrderDetailService.getArchivedSignatureDetail(requireReviewActiveOrder(id), signatureId);
+    }
+
+    /** The review's persisted cycle is authoritative, including after rework replaces the active order. */
+    private Long requireReviewActiveOrder(Long id) {
+        if (id == null || id <= 0) throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         MesProEdhrNonconformanceReviewDO review = reviewMapper.selectById(id);
-        if (review == null) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
-        }
+        if (review == null) throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
         Long activeOrderId = requireActiveOrderId(review.getActiveOrderId());
-        return activeOrderDetailService.getFormalDetail(activeOrderId);
+        MesProcessPoolActiveOrderDO order = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (order == null || !Objects.equals(review.getId(), id)
+                || !Objects.equals(review.getTenantId(), tenantId) || !Objects.equals(order.getTenantId(), tenantId)
+                || !Objects.equals(order.getId(), activeOrderId) || review.getWorkOrderId() == null
+                || !Objects.equals(order.getWorkOrderId(), review.getWorkOrderId())) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return activeOrderId;
     }
 
     @Override

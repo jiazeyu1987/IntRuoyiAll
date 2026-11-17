@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.upload;
 
+import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProjectProduct;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
@@ -89,6 +90,15 @@ public class DccRegistrationCertificateUploadController {
         query.setStatus("ENABLE");
         return success(BeanUtils.toBean(projectCodeService.getProjectCodePage(query).getList(),
                 DccProjectCodeRespVO.class));
+    }
+
+    @GetMapping("/project-product")
+    @Operation(summary = "读取项目唯一正式绑定的DCC产品")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")
+    public CommonResult<DccRegistrationCertificateProjectProduct>
+            projectProduct(@RequestParam("projectCodeId") Long projectCodeId) {
+        return success(uploadService.getProjectProduct(
+                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), projectCodeId));
     }
 
     @GetMapping("/my-requests")

@@ -1687,7 +1687,7 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
-    void secondDataSetFailureRollsBackAndReferenceTenantIsReadOnly() {
+    void secondDataSetFailureRollsBackAndReferenceTenantCannotFillTestData() {
         var service = dataReference();
         TenantContextHolder.setTenantId(165L);
         try {
@@ -1699,8 +1699,75 @@ class MesFixedTestOrderInitializerTest {
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list WHERE tenant_id=165", Integer.class));
             TenantContextHolder.setTenantId(1L);
             var error = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.prepareSecond(77L)));
-            assertTrue(error.getMessage().contains("参考租户只读"));
+            assertEquals("测试模拟订单操作受限：当前租户（ID：1）是测试单据参考来源，不允许补齐测试单据；重置现有测试订单请使用重置测试订单功能",
+                    error.getMessage());
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=1", Integer.class));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void referenceTenantResetReusesSourceDocumentsAndKeepsOtherTenantPreparationWorking(boolean historicalReplenishment) {
+        var service = dataReference();
+        var initializer = new MesFixedTestOrderPickListInitializer(service);
+        jdbc.update("INSERT INTO system_tenant VALUES(1,0)");
+        if (historicalReplenishment) jdbc.update("UPDATE erp_kingdee_production_replenishment_list_item "
+                        + "SET source_bill_no=?,raw_payload=? WHERE id=221 AND tenant_id=1",
+                "SIM-COPY-OLD-001", "{\"simulatedCopyFrom\":\"OLD\",\"targetProductionOrderNo\":\""
+                        + MesFixedTestOrderInitializer.WORK_ORDER_CODE + "\"}");
+        var tables = List.of("mes_pro_work_order", "erp_kingdee_production_pick_list",
+                "erp_kingdee_production_pick_list_item", "erp_kingdee_production_replenishment_list",
+                "erp_kingdee_production_replenishment_list_item", "mes_kingdee_production_material_list");
+        var before = tables.stream().map(table -> jdbc.queryForList(
+                "SELECT * FROM " + table + " WHERE tenant_id=1 ORDER BY id")).toList();
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var result = tx.execute(s -> service.rebuildForReset(77L));
+            assertEquals(MesFixedTestOrderInitializer.WORK_ORDER_CODE, result.workOrderCode());
+            assertTrue(result.documents().stream().allMatch(d -> d.createdCount() == 0
+                    && d.deletedCount() == 0 && d.repairedCount() == 0));
+            assertTrue(result.documents().stream().mapToInt(MesFixedTestOrderDataService.DocumentResult::skippedCount).sum() >= 4);
+            // Reset and the subsequent production-start path must both accept the reference tenant.
+            tx.executeWithoutResult(s -> initializer.prepareForReset(MesFixedTestOrderInitializer.WORK_ORDER_CODE, 88L));
+            tx.executeWithoutResult(s -> initializer.prepare(MesFixedTestOrderInitializer.WORK_ORDER_CODE, 99L));
+            TenantContextHolder.setTenantId(165L);
+            tx.executeWithoutResult(s -> service.prepare(77L));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165", Integer.class));
+            for (int i = 0; i < tables.size(); i++)
+                assertEquals(before.get(i), jdbc.queryForList(
+                        "SELECT * FROM " + tables.get(i) + " WHERE tenant_id=1 ORDER BY id"), tables.get(i));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingPick", "missingMaterial", "unapprovedPick"})
+    void referenceTenantResetStillRequiresValidSourceDocuments(String failure) {
+        var service = dataReference();
+        jdbc.update("INSERT INTO system_tenant VALUES(1,0)");
+        String expected;
+        switch (failure) {
+            case "missingPick" -> {
+                jdbc.update("DELETE FROM erp_kingdee_production_pick_list_item WHERE tenant_id=1");
+                expected = "参考租户缺少固定测试订单的领料单明细";
+            }
+            case "missingMaterial" -> {
+                jdbc.update("DELETE FROM mes_kingdee_production_material_list WHERE tenant_id=1");
+                expected = "参考租户缺少固定测试订单的生产用料清单";
+            }
+            case "unapprovedPick" -> {
+                jdbc.update("UPDATE erp_kingdee_production_pick_list SET document_status='A' WHERE tenant_id=1");
+                expected = "参考领料单明细未审核或表头关联不一致";
+            }
+            default -> throw new AssertionError(failure);
+        }
+        var before = jdbc.queryForMap("SELECT * FROM mes_pro_work_order WHERE tenant_id=1");
+        TenantContextHolder.setTenantId(1L);
+        try {
+            var error = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> service.rebuildForReset(77L)));
+            assertTrue(error.getMessage().contains(expected), error.getMessage());
+            assertEquals(before, jdbc.queryForMap("SELECT * FROM mes_pro_work_order WHERE tenant_id=1"));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
         } finally { TenantContextHolder.clear(); }
     }
 
