@@ -91,8 +91,10 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     @Override
     public List<DccProjectAccessRuleDO> getProjectAccessRules(Long projectCodeId) {
         validateProjectCodeExists(projectCodeId);
+        Long userId = cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId();
+        assertProjectViewerOrAbove(userId, projectCodeId);
         if (projectCodeMapper.selectById(projectCodeId).isLibrary()
-                && !isProjectAdministrator(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId()))
+                && !isProjectAdministrator(userId))
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         return accessRuleMapper.selectListByProjectCodeId(projectCodeId);
     }
@@ -104,6 +106,12 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         validateProjectCodeExists(projectCodeId);
         if (projectCodeMapper.selectById(projectCodeId).isLibrary())
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "QMS和通用文件夹请通过系统管理的权限角色授权");
+        Long userId = cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId();
+        assertProjectViewerOrAbove(userId, projectCodeId);
+        // 全局编辑资格及正式 OWNER/EDIT 均不包含项目授权管理资格。
+        if (!isProjectAdministrator(userId) && !isProjectCodeAdministrator(userId)) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
         List<DccProjectAccessRuleDO> normalizedRules = normalizeRules(projectCodeId, rules);
         if (normalizedRules.stream().noneMatch(this::isCurrentlyActiveOwner)) {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);

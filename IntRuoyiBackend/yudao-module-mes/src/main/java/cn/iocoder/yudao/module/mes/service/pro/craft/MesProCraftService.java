@@ -34,6 +34,7 @@ public class MesProCraftService {
     @Resource private ObjectProvider<MesProRouteVersionLifecycleService> lifecycle;
     @Resource private MesProRouteControlledContentAdapter platform;
     @Resource private cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi bpmApi;
+    @Resource private ObjectProvider<MesProSharedChangeService> sharedChanges;
 
     public void lockCatalog() {
         Long tenant = TenantContextHolder.getRequiredTenantId();
@@ -135,6 +136,20 @@ public class MesProCraftService {
 
     public MesProCraftChangeDO updateAll(MesProCraftSaveReqVO request) {
         lockCatalog();
+        if (request.getRequestId() == null) throw invalid("缺少变更请求编号，请重新打开工艺");
+        try { UUID.fromString(request.getRequestId()); } catch (IllegalArgumentException error) { throw invalid("变更请求编号无效"); }
+        JSONObject requestContent = (JSONObject) JSON.toJSON(request);
+        requestContent.remove("impactToken");
+        String requestHash = new MesProRouteSnapshotCanonicalizer().sha256(requestContent.toJSONString());
+        for (MesProCraftChangeDO previous : changes()) {
+            if (!"UPDATE".equals(previous.getChangeType())) continue;
+            JSONObject payload = JSON.parseObject(previous.getAfterJson());
+            if (!Objects.equals(request.getRequestId(), payload.getString("requestId"))) continue;
+            if (!Objects.equals(requestHash, payload.getString("requestHash"))
+                    || !Objects.equals(SecurityFrameworkUtils.getLoginUserId(), payload.getLong("actorId")))
+                throw invalid("请求编号已用于其他工艺变更");
+            return previous;
+        }
         Map<String, Object> preview = preview(request);
         if (!Objects.equals(request.getImpactToken(), preview.get("impactToken"))) throw invalid("影响范围已变化，请重新预览");
         @SuppressWarnings("unchecked") List<String> blockers = (List<String>) preview.get("blockers");
@@ -143,13 +158,17 @@ public class MesProCraftService {
         MesProCraftDO after = JSON.parseObject(JSON.toJSONString(before), MesProCraftDO.class);
         after.setName(request.getName()); after.setParametersJson(normalize(request.getParameters()).toJSONString());
         after.setFingerprint(rowFingerprint(after.getName(), after.getProcessId(), request.getParameters()));
+        JSONObject payload = (JSONObject) JSON.toJSON(after);
+        payload.put("requestId", request.getRequestId()); payload.put("requestHash", requestHash);
+        payload.put("actorId", SecurityFrameworkUtils.getLoginUserId()); payload.put("routes", preview.get("routes"));
         MesProCraftChangeDO change = newChange(before.getId(), "UPDATE", JSON.toJSONString(before),
-                JSON.toJSONString(after), request.getReason());
+                payload.toJSONString(), request.getReason());
         if (changeMapper.insert(change) != 1) throw invalid("工艺变更记录保存失败");
         List<MesProRouteVersionDO> refs = references(before.getId(), new ArrayList<>());
         for (MesProRouteVersionDO active : refs) {
             MesProRouteVersionDO candidate = newCandidate(active, "工艺 " + before.getCode() + " 全量升级：" + request.getReason());
-            JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+            JSONObject snapshot = JSON.parseObject(active.getRouteSnapshotJson());
+            snapshot.getJSONObject("configSnapshots").remove("craftChangeId");
             for (JSONObject config : configs(snapshot)) {
                 if (usesCraft(config, before.getId())) {
                     replaceCraft(config, after.getId(), after.getCode(), JSON.parseArray(after.getParametersJson()));
@@ -293,8 +312,10 @@ public class MesProCraftService {
     }
     private void saveGroupedCandidate(MesProCraftChangeDO change, MesProRouteVersionDO candidate, JSONObject snapshot) {
         JSONObject data = snapshot.getJSONObject("configSnapshots");
+        Map<String, Object> incoming = new LinkedHashMap<>(data);
+        incoming.remove("craftChangeId");
         candidateConfig.getObject().saveConfigSnapshots(candidate.getId(), candidate.getRouteSnapshotSha256(),
-                Map.of("productionProcessConfigSchemaVersion", 1, "productionProcessConfigs", data.getJSONArray("productionProcessConfigs")));
+                incoming);
         MesProRouteVersionDO saved = versionMapper.selectById(candidate.getId());
         JSONObject grouped = JSON.parseObject(saved.getRouteSnapshotJson());
         grouped.getJSONObject("configSnapshots").put("craftChangeId", change.getId());
@@ -317,6 +338,24 @@ public class MesProCraftService {
         change.setStatus("PENDING"); saveChange(change);
         if (ids.isEmpty()) applyCraft(change);
         else onRouteReady(versionMapper.selectById(ids.get(0)), SecurityFrameworkUtils.getLoginUserId());
+    }
+
+    /** 共享资料沿用同一候选版本、审批回调和整批发布事务。 */
+    MesProCraftChangeDO submitShared(String before, JSONObject proposal, String reason,
+                                   List<MesProRouteVersionDO> references,
+                                   java.util.function.BiConsumer<MesProRouteVersionDO, JSONObject> transform) {
+        lockCatalog();
+        MesProCraftChangeDO change = newChange(null, "SHARED", before, proposal.toJSONString(), reason);
+        if (changeMapper.insert(change) != 1) throw invalid("共享资料变更记录保存失败");
+        for (MesProRouteVersionDO active : references) {
+            MesProRouteVersionDO candidate = newCandidate(active, reason);
+            JSONObject snapshot = JSON.parseObject(active.getRouteSnapshotJson());
+            snapshot.getJSONObject("configSnapshots").remove("craftChangeId");
+            transform.accept(active, snapshot);
+            saveGroupedCandidate(change, candidate, snapshot);
+        }
+        submitGroup(change);
+        return changeMapper.selectById(change.getId());
     }
 
     /** 生命周期发布入口调用：未全部通过审批时保持 READY，最后一个审批统一发布整批。 */
@@ -344,6 +383,7 @@ public class MesProCraftService {
                     || !Objects.equals(hashes.getString(v.getId() + ":source"), active.getRouteSnapshotSha256()))
                 throw invalid("关联流程的正式参数已变化，整次工艺修改不能生效");
         }
+        if ("SHARED".equals(change.getChangeType())) sharedChanges.getObject().verifyBeforePublish(change);
         change.setStatus("APPLYING"); saveChange(change);
         for (Long id : ids) lifecycle.getObject().publishCandidate(id, publisherId);
         applyCraft(change);
@@ -353,6 +393,7 @@ public class MesProCraftService {
         if (changeMapper.updateById(change) != 1) throw invalid("工艺变更状态保存失败");
     }
     private void applyCraft(MesProCraftChangeDO change) {
+        if ("SHARED".equals(change.getChangeType())) sharedChanges.getObject().apply(change);
         if ("UPDATE".equals(change.getChangeType())) {
             MesProCraftDO after = JSON.parseObject(change.getAfterJson(), MesProCraftDO.class);
             MesProCraftDO update = new MesProCraftDO();
@@ -383,6 +424,12 @@ public class MesProCraftService {
             if (!Set.of("PREPARING", "PENDING", "APPLYING").contains(change.getStatus())) continue;
             if (Objects.equals(craftId, change.getCraftId()) || "INITIALIZE".equals(change.getChangeType()))
                 throw invalid("该工艺存在尚未完成的关联升级");
+            if ("SHARED".equals(change.getChangeType())) {
+                JSONObject request = JSON.parseObject(change.getAfterJson()).getJSONObject("request");
+                if ("CRAFT".equals(request.getString("subjectType")) &&
+                        (Objects.equals(craftId, request.getLong("sourceId")) || Objects.equals(craftId, request.getLong("targetId"))))
+                    throw invalid("该工艺存在尚未完成的关联升级");
+            }
         }
     }
 

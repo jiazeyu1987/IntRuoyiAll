@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 四方向本机交付与验收
 
 四项大方向已按 `docs/product/dcc-final-requirements.html` v1.6 融合到唯一 `int_qms` 主工作区；原 worktree 的归档、独有成果保护和撤销登记在 G45 记录，不重复合并。
@@ -21,4 +23,4 @@
 
 验收限定：本轮真实 admin 兼任多个已配置角色，不外推为多个独立账号权限验收；未选择培训，没有重跑未来生效、升版、作废、引用等完整 HTML 所有流程。本次失败过的旧流程定义查询、错误整改依赖、登录过期和打包时覆盖旧运行包均保留记录；实际修复/恢复后才明确经页面重新办理，不用 API/数据库补业务动作。
 
-主收据：`g55-real-mainflow-root-review.json`；源码提交清单：`g55-implementation-commit-proof.json`；真实证据保护目录：`C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime`。远端推送未授权，正式任务 cleanup 工具不在当前可用技能/工具或已搜索本地目录中；当前状态为 ready_for_closeout，不标 completed，也不把不存在的 cleanup 命令写成 PASS。
+主收据：`g55-real-mainflow-root-review.json`；源码提交清单：`g55-implementation-commit-proof.json`；真实证据保护目录：`历史外部材料（引用已移除）`。远端推送未授权，正式任务 cleanup 工具不在当前可用技能/工具或已搜索本地目录中；当前状态为 ready_for_closeout，不标 completed，也不把不存在的 cleanup 命令写成 PASS。

@@ -1,6 +1,6 @@
 # G56 — HTML v1.6流程1–8及指定验收项独立核对
 
-Status: ready_for_root_review。审查起点为Root提供的main/int_qms HEAD8090e7193及G55最新真实收据。唯一仓库C:/IntRuoyiAll-int_main，所有路径下文为仓库相对路径；用户本轮要求提交推送后继续完整核对缺口，Git/真实环境由Root负责。本Agent只读业务链并获有限授权修正文侧栏1个组件两处展示；没有DB/API/浏览器/服务/Git/Maven/fulltypes/build动作。没有将“未实测”写成代码失败，也不把主线一个admin兼任外推为独立角色验收。
+Status: ready_for_root_review。审查起点为Root提供的main/int_qms HEAD8090e7193及G55最新真实收据。唯一仓库.，所有路径下文为仓库相对路径；用户本轮要求提交推送后继续完整核对缺口，Git/真实环境由Root负责。本Agent只读业务链并获有限授权修正文侧栏1个组件两处展示；没有DB/API/浏览器/服务/Git/Maven/fulltypes/build动作。没有将“未实测”写成代码失败，也不把主线一个admin兼任外推为独立角色验收。
 
 真实依据：`doc/tasks/20261001-dcc-integration-unblock/g55-real-mainflow-root-review.json`、`g55-final-business-delivery.md`。实际申请7完成、项目271/产品614/负责人OWNER；真实上传独立type13和不在预设名单的原件到folder2；默认CE与本次FDA分别保留、取消确认保输入；两部门指派/会签、批准负责人、跳过未选培训、文控审核、受控生效及电子下发；审核驳回8→9、批准驳回9→10的待办/通知/原历史保留；正文canvas非空、项目/产品分开、离开详情0空ID读。该收据明确distinctActorsTested=false、trainingSelected=false、completeHtmlE2EClaim=false。这里不重复执行这些动作。
 

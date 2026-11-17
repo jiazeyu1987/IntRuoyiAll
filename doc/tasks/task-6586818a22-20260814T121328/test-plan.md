@@ -2,7 +2,7 @@
 
 - Task ID: task-6586818a22-20260814T121328
 - Created: 2026-08-14T12:13:28
-- Workspace: E:\IntRuoyi
+- Workspace: .
 - Validation surface: real-runtime
 - Required tools: Maven, Java 17, Node.js, pnpm, Playwright, local int_main frontend/backend when running real E2E
 
@@ -24,8 +24,8 @@ Out of scope:
 
 ## Environment
 
-- Backend root: E:\IntRuoyi\IntRuoyiBackend
-- Frontend root: E:\IntRuoyi\IntRuoyiFronted
+- Backend root: ./IntRuoyiBackend
+- Frontend root: ./IntRuoyiFronted
 - Local int_main backend: http://127.0.0.1:48081，仅在确认服务已运行后用于真实 E2E。
 - Local int_main frontend: http://127.0.0.1:8081 或 http://localhost:8081，仅在确认服务已运行后用于真实 E2E。
 - Java 17 和 Maven 可用。
@@ -44,12 +44,12 @@ Out of scope:
 ## Commands
 
 - Backend targeted tests:
-  - cd E:\IntRuoyi\IntRuoyiBackend
+  - cd ./IntRuoyiBackend
   - mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportServiceImplDbTest,MesProBatchRecordRouteGovernanceContractTest,MesProBatchRecordRouteCandidateGovernanceTest,MesProRouteVersionPublishProjectionServiceImplTest" test
   - Expected: all selected tests pass, with RED/GREEN evidence recorded during implementation.
 
 - Frontend static contracts:
-  - cd E:\IntRuoyi\IntRuoyiFronted
+  - cd ./IntRuoyiFronted
   - pnpm ts:check
   - node tests/e2e/batch-record-word-import-route-candidate-static.spec.js
   - node tests/e2e/batch-record-word-import-production-upgrade-dedupe-static.spec.js
@@ -57,7 +57,7 @@ Out of scope:
   - Expected: static contracts pass and confirm checkbox/route-candidate/DCC identity boundaries.
 
 - Real browser E2E, only when runtime and test data are confirmed:
-  - cd E:\IntRuoyi\IntRuoyiFronted
+  - cd ./IntRuoyiFronted
   - node tests/e2e/edhr-word-import-upgrade-action-real-flow.e2e.js
   - node tests/e2e/edhr-word-import-upgrade-missing-source-negative.e2e.js
   - Expected: real page path proves upgrade action and missing-source negative path without API-only replacement.

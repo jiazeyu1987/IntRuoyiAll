@@ -71,7 +71,27 @@ export interface SimpleParserResult {
 }
 
 const base = '/mes/pro/batch-record-report/simple-parser'
+export interface SimpleParserReuseCandidate {
+  processId: number
+  code: string
+  name: string
+  productName?: string
+  currentWorkshop: boolean
+  workshops: Array<{ id: number; name: string }>
+  groups: Array<{
+    groupIndex: number
+    parameters: Array<{ parameterName: string; standardText: string; unit?: string }>
+    crafts: Array<{ id: number; code: string; name: string }>
+  }>
+}
+export interface SimpleParserReuseMatch {
+  processIndex: number
+  name: string
+  candidates: SimpleParserReuseCandidate[]
+}
 export const SimpleParserApi = {
+  reuseMatches: (data: SimpleParserRequest) =>
+    request.post<SimpleParserReuseMatch[]>({ url: `${base}/reuse-matches`, data, ignoreErrorMessage: true }),
   devices: () => request.get<SimpleParserDevice[]>({ url: `${base}/devices` }),
   preview: (data: SimpleParserRequest) =>
     request.post<SimpleParserResult>({ url: `${base}/preview`, data, ignoreErrorMessage: true }),

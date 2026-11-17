@@ -43,7 +43,7 @@ The initial source query did not output column collation; the final frozen query
 
 ## Actual evidence
 
-- Root fresh capture `C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g21-bpm-runtime-facts-v2.jsonl` plus `.receipt.json`: 22 SELECT/264 JSONL rows, database ruoyi-vue-pro, MySQL8.0.40, server UUID92ca05d0-aec8-11f1-a944-02b4e226a5ef, capture29, 2026-10-03T06:02:37.052761Z–06:02:37.198764Z. Root performed readonly collection, not this Agent.
+- Root fresh capture `./doc/tasks/20261001-dcc-integration-unblock/g21-bpm-runtime-facts-v2.jsonl` plus `.receipt.json`: 22 SELECT/264 JSONL rows, database ruoyi-vue-pro, MySQL8.0.40, server UUID92ca05d0-aec8-11f1-a944-02b4e226a5ef, capture29, 2026-10-03T06:02:37.052761Z–06:02:37.198764Z. Root performed readonly collection, not this Agent.
 - Both Root `g21-bpm-runtime-proof-v2.json` and own `g21-runtime-eight-proof.json` validate exit0 with eight `satisfied_by_existing_target_facts`, `historicalSqlExecutionProven=false`, `migrationMustNotExecute=true`, `ledgerWrites=false`. No extra supplementary query remains for these eight current preconditions.
 - Query raw SHA: 51da829aaf0891e36a1490a44bee28bd7a431d9d7c7fccea0f52e4a373895648.
 - Fresh JSONL SHA: 12fc4f398f8b4edf0cc6b447ba3f961ae2a55756015edb884b76c37168ea19fa.

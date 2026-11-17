@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G64 名称、引用与基础配置证明审查
 
 Status: ready_for_closeout — 有界只读审查完成，本组未发现新的确定源码差异。具体断言、原XML、真实页面分别记录；缺证据不当未实现，旧测试总数不当current PASS。本Agent不改生产/测试、不运行Maven/build、DB/API/UI、服务或Git。HTML v1.6 SHA `53e9afc74cafd1539cd48d9f2384d364511dd4802c4d686431b444b549930222`。
@@ -22,7 +24,7 @@ BE简称位于 `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/
 
 | 原文件 | tests/fail/error/skip | SHA256 |
 |---|---|---|
-| `C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/retired-residual-b/IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest.xml` | 8/0/0/0 | `40cc041370f33bd32d74912a5a0770b733f817aff64e43c0452e59cee5a5eb46` |
+| `历史外部材料（引用已移除）` | 8/0/0/0 | `40cc041370f33bd32d74912a5a0770b733f817aff64e43c0452e59cee5a5eb46` |
 | 同保护retired目录，`TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest.xml` | 34/0/0/0 | `239f07cf1abf4d061ad1e283b0c70468e015aa834204db611aec310f5655f926` |
 | 本child `g47-DccFileTypeTaxonomyAdminServiceImplTest.xml` | 13/0/0/0 | `3dd83646f1b135c6bff707fc2a19d7dfe2d3213651fa217e6e18e067eaa55aa6` |
 | main dcc target `TEST-cn.iocoder.yudao.module.dcc.service.route.DccApprovalRouteAdminServiceImplTest.xml` | 29/0/0/0 | `23ec7588cecf11e6a49d6c849fd6eed700b8f604c69a97b5abafc20677ee2caa` |

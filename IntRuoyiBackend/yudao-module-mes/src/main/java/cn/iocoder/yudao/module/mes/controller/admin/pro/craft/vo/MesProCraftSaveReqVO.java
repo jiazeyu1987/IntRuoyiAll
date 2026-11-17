@@ -10,5 +10,6 @@ public class MesProCraftSaveReqVO {
     @NotNull private JSONArray parameters;
     private String expectedFingerprint;
     private String impactToken;
+    private String requestId;
     @NotBlank @Size(max=512) private String reason;
 }

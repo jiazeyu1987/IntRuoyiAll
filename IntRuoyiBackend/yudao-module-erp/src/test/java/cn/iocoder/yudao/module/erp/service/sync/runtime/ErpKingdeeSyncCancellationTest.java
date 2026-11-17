@@ -14,6 +14,31 @@ import static org.mockito.Mockito.*;
 
 class ErpKingdeeSyncCancellationTest {
     @Test
+    void productWritersShareTenantLockAndReleaseTypeLockWhenAnotherWriterIsRunning() {
+        RedissonClient redis = mock(RedissonClient.class);
+        RLock product = mock(RLock.class);
+        RLock stock = mock(RLock.class);
+        RLock shared = mock(RLock.class);
+        TenantContextHolder.setTenantId(186L);
+        try {
+            when(redis.getLock("erp:kingdee:execution:186:PRODUCT")).thenReturn(product);
+            when(redis.getLock("erp:kingdee:execution:186:STOCK")).thenReturn(stock);
+            when(redis.getLock("erp:kingdee:execution:186:product-writers")).thenReturn(shared);
+            when(product.tryLock()).thenReturn(true);
+            when(stock.tryLock()).thenReturn(true);
+            when(shared.tryLock()).thenReturn(true, false);
+            ErpKingdeeSyncCancellation cancellation = new ErpKingdeeSyncCancellation(mock(ErpKingdeeSyncRunMapper.class), redis);
+            cancellation.lock("PRODUCT");
+            assertThrows(IllegalStateException.class, () -> cancellation.lock("STOCK"));
+            verify(stock).unlock();
+            verify(shared, never()).unlock();
+            cancellation.unlock("PRODUCT");
+            verify(shared).unlock();
+            verify(product).unlock();
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
     void owningNodeInterruptsOnlyItsExecutionAndClearsSignalBeforeThreadReuse() throws Exception {
         ErpKingdeeSyncRunMapper mapper = mock(ErpKingdeeSyncRunMapper.class);
         ErpKingdeeSyncCancellation cancellation = new ErpKingdeeSyncCancellation(mapper, mock(RedissonClient.class));

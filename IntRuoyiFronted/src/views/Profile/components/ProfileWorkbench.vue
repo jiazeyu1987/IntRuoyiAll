@@ -109,6 +109,9 @@
                 <div v-if="row.detail.includes('\n')" class="profile-workbench__detail-meta">
                   {{ formatTodoDetail(row).slice(row.detail.indexOf('\n') + 1) }}
                 </div>
+                <div v-if="row.action.payload.blockedReason" class="profile-workbench__detail-meta text-danger">
+                  {{ row.action.payload.blockedReason }}
+                </div>
               </div>
             </template>
           </el-table-column>
@@ -417,6 +420,7 @@ const queryWorkbenchFilters = async () => {
 
 const getTaskTypeTagType = (taskType: TodoTaskType) => {
   if (taskType === '文控') return 'success'
+  if (taskType === '偏差') return 'danger'
   if (taskType === '批记录') return 'warning'
   if (taskType === '排产') return 'primary'
   if (taskType === '展厅') return 'info'
@@ -441,7 +445,7 @@ const formatTodoDetail = (row: ProfileWorkbenchTodoRow) => {
 const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {
   if (row.sourceId === 'DCC_DISTRIBUTION') return '去签收'
   if (row.sourceId === 'DCC_TRAINING') return row.statusLabel === '待确认' ? '去确认' : '去学习'
-  if (row.sourceId === 'EDHR_WORK_TASK') {
+  if (row.sourceId === 'EDHR_WORK_TASK' || row.sourceId === 'EDHR_DEVIATION_TASK') {
     const labels: Record<string, string> = {
       FILL: '去填写',
       REVIEW: '去复核',
@@ -456,7 +460,8 @@ const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {
       RECORD_CHANGE_CORRECTION: '去补正',
       RECORD_CHANGE_APPROVE: '去审批',
       DEVIATION_RECEIVE: '去调查',
-      DEVIATION_CORRECT: '去纠正',
+      DEVIATION_CORRECT: '去整改',
+      DEVIATION_VERIFY: '去核验',
       DEVIATION_SIGN: '去签署',
       DEVIATION_APPROVE: '去审核',
       DEVIATION_CLOSE: '去关闭',

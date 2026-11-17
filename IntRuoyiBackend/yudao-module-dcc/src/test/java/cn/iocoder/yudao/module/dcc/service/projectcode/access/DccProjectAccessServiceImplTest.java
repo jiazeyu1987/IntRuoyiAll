@@ -64,7 +64,7 @@ class DccProjectAccessServiceImplTest {
         lenient().when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
     }
-    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 
     @Test
     void projectCodeAdministratorCanMaintainMetadataWithoutGainingFormalEditOrOwner() {
@@ -130,7 +130,7 @@ class DccProjectAccessServiceImplTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"USER", "DEPT", "ROLE", "POSITION"})
     void replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String subjectType) {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         ServiceException invalidSubject = new ServiceException(400017, "授权主体不存在或已停用");
         switch (subjectType) {
             case "USER" -> lenient().doThrow(invalidSubject).when(adminUserApi).validateUserList(List.of(999999L));
@@ -151,7 +151,7 @@ class DccProjectAccessServiceImplTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"USER", "DEPT", "ROLE", "POSITION"})
     void replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String subjectType) {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         service.replaceProjectAccessRules(100L, List.of(saveRule(subjectType, 99L, "OWNER")));
         switch (subjectType) {
             case "USER" -> verify(adminUserApi).validateUserList(List.of(99L));
@@ -165,7 +165,7 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void getProjectAccessRules_returnsFormalRulesForProject() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         when(accessRuleMapper.selectListByProjectCodeId(100L))
                 .thenReturn(List.of(rule("USER", 99L, "OWNER")));
 
@@ -178,7 +178,7 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void replaceProjectAccessRules_requiresActiveOwnerAndPersistsFormalRules() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         List<DccProjectAccessRuleSaveReqVO> rules = List.of(
                 saveRule("USER", 99L, "OWNER"),
                 saveRule("USER", 100L, "EDIT"));
@@ -198,7 +198,7 @@ class DccProjectAccessServiceImplTest {
     @org.junit.jupiter.params.provider.CsvSource({"USER,OWNER,EDIT", "USER,EDIT,VIEW", "USER,VIEW,VIEW",
             "DEPT,OWNER,VIEW", "ROLE,OWNER,EDIT", "POSITION,EDIT,VIEW"})
     void duplicateActiveSubjectIsRejectedBeforeDeletingExistingRules(String type, String first, String second) {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         ServiceException error = assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(100L,
                 List.of(saveRule(type, 99L, first), saveRule(" " + type.toLowerCase() + " ", 99L, second))));
         assertEquals(DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE.getCode(), error.getCode());
@@ -208,7 +208,7 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void inactiveRulesAndDifferentSubjectTypesDoNotConflict() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         var inactive = saveRule("USER", 99L, "VIEW");
         inactive.setActive(false);
         var result = service.replaceProjectAccessRules(100L, List.of(
@@ -219,7 +219,7 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void replaceProjectAccessRules_rejectsRulesWithoutActiveOwner() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
 
         ServiceException error = assertThrows(ServiceException.class,
                 () -> service.replaceProjectAccessRules(100L, List.of(saveRule("USER", 100L, "EDIT"))));
@@ -233,7 +233,7 @@ class DccProjectAccessServiceImplTest {
     @org.junit.jupiter.params.provider.NullAndEmptySource
     @org.junit.jupiter.params.provider.ValueSource(strings = {"  ", " 项目授权 "})
     void replaceProjectAccessRules_acceptsOptionalChangeReason(String reason) {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        authorizeAclManager();
         DccProjectAccessRuleSaveReqVO ownerRule = saveRule("USER", 99L, "OWNER");
         ownerRule.setChangeReason(reason);
         DccProjectAccessRuleSaveReqVO viewerRule = saveRule("USER", 100L, "VIEW");
@@ -318,7 +318,9 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void libraryRulesCannotBeReadThroughLegacyProjectEndpointWithoutSuperAdmin() {
-        when(projectCodeMapper.selectById(200L)).thenReturn(DccProjectCodeDO.builder().id(200L).libraryScope("QMS").build());
+        var library = DccProjectCodeDO.builder().id(200L).libraryScope("QMS").status("ENABLE").build();
+        library.setTenantId(1L);
+        when(projectCodeMapper.selectById(200L)).thenReturn(library);
         try (var login = org.mockito.Mockito.mockStatic(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.class)) {
             login.when(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             assertThrows(ServiceException.class, () -> service.getProjectAccessRules(200L));
@@ -331,7 +333,9 @@ class DccProjectAccessServiceImplTest {
 
     @Test
     void libraryAclWritesAreRetiredEvenForSuperAdministrator() {
-        when(projectCodeMapper.selectById(200L)).thenReturn(DccProjectCodeDO.builder().id(200L).libraryScope("QMS").build());
+        var library = DccProjectCodeDO.builder().id(200L).libraryScope("QMS").status("ENABLE").build();
+        library.setTenantId(1L);
+        when(projectCodeMapper.selectById(200L)).thenReturn(library);
         assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(200L,List.of(saveRule("USER",99L,"VIEW"))));
         assertThrows(ServiceException.class, () -> service.replaceProjectAccessRules(200L,List.of()));
         verify(accessRuleMapper,never()).deleteByProjectCodeId(any(Long.class));
@@ -376,6 +380,18 @@ class DccProjectAccessServiceImplTest {
         org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L,200L));
         assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
         verify(accessRuleMapper,never()).selectActiveRules(eq(200L),any());
+    }
+
+    private void authorizeAclManager() {
+        var project = DccProjectCodeDO.builder().id(100L).status("ENABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        when(permissionApi.hasAnyRoles(eq(99L), any(String[].class)))
+                .thenAnswer(invocation -> java.util.Arrays.asList((String[]) invocation.getRawArguments()[1])
+                        .contains("dcc_project_code_admin"));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        new cn.iocoder.yudao.framework.security.core.LoginUser().setId(99L), null, List.of()));
     }
 
     private static DccProjectAccessRuleDO rule(String subjectType, Long subjectId, String accessLevel) {

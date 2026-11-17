@@ -46,6 +46,18 @@ class MesKingdeeBomListServiceImplTest {
         assertEquals(1,service.syncAllSkipExisting().getSkippedCount());
         verify(mapper,never()).deleteBySourceFid(any()); verify(mapper,never()).insert(any(MesKingdeeBomListDO.class));
     }
+    @Test void refreshReplacesExistingUsageAndReportsItAsUpdated() {
+        when(client.fetchBomLines(properties)).thenReturn(List.of(line("101", "5", 1)));
+        when(mapper.countBySourceFid("B1")).thenReturn(2L);
+        var result = service.syncAllWithUpdates();
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(0, result.getSkippedCount());
+        verify(mapper).deleteBySourceFid("B1");
+        var row = org.mockito.ArgumentCaptor.forClass(MesKingdeeBomListDO.class);
+        verify(mapper).insert(row.capture());
+        assertEquals(0, new BigDecimal("5").compareTo(row.getValue().getNumerator()));
+    }
     @Test void duplicateEntryIdentityFailsBeforeDeletingSnapshot() {
         when(client.fetchBomLines(properties)).thenReturn(List.of(line("101","2",1),line("101","3",2)));
         assertThrows(IllegalStateException.class,service::syncAll);

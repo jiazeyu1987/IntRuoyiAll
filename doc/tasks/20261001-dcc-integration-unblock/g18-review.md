@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G18 主管理 Review 与运行准备
 
 2026-10-03。主目录实际 int_qms，整合树实际 codex/20261001-dcc-integration。当前实现不合入中间状态；真实页面和最终合入尚未关闭。
@@ -15,7 +17,7 @@
 - UPLOAD DRAFT published 已在；旧 publish BPM_REQUIRED disabled，DIRECT published 已在；ACTIVE OBSOLETE published 已在且正式key/executor正确；待生效作废 policy、remediation template、activation job 都缺。旧 seed/目录/菜单/权限不重放。
 - Master normalized_file_number utf8mb4_bin、现有新 logical identity 两索引及 claim active generated事实已核验；旧 master chain unique 仍在，正式 P1负责清理。容量 reason255→2000 纳入既有正式前向迁移。
 - 扩展正式 metadata/manifest/policy gate 为19根/45完整闭包 PASS。真正候选19 SQL按拓扑固定SHA，包含14新结构root+旧P1约束清理+reason容量+V4/future policy/remediation三个新增配置，未包含paused activation SQL执行。旧base/catalog 精确历史hash保留，不采用当前不同语义文件覆盖账本。
-- 源库只读备份：全表结构 gzip172127 bytes；210相关表数据 gzip26304379 bytes，展开310582007 bytes；16个实际受影响原表另有独立schema+data gzip2852433 bytes，展开47276368 bytes。三项gzip完整性/退出码/SHA256通过。原库回滚只能使用16表载荷，不能恢复全表schema覆盖其它表。保护载荷位于仓库之外 C:/IntRuoyiBackups/20261003-dcc-integration，不提交业务数据或凭据，不宣称对象附件灾备。尚未恢复演练。
+- 源库只读备份：全表结构 gzip172127 bytes；210相关表数据 gzip26304379 bytes，展开310582007 bytes；16个实际受影响原表另有独立schema+data gzip2852433 bytes，展开47276368 bytes。三项gzip完整性/退出码/SHA256通过。原库回滚只能使用16表载荷，不能恢复全表schema覆盖其它表。保护载荷位于仓库之外 历史外部材料（引用已移除），不提交业务数据或凭据，不宣称对象附件灾备。尚未恢复演练。
 - 数据库写入授权 question 已按具体方案发送：先同容器任务隔离真实副本演练，通过后才升级本机测试库；未答不能依赖时间执行。备份与候选清单可Review，SQL不直接代办E2E业务。
 
 ## 仍须推进

@@ -4,11 +4,11 @@
 
 当任务涉及 IntRuoyi 运行控制台真实 E2E 构建发布包、发布到测试服、发布包候选验收或构建发布失败重试时，先读本文。
 
-本文只沉淀可复用经验；正式发布规则仍以 `E:\IntRuoyi\docs\release-backup-restore.md`、`server-access.md` 和 `login-access.md` 为准。
+本文只沉淀可复用经验；正式发布规则仍以 `./docs/release-backup-restore.md`、`server-access.md` 和 `login-access.md` 为准。
 
-如任务目标是让 Codex 直接照清单执行，请同时读取 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-agent-checklist.md`。
+如任务目标是让 Codex 直接照清单执行，请同时读取 `./docs/release-agent-checklist.md`。
 
-如果任务是“仅测试服发布”或“当前提交发布到测试服”，先读取 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md` 作为阶段门禁入口；本文保留详细故障经验和诊断规则。
+如果任务是“仅测试服发布”或“当前提交发布到测试服”，先读取 `./docs/test-release-preflight.md` 作为阶段门禁入口；本文保留详细故障经验和诊断规则。
 
 ## 通用发布验证基线
 
@@ -39,7 +39,7 @@
 
 2. 先预拉 Docker 基础镜像。
    - 构建前扫描 Dockerfile 中的 `FROM`：
-     `rg -n "^FROM " E:\IntRuoyi\IntRuoyiBackend E:\IntRuoyi\IntRuoyiFronted -g Dockerfile*`
+     `rg -n "^FROM " ./IntRuoyiBackend ./IntRuoyiFronted -g Dockerfile*`
    - 对每个基础镜像执行 `docker pull <image>` 和 `docker image inspect <image>`。
    - 本次已证明 `nginx:1.27-alpine` 拉取超时或 EOF 会让前端镜像构建在后半程失败，必须在真实 E2E 提交前提前发现。
 
@@ -51,12 +51,12 @@
 
 4. 先释放 Maven target 和 jar 锁。
    - 构建前至少验证：
-     `mvn -f E:\IntRuoyi\IntRuoyiBackend\pom.xml -pl yudao-module-dcc -DskipTests clean`
-     `mvn -f E:\IntRuoyi\IntRuoyiBackend\pom.xml -pl yudao-server -DskipTests clean`
+     `mvn -f ./IntRuoyiBackend/pom.xml -pl yudao-module-dcc -DskipTests clean`
+     `mvn -f ./IntRuoyiBackend/pom.xml -pl yudao-server -DskipTests clean`
    - 如果 `yudao-server\target\yudao-server.jar` 被 Java 进程占用，先让本机后端运行在复制出的 runtime jar 上，释放 target jar 后再构建。
    - 不要在 target jar 被锁时反复点构建按钮。
    - 本地后端重启会走多模块编译；若阻塞在非目标模块的接口/实现签名漂移，先对失败模块跑定向 `mvn -pl <module> -DskipTests compile`，用最小签名对齐修复，再回到原重启链路。不要跳过失败模块或用旧 Jar 冒充新运行态。
-   - 多个 Codex 线程或终端同时在同一个 `E:\IntRuoyi\IntRuoyiBackend` 执行 Maven，会争抢同一套 `target` 目录并制造 `NoSuchFileException`、class 文件缺失、testCompile 假失败等噪声。重启或发布前先只读扫描 `java.exe` 命令行里的 `maven.multiModuleProjectDirectory=E:\IntRuoyi\IntRuoyiBackend`；发现非当前任务 Maven 时，先暂停对应任务或停止冲突进程，再重跑最小失败模块验证。
+   - 多个 Codex 线程或终端同时在同一个 `./IntRuoyiBackend` 执行 Maven，会争抢同一套 `target` 目录并制造 `NoSuchFileException`、class 文件缺失、testCompile 假失败等噪声。重启或发布前先只读扫描 `java.exe` 命令行里的 `maven.multiModuleProjectDirectory=./IntRuoyiBackend`；发现非当前任务 Maven 时，先暂停对应任务或停止冲突进程，再重跑最小失败模块验证。
 
 5. 先验证真实 E2E 预览边界。
    - 构建预览必须包含 `-Mode build-release`、`-Component intruoyi`、`-SkipDatabaseSync`、`-SkipMinioSync`。
@@ -245,7 +245,7 @@
 
 - 触发场景：构建发布前为维护仓、后端仓、前端仓创建本轮专用 release worktree。
 - 失败现象：使用完整任务 ID 和完整仓库名组成深层 worktree 路径时，维护仓 checkout 历史 evidence 或构建产物路径可能触发 `Filename too long` 和 `fatal: Could not reset index file to revision 'HEAD'`，导致维护仓未完成检出而后端/前端已部分创建。
-- 前置门禁：发布 worktree 根路径必须采用短目录名，例如 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r260706ce`；三仓子目录使用短名 `m`、`b`、`f`，并在任务文档记录短路径与完整 taskId 的映射。
+- 前置门禁：发布 worktree 根路径必须采用短目录名，例如 `../IntRuoyiWorktree/r260706ce`；三仓子目录使用短名 `m`、`b`、`f`，并在任务文档记录短路径与完整 taskId 的映射。
 - 处理要求：一旦发生长路径失败，先冻结 git 输出、failure JSON、三仓 `git worktree list --porcelain` 和残留目录清单；只清理本次失败路径下的部分 worktree，执行 `git worktree prune`，再用短路径重建并确认三仓 `dirty=false` 后才能继续构建或发布。
 
 ## 2026-07-06 build-release 目标主机参数必须一次性显式传齐
@@ -607,7 +607,7 @@
 - Blocker: 任一 release worktree 出现 `?? runtime/`、operation state、logs、cache 或其它未跟踪运行态目录；manifest sourceRepos 可能被标记 dirty。
 - Verification: 启动运行控制台后记录 `git status --porcelain --ignored=no` 为空，`BackendRepoRoot`/`FrontendRepoRoot` 指向本轮 worktree，state-dir 指向 worktree 外部固定任务目录。
 - Forbidden action: 不得在 release worktree dirty 时继续 build-release；不得把未跟踪 state/log/cache 目录混入发布来源证明。
-- Evidence: `doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md` P018；`r260713g` 将 state-dir 移至 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r260713g-state` 后 manifest dirty=false；`doc/tasks/20260713-current-head-test-only-release/execution-log.md` 的 `runtime-dir-dirty-after-resume`。
+- Evidence: `doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md` P018；`r260713g` 将 state-dir 移至 `../IntRuoyiWorktree/r260713g-state` 后 manifest dirty=false；`doc/tasks/20260713-current-head-test-only-release/execution-log.md` 的 `runtime-dir-dirty-after-resume`。
 
 ## 2026-07-13 clean maintenance worktree local config 与 runtime 输出门禁
 
@@ -616,7 +616,7 @@
 - Blocker: 无法证明 runtime-control 指向冻结 worktree；构建后出现 `?? runtime/`、operation state、logs/cache 等未跟踪目录；配置采集会输出密码、token、连接串或完整 `.env`。
 - Verification: 记录外部 config/state 路径、运行控制台 health=UP、进程命令行指向冻结 Jar，三仓 release worktree `status --porcelain --ignored=no` 为空。
 - Forbidden action: 不得把主工作区 local config 复制进 release worktree 并提交/打包；不得在维护 worktree dirty 时继续 build-release。
-- Evidence: `doc/tasks/20260713-current-head-test-only-release-rerun/task.md` P001/P002，release worktree `D:\ProjectPackage\Int\IntRuoyiWorktrees\r260713u`。
+- Evidence: `doc/tasks/20260713-current-head-test-only-release-rerun/task.md` P001/P002，release worktree `../IntRuoyiWorktree/r260713u`。
 
 ## 2026-07-13 发布包可用性与历史 migration 失败分层门禁
 

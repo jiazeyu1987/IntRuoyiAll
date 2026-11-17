@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWork
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -18,12 +20,35 @@ import java.util.Set;
 public class MesEdhrTaskDeadlineService {
     public static final String SCOPE = "ROUTE_DEADLINE";
     public static final Set<String> TYPES = Set.of("DEVIATION_RECEIVE", "DEVIATION_CORRECT",
-            "DEVIATION_SIGN", "DEVIATION_APPROVE", "DEVIATION_CLOSE", "RECORD_CHANGE_APPROVE",
+            "DEVIATION_SIGN", "DEVIATION_VERIFY", "DEVIATION_APPROVE", "DEVIATION_CLOSE", "RECORD_CHANGE_APPROVE",
             "RECORD_CHANGE_REWORK", "RECORD_CHANGE_CORRECTION", "DOSSIER_COMPLETE", "PQC_RELEASE_CORRECTION", "RELEASE_APPROVE",
             "QA_REVIEW", "QA_DECISION_HANDOFF");
     @Resource private MesProEdhrWorkTaskAssignmentRuleMapper rules;
     @Resource private MesProEdhrBatchExecutionMapper batches;
     @Resource private MesProRouteMapper routes;
+    @Resource private MesProcessPoolActiveOrderMapper activeOrders;
+
+    public Long requireDeviationRouteId(MesProEdhrDeviationDO deviation) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (deviation == null || !tenantId.equals(deviation.getTenantId()))
+            throw new IllegalArgumentException("偏差任务缺少当前租户的正式来源");
+        Long routeId;
+        if (deviation.getBatchExecutionId() != null) {
+            var batch = batches.selectById(deviation.getBatchExecutionId());
+            if (batch == null || !tenantId.equals(batch.getTenantId())
+                    || !java.util.Objects.equals(deviation.getWorkOrderId(), batch.getWorkOrderId()))
+                throw new IllegalStateException("偏差任务的正式批次来源无效");
+            routeId = batch.getRouteId();
+        } else {
+            var order = deviation.getActiveOrderId() == null ? null : activeOrders.selectById(deviation.getActiveOrderId());
+            if (order == null || !tenantId.equals(order.getTenantId())
+                    || !java.util.Objects.equals(deviation.getWorkOrderId(), order.getWorkOrderId()))
+                throw new IllegalStateException("偏差任务的活跃订单来源无效");
+            routeId = order.getRouteId();
+        }
+        if (routeId == null) throw new IllegalStateException("偏差任务来源缺少正式路线");
+        return routeId;
+    }
 
     public List<MesProEdhrWorkTaskAssignmentRuleDO> list(Long routeId) {
         requireRoute(routeId);

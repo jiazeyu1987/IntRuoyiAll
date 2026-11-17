@@ -101,7 +101,9 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
         Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         LocalDate chunkStart = windowStart.toLocalDate();
         while (chunkStart.isBefore(endDateExclusive)) {
-            LocalDate chunkEndExclusive = chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS);
+            if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("同步任务已停止");
+            LocalDate chunkEndExclusive = windowStart.getYear() == 1970 ? endDateExclusive
+                    : chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS);
             if (chunkEndExclusive.isAfter(endDateExclusive)) {
                 chunkEndExclusive = endDateExclusive;
             }
@@ -129,6 +131,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                                 Map<String, ErpKingdeeProductionPickList> result) {
         int startRow = 0;
         while (true) {
+            if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("同步任务已停止");
             JsonNode rows = executeBillQuery(
                     properties, cookieHeader, chunkStart, chunkEndExclusive,
                     startRow, FULL_QUERY_PAGE_LIMIT);
@@ -152,6 +155,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
         int startRow = 0;
         Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         while (true) {
+            if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException("同步任务已停止");
             JsonNode rows = executeIncrementalBillQuery(
                     properties, cookieHeader, windowStart, windowEnd, startRow);
             validateRows(rows);

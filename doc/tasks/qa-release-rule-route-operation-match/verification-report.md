@@ -33,6 +33,6 @@ completed
 
 ## Closeout
 
-- BUG EVIDENCE VALIDATION: python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\qa-release-rule-route-operation-match\bug-regression-evidence.md -> PASS.
+- BUG EVIDENCE VALIDATION: python 会话技能：bug-regression-fix-loop --evidence doc\tasks\qa-release-rule-route-operation-match\bug-regression-evidence.md -> PASS.
 - CLEANUP PREVIEW: task-closeout-cleanup preview -> PASS; keep task.md, execution-log.md, verification-report.md, bug-regression-evidence.md; delete/blocked/warnings none.
 - CLEANUP APPLY: task-closeout-cleanup apply -> PASS; deleted_paths none.

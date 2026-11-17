@@ -87,7 +87,7 @@
 - `test_case_id`: TC-09
 - `mapped_task_ids`: [T9]
 - `mapped_acceptance_ids`: [AC-13, AC-14, AC-15, AC-16, AC-17]
-- `environment or setup`: `E:\IntRuoyi\IntRuoyiBackend`，无任务自有未完成修复；允许至少 45 分钟有限超时。
+- `environment or setup`: `./IntRuoyiBackend`，无任务自有未完成修复；允许至少 45 分钟有限超时。
 - `steps`: 执行 `mvn -pl yudao-module-mes test`，解析最终 Surefire 汇总和 skipped 清单。
 - `expected_result`: 退出码 0、`BUILD SUCCESS`、0 failures、0 errors；无新增/扩大跳过。
 - `evidence`: 完整 Maven 输出与 `test-report.md`。

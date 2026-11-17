@@ -561,19 +561,7 @@ const openAttachmentPreview = (businessFileId: number | string, fileName: string
 const isAttachmentDownloading = (businessFileId: number | string) =>
   downloadingBusinessFileId.value === String(businessFileId)
 
-const resolveRegistrationCertificateDownloadFileName = (fileName: string, expired: boolean) => {
-  const normalizedName = fileName.trim()
-  if (!expired || normalizedName.includes('已失效')) {
-    return normalizedName
-  }
-  const extensionIndex = normalizedName.lastIndexOf('.')
-  if (extensionIndex <= 0) {
-    return `${normalizedName}_已失效`
-  }
-  const baseName = normalizedName.slice(0, extensionIndex)
-  const extension = normalizedName.slice(extensionIndex + 1)
-  return `${baseName}_已失效.${extension}`
-}
+
 
 const isOldRegistrationCertificateDetail = computed(() =>
   viewMode.value === 'old-detail' || detail.value?.status === 'OLD'

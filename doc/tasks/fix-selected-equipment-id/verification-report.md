@@ -13,7 +13,7 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-item-equipment-standard-method-static.spec.js doc/tasks/fix-selected-equipment-id/task.md doc/tasks/fix-selected-equipment-id/execution-log.md` -> PASS, LF/CRLF warnings only.
 - GREEN: `rg -n "selectedEquipmentId|CODX-AO5-QA-FINAL|assertPqcSubmissionItemEquipmentSelections" docs\experience-index.md docs\frontend-development.md` -> PASS.
-- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-selected-equipment-id\bug-regression-evidence.md` -> PASS.
+- GREEN: `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-selected-equipment-id\bug-regression-evidence.md` -> PASS.
 
 ## Non-Target Regression Notes
 

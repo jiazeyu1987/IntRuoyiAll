@@ -129,7 +129,7 @@
 - Blocker: 扫描发现超过 100 MB 的 blob，或 `git push` 返回 `GH001: Large files detected` / `pre-receive hook declined`。
 - Verification: 记录对象扫描结果、`git push origin <branch>` 退出码、以及推送后的 `git status --short --branch`。
 - Forbidden action: 禁止未经用户明确授权就执行历史重写、Git LFS 迁移、快照分支替代、force push 或删除远端历史。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`。
+- Evidence: `./docs/release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`。
 
 ### GitHub HTTPS 443 本地代理门禁
 
@@ -189,7 +189,7 @@
 ### Codex Windows PowerShell 精确前缀门禁
 
 - Trigger: Codex 普通 PowerShell、Node REPL 或 apply_patch 因 Windows helper ACL 报错，但需要继续创建任务目录、写任务文档或更新 AGENTS.md。
-- Preflight check: 优先使用已批准精确前缀 C:\windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command ...，并显式设置 workdir=E:\IntRuoyi；脚本内容用单引号保护，避免外层 shell 展开变量，不额外夹 -NoProfile。
+- Preflight check: 优先使用已批准精确前缀 powershell -Command ...，并显式设置 workdir=.；脚本内容用单引号保护，避免外层 shell 展开变量，不额外夹 -NoProfile。
 - Blocker: 精确前缀仍失败、目标路径不属于当前任务、需要触碰并发任务文件、或写入后无法 UTF-8 回读时停止，不得随机换 shell。
 - Verification: 先做 smoke：创建任务目录临时文件、显式 UTF-8 写入、UTF-8 回读、删除并确认无残留；正式写入后复核目标 baseline 或片段出现次数。
 - Forbidden action: 禁止把 ACL/helper 故障误写成业务代码失败；禁止用默认编码写中文文档；禁止在未指定 workdir 时操作项目文件。

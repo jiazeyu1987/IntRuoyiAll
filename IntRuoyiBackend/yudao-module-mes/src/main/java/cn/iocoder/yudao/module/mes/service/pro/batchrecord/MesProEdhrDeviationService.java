@@ -11,6 +11,11 @@ import java.util.List;
 
 public interface MesProEdhrDeviationService {
 
+    PageResult<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationOrderOptionRespVO> getOrderOptions(
+            MesProEdhrDeviationBatchOptionPageReqVO reqVO);
+
+    MesProEdhrDeviationRespVO createByWorkOrder(Long actorUserId, MesProEdhrDeviationCreateReqVO reqVO);
+
     List<MesProEdhrDeviationBatchOptionRespVO> getCreationBatchOptionsByActiveOrder(Long actorUserId, Long activeOrderId);
 
     PageResult<MesProEdhrDeviationBatchOptionRespVO> getBatchOptions(

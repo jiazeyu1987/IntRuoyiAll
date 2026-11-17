@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -12,6 +11,10 @@ import java.util.List;
 
 @Data
 public class MesProEdhrDeviationCreateReqVO {
+
+    /** Production-order selector used by deviation administrators. */
+    @jakarta.validation.constraints.Positive
+    private Long workOrderId;
 
     // Supplied by the order-scoped entry, never used to infer a batch.
     private Long activeOrderId;
@@ -38,7 +41,7 @@ public class MesProEdhrDeviationCreateReqVO {
     @Size(max = 255)
     private String equipmentOrSystem;
     private LocalDateTime reportedAt;
-    @NotNull
+    /** Required only for the production leader entry; standalone creation assigns the initiator. */
     @jakarta.validation.constraints.Positive
     private Long receiverId;
     @Size(max = 128)

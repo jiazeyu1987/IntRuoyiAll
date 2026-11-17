@@ -34,6 +34,43 @@ import static org.mockito.Mockito.when;
 @Import(MesDvMachineryServiceImpl.class)
 class MesDvMachineryServiceImplTest extends BaseDbUnitTest {
 
+    @MockitoBean
+    private cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard sharedChangeGuard;
+
+    @Test
+    void updateReferencedMachinery_requiresSharedChangeWithoutWriting() {
+        MesDvMachineryDO equipment = MesDvMachineryDO.builder().code("SHARED-A").name("原设备").build();
+        machineryMapper.insert(equipment);
+        MesDvMachinerySaveReqVO request = new MesDvMachinerySaveReqVO();
+        request.setId(equipment.getId());
+        request.setName("修改设备");
+        org.mockito.Mockito.doThrow(new IllegalStateException("requires shared change"))
+                .when(sharedChangeGuard).assertDirectUpdateAllowed("DEVICE", equipment.getId());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> machineryService.updateMachinery(request));
+        assertEquals("原设备", machineryMapper.selectById(equipment.getId()).getName());
+    }
+
+    @Test
+    void importCannotOverwriteReferencedMachineryAndRollsBackEarlierRows() {
+        var equipment = MesDvMachineryDO.builder().code("SHARED-IMPORT").name("原设备").build();
+        machineryMapper.insert(equipment);
+        when(machineryTypeService.getMachineryTypeList(any(cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.type.MesDvMachineryTypeListReqVO.class)))
+                .thenReturn(List.of(MesDvMachineryTypeDO.builder().id(2001L).code("TYPE").build()));
+        when(workshopService.getWorkshopListByStatus(anyInt()))
+                .thenReturn(List.of(MesMdWorkshopDO.builder().id(3001L).code("WS").name("一车间").build()));
+        var first = MesDvMachineryImportExcelVO.builder().code("NEW-BEFORE-SHARED").name("新设备")
+                .machineryTypeCode("TYPE").workshopCode("WS").build();
+        var second = MesDvMachineryImportExcelVO.builder().code("SHARED-IMPORT").name("覆盖设备")
+                .machineryTypeCode("TYPE").workshopCode("WS").build();
+        org.mockito.Mockito.doThrow(new IllegalStateException("requires shared change"))
+                .when(sharedChangeGuard).assertDirectUpdateAllowed("DEVICE", equipment.getId());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> machineryService.importMachineryList(List.of(first, second), true));
+        assertEquals("原设备", machineryMapper.selectById(equipment.getId()).getName());
+        org.junit.jupiter.api.Assertions.assertNull(machineryMapper.selectByCode(first.getCode()));
+    }
+
     @Resource
     private MesDvMachineryServiceImpl machineryService;
 

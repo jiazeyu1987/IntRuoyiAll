@@ -52,7 +52,7 @@ for (const token of [
   'fileTypeTaxonomyId',
   'fileName',
   '项目文件模板不能为空',
-  '文件分类至少选择到第三级',
+  '文件分类（可选）',
   '模板中存在重复的文件分类和文件名称'
 ]) {
   assert.ok(templateEditor.includes(token), `template editor must expose ${token}`)
@@ -73,24 +73,14 @@ for (const token of [
   'projectFileTemplateItems',
   'projectFileTemplateLoading',
   'projectFileTemplateError',
-  'selectedProjectTemplateStageId',
-  'selectedProjectTemplateTypeId',
-  'selectedProjectTemplateItemId',
-  'projectTemplateStageOptions',
-  'projectTemplateTypeOptions',
   'projectTemplateFileOptions',
   'loadProjectFileTemplate',
   'resetProjectFileTemplateSelection',
-  'handleProjectTemplateStageChange',
-  'handleProjectTemplateTypeChange',
-  'handleProjectTemplateFileSelect',
-  'label="阶段"',
   'label="文件类型"',
-  '项目文件模板未配置',
-  'formData.fileTypeTaxonomyId = templateItem.fileTypeTaxonomyId',
-  'formData.fileName = templateItem.fileName'
+  '可选项目模板参考读取失败',
+  'getFileTypeTaxonomyUploadOptions'
 ]) {
-  assert.ok(uploadPage.includes(token), `upload page must use project template token ${token}`)
+  assert.ok(uploadPage.includes(token), `upload page must expose optional template integration ${token}`)
 }
 
 assert.match(
@@ -100,10 +90,10 @@ assert.match(
 )
 
 assert.ok(
-  !uploadPage.includes('getFileTypeTaxonomyUploadOptions') &&
-  !uploadPage.includes('projectFileTemplateItems.value.length ?') &&
-    !uploadPage.includes('projectFileTemplateItems.value.length || fileTypeTaxonomies.value'),
-  'upload must not fall back to the global taxonomy when the project template is empty'
+  !uploadPage.includes('selectedProjectTemplateStageId') &&
+    !uploadPage.includes('selectedProjectTemplateTypeId') &&
+    !uploadPage.includes('项目文件模板未配置'),
+  'optional project templates must not impose mandatory stage/type presets on upload'
 )
 
 console.log('PASS: DCC project file template static contract')

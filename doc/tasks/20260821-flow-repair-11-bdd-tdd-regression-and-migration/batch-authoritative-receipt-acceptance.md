@@ -67,8 +67,8 @@ Given 建批成功且来源凭证 ID/hash/snapshot 已持久化；When 流程7�
 流程6/9提交后，在主线程托管的干净 integration worktree 执行：
 
     $env:MAVEN_OPTS='-Xms256m -Xmx1536m -XX:MaxMetaspaceSize=384m -XX:CICompilerCount=2'
-    & 'C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd' -o -pl yudao-module-mes -am -DskipTests compile
-    & 'C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd' -o -pl yudao-module-mes -Dtest=MesBatchExecutionEntryContractTest,MesProductionReleaseBatchExecutionPortTest,MesIndependentBatchPrerequisiteReceiptServiceTest,MesIndependentBatchPrerequisiteReceiptSqlContractTest,MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test
+    & 'mvn' -o -pl yudao-module-mes -am -DskipTests compile
+    & 'mvn' -o -pl yudao-module-mes -Dtest=MesBatchExecutionEntryContractTest,MesProductionReleaseBatchExecutionPortTest,MesIndependentBatchPrerequisiteReceiptServiceTest,MesIndependentBatchPrerequisiteReceiptSqlContractTest,MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test
 
 GREEN 仅在目标测试真实进入 Surefire 且 Failures=0, Errors=0 时成立；若只通过 receipt service 单测而未证明建批持久化和流程7消费，不得标记专项通过。
 

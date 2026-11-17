@@ -100,6 +100,24 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
         return fids;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeBomListSyncResult syncAllWithUpdates() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
+        Set<String> existing = new HashSet<>();
+        for (String fid : validateSnapshot(lines)) {
+            if (bomListMapper.countBySourceFid(fid) > 0) existing.add(fid);
+        }
+        syncLines(lines);
+        MesKingdeeBomListSyncResult result = new MesKingdeeBomListSyncResult();
+        for (ErpKingdeeBomLine line : lines) {
+            if (existing.contains(line.getFid())) result.addUpdated(); else result.addCreated();
+        }
+        return result;
+    }
+
     private int syncLines(List<ErpKingdeeBomLine> lines) {
         LocalDateTime now = LocalDateTime.now();
         Set<String> fids = validateSnapshot(lines);

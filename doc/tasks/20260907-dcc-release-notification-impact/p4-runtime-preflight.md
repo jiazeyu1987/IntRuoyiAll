@@ -9,8 +9,8 @@ The current main workspace contains unrelated concurrent changes. Runtime accept
 ## Tooling
 
 - Playwright prerequisite: `npx` is available on this machine.
-- Frontend project: `E:\IntRuoyi\IntRuoyiFronted`.
-- Backend project: `E:\IntRuoyi\IntRuoyiBackend`.
+- Frontend project: `./IntRuoyiFronted`.
+- Backend project: `./IntRuoyiBackend`.
 - Canonical local restart tool: `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1`.
 - Migration policy gate: `IntRuoyiBackend\script\release\run-release-migration-policy-gate.py`.
 - Main runtime ports: frontend `8081`, backend `48081`. Ownership and process identity must be checked immediately before any restart.

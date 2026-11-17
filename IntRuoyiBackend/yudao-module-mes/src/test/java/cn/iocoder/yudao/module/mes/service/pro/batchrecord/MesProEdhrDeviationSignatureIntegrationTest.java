@@ -44,6 +44,8 @@ class MesProEdhrDeviationSignatureIntegrationTest extends BaseDbUnitTest {
 
     @Resource
     private MesProEdhrDeviationServiceImpl deviationService;
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private MesProEdhrDeviationAccessService accessService;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
@@ -59,6 +61,9 @@ class MesProEdhrDeviationSignatureIntegrationTest extends BaseDbUnitTest {
 
     @org.junit.jupiter.api.BeforeEach
     void stubAdministrator() {
+        when(administratorService.requireReceiver(701L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO()
+                        .setId(701L).setNickname("发起管理员"));
         when(administratorService.requireReceiver(801L)).thenReturn(
                 new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO()
                         .setId(801L).setNickname("偏差管理员"));

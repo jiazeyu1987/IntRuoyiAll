@@ -1113,6 +1113,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setReleaseApplicationVersion(activeOrder.getReleaseApplicationVersion())
                 .setQuantityConflict(activeOrder.getQuantityConflict())
                 .setHasQuantityConflict(activeOrder.getHasQuantityConflict())
+                .setHasParameterAbnormal(activeOrder.getHasParameterAbnormal())
                 .setQuantityConflictProcessCount(activeOrder.getQuantityConflictProcessCount())
                 .setOverageQuantity(activeOrder.getOverageQuantity())
                 .setSimulated(activeOrder.getSimulated())

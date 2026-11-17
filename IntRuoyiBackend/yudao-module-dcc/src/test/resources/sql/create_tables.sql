@@ -1810,7 +1810,7 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
 CREATE TABLE IF NOT EXISTS `dcc_project_file_template_item` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `project_code_id` BIGINT NOT NULL,
-  `file_type_taxonomy_id` BIGINT NOT NULL,
+  `file_type_taxonomy_id` BIGINT NULL,
   `file_name` VARCHAR(255) NOT NULL,
   `sort_order` INT NOT NULL DEFAULT 0,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
@@ -1822,9 +1822,10 @@ CREATE TABLE IF NOT EXISTS `dcc_project_file_template_item` (
   `active_unique_flag` BIGINT GENERATED ALWAYS AS (
     CASE WHEN `deleted` = 0 THEN 1 ELSE NULL END
   ),
+  `taxonomy_unique_key` VARCHAR(21) GENERATED ALWAYS AS (CASE WHEN `file_type_taxonomy_id` IS NULL THEN 'none' ELSE CAST(`file_type_taxonomy_id` AS VARCHAR(21)) END),
   PRIMARY KEY (`id`),
   CONSTRAINT `uk_dcc_project_file_template_item_active`
-    UNIQUE (`tenant_id`, `project_code_id`, `file_type_taxonomy_id`, `file_name`, `active_unique_flag`)
+    UNIQUE (`tenant_id`, `project_code_id`, `taxonomy_unique_key`, `file_name`, `active_unique_flag`)
 );
 
 CREATE TABLE IF NOT EXISTS `mdm_enterprise` (

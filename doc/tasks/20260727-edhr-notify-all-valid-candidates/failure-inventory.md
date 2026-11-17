@@ -9,7 +9,7 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 | Suite | First observed root signal |
 | --- | --- |
 | `MesProBatchRecordVersionPhaseTwoMigrationContractTest` | draft reupload contract no longer matches the real import call |
-| `MesProEdhrFormFillLogMenuContractTest` | hard-coded stale frontend root `E:\IntRuoyi\yudao-ui-admin-vue3` |
+| `MesProEdhrFormFillLogMenuContractTest` | hard-coded stale frontend root `./IntRuoyiFronted` |
 | `MesProEdhrTemplateConfigMenuRemovalContractTest` | shared `DesignerWrapper` contract mismatch |
 
 ## T3 Schema, Spring Context And H2 Isolation

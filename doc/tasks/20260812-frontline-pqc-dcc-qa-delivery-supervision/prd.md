@@ -61,7 +61,7 @@ Then 主管不得启动后续波次，也不得用后继任务填满并发。
 - FR-01 主管必须读取 AGENTS.md、触发规则、设计包、评审证据、Git 状态、worktree 状态和端口脚本状态；设计评审未通过时停止开发。
 - FR-02 主管最多同时运行 3 个工作子 Agent；平台容量不足时必须先报告实际容量。
 - FR-03 任务必须按 Wave 0 C00；Wave 1 DF01/DF02/DF03/DF05；Wave 2 DF04；Wave 3 DF06；Wave 4 DF07；Wave 5 DF08；Wave 6 DF09；Wave 7 DF10/DF11；Wave 8 INT12；Wave 9 VAL13 执行。
-- FR-04 每个实现任务必须从包含全部前置任务的最新 int_main 创建独立分支和 D:\IntRuoyiWorktree\ 下的独立 worktree。
+- FR-04 每个实现任务必须从包含全部前置任务的最新 int_main 创建独立分支和 ../IntRuoyiWorktree/ 下的独立 worktree。
 - FR-05 每个工作子 Agent 必须收到通用业务背景、对应任务文档、共享接口合同、前置任务和已冻结接口、文件所有权和禁止修改范围、验收命令。
 - FR-06 工作子 Agent 只能修改任务文档明确归属的文件和自己的任务记录；不得自行合并 int_main 或删除 worktree。
 - FR-07 每个任务必须先记录 Given/When/Then 场景，再运行并记录真实 RED，随后实现最小正式方案并记录 GREEN 和回归验证。
@@ -97,7 +97,7 @@ Then 主管不得启动后续波次，也不得用后继任务填满并发。
 
 - 设计放行依赖：.review-fix-loop/runs/20260812T001009Z-e59e06/ 已通过；旧失败运行仅保留为历史证据。
 - 代码基线依赖：每个任务从最新 int_main 创建，且前置任务已合入 int_main。
-- 目录依赖：所有 worktree 必须位于 D:\IntRuoyiWorktree\。
+- 目录依赖：所有 worktree 必须位于 ../IntRuoyiWorktree/。
 - 端口依赖：服务启动前必须运行 scripts\runtime\reserve-worktree-slot.ps1。
 - 规则依赖：后端、前端、数据库、E2E、登录、运行态、Git、PowerShell 操作必须先读取对应 docs\*.md 触发规则。
 - 业务依赖：QA 与生产路线唯一交点是 DCC 项目代码；QA 工序不与 MES 工序建立映射。
@@ -108,7 +108,7 @@ Then 主管不得启动后续波次，也不得用后继任务填满并发。
 - AC-01 启动门禁通过：主管已确认 AGENTS.md、触发规则、设计通过证据、Git int_main 状态、现有并发修改、worktree 根目录和端口脚本；任何前置缺失均记录阻塞并停止开发。
 - AC-02 并发规则满足：任一时刻工作子 Agent 数量不超过 3；平台容量不足时有明确报告；波次任务少于 3 个时没有启动后继波次填充并发。
 - AC-03 波次依赖严格：C00、DF01-DF11、INT12、VAL13 均按规定 Wave 顺序推进，后继任务只在全部前置合入 int_main 后启动。
-- AC-04 任务隔离完整：每个实现任务都有独立分支、独立 D:\IntRuoyiWorktree\ worktree、任务自有文档和提交，且工作子 Agent 未越权。
+- AC-04 任务隔离完整：每个实现任务都有独立分支、独立 ../IntRuoyiWorktree/ worktree、任务自有文档和提交，且工作子 Agent 未越权。
 - AC-05 BDD/TDD 证据完整：每个实现任务均记录 BDD、真实 RED、GREEN、回归验证和对应命令结果；缺失证据的任务不得合并。
 - AC-06 业务链路正确：一线从全部有效活跃订单选择 activeOrderId 后，按订单锁定的 DCC/QA 版本读取 QA 自有工序和项目，并叠加 PQC 任务状态；PQC task 不过滤工序或项目。
 - AC-07 QA-DCC 边界正确：QA 规程只通过 DCC 项目代码关联；没有产品、路线版本、MES 工序存在性校验，没有 DCC 侧 QA 绑定表或后端反向依赖。

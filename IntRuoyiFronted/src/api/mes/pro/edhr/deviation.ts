@@ -22,7 +22,14 @@ export interface DeviationBatchOptionRespVO {
   batchStatus?: string
 }
 
+export interface DeviationOrderOptionRespVO {
+  workOrderId: number | string
+  workOrderCode: string
+  batchCode?: string
+}
+
 export interface DeviationCreateReqVO {
+  workOrderId?: number | string
   activeOrderId?: number | string
   batchExecutionId?: number
   level: 'NORMAL' | 'CRITICAL'
@@ -38,6 +45,8 @@ export interface DeviationCreateReqVO {
 }
 
 export interface DeviationRespVO {
+  receiverId?: number | string
+  version?: number
   canTransferToNcr?: boolean
   transferToNcrBlockedReason?: string
   id: number
@@ -81,6 +90,13 @@ export interface DeviationHandlingRespVO {
   contentHash?: string
   reviewerAssignments?: Record<string, number | string>
   reviewReady?: boolean
+  investigationSubmitted?: boolean
+  correctiveStatus?: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'VERIFIED'
+  correctiveResult?: string
+  correctiveEvidenceUrlsJson?: string
+  canEditInvestigation?: boolean
+  canSubmitCorrective?: boolean
+  canVerifyCorrective?: boolean
   effectiveSignatureIds?: Record<string, number | string>
   correctiveOwnerId?: number | string
   nonconformanceReviewCode?: string
@@ -155,6 +171,9 @@ export interface DeviationHandlingRespVO {
 export const getDeviationPage = (params: DeviationPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) =>
   request.get({ url: '/mes/pro/edhr-deviation/page', params, ignoreErrorMessage: options?.ignoreErrorMessage })
 
+export const getDeviationOrderOptions = (params: PageParam & { search?: string }) =>
+  request.get<{ list: DeviationOrderOptionRespVO[]; total: number }>({ url: '/mes/pro/edhr-deviation/order-options', params })
+
 export const getDeviationBatchOptions = (params: PageParam & { search?: string }) =>
   request.get({ url: '/mes/pro/edhr-deviation/batch-options', params })
 
@@ -201,3 +220,15 @@ export interface DeviationAdministratorOption {
 }
 export const getDeviationReceiverCandidates = () =>
   request.get<DeviationAdministratorOption[]>({ url: '/mes/pro/edhr-deviation/receiver-candidates' })
+
+export interface DeviationHandlingVersion {
+  deviationId: number
+  expectedContentVersion: number
+  expectedContentHash: string
+}
+export const submitDeviationInvestigation = (data: DeviationHandlingVersion) =>
+  request.post<DeviationHandlingRespVO>({ url: '/mes/pro/edhr-deviation-handling/submit-investigation', data })
+export const submitDeviationCorrective = (data: DeviationHandlingVersion & { result: string; completedAt: string; evidenceUrls: string[] }) =>
+  request.post<DeviationHandlingRespVO>({ url: '/mes/pro/edhr-deviation-handling/corrective-submit', data })
+export const verifyDeviationCorrective = (data: DeviationHandlingVersion & { passed: boolean; comment: string }) =>
+  request.post<DeviationHandlingRespVO>({ url: '/mes/pro/edhr-deviation-handling/corrective-verify', data })

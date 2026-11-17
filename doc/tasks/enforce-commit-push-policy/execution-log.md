@@ -16,7 +16,7 @@
 - `project-experience-consolidation SKILL.md` -> PASS，确认无合适已有 PowerShell/Git 共同经验归宿时必须先取得用户授权再新建长期经验文档。
 - `USER authorization -> PASS`，用户回复“允许”，授权新建 `docs\powershell-memory.md` 作为长期经验文档。
 - `docs\powershell-memory.md edit -> PASS`，新增 PowerShell/Git 共同前置经验，覆盖提交推送、脏工作区基线、GitHub 大文件和 PowerShell 编排门禁。
-- `rg GitHub 推送 D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md` -> PASS，定位 `2026-07-24 GitHub 推送前历史大文件门禁`。
+- `rg GitHub 推送 ./docs/release-build-preflight-lessons.md` -> PASS，定位 `2026-07-24 GitHub 推送前历史大文件门禁`。
 - `git add -A; git restore --staged -- AGENTS.md docs\task-closeout-rules.md docs\powershell-memory.md doc\tasks\enforce-commit-push-policy; git diff --cached --name-status` -> PASS，暂存 152 个既有脏文件，当前任务文件未进入基线暂存区。
 - `staged file size gate -> PASS`，基线暂存区无单文件超过 100 MB。
 - `git commit -m "工作区: 保存脏改动基线"` -> PASS，基线提交 `44fb3915`。
@@ -35,8 +35,8 @@
 - `git commit -m "工作区: 保存 route form filler 日志后续基线"` -> PASS，第十二个基线提交 `c15947b3`。
 - `git commit -m "工作区: 保存测试管理与填报回填后续基线"` -> PASS，第十三个基线提交 `aec3ae64`。
 - `git commit -m "工作区: 保存 route form filler 与排产验证证据基线"` -> PASS，第十四个基线提交 `298009eb`。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id enforce-commit-push-policy --mode preview` -> PASS，status `ready`，keep 三个核心任务记录，delete/blocked/warnings 均为空。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id enforce-commit-push-policy --mode apply` -> PASS，status `applied`，主 worktree `linked=False`，无删除项。
+- `python 会话技能：task-closeout-cleanup --task-id enforce-commit-push-policy --mode preview` -> PASS，status `ready`，keep 三个核心任务记录，delete/blocked/warnings 均为空。
+- `python 会话技能：task-closeout-cleanup --task-id enforce-commit-push-policy --mode apply` -> PASS，status `applied`，主 worktree `linked=False`，无删除项。
 - `git commit -m "工作区: 保存 route form filler 收尾后续基线"` -> PASS，第十五个基线提交 `2dbade97`。
 - `git commit -m "工作区: 保存 backend docs 与 SQL 后续基线"` -> PASS，第十六个基线提交 `6361c4be`。
 - `git commit -m "工作区: 保存 route form filler 收尾后续脏区基线"` -> PASS，第十七个基线提交 `16892129`，记录 4 个非本任务文件以及本任务收尾记录的中间状态。

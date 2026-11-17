@@ -71,20 +71,21 @@ public class KingdeeStockSyncJob implements JobHandler, ErpKingdeeFullSyncHandle
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeStockSyncResult stockResult = windowStart == null ? stockSyncService.syncStocksFullSkipExisting()
+            ErpKingdeeStockSyncResult stockResult = windowStart == null ? stockSyncService.syncStocks()
                     : stockSyncService.syncStocksFullSkipExisting(windowStart, windowEnd);
-            ErpKingdeeInventoryListSyncResult inventoryResult = windowStart == null ? inventoryListService.syncAllSkipExisting()
+            ErpKingdeeInventoryListSyncResult inventoryResult = windowStart == null ? inventoryListService.syncAllWithUpdates()
                     : inventoryListService.syncAllSkipExisting(windowStart, windowEnd);
             stockResultReference.set(stockResult);
             inventoryResultReference.set(inventoryResult);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
-                    stockResult.getSyncedCount() - stockResult.getSkippedCount() + inventoryResult.getCreatedCount(),
-                    0, stockResult.getSkippedCount() + inventoryResult.getSkippedCount(), 0);
+                    stockResult.getCreatedCount() + inventoryResult.getCreatedCount(),
+                    stockResult.getUpdatedCount() + inventoryResult.getUpdatedCount(), stockResult.getSkippedCount() + inventoryResult.getSkippedCount(), 0);
         });
         ErpKingdeeStockSyncResult stockResult = stockResultReference.get();
         ErpKingdeeInventoryListSyncResult inventoryResult = inventoryResultReference.get();
-        return String.format("ERP stock full sync: created=%d, skipped=%d",
-                stockResult.getSyncedCount() - stockResult.getSkippedCount() + inventoryResult.getCreatedCount(),
+        return String.format("ERP stock full sync: created=%d, updated=%d, skipped=%d",
+                stockResult.getCreatedCount() + inventoryResult.getCreatedCount(),
+                stockResult.getUpdatedCount() + inventoryResult.getUpdatedCount(),
                 stockResult.getSkippedCount() + inventoryResult.getSkippedCount());
     }
 

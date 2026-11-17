@@ -1,10 +1,12 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G29 首次真实只读采集
 
 Root已完成G29工具13项离线验证与源／已有隔离库身份、停写窗口核对后，运行一次已有隔离库的真实只读采集。此次未执行任何DDL、对象写入、历史名称登记、审计启用或前端业务动作。
 
 ## 实际结果
 
-采集状态 `STOPPED_READONLY_COLLECTION_FAILED`，受保护目录 `C:/IntRuoyiBackups/20261003-dcc-integration/g29-clone-fresh-inputs/` 保留。实际7表原列快照和post19结构依赖事实读取成功，两份mysqldump命令exit0，stderr为空；备份完整性验证失败，不生成可执行G28请求。
+采集状态 `STOPPED_READONLY_COLLECTION_FAILED`，受保护目录 `历史外部材料（引用已移除）` 保留。实际7表原列快照和post19结构依赖事实读取成功，两份mysqldump命令exit0，stderr为空；备份完整性验证失败，不生成可执行G28请求。
 
 7表原行数量：文件41615、Master36685、名称claim27、源ownership43、DCC签名339、统一签名0（已有隔离副本范围事实）、迁移账本529。这些是本次已有隔离副本数据，不当作源库统一签名数或业务合规证明。
 

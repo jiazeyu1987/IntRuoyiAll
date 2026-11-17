@@ -72,3 +72,94 @@ test('missing handoff inputs and unknown types are visible rather than invented 
   assert.match(result.title, /未识别.*NEW_KIND/)
   assert.equal(result.body, '原始意见')
 })
+
+test('deviation review and overdue notices describe the responsibility without machine navigation', () => {
+  for (const templateCode of ['MES_EDHR_DEVIATION_REVIEW_ASSIGNED', 'MES_EDHR_DEVIATION_WORK_TASK_OVERDUE']) {
+    const result = api.describeNotifyMessage({ templateCode,
+      templateContent: '请处理。入口：/mes/pro/feedback/edhr-deviation/detail?deviationId=123',
+      templateParams: { taskTitle: '完成偏差调查验证', workOrderCode: 'SC-001', batchCode: 'B-001',
+        dueTime: '2026-11-18 12:00', workTaskId: '555', actionUrl: '/detail?deviationId=123', reason: 'CORRECTIVE_VERIFIER' } })
+    assert.equal(result.title, templateCode.endsWith('OVERDUE') ? '偏差任务已逾期，请及时完成偏差调查验证' : '请完成偏差调查验证')
+    assert.equal(result.body, '')
+    assert.deepEqual(result.fields, [{ label: '生产订单', value: 'SC-001' }, { label: '批次', value: 'B-001' }, { label: '截止时间', value: '2026-11-18 12:00' }])
+    assert.doesNotMatch(JSON.stringify(result), /deviationId|workTaskId|CORRECTIVE_VERIFIER|\/detail/)
+  }
+})
+
+test('incomplete deviation notification never exposes its original URL or machine payload', () => {
+  for (const templateCode of ['MES_EDHR_DEVIATION_RECEIVE_ASSIGNED', 'MES_EDHR_DEVIATION_CORRECT_ASSIGNED', 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED', 'MES_EDHR_DEVIATION_WORK_TASK_OVERDUE']) {
+    const result = api.describeNotifyMessage({ templateCode, templateContent: '/detail?deviationId=123', templateParams: { reason: 'QA' } })
+    assert.match(result.title, /信息不完整/)
+    assert.equal(result.body, '')
+    assert.deepEqual(result.fields, [])
+  }
+})
+test('deviation investigation and corrective notices preserve business return instructions', () => {
+  for (const [templateCode, taskTitle] of [['MES_EDHR_DEVIATION_RECEIVE_ASSIGNED', '开展偏差调查'], ['MES_EDHR_DEVIATION_CORRECT_ASSIGNED', '完成偏差整改']]) {
+    const result = api.describeNotifyMessage({ templateCode, templateContent: '/detail?deviationId=123', templateParams: {
+      taskTitle, workOrderCode: 'SC-001', batchCode: 'B-001', reason: '验证未通过：请补充温度记录', actionUrl: '/detail?deviationId=123', workTaskId: '555'
+    } })
+    assert.equal(result.title, `请${taskTitle}`)
+    assert.equal(result.body, '验证未通过：请补充温度记录')
+    assert.doesNotMatch(JSON.stringify(result), /deviationId|workTaskId|\/detail/)
+  }
+})
+test('deviation notices allow an explicitly unassociated batch while retaining formal task identity', () => {
+  const result = api.describeNotifyMessage({ templateCode: 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED',
+    templateContent: '/detail?deviationId=123', templateParams: {
+      taskTitle: '办理偏差责任任务', workOrderCode: 'SC-001', batchCode: '', workTaskId: '555'
+    } })
+  assert.equal(result.title, '请办理偏差责任任务')
+  assert.deepEqual(result.fields, [
+    { label: '生产订单', value: 'SC-001' },
+    { label: '批次', value: '未关联批次（按生产订单办理）' }
+  ])
+  assert.doesNotMatch(JSON.stringify(result), /deviationId|workTaskId/)
+  for (const params of [
+    { workOrderCode: 'SC-001', batchCode: '' },
+    { taskTitle: '办理偏差责任任务', batchCode: '' }
+  ]) {
+    assert.match(api.describeNotifyMessage({ templateCode: 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED', templateParams: params }).title, /信息不完整/)
+  }
+})
+test('all deviation responsibilities render absent batch association without weakening required business context', () => {
+  for (const templateCode of ['MES_EDHR_DEVIATION_RECEIVE_ASSIGNED', 'MES_EDHR_DEVIATION_CORRECT_ASSIGNED', 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED', 'MES_EDHR_DEVIATION_WORK_TASK_OVERDUE']) {
+    for (const batchCode of [undefined, null, '', '   ']) {
+      const result = api.describeNotifyMessage({templateCode, templateParams: {
+        taskTitle: '完成偏差整改', workOrderCode: 'SC-001', batchCode, workTaskId: '555'
+      }})
+      assert.doesNotMatch(result.title, /信息不完整/)
+      assert.equal(result.fields.find(field => field.label === '批次').value, '未关联批次（按生产订单办理）')
+    }
+  }
+})
+test('formal identity projection errors take priority and never reveal raw historical payload', () => {
+  const result = api.describeNotifyMessage({templateCode: 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED',
+    templateContent: '/detail?deviationId=123', templateParams: {
+      presentationError: '偏差通知关联的正式任务不可访问，请联系管理员',
+      taskTitle: '完成偏差整改', workOrderCode: 'SC-001', batchCode: ''
+    }})
+  assert.deepEqual(result, {title: '偏差通知关联的正式任务不可访问，请联系管理员', body: '', fields: []})
+})
+test('deviation notification detail labels business duties and hides duplicate reason and navigation identifiers', () => {
+  const detail = fs.readFileSync(path.resolve(__dirname, '../../src/views/system/notify/my/MyNotifyMessageDetail.vue'), 'utf8')
+  const navigation = fs.readFileSync(path.resolve(__dirname, '../../src/utils/notifyMessageNavigation.ts'), 'utf8')
+  assert.match(detail, /taskTitle: '办理职责'/)
+  assert.match(detail, /dueTime: '截止时间'/)
+  assert.match(detail, /startsWith\('MES_EDHR_DEVIATION_'\) && key === 'reason'/)
+  assert.match(detail, /!hiddenTemplateParamKeys\.has\(key\)/)
+  const hidden = navigation.slice(navigation.indexOf('NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS'), navigation.indexOf('type NotifyMessageLike'))
+  for (const key of ['actionUrl', 'workTaskId']) assert.ok(hidden.includes(`'${key}'`))
+  assert.match(detail, /return messageDescription\.value\.fields\.map/)
+})
+test('deviation tooltips show only readable presentation while other messages retain their original text', () => {
+  const templateContent = '入口：/detail?deviationId=123&workTaskId=555'
+  assert.equal(api.notifyMessageTooltip({templateCode: 'MES_EDHR_DEVIATION_REVIEW_ASSIGNED', templateContent}), '偏差任务通知信息不完整，请联系管理员')
+  assert.equal(api.notifyMessageTooltip({templateCode: 'MES_EDHR_DEVIATION_CORRECT_ASSIGNED', templateContent, templateParams: {
+    taskTitle: '完成偏差整改', workOrderCode: 'SC-001', batchCode: 'B-001', reason: '请补充温度记录'
+  }}), '请完成偏差整改\n请补充温度记录')
+  assert.equal(api.notifyMessageTooltip({templateCode: 'OTHER', templateContent}), templateContent)
+  const list = fs.readFileSync(path.resolve(__dirname, '../../src/views/system/notify/my/components/MyNotifyMessageList.vue'), 'utf8')
+  assert.equal((list.match(/:title="notifyMessageTooltip\(scope.row\)"/g) || []).length, 2)
+  assert.doesNotMatch(list, /:title="scope.row.templateContent/)
+})

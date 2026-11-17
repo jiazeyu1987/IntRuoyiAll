@@ -6,7 +6,7 @@
 
 ## Current System
 
-- 主仓库位于 `E:\IntRuoyi`，当前分支为 `int_main`。
+- 主仓库位于 `.`，当前分支为 `int_main`。
 - 现有验收文档位于 `docs\acceptance\production-line-process-pool\`，已定义 F5/F6 的 BDD、TDD、E2E、测试数据和 review 门禁。
 - MES 模块已有 F1/F7/F8 基础：
   - `mes_pro_process_pool`、`mes_pro_process_pool_event`、`mes_pro_process_pool_quantity_fragment`、`mes_pro_process_pool_pqc_record`、`mes_pro_process_pool_fifo_allocation_line` 正式迁移和测试建表 SQL。
@@ -18,7 +18,7 @@
 
 - 严格 BDD + TDD，生产代码变更必须先有 RED 再实现 GREEN。
 - 不允许 fallback、静默降级、默认成功、模拟成功或吞异常。
-- worktree 只能创建在 `D:\IntRuoyiWorktree\` 下，且附加 worktree 需要登记槽位。
+- worktree 只能创建在 `../IntRuoyiWorktree/` 下，且附加 worktree 需要登记槽位。
 - F5 只能写审核副本和字段明细，不得改写原始 payload。
 - F6 只能写原始记录 revision 和字段级修改日志，不得把上下限修正写回原始 payload。
 - 已 FIFO 分配的数量片段或无法确认锁定状态的字段必须阻塞。
@@ -44,6 +44,6 @@
 
 ## Blocking Prerequisites
 
-- 两个目标 worktree 路径必须可创建且位于 `D:\IntRuoyiWorktree\` 下。
+- 两个目标 worktree 路径必须可创建且位于 `../IntRuoyiWorktree/` 下。
 - `scripts\runtime\reserve-worktree-slot.ps1` 必须可用并成功登记两个 worktree。
 - 正式 F5/F6 所需基础模型、签名、FIFO 锁定查询或测试运行态若缺失，必须在任务日志中记录为具体 blocker 或作为正式实现 scope 补齐。

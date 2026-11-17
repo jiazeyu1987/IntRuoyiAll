@@ -88,17 +88,20 @@ public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSync
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeProductSyncResult productResult = windowStart == null ? productSyncService.syncProductsFullSkipExisting()
+            ErpKingdeeProductSyncResult productResult = windowStart == null ? productSyncService.syncProducts()
                     : productSyncService.syncProductsFullSkipExisting(windowStart, windowEnd);
             log.info("[material-full] stage=erp-committed-mes-start created={} skipped={}", productResult.getCreatedCount(), productResult.getSkippedCount());
-            MesKingdeeItemSyncResult itemResult = itemSyncService.syncItemsByProductCodes(
-                    productResult.getCreatedProductCodes());
+            // ERP commits before MES. Include existing ERP rows so a retry repairs
+            // MES even when the previous run failed after the ERP commit.
+            LinkedHashSet<String> fullProductCodes = new LinkedHashSet<>(changedProductCodes(productResult));
+            fullProductCodes.addAll(productResult.getSkippedProductCodes());
+            MesKingdeeItemSyncResult itemResult = itemSyncService.syncItemsByProductCodes(fullProductCodes);
             log.info("[material-full] stage=mes-committed created={} updated={} skipped={}", itemResult.getCreatedCount(), itemResult.getUpdatedCount(), itemResult.getSkippedCount());
             productResultReference.set(productResult);
             itemResultReference.set(itemResult);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     productResult.getCreatedCount() + itemResult.getCreatedCount(),
-                    itemResult.getUpdatedCount() + itemResult.getDisabledCount(),
+                    productResult.getUpdatedCount() + itemResult.getUpdatedCount() + itemResult.getDisabledCount(),
                     productResult.getSkippedCount() + itemResult.getSkippedCount(), 0);
         });
         ErpKingdeeProductSyncResult productResult = productResultReference.get();

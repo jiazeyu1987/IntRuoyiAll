@@ -1348,7 +1348,8 @@
       "kind": "menu",
       "value": "/mes/edhr-data-sync",
       "migrations": [
-        "IntRuoyiBackend/sql/mysql/20261026_edhr_data_sync_directory.sql"
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_data_sync_directory.sql",
+        "IntRuoyiBackend/sql/mysql/20261117_edhr_data_sync_root_menu.sql"
       ]
     },
     {
@@ -3462,7 +3463,9 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue",
       "kind": "page",
       "value": "dcc/controlled-file/basic-data/file-type-taxonomy/index",
-      "reason": "既有五级文件分类页面新增原子保存审批矩阵，沿用现有菜单及dcc:controlled-file:category:manage文控维护权限，无新增菜单、权限或路由。"
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261117_dcc_file_type_taxonomy_menu_restore.sql"
+      ]
     },
     {
       "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
@@ -4378,6 +4381,102 @@
       "migrations": [
         "IntRuoyiBackend/sql/mysql/20261116_erp_data_operation_roles.sql"
       ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesDeviationReviewerController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "偏差按单访问与审核候选复用现有 mes:pro-edhr-deviation:query/handle 权限；调查仅本单接收人且具 handle 权限可编辑，其他责任人按本人指定职责读取或办理，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationAccessService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "偏差按单访问与审核候选复用现有 mes:pro-edhr-deviation:query/handle 权限；调查仅本单接收人且具 handle 权限可编辑，其他责任人按本人指定职责读取或办理，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationAccessService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "偏差按单访问与审核候选复用现有 mes:pro-edhr-deviation:query/handle 权限；调查仅本单接收人且具 handle 权限可编辑，其他责任人按本人指定职责读取或办理，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "a3fa5ad758c2b7ca374a41063cba63b55c63ae667bad8a8fede880b031beb69f",
+      "reason": "偏差责任人从本人待办打开内部隐藏详情页；页面仅允许已登录用户进入，后端按租户及本单发起人、接收人、整改责任人或指定审核人校验访问，不要求全局偏差查询权限，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-deviation/components/DeviationCorrectivePanel.vue",
+      "kind": "permission",
+      "value": "YYYY-MM-DDTHH:mm:ss",
+      "reason": "整改办理内部组件中 Element Plus 日期组件的 value-format 时间格式，被静态正则识别为权限；实际未新增权限、菜单或角色授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesDeviationRecoveryController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "历史偏差接收人补录和本单接收人撤回调查复用既有handle权限；补录另校验有效偏差管理员资格、未关闭且接收人缺失，撤回校验本人接收职责及版本，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesDeviationResponsibilityRecoveryService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "历史偏差接收人补录和本单接收人撤回调查复用既有handle权限；补录另校验有效偏差管理员资格、未关闭且接收人缺失，撤回校验本人接收职责及版本，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesDeviationTaskPermissionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "偏差待办展示及正式导航复核既有职责办理权限和工作任务查询权限；权限撤销时保留责任事实并明确阻断办理，不授予新权限，不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesDeviationTaskPermissionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "偏差待办展示及正式导航复核既有职责办理权限和工作任务查询权限；权限撤销时保留责任事实并明确阻断办理，不授予新权限，不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesDeviationTaskPermissionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "偏差待办展示及正式导航复核既有职责办理权限和工作任务查询权限；权限撤销时保留责任事实并明确阻断办理，不授予新权限，不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:pro-process:update",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:update",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:dv-machinery:update",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesSharedChangeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 - Task ID: `20260809-batch-record-test-order-allocation-tab`
 - Created: `2026-08-09T15:00:22`
-- Workspace: `E:\IntRuoyi`
+- Workspace: `.`
 - User Request: `在批记录测试页面新增订单分配 Tab，将确认的工序报工池、FIFO、手动调整、放行锁定、列表历史和并发审计规则整理成可执行验证的测试段落`
 
 ## Purpose and Scope
@@ -23,10 +23,10 @@
 ## Evidence Reviewed
 
 - 用户在当前对话中确认的工序共享报工池、固定列表顺序 FIFO、手工调整、放行锁定、列表/历史、质量数量、审计及并发规则。
-- `E:\IntRuoyi\IntRuoyiFronted\src\views\mes\pro\edhr-batch\BatchRecordTestPage.vue`：当前页面已有“生产组长”“一线PQC”“一线生产”三个内部 Tab，均使用 `UnifiedListTemplate`、稳定 `table-key`、租户选择和逐行 CODE_READONLY“测试”入口。
-- `E:\IntRuoyi\IntRuoyiFronted\tests\e2e\edhr-batch-record-test-tab-static.spec.cjs`：现有内部 Tab、列表锚点、持久化描述和测试执行静态合同。
-- `E:\IntRuoyi\IntRuoyiFronted\tests\e2e\edhr-batch-record-test-description-wrap-static.spec.cjs`：现有描述列换行合同。
-- `E:\IntRuoyi\doc\tasks\20260809-batch-record-test-order-allocation-tab\task.md`：任务边界、经验门禁和验证要求。
+- `./IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordTestPage.vue`：当前页面已有“生产组长”“一线PQC”“一线生产”三个内部 Tab，均使用 `UnifiedListTemplate`、稳定 `table-key`、租户选择和逐行 CODE_READONLY“测试”入口。
+- `./IntRuoyiFronted/tests/e2e/edhr-batch-record-test-tab-static.spec.cjs`：现有内部 Tab、列表锚点、持久化描述和测试执行静态合同。
+- `./IntRuoyiFronted/tests/e2e/edhr-batch-record-test-description-wrap-static.spec.cjs`：现有描述列换行合同。
+- `./doc/tasks/20260809-batch-record-test-order-allocation-tab/task.md`：任务边界、经验门禁和验证要求。
 
 ## Product Summary
 
@@ -118,7 +118,7 @@
 - P1-AC4: 新增分类沿用标准筛选、分页、测试租户、新增、修改和删除能力，描述列在桌面视口正常换行且文本和操作按钮不重叠。
 - P1-AC5: 本阶段不修改订单分配生产业务、后端接口、数据库或动态菜单，也不宣称八项生产规则已经实现。
 - P1-AC6: 新增静态合同、相邻静态回归和 `pnpm ts:check` 通过；Playwright 经真实菜单进入页面后可见八段文字和逐行“测试”入口，页面无 page error，console 无新增 error。
-- Evidence expectation: 在 `execution-log.md` 记录 RED/GREEN 命令，在 `test-report.md` 按 `T*` 编号记录静态、类型和真实浏览器证据；浏览器截图或 trace 保存到任务目录之外的 `E:\IntRuoyi\output\playwright\batch-record-test-order-allocation-tab\`。
+- Evidence expectation: 在 `execution-log.md` 记录 RED/GREEN 命令，在 `test-report.md` 按 `T*` 编号记录静态、类型和真实浏览器证据；浏览器截图或 trace 保存到任务目录之外的 `./output/playwright/batch-record-test-order-allocation-tab/`。
 
 ## Done Definition
 
@@ -139,7 +139,7 @@
 
 - 修改阶段：前端依赖可用，现有 `BatchRecordTestPage.vue` 和静态测试基线可执行。
 - 真实浏览器阶段：`int_main` 前后端分别运行在项目规定端口，存在可登录的测试租户/账号且“批记录测试”菜单可见。
-- Required validation tool：Playwright（真实浏览器）；`npx` 已确认可从 `D:\Programs\npx.ps1` 使用。
+- Required validation tool：Playwright（真实浏览器）；`npx` 已确认可从 `npx` 使用。
 
 ## Open Questions
 

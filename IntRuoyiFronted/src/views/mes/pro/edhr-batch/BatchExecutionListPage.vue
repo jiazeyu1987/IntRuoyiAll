@@ -868,10 +868,10 @@ import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCent
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import * as UserApi from '@/api/system/user'
-import * as DefinitionApi from '@/api/bpm/definition'
+
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
-import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/api/mes/pro/edhr/change'
-import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
+import { requestVoidBatchExecution } from '@/api/mes/pro/edhr/change'
+
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -881,7 +881,7 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
-import { generateUUID } from '@/utils'
+
 import { useUserStore } from '@/store/modules/user'
 import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
@@ -1030,45 +1030,9 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
-const resetVoidStartUserSelectAssignees = () => {
-  Object.keys(voidStartUserSelectAssignees).forEach((key) => {
-    delete voidStartUserSelectAssignees[key]
-  })
-}
 
-const loadVoidStartUserSelectTasks = async (row: EdhrBatchExecutionRespVO) => {
-  voidStartUserSelectTasks.value = []
-  resetVoidStartUserSelectAssignees()
-  if (!row.id) {
-    throw new Error('当前批次缺少平台作废动作上下文，无法解析作废审批人。')
-  }
-  const resolution = await resolveVoidBatchExecutionApproval({
-    batchExecutionId: row.id
-  })
-  if (!resolution.requiresBpm || !resolution.bpmProcessKey) {
-    return
-  }
-  const processDefinition = await DefinitionApi.getProcessDefinition(undefined, resolution.bpmProcessKey)
-  if (!processDefinition?.id) {
-    throw new Error('作废审批流程未配置，请联系管理员。')
-  }
-  const approvalDetail = await ProcessInstanceApi.getApprovalDetail({
-    processDefinitionId: processDefinition.id,
-    activityId: NodeId.START_USER_NODE_ID,
-    processVariablesStr: JSON.stringify({
-      batchExecutionId: row.id,
-      actionCode: 'VOID'
-    })
-  })
-  voidStartUserSelectTasks.value =
-    approvalDetail?.activityNodes?.filter(
-      (node: ProcessInstanceApi.ApprovalNodeInfo) =>
-        CandidateStrategy.START_USER_SELECT === node.candidateStrategy
-    ) || []
-  for (const task of voidStartUserSelectTasks.value) {
-    voidStartUserSelectAssignees[task.id] = []
-  }
-}
+
+
 
 const requireVoidStartUserSelectAssignees = () => {
   for (const task of voidStartUserSelectTasks.value) {
@@ -2016,37 +1980,7 @@ const openActiveOrderDetail = async (row: EdhrBatchExecutionRespVO) => {
 
 
 
-const openVoidDialog = async (row: EdhrBatchExecutionRespVO) => {
-  if (isPendingVoidBatch(row)) {
-    message.error('当前批次已提交作废申请，只能撤回作废申请。')
-    return
-  }
-  if (row.releaseActionLocked === true && !hasGoldenFingerActionBypass.value) {
-    message.error(row.releaseActionLockReason || '放行审批中，只能处理放行审批或撤回放行。')
-    return
-  }
-  if (!row.id) {
-    message.error('当前批次缺少批次执行 ID，无法发起作废流程。')
-    return
-  }
-  selectedVoidBatch.value = row
-  voidError.value = ''
-  Object.assign(voidForm, {
-    reasonCategory: '',
-    reasonText: '',
-    password: '',
-    comment: '',
-    idempotencyKey: `EDHR-BATCH-VOID-${row.id}-${generateUUID()}`
-  })
-  voidDialogVisible.value = true
-  voidStartUserSelectTasks.value = []
-  resetVoidStartUserSelectAssignees()
-  try {
-    await loadVoidStartUserSelectTasks(row)
-  } catch (error) {
-    voidError.value = resolveErrorMessage(error, '作废审批人加载失败，请查看后端错误后重试。')
-  }
-}
+
 
 const handleWithdrawVoidRequest = async (row: EdhrBatchExecutionRespVO) => {
   if (!row.pendingVoidChangeEventId) {

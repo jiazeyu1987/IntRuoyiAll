@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G23 fixed local-test source upgrade preparation
 
 ready_for_closeout for Root independent Review. **27 offline tests PASS**. The only concrete prepared output is **PREPARED_BLOCKED_MISSING_REAL_REHEARSAL_RECEIPT**, writeConnectionAllowed=false. No real clone PASS exists yet; no source fresh25/current backup/snapshot/exclusion receipt is fabricated. No actual driver invocation, DB query/write, service/Docker/Maven/Git or formal Java/SQL/Root-support/G21 modification occurred in this batch.
@@ -6,7 +8,7 @@ ready_for_closeout for Root independent Review. **27 offline tests PASS**. The o
 
 `g23-source-upgrade-driver.py` has prepare/validate/upgrade only for the fixed local int-ruoyi-mysql / ruoyi-vue-pro / UUID92ca05d0-aec8-11f1-a944-02b4e226a5ef / MySQL8.0.40. It imports the frozen G21 helper by exact driver SHA86e9e8b5504f926dfd1d7ad529afe006393289ec811378232ded997c097e99a9. It never changes the frozen clone driver/support/tools or implements database create/restore/delete/service control. The source-specific postflight function requires ruoyi-vue-pro explicitly and cannot pass a clone schema result.
 
-Complete executable input field contract is `g23-source-upgrade-input-contract.json`; editable request template is `g23-source-upgrade-request-template.json`. Descriptors require raw file SHA and exact protected path. Fresh current source receipt directories are new direct children beneath C:/IntRuoyiBackups/20261003-dcc-integration. Root collects and seals actual receipts later. All operation proof files stay protected; repository files contain no actual business row dump/credential.
+Complete executable input field contract is `g23-source-upgrade-input-contract.json`; editable request template is `g23-source-upgrade-request-template.json`. Descriptors require raw file SHA and exact protected path. Fresh current source receipt directories are new direct children beneath 历史外部材料（引用已移除） Root collects and seals actual receipts later. All operation proof files stay protected; repository files contain no actual business row dump/credential.
 
 No real runtime inputs are available now. Disk-only `prepare` with no clone descriptor yields the explicit blocked status before loading a client. A supplied actual clone PASS plus missing source artifacts yields PREPARED_BLOCKED_MISSING_FRESH_SOURCE_INPUTS. Neither status authorizes a connection/write. Complete prepared receipts still have writeConnectionAllowed=false; upgrade independently requires `--authorize-local-test-upgrade` and Root's actual user authorization record/reference. A CLI flag/receipt boolean is a technical gate and cannot establish session authorization; Root may invoke it only after obtaining real permission.
 

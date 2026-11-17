@@ -33,6 +33,10 @@ public class MesFrontlineLossReasonValidatorImpl implements MesFrontlineLossReas
         if (routeProcessId == null || lossReasonId == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_LOSS_REASON_REQUIRED);
         }
+        if (lossReasonId == MesFrontlineDefectReasonOption.OTHER_LOSS_ID) {
+            var reason = MesFrontlineDefectReasonOption.OTHER_LOSS;
+            return new MesFrontlineLossReasonSnapshot(reason.reasonId(), reason.reasonCode(), reason.reasonName());
+        }
         MesProcessPoolDefectReasonDO reason = defectReasonMapper.selectById(lossReasonId);
         if (reason == null
                 || !MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS.equals(reason.getReasonType())

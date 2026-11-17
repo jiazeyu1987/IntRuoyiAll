@@ -3,7 +3,7 @@
 ## BDD / TDD Evidence
 
 - `BDD: 当前项目 Agent 规则适配 -> Given 当前项目根目录缺少项目级 AGENTS.md，When Agent 在当前工作区执行开发、验证或收尾任务，Then 应有一份指向当前路径和当前项目结构的根目录 AGENTS.md 约束行为。`
-- `RED: Test-Path AGENTS.md -> FAIL, expected reason: 当前 E:\IntRuoyi 根目录不存在项目级 AGENTS.md。`
+- `RED: Test-Path AGENTS.md -> FAIL, expected reason: 当前 . 根目录不存在项目级 AGENTS.md。`
 
 ## Command Log
 

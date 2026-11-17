@@ -7,7 +7,7 @@
 - max_worker_subagents: 3
 - concurrency_slots_observed: 4 total agents, so supervisor + 3 workers is supported
 - wave_order_locked: true
-- worktree_root: D:\IntRuoyiWorktree\
+- worktree_root: ../IntRuoyiWorktree/
 - branch_base: latest int_main that already contains every completed prerequisite task
 - merge_policy: task branch must absorb latest int_main, rerun validation, then merge to int_main by fast-forward only
 - shared_file_serial_ownership: shared service, mapper, controller, VO, page, API type, schema, and task artifact files are owned by exactly one running task at a time; same-file successors start only after the previous owner is reviewed, verified, committed, and merged

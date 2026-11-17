@@ -12,6 +12,10 @@ import org.springframework.validation.annotation.Validated;
 
 import jakarta.annotation.Resource;
 import java.util.Collection;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +30,25 @@ public class NotifyMessageServiceImpl implements NotifyMessageService {
 
     @Resource
     private NotifyMessageMapper notifyMessageMapper;
+
+    @Autowired(required = false)
+    private List<NotifyMessageReadEnricher> readEnrichers = List.of();
+
+    private NotifyMessageDO readProjection(NotifyMessageDO source) {
+        if (source == null) return null;
+        NotifyMessageDO result = BeanUtils.toBean(source, NotifyMessageDO.class);
+        if (source.getTemplateParams() != null) {
+            result.setTemplateParams(new LinkedHashMap<>(source.getTemplateParams()));
+        }
+        readEnrichers.forEach(enricher -> enricher.enrich(result));
+        return result;
+    }
+
+    private List<NotifyMessageDO> readProjections(List<NotifyMessageDO> source) {
+        List<NotifyMessageDO> result = new ArrayList<>(source.size());
+        source.forEach(message -> result.add(readProjection(message)));
+        return result;
+    }
 
     @Override
     public Long createNotifyMessage(Long userId, Integer userType,
@@ -59,22 +82,24 @@ public class NotifyMessageServiceImpl implements NotifyMessageService {
 
     @Override
     public PageResult<NotifyMessageDO> getNotifyMessagePage(NotifyMessagePageReqVO pageReqVO) {
-        return notifyMessageMapper.selectPage(pageReqVO);
+        PageResult<NotifyMessageDO> page = notifyMessageMapper.selectPage(pageReqVO);
+        return new PageResult<>(readProjections(page.getList()), page.getTotal());
     }
 
     @Override
     public PageResult<NotifyMessageDO> getMyMyNotifyMessagePage(NotifyMessageMyPageReqVO pageReqVO, Long userId, Integer userType) {
-        return notifyMessageMapper.selectPage(pageReqVO, userId, userType);
+        PageResult<NotifyMessageDO> page = notifyMessageMapper.selectPage(pageReqVO, userId, userType);
+        return new PageResult<>(readProjections(page.getList()), page.getTotal());
     }
 
     @Override
     public NotifyMessageDO getNotifyMessage(Long id) {
-        return notifyMessageMapper.selectById(id);
+        return readProjection(notifyMessageMapper.selectById(id));
     }
 
     @Override
     public List<NotifyMessageDO> getUnreadNotifyMessageList(Long userId, Integer userType, Integer size) {
-        return notifyMessageMapper.selectUnreadListByUserIdAndUserType(userId, userType, size);
+        return readProjections(notifyMessageMapper.selectUnreadListByUserIdAndUserType(userId, userType, size));
     }
 
     @Override

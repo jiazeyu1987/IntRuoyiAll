@@ -31,10 +31,17 @@ public class MesProEdhrDeviationHandlingRespVO {
     private String handlingConclusion;
     private String verificationResult;
     private String verificationContent;
+    private String correctiveStatus;
+    private Boolean investigationSubmitted;
+    private String correctiveResult;
+    private String correctiveEvidenceUrlsJson;
     private Integer contentVersion;
     private String contentHash;
     private Map<String, Long> reviewerAssignments;
     private Boolean reviewReady;
+    private Boolean canEditInvestigation;
+    private Boolean canSubmitCorrective;
+    private Boolean canVerifyCorrective;
     private Map<String, Long> effectiveSignatureIds;
     private List<SignatureEvidence> signatureEvidence;
     private List<SignatureEvidence> signatureHistory;

@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # Request Analysis
 
 ## User Goal
@@ -17,9 +19,9 @@
 - 原通知缺陷已修复并完成定向验证：目标 3/3 通过，同类服务测试 66/66 通过。
 - 2026-07-27 完整执行 `mvn -pl yudao-module-mes test` 的基线结果为：2509 tests、58 failures、78 errors、31 skipped，共 41 个失败测试套件。
 - 已确认的失败簇包括：
-  - 本机硬编码 Word fixture 缺失：`C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc`。
-  - 本机硬编码 Excel fixture 缺失：`D:\ocr2\resource\球囊扩张导管工序(1).xlsx`。
-  - 前端契约测试仍读取旧目录 `E:\IntRuoyi\yudao-ui-admin-vue3`，而当前前端根目录为 `E:\IntRuoyi\IntRuoyiFronted`。
+  - 本机硬编码 Word fixture 缺失：`历史外部材料（引用已移除）`。
+  - 本机硬编码 Excel fixture 缺失：`历史外部材料（引用已移除）`。
+  - 前端契约测试仍读取旧目录 `./IntRuoyiFronted`，而当前前端根目录为 `./IntRuoyiFronted`。
   - 运行时 schema 契约缺少 `mes_pro_batch_record_execution.batch_record_definition_id`。
   - 多个数据库测试因 Spring Bean 注入或 ApplicationContext 创建失败而报错。
   - `MesProBatchRecordReportServiceImplDbTest` 存在 H2 唯一键冲突。
@@ -33,7 +35,7 @@
 
 ## Constraints
 
-- 必须从 `E:\IntRuoyi\IntRuoyiBackend` 执行最终验收命令：`mvn -pl yudao-module-mes test`。
+- 必须从 `./IntRuoyiBackend` 执行最终验收命令：`mvn -pl yudao-module-mes test`。
 - 不得使用 `-DskipTests`、`-Dtest=...`、Surefire 排除、测试 profile 排除、`@Disabled`、条件假设或其他方式绕开完整失败面。
 - 不得通过放宽断言、删除有效断言、改成宽泛匹配或接受错误结果来制造绿色。
 - 不得为缺失 Word/Excel fixture 创建伪文件、空文件、简化替代文件或 mock 内容。

@@ -9,7 +9,6 @@ import lombok.Data;
 @Data
 public class DccProjectFileTemplateItemSaveReqVO {
 
-    @NotNull(message = "文件分类不能为空")
     private Long fileTypeTaxonomyId;
 
     @NotBlank(message = "文件名称不能为空")

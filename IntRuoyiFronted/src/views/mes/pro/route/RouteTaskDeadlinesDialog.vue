@@ -36,7 +36,7 @@ const routes = ref<ProRouteVO[]>([]), routeId = ref<number>(), taskType = ref(''
 type Rule = { taskType: string; dueMinutes: number; enabled: boolean; remark: string }
 const rules = ref<Rule[]>([]), minutes = ref<number>(), enabled = ref(false), reason = ref('')
 const types: Record<string, string> = {
-  DEVIATION_RECEIVE: '偏差接收', DEVIATION_CORRECT: '偏差纠正', DEVIATION_SIGN: '偏差执行签署',
+  DEVIATION_RECEIVE: '偏差接收', DEVIATION_CORRECT: '偏差整改', DEVIATION_VERIFY: '整改结果验证', DEVIATION_SIGN: '偏差执行签署',
   DEVIATION_APPROVE: '偏差质量审核', DEVIATION_CLOSE: '偏差关闭', RECORD_CHANGE_APPROVE: '记录变更审批',
   RECORD_CHANGE_REWORK: '记录变更批准后修改', RECORD_CHANGE_CORRECTION: '记录变更退回补正', DOSSIER_COMPLETE: '资料补齐', PQC_RELEASE_CORRECTION: 'PQC放行补正',
   RELEASE_APPROVE: '上市放行', QA_REVIEW: '不合格QA评审', QA_DECISION_HANDOFF: 'QA处置结果接手'

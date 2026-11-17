@@ -203,7 +203,7 @@
 import * as TradeOrderApi from '@/api/mall/trade/order'
 import { fenToYuan } from '@/utils'
 import { formatDate } from '@/utils/formatTime'
-import { DICT_TYPE,  getDictObj } from '@/utils/dict'
+import { DICT_TYPE } from '@/utils/dict'
 import OrderUpdateRemarkForm from '@/views/mall/trade/order/form/OrderUpdateRemarkForm.vue'
 import OrderDeliveryForm from '@/views/mall/trade/order/form/OrderDeliveryForm.vue'
 import OrderUpdateAddressForm from '@/views/mall/trade/order/form/OrderUpdateAddressForm.vue'
@@ -221,22 +221,6 @@ const message = useMessage() // 消息弹窗
 interface ExpressTrackItem {
   time?: Date
   content?: string
-}
-
-/** 获得 userType 颜色 */
-const getUserTypeColor = (type: number) => {
-  const dict = getDictObj(DICT_TYPE.USER_TYPE, type)
-  switch (dict?.colorType) {
-    case 'success':
-      return '#67C23A'
-    case 'info':
-      return '#909399'
-    case 'warning':
-      return '#E6A23C'
-    case 'danger':
-      return '#F56C6C'
-  }
-  return '#409EFF'
 }
 
 // 订单详情

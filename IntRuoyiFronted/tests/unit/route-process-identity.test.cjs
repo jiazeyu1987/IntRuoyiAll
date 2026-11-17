@@ -408,3 +408,66 @@ test('safe legacy numbers and negative local IDs remain selectable; unsafe numbe
   h.cache.set('selection', { routeProcessId: Number(A) })
   assert.throws(() => h.readRouteFlowLastSelection(), /完整整数精度/)
 })
+
+test('deleting the selected process clears its device panel and discards in-flight results', async () => {
+  let resolveRequest
+  const requests = [], errors = [], details = []
+  const context = { ...identity.exports, watch: vue.watch,
+    props: { routeVersionEditContext: { routeVersionId: A } },
+    selectedRouteProcessId: vue.ref(A), selectedProcessDetailFieldKey: vue.ref('deviceParameters'),
+    selectedProcessDetail: vue.ref({ routeProcessId: A }),
+    selectedNode: vue.computed(() => context.routeNodes.value.find(n => n.routeProcessId === context.selectedRouteProcessId.value)),
+    routeNodes: vue.ref([{ routeProcessId: A }, { routeProcessId: B }]),
+    routeEdges: vue.ref([]), boundaryEdges: vue.ref([]), flowNodes: vue.ref([]), flowEdges: vue.ref([]),
+    selectedEdge: vue.ref(), selectedBoundaryEdge: vue.ref(),
+    pendingDeletedRouteProcessIds: vue.ref(new Set()),
+    clearRouteFlowLastSelectionRouteProcess() {}, isLoadedRouteProcessId: () => true,
+    markGraphDraftChanged() {},
+    routeProcessDeviceParameterRequestId: 0, routeProcessDeviceParameterConfig: vue.ref({ old: true }),
+    routeProcessDeviceParameterLoading: vue.ref(false),
+    routeProcessDeviceParameterDialogVisible: vue.ref(true),
+    routeProcessDeviceParameterDialogDevice: vue.ref({ deviceId: 1 }),
+    routeProcessDeviceParameterOriginalCode: vue.ref('OLD'),
+    ProRouteFlowConfigApi: { getRouteProcessDeviceParameterConfig: (version, id) => {
+      requests.push(id)
+      return new Promise(resolve => { resolveRequest = resolve })
+    } },
+    loadSelectedProcessDetail: node => details.push(node),
+    message: { error: text => errors.push(text) }, resolveErrorMessage: error => error.message
+  }
+  const names = ['resetSelectedRouteProcessDeviceParameterConfig', 'requireRouteProcessDeviceParameterVersionId',
+    'loadSelectedRouteProcessDeviceParameterConfig', 'removeRouteProcessesFromDraft']
+  const watcher = ast.statements.find(statement => ts.isExpressionStatement(statement) &&
+    ts.isCallExpression(statement.expression) && statement.expression.expression.getText(ast) === 'watch' &&
+    statement.expression.arguments[0].getText(ast) === 'selectedRouteProcessId')
+  const scope = vue.effectScope()
+  vm.createContext(context)
+  scope.run(() => vm.runInContext(compile(names.map(name => declarations.get(name)).join('\n') +
+    '\n' + watcher.getText(ast) + `\nthis.harness = { ${names.join(',')} };`), context))
+  try {
+    const request = context.harness.loadSelectedRouteProcessDeviceParameterConfig()
+    assert.equal(context.routeProcessDeviceParameterLoading.value, true)
+    context.harness.removeRouteProcessesFromDraft([A])
+    await vue.nextTick()
+    assert.equal(context.selectedRouteProcessId.value, null)
+    assert.equal(context.selectedProcessDetailFieldKey.value, undefined)
+    assert.equal(context.routeProcessDeviceParameterConfig.value, undefined)
+    assert.equal(context.routeProcessDeviceParameterLoading.value, false)
+    assert.equal(context.routeProcessDeviceParameterDialogVisible.value, false)
+    assert.equal(context.routeProcessDeviceParameterDialogDevice.value, undefined)
+    assert.equal(context.routeProcessDeviceParameterOriginalCode.value, undefined)
+    assert.deepEqual(requests, [A])
+    assert.deepEqual(errors, [])
+    assert.equal(details.at(-1), undefined)
+    resolveRequest({ routeProcessId: A })
+    await request
+    assert.equal(context.routeProcessDeviceParameterConfig.value, undefined)
+    context.selectedProcessDetailFieldKey.value = 'deviceParameters'
+    context.selectedRouteProcessId.value = B
+    await vue.nextTick()
+    assert.deepEqual(requests, [A, B])
+    resolveRequest({ routeProcessId: B })
+    await new Promise(setImmediate)
+    assert.equal(context.routeProcessDeviceParameterConfig.value.routeProcessId, B)
+  } finally { scope.stop() }
+})

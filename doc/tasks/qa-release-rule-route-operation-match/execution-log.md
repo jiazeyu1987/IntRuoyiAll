@@ -14,7 +14,7 @@
 - STRUCTURAL: git diff --check -> PASS；仅观察到既有 CRLF line-ending warning，无 whitespace error。
 - Experience consolidation: 现有 frontend 静态契约门禁已覆盖相邻 QA 模板/发布映射风险；未修改已有长期经验文档，避免混入当前工作区中其它任务的脏改动。
 - Milestone: 实现和验证完成，进入 ready_for_closeout。
-- BUG EVIDENCE VALIDATION: python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\qa-release-rule-route-operation-match\bug-regression-evidence.md -> PASS。
-- CLOSEOUT PREVIEW: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id qa-release-rule-route-operation-match --mode preview -> PASS，keep 为本任务 4 个证据文件，delete/blocked/warnings 均为 none。
-- CLOSEOUT APPLY: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id qa-release-rule-route-operation-match --mode apply -> PASS，deleted_paths 为 none。
+- BUG EVIDENCE VALIDATION: python 会话技能：bug-regression-fix-loop --evidence doc\tasks\qa-release-rule-route-operation-match\bug-regression-evidence.md -> PASS。
+- CLOSEOUT PREVIEW: python 会话技能：task-closeout-cleanup --task-id qa-release-rule-route-operation-match --mode preview -> PASS，keep 为本任务 4 个证据文件，delete/blocked/warnings 均为 none。
+- CLOSEOUT APPLY: python 会话技能：task-closeout-cleanup --task-id qa-release-rule-route-operation-match --mode apply -> PASS，deleted_paths 为 none。
 - Milestone: 任务状态标记 completed。

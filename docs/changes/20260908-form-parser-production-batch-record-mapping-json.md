@@ -2,7 +2,7 @@
 
 ## Request Summary And Source
 
-用户在 2026-09-08 反馈：当前“表单解析 -> 生产批记录”下载的是 Jimu 表单 JSON，但实际期望下载类似 `E:\IntRuoyi\resource\按压式球囊扩充压力泵IDI-001\批记录总对应.json` 的批记录业务映射 JSON。
+用户在 2026-09-08 反馈：当前“表单解析 -> 生产批记录”下载的是 Jimu 表单 JSON，但实际期望下载类似 `./resource/按压式球囊扩充压力泵IDI-001/批记录总对应.json` 的批记录业务映射 JSON。
 
 ## Current Baseline Reviewed
 

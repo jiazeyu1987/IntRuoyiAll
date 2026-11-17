@@ -122,8 +122,8 @@ completed
 - 页面级 Prettier/Stylelint：现有共享文件包含任务前既有的格式和属性顺序差异；未执行自动格式化，避免覆盖并行任务改动；Stylelint 输出没有指向本次新增 selector。
 - 目标 ESLint 在超过两分钟无输出后终止，未记录为通过。
 - 文档结构核验：PASS；Status、Approved Rule、BDD/RED/GREEN、实施矩阵、Verification、Blockers 和 Design Constraints 均存在。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\change-request-triage\scripts\validate_change_request.py --self-test`：PASS。
-- `python -X utf8 C:\Users\BJB110\.codex\skills\change-request-triage\scripts\validate_change_request.py --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-6-missing-data-actions.md`：PASS。
+- `python -X utf8 会话技能：change-request-triage --self-test`：PASS。
+- `python -X utf8 会话技能：change-request-triage --evidence doc\tasks\20260807-smart-scheduling-issue-fixes\issue-6-missing-data-actions.md`：PASS。
 - `git diff --check`（已跟踪源码）及 `git diff --no-index --check`（新测试、新问题文档）：PASS，无空白错误诊断。
 
 ## Blockers

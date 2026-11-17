@@ -1,8 +1,10 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 岗位需求分解矩阵不符合项分析
 
 ## 结论摘要
 
-- 输入矩阵：`C:\Users\BJB110\Desktop\3\岗位需求分解矩阵.xlsx`。
+- 输入矩阵：`历史外部材料（引用已移除）`。
 - 读取范围：`岗位需求分解矩阵!A5:D27` 共 23 条主流程需求；`衍生需求!A5:D43` 共 39 条衍生需求；合计 62 条。
 - 当前系统 canonical 证据显示：M0-M5 来源门禁已验收，RRM-BLK-001..032 已 `RESOLVED_VERIFIED`，最近一次授权 RRM 运行态 `real:check` 已无 SOURCE / ENV / RUNTIME blocker。本轮当前 shell 没有 `RRM_*` 环境变量，只能跑出 ENV blocker-only 的 check 产物，不能代表 canonical full real E2E。
 - 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M01 的后端候选准入硬门禁、前端静态合同和 RRM action 接入已补齐，AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。

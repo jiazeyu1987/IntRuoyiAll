@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G68 任务账号OWNER与查看矩阵真实UI配置
 
 ## Current Status
@@ -28,7 +30,7 @@ Root暂时为同源G68包停其owned后端，8061仍在线；准备期间不向�
 
 ## Protected evidence
 
-目录 `C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1`；所有JSON是可见DOM/input/自然method-status，不含密码/Authorization/Cookie/storageState。共58个UI状态JSON、6张截图；不称逐步trace截图。已实际view_image检查两final配置截图。
+目录 `历史外部材料（引用已移除）`；所有JSON是可见DOM/input/自然method-status，不含密码/Authorization/Cookie/storageState。共58个UI状态JSON、6张截图；不称逐步trace截图。已实际view_image检查两final配置截图。
 
 | 精确结果 | DOM JSON / final screenshot |
 |---|---|

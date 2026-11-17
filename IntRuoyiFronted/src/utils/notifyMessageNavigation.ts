@@ -1,4 +1,5 @@
 import type { Router } from 'vue-router'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
 import type { ActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { readDccDistributionNotification, dccDistributionReadLocation, type DccDistributionReadIdentity } from './dccDistributionNavigation'
@@ -52,7 +53,7 @@ export type BpmApprovalNotifyTarget = {
 
 export type EdhrWorkTaskNotifyTarget = {
   type: 'edhrWorkTask'
-  label: '处理批记录任务'
+  label: '处理批记录任务' | '处理偏差任务'
   actionUrl: string
   path: string
   query: Record<string, string>
@@ -174,13 +175,22 @@ const resolveEdhrWorkTaskTarget = (
   if (!EDHR_WORK_TASK_NOTIFY_PATHS.has(url.pathname)) {
     return null
   }
-  const workTaskId = toOptionalRouteNumber(templateParams.workTaskId)
-  if (workTaskId) {
-    url.searchParams.set('workTaskId', String(workTaskId))
+  const deviationEntry = ['/mes/pro/feedback/edhr-deviation', '/mes/pro/feedback/edhr-deviation/detail'].includes(url.pathname)
+  if (deviationEntry) {
+    const raw = templateParams.workTaskId
+    const id = typeof raw === 'string' || (typeof raw === 'number' && Number.isSafeInteger(raw)) ? String(raw) : ''
+    const existing = url.searchParams.getAll('workTaskId')
+    if (!/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n || existing.length > 1 ||
+      (existing.length === 1 && existing[0] !== id)) throw new Error('偏差通知缺少有效且一致的工作任务编号。')
+    url.searchParams.set('workTaskId', id)
+  } else {
+    const workTaskId = toOptionalRouteNumber(templateParams.workTaskId)
+    if (workTaskId) url.searchParams.set('workTaskId', String(workTaskId))
   }
   return {
     type: 'edhrWorkTask',
-    label: '处理批记录任务',
+    label: ['/mes/pro/feedback/edhr-deviation', '/mes/pro/feedback/edhr-deviation/detail'].includes(url.pathname)
+      ? '处理偏差任务' : '处理批记录任务',
     actionUrl: `${url.pathname}${url.search}${url.hash}`,
     path: url.pathname,
     query: Object.fromEntries(url.searchParams.entries())
@@ -326,6 +336,15 @@ export const navigateToNotifyMessageTarget = async (
     delayMs?: number
   } = {}
 ) => {
+  let deviationIsCurrent: (() => boolean) | undefined
+  if (target.type === 'edhrWorkTask' &&
+    ['/mes/pro/feedback/edhr-deviation', '/mes/pro/feedback/edhr-deviation/detail'].includes(target.path)) {
+    const sourceRoute = router.currentRoute.value
+    const session = useApprovalCenterInvalidationStore()
+    const sessionKey = session.syncSession().key
+    deviationIsCurrent = () => session.isCurrent(sessionKey) && router.currentRoute.value === sourceRoute
+    if (!deviationIsCurrent()) throw new Error('偏差通知导航上下文已变化。')
+  }
   await options.beforeNavigate?.()
   if (target.type === 'dccDistribution') {
     await router.push(dccDistributionReadLocation(target))
@@ -360,6 +379,18 @@ export const navigateToNotifyMessageTarget = async (
     return
   }
   if (target.type === 'edhrWorkTask') {
+    if (deviationIsCurrent) {
+      const isCurrent = deviationIsCurrent
+      if (!isCurrent()) throw new Error('偏差通知导航上下文已变化。')
+      const { getDeviationTaskNavigation } = await import('@/api/mes/pro/edhr/deviationTaskNavigation')
+      if (!isCurrent()) throw new Error('偏差通知导航上下文已变化。')
+      const task = await getDeviationTaskNavigation(target.query.workTaskId)
+      if (!isCurrent()) throw new Error('偏差通知导航上下文已变化。')
+      if (String(task.id) !== target.query.workTaskId) throw new Error('偏差通知与正式工作任务编号不一致。')
+      // Both the saved notification and the formal task must identify the same deviation.
+      await navigateToEdhrWorkTask(router, { ...task, actionUrl: target.actionUrl }, window.location.origin, isCurrent)
+      return
+    }
     await navigateToEdhrWorkTask(router, {
       id: target.query.workTaskId,
       actionUrl: target.actionUrl,

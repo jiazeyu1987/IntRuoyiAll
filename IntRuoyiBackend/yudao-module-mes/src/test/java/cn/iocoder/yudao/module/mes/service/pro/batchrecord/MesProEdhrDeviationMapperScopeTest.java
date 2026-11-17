@@ -68,6 +68,34 @@ class MesProEdhrDeviationMapperScopeTest {
     }
 
     @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void productionOrderOptionsSearchTenantOrdersAndExcludeRetiredAndMarketReleasedCycles() throws Exception {
+        try (var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE mes_pro_work_order (id BIGINT PRIMARY KEY, tenant_id BIGINT, code VARCHAR(64), deleted INT)");
+            statement.execute("CREATE TABLE mes_pro_process_pool_active_order (id BIGINT, tenant_id BIGINT, work_order_id BIGINT, active_status VARCHAR(16), business_status VARCHAR(16), deleted INT)");
+            statement.execute("CREATE TABLE mes_pro_edhr_release_transaction (tenant_id BIGINT, batch_execution_id BIGINT, release_status VARCHAR(16), deleted INT)");
+            statement.execute("INSERT INTO mes_pro_work_order VALUES (51,71,'WO-51',0),(52,72,'WO-52',0),(53,71,'WO-53',0),(54,71,'WO-54',0),(55,71,'WO-55',0)");
+            statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES (991,71,51,'ACTIVE','ACTIVE',0),(992,72,52,'ACTIVE','ACTIVE',0),(993,71,53,'REMOVED','REWORKED',0),(994,71,54,'CLOSED','RELEASED',0),(995,71,55,'ACTIVE','COMPLETED',0)");
+            statement.execute("INSERT INTO mes_pro_edhr_release_transaction VALUES (71,44,'RELEASED',0)");
+        }
+        origin(71, 994, 44, 0, "ACTIVE_ORDER_COMPLETION");
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "deviation-orders"),
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.class);
+        var wrapper = new AtomicReference<LambdaQueryWrapper<?>>();
+        var mapper = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrDeviationOrderMapper.class, CALLS_REAL_METHODS);
+        doAnswer(invocation -> { wrapper.set(invocation.getArgument(1)); return invocation.getArgument(0); })
+                .when(mapper).selectPage(any(Page.class), any(Wrapper.class));
+        var req = new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationBatchOptionPageReqVO();
+        mapper.selectOptionsPage(req, 71L);
+        assertEquals(List.of(55L, 51L), query("SELECT id FROM mes_pro_work_order WHERE deleted=0 AND "
+                + wrapper.get().getSqlSegment(), Map.of("ew", wrapper.get())));
+        req.setSearch("WO-51");
+        mapper.selectOptionsPage(req, 71L);
+        assertEquals(List.of(51L), query("SELECT id FROM mes_pro_work_order WHERE deleted=0 AND "
+                + wrapper.get().getSqlSegment(), Map.of("ew", wrapper.get())));
+    }
+
+    @Test
     void releasePreservesDirectBatchDeviationsAndRejectsOtherTenantsAndCycles() throws Exception {
         origin(71, 991, 41, 0, "ACTIVE_ORDER_COMPLETION");
         deviation(1, 72, 991L, null, "OPEN", 0);

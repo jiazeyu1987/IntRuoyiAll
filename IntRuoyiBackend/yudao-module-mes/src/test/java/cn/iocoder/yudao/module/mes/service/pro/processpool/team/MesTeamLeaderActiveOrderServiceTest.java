@@ -2772,9 +2772,11 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .name("球囊扩张压力泵")
                 .build()));
         when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
-                processSnapshot(8101L, 9001L, 5001L, 6001L, "100.000000"),
-                processSnapshot(8101L, 9001L, 5002L, 6002L, "100.000000")));
-        stubProductionAllocations(List.of(
+                processSnapshot(8101L, 9001L, 5001L, 6001L, "100.000000")
+                        .setProductionConfigSnapshotJson("{\"outputMaterialIds\":[1001],\"lossCoefficient\":1}"),
+                processSnapshot(8101L, 9001L, 5002L, 6002L, "100.000000")
+                        .setProductionConfigSnapshotJson("{\"outputMaterialIds\":[1001],\"lossCoefficient\":1}")));
+        List<MesProProcessPoolEventDO> events = stubProductionAllocations(List.of(
                 allocation(8101L, 9001L, 5001L, 6001L, "70"),
                 allocation(8101L, 9001L, 5002L, 6002L, "130")));
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
@@ -2794,6 +2796,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(new BigDecimal("0.000000"),
                 activeOrders.get(0).getProcessRemainingQuantities().get(1).getRemainingQuantity());
         assertFalse(activeOrders.get(0).getProcessRemainingQuantities().get(0).getQuantityConflict());
+        assertEquals(new BigDecimal("100.000000"),
+                activeOrders.get(0).getProcessRemainingQuantities().get(1).getUpperQuantity());
         assertTrue(activeOrders.get(0).getProcessRemainingQuantities().get(1).getQuantityConflict());
         assertEquals(new BigDecimal("30.000000"),
                 activeOrders.get(0).getProcessRemainingQuantities().get(1).getOverageQuantity());
@@ -2801,6 +2805,57 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(activeOrders.get(0).getQuantityConflict());
         assertEquals(1, activeOrders.get(0).getQuantityConflictProcessCount());
         assertEquals(new BigDecimal("30.000000"), activeOrders.get(0).getOverageQuantity());
+        assertFalse(activeOrders.get(0).getHasParameterAbnormal());
+
+        JSONObject payload = JSONObject.parseObject(events.get(0).getRawPayload());
+        payload.put("deviceParameterReadings", List.of(Map.of(
+                "value", 0, "lowerLimit", 1, "upperLimit", 1000, "parameterStatus", "BELOW_LOWER")));
+        events.get(0).setRawPayload(payload.toJSONString());
+        MesTeamLeaderActiveOrderRow warned = service.listActiveOrders(3001L).get(0);
+        assertTrue(warned.getHasParameterAbnormal());
+        assertTrue(warned.getHasQuantityConflict());
+        assertFalse(Boolean.TRUE.equals(warned.getAbnormal()), "参数警示不能变成人工异常或阻断放行");
+        assertFalse(Boolean.TRUE.equals(warned.getReadBlocked()));
+        assertEquals(activeOrders.get(0).getProductionProgressPercent(), warned.getProductionProgressPercent());
+
+        // 读取修改后的正式原值，异常已消除时不保留旧警示。
+        payload.put("deviceParameterReadings", List.of(Map.of(
+                "value", 500, "lowerLimit", 1, "upperLimit", 1000, "parameterStatus", "NORMAL")));
+        events.get(0).setRawPayload(payload.toJSONString());
+        assertFalse(service.listActiveOrders(3001L).get(0).getHasParameterAbnormal());
+
+        payload.put("deviceParameterReadings", List.of(Map.of("parameterStatus", "ABOVE_UPPER", "value", 1001)));
+        events.get(0).setRawPayload(payload.toJSONString());
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+        assertFalse(service.listActiveOrders(3001L).get(0).getHasParameterAbnormal(),
+                "已移除分配的记录不能继续给原订单报参数异常");
+    }
+
+    @Test
+    void shouldRecognizeProductionParameterWarningsInProcessAndMaterialReadingsWithoutChangingValues() {
+        for (String reading : List.of(
+                "{\"value\":0,\"lowerLimit\":1,\"upperLimit\":1000,\"parameterStatus\":\"BELOW_LOWER\"}",
+                "{\"value\":1001,\"lowerLimit\":1,\"upperLimit\":1000,\"parameterStatus\":\"ABOVE_UPPER\"}",
+                "{\"value\":0,\"lowerLimit\":1}",
+                "{\"value\":1001,\"upperLimit\":1000,\"parameterStatus\":\"NORMAL\"}")) {
+            for (String payload : List.of(
+                    "{\"deviceParameterReadings\":[" + reading + "]}",
+                    "{\"deviceParameterReadings\":[],\"materialDetails\":[{\"deviceParameterReadings\":[" + reading + "]}]}")) {
+                MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder().id(71L).rawPayload(payload).build();
+                assertTrue((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        service, "hasAbnormalProductionParameters", 8101L, event));
+                assertEquals(payload, event.getRawPayload());
+            }
+        }
+        for (String payload : List.of("{}", "{\"deviceParameterReadings\":[]}",
+                "{\"deviceParameterReadings\":[{\"value\":0,\"lowerLimit\":0,\"upperLimit\":1000},{\"value\":1000,\"lowerLimit\":0,\"upperLimit\":1000},{\"textValue\":\"纯化水\",\"parameterStatus\":\"NORMAL\"}]}")) {
+            assertFalse((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                    "hasAbnormalProductionParameters", 8101L, MesProProcessPoolEventDO.builder().rawPayload(payload).build()));
+        }
+        for (String payload : List.of("", "null", "{broken")) {
+            assertThrows(RuntimeException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    service, "hasAbnormalProductionParameters", 8101L, MesProProcessPoolEventDO.builder().rawPayload(payload).build()));
+        }
     }
 
     @Test
@@ -3382,7 +3437,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
     }
 
-    private void stubProductionAllocations(List<MesProcessPoolReportAllocationDO> allocations) {
+    private List<MesProProcessPoolEventDO> stubProductionAllocations(List<MesProcessPoolReportAllocationDO> allocations) {
         List<MesProProcessPoolEventDO> events = new java.util.ArrayList<>();
         for (int index = 0; index < allocations.size(); index++) {
             MesProcessPoolReportAllocationDO allocation = allocations.get(index);
@@ -3402,6 +3457,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(allocations);
         when(processPoolEventMapper.selectBatchIds(events.stream().map(MesProProcessPoolEventDO::getId).toList()))
                 .thenReturn(events);
+        return events;
     }
 
     private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,

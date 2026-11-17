@@ -66,7 +66,7 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler, ErpKingdeeFullSy
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeePurchaseOrderSyncResult result = windowStart == null ? purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting()
+            ErpKingdeePurchaseOrderSyncResult result = windowStart == null ? purchaseOrderSyncService.syncPurchaseOrders()
                     : purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,

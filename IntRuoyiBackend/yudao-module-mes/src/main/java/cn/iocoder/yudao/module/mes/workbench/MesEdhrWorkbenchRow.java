@@ -7,5 +7,6 @@ import cn.iocoder.yudao.module.system.api.workbench.TaskSummary;
 public class MesEdhrWorkbenchRow extends TaskSummary {
  private Long ownerUserId;
  private String candidateUserSnapshot;
- private String domainTaskType, actionUrl, batchExecutionId, batchTaskId, executionId, businessScopeType, businessScopeId;
+ private String domainTaskType, actionUrl, batchExecutionId, batchTaskId, executionId,
+         businessScopeType, businessScopeId, signatureCellKey;
 }

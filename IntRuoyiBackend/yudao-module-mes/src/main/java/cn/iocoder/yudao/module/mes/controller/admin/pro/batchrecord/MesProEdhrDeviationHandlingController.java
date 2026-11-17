@@ -27,12 +27,16 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class MesProEdhrDeviationHandlingController {
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationAccessService accessService;
+
+    @Resource
     private MesProEdhrDeviationHandlingService handlingService;
 
     @GetMapping("/get")
     @Operation(summary = "获取偏差处理记录")
     @PreAuthorize("isAuthenticated()")
     public CommonResult<MesProEdhrDeviationHandlingRespVO> get(@RequestParam("deviationId") Long deviationId) {
+        accessService.requireRead(deviationId);
         return success(handlingService.get(deviationId));
     }
 
@@ -43,6 +47,30 @@ public class MesProEdhrDeviationHandlingController {
             @RequestParam("deviationId") Long deviationId,
             @Valid @RequestBody MesProEdhrDeviationHandlingSaveReqVO reqVO) {
         return success(handlingService.save(SecurityFrameworkUtils.getLoginUserId(), deviationId, reqVO));
+    }
+
+    @PostMapping("/submit-investigation")
+    @Operation(summary = "接收人正式提交调查记录")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:handle')")
+    public CommonResult<MesProEdhrDeviationHandlingRespVO> submitInvestigation(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingSubmitReqVO req) {
+        return success(handlingService.submitInvestigation(SecurityFrameworkUtils.getLoginUserId(), req));
+    }
+
+    @PostMapping("/corrective-submit")
+    @Operation(summary = "整改责任人提交本人整改")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<MesProEdhrDeviationHandlingRespVO> submitCorrective(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveReqVO req) {
+        return success(handlingService.submitCorrective(SecurityFrameworkUtils.getLoginUserId(), req));
+    }
+
+    @PostMapping("/corrective-verify")
+    @Operation(summary = "指定核验人验证或退回整改")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-deviation:verify')")
+    public CommonResult<MesProEdhrDeviationHandlingRespVO> verifyCorrective(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveVerifyReqVO req) {
+        return success(handlingService.verifyCorrective(SecurityFrameworkUtils.getLoginUserId(), req));
     }
 
     @PostMapping("/sign")

@@ -8,7 +8,7 @@
 
 - `prd.md`
 - `test-plan.md`
-- 当前 worktree：`D:\IntRuoyiWorktree\20260731_shengchanbanzuzhang`
+- 当前 worktree：`../IntRuoyiWorktree/20260731_shengchanbanzuzhang`
 - `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`
 - `IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts`
 - `IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue`
@@ -304,6 +304,6 @@ BDD: 生产组长配置驱动员工填报并完成订单工序 -> Given 测试�
 
 - 每个 milestone 必须先 RED，再实现，再 GREEN。
 - Test Entry Gate: RED 前必须确认测试类、测试方法、静态合同脚本或 E2E spec 已存在；缺测试入口、缺 package script、No tests、空跑不能作为有效 RED。
-- 所有前端命令必须在当前 worktree 根目录使用 `pnpm --dir IntRuoyiFronted ...`，不得指向 `E:\IntRuoyi` 主工作区。
+- 所有前端命令必须在当前 worktree 根目录使用 `pnpm --dir IntRuoyiFronted ...`，不得指向 `.` 主工作区。
 - 每个 milestone 完成后更新 `execution-log.md` 和验证报告。
 - 实施阶段若发现缺少测试租户、账号、正式批记录绑定、字段映射、运行态或脚本入口，必须记录 BLOCKED，不得扩大 scope 或静默降级。

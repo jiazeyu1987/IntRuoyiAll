@@ -35,18 +35,18 @@
 
 ## Verification Evidence
 
-- `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\fix-batch-record-fill-rule` -> PASS，BDD/TDD acceptance plan validation passed.
-- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md` -> PASS，Bug regression evidence is valid.
-- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md` -> PASS，Backend API evidence is valid.
+- `python 会话技能：bdd-tdd-acceptance-planner --root doc\tasks\fix-batch-record-fill-rule` -> PASS，BDD/TDD acceptance plan validation passed.
+- `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md` -> PASS，Bug regression evidence is valid.
+- `python 会话技能：backend-api-delivery --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md` -> PASS，Backend API evidence is valid.
 - 文档优化后复跑上述两个校验命令 -> PASS，确认验收口径调整后仍满足结构要求。
 - 关键测试完成后复跑三份文档校验，并执行 `git diff --check` -> PASS。
 - 代码修复已完成：`MesProBatchRecordCellRuleSupport.toRuleJson` 在规则 `reviewed=true` 且来源误带 `AUTO` 时持久化为 `MANUAL`。
 - 文档已明确当前修复不声明历史模板已修复；历史 dry run/apply 需另行授权并处理 `getCellRules` 读时写回风险。
 - `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest test` -> FAIL，129 个测试中 1 个失败：`uploadExtraFormSlot_whenLossReportWordHasMergedBody_expandsAllFillableFieldsAndDoesNotReuseOldHashReport` 期望 `□报废`，实际 `报废`；该行为与本次 `source/reviewed` 归一化无直接关系。
 - 本地前端和后端端口均在监听；浏览器控制台报告登录超时，未执行写型 E2E。
-- 继续复跑：`python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\fix-batch-record-fill-rule` -> PASS。
-- 继续复跑：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md` -> PASS。
-- 继续复跑：`python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md` -> PASS。
+- 继续复跑：`python 会话技能：bdd-tdd-acceptance-planner --root doc\tasks\fix-batch-record-fill-rule` -> PASS。
+- 继续复跑：`python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md` -> PASS。
+- 继续复跑：`python 会话技能：backend-api-delivery --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md` -> PASS。
 - 继续复跑：`mvn -pl yudao-module-mes -Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation,MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesReviewedNumberAndDateCellRulesIntoExecutionSnapshot+openOrCreateByContext_unreviewedFillableCellRule_mustFailFastWithoutCreatingExecution,MesProBatchRecordCellRuleSupportTest#toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule+applyAutomaticSuggestions_setsRulesAfterWordImportWithoutMarkingUserReviewed test` -> BLOCKED，compile 阶段失败：`MesProRouteFlowConfigServiceImpl` 第 603、707 行调用的 `resolveRecordbookEnabled(Boolean,String)` 未实现。
 
 ## Blockers
@@ -96,5 +96,5 @@
 - GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
 - GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端路径通过，数据库夹具读取本机 `int-ruoyi-mysql/ruoyi-vue-pro`。
 - GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS，12/12。
-- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\fix-batch-record-fill-rule\database-schema-evidence.md` -> PASS。
+- GREEN: `python 会话技能：database-schema-delivery --evidence doc\tasks\fix-batch-record-fill-rule\database-schema-evidence.md` -> PASS。
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS，退出码 0，仅 CRLF 提示。

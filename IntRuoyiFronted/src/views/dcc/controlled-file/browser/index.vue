@@ -1080,9 +1080,6 @@ import {
   previewControlledFileRecognitionMigrationImport,
   previewControlledFileMetadataImport,
   saveControlledFileBrowserExtensionBlacklist,
-  submitControlledFileWorkingIteration,
-  triggerControlledFileDownload,
-  triggerControlledFileVariantDownload,
   uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
   type ControlledFileBatchRecognitionTaskRespVO,
@@ -1103,14 +1100,12 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import { useUserStore } from '@/store/modules/user'
-import { openControlledFileTraceability } from '../shared/viewer-navigation'
+
 import { resolveControlledFileReadErrorMessage } from '../shared/utils'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import { requireCheckinTrainingDefault } from './checkin-training'
 import {
-  hasDccControlledFileActionProjection,
-  isDccControlledFileActionAllowed,
-  isDccControlledFileActionUnlocked
+  isDccControlledFileActionAllowed
 } from '../shared/lifecycle'
 import { buildControlledFileViewerPath } from '../view/presentation'
 import { normalizeDccBodyReadContext, serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
@@ -1588,6 +1583,7 @@ const batchRecognitionStatusTagType = computed(() =>
 const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowserVersion => ({
   id: row.id,
   title: row.title,
+  sourceOriginalFileName: row.sourceOriginalFileName,
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
   changeType: row.changeType,
@@ -1796,27 +1792,13 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
 const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(canEditVersion(file) || isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
-const canSubmitWorkingIteration = (
-  _row: ControlledFileBrowserRow,
-  file: ControlledFileVO | ControlledFileBrowserVersion
-) => Boolean(
-  file.id &&
-  file.status === 'WORKING' &&
-  canEditVersion(file) &&
-  typeof file.actionProjection?.actionLocked === 'boolean' &&
-  file.actionProjection.pendingRequestId == null &&
-  !file.processInstanceId &&
-  !file.checkedOut &&
-  !file.checkedOutBy
-)
 
 
-const canOpenWorkingTypeStorageRecovery = (row: ControlledFileBrowserRow) =>
-  isLatestVersionSelected(row) && getSelectedVersion(row).changeType === 'NEW' &&
-  canSubmitWorkingIteration(row, getSelectedVersion(row))
 
-const browserMutationIdempotencyKeys = reactive<Record<string, string>>({})
-const getBrowserMutationCacheKey = (action: string, id: number | string) => `${action}:${id}`
+
+
+
+
 
 
 
@@ -2340,11 +2322,7 @@ const handleCancelCheckout = async (file: ControlledFileBrowserVersion) => {
   }
 }
 
-const handleBrowserRowCommand = (command: string, row: ControlledFileBrowserRow) => {
-  if (command === 'metadata') {
-    openMetadataDialog(row)
-  }
-}
+
 
 const isLatestVersionSelected = (row: ControlledFileBrowserRow) => row.selectedVersionId === row.id
 
@@ -3798,13 +3776,7 @@ const copyFileNumber = async (fileNumber?: string) => {
   }
 }
 
-const openMetadataDialog = async (file: ControlledFileVO) => {
-  metadataDialogMounted.value = true
-  await import('../shared/ControlledFileMetadataDialog.vue')
-  await nextTick()
-  metadataEditingFile.value = file
-  metadataDialogVisible.value = true
-}
+
 
 const handleMetadataSaved = async () => {
   await getList()

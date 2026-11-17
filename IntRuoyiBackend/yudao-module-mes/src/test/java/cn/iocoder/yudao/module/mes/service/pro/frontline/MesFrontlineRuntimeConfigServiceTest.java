@@ -180,7 +180,8 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals("TEXT_STANDARD", config.devices().get(0).parameters().get(3).valueType());
         assertNull(config.devices().get(0).parameters().get(3).lowerLimit());
         assertNull(config.devices().get(0).parameters().get(3).defaultValue());
-        assertEquals(1, config.defectReasons().size());
+        assertEquals(2, config.defectReasons().size());
+        assertEquals(MesFrontlineDefectReasonOption.OTHER_LOSS, config.defectReasons().get(1));
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
         assertEquals(ROUTE_ID, config.productionSubmitContext().routeId());
         assertEquals(ROUTE_PROCESS_ID, config.productionSubmitContext().routeProcessId());
@@ -197,6 +198,23 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(ROUTE_PROCESS_ID, config.employeeSwitchSnapshots().get(0).routeProcessId());
         assertEquals("FRONTLINE-PROD", config.employeeSwitchSnapshots().get(0).template().templateNo());
         assertEquals(8801L, config.employeeSwitchSnapshots().get(0).template().actualEmployeeId());
+    }
+
+    @Test
+    void fiveConfiguredLossReasonsExposeSixOptionsAndFreezeOtherInSession() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "组装", 10,
+                        null, null, null, 301L, "WS-301", "组装工位"));
+        when(defectReasonMapper.selectList(any())).thenReturn(java.util.stream.LongStream.rangeClosed(1, 5)
+                .mapToObj(id -> defectReason(id, ROUTE_PROCESS_ID, "LOSS", "LOSS-00" + id, "损耗" + id))
+                .toList());
+        var config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
+        assertEquals(6, config.defectReasons().size());
+        assertEquals(MesFrontlineDefectReasonOption.OTHER_LOSS, config.defectReasons().get(5));
+        var snapshot = ArgumentCaptor.forClass(MesFrontlineSessionSnapshotContent.class);
+        verify(sessionSnapshotService).issue(snapshot.capture());
+        assertEquals(config.defectReasons(), snapshot.getValue().defectReasons());
     }
 
     @Test
@@ -220,6 +238,7 @@ class MesFrontlineRuntimeConfigServiceTest {
                 ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(2, config.employees().size());
+        assertEquals(List.of(MesFrontlineDefectReasonOption.OTHER_LOSS), config.defectReasons());
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
         assertEquals(8803L, config.employees().get(1).employeeProfileId());
         assertEquals(10003L, config.employees().get(1).systemUserId());
@@ -277,6 +296,7 @@ class MesFrontlineRuntimeConfigServiceTest {
 
         assertEquals(new BigDecimal("10"), config.devices().get(0).parameters().get(0).upperLimit());
         assertEquals(5101L, config.productionSubmitContext().activeOrderProcessSnapshotId());
+        assertEquals(List.of(MesFrontlineDefectReasonOption.OTHER_LOSS), config.defectReasons());
         assertEquals(MesDeviceParameterSnapshotCodec.STATE_FROZEN,
                 config.productionSubmitContext().parameterSnapshotState());
         verify(parameterRuleMapper, never()).selectList(any());
@@ -477,7 +497,8 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals("冻结设备", config.devices().get(0).deviceName());
         assertEquals("DEFAULT", config.devices().get(0).deviceGroupKey());
         assertEquals(1, config.devices().get(0).parameters().size());
-        assertEquals(1, config.defectReasons().size());
+        assertEquals(2, config.defectReasons().size());
+        assertEquals(MesFrontlineDefectReasonOption.OTHER_LOSS, config.defectReasons().get(1));
         assertEquals(8301L, config.defectReasons().get(0).reasonId());
         assertEquals("冻结损耗", config.defectReasons().get(0).reasonName());
         verify(processDeviceMapper, never()).selectList(any());
@@ -629,7 +650,8 @@ class MesFrontlineRuntimeConfigServiceTest {
         MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
 
-        assertEquals(1, config.defectReasons().size());
+        assertEquals(2, config.defectReasons().size());
+        assertEquals(MesFrontlineDefectReasonOption.OTHER_LOSS, config.defectReasons().get(1));
         assertEquals(8301L, config.defectReasons().get(0).reasonId());
         assertEquals("LOSS-001", config.defectReasons().get(0).reasonCode());
     }

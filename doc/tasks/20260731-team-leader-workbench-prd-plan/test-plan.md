@@ -74,7 +74,7 @@
 ### Frontend Static Contract Tests
 
 - Test Entry Gate: 先新增目标静态合同 spec 和 `package.json` 脚本；缺脚本不能作为有效 RED。
-- Worktree Gate: 所有前端命令必须从当前 worktree 根目录执行，并使用 `pnpm --dir IntRuoyiFronted ...`，不得指向 `E:\IntRuoyi`。
+- Worktree Gate: 所有前端命令必须从当前 worktree 根目录执行，并使用 `pnpm --dir IntRuoyiFronted ...`，不得指向 `.`。
 - RED: `pnpm --dir IntRuoyiFronted test e2e:team-leader-workbench:static` -> FAIL, 当前页面缺少配置中心和报工分配表。
 - GREEN: 同命令 -> PASS, 页面包含活跃订单、FIFO 自动分配、手动分配调整、结构化提交详情和异常上报选择器。
 - RED: `pnpm --dir IntRuoyiFronted test e2e:frontline-team-config:static` -> FAIL, 当前员工端仍可能使用固定设备、参数、不良原因。

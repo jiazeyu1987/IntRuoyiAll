@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G70 原生文控下发权限真实UI配置
 
 ## Current Status
@@ -22,7 +24,7 @@ Given Root已读当前permission节点0且admin有doc_control、类别USER1DISTR
 
 ## 保护证据
 
-`C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1`：49个可见DOM/input/自然method-status JSON、5张截图，54asset rawbytes/SHA封存于 `g70-native-distribution-ui-receipt.json` SHA `30e418acfc66b756486a9a3972ba32c2bd84c2325ae4a25841f21223d18dfd48`。
+`历史外部材料（引用已移除）`：49个可见DOM/input/自然method-status JSON、5张截图，54asset rawbytes/SHA封存于 `g70-native-distribution-ui-receipt.json` SHA `30e418acfc66b756486a9a3972ba32c2bd84c2325ae4a25841f21223d18dfd48`。
 
 - 菜单最终：`023.json` / `native-button-final.png`；newID由actualDOM rowkey观察。
 - role原集合：`033.json` / `doc-control-menu-before-add.png`。

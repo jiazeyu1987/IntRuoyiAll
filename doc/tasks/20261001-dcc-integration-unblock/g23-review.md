@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G23 原库准入与历史名称准备
 
 状态in_progress。数据库升级/审计配置/真实质量批准资料仍未答复，数据库写入为零。本轮只读数据及离线工具结果不能被当作source升级或业务E2E完成。
@@ -18,6 +20,6 @@ Root对正式只读SQL采集283 JSON事实：tenant1 active25claim、25master、
 
 全部25未发现缺Master/源登记SHA/metadata或租户链冲突，但6个claim项目/类型/编号identity仍不完整；这些不能以旧normalized_name、模板或受控PDF推断修复。infra_file没有tenant/hash字段，未发明这些字段。source_bytes_verified=false，write_authorized=false；6候选也不是正文bytes已验，更不是回填许可。
 
-g23-legacy-name-review-receipt.json保存最终counts/保护facts/result/review的hash；人可核对清单在C:/IntRuoyiBackups/20261003-dcc-integration/g23-legacy-names-review.md。本次不提交原始业务名字/数据到Git。现行C迁移加source_original_file_name不回填，countUnresolvedNames会使25旧NULL阻止新上传；不能为跑E2E删旧claim或绕failClosed。
+g23-legacy-name-review-receipt.json保存最终counts/保护facts/result/review的hash；人可核对清单在历史外部材料（引用已移除）。本次不提交原始业务名字/数据到Git。现行C迁移加source_original_file_name不回填，countUnresolvedNames会使25旧NULL阻止新上传；不能为跑E2E删旧claim或绕failClosed。
 
 已向用户提出具体历史口径问题：建议保留历史文件/版本/签名，经原文件核实的全部旧原名继续作为占用，禁止未来新增同名；或先由文控整理。没有自动合并、重命名、删除或把19SQL扩大成历史回填。待用户选择前，仅准备只读映射，不实施依赖该答案的模型变更。

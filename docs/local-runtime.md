@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # IntRuoyi Local Runtime Rules
 
 ## 适用场景
@@ -21,20 +23,13 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 ## 分支运行端口矩阵
 
-- `int_main_d`：前端 `8101`，后端 `48101`，由 `INTRUOYI_RUNTIME_PROFILE=int_main_d` 显式选择。
 - `int_main`：前端 `8081`，后端 `48081`，是 `int_main` 分支的默认 profile。
 - `int_batch`：前端 `8041`，后端 `48041`，是 `int_batch` 分支的默认 profile。
 - `int_shedule`：前端 `8021`，后端 `48021`，是 `int_shedule`/`int_schedule` 分支的默认 profile。
 - `int_qms`：前端 `8061`，后端 `48061`，是 `int_qms` 分支的默认 profile。
 - 分支专属前端调试必须通过 `scripts\runtime\start-branch-frontend.ps1` 或对应 `IntRuoyiFronted\.env.branch-*` 模式启动，不得通过改写共享 `.env` 抢占端口。
 - 分支专属后端调试必须通过 `scripts\runtime\start-branch-backend.ps1` 传入 `--server.port`，不得把后端 `application-local.yaml` 改成分支端口。
-- 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认本矩阵未被覆盖、删除或改回 `8081/48081`。
-
-## D Main Independent Runtime
-
-- `int_main_d` is bound to `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`.
-- Its fixed ports are frontend `8101` and backend `48101`.
-- `int_main_d` must never use `8081/48081`, which remain reserved for the default `int_main` profile.
+- 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认各分支端口保持独立，`int_main` 默认使用 `8081/48081`。
 
 ## 启动前检查
 
@@ -49,8 +44,8 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - worktree 可位于当前电脑选择的目录，但必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则登记并使用独立端口。
 - 附加 worktree 的 `slot` 只允许 `1..100`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 101` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30`、`31..40`、`41..50`、`51..60`、`61..70`、`71..80`、`81..90` 和 `91..100` 分别使用 `docs\branch-runtime-ports.md` 的独立扩展段。
 
-- 槽位 31..40 使用第二独立扩展端口段：int_shedule 8176-8185/48176-48185、int_batch 8186-8195/48186-48195、int_qms 8196-8205/48196-48205、int_main 8206-8215/48206-48215、int_main_d 8216-8225/48216-48225。
-- 槽位 41..50 使用第三独立扩展端口段：int_shedule 8226-8235/48226-48235、int_batch 8236-8245/48236-48245、int_qms 8246-8255/48246-48255、int_main 8256-8265/48256-48265、int_main_d 8266-8275/48266-48275。
+- 槽位 31..40 使用第二独立扩展端口段：int_shedule 8176-8185/48176-48185、int_batch 8186-8195/48186-48195、int_qms 8196-8205/48196-48205、int_main 8206-8215/48206-48215。
+- 槽位 41..50 使用第三独立扩展端口段：int_shedule 8226-8235/48226-48235、int_batch 8236-8245/48236-48245、int_qms 8246-8255/48246-48255、int_main 8256-8265/48256-48265。
 - 槽位 51..60、61..70、71..80、81..90、91..100 使用第四至第八独立扩展端口段：`docs\branch-runtime-ports.md` 是唯一完整映射来源。
 
 ## 前端在线但后端未监听业务系统异常门禁
@@ -124,13 +119,13 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Forbidden action: 禁止删除或重建容器/volume、清空 MySQL 或 MinIO 数据、随机换端口、强杀未知进程、只启动前端或用 API-only 成功冒充 full 重启完成。
 - Evidence: `doc/tasks/20260808-restart-local-runtime/verification-report.md`。
 
-## 2026-07-28 Docker Desktop E 盘 bind 挂载门禁
+## 2026-07-28 Docker Desktop 项目目录 bind 挂载门禁
 
 - Trigger: `int-ruoyi-mysql` 启动报 `invalid mount config for type "bind"`、`bind source path does not exist`、Docker 临时容器看不到当前仓库挂载、或 WSL 无法转换当前仓库路径。
 - Preflight check: 先用 `Test-Path <repo-root>\IntRuoyiBackend\sql\mysql\ruoyi-vue-pro.sql` 验证源文件真实存在，再用临时只读容器验证 Docker 能看到该文件；若 Docker/WSL 看不到当前仓库所在磁盘，检查对应挂载点或 Docker Desktop host path 日志。
 - Blocker: Windows 文件存在但 Docker/WSL 挂载为空或缺失时，必须停止容器启动成功结论；不得复制 SQL 到假目录、删除 MySQL 数据卷、重建空库、改数据库端口或把缺失 bind 当成业务 schema 问题。
 - Verification: 修复挂载后，临时只读容器必须返回 `BIND_OK`；再启动 `int-ruoyi-mysql`，重跑标准重启脚本，并验证 `48081` health `UP`、`8081` HTTP `200`。
-- Forbidden action: 禁止用 C 盘临时副本、空初始化 SQL、容器重建换数据卷、mock 数据库或 API-only 成功绕过正式 E 盘项目路径。
+- Forbidden action: 禁止用 C 盘临时副本、空初始化 SQL、容器重建换数据卷、mock 数据库或 API-only 成功绕过当前仓库正式文件及挂载验证。
 - Evidence: `doc/tasks/20260728-restart-local-runtime/verification-report.md`。
 
 ## 2026-07-25 分支本地运行复用 Docker 依赖门禁
@@ -142,9 +137,9 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Verification: 记录 Docker 依赖端口监听、后端分支端口监听、`/actuator/health` HTTP 状态和前端入口 HTTP 状态。
 - Forbidden action: 禁止为了复用 Docker 依赖而修改分支前端/后端服务端口；禁止打印或记录数据库密码、容器完整 env 或 secret-bearing 命令输出。
 
-## 2026-07-25 D-Main 本地启动源码与依赖门禁
+## 2026-07-25 本地启动源码与依赖门禁
 
-- Trigger: D-Main 本地启动、`int_main_d`、`8101/48101`、`vite command not found`、Java 包名包含 `runtime`、后端打包提示 `*.runtime不存在`。
+- Trigger: 本地启动、`vite command not found`、Java 包名包含 `runtime`、后端打包提示 `*.runtime不存在`。
 - Preflight check: 后端打包前先确认被引用的 `runtime` Java 包未被 `.gitignore` 的 `**/runtime/` 误忽略；若同源工作区存在正式实现，必须同步正式源码并用 `git check-ignore -v` 记录忽略来源，提交时对合法源码使用 `git add -f`。前端启动前确认 `IntRuoyiFronted/node_modules/.bin/vite` 存在；缺失时执行 `pnpm install --frozen-lockfile`。
 - Blocker: 缺失源码只能用同源正式实现补齐；若找不到正式实现或 `pnpm install --frozen-lockfile` 修改 lockfile/失败，必须阻塞，不得造空实现、改用旧 Jar、换端口或跳过前端。
 - Verification: 记录 Maven RED/GREEN、`yudao-server-exec.jar` 生成结果、`git check-ignore -v` 输出、`pnpm install --frozen-lockfile` 退出码、后端 health `UP` 和前端 HTTP `200`。
@@ -187,8 +182,8 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 ## 2026-08-05 本机 Docker 未使用镜像清理门禁
 
-- Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
-- Preflight check: 先记录 `docker system df`、`docker container ls -a` 和当前 D 盘可用空间；仅在用户明确要求清理镜像时执行 `docker image prune -a -f`，输出较大时用 `Tee-Object` 流式写入任务证据文件，不要先整体捕获到 PowerShell 变量。
+- Trigger: 容器数据盘空间不足、Docker Desktop 当前配置的数据磁盘文件过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a` 和当前容器数据盘可用空间；仅在用户明确要求清理镜像时执行 `docker image prune -a -f`，输出较大时用 `Tee-Object` 流式写入任务证据文件，不要先整体捕获到 PowerShell 变量。
 - Blocker: Docker CLI 不可用、Docker Desktop/WSL 引擎异常、无法确认命令只清镜像、或用户未授权清理 volume/container/build cache 时必须停止；不得手工删除 `docker_data.vhdx`。
 - Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
 - Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
@@ -220,7 +215,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Preflight check: 先记录 `docker system df`、`docker container ls -a`、`docker volume ls`、每个 volume 的容器引用关系，以及当前运行容器的 mount；只有在用户明确授权 volume/container 清理时，才能删除停止容器、悬挂卷和无容器引用镜像。
 - Blocker: 无法确认当前 Ruoyi 运行容器、无法确认 volume 引用关系、存在疑似 MySQL/MinIO/OnlyOffice 当前数据卷、Docker CLI 异常、或用户只授权镜像清理时必须停止；不得把 `docker system df` 的 image reclaimable 百分比当作删除正在运行容器镜像的依据。
 - Verification: 清理后运行 `docker container ls -a` 确认只剩当前运行容器；运行 volume 引用扫描确认每个剩余 volume 都被当前容器引用；再次运行 `docker image prune -a -f` 和 `docker volume prune -f` 应返回 `Total reclaimed space: 0B`。
-- Forbidden action: 禁止删除当前 MySQL 数据卷、MinIO 数据卷、OnlyOffice 卷、正在运行容器、`docker_data.vhdx`，或为了让 D 盘立刻变小而手工删除 VHDX；VHDX 压缩必须单独走管理员权限压缩流程。
+- Forbidden action: 禁止删除当前 MySQL 数据卷、MinIO 数据卷、OnlyOffice 卷、正在运行容器、`docker_data.vhdx`，或为了立即释放容器数据盘空间而手工删除 VHDX；VHDX 压缩必须单独走管理员权限压缩流程。
 - Evidence: `doc/tasks/20260805-docker-ruoyi-unused-cleanup/verification-report.md`。
 
 ## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
@@ -300,7 +295,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Forbidden action: 禁止因 WMI 卡住就修改共享端口配置、删除未知进程、切换旧 Jar 或把手工启动未验证参数的服务当作标准重启成功。
 
 
-## 2026-08-21 E 盘 NTFS Dirty/索引损坏最小修复门禁
+## 2026-08-21 项目所在磁盘 NTFS Dirty/索引损坏最小修复门禁
 
 - 触发场景：E: 显示 NTFS Warning/Full Repair Needed、fsutil dirty query 报 Dirty、读取报 OS error 1392，或 Windows sandbox 访问 E: 时出现 apply deny-read ACLs。
 - 前置检查：先记录磁盘、分区和卷健康状态并运行只读 chkdsk/scan；只停止已确认属于当前任务的 E: 占用进程。无法备份时，离线修复前必须取得用户明确授权，并区分执行器 ACL 失败与文件系统损坏。

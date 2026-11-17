@@ -10,6 +10,10 @@ public interface MesWorkbenchTodoMapper {
  @Options(timeout=10) List<MesEdhrWorkbenchRow> chunkEdhr(@Param("q") QueryContext query,@Param("after") ChunkCursor after,@Param("fetchLimit") int fetchLimit);
  @Options(timeout=10) List<MesEdhrWorkbenchRow> identityEdhr(@Param("q") QueryContext query,@Param("businessId") String businessId,@Param("lockedBatchStatus") Long lockedBatchStatus);
 
+ @Options(timeout=10) Long countDeviation(@Param("q") QueryContext query);
+ @Options(timeout=10) List<MesEdhrWorkbenchRow> chunkDeviation(@Param("q") QueryContext query,@Param("after") ChunkCursor after,@Param("fetchLimit") int fetchLimit);
+ @Options(timeout=10) List<MesEdhrWorkbenchRow> identityDeviation(@Param("q") QueryContext query,@Param("businessId") String businessId,@Param("lockedBatchStatus") Long lockedBatchStatus);
+
  @Options(timeout=10)
  @Select("SELECT batch_execution_id FROM mes_pro_edhr_work_task WHERE tenant_id=#{q.tenantId} AND id=#{id} AND deleted=0")
  Long edhrBatch(@Param("q") QueryContext q,@Param("id") long id);

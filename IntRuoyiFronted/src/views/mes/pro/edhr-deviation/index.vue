@@ -29,7 +29,7 @@
         <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="resolveRows(rows)" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
-          <el-table-column label="关联订单 / 批记录" min-width="180"><template #default="{ row }">{{ row.batchExecutionCode || (row.activeOrderId ? `${row.workOrderCode || '订单'} / #${row.activeOrderId}（生产中发起）` : '—') }}</template></el-table-column>
+          <el-table-column prop="workOrderCode" label="生产订单号" min-width="180" /><el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
           <el-table-column prop="batchCode" label="批号" min-width="140" />
           <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大' : '普通' }}</el-tag></template></el-table-column>
           <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }"><span :style="{ color: row.status === 'OPEN' ? 'var(--el-color-danger)' : 'var(--el-color-success)' }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</span></template></el-table-column>
@@ -39,18 +39,25 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
-    <el-drawer v-model="detailVisible" title="偏差详情" size="560px"><DeviationDetail v-if="detailId" :id="detailId" @closed="load" /></el-drawer>
+    <el-dialog v-model="detailVisible" title="偏差详情" width="min(1240px, calc(100vw - 32px))" top="5vh" class="edhr-detail-surface" destroy-on-close append-to-body>
+      <DeviationDetail v-if="detailVisible && detailId" :id="detailId" :actions-target="detailActionsTarget" @closed="load" />
+      <template #footer>
+        <div class="flex flex-wrap items-center justify-between gap-12px">
+          <div ref="detailActionsTarget"></div>
+          <el-button size="default" @click="detailVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
     <el-dialog v-model="createVisible" title="发起偏差" width="680px" destroy-on-close>
       <el-alert v-if="createError" :title="createError" type="error" :closable="false" show-icon class="mb-12px" />
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
-        <el-form-item label="批记录" prop="batchExecutionId"><el-select v-model="createForm.batchExecutionId" filterable remote clearable :remote-method="loadBatchOptions" :loading="batchLoading" placeholder="请选择正式批记录" style="width: 100%"><el-option v-for="item in batchOptions" :key="item.batchExecutionId" :label="`${item.batchExecutionCode || item.batchCode || item.batchExecutionId} / ${item.productName || '—'}`" :value="item.batchExecutionId" /></el-select></el-form-item>
+        <el-form-item label="生产订单号" prop="workOrderId"><el-select v-model="createForm.workOrderId" filterable remote clearable :remote-method="loadOrderOptions" :loading="orderLoading" placeholder="搜索并选择生产订单号" style="width: 100%"><el-option v-for="item in orderOptions" :key="item.workOrderId" :label="item.workOrderCode" :value="item.workOrderId"><span>{{ item.workOrderCode }}</span><span class="ml-12px text-gray-400">{{ item.batchCode }}</span></el-option></el-select></el-form-item>
         <el-form-item label="等级" prop="level"><el-radio-group v-model="createForm.level"><el-radio label="NORMAL">普通</el-radio><el-radio label="CRITICAL">重大</el-radio></el-radio-group></el-form-item>
         <el-form-item label="分类" prop="categoryCodes"><el-checkbox-group v-model="createForm.categoryCodes"><el-checkbox v-for="item in categoryOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox></el-checkbox-group></el-form-item>
         <el-form-item label="偏差描述" prop="description"><el-input v-model="createForm.description" type="textarea" :rows="3" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="等级依据" prop="levelBasis"><el-input v-model="createForm.levelBasis" type="textarea" :rows="2" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="发现位置"><el-input v-model="createForm.discoveryLocation" maxlength="255" /></el-form-item>
         <el-form-item label="紧急措施"><el-input v-model="createForm.emergencyAction" type="textarea" :rows="2" maxlength="4000" /></el-form-item>
-        <el-form-item label="接收调查人员" prop="receiverId"><DeviationReceiverSelect v-model="createForm.receiverId" @change="value => createForm.receiverName = value?.nickname || ''" /></el-form-item>
         <el-form-item label="签名凭据" prop="signaturePassword"><SignatureCredentialInput v-model="createForm.signaturePassword" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="createVisible = false">取消</el-button><el-button type="primary" :loading="createLoading" @click="submitCreate">签名并发起</el-button></template>
@@ -72,14 +79,13 @@
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
-import { createDeviation, getDeviationBatchOptions, getDeviationPage, type DeviationBatchOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
+import { createDeviation, getDeviationOrderOptions, getDeviationPage, type DeviationOrderOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import type { FormInstance, FormRules } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import dayjs from 'dayjs'
 import DeviationDetail from './DeviationDetail.vue'
-import DeviationReceiverSelect from '@/views/mes/pro/edhr-deviation/components/DeviationReceiverSelect.vue'
 import QaReviewerSelect from '@/views/mes/pro/edhr-nonconformance/QaReviewerSelect.vue'
 import { createCriticalDeviationReview } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
@@ -106,6 +112,7 @@ onDeactivated(resetBatchNcrContext)
 onBeforeUnmount(resetBatchNcrContext)
 const total = ref(0)
 const detailVisible = ref(false)
+const detailActionsTarget = ref<HTMLElement | null>(null)
 const detailId = ref<number>()
 const query = reactive({ listFilters: undefined as string | undefined, pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
 const formatTime = (value?: string | number | null) => {
@@ -115,6 +122,7 @@ const formatTime = (value?: string | number | null) => {
 }
 const listColumns: UserTableColumnDefinition[] = [
   { key: 'deviationCode', label: '偏差编号', minWidth: 180 },
+  { key: 'workOrderCode', label: '生产订单号', minWidth: 180 },
   { key: 'batchExecutionCode', label: '关联批记录', minWidth: 180 },
   { key: 'batchCode', label: '批号', minWidth: 140 },
   { key: 'level', label: '等级', width: 100 },
@@ -124,7 +132,7 @@ const listColumns: UserTableColumnDefinition[] = [
 ]
 const { columns: listColumnState } = useUserTableColumns('mes.pro.edhr.deviation.main', listColumns)
 const filterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'search', label: '关键词', type: 'text', queryParamKey: 'search', placeholder: '偏差编号、批号或批记录' },
+  { key: 'search', label: '关键词', type: 'text', queryParamKey: 'search', placeholder: '偏差编号、生产订单号、批号或批记录' },
   { key: 'level', label: '等级', type: 'select', queryParamKey: 'level', options: [{ label: '普通', value: 'NORMAL' }, { label: '重大', value: 'CRITICAL' }] },
   { key: 'initiatedAt', label: '发起时间', type: 'dateRange', queryParamKey: 'initiatedAt' }
 ]
@@ -133,21 +141,20 @@ const createVisible = ref(false)
 const createLoading = ref(false)
 const createError = ref('')
 const createFormRef = ref<FormInstance>()
-const batchLoading = ref(false)
-const batchOptions = ref<DeviationBatchOptionRespVO[]>([])
+const orderLoading = ref(false)
+const orderOptions = ref<DeviationOrderOptionRespVO[]>([])
 const categoryOptions = [
   { label: '生产过程', value: 'PRODUCTION_PROCESS' }, { label: '生产公用系统', value: 'PRODUCTION_UTILITY' },
   { label: '检验', value: 'INSPECTION' }, { label: '验证确认', value: 'VALIDATION_CONFIRMATION' },
   { label: '物料管理', value: 'MATERIAL_MANAGEMENT' }, { label: '文件记录', value: 'DOCUMENT_RECORD' },
   { label: '产品放行', value: 'PRODUCT_RELEASE' }, { label: '其他系统', value: 'OTHER_SYSTEM' }
 ]
-const createForm = reactive<DeviationCreateReqVO>({ batchExecutionId: 0, level: 'NORMAL', categoryCodes: [], description: '', levelBasis: '', discoveryLocation: '', emergencyAction: '', idempotencyKey: '', signaturePassword: '' })
+const createForm = reactive<DeviationCreateReqVO>({ workOrderId: undefined, level: 'NORMAL', categoryCodes: [], description: '', levelBasis: '', discoveryLocation: '', emergencyAction: '', idempotencyKey: '', signaturePassword: '' })
 const createRules: FormRules = {
-  batchExecutionId: [{ required: true, message: '请选择正式批记录', trigger: 'change' }],
+  workOrderId: [{ required: true, message: '请选择生产订单号', trigger: 'change' }],
   level: [{ required: true, message: '请选择偏差等级', trigger: 'change' }],
   categoryCodes: [{ type: 'array', min: 1, required: true, message: '至少选择一个分类', trigger: 'change' }],
   description: [{ required: true, message: '请填写偏差描述', trigger: 'blur' }],
-  receiverId: [{ required: true, message: '请选择负责接收并调查偏差的人员', trigger: 'change' }],
   levelBasis: [{ required: true, message: '请填写等级依据', trigger: 'blur' }],
   signaturePassword: [{ required: true, message: '请输入所选签名方式的六位 PIN 码或密码', trigger: 'blur' }]
 }
@@ -231,19 +238,33 @@ const submitBatchNcr = async () => {
     message.error(writeSucceeded ? `不合格审批已发起，回执校验或列表刷新失败：${error?.message}` : error?.response?.data?.msg || error?.message || '不合格审批发起失败，请重试')
   } finally { if (isCurrent()) batchNcrLoading.value = false }
 }
-const loadBatchOptions = async (search = '') => {
-  batchLoading.value = true
-  try { const data = await getDeviationBatchOptions({ pageNo: 1, pageSize: 50, search }); batchOptions.value = data.list || [] } catch { batchOptions.value = [] } finally { batchLoading.value = false }
+let orderOptionsSerial = 0
+const loadOrderOptions = async (search = '') => {
+  const serial = ++orderOptionsSerial
+  const sessionKey = approvalInvalidation.syncSession().key
+  const isCurrent = () => serial === orderOptionsSerial && approvalInvalidation.isCurrent(sessionKey) && createVisible.value
+  orderLoading.value = true
+  createError.value = ''
+  try {
+    const data = await getDeviationOrderOptions({ pageNo: 1, pageSize: 50, search })
+    if (isCurrent()) orderOptions.value = data.list
+  } catch (error: any) {
+    if (isCurrent()) {
+      orderOptions.value = []
+      createError.value = error?.response?.data?.msg || error?.message || '生产订单加载失败'
+    }
+  } finally { if (isCurrent()) orderLoading.value = false }
 }
 const openCreate = async () => {
   createError.value = ''
   createForm.idempotencyKey = `EDHR_DEVIATION_${Date.now()}_${Math.random().toString(36).slice(2)}`
   createForm.signaturePassword = ''
   createForm.categoryCodes = []
-  createForm.receiverId = undefined
-  createForm.receiverName = ''
+  createForm.workOrderId = undefined
+  orderOptions.value = []
+  createFormRef.value?.clearValidate()
   createVisible.value = true
-  await loadBatchOptions()
+  await loadOrderOptions()
 }
 const submitCreate = async () => {
   if (!createFormRef.value || !(await createFormRef.value.validate().catch(() => false))) return

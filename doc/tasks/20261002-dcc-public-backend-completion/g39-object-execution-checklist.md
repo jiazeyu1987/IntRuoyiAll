@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G39 三个缺失原件的执行核对清单
 
 状态：READONLY_EXECUTION_REVIEW_READY_FOR_ROOT。2026-10-04。本 Agent 仅读现有执行代码、封存材料、G39真实授权和历史安全收据，未连接数据库、未执行 HTTP/GET/PUT、未启动服务或浏览器、未运行 Maven/Git、未修改执行代码；只新增本文。Root 是唯一实际执行人。
@@ -8,7 +10,7 @@
 
 Root现有入口所要求的专用授权文件已经存在并经只读核对：
 
-`C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-authorization.json`
+`./doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-authorization.json`
 
 它包含 runner 强制字段：`actualUserApproval: true`、`maximumUniqueObjectPuts: 3`、sourceFileIds 恰为 `9198354931064/1068/1079/1095`（各为完整字符串 ID）、真实 `sourceMessageReference` 指向 G39 原答复 item2。SHA-256为 `0e65a62bbef6b563789b411592cd98e24e5ecfb22129395e9fed13d474cfb758`。`--authorization` 必须使用这个确切文件；G39总授权文件结构不同，不能直接代替。
 
@@ -30,11 +32,11 @@ Root现有入口所要求的专用授权文件已经存在并经只读核对：
 以下输出目录必须尚不存在，且恢复目录必须是保护根的直属新目录。若已经存在，不删除、不覆盖，选择另一个可追踪新目录后核对实际运行状态。prepare只读库+本地原件证明，没有对象 GET/PUT；recover重新读取元数据并执行实际预检/条件创建，prepare成功不表示已经恢复。
 
 ```powershell
-python -B -X utf8 C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-runner.py --mode prepare --output-directory C:/IntRuoyiBackups/20261003-dcc-integration/g39-object-prepare
+python -B -X utf8 ./doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-runner.py --mode prepare --output-directory 历史外部材料（引用已移除）
 ```
 
 ```powershell
-python -B -X utf8 C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-runner.py --mode recover --authorization C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-authorization.json --output-directory C:/IntRuoyiBackups/20261003-dcc-integration/g39-object-recovery
+python -B -X utf8 ./doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-runner.py --mode recover --authorization ./doc/tasks/20261001-dcc-integration-unblock/g26-object-recovery-authorization.json --output-directory 历史外部材料（引用已移除）
 ```
 
 recover流程固定：3个唯一key全部 actualGET返回404 NoSuchKey后才允许PUT；最多每key一次 `If-None-Match:*` 条件创建、SHA checksum、正确MIME/length，SDK retry zero；全部接受后对4个ID各做finalGET。1079/1095指向同key，不能把4个putAccepted=true计成4次物理写入。
@@ -50,7 +52,7 @@ recover流程固定：3个唯一key全部 actualGET返回404 NoSuchKey后才允�
 ## 恢复后独立39原文证明
 
 ```powershell
-python -B -X utf8 C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g25_source_bytes.py --facts C:/IntRuoyiBackups/20261003-dcc-integration/g23-legacy-name-facts.jsonl --reader-task C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion --output-directory C:/IntRuoyiBackups/20261003-dcc-integration/g39-all39-source-bytes
+python -B -X utf8 ./doc/tasks/20261001-dcc-integration-unblock/g25_source_bytes.py --facts 历史外部材料（引用已移除） --reader-task ../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion --output-directory 历史外部材料（引用已移除）
 ```
 
 这不是4条恢复结果的复制：caller重新核39个version及39个storage元数据（共80行runtime/config/version/storage事实），每个source ID独立GetObject。成功条件：exit0、receipt `SOURCE_BYTES_VERIFIED/sourceBytesVerified=true/objectsRead39/matches39`，39个精确ID全部MATCH且SHA、length、HTTP200、无error；databaseWrites/objectWrites/bodyPersisted/credentialsPersisted均false。缺任一项不具备历史名称登记正文前置，也不当作前端E2E。

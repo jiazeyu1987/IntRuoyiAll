@@ -2,7 +2,7 @@
 
 Snapshot after Root's actual local integration: main `int_qms` HEAD `ce88a18a295086285d27b2a59ba70fdf1f3fbea4`. Root records source127821/root33d5 and normalized820candidate/500source match with six protectedassets unchanged. This reviewer did not rerun that merge proof or mutateGit/files/services. Only this report is written; originalolderworktrees and main's unrelatedmodifiedassets are untouched. No tests/Maven/DB/browser/API/cleanup.
 
-## `C:/IntRuoyi/20260918-001`
+## `../IntRuoyiWorktree/20260918-001`
 
 Branch `codex/20260918-001`, HEAD `8f08a64c728c868a18c1b75d50aa94c82348af69`. **15commits unique versus currentint_qms**, and `git cherry int_qms codex/20260918-001` marks all15 `+`: there is no samepatchID evidence that thesecommits are already equivalently merged. Do not call thisbranch fullyabsorbed or deleteitsrefs without a Gitbundle/retainedref archive. Most uniquecommits contain unrelatedmainprogramEDHR/Kingdee/AI/frontendbackendbaselinework; currentDCCgoal is not permission to automatically import them.
 
@@ -23,7 +23,7 @@ Example rawolderhashes forarchivevalidation: infraBusinessFileAccessService `fd0
 
 **Disposition recommendation:** retain15uniquecommits via bundle/ref andall9dirtypatches+4taskfiles inprotectedarchive. No specificnecessarycurrentDCCfix was found that should be copiedbeforeworktreeretirement; several real historical/unrelatedfeatures are **not** absorbed andmustnotbelost. Root needs explicitarchiveverification, not “allpatchesmerged” justification.
 
-## `C:/IntRuoyi/20260923-dcc-three-workflows-runtime`
+## `../IntRuoyiWorktree/20260923-dcc-three-workflows-runtime`
 
 Branch `codex/20260923-dcc-three-workflows-runtime`, HEAD `a9bcb6d36d96145ddc1252f111347b644b328deb`; uniquecommitsversuscurrentint_qms **0**. Worktreestatus16738entries =16431trackeddirty+307untracked. `git -c core.autocrlf=false diff --ignore-space-at-eol --name-only` leaves **204realtextdiffpaths**, so mostdirtyentries are lineendingnoise but this is **not entirelyCRLF**. No node_modules/target/dist recursion was used.
 

@@ -147,6 +147,19 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             }
             MesKingdeeProductionOrderSyncRecordDO syncRecord = selectSyncRecord(productionOrder);
             MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
+            if (syncRecord == null && existingWorkOrder != null) {
+                // ERP may correct a material on the same source document. Retain its one-to-one
+                // work-order link and rekey that record, rather than inserting a second link.
+                syncRecord = syncRecordMapper.selectByWorkOrderId(existingWorkOrder.getId());
+                if (syncRecord != null
+                        && (!Objects.equals(syncRecord.getSourceFid(), productionOrder.getFid())
+                        || !Objects.equals(syncRecord.getSourceBillNo(), productionOrder.getBillNo()))) {
+                    throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                            "生产工单已绑定不同ERP来源，不能重新绑定: workOrderId=" + existingWorkOrder.getId()
+                                    + ", existingSourceFid=" + syncRecord.getSourceFid()
+                                    + ", incomingSourceKey=" + sourceKey);
+                }
+            }
             if (skipExisting && existingWorkOrder != null) {
                 result.addSkipped(sourceKey);
                 continue;
@@ -630,6 +643,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         syncRecordMapper.updateById(new MesKingdeeProductionOrderSyncRecordDO()
                 .setId(syncRecord.getId())
                 .setSourceBillNo(productionOrder.getBillNo())
+                .setSourceMaterialNumber(productionOrder.getMaterialNumber())
                 .setWorkOrderId(workOrderId));
     }
 

@@ -724,7 +724,7 @@ const formatDccSignatureSnapshotValue = (value?: string | number | null) => {
   return text || '旧版证据未记录'
 }
 
-const emptyQuickFilterDefinitions: TableQuickFilterDefinition[] = []
+
 
 const loadSignerOptions = async () => {
   signerOptions.value = await getSimpleUserList()

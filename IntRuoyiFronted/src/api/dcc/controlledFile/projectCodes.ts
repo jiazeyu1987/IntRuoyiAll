@@ -95,7 +95,7 @@ export interface DccProjectCodeControlledFilePageReqVO extends PageParam {
 export interface DccProjectFileTemplateItemRespVO {
   id: number
   projectCodeId: number
-  fileTypeTaxonomyId: number
+  fileTypeTaxonomyId?: number | null
   stageTaxonomyId: number
   stageName: string
   fileTypeNodeId: number
@@ -115,7 +115,7 @@ export interface DccProjectFileTemplateRespVO {
 }
 
 export interface DccProjectFileTemplateItemSaveReqVO {
-  fileTypeTaxonomyId: number
+  fileTypeTaxonomyId?: number | null
   fileName: string
   sortOrder: number
 }

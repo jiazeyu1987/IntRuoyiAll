@@ -290,7 +290,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         BigDecimal defaultValue = rule.getBigDecimal("defaultValue");
         Integer decimalScale = rule.getInteger("decimalScale");
         String defaultText = StrUtil.trim(rule.getString("defaultText"));
-        List<String> optionValues = parseParameterOptions(routeVersionId, rule.getString("optionValuesJson"));
+        List<String> optionValues = parseParameterOptions(rule);
         if (!deviceIds.contains(deviceId)
                 || !Objects.equals(config.getLong("routeProcessId"), rule.getLong("routeProcessId"))
                 || !Objects.equals(config.getLong("processId"), rule.getLong("processId"))
@@ -304,8 +304,13 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             return;
         }
         if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(valueType)) {
-            if (lowerLimit != null || upperLimit != null || defaultValue != null || decimalScale != null
-                    || optionValues.isEmpty() || StrUtil.isBlank(defaultText) || !optionValues.contains(defaultText)) {
+            if (optionValues.isEmpty()) {
+                throw invalidParameter(rule, "下拉选项", "至少填写一个有效选项");
+            }
+            if (StrUtil.isBlank(defaultText) || !optionValues.contains(defaultText)) {
+                throw invalidParameter(rule, "默认值", "必须选择下拉选项中的值");
+            }
+            if (lowerLimit != null || upperLimit != null || defaultValue != null || decimalScale != null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
             }
             return;
@@ -320,16 +325,29 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             }
             return;
         }
+        if (lowerLimit != null && upperLimit != null && lowerLimit.compareTo(upperLimit) > 0) {
+            throw invalidParameter(rule, "下限", "不能大于上限");
+        }
+        if (defaultValue != null && lowerLimit != null && defaultValue.compareTo(lowerLimit) < 0) {
+            throw invalidParameter(rule, "目标值（默认值）", "不能小于下限");
+        }
+        if (defaultValue != null && upperLimit != null && defaultValue.compareTo(upperLimit) > 0) {
+            throw invalidParameter(rule, "目标值（默认值）", "不能大于上限");
+        }
         if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(valueType)
                 || !optionValues.isEmpty() || StrUtil.isNotBlank(defaultText)
                 || decimalScale != null && (decimalScale < 0 || decimalScale > 6)
                 || MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER.equals(valueType)
-                && decimalScale != null && decimalScale != 0
-                || lowerLimit != null && upperLimit != null && lowerLimit.compareTo(upperLimit) > 0
-                || defaultValue != null && lowerLimit != null && defaultValue.compareTo(lowerLimit) < 0
-                || defaultValue != null && upperLimit != null && defaultValue.compareTo(upperLimit) > 0) {
+                && decimalScale != null && decimalScale != 0) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
         }
+    }
+
+    private static cn.iocoder.yudao.framework.common.exception.ServiceException invalidParameter(
+            JSONObject rule, String field, String reason) {
+        return cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid(
+                "参数“" + rule.getString("parameterName") + "”（" + rule.getString("parameterCode")
+                        + "）的" + field + "：" + reason);
     }
 
     private static void requireNoNumericContract(Long routeVersionId, BigDecimal lowerLimit,
@@ -341,23 +359,25 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         }
     }
 
-    private static List<String> parseParameterOptions(Long routeVersionId, String optionValuesJson) {
+    private static List<String> parseParameterOptions(JSONObject rule) {
+        String optionValuesJson = rule.getString("optionValuesJson");
         if (StrUtil.isBlank(optionValuesJson)) {
             return List.of();
         }
+        List<String> values;
         try {
-            List<String> values = JSON.parseArray(optionValuesJson, String.class);
-            if (values == null || values.stream().anyMatch(StrUtil::isBlank)) {
-                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
-            }
-            List<String> normalized = values.stream().map(StrUtil::trim).toList();
-            if (new LinkedHashSet<>(normalized).size() != normalized.size()) {
-                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
-            }
-            return normalized;
-        } catch (RuntimeException ex) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            values = JSON.parseArray(optionValuesJson, String.class);
+        } catch (com.alibaba.fastjson.JSONException ex) {
+            throw invalidParameter(rule, "下拉选项", "格式无效，必须为选项数组");
         }
+        if (values == null || values.stream().anyMatch(StrUtil::isBlank)) {
+            throw invalidParameter(rule, "下拉选项", "不能包含空选项");
+        }
+        List<String> normalized = values.stream().map(StrUtil::trim).toList();
+        if (new LinkedHashSet<>(normalized).size() != normalized.size()) {
+            throw invalidParameter(rule, "下拉选项", "不能重复");
+        }
+        return normalized;
     }
 
     /** Shared read-only checks for the formal route readiness inspection. */

@@ -395,9 +395,7 @@ const formatFileSize = (value?: number | null) => {
 }
 
 const traceBatchExecutionId = computed(() => parsePositiveNumber(props.context?.batchExecutionId))
-const traceReleaseTransactionId = computed(() =>
-  parsePositiveNumber(props.context?.releaseTransactionId)
-)
+
 const contextExecutionId = computed(() => parsePositiveNumber(props.context?.executionId))
 const traceTitle = computed(() => {
   const segments = [

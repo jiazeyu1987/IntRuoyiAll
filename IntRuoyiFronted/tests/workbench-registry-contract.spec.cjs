@@ -30,12 +30,12 @@ const clone = x => structuredClone(x)
 const descriptors = units.flatMap(unit => unit.sources.map(source => source.descriptor))
 const directory = () => ({ contractVersion: 1, registryRevision: manifest.registryRevision, sources: clone(descriptors) })
 
-test('actual discovered five sources match both build manifests and keep labels/ranks', () => {
+test('actual discovered six sources match both build manifests and keep labels/ranks', () => {
   const registry = createSourceRegistry(units, manifest)
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '../IntRuoyiBackend/yudao-server/src/main/resources/workbench-manifest.json'), 'utf8')), manifest)
-  assert.equal(registry.validateDirectory(directory()).sources.length, 5)
+  assert.equal(registry.validateDirectory(directory()).sources.length, 6)
   assert.deepEqual(descriptors.map(d => [d.sourceId, d.sortRank]).sort((a,b) => a[1]-b[1]), [
-    ['DCC_DISTRIBUTION',0],['DCC_TRAINING',1],['EDHR_WORK_TASK',2],['SHOWROOM_ASSIGNMENT',4],['BPM_EDHR_VOID',5]])
+    ['DCC_DISTRIBUTION',0],['DCC_TRAINING',1],['EDHR_WORK_TASK',2],['EDHR_DEVIATION_TASK',3],['SHOWROOM_ASSIGNMENT',4],['BPM_EDHR_VOID',5]])
 })
 test('neutral Java API imports and shared query/navigation consumers keep business policy in source units', () => {
   const apiRoot = path.join(root, '../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/workbench')
@@ -207,5 +207,17 @@ test('actual full Vue page handler owns directory generation identity and query'
   assert.equal(formalCalls[0][1].handoffTaskId,'77')
   await assert.rejects(()=>source.open({}, {id:'77', taskType:'FILL', blockedReason:'批次冻结'}), /批次冻结/)
   await assert.rejects(()=>source.open({}, {id:'77', taskType:'QA_DECISION_HANDOFF'}))
+  assert.equal(formalCalls.length,1)
+ })
+
+ test('deviation category retains exact work-task navigation and permission blocking', async () => {
+  const registry = createSourceRegistry(units, manifest), source = registry.require('EDHR_DEVIATION_TASK')
+  formalCalls=[]
+  const payload={id:'91',taskType:'DEVIATION_VERIFY',businessScopeType:'EDHR_DEVIATION',businessScopeId:'13'}
+  await source.open({},payload)
+  assert.equal(source.descriptor.taskType,'偏差')
+  assert.equal(source.descriptor.actionKind,'mes.deviation.open')
+  assert.deepEqual(formalCalls[0][1],payload)
+  await assert.rejects(()=>source.open({}, {...payload,blockedReason:'当前账号已无此偏差职责的办理权限'}),/办理权限/)
   assert.equal(formalCalls.length,1)
  })

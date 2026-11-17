@@ -627,6 +627,10 @@ const openCategoryUploadPolicyDialog = async (row: ControlledFileCategoryVO) => 
 }
 
 const handleDisable = async (row: ControlledFileCategoryVO) => {
+  if (!row.id) {
+    message.error('文件类别缺少编号，请刷新列表后重试')
+    return
+  }
   if (loading.value) return
   loading.value = true
   try {

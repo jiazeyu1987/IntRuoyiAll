@@ -72,7 +72,7 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeSyncRunResult result = windowStart == null ? syncService.syncAllSkipExisting(context.getRunId())
+            ErpKingdeeSyncRunResult result = windowStart == null ? syncService.syncAllWithUpdates(context.getRunId())
                     : syncService.syncAllSkipExisting(context.getRunId(), windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null, result.getCreatedCount(),

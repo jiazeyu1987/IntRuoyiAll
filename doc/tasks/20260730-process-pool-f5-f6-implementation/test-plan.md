@@ -51,6 +51,6 @@
 
 ## Regression Checks
 
-- `validate_acceptance_plan.py --root E:\IntRuoyi`
+- `validate_acceptance_plan.py --root .`
 - `scripts\preflight\branch-runtime-port-guard.ps1`
 - 合并后重新运行 F5/F6 定向 Maven、Node、Playwright 验证。

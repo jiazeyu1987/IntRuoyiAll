@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 不合格评审 MVP 实现执行日志
 
 ## User Intent
@@ -12,17 +14,17 @@
 
 2026-08-31 用户追加要求：`PQC_SUBMISSION` 的 `不合格审查` 入口必须从一线 PQC 填写页移到 `PQC组长 -> PQC管理` 行操作区；一线页不应再直接发起该审查，组长需在提交后的管理列表条目上点击进入统一不合格评审页。
 
-提交前运行 `E:\IntRuoyi\scripts\preflight\branch-runtime-port-guard.ps1` -> FAIL：当前功能 worktree 的旧 `branch-runtime-profile.ps1` 只允许 slot `1..19`，而共享登记表已升级到 v7 并存在合法 slot `20`。本任务未修改 `scripts/runtime`、`docs/branch-runtime-ports.md`、分支 env 或 `.githooks`；该中间功能提交继续保留失败证据，最终融合前必须在基于最新 `int_main` 的干净集成 worktree 运行 v7 guard 并 PASS。
+提交前运行 `./scripts/preflight/branch-runtime-port-guard.ps1` -> FAIL：当前功能 worktree 的旧 `branch-runtime-profile.ps1` 只允许 slot `1..19`，而共享登记表已升级到 v7 并存在合法 slot `20`。本任务未修改 `scripts/runtime`、`docs/branch-runtime-ports.md`、分支 env 或 `.githooks`；该中间功能提交继续保留失败证据，最终融合前必须在基于最新 `int_main` 的干净集成 worktree 运行 v7 guard 并 PASS。
 
 模拟夹具方案：使用测试租户正式页面临时把 `RT000028` 从停用改为启用，使工单 `WO-EDHR-CELL-20260728-104808` 可创建唯一批次；批次创建成功后立即通过同一页面恢复路线停用。若任一步失败，脚本在关闭浏览器前优先恢复路线状态并记录恢复结果。
 
 ## Requirements Source
 
-- `C:\Users\BJB110\Documents\Codex\2026-08-30\fe\outputs\nonconformance-review-mvp-prd.md`
-- `C:\Users\BJB110\Documents\Codex\2026-08-30\fe\outputs\nonconformance-review-mvp-user-flows.md`
-- `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll\docs\product\prd.md`
-- `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll\docs\product\user-flows.md`
-- `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll\docs\product\acceptance-criteria.md`
+- `历史外部材料（引用已移除）`
+- `历史外部材料（引用已移除）`
+- `历史外部材料（引用已移除）`
+- `历史外部材料（引用已移除）`
+- `历史外部材料（引用已移除）`
 
 ## BDD Scenarios
 
@@ -39,14 +41,14 @@
 ## Commands And Evidence
 
 - 已读取 worktree、任务收尾、PowerShell 编码、PowerShell/Git、前端、后端、数据库规则。
-- 已创建新 worktree：`D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830`。
+- 已创建新 worktree：`../IntRuoyiWorktree/nonconformance-review-mvp-20260830`。
 - 已读取经验索引命中项：eDHR 批次执行、冻结/作废、真实 E2E、PowerShell/Git、worktree 端口门禁。
-- 运行槽位登记：`D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830\scripts\runtime\reserve-worktree-slot.ps1 -Name nonconformance-review-mvp-20260830 -Path D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830 -Branch codex/nonconformance-review-mvp-20260830 -Profile int_batch -AsJson` -> FAIL，既有 worktree `D:\IntRuoyiWorktree\20260815-frontline-pqc-c00-backfill-remediation` 使用非法 slot `20`。
+- 运行槽位登记：`../IntRuoyiWorktree/nonconformance-review-mvp-20260830/scripts/runtime/reserve-worktree-slot.ps1 -Name nonconformance-review-mvp-20260830 -Path ../IntRuoyiWorktree/nonconformance-review-mvp-20260830 -Branch codex/nonconformance-review-mvp-20260830 -Profile int_batch -AsJson` -> FAIL，既有 worktree `../IntRuoyiWorktree/20260815-frontline-pqc-c00-backfill-remediation` 使用非法 slot `20`。
 - 已新增后端静态契约测试：`IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-nonconformance-review-mvp-static.spec.cjs`。
 - 已新增前端静态契约测试：`IntRuoyiFronted\tests\e2e\edhr-nonconformance-review-mvp-static.spec.js`。
 - 已实现后端统一不合格评审单表、DO、Mapper、Service、Controller、冻结拦截和追溯读模型。
 - 已实现前端统一不合格评审 API、路由、QA 页面、PQC 填写入口、PQC 放行入口、批次冻结状态显示和追溯展示。
-- 2026-08-30 E2E 复验使用当前 `E:\IntRuoyi` 端口合同重新登记成功：`int_batch slot 1`，前端 `8042`，后端 `48042`。
+- 2026-08-30 E2E 复验使用当前 `.` 端口合同重新登记成功：`int_batch slot 1`，前端 `8042`，后端 `48042`。
 - `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS，生成本 worktree 完整运行 Jar；SHA-256 为 `A21F52B55DE256381F3A2B95E763060AB34EFA057052C68C19F360710E7896ED`，内嵌 MES 模块确认包含 `MesProEdhrNonconformanceReviewController.class`。
 - 本地数据库正式迁移执行两次均成功；表 `mes_pro_edhr_nonconformance_review`、29 个字段、4 个索引及菜单 `9008300..9008303` 已核对。
 - 真实运行态：后端 `48042/actuator/health` 为 `UP`，前端 `8042` HTTP 可访问；结束后两端口监听数均为 `0`。
@@ -89,7 +91,7 @@
 - GREEN: `pnpm install --frozen-lockfile` -> PASS，锁文件未变更
 - GREEN: `pnpm ts:check` -> PASS，最终复跑 PASS
 - GREEN: `git diff --check` -> PASS，仅输出 CRLF 提示
-- GREEN: `python C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\scripts\validate_quality_assurance.py --evidence D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830\doc\tasks\nonconformance-review-mvp-implementation\verification-report.md` -> PASS
+- GREEN: `python 会话技能：quality-assurance-test-suite --evidence ../IntRuoyiWorktree/nonconformance-review-mvp-20260830/doc/tasks/nonconformance-review-mvp-implementation/verification-report.md` -> PASS
 - GREEN: `rg -n "No checked-out worktree for main branch|task-closeout 主线 worktree 可见性门禁" docs\experience-index.md docs\worktree-memory.md` -> PASS，经验索引可定位新增 closeout blocker 门禁。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --sql-file sql\mysql\20260830_mes_edhr_nonconformance_review_mvp.sql --sql-file sql\mysql\20260608_edhr_batch_execution_schema.sql` -> PASS，迁移依赖闭包为 2。
 - GREEN: `node src\test\js\mes-edhr-nonconformance-review-mvp-static.spec.cjs` -> PASS，覆盖正式依赖 ID、菜单冲突检查和无冲突菜单 ID。
@@ -101,10 +103,10 @@
 ## Blockers
 
 - Runtime/E2E blocker: `reserve-worktree-slot.ps1` 因既有 worktree slot `20` 阻塞，暂不能启动本 worktree 前后端服务；本任务继续执行不依赖本地服务启动的代码实现和定向静态/单元验证。
-- Runtime/E2E blocker recheck: `D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830\scripts\runtime\reserve-worktree-slot.ps1 -Name nonconformance-review-mvp-20260830 -Path D:\IntRuoyiWorktree\nonconformance-review-mvp-20260830 -Branch codex/nonconformance-review-mvp-20260830 -Profile int_batch -AsJson` -> FAIL，既有 worktree `D:\IntRuoyiWorktree\20260815-frontline-pqc-c00-backfill-remediation` 使用非法 slot `20`，仍阻塞真实运行态和 Playwright E2E。
+- Runtime/E2E blocker recheck: `../IntRuoyiWorktree/nonconformance-review-mvp-20260830/scripts/runtime/reserve-worktree-slot.ps1 -Name nonconformance-review-mvp-20260830 -Path ../IntRuoyiWorktree/nonconformance-review-mvp-20260830 -Branch codex/nonconformance-review-mvp-20260830 -Profile int_batch -AsJson` -> FAIL，既有 worktree `../IntRuoyiWorktree/20260815-frontline-pqc-c00-backfill-remediation` 使用非法 slot `20`，仍阻塞真实运行态和 Playwright E2E。
 - Runtime/E2E blocker recheck superseded: 当前项目端口合同已扩展为 `1..100`，使用主工作区最新原子脚本登记 `slot 1` 成功，旧 slot blocker 不再成立。
 - Current E2E blocker: 已解除。用户允许测试租户模拟数据后，使用无活跃人工任务、无既有评审的历史 E2E 批次完成真实路径验证并作废收口。
-- Closeout blocker: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，未找到 `int_main` 的 checked-out worktree，因此未执行 apply/合并/删除 worktree。
+- Closeout blocker: `python 会话技能：task-closeout-cleanup --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，未找到 `int_main` 的 checked-out worktree，因此未执行 apply/合并/删除 worktree。
 - Source commit guard blocker: 源分支 v3 端口钩子与共享 v7 登记表不兼容；只允许在源分支生成任务提交时显式跳过，最终 `int_main` 融合仍以最新 v7 门禁通过为硬条件。
 
 ## int_main 融合记录
@@ -112,10 +114,10 @@
 - 用户意图：先提交当前任务代码，再融合到 `int_main`；未授权 push。
 - 源任务提交：`e5df7e02dd388efa70313a04c8ef44b8c6057262`（`feat: 实现不合格评审 MVP`），仅包含本任务 38 个文件。
 - 禁止直接合并源分支：源分支基于 `int_batch`，相对 `int_main` 还携带 11 个非本任务历史提交；因此从最新 `int_main@c445dd0f93e099d41e58326dbbf668a4217ad084` 创建干净融合分支，只移植本任务提交。
-- 融合工作树：`D:\IntRuoyiWorktree\nonconformance-review-mvp-int-main-20260830`，分支 `codex/nonconformance-review-mvp-int-main-20260830`，登记 `int_main slot 54`（`8309/48309`）。
+- 融合工作树：`../IntRuoyiWorktree/nonconformance-review-mvp-int-main-20260830`，分支 `codex/nonconformance-review-mvp-int-main-20260830`，登记 `int_main slot 54`（`8309/48309`）。
 - 冲突处理：保留主线放行四材料门禁、经理审批和电子签核链路，同时加入不合格冻结检查；作废状态加入完成追溯；不合格错误码因主线占用 `1040750466..468` 调整为 `1040750469..474`。
 - 前端冲突处理：以最新批次详情和一线 PQC 大屏为底稿，移除旧“质量拒收”弹框，统一跳转 `MesProFeedbackEdhrNonconformanceReview`；PQC 页新增同一入口并保留主线现有工单、工序、签名和大屏交互。
-- 并行改动保护：`E:\IntRuoyi` 的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/experience-index.md` 正被其它任务修改，首个融合提交显式保留主线版本。融合提交形成后、最终快进前，`docs/e2e-rules.md` 也出现并行修改，因此增加一个范围收缩提交把该文件恢复为主线版本。最终不覆盖或提交这四份并行经验文档；本任务代码、测试、任务记录及无重叠的 `docs/worktree-memory.md` 正常融合。
+- 并行改动保护：`.` 的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/experience-index.md` 正被其它任务修改，首个融合提交显式保留主线版本。融合提交形成后、最终快进前，`docs/e2e-rules.md` 也出现并行修改，因此增加一个范围收缩提交把该文件恢复为主线版本。最终不覆盖或提交这四份并行经验文档；本任务代码、测试、任务记录及无重叠的 `docs/worktree-memory.md` 正常融合。
 - GREEN: 最新 v7 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS（融合前与冲突解决后各一次）。
 - GREEN: 融合基线后端静态合同 -> PASS；前端静态合同与真实 E2E 脚本语法检查 -> PASS；迁移依赖闭包门禁 -> PASS。
 - GREEN: `pnpm install --frozen-lockfile` -> PASS，锁文件未变更；`pnpm ts:check` -> PASS。
@@ -123,17 +125,17 @@
 - GREEN: `git diff --cached --check` -> PASS，仅 CRLF 提示。
 - 融合提交：`549b9d1a837e0c6e10812ea56c3ac6e9250d147a`（功能融合）与 `9c03ce584b626f013acbc813ffd412d738744428`（并行经验文档保护）。
 - 快进前主工作区交集检查：任务最终 34 个路径与主工作区 70 个 dirty/untracked 路径交集为 `0`；`c445dd0f9` 是 `9c03ce584` 的祖先。
-- 首次 `git merge --ff-only` -> BLOCKED，`E:\IntRuoyi\.git\index.lock` 已存在。核验锁文件为 0 字节、创建于 `22:30:25`、超过一小时未更新且可独占打开，证明没有进程持有；只删除该精确陈旧锁后重试。
+- 首次 `git merge --ff-only` -> BLOCKED，`./.git/index.lock` 已存在。核验锁文件为 0 字节、创建于 `22:30:25`、超过一小时未更新且可独占打开，证明没有进程持有；只删除该精确陈旧锁后重试。
 - `git merge --ff-only codex/nonconformance-review-mvp-int-main-20260830` -> PASS；`int_main` 从 `c445dd0f9` fast-forward 到 `9c03ce584`，post-merge v7 端口门禁 PASS，原并行 dirty/untracked 内容保持未暂存。
 - 未执行 push；`int_main` 相对 `origin/int_main` ahead 2。
-- Closeout preview after merge: `task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，仅因为 `E:\IntRuoyi` 主工作区含其它并行任务 dirty 内容。keep 为三份核心任务文档、delete 为空；未执行 apply 或删除本任务 worktree。
+- Closeout preview after merge: `task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，仅因为 `.` 主工作区含其它并行任务 dirty 内容。keep 为三份核心任务文档、delete 为空；未执行 apply 或删除本任务 worktree。
 
 ## 当前 int_main E2E 复验（2026-08-31）
 
 - 用户意图：在当前 `int_main` 运行态重新执行不合格评审真实 E2E。
 - BDD: 当前主线统一不合格评审闭环 -> Given 测试租户存在可追踪批次且当前运行包来自 `int_main`，When Playwright 从真实页面分别发起 PQC放行/PQC提交不合格审查并由 QA 执行让步放行/返工/作废，Then 批次冻结、三项操作禁止、三类处置和差异追溯均成立，最终无待处理评审。
 - 当前状态：in_progress；先核对 `8081/48081` 监听进程、运行包来源、数据库迁移、登录前置和任务脚本入口，任一缺失即 fail fast。
-- 运行态隔离：`E:\IntRuoyi` 的 `8081` 正被主工作区前端使用、`48081` 未启动，且主工作区有其它任务 dirty 内容；复用本任务已登记的 `int_main slot 54` 验证 worktree，快进到 `c3a134a797c3aab24feba3aafec32815f8345cf1`，端口为 `8309/48309`。
+- 运行态隔离：`.` 的 `8081` 正被主工作区前端使用、`48081` 未启动，且主工作区有其它任务 dirty 内容；复用本任务已登记的 `int_main slot 54` 验证 worktree，快进到 `c3a134a797c3aab24feba3aafec32815f8345cf1`，端口为 `8309/48309`。
 - RED: 真实 E2E 指定 `8309/48309` -> FAIL，脚本把运行端口写死为旧 `int_batch slot 1`。
 - RED: 前端静态合同 -> FAIL，脚本没有读取 `worktree-ports.json` 的正式登记。GREEN: 脚本按当前 repo root 解析基准 `int_main` 或 active worktree 登记，并精确校验成对端口；静态合同与语法检查 PASS。
 - 数据库前置：本地 Docker MySQL/Redis 正常；目标评审表 `batch_execution_id` 已可空，来源索引存在；`20260608 -> 20260830 -> 20260831` 三迁移依赖门禁 PASS。
@@ -149,7 +151,7 @@
 - GREEN: E2E `ncr-int-main-20260831-07` -> PASS；同一真实页面链路确认 `PQC_RELEASE/PQC_SUBMISSION` 统一入口、冻结提示、返工、作废和三类差异追溯，`targetPageErrors=0`、`targetConsoleErrors=0`。
 - 最终只读核验：批次 `900000000783/900000000953` 均为 `60`；实际评审 `11/12/13` 与 `8/9/10` 均 closed，材料/意见/QA签名/冻结/关闭时间完整，让步与返工有解冻时间、作废有作废时间；目标批次待处理评审数 `0`。
 - 安全清理：删除所有 `*trace.zip`，剩余 `0`；停止任务专属 Node/Java 与 launcher，`8309/48309` 均无监听；删除可能含登录请求的四个运行日志和专用 runtime 日志目录。
-- 本轮目标源码/测试已用 UTF-8 归一化文本比较同步到 `E:\IntRuoyi`，三个文件与验证 worktree 内容一致；保持未暂存、未提交、未 push。
+- 本轮目标源码/测试已用 UTF-8 归一化文本比较同步到 `.`，三个文件与验证 worktree 内容一致；保持未暂存、未提交、未 push。
 
 ## PQC提交入口迁移到PQC管理（2026-08-31）
 
@@ -167,8 +169,8 @@
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS，仅输出 CRLF 换行提示。
 - Real E2E blocker: 当前 `8081` 前端 HTTP 200，但 `48081` 后端无监听，且 `NCR_E2E_PASSWORD` 为空；本轮未运行真实 Playwright E2E，未用 API-only 或静态验证冒充真实页面验证。
 - GREEN: project-experience-consolidation -> PASS，已将“提交后审查类按钮必须落到提交后的管理列表行操作，并覆盖旧入口负向断言/新入口参数断言”合并到 `docs/frontend-development.md#前端角色内容页签拆分口径门禁`，并更新 `docs/experience-index.md`。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> PASS，keep 为三份核心任务文档，delete/blocked/warnings 均为空。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id nonconformance-review-mvp-implementation --mode apply` -> PASS，delete 为空；当前为主工作区 `int_main`，未执行 worktree 合并或删除。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id nonconformance-review-mvp-implementation --mode preview` -> PASS，keep 为三份核心任务文档，delete/blocked/warnings 均为空。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id nonconformance-review-mvp-implementation --mode apply` -> PASS，delete 为空；当前为主工作区 `int_main`，未执行 worktree 合并或删除。
 - Current status: completed；本轮未执行 Git commit、push 或 fast-forward。
 
 ## 后端重启后真实 E2E 复验（2026-09-01）
@@ -176,7 +178,7 @@
 - 用户意图：用户已重启后端，要求继续前一轮因 `48081` 后端未监听而阻塞的真实 Playwright E2E。
 - Preflight: 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md` 和 Playwright skill。
 - Preflight: `8081` 前端 HTTP 200；`48081` 后端 health=`UP`；`npx --version` 可用。
-- Preflight: `48081` PID 属于 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260831-232928.jar`；Jar SHA-256 `3F19749CBE0E462C9A5618FDE11BAA5ED4C0D4786C22782D03D8E09262FF3526`；内嵌 MES 模块包含新的 `PQC管理` 批次执行查询，且不再包含 `pqc_submission_trace`。
+- Preflight: `48081` PID 属于 `./output/runtime/int_main/backend-runtime-control-20260831-232928.jar`；Jar SHA-256 `3F19749CBE0E462C9A5618FDE11BAA5ED4C0D4786C22782D03D8E09262FF3526`；内嵌 MES 模块包含新的 `PQC管理` 批次执行查询，且不再包含 `pqc_submission_trace`。
 - Current status: in_progress；准备使用本机默认登录配置安全注入密码并执行真实页面 E2E。
 
 ## QA待审不合格订单测试数据（2026-09-01）

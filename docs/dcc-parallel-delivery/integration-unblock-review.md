@@ -25,7 +25,7 @@ D最新task仍blocked，独立服务/组件交付可在已覆盖范围继续整�
 - C正式projectFolder/latest候选查询与公共loader尚未同步D、Root公共upload/detail/browser和项目引用UI/历史证据/三入口仍待接。最新A审计和C日期/初次候选仍须各Owner冻结后另批整合；本批没有覆盖活跃源码。
 - Review结论：D已交付服务/独立组件通过本轮覆盖范围复核，整合可继续；整体changes_requested。task/goal原blocked不伪造完成，恢复操作由用户在D线程发“按最新manager-feedback继续”。
 
-整合位置：C:/IntRuoyi/20261001-dcc-integration，codex/20261001-dcc-integration，int_qms slot6=8067/48067。原四worker保留，没有提交合并、服务、业务库或E2E操作。
+整合位置：../IntRuoyiWorktree/20261001-dcc-integration，codex/20261001-dcc-integration，int_qms slot6=8067/48067。原四worker保留，没有提交合并、服务、业务库或E2E操作。
 
 ## 已解除的共同阻塞
 

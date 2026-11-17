@@ -1684,12 +1684,7 @@ const RELEASE_VIRTUAL_PROCESS = {
   label: '放行',
   description: '收尾/放行归档'
 }
-const TRACE_RECORD_FIELD_RESPONSIBILITY_STATUSES = [
-  EDHR_BATCH_STATUS_CLOSED,
-  EDHR_BATCH_STATUS_ARCHIVED,
-  EDHR_BATCH_STATUS_REJECTED,
-  EDHR_BATCH_STATUS_VOIDED
-] as const
+
 
 const route = useRoute()
 const router = useRouter()
@@ -1899,9 +1894,7 @@ const batchExecutionId = computed(() => parsePositiveRouteQueryId(route.query.id
 const traceRecordBatchExecutionId = computed(
   () => parsePositiveRouteQueryId(detail.value?.id) || batchExecutionId.value
 )
-const traceRecordReleaseTransactionId = computed(
-  () => workbench.value?.releaseSummary?.releaseTransactionId
-)
+
 const traceRecordWorkOrderCode = computed(
   () => detail.value?.workOrderCode || workbench.value?.workOrderCode || ''
 )
@@ -2643,12 +2636,7 @@ const routeFormIdempotencyKey = computed(() => {
 const hasReleaseTransaction = computed(() =>
   Boolean(workbench.value?.releaseSummary?.releaseTransactionId)
 )
-const showFieldResponsibilityTab = computed(
-  () =>
-    TRACE_RECORD_FIELD_RESPONSIBILITY_STATUSES.includes(
-      batchStatus.value as (typeof TRACE_RECORD_FIELD_RESPONSIBILITY_STATUSES)[number]
-    ) || hasReleaseTransaction.value
-)
+
 const releaseStatus = computed(
   () => workbench.value?.releaseSummary?.releaseStatus || 'PRECHECK_REQUIRED'
 )
@@ -3128,16 +3116,7 @@ type ProcessEvidenceGroup = {
   items: ProcessEvidenceItem[]
 }
 
-type TraceRecordFieldResponsibilityEntry = {
-  key: string
-  executionId: number
-  executionCode: string
-  routeProcessSort?: number
-  processName: string
-  batchRecordReportName: string
-  statusLabel: string
-  submittedAtText: string
-}
+
 
 type SpecialNodeAttachmentView = Partial<EdhrBatchSpecialNodeAttachment> & {
   attachmentHash?: string
@@ -3509,55 +3488,9 @@ const selectedProcessEvidenceGroups = computed<ProcessEvidenceGroup[]>(() => {
   ]
 })
 
-const findTaskForReviewExecution = (execution: EdhrBatchExecutionReviewExecutionRespVO) =>
-  sortedTasks.value.find(
-    (task) =>
-      task.executionId === execution.executionId ||
-      (task.routeProcessSort === execution.routeProcessSort &&
-        task.batchRecordReportId === execution.batchRecordReportId) ||
-      (task.processCode === execution.processCode &&
-        task.batchRecordReportId === execution.batchRecordReportId)
-  )
 
-const fieldResponsibilityEntries = computed<TraceRecordFieldResponsibilityEntry[]>(() => {
-  const entries = new Map<number, TraceRecordFieldResponsibilityEntry>()
-  const appendEntry = (
-    source: Partial<EdhrBatchExecutionReviewExecutionRespVO & EdhrBatchExecutionTaskRespVO>,
-    task?: EdhrBatchExecutionTaskRespVO
-  ) => {
-    const executionId = Number(source.executionId || task?.executionId)
-    if (!Number.isFinite(executionId) || executionId <= 0 || entries.has(executionId)) return
-    entries.set(executionId, {
-      key: String(executionId),
-      executionId,
-      executionCode: String(source.executionCode || task?.executionCode || `#${executionId}`),
-      routeProcessSort: source.routeProcessSort || task?.routeProcessSort,
-      processName: String(source.processName || task?.processName || '').trim(),
-      batchRecordReportName: String(
-        source.batchRecordReportName || task?.batchRecordReportName || ''
-      ).trim(),
-      statusLabel: task
-        ? resolveTaskStatusLabel(task)
-        : source.status == null
-          ? '--'
-          : `状态 ${source.status}`,
-      submittedAtText: formatReviewTime(source.submittedAt)
-    })
-  }
 
-  for (const execution of executionReviews.value) {
-    appendEntry(execution, findTaskForReviewExecution(execution))
-  }
-  for (const task of sortedTasks.value) {
-    appendEntry(task, task)
-  }
 
-  return [...entries.values()].sort(
-    (left, right) =>
-      (left.routeProcessSort || 0) - (right.routeProcessSort || 0) ||
-      left.executionId - right.executionId
-  )
-})
 
 const releaseTransactionForm = reactive({
   idempotencyKey: '',

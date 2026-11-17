@@ -307,6 +307,21 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration><testIncludes>
                         <testInclude>**/MesDeviationTransferEligibilityTest.java</testInclude>
+                        <testInclude>**/MesDeviationReviewerCandidateServiceTest.java</testInclude>
+                        <testInclude>**/MesDeviationReviewReturnTest.java</testInclude>
+                        <testInclude>**/MesDeviationTaskNavigationServiceTest.java</testInclude>
+                        <testInclude>**/MesDeviationTaskPermissionServiceTest.java</testInclude>
+                        <testInclude>**/MesEdhrWorkbenchSourcePermissionTest.java</testInclude>
+                        <testInclude>**/MesDeviationWorkbenchCategoryTest.java</testInclude>
+                        <testInclude>**/MesDeviationNotifyMessageReadEnricherTest.java</testInclude>
+                        <testInclude>**/MesDeviationNotifyReadProjectionTest.java</testInclude>
+                        <testInclude>**/MesDeviationInvestigationWithdrawTest.java</testInclude>
+                        <testInclude>**/MesDeviationResponsibilityRecoveryTest.java</testInclude>
+                        <testInclude>**/MesProEdhrDeviationAccessServiceTest.java</testInclude>
+                        <testInclude>**/MesEdhrTaskDeadlineServiceTest.java</testInclude>
+                        <testInclude>**/MesOpenDeviationTaskVisibilityTest.java</testInclude>
+                        <testInclude>**/MesProEdhrWorkTaskDeviationProjectionTest.java</testInclude>
+                        <testInclude>**/MesEdhrApprovalCenterQueryContractTest.java</testInclude>
                         <testInclude>**/MesProEdhrDeviationMapperScopeTest.java</testInclude>
                         <testInclude>**/MesDeviationAdministratorTest.java</testInclude>
                         <testInclude>**/MesProEdhrDeviationNcrIntegrationTest.java</testInclude>
@@ -339,6 +354,21 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration><includes>
                         <include>**/MesDeviationTransferEligibilityTest.java</include>
+                        <include>**/MesDeviationReviewerCandidateServiceTest.java</include>
+                        <include>**/MesDeviationReviewReturnTest.java</include>
+                        <include>**/MesDeviationTaskNavigationServiceTest.java</include>
+                        <include>**/MesDeviationTaskPermissionServiceTest.java</include>
+                        <include>**/MesEdhrWorkbenchSourcePermissionTest.java</include>
+                        <include>**/MesDeviationWorkbenchCategoryTest.java</include>
+                        <include>**/MesDeviationNotifyMessageReadEnricherTest.java</include>
+                        <include>**/MesDeviationNotifyReadProjectionTest.java</include>
+                        <include>**/MesDeviationInvestigationWithdrawTest.java</include>
+                        <include>**/MesDeviationResponsibilityRecoveryTest.java</include>
+                        <include>**/MesProEdhrDeviationAccessServiceTest.java</include>
+                        <include>**/MesEdhrTaskDeadlineServiceTest.java</include>
+                        <include>**/MesOpenDeviationTaskVisibilityTest.java</include>
+                        <include>**/MesProEdhrWorkTaskDeviationProjectionTest.java</include>
+                        <include>**/MesEdhrApprovalCenterQueryContractTest.java</include>
                         <include>**/MesProEdhrDeviationMapperScopeTest.java</include>
                         <include>**/MesDeviationAdministratorTest.java</include>
                         <include>**/MesProEdhrDeviationNcrIntegrationTest.java</include>

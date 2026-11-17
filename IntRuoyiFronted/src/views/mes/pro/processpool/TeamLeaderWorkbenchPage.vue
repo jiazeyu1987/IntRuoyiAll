@@ -1795,6 +1795,15 @@
                 >
                   数量超限（仅提示）{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
                 </el-tag>
+                <el-tag
+                  v-if="row.hasParameterAbnormal"
+                  type="danger"
+                  effect="plain"
+                  data-team-leader-active-order-parameter-abnormal
+                  title="生产记录存在异常参数，请在详情中查看对应工序及原始数值"
+                >
+                  参数异常（仅提示）
+                </el-tag>
               </div>
             </template>
           </el-table-column>
@@ -4114,7 +4123,7 @@ import SignatureCredentialInput from '@/components/SignatureCredentialInput/Sign
 import ProductionQuantityDrafts from './components/ProductionQuantityDrafts.vue'
 import ActiveOrderDeviationDialog from './components/ActiveOrderDeviationDialog.vue'
 import {useWorkflowInteractionLog} from './workflowInteractionLog'
-const workflowLog=useWorkflowInteractionLog('TEAM_LEADER')
+useWorkflowInteractionLog('TEAM_LEADER')
 import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
@@ -5710,6 +5719,7 @@ const requirePositiveNumber = (value: unknown, message: string) => {
 
 const requireLossReasonId = (value: unknown, message: string): string => {
   const id = String(value ?? '')
+  if (id === '-1') return id // 系统内置“其他损耗”
   if (!/^[1-9]\d*$/.test(id) || BigInt(id) > 9223372036854775807n) throw new Error(message)
   return id
 }
@@ -5864,7 +5874,9 @@ const isActiveOrderReleaseApplicationLocked = (activeOrderId: number | string) =
 const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRespVO }) =>
   row.hasQuantityConflict || row.quantityConflict
     ? 'team-leader-workbench__active-order-row--quantity-conflict'
-    : ''
+    : row.hasParameterAbnormal
+      ? 'team-leader-workbench__active-order-row--parameter-abnormal'
+      : ''
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (handoffReadOnly.value || row.readBlocked || row.abnormal) return false
@@ -9173,6 +9185,12 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
       }
     })
 
+  if (!lossRowMap.has('-1')) {
+    lossRowMap.set('-1', {
+      reasonId: '-1', reasonCode: 'SYSTEM_OTHER_LOSS', reasonName: '其他损耗', quantity: 0
+    })
+  }
+
   const parameterRows = (event.deviceParameterReadings || [])
     .map(toCorrectionParameterRow)
     .filter((item): item is ProductionReportCorrectionParameterRow => Boolean(item))
@@ -9183,6 +9201,13 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
     event,
     await resolveCorrectionMaterialNames(resolveProductionMaterialRows(event))
   )
+  for (const material of correctionForm.materialDetails) {
+    if (!material.lossDetails.some((detail) => String(detail.reasonId) === '-1')) {
+      material.lossDetails.push({
+        reasonId: '-1', reasonCode: 'SYSTEM_OTHER_LOSS', reasonName: '其他损耗', quantity: 0
+      })
+    }
+  }
   initializeCorrectionMaterialDeviceTabs(correctionForm.materialDetails)
   correctionForm.lossDetails = [...lossRowMap.values()]
   correctionForm.deviceParameterReadings = parameterRows
@@ -10636,15 +10661,7 @@ const submitProcessDefectReason = async () => {
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value, '--')
 
-const formatSubmittedSummary = (value?: string) => {
-  if (!value) return '尚无提交摘要'
-  const labels: Record<string, string> = {
-    PRODUCTION_SUBMIT: '生产记录提交', PRODUCTION_SIMPLIFIED: '生产简化表单',
-    PQC_SUBMIT: 'PQC检验提交', PQC_SIMPLIFIED: 'PQC检验表单'
-  }
-  return value.split(' / ').map(part => labels[part] ||
-    (/^[A-Z_]+$/.test(part) ? '提交类型未识别，请核对记录' : part)).join(' · ')
-}
+
 
 const formatPqcJudgement = (value?: string) => {
   if (!value) return '尚无判定'
@@ -12017,7 +12034,8 @@ const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
   border-radius: 6px;
 }
 
-:deep(.team-leader-workbench__active-order-row--quantity-conflict > td) {
+:deep(.team-leader-workbench__active-order-row--quantity-conflict > td),
+:deep(.team-leader-workbench__active-order-row--parameter-abnormal > td) {
   background: var(--el-color-danger-light-9) !important;
 }
 

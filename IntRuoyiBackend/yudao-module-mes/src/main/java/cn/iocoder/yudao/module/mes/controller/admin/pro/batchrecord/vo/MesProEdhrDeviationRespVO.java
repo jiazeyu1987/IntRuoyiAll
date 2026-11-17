@@ -13,6 +13,8 @@ public class MesProEdhrDeviationRespVO {
     private Boolean canTransferToNcr;
     private String transferToNcrBlockedReason;
     private Long id;
+    private Integer version;
+    private Long receiverId;
     private String deviationCode;
     private Long activeOrderId;
     private Long batchExecutionId;

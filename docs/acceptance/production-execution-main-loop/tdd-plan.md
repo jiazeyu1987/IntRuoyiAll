@@ -17,9 +17,9 @@
 
 ## Command Conventions
 
-- 当前任务默认工作区是 `D:\IntRuoyiWorktree\worktree_20260803_p0`；后续开发和验证必须优先在该 worktree 执行，不得误跑到 `E:\IntRuoyi` 主工作区。
-- 后端 Maven 命令必须在 `D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiBackend` 作为工作目录执行，或显式使用该 worktree 下的 `IntRuoyiBackend/pom.xml`。
-- 前端 pnpm 命令必须在 `D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiFronted` 作为工作目录执行；若使用 `pnpm --dir` 失败，按 `docs/e2e-rules.md` 改为显式工作目录复核。
+- 当前任务默认工作区是 `../IntRuoyiWorktree/worktree_20260803_p0`；后续开发和验证必须优先在该 worktree 执行，不得误跑到 `.` 主工作区。
+- 后端 Maven 命令必须在 `../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiBackend` 作为工作目录执行，或显式使用该 worktree 下的 `IntRuoyiBackend/pom.xml`。
+- 前端 pnpm 命令必须在 `../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiFronted` 作为工作目录执行；若使用 `pnpm --dir` 失败，按 `docs/e2e-rules.md` 改为显式工作目录复核。
 - M0 初始缺口是 `IntRuoyiFronted/package.json` 缺少 `e2e:p0-production-execution-loop:static` / `real` 脚本；若后续分支再次缺失，必须重新记录 RED，再新增脚本和正式 spec。
 - PowerShell 不得使用 `&&` 串联命令；每条 RED/GREEN 必须单独记录退出码。
 - 任何命令若在错误目录、错误 branch、错误端口或错误运行态失败，只能记录为前置失败；修正前不得把它当业务 RED 或 GREEN。
@@ -72,8 +72,8 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | P0-T00 | 实现前置门禁 | `workdir=IntRuoyiFronted; python -X utf8 -c "import json,pathlib; s=json.loads(pathlib.Path('package.json').read_text(encoding='utf-8'))['scripts']; assert 'e2e:p0-production-execution-loop:static' in s and 'e2e:p0-production-execution-loop:real' in s"` | 缺 P0 专用脚本或 spec 时，不能启动真实 E2E。 | 新增正式脚本、static spec、real E2E spec，并在实现任务记录脚本入口 PASS。 | 同 RED 命令 PASS。 | 不新增空脚本、假脚本或 API-only wrapper 冒充真实 E2E。 |
 | P0-T00A | schema 合同门禁 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSchemaTest,MesP0ProductionExecutionSchemaContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 新增正式字段缺迁移、测试 schema、DO/Mapper、索引、唯一约束或租户同源字段。 | schema 合同测试能证明生产提交、PQC 绑定、复核、FIFO、批记录字段审计和幂等键均有正式持久化支撑。 | 同 RED 命令 PASS。 | 不把 VO/DTO 字段或 rawPayload 当正式持久化完成。 |
-| P0-T00B | 迁移发布策略门禁 | `workdir=D:\IntRuoyiWorktree\worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql` | SQL 缺 release metadata、依赖、风险等级、环境范围，或 `NOT NULL` 收紧没有历史断链 fail-fast 保护；单文件诊断缺依赖闭包只能记为 `COMMAND-BLOCKED`。 | 正式 SQL 通过全量 policy gate；历史缺结构化来源 ID 时迁移明确失败并给出 backfill blocker，不写默认值、不解析 rawPayload。 | 同 RED 命令 PASS。 | policy gate PASS 不能替代目标 JUnit、测试 schema 和真实运行态迁移核验。 |
-| P0-T00C | 真实运行态迁移核验 | `workdir=D:\IntRuoyiWorktree\worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` | 缺 `P0_RUNTIME_DB_HOST`、`P0_RUNTIME_DB_PORT`、`P0_RUNTIME_DB_NAME`、`P0_RUNTIME_DB_USER`、`P0_RUNTIME_DB_PASSWORD`，真实 MySQL 缺 P0 required columns/indexes，或历史断链检查返回 blocker。 | 验证器以只读连接确认当前运行态 required columns、indexes 和 historical checks 均 PASS；缺字段时必须返回 schema blocker 并跳过 historical SQL。 | 同 RED 命令 PASS；如果缺 env 或 schema blocked，记录 `BLOCKED` 而不是 GREEN。 | 该命令是真实 E2E 浏览器写入前置；不得用 release policy gate、H2 schema、测试容器或人工说明替代。 |
+| P0-T00B | 迁移发布策略门禁 | `workdir=../IntRuoyiWorktree/worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql` | SQL 缺 release metadata、依赖、风险等级、环境范围，或 `NOT NULL` 收紧没有历史断链 fail-fast 保护；单文件诊断缺依赖闭包只能记为 `COMMAND-BLOCKED`。 | 正式 SQL 通过全量 policy gate；历史缺结构化来源 ID 时迁移明确失败并给出 backfill blocker，不写默认值、不解析 rawPayload。 | 同 RED 命令 PASS。 | policy gate PASS 不能替代目标 JUnit、测试 schema 和真实运行态迁移核验。 |
+| P0-T00C | 真实运行态迁移核验 | `workdir=../IntRuoyiWorktree/worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` | 缺 `P0_RUNTIME_DB_HOST`、`P0_RUNTIME_DB_PORT`、`P0_RUNTIME_DB_NAME`、`P0_RUNTIME_DB_USER`、`P0_RUNTIME_DB_PASSWORD`，真实 MySQL 缺 P0 required columns/indexes，或历史断链检查返回 blocker。 | 验证器以只读连接确认当前运行态 required columns、indexes 和 historical checks 均 PASS；缺字段时必须返回 schema blocker 并跳过 historical SQL。 | 同 RED 命令 PASS；如果缺 env 或 schema blocked，记录 `BLOCKED` 而不是 GREEN。 | 该命令是真实 E2E 浏览器写入前置；不得用 release policy gate、H2 schema、测试容器或人工说明替代。 |
 | P0-T01 | 主提交幂等 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0FrontlineSubmitIdempotencyTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 一线主提交请求缺少主提交级幂等键、重复请求产生重复事件，或部分失败重试留下半成功。 | 生产提交按提交幂等键或正式唯一约束保证只形成一条有效主事件；重复请求返回同一结果或明确重复拒绝。 | 同 RED 命令 PASS。 | 不把记录本幂等字段当成整个闭环幂等；不得吞掉重复请求；不得只靠前端按钮禁用。 |
 | P0-T02 | 生产提交闭环合同 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionSubmitClosedLoopContractTest#shouldCreateFeedbackRecordbookAndProcessPoolEventInOneTransaction" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 不能同时证明报工、记录本和工序池事件同事务写入并互相关联。 | 返回 `feedbackId`、`recordbookEntryId`、`recordbookEventId`、`processPoolEventId`，且任一失败整体回滚。 | 同 RED 命令 PASS。 | 不用前端串联接口模拟事务。 |
 | P0-T03 | PQC 入工序池事件 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest#shouldSubmitPqcInspectionFromQaRegulationTaskSource" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 将旧断言 `never()` 改成期望创建 PQC 工序池事件后，当前实现应失败在未调用事件服务或缺设备/工作站/签名/幂等字段。 | PQC 提交创建或绑定 `PQC_INSPECTION` 工序池事件，并关联 PQC 任务、规程、逐件明细、实际员工、设备账号、设备、工作站、签名和幂等键。 | 同 RED 命令 PASS。 | PQC 事件不得旁路保存成孤立质量数据；不得保留旧 `never()` 断言。 |
@@ -97,8 +97,8 @@
 ```text
 RED: workdir=IntRuoyiFronted; python -X utf8 -c "<script existence check>" -> FAIL, P0 前端脚本尚未登记
 RED: workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSchemaTest,MesP0ProductionExecutionSchemaContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, P0 正式字段缺迁移、测试 schema、DO/Mapper、索引或唯一约束
-RED: workdir=D:\IntRuoyiWorktree\worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql -> FAIL, SQL 缺发布迁移元数据、依赖或历史断链 fail-fast 保护
-RED/BLOCKED: workdir=D:\IntRuoyiWorktree\worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py -> FAIL/BLOCKED, 真实运行态缺 DB env、P0 字段/索引或历史断链检查
+RED: workdir=../IntRuoyiWorktree/worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql -> FAIL, SQL 缺发布迁移元数据、依赖或历史断链 fail-fast 保护
+RED/BLOCKED: workdir=../IntRuoyiWorktree/worktree_20260803_p0; python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py -> FAIL/BLOCKED, 真实运行态缺 DB env、P0 字段/索引或历史断链检查
 RED: workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest#shouldSubmitPqcInspectionFromQaRegulationTaskSource" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, PQC 正式提交尚未创建工序池 PQC 事件
 RED: workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0TeamLeaderReviewSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, 班组长复核尚未要求电子签名
 RED: workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, 尚无按 processPoolEventId 聚合的生产执行闭环 trace
@@ -136,17 +136,17 @@ P0-G01 / P0-T03 是后续实现的第一条业务 RED，必须满足以下形态
 P0 第一版实现完成后至少运行：
 
 ```powershell
-cd D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiBackend
-cd D:\IntRuoyiWorktree\worktree_20260803_p0
+cd ../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiBackend
+cd ../IntRuoyiWorktree/worktree_20260803_p0
 python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql
-cd D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiBackend
+cd ../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=MesP0FrontlineSubmitIdempotencyTest,MesP0ProductionSubmitClosedLoopContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest,MesP0PqcQualityAllocationGateTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 mvn -pl yudao-module-mes -am "-Dtest=MesP0TeamLeaderReviewSignatureSchemaTest,MesP0TeamLeaderReviewSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 mvn -pl yudao-module-mes -am "-Dtest=MesP0ActiveOrderFifoClosedLoopTest,MesP0BatchRecordBackfillClosedLoopTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionTraceServiceTest,MesP0ProductionExecutionTraceQualityBindingTest,MesP0ProductionExecutionTraceReviewGateTest,MesP0ProductionExecutionTraceFailureTest,MesP0ProductionExecutionTraceBatchRecordSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionClosureAuditTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-cd D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiFronted
+cd ../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiFronted
 pnpm ts:check
 pnpm e2e:p0-production-execution-loop:static
 pnpm e2e:p0-production-execution-loop:real

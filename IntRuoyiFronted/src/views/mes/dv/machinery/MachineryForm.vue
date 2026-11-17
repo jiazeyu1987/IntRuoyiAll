@@ -130,6 +130,7 @@
     </el-tabs>
 
     <template #footer>
+      <el-button v-if="formData.id && !isDetail" plain :disabled="formLoading" @click="sharedChangeDialog?.openReplacement('DEVICE', formData.id)">统一替换设备</el-button>
       <el-button v-if="isDetail && formData.id" type="primary" plain @click="handleBarcode">
         查看条码
       </el-button>
@@ -141,6 +142,7 @@
   </Dialog>
 
   <BarcodeDetail ref="barcodeDetailRef" />
+  <SharedChangeDialog ref="sharedChangeDialog" @submitted="handleSharedSubmitted" />
 </template>
 
 <script setup lang="ts">
@@ -159,6 +161,11 @@ import {
 } from '@/views/mes/utils/constants'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
+import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
+import { SharedChangeApi } from '@/api/mes/pro/sharedChange'
+const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
+const sharedFingerprint = ref('')
+const handleSharedSubmitted = () => { dialogVisible.value = false; emit('success') }
 
 defineOptions({ name: 'MachineryForm' })
 
@@ -224,6 +231,11 @@ const open = async (type: string, id?: number) => {
     formLoading.value = true
     try {
       formData.value = await DvMachineryApi.getMachinery(id)
+      if (type !== 'detail') {
+        const source = await SharedChangeApi.source('DEVICE', id)
+        Object.assign(formData.value, source.data)
+        sharedFingerprint.value = source.fingerprint
+      }
     } finally {
       formLoading.value = false
     }
@@ -235,6 +247,10 @@ defineExpose({ open })
 const emit = defineEmits(['success'])
 const submitForm = async () => {
   await formRef.value.validate()
+  if (formType.value !== 'create' && formData.value.id) {
+    await sharedChangeDialog.value?.open({ subjectType: 'DEVICE', action: 'UPDATE', sourceId: formData.value.id, expectedFingerprint: sharedFingerprint.value, requestId: crypto.randomUUID(), device: { ...formData.value }, reason: '', nodes: [] })
+    return
+  }
   formLoading.value = true
   try {
     const data = formData.value as unknown as DvMachineryVO

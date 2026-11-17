@@ -15,8 +15,8 @@ BDD: 一线生产仍校验真实必填身份 -> Given 一线生产正式提交 /
 - GREEN: `node tests\e2e\role-matrix-ac-m10-sop-production-static.spec.cjs` -> PASS，SOP 生产角色矩阵静态合同通过。
 - GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output doc\tasks\fix-frontline-production-no-work-order-context\migration-policy-gate.json` -> PASS，status=passed，migrationCount=449，包含 `20260808_mes_process_pool_frontline_no_work_order`。
 - GREEN: scoped `git diff --check -- <task-owned files>` -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
-- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-frontline-production-no-work-order-context\bug-regression-evidence.md` -> PASS。
-- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\fix-frontline-production-no-work-order-context\database-schema-evidence.md` -> PASS。
+- GREEN: `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-frontline-production-no-work-order-context\bug-regression-evidence.md` -> PASS。
+- GREEN: `python 会话技能：database-schema-delivery --evidence doc\tasks\fix-frontline-production-no-work-order-context\database-schema-evidence.md` -> PASS。
 - BLOCKED: `mvn -pl yudao-module-mes "-Dtest=MesP0FrontlineSubmitIdempotencyTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BLOCKED，同模块共享 `target` 被并发 Maven 编译/测试占用；一次隔离目录尝试发现 Maven 日志仍写入共享 `target\classes` 后已立即停止本任务启动的命令，未清理、未强杀其它进程。
 - BLOCKED: 并发确认 -> 3 分钟等待窗口内仍有 6 个 MES Maven 相关进程运行，包括 `mvn -pl yudao-module-mes -DskipTests compile` 与 `mvn -pl yudao-module-mes -am -DskipTests compile`；继续补跑相邻 JUnit 会扩大产物污染风险。
 - INFO: no-fallback-check -> 未引入默认工单、默认任务、默认物料、默认记录本或吞异常；缺少路线/工序/工位/设备账号/实际员工/签名密码仍 fail fast。

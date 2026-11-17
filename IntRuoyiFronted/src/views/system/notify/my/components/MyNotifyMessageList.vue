@@ -92,7 +92,7 @@
                     type="button"
                     class="my-notify-message-list__content-link"
                     role="link"
-                    :title="scope.row.templateContent || '-'"
+                    :title="notifyMessageTooltip(scope.row)"
                     aria-label="打开消息内容"
                     @click.stop="handleNotifyContentClick(scope.row)"
                   >
@@ -104,7 +104,7 @@
                   <span
                     v-else
                     class="my-notify-message-list__content-text"
-                    :title="scope.row.templateContent || '-'"
+                    :title="notifyMessageTooltip(scope.row)"
                   >
                     <BusinessMessageContent
                       :description="describeNotifyMessage(scope.row)"
@@ -173,13 +173,13 @@ import * as NotifyMessageApi from '@/api/system/notify/message'
 import MyNotifyMessageDetail from '../MyNotifyMessageDetail.vue'
 import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
 import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
-import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
+import { describeNotifyMessage, notifyMessageTooltip } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
 import { listOwnPendingReleaseOutcomes } from '@/api/mes/pro/productionRelease/notification'
 import ReleaseTaskNotificationEntry from '@/views/mes/pro/production-release/components/ReleaseTaskNotificationEntry.vue'
-import { loadInboxPage, toInboxMessages, toInboxRecoveries, type InboxRow } from '../notifyInbox'
+import { loadInboxPage, toInboxRecoveries, type InboxRow } from '../notifyInbox'
 import {
   useUserTableColumns,
   type UserTableColumnDefinition

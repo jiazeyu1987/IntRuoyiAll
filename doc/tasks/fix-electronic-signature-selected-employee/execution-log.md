@@ -22,7 +22,7 @@ BDD: 错误员工签名仍被拒绝 -> Given 一线生产填写选择员工 A / 
 - GREEN: `rg -n -g '!**/target/**' -g '!**/target_corrupt_m4_20260802_1327/**' "当前登录账号必须是实际填写员工|PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH|validateSignatureActorMatchesLoginUser|recordProductionSubmitSignature\(String" IntRuoyiBackend IntRuoyiFronted` -> PASS, only match is the regression test's forbidden-text assertion。
 - GREEN: `git diff --check` -> PASS。
 - INFO: experience-consolidation -> 已更新 `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见` 和 `docs/experience-index.md`，沉淀选择员工签名不得绑定当前登录账号的门禁。
-- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-electronic-signature-selected-employee\bug-regression-evidence.md` -> PASS。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-electronic-signature-selected-employee --mode preview` -> PASS, keep task/core evidence, delete none, blocked none。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-electronic-signature-selected-employee --mode apply` -> PASS, deleted none, blocked none。
+- GREEN: `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-electronic-signature-selected-employee\bug-regression-evidence.md` -> PASS。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id fix-electronic-signature-selected-employee --mode preview` -> PASS, keep task/core evidence, delete none, blocked none。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id fix-electronic-signature-selected-employee --mode apply` -> PASS, deleted none, blocked none。
 - INFO: task-complete -> 任务状态已更新为 completed；按项目 Git policy 未提交。

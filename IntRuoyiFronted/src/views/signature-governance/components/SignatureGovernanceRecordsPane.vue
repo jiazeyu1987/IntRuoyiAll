@@ -593,11 +593,7 @@ const formatValue = (value?: string) => {
   return text || '-'
 }
 
-const formatHash = (hash?: string) => {
-  const text = hash?.trim()
-  if (!text) return '未记录证据校验码'
-  return text.length > 16 ? `${text.slice(0, 12)}...${text.slice(-4)}` : text
-}
+
 
 const formatRecordSignedAt = (signedAt?: SignatureGovernanceRecordRespVO['signedAt']) => {
   if (signedAt == null) {

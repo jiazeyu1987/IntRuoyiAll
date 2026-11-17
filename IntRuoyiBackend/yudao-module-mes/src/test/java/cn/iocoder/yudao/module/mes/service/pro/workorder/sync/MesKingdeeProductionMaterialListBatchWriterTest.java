@@ -149,6 +149,35 @@ class MesKingdeeProductionMaterialListBatchWriterTest {
     }
 
     @Test
+    void refreshUpdatesExistingQuantitiesAndOnlyQueriesRequestingTenant() {
+        var source = row(1);
+        assertEquals(1, writer.writePage(91L, List.of(source)).getCreatedCount());
+        source.setRequiredQuantity(new BigDecimal("7"));
+        source.setChildMaterialName("corrected child");
+        when(orders.selectListByCodes(any())).thenAnswer(call -> {
+            assertEquals(165L, TenantContextHolder.getRequiredTenantId());
+            assertFalse(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.isIgnore());
+            return List.of();
+        });
+
+        assertEquals(1, writer.writeRefreshPage(91L, List.of(source)).getUpdatedCount());
+
+        var saved = materials.selectBySourceLine("B1", "MO", 1, "C");
+        assertEquals(0, new BigDecimal("7").compareTo(saved.getRequiredQuantity()));
+        assertEquals("corrected child", saved.getChildMaterialName());
+        assertEquals(1, count());
+        assertEquals(1, progress("updated_count"));
+    }
+
+    @Test
+    void refreshRejectsOtherTenantWorkOrdersBeforeWriting() {
+        when(orders.selectListByCodes(any())).thenReturn(List.of(order(501L, 1L, 20L)));
+        assertThrows(IllegalStateException.class, () -> writer.writeRefreshPage(91L, List.of(row(1))));
+        assertEquals(0, count());
+        assertEquals(0, progress("created_count"));
+    }
+
+    @Test
     void missingOrOtherTenantProgressRecordRollsBackBusinessRows() {
         assertThrows(IllegalStateException.class, () -> writer.writePage(999L, List.of(row(1))));
         assertEquals(0, count());

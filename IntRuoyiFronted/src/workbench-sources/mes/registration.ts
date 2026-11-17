@@ -3,6 +3,13 @@ import { requireExactJavaLong as requireIdentity } from '@/utils/exactJavaLong'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
 
+const openEdhrTask: ModuleRegistration['sources'][number]['open'] = async (router, payload, isCurrent) => {
+  if (payload.blockedReason) throw new Error(payload.blockedReason)
+  requireIdentity(payload.id, '工作任务编号')
+  if (!payload.taskType) throw new Error('eDHR 工作任务缺少正式任务类型。')
+  return navigateToEdhrWorkTask(router, payload, window.location.origin, isCurrent)
+}
+
 const registration: ModuleRegistration = {
   ownerModule: 'mes', contractVersion: 1,
   sources: [
@@ -20,10 +27,13 @@ const registration: ModuleRegistration = {
           if (isCurrent && !isCurrent()) throw new Error('工作台导航上下文已变化。')
           return navigateToActiveOrderHandoff(router, target, isCurrent)
         }
-        requireIdentity(payload.id, '工作任务编号')
-        if (!payload.taskType) throw new Error('eDHR 工作任务缺少正式任务类型。')
-        return navigateToEdhrWorkTask(router, payload, window.location.origin, isCurrent)
+        return openEdhrTask(router, payload, isCurrent)
       }
+    },
+    {
+      descriptor: { sourceId: 'EDHR_DEVIATION_TASK', ownerModule: 'mes', contractVersion: 1, sortRank: 3,
+        label: 'eDHR偏差任务', taskType: '偏差', policyId: 'mes.deviation.policy', actionKind: 'mes.deviation.open', payloadVersion: 1 },
+      open: openEdhrTask
     }
   ]
 }

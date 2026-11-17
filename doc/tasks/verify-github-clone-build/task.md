@@ -36,7 +36,7 @@ Verify whether a different computer can clone `https://github.com/jiazeyu1987/In
 - Blocker: remote has no usable branch, clone does not check out a branch, or `git lfs fsck` reports missing/corrupt objects.
 - Verification: record the clone commit SHA, LFS result, frontend install/build result, backend package result, and current uncommitted local paths.
 - Forbidden action: do not reuse current workspace `node_modules`, `target`, LFS cache, or build outputs as evidence; do not disable LFS integrity checks.
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24 GitHub 推送前历史大文件门禁`.
+- Evidence: `./docs/release-build-preflight-lessons.md#2026-07-24 GitHub 推送前历史大文件门禁`.
 
 ## Experience Documentation Note
 

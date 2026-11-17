@@ -20,7 +20,7 @@ BDD: 同路线多活跃订单按正式任务唯一解析 -> Given 当前负责�
 - REGRESSION: `git diff --check` -> PASS, exit code 0；仅有既有 CRLF warning，无 whitespace error。
 - INFO: experience -> 已将同路线多活跃订单必须按 `routeId + processId + workstationId` 任务身份唯一解析的门禁合并到 `docs/backend-development.md`，并补充 `docs/experience-index.md` 关键词。
 - INFO: reports -> 已生成 `verification-report.md` 与 `bug-regression-evidence.md`。
-- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-frontline-active-order-route-id-context\bug-regression-evidence.md` -> PASS, Bug regression evidence is valid。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-frontline-active-order-route-id-context --mode preview` -> PASS, keep 4, delete none, blocked none, warnings none。
-- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-frontline-active-order-route-id-context --mode apply` -> PASS, deleted_paths none。
+- GREEN: `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-frontline-active-order-route-id-context\bug-regression-evidence.md` -> PASS, Bug regression evidence is valid。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id fix-frontline-active-order-route-id-context --mode preview` -> PASS, keep 4, delete none, blocked none, warnings none。
+- GREEN: `python 会话技能：task-closeout-cleanup --task-id fix-frontline-active-order-route-id-context --mode apply` -> PASS, deleted_paths none。
 - INFO: final-status -> task.md 已标记 completed；未执行 Git 提交/推送。

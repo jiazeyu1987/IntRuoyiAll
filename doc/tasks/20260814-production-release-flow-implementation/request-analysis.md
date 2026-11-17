@@ -31,7 +31,7 @@
 ## 1. 任务定位
 
 - 总任务：`20260814-production-release-flow-implementation`
-- 业务代码工作树：`D:\IntRuoyiWorktree\pqc-production-release-flow`
+- 业务代码工作树：`../IntRuoyiWorktree/pqc-production-release-flow`
 - 本文目的：把已冻结的 SP-0～SP-4 业务目标与当前真实代码逐项对齐，明确实施范围、现状差距、接口边界、迁移阻塞、验证面和失败条件。
 - 结论性质：本文是实施输入，不代表当前系统已经具备目标能力。
 
@@ -63,7 +63,7 @@
 
 ### 3.2 已核对真实代码
 
-下列代码证据来自工作树 `D:\IntRuoyiWorktree\pqc-production-release-flow`：
+下列代码证据来自工作树 `../IntRuoyiWorktree/pqc-production-release-flow`：
 
 - 组长放行编排：`MesTeamLeaderActiveOrderReleaseGenerationService.java`
 - 申请持久化和返回模型：`MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.java`、`MesTeamLeaderActiveOrderReleaseApplicationResult.java`、`MesTeamLeaderActiveOrderReleaseApplyRespVO.java`

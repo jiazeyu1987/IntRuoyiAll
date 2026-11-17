@@ -7,6 +7,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationBatchOptionPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationOrderOptionRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationBatchOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationRespVO;
@@ -42,6 +44,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_BATCH_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_IDEMPOTENCY_CONFLICT;
@@ -58,6 +61,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 
 @Service
 public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationService {
+    @jakarta.annotation.Resource private MesProEdhrDeviationAccessService accessService;
 
     public static final String STATUS_OPEN = "OPEN";
     public static final String STATUS_CLOSED = "CLOSED";
@@ -87,6 +91,53 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     @Resource private MesDeviationAdministratorService administratorService;
+
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrDeviationOrderMapper deviationOrderMapper;
+
+    @Override
+    public PageResult<MesProEdhrDeviationOrderOptionRespVO> getOrderOptions(MesProEdhrDeviationBatchOptionPageReqVO reqVO) {
+        var page = deviationOrderMapper.selectOptionsPage(reqVO, TenantContextHolder.getRequiredTenantId());
+        return new PageResult<>(page.getList().stream().map(order -> new MesProEdhrDeviationOrderOptionRespVO()
+                .setWorkOrderId(order.getId()).setWorkOrderCode(order.getCode()).setBatchCode(order.getBatchCode())).toList(), page.getTotal());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "edhr.deviation.create")
+    public MesProEdhrDeviationRespVO createByWorkOrder(Long actorUserId, MesProEdhrDeviationCreateReqVO reqVO) {
+        if (reqVO.getWorkOrderId() == null || reqVO.getWorkOrderId() <= 0
+                || reqVO.getActiveOrderId() != null || reqVO.getBatchExecutionId() != null) {
+            throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, "请选择生产订单号，执行批次和批记录由系统关联");
+        }
+        return createInternal(actorUserId, reqVO, true);
+    }
+
+    private MesProcessPoolActiveOrderDO resolveProductionOrderSource(MesProEdhrDeviationCreateReqVO reqVO) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        var sources = activeOrderMapper.selectDeviationSourcesForUpdate(tenantId, reqVO.getWorkOrderId());
+        if (sources.size() != 1) {
+            throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, sources.isEmpty() ? "生产订单没有有效执行批次，不能发起偏差" : "生产订单存在多个执行批次，无法唯一关联偏差来源");
+        }
+        var order = sources.get(0);
+        if (!Objects.equals(order.getTenantId(), tenantId) || !Objects.equals(order.getWorkOrderId(), reqVO.getWorkOrderId())
+                || !Set.of("ACTIVE", "CLOSED").contains(order.getActiveStatus())
+                || !Set.of("ACTIVE", "COMPLETED", "RELEASED").contains(order.getBusinessStatus())) {
+            throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, "生产订单执行批次已失效");
+        }
+        var workOrder = workOrderMapper.selectById(reqVO.getWorkOrderId());
+        if (workOrder == null || !Objects.equals(workOrder.getTenantId(), tenantId)) {
+            throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, "生产订单不存在或不属于当前租户");
+        }
+        var batches = getBatchOptionsByActiveOrder(order.getId()).stream()
+                .filter(batch -> !Objects.equals(batch.getBatchStatus(), MesProEdhrBatchExecutionMapper.BATCH_STATUS_VOIDED)).toList();
+        if (batches.size() > 1) throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, "生产订单对应多个正式批记录，无法唯一关联偏差来源");
+        if (batches.isEmpty() && !"ACTIVE".equals(order.getBusinessStatus())) {
+            throw exception(PRO_EDHR_DEVIATION_ORDER_SOURCE_INVALID, "已完工订单缺少正式批记录");
+        }
+        reqVO.setActiveOrderId(order.getId());
+        reqVO.setBatchExecutionId(batches.isEmpty() ? null : batches.get(0).getBatchExecutionId());
+        return order;
+    }
 
     @Override
     public List<MesProEdhrDeviationBatchOptionRespVO> getCreationBatchOptionsByActiveOrder(Long actorUserId, Long activeOrderId) {
@@ -176,6 +227,10 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "edhr.deviation.create")
     public MesProEdhrDeviationRespVO create(Long actorUserId, MesProEdhrDeviationCreateReqVO reqVO) {
+        return createInternal(actorUserId, reqVO, false);
+    }
+
+    private MesProEdhrDeviationRespVO createInternal(Long actorUserId, MesProEdhrDeviationCreateReqVO reqVO, boolean byWorkOrder) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (actorUserId == null || actorUserId <= 0) {
             throw exception(PRO_EDHR_DEVIATION_INITIATOR_REQUIRED);
@@ -185,11 +240,15 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             throw exception(PRO_EDHR_DEVIATION_IDEMPOTENCY_KEY_REQUIRED);
         }
         validateCreateRequest(reqVO);
-        if (reqVO.getActiveOrderId() != null) {
+        if (!byWorkOrder && reqVO.getActiveOrderId() != null) {
             requireOrderLeader(actorUserId, reqVO.getActiveOrderId());
             if (reqVO.getReceiverId() == null || reqVO.getReceiverId() <= 0) {
                 throw exception(PRO_EDHR_DEVIATION_REQUIRED_CONTENT_MISSING);
             }
+        } else {
+            // Standalone deviations belong to the initiating administrator, never a client-selected user.
+            reqVO.setReceiverId(actorUserId);
+            reqVO.setReceiverName(null);
         }
         String payloadHash = buildCreatePayloadHash(reqVO);
 
@@ -214,8 +273,9 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         }
 
         // The active-order lock serializes creation with completion/rework; a batch is never fabricated.
-        var order = reqVO.getActiveOrderId() == null ? null : activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
-        if (reqVO.getActiveOrderId() != null) validateOrderLeader(actorUserId, order);
+        var order = byWorkOrder ? resolveProductionOrderSource(reqVO)
+                : reqVO.getActiveOrderId() == null ? null : activeOrderMapper.selectByIdForUpdate(reqVO.getActiveOrderId());
+        if (!byWorkOrder && reqVO.getActiveOrderId() != null) validateOrderLeader(actorUserId, order);
         if (order == null && reqVO.getBatchExecutionId() == null) throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
         MesProEdhrBatchExecutionDO batch = null;
         if (reqVO.getBatchExecutionId() != null) {
@@ -235,7 +295,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             if (releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(tenantId, batch.getId()).stream()
                     .anyMatch(tx -> "RELEASED".equals(tx.getReleaseStatus())))
                 throw exception(PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED, batch.getId());
-        } else if (!getBatchOptionsByActiveOrder(order.getId()).isEmpty()) {
+        } else if (!byWorkOrder && !getBatchOptionsByActiveOrder(order.getId()).isEmpty()) {
             throw exception(PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
         }
         var workOrder = batch != null || order == null ? null : workOrderMapper.selectById(order.getWorkOrderId());
@@ -315,6 +375,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
 
     @Override
     public PageResult<MesProEdhrDeviationRespVO> getPage(MesProEdhrDeviationPageReqVO reqVO) {
+        reqVO.setScopedReaderId(accessService.scopedReader());
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Page<MesProEdhrDeviationDO> page = deviationMapper.selectPageByTenant(
                 new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), tenantId, reqVO.getStatus(),
@@ -461,6 +522,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
 
     String buildCreatePayloadHash(MesProEdhrDeviationCreateReqVO reqVO) {
         Map<String, Object> payload = new TreeMap<>();
+        if (reqVO.getWorkOrderId() != null) payload.put("workOrderId", reqVO.getWorkOrderId());
         if (reqVO.getActiveOrderId() != null) {
             payload.put("activeOrderId", reqVO.getActiveOrderId());
         }
@@ -576,6 +638,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             MesProEdhrNonconformanceReviewDO review) {
         MesProEdhrDeviationRespVO response = new MesProEdhrDeviationRespVO()
                 .setId(deviation.getId())
+                .setVersion(deviation.getVersion()).setReceiverId(deviation.getReceiverId())
                 .setDeviationCode(deviation.getDeviationCode())
                 .setActiveOrderId(deviation.getActiveOrderId()).setWorkOrderCode(deviation.getWorkOrderCode())
                 .setBatchExecutionId(deviation.getBatchExecutionId())

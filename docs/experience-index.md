@@ -1,4 +1,8 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # 项目经验索引
+
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
 
 - Keywords: 本机空间释放, 跨盘文件迁移, 静态文件与运行数据, 已知文件夹重定向, 源目标映射, SHA256校验后删除, 并发磁盘写入 -> `docs/local-runtime.md#本机跨盘文件迁移边界`
 
@@ -110,14 +114,14 @@
 - Keywords: DCC附件卸载下载, 租户缓存旧回包, 历史申请wire回跳, 引用详情身份, pagehide/pageshow, 已结束阅读会话, Office脚本来源与销毁异常 -> `docs/dcc-business-integration-experience.md#预览页面切换和卸载`
 - Keywords: DCC预览来源绑定, metadata后换源, infraFileId/configId/path, typed source claim, nullable name/type, SourceBound token, reading来源复核 -> `docs/dcc-business-integration-experience.md#正文预览来源`
 
-- 测试服发布 / 仅测试服 / current HEAD test release / publish-test / 运行态验收 / release-info 版本变更说明：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`
+- 测试服发布 / 仅测试服 / current HEAD test release / publish-test / 运行态验收 / release-info 版本变更说明：`./docs/test-release-preflight.md`
 - publish-test preview 崩溃 / release package candidate scan / dead RUNNING operation / runtime-control JVM 退出：`docs/release-build-preflight-lessons.md#2026-07-11-runtime-control-发布候选扫描与-dead-operation-门禁`。
 - PowerShell host:port 插值 / SSH IO pending / bash `$()` / Playwright 浏览器缓存 / release-info mojibake：`docs/powershell-preflight-lessons.md`，标题“2026-07-11 PowerShell/SSH/Playwright 发布验收门禁”。
 - 仅测试服运行态验收 / release-info / 运行控制台版本变更说明 / Playwright 版本对话框：`docs/test-release-preflight.md#2026-07-11-仅测试服发布运行态验收新增门禁`。
-- 维护控制台临时 worktree 构建 / pnpm approve-builds / ERR_PNPM_IGNORED_BUILDS：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- pnpm approve-builds 空结果但 install 仍因 ERR_PNPM_IGNORED_BUILDS 失败：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
+- 维护控制台临时 worktree 构建 / pnpm approve-builds / ERR_PNPM_IGNORED_BUILDS：`./docs/release-build-preflight-lessons.md`
+- pnpm approve-builds 空结果但 install 仍因 ERR_PNPM_IGNORED_BUILDS 失败：`./docs/release-build-preflight-lessons.md`
 
-- PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，维护仓专项增量再读 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
+- PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `./docs/powershell-memory.md`，维护仓专项增量再读 `./docs/powershell-preflight-lessons.md`
 - Keywords: OfficeCLI xlsx import, Excel TSV import success blank cells, 导入成功但单元格为空, 空工作簿, view text blank, officecli batch set, xlsx 交付物内容复核, AutoFilter range overlaps existing table, 表格筛选重叠, WPS 自定义表格属性, filterBottomFollowUsedRange, table autoFilter schema error -> `docs/powershell-memory.md#officecli-xlsx-导入后内容复核门禁`
 - Keywords: PowerShell 分号串联测试, cmd1; cmd2, Node 静态合同串联, pnpm exec node 后 Remove-Item Env 掩盖失败码, 中间测试失败被最后 PASS 掩盖, `$LASTEXITCODE`, 逐条测试退出码 -> `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`
 - Keywords: task-state 并行写入, record_phase_review, record_test_review, check_completion --apply, render_task_status, blocking_prereqs 丢失, 阶段状态回退, P4 pending blocked 覆盖, 状态脚本串行 -> `docs/powershell-memory.md#任务状态脚本串行写入门禁`
@@ -189,17 +193,17 @@
 - Keywords: 提交后残余改动, commit 后还有修改, 延迟保存改动, git status 复扫, git diff --name-status, 宽泛 git add -A 混入并行任务, residual dirty after commit -> `docs/powershell-memory.md#提交后残余改动复扫门禁`
 - Keywords: 脏工作区功能分支融合, merge-base 实际增量, git diff HEAD..branch 大量非本分支文件, dirty worktree branch merge, 未暂存交集, actual branch delta -> `docs/powershell-memory.md#脏工作区功能分支融合增量门禁`
 - Keywords: 零差异融合, TREE_MATCH, worktree 合入最新 int_main 后无差异, git diff --quiet int_main HEAD, git grep int_main 证明已融合, 无内容 merge 禁止, 当前树已包含目标交付物 -> `docs/worktree-memory.md#已含内容的零差异融合判定门禁`
-- 构建发布耗时 / 真实 E2E 发布预检：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- 已提交 git 版本发布 / clean worktree 发布输入 / 发布前置门禁：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- GitHub 推送 / git push / GH001 / Large files detected / pre-receive hook declined / 历史大文件 / Git LFS / 100 MB：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`
+- 构建发布耗时 / 真实 E2E 发布预检：`./docs/release-build-preflight-lessons.md`
+- 已提交 git 版本发布 / clean worktree 发布输入 / 发布前置门禁：`./docs/release-build-preflight-lessons.md`
+- GitHub 推送 / git push / GH001 / Large files detected / pre-receive hook declined / 历史大文件 / Git LFS / 100 MB：`./docs/release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`
 - GitHub HTTPS 443 / Failed to connect to github.com port 443 via 127.0.0.1 / Git proxy 127.0.0.1:7890 / FlClash helper 在线但 mixed-port 未监听 / ssh.github.com 443 Permission denied publickey：`docs/powershell-memory.md#github-https-443-本地代理门禁`
-- Windows 发布 worktree 长路径 / Filename too long / 维护仓历史 evidence 检出失败：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- build-release 目标主机参数 / TestServerHost / BackupServerHost / ProdServerHost / runtime env 生成：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- publish-int-ruoyi NasConfigPath / NAS JSON / runtime-control.local.yaml 误传 / ConvertFrom-Json maintenance：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- 展厅图片 smoke gate / 远端 MySQL stdout 中文路径 / `infra_file.path` / `HEX(path)` / `EscapeDataString` / `showrooms[].products`：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-20-展厅图片-smoke-gate-中文路径解码门禁`
-- 不带数据发布 / code-only / SkipDatabaseSync / SkipMinioSync / manifest 无数据目录验证：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- release-migration dependsOn 缺失 / SQL 元数据依赖不存在 / migration policy gate：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- DCC 分类 lifecycle_stage / NOT NULL 迁移 / required SQL 空值 / deleted=1 历史归档行：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
+- Windows 发布 worktree 长路径 / Filename too long / 维护仓历史 evidence 检出失败：`./docs/release-build-preflight-lessons.md`
+- build-release 目标主机参数 / TestServerHost / BackupServerHost / ProdServerHost / runtime env 生成：`./docs/release-build-preflight-lessons.md`
+- publish-int-ruoyi NasConfigPath / NAS JSON / runtime-control.local.yaml 误传 / ConvertFrom-Json maintenance：`./docs/release-build-preflight-lessons.md`
+- 展厅图片 smoke gate / 远端 MySQL stdout 中文路径 / `infra_file.path` / `HEX(path)` / `EscapeDataString` / `showrooms[].products`：`./docs/release-build-preflight-lessons.md#2026-07-20-展厅图片-smoke-gate-中文路径解码门禁`
+- 不带数据发布 / code-only / SkipDatabaseSync / SkipMinioSync / manifest 无数据目录验证：`./docs/release-build-preflight-lessons.md`
+- release-migration dependsOn 缺失 / SQL 元数据依赖不存在 / migration policy gate：`./docs/release-build-preflight-lessons.md`
+- DCC 分类 lifecycle_stage / NOT NULL 迁移 / required SQL 空值 / deleted=1 历史归档行：`./docs/release-build-preflight-lessons.md`
 - Keywords: DCC 项目代码文件分类, dcc_file_category_match_rule, OQ/PQ, 零配件图纸, 文件类别规则 seed, AMBIGUOUS, UNCLASSIFIED, seed 插入 0 行, 直接 SQL 修 dcc_controlled_file 禁止 -> `docs/database-rules.md#dcc-文件类别规则种子门禁`
 - Keywords: system_role, system_role_menu, system_user_role, tenant 1 admin, package_id=0, menu_ids 扫描, QA 角色, 只有目标角色可见, admin 赋权, 动态菜单权限角色, 发票凭证打印, 财务发票打印, finance_invoice_voucher_print, 外部工具入口, iframe 工具入口, 只允许专用角色可见, 测试服指定账号授权, jiyingying, 账号唯一性, 菜单可见不等于签票通过, admin 看不到关联公司页签, 关联公司菜单缺失, 授权公司菜单缺失, create/update/delete 按钮权限, 权限名宽泛更新, 固定菜单 ID, 权限码被其它活动菜单占用, super_admin 角色回读, get-permission-info 菜单回读 -> `docs/database-rules.md#系统角色菜单授权-tenant-1-admin-门禁` and `docs/login-access.md#erp-外部助手短期票据授权门禁`
 - Keywords: PQC组长不合格审查按钮隐藏, PQC管理行操作, v-hasPermi, pqc_leader_permission, mes:pro-edhr-nonconformance-review:create, 9008301, 9008302, 9008300误授, 9008303误授, 不授予QA处置权限, fresh登录刷新权限, PQC_SUBMISSION, sourceId, batchExecutionId不作为PQC管理入口参数, 缺少批次执行仍显示入口, stale批次执行ID不得导致建单失败 -> `docs/database-rules.md#系统角色菜单授权-tenant-1-admin-门禁` and `docs/frontend-development.md#前端角色内容页签拆分口径门禁`
@@ -210,14 +214,14 @@
 - Keywords: DCC 升版发布 UX, 版本历史, 版本信息, 升版原因, 变更说明, 发布完成结果, V1 已失效, V2 已生效, master 已切换, 受控浏览已落位, publishedFileId, stampedFileId, BPM markers pageerror, 只读复验目标写请求为 0 -> `docs/e2e-rules.md#dcc-升版发布-ux-闭环门禁`
 - Keywords: DCC Windchill 历史迁移, AUTO_MAP, 版本文本可解析, 稳定业务身份唯一, source_file_id, ownership/hash, 正式指针一致, 检出歧义, 平台生命周期 ACTIVE 对齐, 整条 Master blocker -> `docs/backend-development.md#跨模块版本对象生命周期引用登记门禁`
 - Keywords: DCC 共享源迁移, 全局 source 引用冻结, shared group 原子执行, 外部副本失败清理, 明细证据写入失败, 禁止逐条成功冒充组级原子性 -> `docs/backend-development.md#跨模块版本对象生命周期引用登记门禁`
-- 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- runtime-control.local.yaml / repo-root / frontend-root / 临时发布 worktree / 控制台健康检查：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
-- 发布 / 备份 / 恢复 / 服务器容量：`E:\IntRuoyi\docs\release-backup-restore.md`
+- 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`./docs/release-build-preflight-lessons.md`
+- runtime-control.local.yaml / repo-root / frontend-root / 临时发布 worktree / 控制台健康检查：`./docs/release-build-preflight-lessons.md`
+- 发布 / 备份 / 恢复 / 服务器容量：`./docs/release-backup-restore.md`
 - Keywords: 本机数据迁移包, 另一台电脑复原, 两台电脑数据一致, MySQL dump, MinIO data, Redis dump.rdb, IntAuth auth.db, SHA256SUMS, 恢复 README -> `docs/release-backup-restore.md#本机数据迁移包恢复门禁`
-- 备份计划任务 / IntRuoyi Backup Scheduled / NextRunTime N/A / schtasks 查询失败 / Task To Run 旧路径 / 定时备份恢复判断：`E:\IntRuoyi\docs\release-backup-restore.md#正式服备份计划任务状态门禁`
-- 正式服 backup-now + 审查服 rehearsal / production source -> backup repository / same backupId / TargetEnvironment prod backup mismatch / backup-source NAS 未就绪 / INTBK-2003 / MySQL 恢复 dump 不在受保护 BackupPackage / INTBK-3002 / source temp dump / MinIO 对象备份 / INTBK-4001 / Invalid JSON primitive: Unable / Docker pull status lines / mc --json / DCC manifest / INTBK-6001 / dcc_object_inventory_missing / 对象 inventory 覆盖率 / checksums / Get-FileHash 缺失 / INTBK-6003 / rehearsalStatus verified PASSED 冲突 / backendHealth frontendHttp200 loginReachable fileDownloadSample / rehearsal bucket runtime 隔离：`E:\IntRuoyi\docs\release-backup-restore.md#正式源备份到审查服隔离演练仓库门禁`
-- 服务器访问 / 重启 / 远端联调：`E:\IntRuoyi\docs\server-access.md`
-- 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
+- 备份计划任务 / IntRuoyi Backup Scheduled / NextRunTime N/A / schtasks 查询失败 / Task To Run 旧路径 / 定时备份恢复判断：`./docs/release-backup-restore.md#正式服备份计划任务状态门禁`
+- 正式服 backup-now + 审查服 rehearsal / production source -> backup repository / same backupId / TargetEnvironment prod backup mismatch / backup-source NAS 未就绪 / INTBK-2003 / MySQL 恢复 dump 不在受保护 BackupPackage / INTBK-3002 / source temp dump / MinIO 对象备份 / INTBK-4001 / Invalid JSON primitive: Unable / Docker pull status lines / mc --json / DCC manifest / INTBK-6001 / dcc_object_inventory_missing / 对象 inventory 覆盖率 / checksums / Get-FileHash 缺失 / INTBK-6003 / rehearsalStatus verified PASSED 冲突 / backendHealth frontendHttp200 loginReachable fileDownloadSample / rehearsal bucket runtime 隔离：`./docs/release-backup-restore.md#正式源备份到审查服隔离演练仓库门禁`
+- 服务器访问 / 重启 / 远端联调：`./docs/server-access.md`
+- 前端页面 / 表格 / 样式：`./docs/frontend-development.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 生产组长工序配置, process-config/list, 工序配置新增无路线工序, 工序配置其他路线不应显示, 当前账号没有可新增的路线工序, 工序开始授权生产组长, routeStartProductionLeaders, mes:pro-process-pool-team-leader:maintain, admin 维护权限不扩路线范围, 损耗原因设备映射设备参数标准授权, active version, SUPERSEDED, current active version, 路线发布后 routeProcessId 变化, 历史工序配置留在旧 routeProcessId, 当前激活工序损耗参数为空, 恢复生产组长配置, 设备参数恢复去重, 当前参数 hash, 旧新参数编码冲突, QA规程不是损耗设备参数来源, clientRouteProcessId只用于投影引用, processId工序名sort不得替代routeProcessId, 禁止运行态fallback旧routeProcessId -> `docs/backend-development.md#生产组长工序配置必须按正式负责路线限定`
 - Keywords: DCC当前路线设备参数规则缺失, 班组设备存在但参数为空, 只看到设备字段没有参数, RT000028-IDI, 源路线参数不能运行态借用, routeProcessId + deviceId + parameterCode, 正式迁移补齐当前路线参数 -> `docs/backend-development.md#生产组长工序配置必须按正式负责路线限定`
@@ -306,7 +310,7 @@
 - Keywords: 批记录单元格链接, 表单链接方向, 点击当前表单是目标表单, sourceReportId 不得等于当前点击表单, 报工数据, 本次报工总量, totalQuantity, outputQuantity + lossQuantity, 工序设备参数缺失, batch_record_report_id, batch_record_version_id 为空, 冗余版本快照, routeProcessId 为空, 同报表跨路线, routeId 隔离, routeId routeProcessId targetReportId 全程传递, 目标工序不匹配, 报工数据禁用, 报工数据工序 No data, PROCESS_POOL_REPORT 不预加载领料单, 共享报表保存, 正式报表身份解析, 建立链接系统异常, sourceCellKey, source_cell_key, source_field_code, PPR短来源Key, 结构化来源字段超长 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
 - Keywords: 批记录链接只显示设备没有参数, 报工数据参数不显示, DCC项目代码129, IDI按压式球囊扩充压力泵, 超声波清洗机B09393, 清洗次数清洗介质清洗功率室温清洗时间, 当前路线参数规则迁移, 禁止前端合成参数字段 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
 - Keywords: 批记录领料单来源, 领料单数据, PRODUCTION_PICK_LIST, sourceEntryId, 同物料多个批次只取第一条, DCC 项目产品 BOM, 唯一已审核领料单, 申请放行来源解析 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
-- eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
+- eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`./docs/backend-development.md#edhr-详情回填门禁`
 - Keywords: eDHR 批记录表单角色填写人, 默认填写人角色不显示, candidateSourceType ROLE, candidateSourceNames 空, get-by-report, form-level FILL, 候选用户已展开但角色名不显示 -> `docs/backend-development.md#批记录表单角色填写人名称回显边界`
 - Keywords: 切换填写人, 协助填写人, 填写人快照, `assistSwitchTasks`, `candidateUserSnapshot`, `getEdhrBatchExecution`, batchTaskId, execution_id, active 执行记录, `batchExecutionId + taskId + workOrderId + routeProcessId + batchRecordReportId + batchCode`, `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId`, `mes_pro_batch_record_execution.task_id` 必须隔离批次任务, 动态路线表单候选, 工艺路线表单槽位, 同工序 MAIN 附加表单, 所有有效候选人, 损耗单切换填写人, `activeWorkTaskId`, `workTaskId`, `assistUserId`, `openTask` 同工序锚点授权, `openTask` 模板渲染快照, `formTemplateJimuSchemaJson`, `formTemplateRecognizedFields`, companion workTask, `formBindingKey`, `formCenterInstanceId`, `resolveDynamicRouteFormVisibleAssistRows`, `edhrAssistRows`, eDHR 批次缺少唯一批记录路线, 弹窗打开耗时过长 -> `docs/backend-development.md#切换填写人快照读取边界`
 - Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback, 草稿 BATCH 快照显式保存, batchRecordBindingSnapshotExplicit, flow-config/batch-record/save, 表单槽位读回为空, 草稿保存系统异常, batchRecordAttachmentOwners, routeStartProductionLeaders, EDHR_WORD_IMPORT snapshot missing explicit array, 发布 blockers 为空但 submit-publish 失败, 冻结快照 JSON_TYPE ARRAY, 批记录附件负责人配置无效, 产品信息成员表单缺失, 产品信息固定 80, PRODUCT_INFO_MEMBER_BATCH_RECORD_SORT, 已有 ROUTE_FORM 但批记录任务不完整, batchRecordDefinitionId batchRecordVersionId, batch_record_sort 唯一键冲突, 当前工序 available, 开始节点并行第一组, 多前置汇合工序, 直接前置集合, 旧冻结快照当前配置覆盖任务工序 -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
@@ -336,7 +340,7 @@
 - Keywords: Execution context was destroyed, Playwright 登录导航竞争, page.evaluate localStorage.clear, 全新 browser.newContext, 登录页自动重定向, 二次导航登录, fresh context storage -> `docs/e2e-rules.md#playwright-全新上下文登录导航竞争门禁`
 - Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, cross-env is not recognized, node_modules .bin vite, node_modules .bin cross-env, pnpm ts:check worktree 依赖, pnpm install --frozen-lockfile, pnpm install --offline --frozen-lockfile --ignore-scripts, node_modules .pnpm 已下载但 .bin 未链接, node_modules.shared-link, 目录联接, reparse point, purge-icons generated pending, 页面停在启动页, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
- - Keywords: worktree 端口段, slot 1..100, slot >= 101, slot 20..30 扩展段, slot 31..40 第二扩展段, slot 41..50 第三扩展段, slot 51..60 至 91..100 第四至第八扩展段, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
+ - Keywords: worktree 端口段, slot 1..100, slot >= 101, slot 20..30 扩展段, slot 31..40 第二扩展段, slot 41..50 第三扩展段, slot 51..60 至 91..100 第四至第八扩展段, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 默认端口错误 -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: task-owned 代码提交, 主线同名未跟踪任务文档, fast-forward 被 untracked 阻断, 保留并行任务记录, 局部代码完成与跨流程 blocker 分离 -> `docs/worktree-memory.md#任务分支快进融合的同名未跟踪文档门禁`
 - Keywords: worktree 任务 blocked, clean branch 但验证未达成, stale branch 大量删除主线证据, blocked worktree 不得强行 merge -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
@@ -367,7 +371,7 @@
 - Keywords: 多租户每日任务, TenantJob 吞异常, 顶层 Job 失败传播, 阈值当天漏发, 停机跨日补扫, SUPPRESSED_BY_HIGHER_THRESHOLD -> `docs/backend-development.md#多租户每日任务失败传播与跨日补扫门禁`
 - Keywords: 站内信幂等, 消息已写入 ACK 前崩溃, platform business key, system_notify_message 唯一业务键, 同一接收人最多一封, 空 message ID -> `docs/backend-development.md#站内信领域幂等必须延伸到平台消息门禁`
 - Keywords: 全局配置与租户配置, 全局 Quartz 时间, 租户接收规则, config-global, config-recipient-rule, 配置总页签任一权限可见, 无权分区不挂载 -> `docs/frontend-development.md#全局与租户配置分区权限门禁`
-- 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
+- 项目错误预防经验：`docs/experience-index.md` 及其指向的本仓库专项文档。
 
 ## 任务门禁
 
@@ -380,13 +384,13 @@
 - 发布构建后 sourceRepos 校验：完整契约入口是发布包根目录 `manifest.json`，不是兼容概要 `release-manifest.json`；详见 `docs/release-build-preflight-lessons.md#2026-07-05-发布-manifest-sourcerepos-校验入口`。
 - 发布部署动作参数契约：`publish-test/promote-prod/promote-backup` 不传 `publishScope`，必须传 `targetEnvironment` 与 `releaseTag`；详见 `docs/release-build-preflight-lessons.md#2026-07-05-deploy-action-preview-参数契约`。
 - Keywords: publish-test preview msg=publishScope, deploy action publishScope, includeOnlyOffice includeShowroomBuildPackage, r260719i preview 400 -> `docs/release-build-preflight-lessons.md#2026-07-05-deploy-action-preview-参数契约`
-- required SQL 菜单硬编码 ID / system_menu 占用 / 900301 / 900302 / 权限漂移：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
+- required SQL 菜单硬编码 ID / system_menu 占用 / 900301 / 900302 / 权限漂移：`./docs/release-build-preflight-lessons.md`
 - 发布脚本自由文本参数 / Start-Process ArgumentList / mark-tested TestConclusion 引号门禁：见 `docs/release-build-preflight-lessons.md` 的 “2026-07-06 mark-tested 本地启动参数引号门禁”。
 - `docs/release-build-preflight-lessons.md`：测试服 HEAD 发布前置经验，覆盖 clean worktree、pnpm 版本、SQL metadata、Smart Release 输入、大镜像分块上传、runtime-control API、UTF-8/SSH 输出校验和发布后 fail-fast 条件。（2026-07-09 任务 `20260709-head-test-server-release` 更新）
 
-- build-release API 预览 targetEnvironment 参数契约：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-09-build-release-预览请求不得携带-targetenvironment`
+- build-release API 预览 targetEnvironment 参数契约：`./docs/release-build-preflight-lessons.md#2026-07-09-build-release-预览请求不得携带-targetenvironment`
 
-- build-release 三环境预览 ProdServerHost 门禁：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-09-build-release-三环境预览必须含-prodserverhost`
+- build-release 三环境预览 ProdServerHost 门禁：`./docs/release-build-preflight-lessons.md#2026-07-09-build-release-三环境预览必须含-prodserverhost`
 - 2026-07-09：build-release 前必须执行全量迁移元数据策略门禁，`type` 只允许 schema/data/menu/config/permission/seed，修复 SQL 元数据需同步补 `script/tests` 覆盖；`20260714_dcc_personal_file_decommission.sql` / `Release migration metadata missing` 也命中该门禁；详见 `docs/release-build-preflight-lessons.md#2026-07-09-build-release-迁移元数据必须先过全量策略门禁`。
 - 2026-07-09：publish-test required SQL 若出现 MySQL 1137 Can't reopen table，先冻结远端 operation/migration/env 证据，再拆分或落表修复 SQL 并补 script/tests，最后重新构建新的 releaseTag；详见 `docs/release-build-preflight-lessons.md`，标题“2026-07-09 publish-test SQL 不得复用同一派生/临时表别名触发 MySQL 1137”。
 - 2026-07-09：publish-test required SQL 不得依赖测试服手工业务数据；出现 Missing <业务对象> 时先冻结 operation/migration/业务表快照，再通过迁移自给或 dependsOn 修复并重新构建新 releaseTag；详见 docs/release-build-preflight-lessons.md#2026-07-09-publish-test-required-sql-前置业务数据必须由迁移自给或显式依赖。
@@ -411,8 +415,8 @@
   - Read: `docs/release-build-preflight-lessons.md`
   - Gate: build-release 前检查内存余量；JVM native memory 失败必须冻结 hs_err 与内存快照，降低构建内存压力后重建新 releaseTag。
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
-- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, Permission denied, 当前目录占用, 空目录残留, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
-- Keywords: release worktree physical root, 发布 release worktree, D:\ProjectPackage\Int\IntRuoyiWorktrees, r260731d ignored node_modules residual, Git registration absent but physical root exists, state dir Test-Path false -> `docs/worktree-memory.md#发布-release-worktree-物理根复核门禁`
+- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, Permission denied, 当前目录占用, 空目录残留, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `./docs/worktree-memory.md`
+- Keywords: release worktree physical root, 发布 release worktree, ../IntRuoyiWorktree, r260731d ignored node_modules residual, Git registration absent but physical root exists, state dir Test-Path false -> `docs/worktree-memory.md#发布-release-worktree-物理根复核门禁`
 - Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
@@ -440,7 +444,7 @@
 - Keywords: clean maintenance worktree local config absent, runtime-control.local.yaml missing, generated runtime dirty, maintenance worktree runtime folder -> `docs/release-build-preflight-lessons.md#2026-07-13-clean-maintenance-worktree-local-config-与-runtime-输出门禁`
 - Keywords: UNC NAS manifest false negative, package lookup preview, historical failed migration, target release migration failure count -> `docs/release-build-preflight-lessons.md#2026-07-13-发布包可用性与历史-migration-失败分层门禁`
 - Keywords: preview arguments RequireTested switch flag parser, SkipDatabaseSync SkipMinioSync flag, ServerHost preview gate false negative -> `docs/release-build-preflight-lessons.md#2026-07-13-preview-参数解析必须兼容-switch-flag`
-- Keywords: AGENTS rule conflict, 规则优先级, previous task ownership, concurrent worktree ownership, 仅测试服完成定义 -> 先读全局 `C:\Users\BJB110\.codex\AGENTS.md` 的 `Rule Precedence and Task Ownership`，再读当前目录最近的项目 `AGENTS.md`
+- Keywords: AGENTS rule conflict, 规则优先级, previous task ownership, concurrent worktree ownership, 仅测试服完成定义 -> 核对当前会话已生效的规则及当前目录最近的项目 `AGENTS.md`，不加载个人目录中的额外规则文件
 - Keywords: 提示词不合理, 用户提示不合理时, 不得盲从, 需求纠偏, 先核对当前代码, 文档和业务规则 -> `AGENTS.md#Communication Policy`
 - Keywords: Invoke-WebRequest Content byte array, Invoke-RestMethod health status, process scan exclude current PID -> `docs/powershell-preflight-lessons.md`
 - Keywords: restart-int-ruoyi-local, IntRuoyiBackend script deploy, 标准本地重启脚本真实路径, 根 scripts runtime 未找到脚本, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
@@ -450,11 +454,11 @@
 - Keywords: 标准本地后端重启 tokenless Runner, restart-int-ruoyi-local -Component backend, CODEX_TEST_RUNNER_TOKEN, runner-token.txt, 后端重启后 Codex Runner token 无效或未配置, 裸调 Codex CLI, 不发送 X-Codex-Runner-Token, Runner 注册探针, 空闲 heartbeat -> `docs/local-runtime.md#2026-07-28-标准本地后端重启-tokenless-runner-门禁`
 - Keywords: local backend MySQL Access denied, dynamic-datasource create datasource named [master] error, Access denied for user 'root'@'localhost', 48081 未监听, 本地后端数据库凭据 -> `docs/local-runtime.md#2026-07-25-本地后端数据库凭据门禁`
 - Keywords: Required Docker container is not running, int-ruoyi-mysql Exited 255, int-ruoyi-redis Exited 255, docker-minio-1 Exited 255, restart-int-ruoyi-local -Component full, 本地 full 重启依赖容器退出 -> `docs/local-runtime.md#2026-08-08-标准本地-full-重启依赖容器退出门禁`
-- Keywords: Docker Desktop E 盘 bind, bind source path does not exist, /run/desktop/mnt/host/e/IntRuoyi, ruoyi-vue-pro.sql, BIND_MISSING, BIND_OK, Failed to translate E:\IntRuoyi, int-ruoyi-mysql invalid mount config -> `docs/local-runtime.md#2026-07-28-docker-desktop-e-盘-bind-挂载门禁`
+- Keywords: Docker Desktop 项目目录 bind, bind source path does not exist, 当前仓库对应的 Docker host mount, ruoyi-vue-pro.sql, BIND_MISSING, BIND_OK, Failed to translate ., int-ruoyi-mysql invalid mount config -> `docs/local-runtime.md#2026-07-28-docker-desktop-项目目录-bind-挂载门禁`
 - Keywords: 本地前端 pnpm 链接损坏, Cannot find module '@babel/helper-validator-identifier', failed to load config from IntRuoyiFronted vite.config.ts, EPERM rename deps_temp deps, Vite deps cache lock, 8081 监听但页面超时, pnpm install frozen lockfile Already up to date, pnpm install --frozen-lockfile --force, 8081 未监听 -> `docs/local-runtime.md#2026-07-28-本地前端-pnpm-链接损坏门禁`
 - Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: DCC 上传预览 OnlyOffice 文档地址, OnlyOffice 预览地址未准备好, upload-preview onlyofficeBaseUrl onlyofficeDocumentUrl, RESOURCE_UPLOAD_PREVIEW, signed onlyofficeDocumentUrl, 原始 fileId 禁止暴露, ProtectedPdfViewer OnlyOfficeReadOnlyViewer, 专利检索与分析报告（如适用） -> `docs/local-runtime.md#2026-08-04-dcc-上传预览-onlyoffice-文档地址门禁`
-- Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
+- Keywords: int_main local runtime, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-本地启动源码与依赖门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 重启到最新后端, 先构建再停旧进程, 临时 detached worktree 构建, 未登录 401, 登录态路由验证, route-not-found, 请求地址不存在, team-device/list, 生产组长工序配置接口, 旧业务错误, fat jar 内嵌模块, BOOT-INF/lib, 运行 Jar 缺少关键 class, 跨模块 API 方法, 接口 调用方 实现类 服务 Mapper/DAO 成组替换, Controller 注解, RequestParam required=false, 缺省 keyword, javap -v, DccUploadDirectoryResolver, Spring Boot nested jar, jar uf0, compress_type=0, 内嵌 jar 压缩导致 classpath resource missing, schema 字段核对, DCC 下载加密已退役, 直下载不注入加密参数, backendArgs 显式传参, 父进程环境继承丢失 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
@@ -528,7 +532,7 @@
 - Keywords: Docker 未使用镜像清理, docker image prune, docker system df, DockerDesktopWSL, docker_data.vhdx, D 盘空间不足, Total reclaimed space 0B, 禁止 volume prune, Tee-Object 流式写入 -> `docs/local-runtime.md#2026-08-05-本机-docker-未使用镜像清理门禁`
 - Keywords: E 盘 NTFS Dirty, Full Repair Needed, fsutil dirty, chkdsk /scan snapshot error, chkdsk /f /x, $I30 index corruption, unindexed files recovery, OS error 1392, apply deny-read ACLs -> `docs/local-runtime.md#2026-08-21-e-盘-ntfs-dirty索引损坏最小修复门禁`
 - Keywords: Ruoyi Docker 未用容器清理, Ruoyi Docker 未用卷清理, docker volume prune, docker rm stopped containers, volume 引用扫描, 当前 MySQL 数据卷, docker_minio_data, intkb_onlyoffice, Total reclaimed space 0B -> `docs/local-runtime.md#2026-08-05-本机-ruoyi-docker-未用容器卷镜像清理门禁`
-- Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`
+- Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `./docs/worktree-memory.md`
 - Keywords: task-closeout Current Status 反引号, ready_for_closeout 纯文本, cleanup apply unknown, 状态值前置说明 -> `docs/task-closeout-rules.md#收尾规则`
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`
 - Keywords: 验收范围变更, 完成门禁变更, 取消全量回归, MES 全量测试不作为门禁, 只跑定向测试, 开发文档和测试计划列出的内容, Expected Verification, 不把未运行全量写成通过 -> `docs/task-closeout-rules.md#验收范围变更门禁`
@@ -537,7 +541,7 @@
 - Keywords: release-info CRLF, releaseInfoTagOk false, console-error-string-parser, Errors: 0, Warnings: 0, residual-release-worktree-root, r260713j physical root -> `docs/release-build-preflight-lessons.md#2026-07-13-release-info-与运行控制台验收解析门禁` and `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: release-info Git 变更, release-info Codex 摘要, Codex 普通人能读懂, 版本变更说明最多 10 条, gitChanges, previousCommit..currentCommit, 上一版本 Git 差异, Codex summary output, summaryGenerator -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
 - Keywords: Write-FrontendReleaseInfo 重复定义, release-info 重复写入, PowerShell 同名函数, 发布脚本旧分支合并 -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
-- Keywords: ready_for_closeout, verification-report keep, cleanup apply, closeout state machine, completed after cleanup -> `docs/release-build-preflight-lessons.md#2026-07-10-发布任务-closeout-状态与清理契约` and `E:\IntRuoyi\docs\worktree-memory.md`
+- Keywords: ready_for_closeout, verification-report keep, cleanup apply, closeout state machine, completed after cleanup -> `docs/release-build-preflight-lessons.md#2026-07-10-发布任务-closeout-状态与清理契约` and `./docs/worktree-memory.md`
 - Keywords: detached HEAD linked worktree, HEAD no branch, Current worktree branch could not be resolved, task_closeout preview blocked, 禁止 commit/push, cleanup apply 自动提交合并删除阻塞 -> `docs/worktree-memory.md#detached-head-linked-worktree-收尾门禁`
 - Keywords: system_menu.id must be an integer literal, duplicate system_menu.id detected across release SQL history, INSERT INTO system_menu SELECT ON DUPLICATE KEY UPDATE VALUES, release SQL parser false positive, 20260714_signature_my_signature_admin_menu -> `docs/release-build-preflight-lessons.md#2026-07-16-release-preflight-菜单-sql-解析边界门禁`
 - Keywords: vue/no-unused-vars, vite-plugin-eslint, pnpm build:test, ProcessWipTable, sortColumnAttrs, handleTemplateSortChange, slot unused vars -> `docs/release-build-preflight-lessons.md#2026-07-16-release-build-前端-eslint-slot-未使用变量门禁`
@@ -572,7 +576,7 @@
 - Keywords: ERROR 1406, Data too long for column menu_ids, system_tenant_package.menu_ids, 20260717_bpm_form_center, backup promote menu_ids length -> `docs/release-build-preflight-lessons.md#2026-07-19-backup-promote-tenant-package-menu_ids-长度门禁`
 - Keywords: r260719k release failure prevention checklist, 三环境 code-only 发布复发防止, MES companion, frontend export, BuildKit, required SQL collation, menu_ids -> `docs/release-agent-checklist.md`，标题“2026-07-19 r260719k 发布失败复发防止清单”
 - Keywords: test-only release, publish-test, test server runtime verification, release-info dialog, frozen release worktree, only test server -> `docs/test-release-preflight.md`
-- Gate: 仅测试服发布任务优先读取 `docs/test-release-preflight.md`，再按失败点跳转 `release-build-preflight-lessons.md`、`powershell-preflight-lessons.md` 和 `E:\IntRuoyi\docs\worktree-memory.md`。
+- Gate: 仅测试服发布任务优先读取 `docs/test-release-preflight.md`，再按失败点跳转 `release-build-preflight-lessons.md`、`powershell-preflight-lessons.md` 和 `./docs/worktree-memory.md`。
 - Keywords: remote python3 absent, python3 command not found, jq command not found, backup runtime verification carrier, 远端验收工具缺失 -> `docs/powershell-preflight-lessons.md#2026-07-14-远端验收工具可用性门禁`
 - Keywords: worktree remove Directory not empty, r260713v release worktree residual, git worktree registration absent physical directory exists -> `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: worktree 重命名, git worktree move, TR1 TR2 TR3 TR4 TR5, worktree-ports name path 同步, 保留 slot 端口, 登记表 mutex, 批量重命名回滚 -> `docs/worktree-memory.md#worktree-重命名与端口登记原子同步门禁`

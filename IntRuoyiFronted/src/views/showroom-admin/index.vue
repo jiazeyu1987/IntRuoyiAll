@@ -1837,7 +1837,7 @@ const buildProductPageParams = (pageNo: number, pageSize: number) => {
     lifecycleStage: productFilters.value.lifecycleStage,
     incompleteStatus: productFilters.value.incompleteStatus,
     approvalStatus: productFilters.value.approvalStatus
-  } as PageParam & { keyword?: string }
+  }
 }
 
 const buildProductBatchGeneratePayload = (coverGenerationMode?: ShowroomProductCoverGenerationMode) => {

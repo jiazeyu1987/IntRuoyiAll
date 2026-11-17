@@ -7,6 +7,9 @@ public class MesKingdeeBomListSyncResult {
 
     private int createdCount;
     private int skippedCount;
+    private int updatedCount;
+
+    public void addUpdated() { updatedCount++; }
 
     public void addCreated() {
         createdCount++;

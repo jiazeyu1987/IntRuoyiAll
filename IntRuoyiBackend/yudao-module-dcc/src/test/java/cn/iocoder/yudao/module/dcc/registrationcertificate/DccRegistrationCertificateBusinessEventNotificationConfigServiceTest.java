@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
+import java.util.Set;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,7 +31,8 @@ class DccRegistrationCertificateBusinessEventNotificationConfigServiceTest {
 
         List<Long> recipientUserIds = service.resolveRecipientUserIds(1L);
 
-        assertEquals(List.of(1001L, 1002L, 1003L), recipientUserIds);
+        assertEquals(Set.of(1001L, 1002L, 1003L), Set.copyOf(recipientUserIds));
+        assertEquals(3, recipientUserIds.size());
     }
 
     @Test
@@ -41,5 +43,24 @@ class DccRegistrationCertificateBusinessEventNotificationConfigServiceTest {
                 () -> service.resolveRecipientUserIds(1L));
 
         assertEquals(REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT.getCode(), exception.getCode());
+    }
+
+    @Test
+    void recipientsAreIsolatedByTenant() {
+        when(jdbcTemplate.queryForList(anyString(), eq(String.class), eq(186L)))
+                .thenReturn(List.of("{\"T_30\":[1001]}"));
+        when(jdbcTemplate.queryForList(anyString(), eq(String.class), eq(187L)))
+                .thenReturn(List.of("{\"T_30\":[2001]}"));
+
+        assertEquals(List.of(1001L), service.resolveRecipientUserIds(186L));
+        assertEquals(List.of(2001L), service.resolveRecipientUserIds(187L));
+    }
+
+    @Test
+    void existingEmptyRecipientConfigDoesNotInventRecipients() {
+        when(jdbcTemplate.queryForList(anyString(), eq(String.class), eq(186L)))
+                .thenReturn(List.of("{\"T_30\":[],\"T_8\":[],\"T_2\":[],\"T_1\":[]}"));
+
+        assertEquals(List.of(), service.resolveRecipientUserIds(186L));
     }
 }

@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G39 exact one-migration execution checklist
 
 Prepared by readonly source review only. Root executes all real DB/backup/DDL steps. No tool edits, tests, Maven, DB/client, service, browser or Git actions by this reviewer. User's new actual authorization is recorded in main `g39-user-authorization.json`; actual quality remains unapproved. This procedure creates only three empty sidecars plus at most one ledger row per database; it does not activate legacy names, restore objects, configure audit rules or register quality.
@@ -45,12 +47,12 @@ Root first establishes writer exclusion through actual ownership/service facts; 
 }
 ```
 
-`capturedEpoch=0` above is an intentionally non-executable placeholder: Root substitutes the real current numeric Unix epoch after confirming writers. No guessed boolean/time. `_collect_fresh_inputs:89–96` requires age0..900seconds and a **new nonexisting direct child** of `C:/IntRuoyiBackups/20261003-dcc-integration`; clone and source use distinct children. The actual collector reads INNODB_TRX/PROCESSLIST/enabledEVENTS and requires exact integer zero, rechecks before/after dump and freshness at completion. An attestation cannot override a live writer.
+`capturedEpoch=0` above is an intentionally non-executable placeholder: Root substitutes the real current numeric Unix epoch after confirming writers. No guessed boolean/time. `_collect_fresh_inputs:89–96` requires age0..900seconds and a **new nonexisting direct child** of `历史外部材料（引用已移除）`; clone and source use distinct children. The actual collector reads INNODB_TRX/PROCESSLIST/enabledEVENTS and requires exact integer zero, rechecks before/after dump and freshness at completion. An attestation cannot override a live writer.
 
 Run the real readonly collector via `main:147–153` (absolute source path; Root chooses new output and actual attestation paths):
 
 ```text
-python -B C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-detail-integration/g29-collector-r2.py --collect-readonly --database dcc_intqms_g18_rehearsal --output <new-direct-protected-clone-input-directory> --writer-attestation <actual-clone-attestation.json>
+python -B ../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-detail-integration/g29-collector-r2.py --collect-readonly --database dcc_intqms_g18_rehearsal --output <new-direct-protected-clone-input-directory> --writer-attestation <actual-clone-attestation.json>
 ```
 
 This verifies target ABSENT/ledger0 (`FIRST_REQUIRED`), actual post19 schema and exact19 ledger, captures full original rows for seven protected tables, creates `schema.sql.gz` and `protected-original-rows.sql.gz` using actual fixed readonly single-row dump commands, then proves original rows unchanged. Seven tables: controlled_file, controlled_file_master, controlled_file_name_claim, controlled_file_source_ownership, controlled_file_signature, **system_electronic_signature**, infra_release_migration, all with `dcc_` prefix where applicable. Never substitute dcc signature for the unified table.
@@ -65,7 +67,7 @@ Preserve the collector's original unapproved request. Write a new Root-reviewed 
 Set only `specificNewMigrationAuthorized=true`, `authorization=<actual flat authorization descriptor>`, and `privateDirectory=<different new nonexisting direct protected execution child>`. Keep version `G28-EXEC-1`, database clone, actual operationId safe `[A-Za-z0-9_-]{1,100}` (collector provides `dcc-g28-local-new-sidecars`), and `newMigrationClonePass=null`. All fresh proof timestamps must remain0..900seconds at driver validation; stale collection is a stop/recollect condition, not permission expiration.
 
 ```text
-python -B C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-detail-integration/g29-driver-r2.py execute --request <authorized-clone-request.json> --authorize-specific-new-migration-writes
+python -B ../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-detail-integration/g29-driver-r2.py execute --request <authorized-clone-request.json> --authorize-specific-new-migration-writes
 ```
 
 `execute:240–285` performs **both first and repeat in one invocation**; there is no separate `first`/`repeat` CLI or need to re-run execute. Before each phase it checks current schema/writers/old19; first material adds max1exact ledger, repeat material adds no ledger. It compares original seven-table full snapshots allowing exactly one new infra ledger row, exact new-ledger payload, schema/postflight and first/repeat equality. Require exit0, stdout final `G28_OWNED_EXISTING_CLONE_FIRST_REPEAT_PASS`, protected `driver-receipt.json` two steps ordered first/repeat each `POSTFLIGHT_AND_ORIGINAL_ROWS_PASS`. Re-run pure `validate_completed_journal(read(actualReceipt),CLONE)` before source using the sealed driver, which rereads every material/stream/postflight/snapshot/newledger and pins exact execution SQL material. This is verification, not a second DDL invocation.

@@ -113,6 +113,30 @@ class KingdeeProductItemSyncJobTest {
     }
 
     @Test
+    void executeFullSync_repairsMesForProductsCommittedByPreviousFailedRun() {
+        ErpKingdeeProductSyncService products = mock(ErpKingdeeProductSyncService.class);
+        MesKingdeeItemSyncService items = mock(MesKingdeeItemSyncService.class);
+        ErpKingdeeSyncRuntimeService runtime = mock(ErpKingdeeSyncRuntimeService.class);
+        ErpKingdeeProductSyncResult productResult = new ErpKingdeeProductSyncResult();
+        productResult.addSkipped("MAT-PREVIOUSLY-COMMITTED");
+        when(products.syncProducts()).thenReturn(productResult);
+        MesKingdeeItemSyncResult itemResult = new MesKingdeeItemSyncResult();
+        itemResult.addCreated();
+        when(items.syncItemsByProductCodes(any(Collection.class))).thenReturn(itemResult);
+        when(runtime.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
+                .thenAnswer(invocation -> ((ErpKingdeeSyncTask) invocation.getArgument(1)).run(
+                        ErpKingdeeSyncContext.builder().windowEnd(LocalDateTime.now()).build()));
+
+        String result = new KingdeeProductItemSyncJob(products, items, runtime).executeFullSync();
+
+        ArgumentCaptor<Collection<String>> codes = ArgumentCaptor.forClass(Collection.class);
+        verify(items).syncItemsByProductCodes(codes.capture());
+        assertEquals(List.of("MAT-PREVIOUSLY-COMMITTED"), List.copyOf(codes.getValue()));
+        assertTrue(result.contains("itemsCreated=1"));
+        verify(items, never()).syncItems();
+    }
+
+    @Test
     void execute_shouldExposeRuntimeFailure() {
         ErpKingdeeProductSyncService productSyncService = mock(ErpKingdeeProductSyncService.class);
         MesKingdeeItemSyncService itemSyncService = mock(MesKingdeeItemSyncService.class);

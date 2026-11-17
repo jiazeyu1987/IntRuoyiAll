@@ -14,6 +14,12 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 @RequestMapping("/mes/pro/batch-record-report/simple-parser")
 public class MesSimpleParserPublishController {
     @Resource private MesSimpleParserPublishService service;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesSimpleParserReuseService reuseService;
+    @PostMapping("/reuse-matches")
+    @PreAuthorize("@ss.hasPermission('form:parser:production-batch-record:publish')")
+    public CommonResult<java.util.List<JSONObject>> reuseMatches(@Valid @RequestBody SimpleParserPublishReqVO request) {
+        return success(reuseService.matches(request));
+    }
     @GetMapping("/devices")
     @PreAuthorize("@ss.hasPermission('form:parser:query')")
     public CommonResult<java.util.List<JSONObject>> devices() {

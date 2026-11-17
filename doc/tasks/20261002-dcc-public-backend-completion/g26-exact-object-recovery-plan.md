@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G26 本机缺失原文对象的精确恢复方案（待执行）
 
 ## 范围与当前事实
@@ -14,7 +16,7 @@ Root 真实只读 G25 GetObject 核验 39 个源文件引用：35 项 SHA-256/�
 
 固定的 PDF 候选是主工作区 `doc/tasks/20260918-dcc-void-e2e/obsolete-e2e-source.pdf` 或 `doc/tasks/20260918-dcc-upload-full-e2e/upload-source.pdf`。固定的 DOCX 候选是集成工作区或主工作区 `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/input/codex-upload-simulation-20260729.docx`。工具每次重新读取、证明 SHA 和字节数完全相符；选定候选丢失/改变则停止，不自动换另一个文件。
 
-证据由 Root 保存在 `C:/IntRuoyiBackups/20261003-dcc-integration/`：`g25-source-bytes-run4/receipt.json`、`source-bytes-results.jsonl`、`g25-missing-source-recovery-candidates.json`、`g26-four-source-object-identity.jsonl`、`g26-silo-topology-readonly.json`。凭据、实际对象 key 和正文不进入任务交付文档。
+证据由 Root 保存在 `历史外部材料（引用已移除）`：`g25-source-bytes-run4/receipt.json`、`source-bytes-results.jsonl`、`g25-missing-source-recovery-candidates.json`、`g26-four-source-object-identity.jsonl`、`g26-silo-topology-readonly.json`。凭据、实际对象 key 和正文不进入任务交付文档。
 
 ## 条件创建能力依据及限制
 本机只读 binary/version 与启动拓扑证据确认服务器是 PGSTY Silo `RELEASE.2026-08-06T00-00-00Z`、commit `3be10fcc1a44f6620ded0bd303461f9d688cca23`，仅一个 `/data` 本地存储端点。它是 MinIO 派生项目，不能拿现行 AIStor 文档替代其运行证明。
@@ -26,7 +28,7 @@ Root 真实只读 G25 GetObject 核验 39 个源文件引用：35 项 SHA-256/�
 AWS 的 [条件创建定义](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html) 和 [PutObject API](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html) 明确使用 `If-None-Match:*` 避免覆盖当前对象。这里即使遇到 409，也不按通用文档建议自动重试，保留精确人工判断边界。
 
 ## 已核实的实际 bucket 策略
-Root 在真实本机 config 28 上运行只读 probe，退出码 0：GetBucketVersioning HTTP 200 返回 versioningStatus=`UNSET`、mfaDeleteStatus=`UNSET`；GetObjectLockConfiguration HTTP 404 返回 `ObjectLockConfigurationNotFoundError`，Object Lock=`NOT_CONFIGURED`，default retention mode/days/years 均为空，无生命周期错误。受保护证据位于 `C:/IntRuoyiBackups/20261003-dcc-integration/g26-bucket-policy-probe/bucket-policy.json` 和该目录 receipt。此核验没有数据库/对象写入，也不读取正文。
+Root 在真实本机 config 28 上运行只读 probe，退出码 0：GetBucketVersioning HTTP 200 返回 versioningStatus=`UNSET`、mfaDeleteStatus=`UNSET`；GetObjectLockConfiguration HTTP 404 返回 `ObjectLockConfigurationNotFoundError`，Object Lock=`NOT_CONFIGURED`，default retention mode/days/years 均为空，无生命周期错误。受保护证据位于 `历史外部材料（引用已移除）` 和该目录 receipt。此核验没有数据库/对象写入，也不读取正文。
 
 因此恢复工具沿用该实际 bucket，不发送 retention、hold 或 encryption 设置，不变更 bucket/container，不将应用候选 config 中的 7 天 COMPLIANCE、hold=true 冒充实际对象策略。这里的 DCC “作废后保存 20 年”是业务归档/编号名称占用规则；当前 bucket 未启用 Object Lock，本恢复不宣称具备 20 年 WORM 防删除能力，也不宣称补回历史 object metadata、versionId、ETag 或 LastModified。任何单独建立长期存储保护的需求应另行 review，而不混入这三个缺失正文的恢复。
 

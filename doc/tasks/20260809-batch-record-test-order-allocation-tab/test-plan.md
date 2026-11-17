@@ -2,7 +2,7 @@
 
 - Task ID: `20260809-batch-record-test-order-allocation-tab`
 - Created: `2026-08-09T15:00:22`
-- Workspace: `E:\IntRuoyi`
+- Workspace: `.`
 - User Request: `在批记录测试页面新增订单分配 Tab，将确认的工序报工池、FIFO、手动调整、放行锁定、列表历史和并发审计规则整理成可执行验证的测试段落`
 
 ## Purpose and Scope
@@ -50,12 +50,12 @@
 ## Environment
 
 - OS：Windows，PowerShell；命令不得使用 `&&`。
-- Frontend root：`E:\IntRuoyi\IntRuoyiFronted`。
+- Frontend root：`./IntRuoyiFronted`。
 - Real browser URL：确认 `int_main` 运行后使用 `http://127.0.0.1:8081`。
 - Validation surface：`real-browser`。
 - Required tools：`playwright`。
-- Playwright CLI prerequisite：`npx` 已确认位于 `D:\Programs\npx.ps1`；使用 `npx --yes --package @playwright/cli playwright-cli` 和独立 session。
-- 浏览器证据目录：`E:\IntRuoyi\output\playwright\batch-record-test-order-allocation-tab\`，不把截图、trace 或 session 产物放进任务文档目录。
+- Playwright CLI prerequisite：`npx` 已确认位于 `npx`；使用 `npx --yes --package @playwright/cli playwright-cli` 和独立 session。
+- 浏览器证据目录：`./output/playwright/batch-record-test-order-allocation-tab/`，不把截图、trace 或 session 产物放进任务文档目录。
 
 ## Accounts and Fixtures
 
@@ -85,7 +85,7 @@ GREEN: node .\tests\e2e\edhr-batch-record-test-order-allocation-static.spec.cjs 
 从前端根目录分别运行，禁止把命令串成 `&&`：
 
 ```powershell
-Set-Location 'E:\IntRuoyi\IntRuoyiFronted'
+Set-Location './IntRuoyiFronted'
 node .\tests\e2e\edhr-batch-record-test-order-allocation-static.spec.cjs
 node .\tests\e2e\edhr-batch-record-test-tab-static.spec.cjs
 node .\tests\e2e\edhr-batch-record-test-description-wrap-static.spec.cjs
@@ -97,7 +97,7 @@ pnpm ts:check
 真实浏览器检查必须先依据项目规则确认 `int_main` 运行态、登录账号和菜单权限，再在独立证据目录运行：
 
 ```powershell
-Set-Location 'E:\IntRuoyi\output\playwright\batch-record-test-order-allocation-tab'
+Set-Location './output/playwright/batch-record-test-order-allocation-tab'
 npx --yes --package @playwright/cli playwright-cli --session br-order-allocation open http://127.0.0.1:8081 --headed
 npx --yes --package @playwright/cli playwright-cli --session br-order-allocation snapshot
 ```
@@ -152,7 +152,7 @@ npx --yes --package @playwright/cli playwright-cli --session br-order-allocation
   4. 确认测试租户选择、新增按钮和每行“测试/修改/删除”操作存在，当前任务不点击会创建执行批次的“测试”。
   5. 在 1440x900 桌面视口确认长描述自然换行，文本、分页和操作按钮无重叠。
   6. 记录 final snapshot、截图、console 输出和 page error；若有 error 则失败。
-- Expected: 所有 UI 断言成立，console 无新增 error，page error 为 0；证据文件位于 `E:\IntRuoyi\output\playwright\batch-record-test-order-allocation-tab\`。
+- Expected: 所有 UI 断言成立，console 无新增 error，page error 为 0；证据文件位于 `./output/playwright/batch-record-test-order-allocation-tab/`。
 
 ### T5: 范围与测试可执行性审查
 

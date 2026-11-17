@@ -14,7 +14,7 @@
 - `Get-ChildItem docs -Recurse -Include *worktree*.md,*memory*.md,*限制*.md` -> PASS，未发现现有 worktree 长期规则文档。
 - `docs/worktree-restrictions.md edit -> PASS`，创建 worktree 强制限制文件，覆盖根目录、主分支、端口槽位、登记表、启动冲突处理、禁止做法和验证方式。
 - `AGENTS.md edit -> PASS`，新增 `Worktree restrictions: docs\worktree-restrictions.md`，并要求创建、启动、停止、重启、合并或清理任何 IntRuoyi worktree 前必须先读取该文件。
-- `GREEN: python -X utf8 docs/worktree-restrictions.md AGENTS.md structural verification -> PASS`，确认两个文件可 UTF-8 读取，`AGENTS.md` 包含强制预读引用，限制文件包含 `D:\IntRuoyiWorktree\`、`worktree-ports.json`、`8081/48081`、端口槽位公式和 fail fast 规则。
+- `GREEN: python -X utf8 docs/worktree-restrictions.md AGENTS.md structural verification -> PASS`，确认两个文件可 UTF-8 读取，`AGENTS.md` 包含强制预读引用，限制文件包含 `../IntRuoyiWorktree/`、`worktree-ports.json`、`8081/48081`、端口槽位公式和 fail fast 规则。
 - `git status --short --branch` -> PASS，当前分支为 `int_main`，存在大量无关未提交/未跟踪改动；本任务只处理 `AGENTS.md`、`docs/worktree-restrictions.md` 和 `doc/tasks/create-worktree-restrictions-file/`。
 - `python task_closeout.py --task-id create-worktree-restrictions-file --mode preview` -> PASS，keep 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 none。
 - `python task_closeout.py --task-id create-worktree-restrictions-file --mode apply` -> PASS，无删除项，无阻塞项。

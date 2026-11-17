@@ -71,7 +71,109 @@ class MesProEdhrDeviationServiceImplTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     private MesProEdhrDeviationServiceImpl service;
+    @Mock
+    private MesDeviationAdministratorService administrators;
     private final AtomicReference<String> reservedPayloadHash = new AtomicReference<>();
+
+    private void prepareAdministratorOrder(boolean formalBatch) {
+        when(activeOrderMapper.selectDeviationSourcesForUpdate(71L, 51L)).thenReturn(List.of(order(999L)));
+        var workOrders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        ReflectionTestUtils.setField(service, "workOrderMapper", workOrders);
+        var workOrder = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO();
+        workOrder.setId(51L); workOrder.setCode("WO-51"); workOrder.setBatchCode("LOT-41"); workOrder.setTenantId(71L);
+        when(workOrders.selectById(51L)).thenReturn(workOrder);
+        if (formalBatch) {
+            when(batchExecutionOriginMapper.selectListByTraceFilter(991L, null, null, null))
+                    .thenReturn(List.of(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO()
+                            .setBatchExecutionId(41L).setActiveOrderId(991L).setEntryType("ACTIVE_ORDER_COMPLETION")));
+            when(batchExecutionMapper.selectByTenantIdAndId(71L, 41L)).thenReturn(batch(71L));
+            when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(71L, 41L)).thenReturn(batch(71L));
+        }
+    }
+
+    private void prepareSuccessfulAdministratorCreation() {
+        when(numberGenerator.nextCode(71L)).thenReturn("PC-ADMIN-ORDER");
+        doAnswer(call -> { ((MesProEdhrDeviationDO) call.getArgument(0)).setId(901L); return 1; })
+                .when(deviationMapper).insert(any(MesProEdhrDeviationDO.class));
+        when(createRequestMapper.linkDeviation(eq(71L), eq("req-1"), any(), eq(901L))).thenReturn(1);
+    }
+
+    @Test
+    void administratorSelectsProductionOrderWithoutNeedingToBeItsLeader() {
+        prepareAdministratorOrder(true);
+        prepareSuccessfulAdministratorCreation();
+        var result = service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null).setReceiverId(301L));
+        assertEquals(991L, result.getActiveOrderId());
+        assertEquals(41L, result.getBatchExecutionId());
+        assertEquals("WO-51", result.getWorkOrderCode());
+        verify(workTaskService).assignDeviationTask(any(MesProEdhrDeviationDO.class),
+                eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE), eq(201L), any());
+        verify(signatureService).recordDeviationInitiationSignature(eq(201L), eq(41L), eq(901L), any(), any(), any(), any());
+    }
+
+    @Test
+    void administratorCanInitiateDuringProductionBeforeFormalBatchExists() {
+        prepareAdministratorOrder(false);
+        prepareSuccessfulAdministratorCreation();
+        when(signatureService.recordActiveOrderDeviationInitiationSignature(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(88001L);
+        var result = service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null));
+        assertEquals(991L, result.getActiveOrderId());
+        org.junit.jupiter.api.Assertions.assertNull(result.getBatchExecutionId());
+        assertEquals("WO-51", result.getWorkOrderCode());
+        verify(signatureService).recordActiveOrderDeviationInitiationSignature(eq(201L), eq(991L), eq(901L), any(), eq("WO-51"), any(), any());
+    }
+
+    @Test
+    void administratorCannotForgeOrderSourceOrUseMissingAndAmbiguousCycles() {
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(51L)));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setBatchExecutionId(null)));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null)));
+        when(activeOrderMapper.selectDeviationSourcesForUpdate(71L, 51L)).thenReturn(List.of(order(999L), order(998L).setId(992L)));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null)));
+        verify(numberGenerator, never()).nextCode(any());
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+    }
+
+    @Test
+    void administratorCannotInitiateAfterMarketRelease() {
+        prepareAdministratorOrder(true);
+        when(releaseTransactionMapper.selectListByTenantAndBatchExecutionIdForUpdate(71L, 41L))
+                .thenReturn(List.of(new MesProEdhrReleaseTransactionDO().setReleaseStatus("RELEASED")));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null)));
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+    }
+
+    @Test
+    void completedOrderRequiresItsFormalBatch() {
+        prepareAdministratorOrder(false);
+        when(activeOrderMapper.selectDeviationSourcesForUpdate(71L, 51L))
+                .thenReturn(List.of(order(999L).setBusinessStatus("COMPLETED")));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(51L).setBatchExecutionId(null)));
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+    }
+
+    @Test
+    void signedOrderReplayDoesNotResolveANewBatchOrSignAgain() {
+        var req = request().setWorkOrderId(51L).setBatchExecutionId(null).setReceiverName(null);
+        var signed = new MesProEdhrDeviationDO().setId(901L).setTenantId(71L).setActiveOrderId(991L).setBatchExecutionId(null);
+        when(createRequestMapper.selectForUpdate(71L, "req-1")).thenReturn(
+                new MesProEdhrDeviationCreateRequestDO().setPayloadHash(service.buildCreatePayloadHash(req)).setDeviationId(901L));
+        when(deviationMapper.selectByTenantAndId(71L, 901L)).thenReturn(signed);
+        assertEquals(901L, service.createByWorkOrder(201L, req).getId());
+        verify(activeOrderMapper, never()).selectDeviationSourcesForUpdate(any(), any());
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+        verify(signatureService, never()).recordActiveOrderDeviationInitiationSignature(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void differentProductionOrderCannotReuseSignedRequestKey() {
+        String payloadHash = service.buildCreatePayloadHash(request().setWorkOrderId(51L).setBatchExecutionId(null).setReceiverName(null));
+        when(createRequestMapper.selectForUpdate(71L, "req-1")).thenReturn(
+                new MesProEdhrDeviationCreateRequestDO().setPayloadHash(payloadHash).setDeviationId(901L));
+        assertThrows(ServiceException.class, () -> service.createByWorkOrder(201L, request().setWorkOrderId(52L).setBatchExecutionId(null)));
+        verify(activeOrderMapper, never()).selectDeviationSourcesForUpdate(any(), any());
+    }
 
 
     private cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO order(Long owner) {
@@ -120,13 +222,13 @@ class MesProEdhrDeviationServiceImplTest {
     }
 
     @Test
-    void forgedOrRevokedReceiverRejectsEveryCreateBeforeReservationAndSignature() {
-        var administrators = org.mockito.Mockito.mock(MesDeviationAdministratorService.class);
-        ReflectionTestUtils.setField(service, "administratorService", administrators);
+    void forgedOrRevokedOrderReceiverRejectsCreateBeforeReservationAndSignature() {
+        when(activeOrderMapper.selectById(991L)).thenReturn(order(201L));
         org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
                 MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED))
                 .when(administrators).requireReceiver(301L);
-        var error = assertThrows(ServiceException.class, () -> service.create(201L, request()));
+        var error = assertThrows(ServiceException.class,
+                () -> service.create(201L, request().setActiveOrderId(991L).setReceiverId(301L)));
         assertEquals(MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED.getCode(), error.getCode());
         var locks = org.mockito.Mockito.inOrder(gxpAuditService, administrators);
         locks.verify(gxpAuditService).acquireLedgerLock();
@@ -256,9 +358,11 @@ class MesProEdhrDeviationServiceImplTest {
                 deviationMapper, createRequestMapper, batchExecutionMapper, releaseTransactionMapper, numberGenerator,
                 signatureService, gxpAuditService);
         ReflectionTestUtils.setField(service, "batchExecutionOriginMapper", batchExecutionOriginMapper);
+        ReflectionTestUtils.setField(service, "accessService", org.mockito.Mockito.mock(MesProEdhrDeviationAccessService.class));
         ReflectionTestUtils.setField(service, "workTaskService", workTaskService);
         ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
-        var administrators = org.mockito.Mockito.mock(MesDeviationAdministratorService.class);
+        lenient().when(administrators.requireReceiver(201L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO().setId(201L).setNickname("发起管理员"));
         lenient().when(administrators.requireReceiver(301L)).thenReturn(
                 new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationAdministratorRespVO().setId(301L).setNickname("偏差管理员"));
         ReflectionTestUtils.setField(service, "administratorService", administrators);
@@ -310,6 +414,45 @@ class MesProEdhrDeviationServiceImplTest {
         assertEquals(41L, page.getList().get(0).getBatchExecutionId());
         assertEquals("BR-41", page.getList().get(0).getBatchExecutionCode());
         verify(batchExecutionMapper).selectDeviationOptionsPage(reqVO, 71L, null);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs = {301L})
+    void standaloneCreationAssignsInitiatorEvenWhenClientSelectsAnotherReceiver(Long submittedReceiver) {
+        when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(71L, 41L)).thenReturn(batch(71L));
+        when(numberGenerator.nextCode(71L)).thenReturn("PC-SELF-1");
+        doAnswer(call -> { ((MesProEdhrDeviationDO) call.getArgument(0)).setId(901L); return 1; })
+                .when(deviationMapper).insert(any(MesProEdhrDeviationDO.class));
+        when(createRequestMapper.linkDeviation(eq(71L), eq("req-1"), any(), eq(901L))).thenReturn(1);
+        var req = request().setReceiverId(submittedReceiver).setReceiverName("客户端指定人员");
+
+        service.create(201L, req);
+
+        var inserted = org.mockito.ArgumentCaptor.forClass(MesProEdhrDeviationDO.class);
+        verify(deviationMapper).insert(inserted.capture());
+        assertEquals(201L, inserted.getValue().getInitiatorUserId());
+        assertEquals(201L, inserted.getValue().getReceiverId());
+        assertEquals("发起管理员", inserted.getValue().getReceiverName());
+        verify(administrators).requireReceiver(201L);
+        verify(administrators, never()).requireReceiver(301L);
+        assertEquals(service.buildCreatePayloadHash(request()), reservedPayloadHash.get());
+        verify(workTaskService).assignDeviationTask(any(MesProEdhrDeviationDO.class),
+                eq(MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE), eq(201L), any());
+    }
+
+    @Test
+    void standaloneInitiatorWithoutAdministratorEligibilityCannotDelegateToAnotherAdministrator() {
+        var denied = cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_ADMINISTRATOR_REQUIRED);
+        when(administrators.requireReceiver(201L)).thenThrow(denied);
+
+        assertEquals(denied, assertThrows(ServiceException.class,
+                () -> service.create(201L, request().setReceiverId(301L))));
+
+        verify(createRequestMapper, never()).reserveOrLock(any(), any(), any());
+        verify(deviationMapper, never()).insert(any(MesProEdhrDeviationDO.class));
+        verify(workTaskService, never()).assignDeviationTask(any(), any(), any(), any());
     }
 
     @Test
@@ -402,7 +545,7 @@ class MesProEdhrDeviationServiceImplTest {
 
     private static MesProEdhrDeviationCreateReqVO request() {
         return new MesProEdhrDeviationCreateReqVO()
-                .setBatchExecutionId(41L).setReceiverId(301L)
+                .setBatchExecutionId(41L).setReceiverId(201L)
                 .setLevel("NORMAL")
                 .setCategoryCodes(List.of("PRODUCTION_PROCESS"))
                 .setDescription("生产过程发生偏差")

@@ -58,6 +58,8 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
 
     @Resource
     private MesDvMachineryMapper machineryMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard sharedChangeGuard;
 
     @Resource
     @Lazy
@@ -94,7 +96,9 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateMachinery(MesDvMachinerySaveReqVO updateReqVO) {
+        sharedChangeGuard.assertDirectUpdateAllowed("DEVICE", updateReqVO.getId());
         validateMachineryExists(updateReqVO.getId());
         machineryTypeService.getMachineryType(updateReqVO.getMachineryTypeId());
         workshopService.getWorkshop(updateReqVO.getWorkshopId());
@@ -320,6 +324,7 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
                 return;
             }
 
+            sharedChangeGuard.assertDirectUpdateAllowed("DEVICE", existMachinery.getId());
             MesDvMachineryDO updateObj = BeanUtils.toBean(importItem, MesDvMachineryDO.class);
             updateObj.setId(existMachinery.getId());
             updateObj.setMachineryTypeId(machineryType.getId());

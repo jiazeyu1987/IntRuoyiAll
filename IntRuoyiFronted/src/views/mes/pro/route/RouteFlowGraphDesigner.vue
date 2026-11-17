@@ -5594,6 +5594,7 @@ const handleSelectProcessDetailField = (fieldKey: ProcessDetailFieldKey) => {
 const resetSelectedRouteProcessDeviceParameterConfig = () => {
   routeProcessDeviceParameterRequestId += 1
   routeProcessDeviceParameterConfig.value = undefined
+  routeProcessDeviceParameterLoading.value = false
 }
 
 const requireRouteProcessDeviceParameterVersionId = () => {
@@ -10237,12 +10238,14 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
   event.returnValue = ''
 }
 
-watch(selectedRouteProcessId, () => {
+watch(selectedRouteProcessId, (routeProcessId) => {
   routeProcessDeviceParameterDialogVisible.value = false
   routeProcessDeviceParameterDialogDevice.value = undefined
   routeProcessDeviceParameterOriginalCode.value = undefined
   resetSelectedRouteProcessDeviceParameterConfig()
-  if (selectedProcessDetailFieldKey.value === 'deviceParameters') {
+  if (!routeProcessId) {
+    selectedProcessDetailFieldKey.value = undefined
+  } else if (selectedProcessDetailFieldKey.value === 'deviceParameters') {
     void loadSelectedRouteProcessDeviceParameterConfig()
   }
   void loadSelectedProcessDetail(selectedNode.value)

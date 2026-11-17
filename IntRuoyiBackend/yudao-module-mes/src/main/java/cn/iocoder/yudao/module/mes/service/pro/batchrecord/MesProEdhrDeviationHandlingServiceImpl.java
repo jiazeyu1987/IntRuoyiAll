@@ -1,6 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationCorrectiveVerifyReqVO;
+import org.springframework.beans.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingSaveReqVO;
@@ -46,6 +50,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 @Service
 public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviationHandlingService {
 
+    @Resource private MesProEdhrDeviationAccessService accessService;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
+    public static final String CORRECTIVE_VERIFIER = "CORRECTIVE_VERIFIER";
     public static final String SOURCE_TYPE = "EDHR_DEVIATION_HANDLING";
     public static final String NODE_PREPARER = "PREPARER";
     public static final String NODE_VERIFIER = "VERIFIER";
@@ -120,8 +127,19 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         }
         MesProEdhrDeviationHandlingDO current = handlingMapper
                 .selectByTenantAndDeviationIdForUpdate(tenantId, deviationId);
+        if (!accessService.canEditInvestigation(actorUserId, deviation, current)
+                || (current != null && Boolean.TRUE.equals(current.getInvestigationSubmitted()))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "编辑调查记录");
+        }
         int expectedVersion = reqVO.getExpectedContentVersion();
         MesProEdhrDeviationHandlingDO next = toHandling(deviationId, tenantId, reqVO);
+        // Saving investigation is a draft action; only the designated verifier can approve results.
+        next.setInvestigationSubmitted(false).setCorrectiveStatus("DRAFT").setCompletedAt(null)
+                .setVerificationResult(null).setVerificationContent(null);
+        if (current != null && Objects.equals(current.getCorrectiveOwnerId(), next.getCorrectiveOwnerId())) {
+            next.setCorrectiveResult(current.getCorrectiveResult())
+                .setCorrectiveEvidenceUrlsJson(current.getCorrectiveEvidenceUrlsJson());
+        }
         if (current == null) {
             if (expectedVersion != 0) {
                 throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
@@ -134,9 +152,7 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
             }
             syncCorrectiveTask(deviation, next);
             dispatchReviewTasks(deviation, next);
-            workTaskService.completeDeviationTask(deviationId,
-                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
-            return toResp(next);
+            return toResp(deviation, next);
         }
         if (!Objects.equals(current.getContentVersion(), expectedVersion)) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
@@ -145,6 +161,14 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
             throw exception(PRO_EDHR_DEVIATION_HANDLING_REVISION_REASON_REQUIRED, deviationId);
         }
         validateReviewerAssignments(deviation, next);
+        return persistRevision(actorUserId, deviation, current, next, reqVO.getRevisionReason());
+    }
+
+    private MesProEdhrDeviationHandlingRespVO persistRevision(Long actorUserId, MesProEdhrDeviationDO deviation,
+            MesProEdhrDeviationHandlingDO current, MesProEdhrDeviationHandlingDO next, String reason) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long deviationId = deviation.getId();
+        int expectedVersion = current.getContentVersion();
         String beforeContent = canonicalContent(current);
         next.setId(current.getId())
                 .setContentVersion(current.getContentVersion() + 1)
@@ -155,10 +179,12 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         syncCorrectiveTask(deviation, next);
         reviewTaskService.cancelAll(deviationId, "偏差处理内容已修订，原版本签署任务失效");
         dispatchReviewTasks(deviation, next);
-        workTaskService.completeDeviationTask(deviationId,
-                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
+        if (Boolean.TRUE.equals(next.getInvestigationSubmitted())) {
+            workTaskService.completeDeviationTask(deviationId,
+                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
+        }
         Map<String, Object> revisionMetadata = new TreeMap<>();
-        revisionMetadata.put("revisionReason", reqVO.getRevisionReason().trim());
+        revisionMetadata.put("revisionReason", reason.trim());
         revisionMetadata.put("beforeContent", beforeContent);
         revisionMetadata.put("afterContent", canonicalContent(next));
         revisionMetadata.put("beforeContentVersion", current.getContentVersion());
@@ -179,16 +205,189 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .setBeforeSummaryHash(current.getContentHash())
                 .setAfterSummaryHash(next.getContentHash())
                 .setMetadataJson(JSON.toJSONString(revisionMetadata)));
-        return toResp(next);
+        return toResp(deviation, next);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrDeviationHandlingRespVO submitInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationHandlingSubmitReqVO req) {
+        requireActor(actor);
+        requirePermission("mes:pro-edhr-deviation:handle");
+        gxpAuditService.acquireLedgerLock();
+        var deviation = lockedOpenDeviation(req.getDeviationId());
+        var current = lockedHandling(req.getDeviationId(), req.getExpectedContentVersion(), req.getExpectedContentHash());
+        if (!accessService.canEditInvestigation(actor, deviation, current)
+                || Boolean.TRUE.equals(current.getInvestigationSubmitted())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "提交本人调查记录");
+        }
+        if (!investigationComplete(current) || !reviewerAssignments(current).keySet().containsAll(requiredNodes(deviation))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviation.getId());
+        }
+        validateReviewerAssignments(deviation, current);
+        if (Objects.equals(current.getCorrectiveOwnerId(), reviewerAssignments(current).get(NODE_VERIFIER))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "整改责任人与核验人不能相同");
+        }
+        var next = copy(current).setInvestigationSubmitted(true)
+                .setCorrectiveStatus(current.getCorrectiveOwnerId() == null ? "SUBMITTED" : "DRAFT");
+        return persistRevision(actor, deviation, current, next, "正式提交调查记录");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrDeviationHandlingRespVO submitCorrective(Long actor, MesProEdhrDeviationCorrectiveReqVO req) {
+        requireActor(actor);
+        gxpAuditService.acquireLedgerLock();
+        var deviation = lockedOpenDeviation(req.getDeviationId());
+        var current = lockedHandling(req.getDeviationId(), req.getExpectedContentVersion(), req.getExpectedContentHash());
+        if (!Boolean.TRUE.equals(current.getInvestigationSubmitted())
+                || !Objects.equals(actor, current.getCorrectiveOwnerId())
+                || !("DRAFT".equals(current.getCorrectiveStatus()) || "RETURNED".equals(current.getCorrectiveStatus()))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "提交本人整改");
+        }
+        var task = workTaskMapper.selectActiveByBusinessScopeAndType("EDHR_DEVIATION", deviation.getId(),
+                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT);
+        if (task == null || !Objects.equals(task.getAssigneeUserId(), actor)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "有效整改待办");
+        }
+        if (!hasText(req.getResult()) || req.getCompletedAt() == null) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviation.getId());
+        }
+        if (reviewerAssignments(current).get(NODE_VERIFIER) == null
+                || Objects.equals(actor, reviewerAssignments(current).get(NODE_VERIFIER))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "指定独立核验人");
+        }
+        if (req.getEvidenceUrls() != null) for (String url : req.getEvidenceUrls()) {
+            java.net.URI uri = java.net.URI.create(url);
+            if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
+                    || uri.getHost() == null || uri.getUserInfo() != null) {
+                throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, "证据链接必须为有效的 HTTP 或 HTTPS 地址");
+            }
+        }
+        var next = copy(current).setCorrectiveStatus("SUBMITTED").setCorrectiveResult(req.getResult().trim())
+                .setCompletedAt(req.getCompletedAt())
+                .setCorrectiveEvidenceUrlsJson(JSON.toJSONString(req.getEvidenceUrls() == null ? List.of() : req.getEvidenceUrls()))
+                .setVerificationResult(null).setVerificationContent(null);
+        return persistRevision(actor, deviation, current, next, "提交整改：" + req.getResult().trim());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrDeviationHandlingRespVO verifyCorrective(Long actor, MesProEdhrDeviationCorrectiveVerifyReqVO req) {
+        requireActor(actor);
+        requirePermission("mes:pro-edhr-deviation:verify");
+        gxpAuditService.acquireLedgerLock();
+        var deviation = lockedOpenDeviation(req.getDeviationId());
+        var current = lockedHandling(req.getDeviationId(), req.getExpectedContentVersion(), req.getExpectedContentHash());
+        if (!Boolean.TRUE.equals(current.getInvestigationSubmitted()) || !"SUBMITTED".equals(current.getCorrectiveStatus())
+                || !Objects.equals(actor, reviewerAssignments(current).get(NODE_VERIFIER))
+                || Objects.equals(actor, current.getCorrectiveOwnerId()) || !hasText(req.getComment()) || req.getPassed() == null) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "核验本人指定的整改");
+        }
+        var task = reviewTaskService.require(deviation.getId(), current, CORRECTIVE_VERIFIER, actor);
+        reviewTaskService.complete(task);
+        var next = copy(current).setCorrectiveStatus(req.getPassed() ? "VERIFIED" : "RETURNED")
+                .setVerificationResult(req.getPassed() ? "PASS" : "FAIL").setVerificationContent(req.getComment().trim());
+        if (!req.getPassed() && current.getCorrectiveOwnerId() == null) {
+            next.setInvestigationSubmitted(false).setCorrectiveStatus("DRAFT");
+            workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE,
+                    deviation.getReceiverId(), "调查验证不通过：" + req.getComment().trim());
+        }
+        return persistRevision(actor, deviation, current, next,
+                (req.getPassed() ? "整改验证通过：" : "退回整改：") + req.getComment().trim());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrDeviationHandlingRespVO returnToInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationReviewReturnReqVO req) {
+        requireActor(actor);
+        String node = req.getNode();
+        if (node == null || (!ALL_NODES.contains(node) && !"CLOSE".equals(node)) || !hasText(req.getReason())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "有效审核节点及退回原因必填");
+        }
+        requirePermission(MesProEdhrDeviationReviewTaskService.permission(node));
+        gxpAuditService.acquireLedgerLock();
+        var deviation = lockedOpenDeviation(req.getDeviationId());
+        var current = lockedHandling(req.getDeviationId(), req.getExpectedContentVersion(), req.getExpectedContentHash());
+        String assignedNode = "CLOSE".equals(node) ? NODE_QA : node;
+        if (!readyForReview(current) || !requiredNodes(deviation).contains(assignedNode)
+                || !Objects.equals(actor, reviewerAssignments(current).get(assignedNode))) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "退回本人审核任务");
+        }
+        // Only an outstanding responsibility for the reviewed version may return the investigation.
+        reviewTaskService.require(deviation.getId(), current, node, actor);
+        var next = copy(current).setInvestigationSubmitted(false)
+                .setHandlingConclusion("RETURNED_TO_INVESTIGATION");
+        var response = persistRevision(actor, deviation, current, next,
+                "审核退回调查[" + node + "]：" + req.getReason().trim());
+        workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE,
+                deviation.getReceiverId(), "审核退回调查：" + req.getReason().trim());
+        return response;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrDeviationHandlingRespVO withdrawInvestigation(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesDeviationInvestigationWithdrawReqVO req) {
+        requireActor(actor);
+        requirePermission("mes:pro-edhr-deviation:handle");
+        if (!hasText(req.getReason())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "撤回原因必填");
+        }
+        gxpAuditService.acquireLedgerLock();
+        var deviation = lockedOpenDeviation(req.getDeviationId());
+        var current = lockedHandling(req.getDeviationId(), req.getExpectedContentVersion(), req.getExpectedContentHash());
+        if (!Objects.equals(actor, deviation.getReceiverId()) || !Boolean.TRUE.equals(current.getInvestigationSubmitted())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "撤回本人已提交的调查");
+        }
+        // Retain submitted evidence as history, but require a fresh execution and verification cycle.
+        var next = copy(current).setInvestigationSubmitted(false).setCorrectiveStatus("DRAFT")
+                .setVerificationResult(null).setVerificationContent(null);
+        var response = persistRevision(actor, deviation, current, next, "撤回调查：" + req.getReason().trim());
+        workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE,
+                deviation.getReceiverId(), "撤回调查：" + req.getReason().trim());
+        return response;
+    }
+
+    private MesProEdhrDeviationDO lockedOpenDeviation(Long id) {
+        var deviation = deviationMapper.selectByTenantAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), id);
+        if (deviation == null) throw exception(PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS, id);
+        if (!MesProEdhrDeviationServiceImpl.STATUS_OPEN.equals(deviation.getStatus())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_CLOSED, id);
+        }
+        return deviation;
+    }
+
+    private MesProEdhrDeviationHandlingDO lockedHandling(Long id, Integer version, String hash) {
+        var current = handlingMapper.selectByTenantAndDeviationIdForUpdate(TenantContextHolder.getRequiredTenantId(), id);
+        if (current == null) throw exception(PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS, id);
+        if (version == null || hash == null || !Objects.equals(version, current.getContentVersion())
+                || !Objects.equals(hash, current.getContentHash())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, id);
+        }
+        return current;
+    }
+
+    private MesProEdhrDeviationHandlingDO copy(MesProEdhrDeviationHandlingDO current) {
+        var next = new MesProEdhrDeviationHandlingDO();
+        BeanUtils.copyProperties(current, next);
+        return next;
     }
 
     private void syncCorrectiveTask(MesProEdhrDeviationDO deviation, MesProEdhrDeviationHandlingDO handling) {
-        if (handling.getCompletedAt() != null) {
+        if (!Boolean.TRUE.equals(handling.getInvestigationSubmitted())) {
+            workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT,
+                    null, "调查尚未正式提交");
+        } else if (handling.getCorrectiveOwnerId() == null || "SUBMITTED".equals(handling.getCorrectiveStatus())
+                || "VERIFIED".equals(handling.getCorrectiveStatus())) {
             workTaskService.completeDeviationTask(deviation.getId(),
                     MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT, "已提交纠正措施完成记录");
         } else {
             workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT,
-                    handling.getCorrectiveOwnerId(), "执行偏差纠正措施：" + deviation.getDeviationCode());
+                    handling.getCorrectiveOwnerId(), "RETURNED".equals(handling.getCorrectiveStatus())
+                            ? "退回整改：" + handling.getVerificationContent()
+                            : "执行偏差纠正措施：" + deviation.getDeviationCode());
         }
     }
 
@@ -327,13 +526,15 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         if (!required.containsAll(assignments.keySet())) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_NODE_INVALID, assignments.keySet());
         }
-        if (isComplete(handling) && !assignments.keySet().containsAll(required)) {
-            throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviation.getId());
-        }
         assignments.forEach(reviewTaskService::validateAssignee);
     }
 
     private void dispatchReviewTasks(MesProEdhrDeviationDO deviation, MesProEdhrDeviationHandlingDO handling) {
+        if (!Boolean.TRUE.equals(handling.getInvestigationSubmitted())) return;
+        if ("SUBMITTED".equals(handling.getCorrectiveStatus())) {
+            reviewTaskService.assign(deviation, handling, CORRECTIVE_VERIFIER, reviewerAssignments(handling).get(NODE_VERIFIER));
+            return;
+        }
         if (!readyForReview(handling)) return;
         var assignments = reviewerAssignments(handling);
         for (String node : requiredNodes(deviation)) {
@@ -363,22 +564,32 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         content.put("verificationResult", handling.getVerificationResult());
         content.put("verificationContent", handling.getVerificationContent());
         content.put("reviewerAssignments", reviewerAssignments(handling));
+        content.put("correctiveStatus", handling.getCorrectiveStatus());
+        content.put("investigationSubmitted", handling.getInvestigationSubmitted());
+        content.put("correctiveResult", handling.getCorrectiveResult());
+        content.put("correctiveEvidenceUrlsJson", handling.getCorrectiveEvidenceUrlsJson());
         return JSON.toJSONString(content);
     }
 
-    private boolean isComplete(MesProEdhrDeviationHandlingDO handling) {
+    private boolean investigationComplete(MesProEdhrDeviationHandlingDO handling) {
         return hasText(handling.getRootCauseAnalysis())
                 && hasText(handling.getImpactScope())
                 && hasText(handling.getRiskAssessment())
                 && hasText(handling.getProductDisposition())
-                && HANDLING_CONCLUSION_CLOSED_LOOP.equals(handling.getHandlingConclusion())
+                && HANDLING_CONCLUSION_CLOSED_LOOP.equals(handling.getHandlingConclusion());
+    }
+
+    private boolean isComplete(MesProEdhrDeviationHandlingDO handling) {
+        return investigationComplete(handling)
                 && VERIFICATION_RESULT_PASS.equals(handling.getVerificationResult())
                 && hasText(handling.getVerificationContent());
     }
 
     private boolean readyForReview(MesProEdhrDeviationHandlingDO handling) {
-        return isComplete(handling)
-                && (handling.getCorrectiveOwnerId() == null || handling.getCompletedAt() != null);
+        return Boolean.TRUE.equals(handling.getInvestigationSubmitted()) && "VERIFIED".equals(handling.getCorrectiveStatus())
+                && isComplete(handling)
+                && (handling.getCorrectiveOwnerId() == null || ("VERIFIED".equals(handling.getCorrectiveStatus())
+                    && handling.getCompletedAt() != null && hasText(handling.getCorrectiveResult())));
     }
 
     private Map<String, Long> effectiveSignatures(MesProEdhrDeviationDO deviation,
@@ -477,6 +688,10 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .setHandlingConclusion(handling.getHandlingConclusion())
                 .setVerificationResult(handling.getVerificationResult())
                 .setVerificationContent(handling.getVerificationContent())
+                .setCorrectiveStatus(handling.getCorrectiveStatus())
+                .setInvestigationSubmitted(handling.getInvestigationSubmitted())
+                .setCorrectiveResult(handling.getCorrectiveResult())
+                .setCorrectiveEvidenceUrlsJson(handling.getCorrectiveEvidenceUrlsJson())
                 .setContentVersion(handling.getContentVersion())
                 .setContentHash(handling.getContentHash())
                 .setReviewReady(readyForReview(handling))
@@ -499,6 +714,16 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         MesProEdhrDeviationHandlingRespVO response = toResp(handling)
                 .setEffectiveSignatureIds(effectiveSignatures(deviation, handling, nodes))
                 .setRevisionHistory(readRevisionHistory(handling));
+        Long actor = SecurityFrameworkUtils.getLoginUserId();
+        boolean open = MesProEdhrDeviationServiceImpl.STATUS_OPEN.equals(deviation.getStatus());
+        response.setCanEditInvestigation(open && !Boolean.TRUE.equals(handling.getInvestigationSubmitted())
+                        && accessService.canEditInvestigation(actor, deviation, handling))
+                .setCanSubmitCorrective(open && Boolean.TRUE.equals(handling.getInvestigationSubmitted()) && actor != null && Objects.equals(actor, handling.getCorrectiveOwnerId())
+                    && ("DRAFT".equals(handling.getCorrectiveStatus()) || "RETURNED".equals(handling.getCorrectiveStatus())))
+                .setCanVerifyCorrective(open && actor != null && "SUBMITTED".equals(handling.getCorrectiveStatus())
+                    && Objects.equals(actor, reviewerAssignments(handling).get(NODE_VERIFIER))
+                    && !Objects.equals(actor, handling.getCorrectiveOwnerId())
+                    && securityFrameworkService.hasPermission("mes:pro-edhr-deviation:verify"));
         if (signatureQueryService != null) {
             response.setSignatureEvidence(nodes.stream().map(node -> signatureEvidence(deviation, handling, node))
                     .filter(Objects::nonNull).toList());

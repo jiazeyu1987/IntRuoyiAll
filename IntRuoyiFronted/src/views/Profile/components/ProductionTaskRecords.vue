@@ -56,7 +56,7 @@ const loading = ref(false)
 const error = ref('')
 let generation = 0
 const context = () => JSON.stringify([invalidation.syncSession().key, view.value, query, visible.value])
-const taskTypeLabel = (type: string) => ({ FILL: '填写', REVIEW: '审核', APPROVE: '批准', REWORK: '驳回修改', ARCHIVE: '最终归档', RELEASE_APPROVE: '最终放行审批', PQC_PRODUCTION_RELEASE: 'PQC生产放行', DEVIATION_RECEIVE: '偏差调查', DEVIATION_CORRECT: '偏差纠正', DEVIATION_SIGN: '偏差签署', DEVIATION_APPROVE: '偏差质量审核', DEVIATION_CLOSE: '偏差关闭', RECORD_CHANGE_APPROVE: '记录变更审批', RECORD_CHANGE_CORRECTION: '记录变更补正', DOSSIER_COMPLETE: '资料补齐', PQC_RELEASE_CORRECTION: '放行补正' }[type] || type)
+const taskTypeLabel = (type: string) => ({ FILL: '填写', REVIEW: '审核', APPROVE: '批准', REWORK: '驳回修改', ARCHIVE: '最终归档', RELEASE_APPROVE: '最终放行审批', PQC_PRODUCTION_RELEASE: 'PQC生产放行', DEVIATION_RECEIVE: '偏差调查', DEVIATION_CORRECT: '偏差整改', DEVIATION_VERIFY: '偏差验证', DEVIATION_SIGN: '偏差签署', DEVIATION_APPROVE: '偏差质量审核', DEVIATION_CLOSE: '偏差关闭', RECORD_CHANGE_APPROVE: '记录变更审批', RECORD_CHANGE_CORRECTION: '记录变更补正', DOSSIER_COMPLETE: '资料补齐', PQC_RELEASE_CORRECTION: '放行补正' }[type] || type)
 const load = async () => {
   const currentGeneration = ++generation
   const key = context()

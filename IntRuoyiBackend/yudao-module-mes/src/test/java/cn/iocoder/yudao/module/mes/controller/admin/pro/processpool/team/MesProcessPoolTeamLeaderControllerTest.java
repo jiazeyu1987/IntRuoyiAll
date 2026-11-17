@@ -310,6 +310,7 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .setInspectionProgressPercent(new BigDecimal("10.000000"))
                 .setActiveStatus("ACTIVE")
                 .setBusinessStatus("ACTIVE")
+                .setHasParameterAbnormal(true)
                 .setJoinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .setVersion(0)));
 
@@ -337,6 +338,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(8101L, removeCaptor.getValue().getActiveOrderId());
 
         assertEquals(1, listResponse.getData().size());
+        assertTrue(listResponse.getData().get(0).getHasParameterAbnormal());
         assertEquals(9001L, listResponse.getData().get(0).getWorkOrderId());
         assertEquals("881MO090889", listResponse.getData().get(0).getWorkOrderCode());
         assertEquals("球囊扩张压力泵", listResponse.getData().get(0).getProductName());

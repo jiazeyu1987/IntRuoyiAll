@@ -6,7 +6,7 @@
 
 规划时只读核对到的仓库事实如下：
 
-- 仓库是以 `E:\IntRuoyi` 为根的单一 Git 工作区，后端 Maven reactor 位于 `IntRuoyiBackend`，真实模块名为 `yudao-module-system`、`yudao-module-infra`、`yudao-module-dcc`。
+- 仓库是以 `.` 为根的单一 Git 工作区，后端 Maven reactor 位于 `IntRuoyiBackend`，真实模块名为 `yudao-module-system`、`yudao-module-infra`、`yudao-module-dcc`。
 - 规划复核实测工具链为 Apache Maven `3.9.9`、Maven runtime Java `21.0.10`；根 `IntRuoyiBackend/pom.xml` 的 `java.version`、`maven.compiler.source`、`maven.compiler.target` 均为 `17`。验收依据是 Java 21 运行 Maven 时仍严格编译到 target 17 并通过目标测试，不能把本机描述成 JDK 17；若构建实际硬性要求改用 JDK 17，必须 fail fast 并重审环境，不得静默切换。
 - 分解时 `int_main` 的 committed HEAD 为 `90fb1af111e577431522a43f0d505ddfb7d8250d`，但主工作区仍被并行任务持续修改；创建 worktree 时必须重新冻结当时的 committed `int_main` HEAD，并让四个 worktree 使用同一基线。
 - 当前 System controlled-content 的真实入口是 `ControlledContentLifecycleCoreService`，类型/profile/state machine/ref mapper/audit mapper 和 8 个现有 JUnit 均已存在；数据库表由 `sql/mysql/20260718_controlled_content_lifecycle.sql` 建立。
@@ -36,12 +36,12 @@ FREEZE-BASE
 
 | Purpose | Proposed branch | Proposed path |
 | --- | --- | --- |
-| integration | `codex/20260815-reg-cert-platform-integration` | `D:\IntRuoyiWorktree\reg-cert-platform-integration` |
-| SP-01 | `codex/20260815-reg-cert-platform-sp01` | `D:\IntRuoyiWorktree\reg-cert-platform-sp01` |
-| SP-02 | `codex/20260815-reg-cert-platform-sp02` | `D:\IntRuoyiWorktree\reg-cert-platform-sp02` |
-| SP-03 | `codex/20260815-reg-cert-platform-sp03` | `D:\IntRuoyiWorktree\reg-cert-platform-sp03` |
+| integration | `codex/20260815-reg-cert-platform-integration` | `../IntRuoyiWorktree/reg-cert-platform-integration` |
+| SP-01 | `codex/20260815-reg-cert-platform-sp01` | `../IntRuoyiWorktree/reg-cert-platform-sp01` |
+| SP-02 | `codex/20260815-reg-cert-platform-sp02` | `../IntRuoyiWorktree/reg-cert-platform-sp02` |
+| SP-03 | `codex/20260815-reg-cert-platform-sp03` | `../IntRuoyiWorktree/reg-cert-platform-sp03` |
 
-创建前必须解析每个路径并证明它是 `D:\IntRuoyiWorktree\` 的子路径。计划内不启动前后端服务，但项目经验门禁仍要求在提交和运行 branch runtime guard 前预留 slot。规划复核时注册表只剩 `14`、`18` 两个空闲 slot，因此按以下顺序执行；创建 worktree 时若空闲数量或编号变化，以重新原子检查结果为准，少于两个则立即阻塞：
+创建前必须解析每个路径并证明它是 `../IntRuoyiWorktree/` 的子路径。计划内不启动前后端服务，但项目经验门禁仍要求在提交和运行 branch runtime guard 前预留 slot。规划复核时注册表只剩 `14`、`18` 两个空闲 slot，因此按以下顺序执行；创建 worktree 时若空闲数量或编号变化，以重新原子检查结果为准，少于两个则立即阻塞：
 
 1. 先按 integration、SP-01 顺序分别调用各自 worktree 的 `scripts\runtime\reserve-worktree-slot.ps1 -Name <directory-name> -Path <absolute-path> -Branch <branch> -Profile int_main -AsJson`；脚本在互斥锁内选择最低空闲槽，按当前快照预期为 integration=`14`、SP-01=`18`。必须以两个 JSON 返回值和 `show-branch-runtime.ps1` 为证据，不手工指定或改写 slot。SP-02、SP-03 可并行开发和运行不启动服务的测试，但在获得 slot 前不得提交、推送或运行 branch runtime guard。
 2. SP-01 自测后先运行 branch runtime guard、形成任务自有提交，再由主 Agent审查和独立 tester 验证该提交；验证通过并进入 integration 后，证明提交已成为 integration HEAD 的祖先，移除 SP-01 worktree，确认目录/Git 登记不存在且端口无监听，再持与 reserve 脚本相同的登记表 mutex 只把 SP-01 记录标为 inactive。随后为 SP-02 调用 reserve 脚本原子取得该槽，不能在目录删除前释放。

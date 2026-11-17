@@ -1,12 +1,14 @@
 # IntRuoyi 服务器访问说明
 
+> 路径基准：新归一化的行内路径及命令路径相对当前仓库根目录；Markdown 链接相对本文目录。worktree 和联动项目目录仅为相对布局示例，详见 [文档路径约定](document-paths.md)。
+
 ## 当前系统位置
 
-- 工作区根目录：`E:\IntRuoyi`
-- 后端与运维入口：`E:\IntRuoyi\IntRuoyiBackend`
-- 前端工程：`E:\IntRuoyi\IntRuoyiFronted`
-- 统一运维入口：`E:\IntRuoyi\IntRuoyiBackend\运维工具.bat`
-- 部署脚本目录：`E:\IntRuoyi\IntRuoyiBackend\script\deploy`
+- 工作区根目录：`.`
+- 后端与运维入口：`./IntRuoyiBackend`
+- 前端工程：`./IntRuoyiFronted`
+- 统一运维入口：`./IntRuoyiBackend/运维工具.bat`
+- 部署脚本目录：`./IntRuoyiBackend/script/deploy`
 - 远端运行目录：`/opt/intruoyi/runtime`
 
 ## 固定环境
@@ -29,26 +31,26 @@
 
 ## 测试服务器
 
-- 状态检查：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\show-int-ruoyi-test-status.bat`
-- 重启脚本：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-to-test.bat`
-- 发布脚本：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\publish-int-ruoyi.ps1 -Environment test -ServerHost 172.30.30.58`
-- 统一入口示例：`cmd /c "E:\IntRuoyi\IntRuoyiBackend\运维工具.bat test -ServerHost 172.30.30.58"`
+- 状态检查：`./IntRuoyiBackend/script/deploy/show-int-ruoyi-test-status.bat`
+- 重启脚本：`./IntRuoyiBackend/script/deploy/restart-int-ruoyi-to-test.bat`
+- 发布脚本：`./IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1 -Environment test -ServerHost 172.30.30.58`
+- 统一入口示例：`cmd /c "./IntRuoyiBackend/运维工具.bat test -ServerHost 172.30.30.58"`
 - 直接 SSH 仅限已授权任务：`ssh root@172.30.30.58`
 
 ## 正式服务器
 
-- 状态检查：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\show-int-ruoyi-prod-status.bat`
-- 重启脚本：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-to-prod.bat`
-- 发布脚本：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\publish-int-ruoyi.ps1 -Environment prod -ConfirmText PROD -ServerHost 172.30.30.57`
-- 统一入口示例：`cmd /c "E:\IntRuoyi\IntRuoyiBackend\运维工具.bat prod PROD -ServerHost 172.30.30.57"`
+- 状态检查：`./IntRuoyiBackend/script/deploy/show-int-ruoyi-prod-status.bat`
+- 重启脚本：`./IntRuoyiBackend/script/deploy/restart-int-ruoyi-to-prod.bat`
+- 发布脚本：`./IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1 -Environment prod -ConfirmText PROD -ServerHost 172.30.30.57`
+- 统一入口示例：`cmd /c "./IntRuoyiBackend/运维工具.bat prod PROD -ServerHost 172.30.30.57"`
 - 直接 SSH 仅限已授权任务：`ssh root@172.30.30.57`
 
 ## 审查服务器
 
 - 审查服务器主机：`172.30.30.59`
 - 审查服务器没有独立 `.bat` 包装入口；必须使用通用 PowerShell 脚本并显式传入主机、数据盘、发布根目录和 MinIO 容器参数。
-- 状态检查示例：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\show-int-ruoyi-remote-status.ps1 -ServerHost 172.30.30.59 -ServerUser root -RemoteAppDir /opt/intruoyi/runtime -RemoteDataRoot /mnt/intruoyi-data/runtime-data -RemoteDataDiskMount /mnt/intruoyi-data -RemoteDataDiskDevice /dev/mapper/cl-home -RemoteMinioContainer intruoyi-minio -Component full -Json`
-- 发布示例：`E:\IntRuoyi\IntRuoyiBackend\script\deploy\publish-int-ruoyi.ps1 -Environment backup -ConfirmText PROD -ServerHost 172.30.30.59 -BackupServerHost 172.30.30.59 -RemoteReleaseRoot /mnt/intruoyi-data/intruoyi-releases -RemoteDataRoot /mnt/intruoyi-data/runtime-data -RemoteDataDiskMount /mnt/intruoyi-data -RemoteDataDiskDevice /dev/mapper/cl-home -RemoteMinioContainer intruoyi-minio`
+- 状态检查示例：`./IntRuoyiBackend/script/deploy/show-int-ruoyi-remote-status.ps1 -ServerHost 172.30.30.59 -ServerUser root -RemoteAppDir /opt/intruoyi/runtime -RemoteDataRoot /mnt/intruoyi-data/runtime-data -RemoteDataDiskMount /mnt/intruoyi-data -RemoteDataDiskDevice /dev/mapper/cl-home -RemoteMinioContainer intruoyi-minio -Component full -Json`
+- 发布示例：`./IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1 -Environment backup -ConfirmText PROD -ServerHost 172.30.30.59 -BackupServerHost 172.30.30.59 -RemoteReleaseRoot /mnt/intruoyi-data/intruoyi-releases -RemoteDataRoot /mnt/intruoyi-data/runtime-data -RemoteDataDiskMount /mnt/intruoyi-data -RemoteDataDiskDevice /dev/mapper/cl-home -RemoteMinioContainer intruoyi-minio`
 - 审查服发布不得回退到根分区、`/var/lib/docker` 默认 release/data 路径或其他 MinIO 容器。
 - 直接 SSH 仅限已授权任务：`ssh root@172.30.30.59`
 

@@ -486,11 +486,7 @@ const resolveReviewMaterialName = (material: ReviewMaterialDisplay) => {
   return resolveFileName(material.url)
 }
 
-const resolveReviewMaterialDisplay = (review?: EdhrNonconformanceReviewRespVO) => {
-  const materials = parseReviewMaterialsJson(review)
-  if (!materials.length) return '--'
-  return materials.map(resolveReviewMaterialName).join('、')
-}
+
 
 const buildReviewMaterials = (): EdhrNonconformanceReviewMaterial[] =>
   disposeForm.reviewMaterialUrls.map((url, index) => {

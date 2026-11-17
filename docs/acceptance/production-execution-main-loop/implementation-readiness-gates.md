@@ -8,7 +8,7 @@
 
 | Gate | 必查项 | 通过标准 | 阻塞处理 |
 | --- | --- | --- | --- |
-| P0-M0-01 | 后端命令工作目录 | 所有 Maven 命令在 `D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiBackend` 执行，或显式使用该 worktree 下的 `IntRuoyiBackend/pom.xml`。 | 命令只因工作目录错误失败时，不得记录业务 RED；先修正文档/脚本。 |
+| P0-M0-01 | 后端命令工作目录 | 所有 Maven 命令在 `../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiBackend` 执行，或显式使用该 worktree 下的 `IntRuoyiBackend/pom.xml`。 | 命令只因工作目录错误失败时，不得记录业务 RED；先修正文档/脚本。 |
 | P0-M0-02 | 前端脚本入口 | `IntRuoyiFronted/package.json` 存在 `e2e:p0-production-execution-loop:static` 和 `e2e:p0-production-execution-loop:real`。 | 当前脚本缺失应作为第一个前端 RED，不能把 `ERR_PNPM_NO_SCRIPT` 当业务验证结果。 |
 | P0-M0-03 | 前端 spec 文件 | 存在 P0 static spec 和 real E2E spec，且脚本指向这些正式文件。 | 缺 spec 时记录 E2E 前置 blocker，不得用 API wrapper 或旧脚本冒充。 |
 | P0-M0-04 | 事件身份 | 生产提交、PQC 提交、复核、分配、完成、批记录字段审计都能保存正式来源 ID。 | 缺来源 ID 的链路不得进入 GREEN；trace 顶层必须 `complete=false`，对应分组必须 `BLOCKED`。 |
@@ -16,7 +16,7 @@
 | P0-M0-06 | 电子签名接口 | 生产提交、PQC 提交、生产组长复核、PQC 组长复核均有正式签名字段和测试签名能力。 | 缺签名接口或测试能力时阻塞；禁止用登录人、备注或确认弹窗替代。 |
 | P0-M0-07 | 质量可分配状态 | 后端白名单明确哪些质量状态可进入 FIFO。 | 未冻结白名单时，除明确 PASS 外全部不可分配。 |
 | P0-M0-08 | 真实 E2E 数据 | 测试租户、账号、活跃订单、PQC 任务、QA 规程、设备、工作站、批记录绑定、字段映射和清理方案已确认。 | 任一缺失时真实 E2E `BLOCKED`，不改用 mock、SQL 或 API-only。 |
-| P0-M0-09 | worktree 路径和端口 | 开发、RED/GREEN、前端脚本和真实 E2E 均指向 `D:\IntRuoyiWorktree\worktree_20260803_p0`，端口使用 `8092/48092` 或已合入的 `8081/48081`。 | 跑到主工作区、错误分支或端口不成对时，结果无效，必须重跑。 |
+| P0-M0-09 | worktree 路径和端口 | 开发、RED/GREEN、前端脚本和真实 E2E 均指向 `../IntRuoyiWorktree/worktree_20260803_p0`，端口使用 `8092/48092` 或已合入的 `8081/48081`。 | 跑到主工作区、错误分支或端口不成对时，结果无效，必须重跑。 |
 | P0-M0-10 | 旧测试假绿 | PQC 旧单测已从 `never()` 改为期望创建 PQC 工序池事件，再记录 RED。 | 旧断言通过不得当 GREEN；必须先修改测试期望。 |
 | P0-M0-11 | trace 完成算法 | trace 后端合同已冻结顶层 `complete`、六个分组、`sourceIds`、`blockers` 和 `candidateEvents`。 | 只返回页面摘要、空分组或前端计算 complete 时阻塞。 |
 | P0-M0-12 | 签名验真 | 已确认签名服务能验证签名动作用途、签名员工、快照和当前操作者关系。 | 仅传 `signatureId`、登录用户或确认弹窗不得进入 GREEN。 |
@@ -64,17 +64,17 @@
 ## Command Conventions
 
 ```powershell
-# 当前 worktree 后端定向测试：工作目录必须是 D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiBackend
+# 当前 worktree 后端定向测试：工作目录必须是 ../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiBackend
 mvn -pl yudao-module-mes -am "-Dtest=<TestClassOrPattern>" "-Dsurefire.failIfNoSpecifiedTests=false" test
 
-# 前端静态合同和真实 E2E：工作目录必须是 D:\IntRuoyiWorktree\worktree_20260803_p0\IntRuoyiFronted
+# 前端静态合同和真实 E2E：工作目录必须是 ../IntRuoyiWorktree/worktree_20260803_p0/IntRuoyiFronted
 pnpm e2e:p0-production-execution-loop:static
 pnpm e2e:p0-production-execution-loop:real
 
-# 正式 SQL 迁移策略门禁：工作目录必须是 D:\IntRuoyiWorktree\worktree_20260803_p0
+# 正式 SQL 迁移策略门禁：工作目录必须是 ../IntRuoyiWorktree/worktree_20260803_p0
 python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql
 
-# 真实运行态只读迁移核验：工作目录必须是 D:\IntRuoyiWorktree\worktree_20260803_p0
+# 真实运行态只读迁移核验：工作目录必须是 ../IntRuoyiWorktree/worktree_20260803_p0
 python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py
 ```
 

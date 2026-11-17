@@ -19,7 +19,7 @@
 
 ### Command Working Directory
 
-- 以下命令默认从仓库根目录 `E:\IntRuoyi` 执行。
+- 以下命令默认从仓库根目录 `.` 执行。
 - 后端 Maven 命令必须使用 `-f IntRuoyiBackend/pom.xml`，避免从根目录误找 `pom.xml`。
 - 后端 SQL 静态测试必须放在 `IntRuoyiBackend/script/tests/`，与现有 DCC SQL 验证结构一致。
 - 前端命令必须使用 `pnpm --dir IntRuoyiFronted ...`，新增脚本应同步写入 `IntRuoyiFronted/package.json`。

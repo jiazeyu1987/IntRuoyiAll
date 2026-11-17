@@ -5,5 +5,7 @@ import java.util.List;
 @Mapper
 public interface MesProjectionExportMapper {
  List<MesEdhrWorkbenchRow> exportHandoff(@Param("q") QueryContext query);
- List<MesEdhrWorkbenchRow> exportEdhr(@Param("q") QueryContext query);
+ List<MesEdhrWorkbenchRow> exportEdhr(@Param("q") QueryContext query, @Param("deviation") boolean deviation);
+ default List<MesEdhrWorkbenchRow> exportEdhr(QueryContext query) { return exportEdhr(query, false); }
+ default List<MesEdhrWorkbenchRow> exportDeviation(QueryContext query) { return exportEdhr(query, true); }
 }

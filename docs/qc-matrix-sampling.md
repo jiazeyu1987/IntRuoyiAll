@@ -46,7 +46,7 @@
 
 ## 验证边界
 
-已在本机测试库执行结构脚本，并在独立worktree启动前端8456、后端48456（槽位81，int_main配置）。完整后端33模块打包通过。该次验证时未提交、推送或合并，现有历史规程和历史任务不在转换范围。
+已在本机测试库执行结构脚本，并在独立worktree启动前端8456、后端48456（槽位81，int_main配置）。完整后端33模块打包通过。此阶段未提交、推送或合并，后续已融合主工作区，详见下文；现有历史规程和历史任务不在本次转换范围。
 
 ## 真实页面E2E（2026-11-05）
 
@@ -87,6 +87,44 @@
 - `database-readonly-check.txt`：发布版本及逐类型检验水平核验。
 
 本轮构建与复核日志：`tmp/sampling-e2e-package.log`、`tmp/sampling-e2e-front-tests.log`、`tmp/sampling-e2e-types-final.log`。截图与日志保留在本地忽略目录，不包含登录密码。
+
+## int_main 融合验证（2026-11-05）
+
+本任务55个文件已按共同基线融合到主工作区 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` 的 `int_main`，未创建提交或推送。20个存在重叠修改的文件逐文件合并；保留主工作区的草稿并发版本校验和新版公共规程库逻辑。另将主工作区新增的 `RegulationItemsEditor.vue`、`commonRegulationEditor.ts` 切换为检验水平与独立AQL，并补充公共编辑器回归用例。修复合并产生的重复声明、重复按钮和重复菜单权限记录。源worktree保留。
+
+融合前4705个已有修改文件逐一校验，任务范围外文件内容未改变。证据：`tmp/qc-matrix-int-main-preservation.json`。融合备份与逐文件清单位于源worktree的 `tmp/sampling-integration/`。
+
+| 检查 | 结果与证据 |
+| --- | --- |
+| 后端33模块完整构建及源码/包哈希核对 | 通过；`tmp/qc-matrix-int-main-package.log` |
+| 相关后端测试 | 119项通过，覆盖矩阵、Word解析、规程发布、冻结计划、上下半日及逐项前端投影；`tmp/qc-matrix-int-main-back-final.log` |
+| 相关前端测试 | 33项通过，包含主工作区公共编辑器检验水平/AQL保留规则；`tmp/qc-matrix-int-main-front-scoped.log` |
+| 前端类型检查 | 通过；`tmp/qc-matrix-int-main-types.log` |
+| 前端完整构建 | `pnpm build:local` 通过；`tmp/qc-matrix-int-main-front-build.log` |
+| 菜单迁移检查、改动格式检查 | 通过；`tmp/qc-matrix-int-main-menu.log`、`tmp/qc-matrix-int-main-diff-check.log` |
+| 扩展回归 | 初次后端220项中9项断言失败、4项错误，其中2项真实Word路径错误已修复并复测通过，其余11项未处理；另有1项公共规程导航测试断言在融合前即与页面不一致。不能据此声称全量回归通过 |
+| 分支端口总检查 | 被其他worktree `3a05` 的既有 `int_main_d` 注册记录阻断；未修改其他任务的注册信息 |
+| 主分支后端启动 | 用户明确允许按PID重启后，核对PID 94624、创建时间、命令行哈希及新包来源，停止旧服务并通过标准脚本启动已构建包，PID 97472监听48081；健康检查UP。日志 `tmp/qc-matrix-int-main-restart-approved.log`。归属保护规则未修改 |
+| 主分支真实页面E2E | 已在8081/48081通过矩阵、Word导入、编辑恢复、QA发布回显与试填场景；正式工单生成/提交受缺少负责工艺路线及本任务订单阻塞，未通过完整工单E2E。证据见下表 |
+
+本次使用Playwright真实登录瑛泰集团，通过页面完成下列操作，未用API或数据库写入替代。QA页面以本任务原有规程为基础保存并发布B/1，名称为 `抽样矩阵E2E规程20261105-int_main`，文件编号仍为 `PQC-QCMX-20261105`。
+
+| 主分支页面场景 | 实际结果 |
+| --- | --- |
+| 抽样对照表 | 15个区间、7种水平；3000/I=H/50，3000/S-3=E/13，3000/II=K/125；1200、1201、3200、3201及2/III边界通过；空数量报错并清除旧结果 |
+| QA编辑、保存、发布、重新加载 | B/1发布成功，巡检水平S-3/I及AQL=0.4保留；页面可见的20个项目水平及AQL逐项断言通过 |
+| 原始Word导入及草稿恢复 | IDE-001真实Word导入成功；首项从I改为S-3，AQL保持0.4，保存本地草稿并刷新恢复后保持一致。原始导入草稿未发布 |
+| 巡检试填 | 3000/S-3抽13件，3000/I抽50件；批量2/1分别全检2/1件，应检数锁定 |
+| 上午/下午独立 | 上午13件填完并试填提交后，下午仍需13件；未填完成时拒绝提交，填完后成功 |
+| 首检 | 外观固定13件，气密性/负压固定5件 |
+| 窄屏 | 930、1000、1600像素宽度均可选择工序，内容区位于顶部下方 |
+| 正式工单 | 生产组长页面显示“暂无负责工艺路线”；新增活跃订单中搜索本任务QCMX显示“无数据”，“加入活跃订单”禁用；未执行正式任务生成、冻结及检验提交 |
+
+本轮截图及脱敏操作日志在主工作区 `output/playwright/qc-matrix-main-e2e/`：`actions.log`、`matrix-3000-I.png`、`matrix-3000-S-3.png`、`published-qa-levels.png`、`trial-3000-S3-narrow.png`、`trial-layout-fixed.png`、`formal-order-prerequisite-blocked.png`、`formal-order-prerequisite-result.txt`。页面全局工作台待处理数量请求存在500错误，未据此声称全站无错误。
+
+主分支存在并行任务：12:45另一任务将48081服务替换为PID 104424，运行包为 `output/runtime/int_main/backend-fixed-order-data-2026-11-05-12-45-30/yudao-server-exec.jar`。为核实验收对象，比较本次认证构建和该运行包的完整外层ZIP及三个变化的嵌套模块：差异仅为 `MesFixedTestOrder*` 类，本次抽样、规程及一线PQC类字节码保持一致。因此保留并行服务，不再次重启。证据为 `runtime-verified.json`、`runtime-comparison.json`、`runtime-class-comparison.json`；当前完整JAR哈希与本次构建不同，不能称为整包一致。
+
+主分支相关构建、119项后端和33项前端测试通过；扩大回归仍有上述未处理失败，完整正式工单E2E仍缺有效负责路线及绑定新规程、具有ERP冻结批量的本任务订单，不能宣称全量回归或完整业务链路通过。源worktree及本任务测试数据保留供复核，未创建Git提交或推送。
 
 ## 与动态巡检轮次合并（2026-11-05）
 

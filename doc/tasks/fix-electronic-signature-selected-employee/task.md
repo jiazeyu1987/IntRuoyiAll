@@ -46,7 +46,7 @@ completed
 - `pnpm e2e:frontline-formal-submit:static` -> PASS。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，22 tests。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesP0ProductionSubmitClosedLoopContractTest,MesProFrontlineFeedbackRawLimitBypassTest,MesProFrontlineFeedbackRouteOrderGateTest,MesProFrontlineFeedbackSubmitDetailContractTest,MesProFrontlineFeedbackSubmitRollbackTest,MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，31 tests。
-- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-electronic-signature-selected-employee\bug-regression-evidence.md` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-electronic-signature-selected-employee --mode preview` -> PASS，无删除、无阻塞。
-- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id fix-electronic-signature-selected-employee --mode apply` -> PASS，无删除、无阻塞。
+- `python 会话技能：bug-regression-fix-loop --evidence doc\tasks\fix-electronic-signature-selected-employee\bug-regression-evidence.md` -> PASS。
+- `python 会话技能：task-closeout-cleanup --task-id fix-electronic-signature-selected-employee --mode preview` -> PASS，无删除、无阻塞。
+- `python 会话技能：task-closeout-cleanup --task-id fix-electronic-signature-selected-employee --mode apply` -> PASS，无删除、无阻塞。
 - `git diff --check` -> PASS。

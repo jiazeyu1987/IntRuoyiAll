@@ -1,6 +1,6 @@
 # Registration E2E Case Matrix
 
-Source: `E:\IntRuoyi\e2e_test\registration`
+Source: `./e2e_test/registration`
 
 Round 1 source run: `doc/tasks/20260906-registration-all-e2e-worktree/artifacts/round1-latest-20260906-continue/summary.json`
 

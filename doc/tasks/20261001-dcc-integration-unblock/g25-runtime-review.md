@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G25 实际运行 Review
 
 2026-10-03；主管理已按用户真实授权执行隔离演练及本机测试库19项升级。此处是实际运行结论，不是工具离线测试或完整业务验收。
@@ -9,7 +11,7 @@
 - 源库一次19项升级成功，正式同连接环境与执行材料指纹相符。历史文件41615、Master36685、签名339、原名称claim27以及其它受影响表的旧行摘要均不变。仅精确新增33条配置与19条新账本，17张新表为空。
 - 不包含25项审计规则启用、质量批准登记、历史名称占用新增表及其登记、对象恢复或真实业务E2E。没有远程/生产操作。
 
-受保护实际证据：`C:/IntRuoyiBackups/20261003-dcc-integration/g25-rehearsal-run/driver-receipt.json`、`g25-source-fresh-upgrade/collection-receipt.json`、`g25-source-upgrade-run/source-driver-receipt.json`及`source-history-proof.json`。原备份和新备份保留，不纳入Git业务代码。
+受保护实际证据：`历史外部材料（引用已移除）`、`g25-source-fresh-upgrade/collection-receipt.json`、`g25-source-upgrade-run/source-driver-receipt.json`及`source-history-proof.json`。原备份和新备份保留，不纳入Git业务代码。
 
 ## 原件读取
 

@@ -21,6 +21,7 @@ public class MesProProcessCreationService {
     @Transactional(rollbackFor = Exception.class)
     public Long create(MesProProcessDO process, Long projectId) {
         TenantContextHolder.getRequiredTenantId();
+        if (projectId == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("请选择所属项目");
         if (process.getId() != null) {
             throw new IllegalArgumentException("新增工序不能指定已有工序 ID");
         }

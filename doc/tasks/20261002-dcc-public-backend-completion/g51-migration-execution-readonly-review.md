@@ -51,7 +51,7 @@ G50业务写边界合理：本机既有int-ruoyi-mysql，source ruoyi-vue-pro与
 
 ## Root推荐执行参数（仅方案，未调用）
 
-- backend/SQLRoot固定C:/IntRuoyiAll-int_main/IntRuoyiBackend/sql/mysql；3精确migrationID列表+上述rawSHA；externalClosure单独只读，writeWhitelist长度=3且不重复，stage=CLONE_FIRST/CLONE_REPEAT/SOURCE_FIRST/SOURCE_REPEAT，不按全目录glob执行。
+- backend/SQLRoot固定./IntRuoyiBackend/sql/mysql；3精确migrationID列表+上述rawSHA；externalClosure单独只读，writeWhitelist长度=3且不重复，stage=CLONE_FIRST/CLONE_REPEAT/SOURCE_FIRST/SOURCE_REPEAT，不按全目录glob执行。
 - `LocalMysql.database`仅dcc_intqms_g18_rehearsal或ruoyi-vue-pro；同固定serverUUID/targetEnvironment=test。每个库/step新的task-private_directory和唯一stem，不覆盖/复用失败receipt，不打印原SQL业务参数/凭据。
 - 原列后检参数显式`existing_columns={table:before[table]['columns']}`。首次permitted_additions仅模板1(若此前ABSENT)和ledger新增实际三键数；重复全部0。ledger/template新增仍另核完整载荷/ID，不因helper接受新增数量就证明正确。
 - 新APPLIED ledger内容必须真实migration/file/rawSHA/environment/releaseTag/operationId/started/finished+exit证明；禁止宽ON DUP UPDATE改旧行，禁止checksum等价替换。RUNNING/FAILED既存新键属具体失败/恢复流程，不能elapsed-time或删row自动retry。

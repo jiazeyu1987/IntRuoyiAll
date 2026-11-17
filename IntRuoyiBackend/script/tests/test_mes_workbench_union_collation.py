@@ -16,7 +16,8 @@ MAPPER = Path(__file__).resolve().parents[2] / (
 
 def branch(fragment, collation, task_type, action_url, empty=False, original=False):
     alias = "mes_pro_edhr_work_task" if fragment == "ordinaryEdhr" else "h"
-    text = ET.parse(MAPPER).getroot().find("sql[@id='" + fragment + "']").text
+    sql_fragment = "ordinaryEdhrTasks" if fragment == "ordinaryEdhr" else fragment
+    text = "".join(ET.parse(MAPPER).getroot().find("sql[@id='" + sql_fragment + "']").itertext())
     expressions = []
     for column, output in (("task_type", "domain_task_type"), ("action_url", "action_url")):
         pattern = (r"CONVERT\(" + re.escape(alias + "." + column)

@@ -84,6 +84,7 @@
                 >
                   <template #default="{ row }">
                     <el-button link type="primary" @click="openEditor(row, true)">查看</el-button>
+                    <el-button v-hasPermi="['mes:pro-craft:update']" link type="primary" @click="sharedChangeDialog?.openReplacement('CRAFT', row.id)">替换</el-button>
                     <el-button
                       v-hasPermi="['mes:pro-craft:update']"
                       link
@@ -325,12 +326,6 @@
     width="1000px"
     :close-on-click-modal="false"
   >
-    <el-alert
-      title="确认后全部关联流程统一升级；已有生产订单继续使用原参数快照。"
-      type="info"
-      :closable="false"
-      show-icon
-    />
     <template v-if="impact">
       <el-alert
         v-for="(blocker, index) in impact.blockers"
@@ -390,6 +385,14 @@
       /></el-table>
       <p>新增工艺：{{ historyCraftCodes }}</p>
     </template>
+    <template v-else-if="history?.changeType === 'SHARED'">
+      <el-descriptions :column="1" border class="mt-12px">
+        <el-descriptions-item label="变更对象">{{ sharedHistory?.data?.code }} / {{ sharedHistory?.data?.name }}</el-descriptions-item>
+        <el-descriptions-item label="修改前">{{ historyBefore?.code }} / {{ historyBefore?.name }}</el-descriptions-item>
+        <el-descriptions-item label="影响路线">{{ sharedHistory?.routes?.length || 0 }} 条</el-descriptions-item>
+      </el-descriptions>
+      <el-table :data="sharedHistory?.routes || []" max-height="400"><el-table-column prop="routeName" label="路线" /><el-table-column prop="versionNo" label="原版本" /><el-table-column prop="nextVersionNo" label="新版本" /></el-table>
+    </template>
     <template v-else>
       <el-descriptions :column="1" border class="mt-12px"
         ><el-descriptions-item label="工艺编号">{{ historyAfter?.code }}</el-descriptions-item
@@ -404,8 +407,11 @@
       /></el-table>
     </template>
   </Dialog>
+  <SharedChangeDialog ref="sharedChangeDialog" @submitted="load" />
 </template>
 <script setup lang="ts">
+import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
+const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
 import { useElementBounding, useWindowSize } from '@vueuse/core'
 import {
   CraftApi,
@@ -619,7 +625,7 @@ const resetTypeFields = (p: CraftParameter) => {
   p.decimalScale = null
 }
 const typeLabel = (s: string) =>
-  (({ CREATE: '新增', UPDATE: '修改', INITIALIZE: '初始化' }) as Record<string, string>)[s] || s
+  (({ CREATE: '新增', UPDATE: '修改', INITIALIZE: '初始化', SHARED: '关联变更' }) as Record<string, string>)[s] || s
 const statusLabel = (s: string) =>
   (
     ({
@@ -674,13 +680,14 @@ const historyBefore = computed<Craft | undefined>(() =>
     : undefined
 )
 const historyAfter = computed<Craft | undefined>(() =>
-  history.value?.changeType !== 'INITIALIZE' && history.value?.afterJson
+  history.value?.changeType !== 'INITIALIZE' && history.value?.changeType !== 'SHARED' && history.value?.afterJson
     ? JSON.parse(history.value.afterJson)
     : undefined
 )
+const sharedHistory = computed(() => history.value?.changeType === 'SHARED' && history.value.afterJson ? JSON.parse(history.value.afterJson) : undefined)
 const historyDiff = computed(() =>
   diff(
-    historyBefore.value ? JSON.parse(historyBefore.value.parametersJson) : [],
+    historyBefore.value?.parametersJson ? JSON.parse(historyBefore.value.parametersJson) : [],
     historyAfter.value ? JSON.parse(historyAfter.value.parametersJson) : []
   )
 )
@@ -721,6 +728,7 @@ function openEditor(craft?: Craft, detail = false) {
     processId: craft?.processId,
     parameters: craft ? JSON.parse(craft.parametersJson) : [],
     expectedFingerprint: craft?.fingerprint,
+    requestId: crypto.randomUUID(),
     impactToken: undefined,
     reason: ''
   })

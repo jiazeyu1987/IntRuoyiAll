@@ -49,6 +49,10 @@ public class MesProEdhrDeviationHandlingDO extends BaseDO {
     private String handlingConclusion;
     private String verificationResult;
     private String verificationContent;
+    private String correctiveStatus;
+    private Boolean investigationSubmitted;
+    private String correctiveResult;
+    private String correctiveEvidenceUrlsJson;
     private Integer contentVersion;
     private String contentHash;
     private String reviewerAssignmentsJson;

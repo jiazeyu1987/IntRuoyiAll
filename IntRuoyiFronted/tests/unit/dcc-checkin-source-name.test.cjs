@@ -7,6 +7,22 @@ const existing = fs.readFileSync('tests/unit/dcc-browser-checkin-minor-only.test
 const setup = existing.slice(0, existing.indexOf("test('actual submit always"))
 const { stateFor, block } = new Function('require', setup + '\nreturn {stateFor,block}')(require)
 
+test('version selection preserves the exact source filename for current and historical versions', () => {
+  const context = { exports: {} }
+  vm.runInNewContext(ts.transpileModule(
+    block('buildCurrentVersionOption', 'hydrateCurrentBrowserVersionActionState') + '\n' +
+    block('hydrateCurrentBrowserVersionActionState', 'getVersionOptions') +
+    '\nexports.build=buildCurrentVersionOption; exports.hydrate=hydrateCurrentBrowserVersionActionState',
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  const row = { id: 51, sourceOriginalFileName: '当前原文件.docx' }
+  assert.equal(context.exports.build(row).sourceOriginalFileName, '当前原文件.docx')
+  assert.equal(context.exports.build({ id: 51, sourceOriginalFileName: null }).sourceOriginalFileName, null)
+  assert.equal(context.exports.build({ id: 51 }).sourceOriginalFileName, undefined)
+  const historical = { id: 41, sourceOriginalFileName: '历史原文件.docx' }
+  assert.equal(context.exports.hydrate(row, historical).sourceOriginalFileName, '历史原文件.docx')
+  assert.equal(context.exports.hydrate(row, { id: 41 }).sourceOriginalFileName, undefined)
+})
+
 test('renamed source is rejected before upload with the exact original name', async () => {
   const { state, calls } = stateFor()
   state.checkinTarget.value.sourceOriginalFileName = '原文件.docx'

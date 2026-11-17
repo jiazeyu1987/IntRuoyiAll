@@ -54,6 +54,7 @@ export default defineComponent({
         const title = index === breadcrumbList.length - 1
           ? currentRoute.value.meta.breadcrumbTitle || meta?.title
           : meta?.title
+        if (!title) return null
         return (
           <ElBreadcrumbItem to={{ path: disabled ? '' : v.path }} key={v.name}>
             {meta?.icon && breadcrumbIcon.value ? (

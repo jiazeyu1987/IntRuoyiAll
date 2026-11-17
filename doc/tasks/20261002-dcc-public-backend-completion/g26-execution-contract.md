@@ -1,7 +1,9 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # G26 Root execution contract
 
 ## Entry points and dependencies
-Integration child directory: `C:/IntRuoyi/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion`.
+Integration child directory: `../IntRuoyiWorktree/20261001-dcc-integration/doc/tasks/20261002-dcc-public-backend-completion`.
 
 Compile all four package-less source files into `g26-exact-object-recovery-runtime/classes` using Java 17 and UTF-8. Runtime classpath is:
 
@@ -39,7 +41,7 @@ Exit 0 means both real responses were captured consistently (`READONLY_POLICY_CA
 
 Single sanitized JSON object fields: `bucketSha256`, `status`, `versioningStatus`, `mfaDeleteStatus`, `versioningHttpStatus`, `versioningErrorCode`, `objectLockStatus`, `retentionMode`, `retentionDays`, `retentionYears`, `objectLockHttpStatus`, `objectLockErrorCode`, `lifecycleErrorCode`. All absent facts remain null/UNSET as specified. Unknown server errors become `S3_ERROR`; no reflected exception/message/resource.
 
-Root actual probe has now passed (exit 0): versioning/MFA UNSET with HTTP 200; Object Lock NOT_CONFIGURED with actual HTTP 404 ObjectLockConfigurationNotFoundError; default retention absent, no lifecycle error. Protected actual output/receipt are under `C:/IntRuoyiBackups/20261003-dcc-integration/g26-bucket-policy-probe/`. This is actual bucket-policy read evidence; child offline tests remain separate. Restoration preserves this actual policy and sends no retention/hold fields. Application config 7-day COMPLIANCE/hold values are not actual bucket protection. DCC 20-year business archiving does not imply this bucket has 20-year WORM protection, and this recovery makes no such claim.
+Root actual probe has now passed (exit 0): versioning/MFA UNSET with HTTP 200; Object Lock NOT_CONFIGURED with actual HTTP 404 ObjectLockConfigurationNotFoundError; default retention absent, no lifecycle error. Protected actual output/receipt are under `历史外部材料（引用已移除）`. This is actual bucket-policy read evidence; child offline tests remain separate. Restoration preserves this actual policy and sends no retention/hold fields. Application config 7-day COMPLIANCE/hold values are not actual bucket protection. DCC 20-year business archiving does not imply this bucket has 20-year WORM protection, and this recovery makes no such claim.
 
 ## Exact local object recovery
 Class: `G26ExactObjectRecovery`, exactly one non-secret argv: `--authorize-exact-local-object-recovery`.
@@ -56,7 +58,7 @@ Stdin config is the same strict config above. Root adds a real `authorizationRef
   "rootExpectedSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0",
   "rootExpectedSize": "37120",
   "mime": "application/pdf",
-  "candidatePath": "C:/IntRuoyiAll-int_main/doc/tasks/20260918-dcc-upload-full-e2e/upload-source.pdf"
+  "candidatePath": "./doc/tasks/20260918-dcc-upload-full-e2e/upload-source.pdf"
 }
 ```
 

@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-按用户要求更新当前项目 `AGENTS.md`，明确所有 IntRuoyi 相关 worktree 只能创建在 `D:\IntRuoyiWorktree\` 目录下，禁止在其他位置创建或复用 worktree。
+按用户要求更新当前项目 `AGENTS.md`，明确所有 IntRuoyi 相关 worktree 只能创建在 `../IntRuoyiWorktree/` 目录下，禁止在其他位置创建或复用 worktree。
 
 ## Milestones
 
@@ -13,7 +13,7 @@
 
 ## Expected Verification
 
-- `AGENTS.md` 包含 `D:\IntRuoyiWorktree\`。
+- `AGENTS.md` 包含 `../IntRuoyiWorktree/`。
 - `AGENTS.md` 明确限制只能在该目录下创建 worktree。
 - `AGENTS.md` 可按 UTF-8 正常读取。
 
@@ -33,4 +33,4 @@ completed
 
 ## Final Verification Result
 
-PASS。`AGENTS.md` 已限制所有 IntRuoyi worktree 只能创建在 `D:\IntRuoyiWorktree\` 下，并已确认该目录存在。UTF-8 读取、关键规则检查、task-closeout-cleanup preview/apply 均通过。
+PASS。`AGENTS.md` 已限制所有 IntRuoyi worktree 只能创建在 `../IntRuoyiWorktree/` 下，并已确认该目录存在。UTF-8 读取、关键规则检查、task-closeout-cleanup preview/apply 均通过。

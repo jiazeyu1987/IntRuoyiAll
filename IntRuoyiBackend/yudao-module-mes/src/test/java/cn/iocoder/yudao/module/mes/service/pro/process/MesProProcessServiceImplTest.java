@@ -61,6 +61,19 @@ import static org.mockito.Mockito.when;
 class MesProProcessServiceImplTest {
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard sharedChangeGuard;
+
+    @Test
+    void updateReferencedProcess_requiresSharedChangeWithoutWriting() {
+        MesProProcessSaveReqVO request = new MesProProcessSaveReqVO();
+        request.setId(101L);
+        org.mockito.Mockito.doThrow(new IllegalStateException("requires shared change"))
+                .when(sharedChangeGuard).assertDirectUpdateAllowed("PROCESS", 101L);
+        assertThrows(IllegalStateException.class, () -> processService.updateProcess(request));
+        org.mockito.Mockito.verifyNoInteractions(processMapper, machineryProcessMapper);
+    }
+
+    @Mock
     private MesProProcessMapper processMapper;
     @Mock
     private MesProProcessCreationService processCreationService;

@@ -25,6 +25,31 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class KingdeeStockSyncJobTest {
+    @Test
+    void fullRefreshCountsExistingStockAndInventoryAsUpdates() {
+        var stocks = mock(ErpKingdeeStockSyncService.class);
+        var inventory = mock(ErpKingdeeInventoryListService.class);
+        var runtime = mock(ErpKingdeeSyncRuntimeService.class);
+        var stockResult = new ErpKingdeeStockSyncResult();
+        stockResult.addCreated();
+        stockResult.addUpdated();
+        var inventoryResult = new cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListSyncResult();
+        inventoryResult.addUpdated();
+        when(stocks.syncStocks()).thenReturn(stockResult);
+        when(inventory.syncAllWithUpdates()).thenReturn(inventoryResult);
+        when(runtime.executeSync(any(), any())).thenAnswer(call -> {
+            var result = call.<ErpKingdeeSyncTask>getArgument(1).run(
+                    ErpKingdeeSyncContext.builder().windowEnd(LocalDateTime.now()).build());
+            assertEquals(1, result.getCreatedCount());
+            assertEquals(2, result.getUpdatedCount());
+            assertEquals(0, result.getSkippedCount());
+            return result;
+        });
+        String result = new KingdeeStockSyncJob(stocks, inventory, runtime).executeFullSync();
+        assertTrue(result.contains("updated=2"));
+        verify(stocks, never()).syncStocksFullSkipExisting();
+        verify(inventory, never()).syncAllSkipExisting();
+    }
 
     @Test
     void execute_shouldSyncStocksByRuntimeWindow() {
