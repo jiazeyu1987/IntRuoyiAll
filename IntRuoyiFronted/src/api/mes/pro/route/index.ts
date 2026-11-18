@@ -24,6 +24,8 @@ export interface ProRouteCreateReqVO {
 
 // MES 工艺路线 VO
 export interface ProRouteVO {
+  parentId?: MesRouteId
+  nodeType?: 'FLOW' | 'GROUP'
   id?: number // 编号
   code: string // 工艺路线编码
   name: string // 工艺路线名称

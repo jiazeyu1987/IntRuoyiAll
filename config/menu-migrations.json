@@ -4519,6 +4519,66 @@
       "kind": "router",
       "value": "49d2e56ff81f0e266aaae710c3cf7a13cff056ad7cf06d9807c6c7805f106224",
       "reason": "在制工单列表新增内部活跃工单只读详情路由，复用详情组件及现有 mes:pro-in-process-order:query 权限与列表菜单，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:query",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteTreeController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:update",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/RouteTreePanel.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "既有工艺流程页面增加树形分组、继承、归属移动及统一审核入口，复用已有工艺流程和版本权限；不新增菜单、路由、权限标识、角色或租户套餐授权。"
     }
   ]
 }

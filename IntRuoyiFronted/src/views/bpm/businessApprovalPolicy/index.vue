@@ -366,6 +366,7 @@ const policySystemLabels: Record<string, string> = {
 const policyObjectTypeLabels: Record<string, string> = {
   ROUTE_VERSION: '工艺路线版本',
   ROUTE_BATCH_CHANGE: '工艺路线批量变更',
+  ROUTE_TREE_CHANGE: '树形工艺统一变更',
   FORM_TEMPLATE: '表单模板',
   CONTROLLED_FILE: '受控文件',
   BATCH_RECORD_VERSION: '批记录版本',

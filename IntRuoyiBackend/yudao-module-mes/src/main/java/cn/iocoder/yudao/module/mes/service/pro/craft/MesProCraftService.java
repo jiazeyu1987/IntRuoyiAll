@@ -37,6 +37,7 @@ public class MesProCraftService {
     @Resource private MesProRouteControlledContentAdapter platform;
     @Resource private cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi bpmApi;
     @Resource private ObjectProvider<MesProSharedChangeService> sharedChanges;
+    @Resource private ObjectProvider<MesProRouteTreeService> routeTrees;
     @Resource private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
 
     public void lockCatalog() {
@@ -415,6 +416,27 @@ public class MesProCraftService {
         batchApproval.getObject().submit(change.getId());
     }
 
+    /** 父节点与所有下属候选共用一张审批单；不复用单路线提交入口。 */
+    public MesProCraftChangeDO submitTree(Long rootCandidateId, Map<Long, JSONObject> snapshots,
+                                         String reason, List<Long> routeIds, Map<String, Object> preview) {
+        lockCatalog();
+        MesProRouteVersionDO root = versionMapper.selectById(rootCandidateId);
+        if (root == null || !STATUS_DRAFT.equals(root.getLifecycleStatus())) throw invalid("父节点草稿不存在");
+        JSONObject proposal = new JSONObject(true);
+        proposal.put("rootRouteId", root.getRouteId()); proposal.put("routeIds", routeIds);
+        proposal.put("preview", preview);
+        MesProCraftChangeDO change = newChange(null, "TREE", root.getSourceRouteVersionId().toString(),
+                proposal.toJSONString(), reason);
+        if (changeMapper.insert(change) != 1) throw invalid("树形变更单保存失败");
+        for (Map.Entry<Long, JSONObject> entry : snapshots.entrySet()) {
+            MesProRouteVersionDO candidate = Objects.equals(entry.getKey(), root.getRouteId()) ? root
+                    : newCandidate(versionMapper.selectActiveByRouteId(entry.getKey()), reason);
+            saveGroupedCandidate(change, candidate, entry.getValue());
+        }
+        submitGroup(change);
+        return changeMapper.selectById(change.getId());
+    }
+
     public void completeEmptyBatch(MesProCraftChangeDO change) {
         if (!"BATCH".equals(change.getApprovalScope()) || !"PENDING".equals(change.getStatus())
                 || !JSON.parseArray(change.getCandidateIdsJson()).isEmpty()) throw invalid("整批变更状态不正确");
@@ -464,6 +486,7 @@ public class MesProCraftService {
                     || !Objects.equals(hashes.getString(v.getId() + ":source"), active.getRouteSnapshotSha256()))
                 throw invalid("关联流程的正式参数已变化，整次工艺修改不能生效");
         }
+        if ("TREE".equals(change.getChangeType())) routeTrees.getObject().verifyChange(change);
         if ("SHARED".equals(change.getChangeType())) sharedChanges.getObject().verifyBeforePublish(change);
         if ("UPDATE".equals(change.getChangeType())) verifyCraftBeforePublish(change);
         change.setStatus("APPLYING"); saveChange(change);

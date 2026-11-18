@@ -48,7 +48,7 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
         variables.put("changeFingerprint", fingerprint(change));
         orchestrator.getObject().submit(BusinessApprovalContext.builder()
                 .tenantId(TenantContextHolder.getRequiredTenantId()).dataDomain("MES").systemCode("MES")
-                .objectType(OBJECT_TYPE).objectId(id.toString()).objectVersion("1")
+                .objectType("TREE".equals(change.getChangeType()) ? "ROUTE_TREE_CHANGE" : OBJECT_TYPE).objectId(id.toString()).objectVersion("1")
                 .actionCode("PUBLISH").objectState("PREPARING").applicantUserId(actor)
                 .reason(change.getReason()).variables(variables).build());
     }
@@ -61,6 +61,7 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
 
     @Override public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context, BusinessApprovalRequest request) {
         MesProCraftChangeDO change = requireContext(context);
+        if ("TREE".equals(change.getChangeType())) throw invalid("树形统一修改必须审核，请将树形工艺变更策略设为需要流程审核");
         requireStatus(change, "PREPARING");
         attach(change, request, null);
         return publish(change, context.getApplicantUserId(), STATUS_DRAFT, "BUSINESS_APPROVAL:" + request.getRequestId() + ":DIRECT_APPROVED");
@@ -147,11 +148,13 @@ public class MesProBatchChangeApprovalExecutor implements BusinessApprovalEffect
         crafts.lockCatalog();
         if (context == null || !Objects.equals(TenantContextHolder.getRequiredTenantId(), context.getTenantId())
                 || !"MES".equals(context.getSystemCode()) || !"MES".equals(context.getDataDomain())
-                || !OBJECT_TYPE.equals(context.getObjectType()) || !"PUBLISH".equals(context.getActionCode())
+                || !Set.of(OBJECT_TYPE, "ROUTE_TREE_CHANGE").contains(context.getObjectType()) || !"PUBLISH".equals(context.getActionCode())
                 || !"PREPARING".equals(context.getObjectState())) throw invalid("批量变更审批上下文不正确");
         Long id;
         try { id = Long.valueOf(context.getObjectId()); } catch (RuntimeException e) { throw invalid("批量变更编号不正确"); }
         MesProCraftChangeDO change = requireChange(id);
+        if (!Objects.equals("TREE".equals(change.getChangeType()) ? "ROUTE_TREE_CHANGE" : OBJECT_TYPE, context.getObjectType()))
+            throw invalid("审批对象与变更类型不一致");
         if (context.getVariables() == null || !Objects.equals(fingerprint(change), context.getVariables().get("changeFingerprint")))
             throw invalid("批量变更内容或影响范围已变化，需要重新提交审批");
         return change;

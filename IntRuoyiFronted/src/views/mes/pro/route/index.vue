@@ -5,7 +5,13 @@
     url="https://doc.iocoder.cn/mes/pro/process-route/"
   />
 
-  <ContentWrap class="route-list-page">
+  <div class="mb-12px flex gap-8px">
+    <el-button :type="routeViewMode === 'tree' ? 'primary' : 'default'" @click="routeViewMode = 'tree'">树形管理</el-button>
+    <el-button :type="routeViewMode === 'list' ? 'primary' : 'default'" @click="routeViewMode = 'list'">列表查询与新增</el-button>
+  </div>
+  <RouteTreePanel v-if="routeViewMode === 'tree'" @edit="handleEditRouteProductionConfig"
+    @view="openEditPage" @versions="openRouteVersionWorkspace" @changed="getList" />
+  <ContentWrap v-show="routeViewMode === 'list'" class="route-list-page">
     <UnifiedListTemplate
       single-line-toolbar
       :table-key="ROUTE_LIST_TABLE_KEY"
@@ -421,6 +427,8 @@
 
 <script setup lang="ts">
 import RouteProjectSelect from './RouteProjectSelect.vue'
+import RouteTreePanel from './RouteTreePanel.vue'
+import { submitRouteVersionWithTreeReview } from './routeTreePublish'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { until } from '@vueuse/core'
@@ -452,6 +460,7 @@ import {
 } from './routeCandidateEntry'
 
 defineOptions({ name: 'MesProRoute' })
+const routeViewMode = ref<'tree' | 'list'>('tree')
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
 const RouteTaskDeadlinesDialog = defineAsyncComponent(() => import('./RouteTaskDeadlinesDialog.vue'))
@@ -910,9 +919,7 @@ const submitRouteCandidateVersion = async (version: ProRouteVersionVO) => {
   try {
     const latestVersion = await resolveLatestRouteVersionForSubmit(version)
     if (!latestVersion) return
-    const submittedVersion = await ProRouteApi.submitAndPublishRouteCandidateVersion({
-      id: latestVersion.id
-    })
+    const submittedVersion = await submitRouteVersionWithTreeReview(latestVersion)
     message.success(resolveRoutePublishSuccessMessage(submittedVersion, true))
     await reloadRouteVersionWorkspace()
   } catch (error) {

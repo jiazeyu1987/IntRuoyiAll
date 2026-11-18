@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -493,10 +494,15 @@ class MesProRouteProcessFlowServiceImplTest {
         routeProcessUpdate.setRouteId(routeId);
         routeProcessUpdate.setProcessId(201L);
         routeProcessUpdate.setWorkstationId(81001L);
-        routeProcessUpdate.setSort(1);
+        routeProcessUpdate.setSort(2);
         routeProcessUpdate.setKeyFlag(Boolean.TRUE);
         routeProcessUpdate.setCheckFlag(Boolean.FALSE);
-        reqVO.setRouteProcessUpdates(List.of(routeProcessUpdate));
+        MesProRouteProcessSaveReqVO secondUpdate = new MesProRouteProcessSaveReqVO();
+        secondUpdate.setId(22L);
+        secondUpdate.setRouteId(routeId);
+        secondUpdate.setProcessId(202L);
+        secondUpdate.setSort(1);
+        reqVO.setRouteProcessUpdates(List.of(routeProcessUpdate, secondUpdate));
 
         MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
 
@@ -514,6 +520,13 @@ class MesProRouteProcessFlowServiceImplTest {
         verify(flowEdgeMapper, never()).insert(any(MesProRouteProcessFlowEdgeDO.class));
         verify(boundaryEdgeMapper, never()).insert(any(MesProRouteProcessFlowBoundaryEdgeDO.class));
         verify(flowLayoutMapper, never()).insert(any(MesProRouteProcessFlowLayoutDO.class));
+        ArgumentCaptor<Map<String, Object>> reorderedSnapshot = ArgumentCaptor.forClass(Map.class);
+        verify(routeCandidateConfigService).saveConfigSnapshots(eq(candidateRouteVersionId), reorderedSnapshot.capture());
+        JSONObject reorderedGraph = JSON.parseObject(JSON.toJSONString(reorderedSnapshot.getValue().get("flowGraph")));
+        assertEquals(22L, reorderedGraph.getJSONArray("nodes").getJSONObject(0).getLongValue("routeProcessId"));
+        assertEquals(1, reorderedGraph.getJSONArray("nodes").getJSONObject(0).getIntValue("sort"));
+        assertEquals(21L, reorderedGraph.getJSONArray("nodes").getJSONObject(1).getLongValue("routeProcessId"));
+        assertEquals(2, reorderedGraph.getJSONArray("nodes").getJSONObject(1).getIntValue("sort"));
     }
 
     @Test

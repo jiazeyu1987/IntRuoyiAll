@@ -926,7 +926,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                 .processId(routeProcess.getProcessId())
                 .workstationId(updateReqVO.getWorkstationId() == null
                         ? routeProcess.getWorkstationId() : updateReqVO.getWorkstationId())
-                .sort(routeProcess.getSort())
+                .sort(updateReqVO.getSort() == null ? routeProcess.getSort() : updateReqVO.getSort())
                 .nextProcessId(routeProcess.getNextProcessId())
                 .linkType(routeProcess.getLinkType())
                 .prepareTime(routeProcess.getPrepareTime())

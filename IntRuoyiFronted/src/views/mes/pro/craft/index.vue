@@ -390,6 +390,8 @@
       /></el-table>
       <p>新增工艺：{{ historyCraftCodes }}</p>
     </template>
+    <RouteTreePublishPreview v-else-if="history?.changeType === 'TREE' && treeHistory"
+      :preview="treeHistory" :reason="history.reason" read-only />
     <template v-else-if="history?.changeType === 'SHARED'">
       <el-descriptions :column="1" border class="mt-12px">
         <el-descriptions-item label="变更对象">{{ sharedHistory?.data?.code }} / {{ sharedHistory?.data?.name }}</el-descriptions-item>
@@ -428,6 +430,8 @@
 </template>
 <script setup lang="ts">
 import { changeDifferences } from '../shared/changeDifferences'
+import RouteTreePublishPreview from '../route/RouteTreePublishPreview.vue'
+import type { TreePreview } from '@/api/mes/pro/route/tree'
 import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
 const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
 import { useElementBounding, useWindowSize } from '@vueuse/core'
@@ -643,7 +647,7 @@ const resetTypeFields = (p: CraftParameter) => {
   p.decimalScale = null
 }
 const typeLabel = (s: string) =>
-  (({ CREATE: '新增', UPDATE: '修改', INITIALIZE: '初始化', SHARED: '关联变更' }) as Record<string, string>)[s] || s
+  (({ CREATE: '新增', UPDATE: '修改', INITIALIZE: '初始化', SHARED: '关联变更', TREE: '树形统一变更' }) as Record<string, string>)[s] || s
 const statusLabel = (s: string) =>
   (
     ({
@@ -703,6 +707,8 @@ const historyAfter = computed<Craft | undefined>(() =>
     : undefined
 )
 const sharedHistory = computed(() => history.value?.changeType === 'SHARED' && history.value.afterJson ? JSON.parse(history.value.afterJson) : undefined)
+const treeHistory = computed<TreePreview | undefined>(() => history.value?.changeType === 'TREE' && history.value.afterJson
+  ? JSON.parse(history.value.afterJson).preview : undefined)
 const sharedHistoryDiff = computed(() => sharedHistory.value && history.value?.beforeJson
   ? changeDifferences(JSON.parse(history.value.beforeJson), sharedHistory.value.data) : [])
 const historyDiff = computed(() =>

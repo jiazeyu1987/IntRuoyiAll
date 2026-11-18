@@ -24,6 +24,10 @@ public interface MesProRouteService {
     /** 新增流程并原子初始化有序工序、关系图及完整 V1。 */
     Long createRouteWithProcesses(@Valid MesProRouteCreateReqVO createReqVO);
 
+    /** 在首次正式版本冻结前继承父分组工艺配置。 */
+    Long createRouteWithInheritedConfig(@Valid MesProRouteCreateReqVO createReqVO, Long parentId,
+                                       com.alibaba.fastjson.JSONObject template);
+
     /**
      * 工作簿导入使用其明确提供的编码创建路线，工序由导入器维护。
      */

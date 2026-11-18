@@ -178,6 +178,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
+    @Resource private org.springframework.beans.factory.ObjectProvider<MesProRouteTreeService> routeTrees;
     @Resource private MesProRouteProjectGuard projectGuard;
     @Resource private MesProRouteWorkstationService routeWorkstationService;
     @Resource
@@ -186,6 +187,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRouteWithProcesses(MesProRouteCreateReqVO reqVO) {
+        return createRouteWithConfig(reqVO, null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createRouteWithInheritedConfig(MesProRouteCreateReqVO reqVO, Long parentId, JSONObject template) {
+        return createRouteWithConfig(reqVO, parentId, template);
+    }
+
+    private Long createRouteWithConfig(MesProRouteCreateReqVO reqVO, Long parentId, JSONObject template) {
         projectGuard.requireAvailable(reqVO.getDccProjectCodeId(), null);
         routeWorkstationService.requireWorkshop(reqVO.getWorkshopId());
         String name = StrUtil.trim(reqVO.getName());
@@ -214,7 +225,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             throw exception(AUTO_CODE_GENERATE_FAILED);
         }
         MesProRouteDO route = MesProRouteDO.builder().code(code).name(name).remark(reqVO.getRemark())
-                .status(CommonStatusEnum.DISABLE.getStatus()).build();
+                .parentId(parentId).nodeType("FLOW").status(CommonStatusEnum.DISABLE.getStatus()).build();
         insertRoute(route);
         projectGuard.bindNewRoute(route.getId(), reqVO.getDccProjectCodeId());
         List<MesProRouteProcessDO> routeProcesses = new ArrayList<>();
@@ -258,6 +269,13 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
         refreshRouteVersionSnapshot(route, version.getId());
         MesProRouteVersionDO initialVersion = routeVersionMapper.selectById(version.getId());
+        if (template != null) {
+            JSONObject inherited = MesProRouteTreePatch.inherit(template, JSON.parseObject(initialVersion.getRouteSnapshotJson()));
+            MesProRouteVersionSnapshotIdentityWriter.apply(initialVersion, inherited.toJSONString());
+            var projection = routeTrees.getObject().projectInitialVersion(initialVersion);
+            MesProRouteVersionSnapshotIdentityWriter.apply(initialVersion, projection.rewrittenSnapshotJson());
+            if (routeVersionMapper.updateById(initialVersion) != 1) throw new IllegalStateException("继承初始配置保存失败");
+        }
         deviceIdentitySnapshots.captureCreated(initialVersion);
         if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(initialVersion.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
@@ -463,6 +481,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     @Override
     public void updateRouteStatus(Long id, Integer status) {
+        if ("GROUP".equals(validateRouteExists(id).getNodeType())) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("分组模板不参与生产，不能启用");
+        }
         // 1.1 校验存在
         MesProRouteDO route = validateRouteExists(id);
         // 1.2 启用时的校验
@@ -477,6 +498,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteRoute(Long id) {
+        routeTrees.getObject().assertDeletable(id);
         // Serialize deletion with new business binding to this route.
         MesProRouteDO route = routeMapper.selectByIdForUpdate(id);
         if (route == null) {

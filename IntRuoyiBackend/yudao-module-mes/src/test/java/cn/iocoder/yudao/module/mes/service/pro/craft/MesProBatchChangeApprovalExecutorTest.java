@@ -75,6 +75,30 @@ class MesProBatchChangeApprovalExecutorTest {
         assertNull(change.getApprovalProcessInstanceId());assertEquals(80L,change.getApprovalRequestId());
         assertTrue(candidates.stream().allMatch(v->"ACTIVE".equals(v.getLifecycleStatus())));
     }
+    @Test void parentAndFourDescendantsUseOneTreeApprovalRequestAndPublishTogether() {
+        populate(5);
+        change.setChangeType("TREE");
+        context = context.toBuilder().objectType("ROUTE_TREE_CHANGE")
+                .variables(Map.of("changeFingerprint", MesProBatchChangeApprovalExecutor.fingerprint(change))).build();
+        request = request.toBuilder().context(context).build();
+        executor.precheck(context);
+        executor.markPending(context, request);
+        assertTrue(candidates.stream().allMatch(v -> "PENDING_APPROVAL".equals(v.getLifecycleStatus())
+                && "one-process".equals(v.getApprovalProcessInstanceId())));
+        verify(crafts, never()).onRouteReady(any(), any());
+        executor.executeApproved(context, request, 8L);
+        assertTrue(candidates.stream().allMatch(v -> "ACTIVE".equals(v.getLifecycleStatus())));
+        verify(crafts, times(1)).onRouteReady(any(), eq(8L));
+    }
+    @Test void treeChangeCannotBypassApprovalUsingDirectPolicy() {
+        change.setChangeType("TREE");
+        context = context.toBuilder().objectType("ROUTE_TREE_CHANGE")
+                .variables(Map.of("changeFingerprint", MesProBatchChangeApprovalExecutor.fingerprint(change))).build();
+        request = request.toBuilder().context(context).processInstanceId(null).build();
+        assertThrows(RuntimeException.class, () -> executor.executeDirect(context, request));
+        verify(crafts, never()).onRouteReady(any(), any());
+        assertTrue(candidates.stream().allMatch(v -> "DRAFT".equals(v.getLifecycleStatus())));
+    }
     @Test void rejectionCancelsAllAndLateApprovalDoesNotPublish() {
         executor.markPending(context,request);executor.reject(context,request,8L,"需修订");
         assertEquals("CANCELLED",executor.executeApproved(context,request,8L).getResultState());

@@ -21,6 +21,12 @@ import lombok.*;
 @AllArgsConstructor
 public class MesProRouteDO extends BaseDO {
 
+    /** 树形归属仅影响配置管理，不改变已有流程配置与历史执行身份。 */
+    private Long parentId;
+
+    /** FLOW 为实际流程，GROUP 为只供继承与统一发布的分组模板。 */
+    private String nodeType;
+
     /**
      * 编号
      */
