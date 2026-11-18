@@ -347,8 +347,13 @@
         <el-table :data="impact.routes" max-height="260"
           ><el-table-column label="流程编号" prop="routeCode" /><el-table-column
             label="流程名称"
-            prop="routeName" /><el-table-column label="当前版本" prop="versionNo"
-        /></el-table>
+            prop="routeName" /><el-table-column label="版本" width="130">
+            <template #default="{ row }">{{ row.versionNo }} → {{ row.nextVersionNo }}</template>
+          </el-table-column>
+          <el-table-column label="车间 / 工序" min-width="200">
+            <template #default="{ row }"><div v-for="node in row.nodes" :key="node.routeProcessId">{{ node.workshopName || '未关联车间' }} / {{ node.processName || node.processId }}</div></template>
+          </el-table-column>
+        </el-table>
       </template>
     </template>
     <el-alert
@@ -391,7 +396,11 @@
         <el-descriptions-item label="修改前">{{ historyBefore?.code }} / {{ historyBefore?.name }}</el-descriptions-item>
         <el-descriptions-item label="影响路线">{{ sharedHistory?.routes?.length || 0 }} 条</el-descriptions-item>
       </el-descriptions>
-      <el-table :data="sharedHistory?.routes || []" max-height="400"><el-table-column prop="routeName" label="路线" /><el-table-column prop="versionNo" label="原版本" /><el-table-column prop="nextVersionNo" label="新版本" /></el-table>
+      <el-table :data="sharedHistoryDiff" max-height="260" class="mt-12px">
+        <el-table-column prop="label" label="修改内容" width="130" />
+        <el-table-column prop="before" label="修改前" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="after" label="修改后" min-width="200" show-overflow-tooltip />
+      </el-table>
     </template>
     <template v-else>
       <el-descriptions :column="1" border class="mt-12px"
@@ -406,10 +415,19 @@
           prop="before" /><el-table-column label="修改后" prop="after"
       /></el-table>
     </template>
+    <el-alert v-if="historyRoutesError" :title="historyRoutesError" type="error" :closable="false" class="mt-12px" />
+    <el-table v-if="historyRoutesLoading || historyRoutes.length" v-loading="historyRoutesLoading" :data="historyRoutes" max-height="320" class="mt-12px">
+      <el-table-column prop="routeCode" label="路线编码" min-width="180" />
+      <el-table-column prop="routeName" label="路线" min-width="180" />
+      <el-table-column prop="versionNo" label="原版本" width="90" />
+      <el-table-column prop="nextVersionNo" label="新版本" width="90" />
+      <el-table-column label="版本状态" width="110"><template #default="{row}">{{ historyRouteStatus(row.status) }}</template></el-table-column>
+    </el-table>
   </Dialog>
   <SharedChangeDialog ref="sharedChangeDialog" @submitted="load" />
 </template>
 <script setup lang="ts">
+import { changeDifferences } from '../shared/changeDifferences'
 import SharedChangeDialog from '@/views/mes/pro/shared/SharedChangeDialog.vue'
 const sharedChangeDialog = ref<InstanceType<typeof SharedChangeDialog>>()
 import { useElementBounding, useWindowSize } from '@vueuse/core'
@@ -630,7 +648,7 @@ const statusLabel = (s: string) =>
   (
     ({
       PREPARING: '准备中',
-      PENDING: '等待全部流程审批',
+      PENDING: '审批中',
       APPLYING: '统一生效中',
       APPLIED: '已生效',
       CANCELLED: '已作废'
@@ -685,6 +703,8 @@ const historyAfter = computed<Craft | undefined>(() =>
     : undefined
 )
 const sharedHistory = computed(() => history.value?.changeType === 'SHARED' && history.value.afterJson ? JSON.parse(history.value.afterJson) : undefined)
+const sharedHistoryDiff = computed(() => sharedHistory.value && history.value?.beforeJson
+  ? changeDifferences(JSON.parse(history.value.beforeJson), sharedHistory.value.data) : [])
 const historyDiff = computed(() =>
   diff(
     historyBefore.value?.parametersJson ? JSON.parse(historyBefore.value.parametersJson) : [],
@@ -817,11 +837,41 @@ async function cancelChange(change: CraftChange) {
     loading.value = false
   }
 }
-function showHistory(change: CraftChange) {
+const historyRoutes = ref<Awaited<ReturnType<typeof CraftApi.changeRoutes>>>([])
+const historyRoutesLoading = ref(false)
+const historyRoutesError = ref('')
+let historyRequest = 0
+const historyRouteStatus = (status: string) => ({DRAFT:'草稿',PENDING_APPROVAL:'审批中',READY_TO_PUBLISH:'待发布',ACTIVE:'已发布',SUPERSEDED:'已替代',REJECTED:'已驳回',CANCELLED:'已取消'}[status] || status)
+async function showHistory(change: CraftChange) {
+  const request = ++historyRequest
   history.value = change
   historyVisible.value = true
+  historyRoutes.value = []
+  historyRoutesError.value = ''
+  historyRoutesLoading.value = true
+  try {
+    const routes = await CraftApi.changeRoutes(change.id)
+    if (request === historyRequest) historyRoutes.value = routes
+  } catch (error) {
+    if (request === historyRequest) historyRoutesError.value = explain(error)
+  } finally {
+    if (request === historyRequest) historyRoutesLoading.value = false
+  }
 }
-onMounted(load)
+const route = useRoute()
+async function openRequestedChange() {
+  const id = route.query.changeId
+  if (typeof id !== 'string' || !id) return
+  const change = changes.value.find((item) => String(item.id) === id)
+  if (!change) {
+    error.value = '变更记录不存在或无权查看'
+    return
+  }
+  activeTab.value = 'changes'
+  await showHistory(change)
+}
+onMounted(async () => { await load(); await openRequestedChange() })
+watch(() => route.query.changeId, openRequestedChange)
 
 
 </script>

@@ -1691,7 +1691,7 @@
           v-model="activeOrderWorkOrderKeyword"
           class="team-leader-workbench__active-order-filter"
           clearable
-          placeholder="筛选生产订单号"
+          placeholder="筛选生产订单号或批次号"
           data-team-leader-active-order-work-order-filter
           @input="handleActiveOrderWorkOrderKeywordChange"
           @clear="handleActiveOrderWorkOrderKeywordChange"
@@ -1806,6 +1806,9 @@
                 </el-tag>
               </div>
             </template>
+          </el-table-column>
+          <el-table-column label="批次号" prop="batchCode" min-width="180">
+            <template #default="{ row }">{{ row.batchCode || '批次号缺失' }}</template>
           </el-table-column>
           <el-table-column label="产品名称" prop="productName" min-width="200" />
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
@@ -4705,6 +4708,7 @@ const activeOrderOperatorOptions: any[] = []
 const activeOrderWorkOrderKeyword = ref('')
 const activeOrderColumns: any[] = [
   { key: 'workOrderCode', label: '生产订单号', visible: true },
+  { key: 'batchCode', label: '批次号', visible: true },
   { key: 'productName', label: '产品名称', visible: true },
   { key: 'routeName', label: '路线名称', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
@@ -5006,7 +5010,8 @@ const filteredActiveOrderRows = computed(() => {
   const keyword = normalizedActiveOrderWorkOrderKeyword.value
   if (!keyword) return anchored
   return anchored.filter((order) =>
-    String(order.workOrderCode || '').toLowerCase().includes(keyword)
+    String(order.workOrderCode || '').toLowerCase().includes(keyword) ||
+    String(order.batchCode || '').toLowerCase().includes(keyword)
   )
 })
 const activeOrderTotal = computed(() => filteredActiveOrderRows.value.length)

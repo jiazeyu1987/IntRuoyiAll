@@ -68,6 +68,11 @@
               <span v-else>{{ row[column.key] }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            </template>
+          </el-table-column>
           <template #empty>
             <el-empty :description="loadError ? '查询失败，请重试' : '暂无符合条件的在制工单'" />
           </template>
@@ -81,6 +86,8 @@
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { computed, onActivated, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useTableQuickFilter,
@@ -96,6 +103,15 @@ import { resolveInProcessOrderStatus } from './inProcessOrderStatus'
 import { formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesInProcessOrder' })
+const router = useRouter()
+const openDetail = (row: InProcessOrder) => {
+  const activeOrderId = parsePositiveRouteQueryId(row.id)
+  if (!activeOrderId) throw new Error('活跃订单记录ID不能为空或不是有效的十进制整数')
+  return router.push({
+    name: 'MesInProcessOrderDetail',
+    params: { activeOrderId }
+  })
+}
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 20,

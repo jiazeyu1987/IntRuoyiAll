@@ -14,6 +14,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteProjectCreationTest {
+    @org.mockito.Mock private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
     @InjectMocks private MesProRouteServiceImpl service;
     @Mock private MesProRouteProjectGuard projectGuard;
     @Mock private MesProRouteMapper routeMapper;

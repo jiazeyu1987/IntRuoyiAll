@@ -9,6 +9,8 @@ public interface ErpKingdeePurchaseOrderClient {
 
     List<ErpKingdeePurchaseOrder> fetchPurchaseOrders(ErpKingdeeProperties properties);
 
+    List<ErpKingdeePurchaseOrder> fetchAllPurchaseOrders(ErpKingdeeProperties properties);
+
     List<ErpKingdeePurchaseOrder> fetchPurchaseOrdersModifiedBetween(ErpKingdeeProperties properties,
                                                                      LocalDateTime windowStart,
                                                                      LocalDateTime windowEnd);

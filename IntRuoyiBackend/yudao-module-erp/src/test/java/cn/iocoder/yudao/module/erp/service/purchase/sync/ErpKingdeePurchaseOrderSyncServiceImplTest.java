@@ -80,6 +80,21 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
     }
 
     @Test
+    void syncPurchaseOrders_observesStopBeforeWritingNextOrder() {
+        when(kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties))
+                .thenReturn(List.of(buildKingdeeOrder("10001", "PO20260512001", "MAT-001")));
+        Thread.currentThread().interrupt();
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.CancellationException.class,
+                    () -> syncService.syncPurchaseOrders());
+            verifyNoInteractions(purchaseOrderService, productMapper);
+            verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void syncPurchaseOrders_createsLocalPurchaseOrderAndRecord() {
         ErpKingdeePurchaseOrder kingdeeOrder = buildKingdeeOrder("10001", "PO20260512001", "MAT-001");
         when(kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties)).thenReturn(List.of(kingdeeOrder));
@@ -117,6 +132,32 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
     }
 
     @Test
+    void fullHistoryCreatesSourceDraftWithoutInventingSupplierMaterialOrUnit() {
+        var order = buildKingdeeOrder("158553", "test", "MAT-001");
+        order.setDocumentStatus("Z");
+        order.setSupplierNumber(null);
+        order.setSupplierName(null);
+        order.getLines().get(0).setMaterialNumber(null);
+        order.getLines().get(0).setMaterialName(null);
+        order.getLines().get(0).setUnitName(null);
+        order.getLines().get(0).setPriceUnitName(null);
+        when(kingdeePurchaseOrderClient.fetchAllPurchaseOrders(kingdeeProperties)).thenReturn(List.of(order));
+        when(purchaseOrderService.createPurchaseOrder(any())).thenReturn(501L);
+        var result = syncService.syncAllWithUpdates();
+        assertEquals(1, result.getCreatedCount());
+        assertEquals(0, result.getSkippedCount());
+        var request = ArgumentCaptor.forClass(ErpPurchaseOrderSaveReqVO.class);
+        verify(purchaseOrderService).createPurchaseOrder(request.capture());
+        org.junit.jupiter.api.Assertions.assertNull(request.getValue().getSupplierId());
+        org.junit.jupiter.api.Assertions.assertNull(request.getValue().getItems().get(0).getProductId());
+        org.junit.jupiter.api.Assertions.assertNull(request.getValue().getItems().get(0).getProductUnitId());
+        assertEquals(order.getLines().get(0).getPrice(), request.getValue().getItems().get(0).getProductPrice());
+        verify(purchaseOrderService, never()).updatePurchaseOrderStatus(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(supplierMapper, supplierSyncRecordMapper, productMapper, productUnitMapper);
+        verify(syncRecordMapper).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
+    }
+
+    @Test
     void syncPurchaseOrders_updatesExistingSourceRecord() {
         ErpKingdeePurchaseOrder kingdeeOrder = buildKingdeeOrder("10001", "PO20260512001", "MAT-001");
         when(kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties)).thenReturn(List.of(kingdeeOrder));
@@ -126,6 +167,25 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
                 .thenReturn(new ErpPurchaseOrderDO().setId(501L).setStatus(ErpAuditStatus.PROCESS.getStatus()));
 
         ErpKingdeePurchaseOrderSyncResult result = syncService.syncPurchaseOrders();
+
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(0, result.getSkippedCount());
+        verify(purchaseOrderService, never()).createPurchaseOrder(any());
+        verify(purchaseOrderService).updatePurchaseOrder(any(ErpPurchaseOrderSaveReqVO.class));
+        verify(syncRecordMapper, never()).insert(any(ErpKingdeePurchaseOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncAllWithUpdates_readsFullHistoryAndUpdatesExistingSourceRecord() {
+        ErpKingdeePurchaseOrder kingdeeOrder = buildKingdeeOrder("10001", "PO20260512001", "MAT-001");
+        when(kingdeePurchaseOrderClient.fetchAllPurchaseOrders(kingdeeProperties)).thenReturn(List.of(kingdeeOrder));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, "10001"))
+                .thenReturn(new ErpKingdeePurchaseOrderSyncRecordDO().setId(301L).setPurchaseOrderId(501L));
+        when(purchaseOrderService.getPurchaseOrder(501L))
+                .thenReturn(new ErpPurchaseOrderDO().setId(501L).setStatus(ErpAuditStatus.PROCESS.getStatus()));
+
+        ErpKingdeePurchaseOrderSyncResult result = syncService.syncAllWithUpdates();
 
         assertEquals(0, result.getCreatedCount());
         assertEquals(1, result.getUpdatedCount());
@@ -273,6 +333,60 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         verify(productCategoryMapper).insert(any(ErpProductCategoryDO.class));
         verify(productUnitMapper).insert(any(ErpProductUnitDO.class));
         verify(productMapper).insert(any(ErpProductDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    void sourceAmountDifferencesArePreservedAndReportedOnCreateAndUpdate(boolean updating, boolean headerOnly) {
+        var source = buildKingdeeOrder("264222", "881CGDD31637", "MAT-001");
+        source.setTotalProductAmount(BigDecimal.ZERO);
+        source.setTotalTaxAmount(BigDecimal.ZERO);
+        source.setTotalAmount(new BigDecimal("448.25"));
+        source.getLines().get(0).setNetAmount(BigDecimal.ZERO);
+        source.getLines().get(0).setTaxAmount(BigDecimal.ZERO);
+        source.getLines().get(0).setTotalAmount(headerOnly ? BigDecimal.ZERO : new BigDecimal("448.25"));
+        when(kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties)).thenReturn(List.of(source));
+        if (updating) {
+            when(syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, "264222"))
+                    .thenReturn(new ErpKingdeePurchaseOrderSyncRecordDO().setId(301L).setPurchaseOrderId(501L));
+            when(purchaseOrderService.getPurchaseOrder(501L))
+                    .thenReturn(new ErpPurchaseOrderDO().setId(501L).setStatus(ErpAuditStatus.PROCESS.getStatus()));
+        } else {
+            when(purchaseOrderService.createPurchaseOrder(any(ErpPurchaseOrderSaveReqVO.class))).thenReturn(501L);
+        }
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ErpKingdeePurchaseOrderSyncServiceImpl.class);
+        var logs = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        logs.start();
+        logger.addAppender(logs);
+        try {
+            var result = syncService.syncPurchaseOrders();
+            assertEquals(updating ? 0 : 1, result.getCreatedCount());
+            assertEquals(updating ? 1 : 0, result.getUpdatedCount());
+            var request = ArgumentCaptor.forClass(ErpPurchaseOrderSaveReqVO.class);
+            var record = ArgumentCaptor.forClass(ErpKingdeePurchaseOrderSyncRecordDO.class);
+            if (updating) {
+                verify(purchaseOrderService).updatePurchaseOrder(request.capture());
+                verify(syncRecordMapper).updateById(record.capture());
+            } else {
+                verify(purchaseOrderService).createPurchaseOrder(request.capture());
+                verify(syncRecordMapper).insert(record.capture());
+            }
+            assertEquals(BigDecimal.ZERO, request.getValue().getKingdeeAmounts().getProductAmount());
+            assertEquals(BigDecimal.ZERO, request.getValue().getKingdeeAmounts().getTaxAmount());
+            assertEquals(new BigDecimal("448.25"), request.getValue().getKingdeeAmounts().getTotalAmount());
+            var persistedSource = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                    record.getValue().getRawPayload(), ErpKingdeePurchaseOrder.class);
+            assertEquals(new BigDecimal("448.25"), persistedSource.getTotalAmount());
+            assertEquals(source.getLines().get(0).getTotalAmount(), persistedSource.getLines().get(0).getTotalAmount());
+            assertEquals(1, logs.list.stream().filter(event -> event.getLevel() == ch.qos.logback.classic.Level.WARN
+                    && event.getFormattedMessage().contains("采购ERP原值快照金额差异")
+                    && event.getFormattedMessage().contains("264222")
+                    && event.getFormattedMessage().contains("881CGDD31637")
+                    && event.getFormattedMessage().contains("448.25")).count());
+        } finally {
+            logger.detachAppender(logs);
+            logs.stop();
+        }
     }
 
     private static ErpKingdeeProperties buildConfiguredProperties() {

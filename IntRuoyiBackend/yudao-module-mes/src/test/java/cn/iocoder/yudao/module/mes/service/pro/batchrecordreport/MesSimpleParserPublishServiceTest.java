@@ -395,8 +395,9 @@ class MesSimpleParserPublishServiceTest {
         JSONObject production=saved.getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertNotNull(production.getLong("craftId"));assertEquals(25,production.getJSONArray("parameterRules").getJSONObject(0).getIntValue("defaultValue"));
         assertTrue(saved.getJSONArray("batchUseConfigs").getJSONObject(0).getJSONArray("formBindings").isEmpty());
-        for (Object value : saved.getJSONArray("batchUseConfigs")) {
-            JSONObject batch = (JSONObject) value;
+        JSONArray batches = saved.getJSONArray("batchUseConfigs");
+        for (int i = 0; i < batches.size(); i++) {
+            JSONObject batch = batches.getJSONObject(i);
             assertEquals("SEQUENTIAL", batch.getString("executionMode"));
             assertFalse(batch.getBooleanValue("enabled"));
         }
@@ -431,8 +432,9 @@ class MesSimpleParserPublishServiceTest {
         verify(workstations).bindMachinery(901L,Set.of());
         var capture=org.mockito.ArgumentCaptor.forClass(Map.class);
         verify(configs).saveConfigSnapshots(eq(21L),eq("snapshot"),capture.capture());
-        for (Object raw:((JSONObject)JSON.toJSON(capture.getValue())).getJSONArray("productionProcessConfigs")) {
-            var config=(JSONObject)raw;
+        JSONArray productions = ((JSONObject)JSON.toJSON(capture.getValue())).getJSONArray("productionProcessConfigs");
+        for (int i = 0; i < productions.size(); i++) {
+            var config = productions.getJSONObject(i);
             assertTrue(config.getJSONArray("deviceSelectionGroups").isEmpty());
             assertTrue(config.getJSONArray("parameterRules").isEmpty());
         }

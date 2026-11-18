@@ -66,15 +66,15 @@ public class KingdeeSaleOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHa
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeSaleOrderSyncResult result = windowStart == null ? saleOrderSyncService.syncSaleOrders()
+            ErpKingdeeSaleOrderSyncResult result = windowStart == null ? saleOrderSyncService.syncAllWithUpdates()
                     : saleOrderSyncService.syncSaleOrdersFullSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeeSaleOrderSyncResult result = resultReference.get();
-        return String.format("ERP sale order full sync: created=%d, skipped=%d",
-                result.getCreatedCount(), result.getSkippedCount());
+        return String.format("ERP sale order full sync: created=%d, updated=%d, skipped=%d",
+                result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
     }
 
 }

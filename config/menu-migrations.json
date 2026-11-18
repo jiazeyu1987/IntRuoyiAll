@@ -4477,6 +4477,48 @@
       "kind": "permission",
       "value": "mes:pro-route:version-submit",
       "reason": "共享资料统一变更复用工序、工艺、设备现有修改权限，并按原有路线版本创建、编辑、提交权限控制整批升版；沿用现有菜单、角色和租户套餐授权，无新增权限及菜单。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesTeamLeaderActiveOrderProductionMaterialController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderSignatureEvidenceController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderDossierFileController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/inprocess/MesInProcessOrderReadScope.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单详情复用既有在制工单查询权限，允许当前登录用户只读查看当前租户活跃工单及关联用料、审计、签名、资料；不增加维护权限、独立菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "reason": "在制工单列表新增内部活跃工单只读详情路由，复用详情组件及现有 mes:pro-in-process-order:query 权限与列表菜单，不新增独立菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "49d2e56ff81f0e266aaae710c3cf7a13cff056ad7cf06d9807c6c7805f106224",
+      "reason": "在制工单列表新增内部活跃工单只读详情路由，复用详情组件及现有 mes:pro-in-process-order:query 权限与列表菜单，不新增独立菜单、权限标识、角色或租户套餐授权。"
     }
   ]
 }

@@ -141,6 +141,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+    @Resource
     private MesProRouteProductBomMapper routeProductBomMapper;
     @Resource
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
@@ -256,6 +258,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
         refreshRouteVersionSnapshot(route, version.getId());
         MesProRouteVersionDO initialVersion = routeVersionMapper.selectById(version.getId());
+        deviceIdentitySnapshots.captureCreated(initialVersion);
         if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(initialVersion.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
         }
@@ -399,6 +402,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         copyRouteFlowConfigs(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
         routeProcessFlowService.copyGraph(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
         refreshRouteVersionSnapshot(targetRoute, targetVersion.getId(), inheritedRouteLevelConfigSnapshots);
+        deviceIdentitySnapshots.captureCreated(routeVersionMapper.selectById(targetVersion.getId()));
         registerActiveVersionRef(targetVersion);
         return targetRoute.getId();
     }
@@ -584,6 +588,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private MesProRouteVersionDO createInitialRouteVersion(MesProRouteDO route) {
         MesProRouteVersionDO activeVersion = createRouteVersion(route, "V1", null);
+        deviceIdentitySnapshots.captureCreated(activeVersion);
         registerActiveVersionRef(activeVersion);
         return activeVersion;
     }
@@ -612,6 +617,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (draftCandidate != null) {
             copyExistingProcessScheduleConfigs(activeVersion.getId(), draftCandidate.getId(), routeId);
             refreshRouteVersionSnapshot(route, draftCandidate.getId());
+            deviceIdentitySnapshots.captureDraft(draftCandidate.getId());
             return;
         }
         MesProRouteVersionDO newVersion = createDraftCandidateRouteVersion(route, activeVersion);
@@ -651,6 +657,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO candidate = createRouteVersion(route, nextVersionNo(route.getId()), activeVersion.getId(),
                 Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT,
                 buildCompleteRouteConfigSnapshots(route.getId(), activeVersion.getId()));
+        deviceIdentitySnapshots.captureCreated(candidate);
         platformAdapter.recordCandidateCreated(activeVersion, candidate, null, "route version candidate created");
         return candidate;
     }
@@ -961,6 +968,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                                              JSONObject inheritedConfigSnapshots) {
         JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, "sharedSourceSnapshots");
         if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey("lossCoefficient")) {
             configSnapshots.put("lossCoefficient", MesRouteLossCoefficient.read(inheritedConfigSnapshots));
         }
@@ -1013,6 +1021,13 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 resolveExistingConfigSnapshot(routeVersionId, ROUTE_START_PRODUCTION_LEADERS_KEY);
         if (routeStartProductionLeaders != null) {
             configSnapshots.put(ROUTE_START_PRODUCTION_LEADERS_KEY, routeStartProductionLeaders);
+        }
+        Object sharedSourceSnapshots = resolveExistingConfigSnapshot(routeVersionId, "sharedSourceSnapshots");
+        if (sharedSourceSnapshots != null) {
+            if (!(sharedSourceSnapshots instanceof JSONObject)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            configSnapshots.put("sharedSourceSnapshots", sharedSourceSnapshots);
         }
         return configSnapshots;
     }

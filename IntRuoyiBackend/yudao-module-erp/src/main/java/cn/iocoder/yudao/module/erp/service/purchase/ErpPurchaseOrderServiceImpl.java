@@ -67,7 +67,9 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         // 1.1 校验订单项的有效性
         List<ErpPurchaseOrderItemDO> purchaseOrderItems = validatePurchaseOrderItems(createReqVO);
         // 1.2 校验供应商
-        supplierService.validateSupplier(createReqVO.getSupplierId());
+        if (createReqVO.getKingdeeAmounts() == null || createReqVO.getSupplierId() != null) {
+            supplierService.validateSupplier(createReqVO.getSupplierId());
+        }
         // 1.3 校验结算账户
         if (createReqVO.getAccountId() != null) {
             accountService.validateAccount(createReqVO.getAccountId());
@@ -98,7 +100,9 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
             throw exception(PURCHASE_ORDER_UPDATE_FAIL_APPROVE, purchaseOrder.getNo());
         }
         // 1.2 校验供应商
-        supplierService.validateSupplier(updateReqVO.getSupplierId());
+        if (updateReqVO.getKingdeeAmounts() == null || updateReqVO.getSupplierId() != null) {
+            supplierService.validateSupplier(updateReqVO.getSupplierId());
+        }
         // 1.3 校验结算账户
         if (updateReqVO.getAccountId() != null) {
             accountService.validateAccount(updateReqVO.getAccountId());
@@ -110,6 +114,11 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         ErpPurchaseOrderDO updateObj = BeanUtils.toBean(updateReqVO, ErpPurchaseOrderDO.class);
         calculateTotalPrice(updateObj, purchaseOrderItems, updateReqVO.getKingdeeAmounts());
         purchaseOrderMapper.updateById(updateObj);
+        if (updateReqVO.getKingdeeAmounts() != null && updateReqVO.getSupplierId() == null) {
+            // MyBatis normally ignores null fields; an ERP source clearing its supplier must clear it locally.
+            purchaseOrderMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpPurchaseOrderDO>()
+                    .eq(ErpPurchaseOrderDO::getId, updateReqVO.getId()).set(ErpPurchaseOrderDO::getSupplierId, null));
+        }
         // 2.2 更新订单项
         updatePurchaseOrderItemList(updateReqVO.getId(), purchaseOrderItems);
     }
@@ -120,7 +129,7 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         purchaseOrder.setTotalTaxPrice(getSumValue(purchaseOrderItems, ErpPurchaseOrderItemDO::getTaxPrice, BigDecimal::add, BigDecimal.ZERO));
         purchaseOrder.setTotalPrice(purchaseOrder.getTotalProductPrice().add(purchaseOrder.getTotalTaxPrice()));
         if (source != null) {
-            source.validate(purchaseOrderItems.size());
+            source.validateSourceSnapshot(purchaseOrderItems.size());
             purchaseOrder.setTotalProductPrice(source.getProductAmount());
             purchaseOrder.setTotalTaxPrice(source.getTaxAmount());
             purchaseOrder.setTotalPrice(source.getTotalAmount());
@@ -165,17 +174,34 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
 
     private List<ErpPurchaseOrderItemDO> validatePurchaseOrderItems(ErpPurchaseOrderSaveReqVO req) {
         List<ErpPurchaseOrderSaveReqVO.Item> list = req.getItems();
-        if (req.getKingdeeAmounts() != null) { req.getKingdeeAmounts().validate(list.size()); }
-        Map<Long, ErpProductUnitDO> units =
-                productUnitService.getProductUnitMap(convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductUnitId));
+        if (req.getKingdeeAmounts() != null) { req.getKingdeeAmounts().validateSourceSnapshot(list.size()); }
+        java.util.Set<Long> unitIds = list.stream().map(ErpPurchaseOrderSaveReqVO.Item::getProductUnitId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        // Source drafts may contain no selected unit; an empty IN query is invalid SQL.
+        Map<Long, ErpProductUnitDO> units = unitIds.isEmpty()
+                ? Collections.emptyMap() : productUnitService.getProductUnitMap(unitIds);
         for (ErpPurchaseOrderSaveReqVO.Item item : list) {
+            if (req.getKingdeeAmounts() != null && item.getProductUnitId() == null) {
+                continue;
+            }
             if (item.getProductUnitId() == null || !units.containsKey(item.getProductUnitId())) {
                 throw exception(PRODUCT_UNIT_NOT_EXISTS);
             }
         }
         // 1. 校验产品存在
-        productService.validProductList(
-                convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductId));
+        if (req.getKingdeeAmounts() == null) {
+            productService.validProductList(convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductId));
+        } else {
+            // ERP 历史快照可以引用已停用物料，导入不改变物料状态。
+            for (Long productId : convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductId)) {
+                if (productId == null) {
+                    continue; // Preserve an unselected material on a trusted ERP source line.
+                }
+                if (productService.getProduct(productId) == null) {
+                    throw exception(PRODUCT_NOT_EXISTS);
+                }
+            }
+        }
         // 2. 转化为 ErpPurchaseOrderItemDO 列表
         List<ErpPurchaseOrderItemDO> result = convertList(list, o -> BeanUtils.toBean(o, ErpPurchaseOrderItemDO.class, item -> {
             item.setProductUnitId(o.getProductUnitId());

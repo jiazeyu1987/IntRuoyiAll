@@ -190,8 +190,16 @@ public class ErpSaleOrderServiceImpl implements ErpSaleOrderService {
             }
         }
         // 1. 校验产品存在
-        productService.validProductList(
-                convertSet(list, ErpSaleOrderSaveReqVO.Item::getProductId));
+        if (req.getKingdeeAmounts() == null) {
+            productService.validProductList(convertSet(list, ErpSaleOrderSaveReqVO.Item::getProductId));
+        } else {
+            // ERP 历史快照可以引用已停用物料，导入不改变物料状态。
+            for (Long productId : convertSet(list, ErpSaleOrderSaveReqVO.Item::getProductId)) {
+                if (productService.getProduct(productId) == null) {
+                    throw exception(PRODUCT_NOT_EXISTS);
+                }
+            }
+        }
         // 2. 转化为 ErpSaleOrderItemDO 列表
         List<ErpSaleOrderItemDO> result = convertList(list, o -> BeanUtils.toBean(o, ErpSaleOrderItemDO.class, item -> {
             item.setProductUnitId(o.getProductUnitId());

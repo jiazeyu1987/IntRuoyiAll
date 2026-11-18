@@ -66,15 +66,15 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler, ErpKingdeeFullSy
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeePurchaseOrderSyncResult result = windowStart == null ? purchaseOrderSyncService.syncPurchaseOrders()
+            ErpKingdeePurchaseOrderSyncResult result = windowStart == null ? purchaseOrderSyncService.syncAllWithUpdates()
                     : purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeePurchaseOrderSyncResult result = resultReference.get();
-        return String.format("ERP purchase order full sync: created=%d, skipped=%d",
-                result.getCreatedCount(), result.getSkippedCount());
+        return String.format("ERP purchase order full sync: created=%d, updated=%d, skipped=%d",
+                result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
     }
 
 }

@@ -3,7 +3,7 @@ const fs = require('node:fs'),
   path = require('node:path'),
   test = require('node:test'),
   ts = require('typescript')
-const { ref } = require('vue'),
+const { ref, computed, reactive } = require('vue'),
   { parse } = require('vue/compiler-sfc')
 const read = (file) => fs.readFileSync(path.resolve(__dirname, '../../', file), 'utf8')
 const source = read('src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue')
@@ -38,7 +38,8 @@ function setup({ materials, detail } = {}) {
     calls = [],
     messages = [],
     workOrderCalls = []
-  const route = { params: { activeOrderId: '1009200437' }, query: {} }
+  const route = reactive({ name: 'MesProcessPoolActiveOrderSubmissionDetail', params: { activeOrderId: '1009200437' }, query: {} })
+  const navigations = []
   let unmount
   const deps = {
     parsePositiveRouteQueryId,
@@ -46,11 +47,12 @@ function setup({ materials, detail } = {}) {
     onMounted() {},
     watch() {},
     ref,
+    computed,
     onBeforeUnmount(fn) {
       unmount = fn
     },
     useRoute: () => route,
-    useRouter: () => ({ back() {} }),
+    useRouter: () => ({ back() {}, push: target => navigations.push(target) }),
     ElMessage: {
       error(msg) {
         messages.push(msg)
@@ -71,10 +73,18 @@ function setup({ materials, detail } = {}) {
   }
   const state = Function(
     ...Object.keys(deps),
-    `${js}; return { loadDetail, loading, detail, sourceWorkOrder, productionMaterialLists, productionMaterialListLoading, productionMaterialListError, error }`
+    `${js}; return { goBack, handoffReadOnly, loadDetail, loading, detail, sourceWorkOrder, productionMaterialLists, productionMaterialListLoading, productionMaterialListError, error }`
   )(...Object.values(deps))
-  return { state, pending, calls, messages, workOrderCalls, route, unmount: () => unmount() }
+  return { state, pending, calls, messages, workOrderCalls, route, navigations, unmount: () => unmount() }
 }
+test('in-process detail is always read-only and returns to its own list', () => {
+  const s = setup()
+  assert.equal(s.state.handoffReadOnly.value, false)
+  s.route.name = 'MesInProcessOrderDetail'
+  assert.equal(s.state.handoffReadOnly.value, true)
+  s.state.goBack()
+  assert.deepEqual(s.navigations, ['/mes/pro/in-process-order'])
+})
 for (const outcome of ['empty', 'rows', 'error'])
   test(`main detail usable before scoped material request completes: ${outcome}`, async () => {
     const { state: s, pending, calls, messages } = setup()

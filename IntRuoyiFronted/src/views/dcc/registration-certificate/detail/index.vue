@@ -369,7 +369,7 @@ import EvidencePanel from '../history/EvidencePanel.vue'
 import { parseFacts } from '../shared/facts'
 import ChangeConfirmationsPanel from '../components/ChangeConfirmationsPanel.vue'
 import RequestDetailPanel from '../approval/RequestDetailPanel.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
@@ -409,6 +409,8 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+// Keep-alive instances must only load for the route that owns this instance.
+const detailPagePath = route.path
 const message = useMessage()
 const REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX = 'DCC_REG_CERT_ACCESS:'
 const approvalRequestId=computed(()=>parsePositiveRouteQueryId(route.query.requestId))
@@ -715,7 +717,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
-const loadDownloadGrantStatuses = async () => {
+const loadDownloadGrantStatuses = async (isCurrent: () => boolean) => {
   downloadAuthorizedFileIds.value = new Set()
   requestPendingFileIds.value = new Set()
   const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
@@ -723,6 +725,7 @@ const loadDownloadGrantStatuses = async () => {
     return
   }
   const statuses = await getRegistrationCertificateFileDownloadGrantStatuses(businessFileIds)
+  if (!isCurrent()) return
   downloadAuthorizedFileIds.value = new Set(
     statuses
       .filter((status) => status.canDownload)
@@ -735,7 +738,7 @@ const loadDownloadGrantStatuses = async () => {
   )
 }
 
-const resolveCertificateIdForDetail = async () => {
+const resolveCertificateIdForDetail = async (isCurrent: () => boolean) => {
   if (routeCertificateId.value) {
     return routeCertificateId.value
   }
@@ -743,6 +746,7 @@ const resolveCertificateIdForDetail = async () => {
     return ''
   }
   const status = await getRegistrationCertificateAccessRequestStatus(accessRequestId.value)
+  if (!isCurrent()) return ''
   const resolvedCertificateId = parsePositiveRouteQueryId(status.certificateId)
   if (!resolvedCertificateId) {
     routeIdentityError.value = '注册证访问申请缺少正式注册证身份，无法加载详情'
@@ -752,22 +756,48 @@ const resolveCertificateIdForDetail = async () => {
   return resolvedCertificateId
 }
 
-const loadDetail = async () => {
-  if(approvalRequestId.value && approvalProcessInstanceId.value)return
+const loadDetail = async (isCurrent: () => boolean) => {
   routeIdentityError.value = ''
   accessRequestCertificateId.value = ''
+  detail.value = undefined
+  history.value = []
+  downloadAuthorizedFileIds.value = new Set()
+  requestPendingFileIds.value = new Set()
+  loading.value = false
+  if (approvalRequestId.value && approvalProcessInstanceId.value) return
   if (invalidRoute.value) return
+  const versionId = detailVersionId.value
   loading.value = true
   try {
-    const resolvedCertificateId = await resolveCertificateIdForDetail()
-    if (!resolvedCertificateId) return
-    detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
-    history.value = await getRegistrationCertificateHistory(resolvedCertificateId, detail.value.versionId)
-    await loadDownloadGrantStatuses()
+    const resolvedCertificateId = await resolveCertificateIdForDetail(isCurrent)
+    if (!resolvedCertificateId || !isCurrent()) return
+    const loadedDetail = await getRegistrationCertificateDetail(resolvedCertificateId, versionId)
+    if (!isCurrent()) return
+    detail.value = loadedDetail
+    const loadedHistory = await getRegistrationCertificateHistory(resolvedCertificateId, loadedDetail.versionId)
+    if (!isCurrent()) return
+    history.value = loadedHistory
+    await loadDownloadGrantStatuses(isCurrent)
+  } catch (error) {
+    if (isCurrent()) {
+      routeIdentityError.value = `注册证详情加载失败：${error instanceof Error ? error.message : String(error)}`
+    }
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
+
+// Approval material and formal detail share a path; query changes do not remount it.
+watch(
+  [() => route.fullPath, () => props.id],
+  (_value, _oldValue, onCleanup) => {
+    let current = true
+    onCleanup(() => { current = false })
+    if (route.path !== detailPagePath) return
+    void loadDetail(() => current)
+  },
+  { immediate: true }
+)
 
 const updateViewportWidth = () => {
   viewportWidth.value = window.innerWidth
@@ -775,7 +805,6 @@ const updateViewportWidth = () => {
 
 onMounted(() => {
   window.addEventListener('resize', updateViewportWidth)
-  void loadDetail()
 })
 
 onBeforeUnmount(() => {

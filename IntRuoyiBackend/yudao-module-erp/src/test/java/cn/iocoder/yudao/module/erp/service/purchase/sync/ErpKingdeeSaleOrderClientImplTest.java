@@ -20,6 +20,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeeSaleOrderClientImplTest {
 
     @Test
+    void malformedPageIncludesSourceErrorAndOffset() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("[[{\"Result\":{\"ResponseStatus\":{\"Errors\":[{\"Message\":\"source query failed\"}]}}}]]", MediaType.APPLICATION_JSON));
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> new ErpKingdeeSaleOrderClientImpl(rest).fetchSaleOrders(buildProperties("https://k3.example.com/K3Cloud")));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("startRow=0"));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("source query failed"));
+        server.verify();
+    }
+
+    @Test
     void fetchSaleOrders_groupsRowsByFid() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

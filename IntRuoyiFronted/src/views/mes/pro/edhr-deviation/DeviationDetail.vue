@@ -134,7 +134,8 @@
               <div>
                 <dt>关联不合格评审</dt>
                 <dd>
-                  <el-button size="default"
+                  <el-button
+                    size="default"
                     v-if="detail.nonconformanceReviewId"
                     link
                     type="primary"
@@ -148,7 +149,7 @@
               <div>
                 <dt>评审处置</dt>
                 <dd>
-                  {{ detail.nonconformanceDisposition || detail.nonconformanceReviewStatus || "—" }}
+                  {{ resolveNcrDisposition(detail.nonconformanceDisposition || detail.nonconformanceReviewStatus) }}
                 </dd>
               </div>
               <div>
@@ -222,7 +223,8 @@
             </div>
           </section>
           <div v-if="detail.status === 'OPEN' && detail.level === 'CRITICAL' && !props.readonly" class="mt-12px">
-            <el-button size="default"
+            <el-button
+              size="default"
               v-hasPermi="['mes:pro-edhr-nonconformance-review:deviation-create']"
 
               :disabled="detail.canTransferToNcr !== true"
@@ -627,6 +629,8 @@ const closedMessage = computed(() => detail.value?.closeReason === 'TRANSFERRED_
     ? '偏差已常规闭环'
     : '偏差已关闭')
 const resolveNcrDisposition = (disposition?: string) => {
+  if (disposition === 'pending_review') return '待评审'
+  if (disposition === 'closed') return '已关闭'
   if (disposition === 'concession_release') return '让步放行'
   if (disposition === 'rework') return '返工'
   if (disposition === 'void') return '作废'

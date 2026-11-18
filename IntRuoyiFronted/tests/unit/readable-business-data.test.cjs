@@ -521,6 +521,8 @@ test('correction history renders human verification while exact evidence referen
   const app = Vue.createSSRApp({
     setup: () => ({
       context: {}, history: { state: { visible: true, timeline: { corrections: [row] } }, open() {}, close() {} },
+      businessValueLabel: load('src/views/mes/pro/processpool/components/businessEvidenceDisplay.ts').businessValueLabel,
+      verificationStatusLabel: load('src/views/mes/pro/processpool/components/activeOrderDisplayLabels.ts').verificationStatusLabel,
       formatDateTimeValue: (value) => value
     }),
     render: exports.render
@@ -541,4 +543,7 @@ test('correction history renders human verification while exact evidence referen
   assert.match(main, /核对人员/)
   assert.match(main, /&lt;核对计数&gt;/)
   assert.doesNotMatch(main, /PRODUCTION_SUBMIT|>VALID</)
+  assert.match(references, /生产提交/)
+  assert.match(references, /核验通过/)
+  assert.doesNotMatch(references, />PRODUCTION_SUBMIT<|>VALID</)
 })

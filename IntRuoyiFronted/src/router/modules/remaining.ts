@@ -2182,6 +2182,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/in-process-order/:activeOrderId/detail',
+        component: () => import('@/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'),
+        name: 'MesInProcessOrderDetail',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '活跃工单详情',
+          activeMenu: '/mes/pro/in-process-order',
+          permission: ['mes:pro-in-process-order:query']
+        }
+      },
+      {
         path: 'pro/process-pool/active-order/:activeOrderId/submission-detail',
         component: () => import('@/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'),
         name: 'MesProcessPoolActiveOrderSubmissionDetail',

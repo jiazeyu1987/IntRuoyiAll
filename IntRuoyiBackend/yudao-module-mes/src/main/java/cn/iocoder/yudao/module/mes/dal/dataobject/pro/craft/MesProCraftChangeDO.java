@@ -14,4 +14,7 @@ public class MesProCraftChangeDO extends BaseDO {
     private String candidateIdsJson;
     private String candidateHashesJson;
     private String reason;
+    private String approvalScope;
+    private Long approvalRequestId;
+    private String approvalProcessInstanceId;
 }

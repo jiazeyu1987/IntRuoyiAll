@@ -17,6 +17,27 @@ function load(file, imports = {}) {
 }
 const { parseExactIntegerJson } = load('src/utils/exactIntegerJson.ts')
 const { readBusinessEvidence } = load(base + 'businessEvidenceDisplay.ts', { parseExactIntegerJson })
+const { verificationStatusLabel, nonconformanceDispositionLabel, pickDocumentStatusLabel } = load(base + 'activeOrderDisplayLabels.ts')
+
+test('active order statuses display Chinese and reject unmapped English states', () => {
+  assert.equal(verificationStatusLabel('VALID'), '核验通过')
+  assert.equal(verificationStatusLabel('INCOMPLETE'), '证据不完整')
+  assert.equal(verificationStatusLabel('MISMATCH'), '核验不一致')
+  assert.equal(nonconformanceDispositionLabel('rework'), '返工')
+  assert.equal(nonconformanceDispositionLabel('pending_review'), '待评审')
+  assert.equal(pickDocumentStatusLabel('C'), '已审核')
+  assert.equal(pickDocumentStatusLabel('已审核'), '已审核')
+  assert.throws(() => verificationStatusLabel('NEW_STATUS'), /核验状态缺少中文描述/)
+})
+
+test('evidence translates status descriptions while preserving business codes', () => {
+  const result = readBusinessEvidence(JSON.stringify({
+    verificationStatus: 'VALID', eventType: 'PQC_INSPECTION', disposition: 'rework',
+    actionCode: 'QA_DISPOSITION', workOrderCode: 'SIM-COPY-001'
+  }))
+  assert.equal(result.error, '')
+  assert.deepEqual(result.rows.map(row => row.value), ['核验通过', '过程质量检验', '返工', '质量保证处置', 'SIM-COPY-001'])
+})
 test('nested hashes are omitted while business values and exact IDs remain', () => {
   const result = readBusinessEvidence('{"contentHash":"secret","businessContent":{"quantity":12,"evidenceHash":"secret","userId":9223372036854775806}}')
   assert.equal(result.error, '')

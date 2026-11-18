@@ -133,7 +133,8 @@ public class MesActiveOrderDossierReadScopeService {
             requireApplication(app, active, tenant);
             require(Objects.equals(row.getApplicationId(), app.getId()), "资料文件与申请身份不一致。");
         }
-        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))) {
+        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active)
+                || cn.iocoder.yudao.module.mes.service.pro.inprocess.MesInProcessOrderReadScope.canRead(permissionApi, actor, active))) {
             return;
         }
         if (permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload")

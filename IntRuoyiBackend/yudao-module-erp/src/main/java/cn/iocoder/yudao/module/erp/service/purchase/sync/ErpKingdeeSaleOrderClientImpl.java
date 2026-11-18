@@ -78,22 +78,38 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
 
     @Override
     public List<ErpKingdeeSaleOrder> fetchSaleOrders(ErpKingdeeProperties properties) {
+        return fetchSaleOrders(properties, false);
+    }
+
+    @Override
+    public List<ErpKingdeeSaleOrder> fetchAllSaleOrders(ErpKingdeeProperties properties) {
+        return fetchSaleOrders(properties, true);
+    }
+
+    private List<ErpKingdeeSaleOrder> fetchSaleOrders(ErpKingdeeProperties properties, boolean fullHistory) {
         properties.validateSaleOrderSyncConfig();
         String cookieHeader = login(properties);
         int startRow = 0;
         int pageLimit = Math.min(PAGE_LIMIT, properties.getSaleOrder().getQueryLimit());
         Map<String, ErpKingdeeSaleOrder> orderMap = new LinkedHashMap<>();
         while (true) {
-            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit);
+            long started = System.nanoTime();
+            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit, fullHistory);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder response is not an array");
             }
+            org.slf4j.LoggerFactory.getLogger(ErpKingdeeSaleOrderClientImpl.class).info(
+                    "SAL_SaleOrder query completed: fullHistory={}, offset={}, limit={}, rows={}, elapsedMs={}",
+                    fullHistory, startRow, pageLimit, rows.size(), (System.nanoTime() - started) / 1_000_000);
             if (rows.isEmpty()) {
                 break;
             }
             for (JsonNode row : rows) {
                 if (!row.isArray() || row.size() < FIELD_COUNT) {
-                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "SAL_SaleOrder row field count mismatch");
+                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                            "SAL_SaleOrder row field count mismatch: startRow=" + startRow
+                                    + ", expected=" + FIELD_COUNT + ", actual=" + row.size()
+                                    + ", response=" + StrUtil.maxLength(row.toString(), 800));
                 }
                 String fid = requiredText(row, 0, "FID");
                 ErpKingdeeSaleOrder order = orderMap.computeIfAbsent(fid, key -> buildOrder(row));
@@ -160,13 +176,15 @@ public class ErpKingdeeSaleOrderClientImpl implements ErpKingdeeSaleOrderClient 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties,
                                       String cookieHeader,
                                       int startRow,
-                                      int limit) {
+                                      int limit,
+                                      boolean fullHistory) {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(properties.getSaleOrder().getQueryDays());
         LocalDate nextDay = today.plusDays(1);
-        String filterString = "(FDate >= '" + startDate + "' and FDate < '" + nextDay + "')"
-                + " and (FBillNo <> '')"
-                + " and (FMaterialId.FNumber <> '')";
+        String filterString = "(FBillNo <> '') and (FMaterialId.FNumber <> '')";
+        if (!fullHistory) {
+            filterString = "(FDate >= '" + startDate + "' and FDate < '" + nextDay + "') and " + filterString;
+        }
 
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeeSaleOrder.FORM_ID);

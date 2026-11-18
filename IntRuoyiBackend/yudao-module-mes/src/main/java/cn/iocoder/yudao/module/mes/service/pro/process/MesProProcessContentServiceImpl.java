@@ -21,6 +21,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_C
  */
 @Service
 @Validated
+@org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
 public class MesProProcessContentServiceImpl implements MesProProcessContentService {
 
     @Resource
@@ -30,8 +31,12 @@ public class MesProProcessContentServiceImpl implements MesProProcessContentServ
     @Lazy
     private MesProProcessService processService;
 
+    @Resource @Lazy
+    private cn.iocoder.yudao.module.mes.service.common.MesSharedMasterDataChangeGuard sharedChangeGuard;
+
     @Override
     public Long createProcessContent(MesProProcessContentSaveReqVO createReqVO) {
+        sharedChangeGuard.assertDirectUpdateAllowed("PROCESS", createReqVO.getProcessId());
         // 校验工序存在
         processService.validateProcessExists(createReqVO.getProcessId());
 
@@ -45,6 +50,10 @@ public class MesProProcessContentServiceImpl implements MesProProcessContentServ
     public void updateProcessContent(MesProProcessContentSaveReqVO updateReqVO) {
         // 校验存在
         validateProcessContentExists(updateReqVO.getId());
+        MesProProcessContentDO existing = processContentMapper.selectById(updateReqVO.getId());
+        sharedChangeGuard.assertDirectUpdateAllowed("PROCESS", existing.getProcessId());
+        if (!java.util.Objects.equals(existing.getProcessId(), updateReqVO.getProcessId()))
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("操作步骤不可转移至其他工序");
 
         // 更新
         MesProProcessContentDO updateObj = BeanUtils.toBean(updateReqVO, MesProProcessContentDO.class);
@@ -55,6 +64,7 @@ public class MesProProcessContentServiceImpl implements MesProProcessContentServ
     public void deleteProcessContent(Long id) {
         // 校验存在
         validateProcessContentExists(id);
+        sharedChangeGuard.assertDirectUpdateAllowed("PROCESS", processContentMapper.selectById(id).getProcessId());
 
         // 删除
         processContentMapper.deleteById(id);
@@ -78,6 +88,7 @@ public class MesProProcessContentServiceImpl implements MesProProcessContentServ
 
     @Override
     public void deleteProcessContentByProcessId(Long processId) {
+        sharedChangeGuard.assertDirectUpdateAllowed("PROCESS", processId);
         processContentMapper.deleteByProcessId(processId);
     }
 

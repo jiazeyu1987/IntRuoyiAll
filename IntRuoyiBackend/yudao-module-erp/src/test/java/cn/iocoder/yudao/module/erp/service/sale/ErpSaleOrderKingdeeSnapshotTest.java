@@ -62,9 +62,13 @@ class ErpSaleOrderKingdeeSnapshotTest {
         return req;
     }
 
-    private void stubCreate() {
+    private void stubCreate(boolean kingdee) {
         when(unitService.getProductUnitMap(Set.of(20L))).thenReturn(Map.of(20L, new ErpProductUnitDO().setId(20L)));
-        when(productService.validProductList(Set.of(10L))).thenReturn(List.of(new ErpProductDO().setId(10L).setUnitId(99L)));
+        if (kingdee) {
+            when(productService.getProduct(10L)).thenReturn(new ErpProductDO().setId(10L).setUnitId(99L));
+        } else {
+            when(productService.validProductList(Set.of(10L))).thenReturn(List.of(new ErpProductDO().setId(10L).setUnitId(99L)));
+        }
         when(noRedisDAO.generate(ErpNoRedisDAO.SALE_ORDER_NO_PREFIX)).thenReturn("test-order");
         when(orderMapper.insert(any(ErpSaleOrderDO.class))).thenAnswer(call -> {
             call.getArgument(0, ErpSaleOrderDO.class).setId(100L); return 1;
@@ -72,7 +76,7 @@ class ErpSaleOrderKingdeeSnapshotTest {
     }
 
     @Test void kingdeeSnapshotPreservesTransactionUnitAndActualDiscountedAmounts() {
-        stubCreate();
+        stubCreate(true);
         var req = request();
         var snapshot = new ErpKingdeeOrderAmounts();
         snapshot.setProductAmount(new BigDecimal("8.85"));
@@ -102,7 +106,7 @@ class ErpSaleOrderKingdeeSnapshotTest {
     }
 
     @Test void manualOrderStillCalculatesAmountsFromPriceAndQuantity() {
-        stubCreate();
+        stubCreate(false);
         var req = request();
         req.setDiscountPercent(BigDecimal.TEN);
         service.createSaleOrder(req);
@@ -112,6 +116,24 @@ class ErpSaleOrderKingdeeSnapshotTest {
         assertEquals(0, new BigDecimal("22.60").compareTo(header.getValue().getDiscountPrice()));
         verify(itemMapper).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpSaleOrderItemDO>>argThat(items ->
             items.iterator().next().getProductUnitId().equals(20L)));
+    }
+
+    @Test void salesStillRejectsUnbalancedSourceAmountsBeforePersistence() {
+        var req = request();
+        var source = new ErpKingdeeOrderAmounts();
+        source.setProductAmount(BigDecimal.ZERO);
+        source.setTaxAmount(BigDecimal.ZERO);
+        source.setTotalAmount(new BigDecimal("448.25"));
+        source.setDiscountAmount(BigDecimal.ZERO);
+        var line = new ErpKingdeeOrderAmounts.Line();
+        line.setNetAmount(BigDecimal.ZERO);
+        line.setTaxAmount(BigDecimal.ZERO);
+        line.setTotalAmount(new BigDecimal("448.25"));
+        source.setLines(List.of(line));
+        req.setKingdeeAmounts(source);
+        assertThrows(IllegalStateException.class, () -> service.createSaleOrder(req));
+        verify(orderMapper, never()).insert(any(ErpSaleOrderDO.class));
+        verifyNoInteractions(itemMapper);
     }
 
     @Test void adminJsonCannotSupplyTrustedKingdeeAmounts() {

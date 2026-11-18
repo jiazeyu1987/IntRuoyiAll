@@ -32,6 +32,9 @@ import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionLifecycleServiceTest {
+    @org.mockito.Mock
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @Mock
     private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;

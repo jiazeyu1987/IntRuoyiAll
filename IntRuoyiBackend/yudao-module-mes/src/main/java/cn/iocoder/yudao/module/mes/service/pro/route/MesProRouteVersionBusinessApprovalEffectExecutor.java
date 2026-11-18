@@ -46,6 +46,7 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     public void precheck(BusinessApprovalContext context) {
         craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        craftService.assertEditable(requireVersionWithStatus(context, MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT));
     }
 
     @Override
@@ -144,7 +145,9 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
         candidate.setRemark(rejectReason);
         platformAdapter.recordRejected(candidate, rejectUserId, rejectReason, terminalEventKey(request, "REJECTED"));
         craftService.abortRoute(candidate, rejectUserId);
-        return BusinessApprovalEffectResult.rejected(MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED);
+        return BusinessApprovalEffectResult.rejected(craftService.cancelledBatch(candidate)
+                ? MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED
+                : MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED);
     }
 
     @Override
@@ -163,7 +166,9 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
         requireUpdated(routeVersionMapper.updateApprovalFieldsToDraft(candidate.getId()), "cancel route version");
         platformAdapter.recordWithdrawn(candidate, cancelUserId);
         craftService.abortRoute(candidate, cancelUserId);
-        return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
+        return BusinessApprovalEffectResult.cancelled(craftService.cancelledBatch(candidate)
+                ? MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED
+                : MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
     }
 
     private void requireRouteVersionPublishContext(BusinessApprovalContext context) {

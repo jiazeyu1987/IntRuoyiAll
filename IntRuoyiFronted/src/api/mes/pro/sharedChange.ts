@@ -12,6 +12,7 @@ export interface SharedChangeRequest {
   reason: string
   impactToken?: string
   process?: Record<string, unknown>
+  processContents?: import('@/api/mes/pro/process/content').ProProcessContentVO[]
   device?: Record<string, unknown>
   craft?: Record<string, unknown>
   nodes: Array<{ routeId: number; routeProcessId: number; deviceCraftId?: number; withoutParameters?: boolean; crafts: Array<{ craftId: number; deviceIds: number[] }> }>

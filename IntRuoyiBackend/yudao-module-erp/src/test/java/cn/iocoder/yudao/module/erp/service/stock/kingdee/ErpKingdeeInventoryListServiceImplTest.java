@@ -29,14 +29,21 @@ class ErpKingdeeInventoryListServiceImplTest {
         source.setStockOrgNumber("O"); source.setWarehouseNumber("W");
         source.setMaterialNumber("P"); source.setLotNumber("L");
         source.setQuantity(new BigDecimal("7")); source.setMaterialName("corrected");
-        when(client.fetchInventoryRows(properties)).thenReturn(List.of(source));
+        var second = new ErpKingdeeInventoryRow();
+        second.setStockOrgNumber("O"); second.setWarehouseNumber("W");
+        second.setMaterialNumber("P"); second.setLotNumber("L");
+        second.setQuantity(new BigDecimal("3")); second.setMaterialName("corrected");
+        second.setSourceModifyTime(java.time.LocalDateTime.of(2026,11,17,22,0));
+        when(client.fetchInventoryRows(properties)).thenReturn(List.of(source,second));
         when(mapper.selectBySourceLine("O|W|P|L")).thenReturn(new ErpKingdeeInventoryListDO().setId(77L));
         var result = service.syncAllWithUpdates();
         assertEquals(1, result.getUpdatedCount()); assertEquals(0, result.getCreatedCount());
         var saved = ArgumentCaptor.forClass(ErpKingdeeInventoryListDO.class);
         verify(mapper).updateById(saved.capture());
         assertEquals(77L, saved.getValue().getId());
-        assertEquals(new BigDecimal("7"), saved.getValue().getQuantity());
+        assertEquals(new BigDecimal("10"), saved.getValue().getQuantity());
+        assertEquals(second.getSourceModifyTime(), saved.getValue().getSourceModifyTime());
+        assertEquals(new BigDecimal("7"), source.getQuantity());
         assertEquals("corrected", saved.getValue().getMaterialName());
         verify(mapper, never()).insert(any(ErpKingdeeInventoryListDO.class));
     }

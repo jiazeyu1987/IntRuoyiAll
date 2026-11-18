@@ -365,6 +365,7 @@ const policySystemLabels: Record<string, string> = {
 
 const policyObjectTypeLabels: Record<string, string> = {
   ROUTE_VERSION: '工艺路线版本',
+  ROUTE_BATCH_CHANGE: '工艺路线批量变更',
   FORM_TEMPLATE: '表单模板',
   CONTROLLED_FILE: '受控文件',
   BATCH_RECORD_VERSION: '批记录版本',
@@ -380,6 +381,7 @@ const policyActionCodeLabels: Record<string, string> = {
 }
 
 const policyObjectStateLabels: Record<string, string> = {
+  PREPARING: '待提交',
   READY_TO_PUBLISH: '待发布',
   READY: '就绪',
   DRAFT: '草稿',
@@ -395,6 +397,7 @@ const policyObjectStateLabels: Record<string, string> = {
 
 const policyEffectExecutorCodeLabels: Record<string, string> = {
   MES_ROUTE_VERSION_PUBLISH: '工艺路线版本发布',
+  MES_ROUTE_BATCH_CHANGE_PUBLISH: '工艺路线批量变更审批',
   FORM_TEMPLATE_UPGRADE: '表单模板升版',
   FORM_TEMPLATE_OBSOLETE: '表单模板作废',
   DCC_UPLOAD: '受控文件上传',

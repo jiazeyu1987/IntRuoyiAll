@@ -7,7 +7,7 @@ const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
-function component(file, api = {}) {
+function component(file, api = {}, props = {}) {
   const filename = path.join(root, file)
   const descriptor = parse(fs.readFileSync(filename, 'utf8'), { filename }).descriptor
   const script = compileScript(descriptor, { id: file })
@@ -15,17 +15,44 @@ function component(file, api = {}) {
   assert.deepEqual(template.errors, [])
   const code = ts.transpileModule(script.content, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
   const module = { exports: {} }, emitted = [], notices = []
+  const diffModule = { exports: {} }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'src/views/mes/pro/shared/changeDifferences.ts'), 'utf8'),
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText,
+    { module: diffModule, exports: diffModule.exports })
   const context = { ...vue, module, exports: module.exports, console, Error, crypto: require('node:crypto').webcrypto,
     useMessage: () => ({ success: value => notices.push(value) }),
-    require: name => name === 'vue' ? vue : { SharedChangeApi: api } }
+    require: name => name === 'vue' ? vue : name === './changeDifferences' ? diffModule.exports : { SharedChangeApi: api } }
   vm.runInNewContext(code, context)
   let exposed
-  const state = module.exports.default.setup({}, { expose: value => exposed = value, emit: (...args) => emitted.push(args) })
+  const state = module.exports.default.setup(props, { expose: value => exposed = value, emit: (...args) => emitted.push(args) })
   return { state, exposed, emitted, notices }
 }
 const plain = value => JSON.parse(JSON.stringify(value))
 const dialog = api => component('src/views/mes/pro/shared/SharedChangeDialog.vue', api)
 const request = () => ({ subjectType: 'PROCESS', action: 'UPDATE', sourceId: 1, expectedFingerprint: 'old', requestId: 'id', reason: '', nodes: [], process: { id: 1, name: 'new' } })
+
+test('process steps remain a local draft until parent confirmation and detail view cannot mutate', async () => {
+  const original = [{id:7,processId:1,sort:1,content:'原步骤'}]
+  const {state,emitted} = component('src/views/mes/pro/process/ProProcessContentList.vue', {}, {processId:1,modelValue:original})
+  state.openForm('update',original[0],0)
+  state.formData.value.content='修改草稿'
+  state.dialogVisible.value=false
+  assert.equal(original[0].content,'原步骤')
+  assert.equal(emitted.length,0)
+  state.openForm('update',original[0],0)
+  state.formData.value.content='修改步骤'
+  state.formRef.value={validate:async()=>true}
+  await state.submitForm()
+  assert.equal(original[0].content,'原步骤')
+  assert.equal(emitted[0][0],'update:modelValue')
+  assert.equal(emitted[0][1][0].content,'修改步骤')
+  assert.equal(emitted[0][1][0].id,7)
+  const readonly=component('src/views/mes/pro/process/ProProcessContentList.vue', {}, {processId:1,modelValue:original,readonly:true})
+  readonly.state.handleDelete(0)
+  readonly.state.openForm('create')
+  assert.equal(readonly.state.dialogVisible.value,false)
+  assert.equal(readonly.emitted.length,0)
+})
 test('impact confirmation never writes on open or cancel; reason can be entered after preview', async () => {
   const writes = [], input = request()
   const { state, exposed, emitted } = dialog({ preview: async () => ({ before: {name:'old'}, after: {name:'new'}, routes: [], blockers: [], impactToken:'preview-1' }), submit: async (_, value) => { writes.push(plain(value)); return {status:'APPLIED'} } })
@@ -42,6 +69,15 @@ test('impact confirmation never writes on open or cancel; reason can be entered 
   assert.equal(writes.length,1)
   assert.equal(writes[0].impactToken,'preview-1')
   assert.deepEqual(emitted,[['submitted']])
+})
+test('replacement candidates distinguish same-name processes by every usage workshop', async () => {
+  const {state,exposed} = dialog({source:async()=>({fingerprint:'source'}),options:async()=>[]})
+  await exposed.openReplacement('PROCESS',1)
+  assert.equal(state.targetLabel({id:2,code:'GX-2',name:'热合',workshops:[{id:1,name:'一车间'},{id:2,name:'二车间'}]}),
+    'GX-2 / 热合 / 一车间、二车间')
+  assert.equal(state.targetLabel({id:3,code:'GX-3',name:'热合',workshops:[]}), 'GX-3 / 热合 / 未关联车间')
+  await exposed.openReplacement('DEVICE',1)
+  assert.equal(state.targetLabel({id:4,code:'SB-4',name:'热合机'}), 'SB-4 / 热合机')
 })
 test('server conflict keeps the dialog open and does not emit success', async () => {
   const {state,exposed,emitted} = dialog({preview:async()=>({before:{},after:{},routes:[],blockers:[],impactToken:'old'}), submit:async()=>{throw new Error('引用已变化')} })

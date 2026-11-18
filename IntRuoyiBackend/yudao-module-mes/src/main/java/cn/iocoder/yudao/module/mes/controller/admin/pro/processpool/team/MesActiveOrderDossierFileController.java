@@ -47,7 +47,7 @@ public class MesActiveOrderDossierFileController {
     }
 
     @GetMapping
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query', 'mes:pro-edhr-batch-execution:upload')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query', 'mes:pro-edhr-batch-execution:upload', 'mes:pro-in-process-order:query')")
     public CommonResult<MesActiveOrderDossierFileService.Result> list(
             @RequestParam("activeOrderId") Long activeOrderId,
             @RequestParam(value = "applicationId", required = false) Long applicationId) {

@@ -136,6 +136,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+    @Resource
     private MesProRouteControlledContentAdapter routeControlledContentAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
@@ -388,6 +390,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .build();
             MesProRouteVersionSnapshotIdentityWriter.apply(candidate, snapshot.toJSONString());
             routeVersionMapper.insert(candidate);
+            deviceIdentitySnapshots.captureCreated(candidate);
         } else {
             MesProRouteVersionDO update = new MesProRouteVersionDO();
             update.setId(candidate.getId());
@@ -400,6 +403,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             candidate.setRouteSnapshotJson(update.getRouteSnapshotJson());
             candidate.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
             candidate.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
+            deviceIdentitySnapshots.captureDraft(candidate.getId());
         }
         registerWordImportCandidate(activeVersion, candidate);
         return MesProBatchRecordRouteGenerationResult.builder()
@@ -991,6 +995,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .build();
         MesProRouteVersionSnapshotIdentityWriter.apply(routeVersion, snapshot.toJSONString());
         routeVersionMapper.insert(routeVersion);
+        deviceIdentitySnapshots.captureCreated(routeVersion);
         routeControlledContentAdapter.recordActiveRegistered(routeVersion,
                 SecurityFrameworkUtils.getLoginUserId(), "Word导入创建工艺路线正式版本");
         return routeVersion;
@@ -1123,6 +1128,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .build();
             MesProRouteVersionSnapshotIdentityWriter.apply(candidateVersion, snapshotJson);
             routeVersionMapper.insert(candidateVersion);
+            deviceIdentitySnapshots.captureCreated(candidateVersion);
             registerWordImportCandidate(sourceVersion, candidateVersion);
             return candidateVersion;
         }
@@ -1137,6 +1143,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         candidateVersion.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
         candidateVersion.setChangeSummaryJson(changeSummaryJson);
         candidateVersion.setRemark(remark);
+        deviceIdentitySnapshots.captureDraft(candidateVersion.getId());
         registerWordImportCandidate(sourceVersion, candidateVersion);
         return candidateVersion;
     }

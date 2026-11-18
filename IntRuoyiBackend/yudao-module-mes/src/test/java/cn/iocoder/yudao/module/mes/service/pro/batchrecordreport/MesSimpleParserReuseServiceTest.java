@@ -81,6 +81,48 @@ class MesSimpleParserReuseServiceTest {
         assertFalse(candidates.toJSONString().contains("其他租户"));
         assertEquals(0,candidates.getJSONObject(0).getJSONArray("groups").getJSONObject(0).getJSONArray("crafts").size());
     }
+    @Test void replacementOptionsShowAllUsageWorkshopsWithoutOtherTenantOrDeletedRoutes() {
+        var shared = new cn.iocoder.yudao.module.mes.service.pro.craft.MesProSharedChangeService();
+        ReflectionTestUtils.setField(shared, "processMapper", processes);
+        ReflectionTestUtils.setField(shared, "jdbc", new NamedParameterJdbcTemplate(jdbc));
+        ReflectionTestUtils.setField(shared, "processContents", mock(
+                cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessContentService.class));
+        var source = MesProProcessDO.builder().id(10L).code("GX-10").name("热合").build();
+        when(processes.selectById(10L)).thenReturn(source);
+        when(processes.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(
+                source, MesProProcessDO.builder().id(20L).code("GX-20").name("热合").build(),
+                MesProProcessDO.builder().id(30L).code("GX-30").name("热合").build()));
+        jdbc.update("insert into mes_pro_route values (1,1,0),(2,2,0),(3,1,1)");
+        jdbc.update("insert into mes_md_workshop values (1,'一车间',1,0),(2,'二车间',1,0),(3,'其他租户',2,0),(4,'已删除路线车间',1,0)");
+        jdbc.update("insert into mes_md_workstation values (1,1,1,0),(2,2,1,0),(3,3,2,0),(4,4,1,0)");
+        jdbc.update("insert into mes_pro_route_process values (1,20,1,1,0),(1,20,1,1,0),(1,20,2,1,0),(2,20,3,2,0),(3,30,4,1,0)");
+
+        var options = shared.options("PROCESS", 10L);
+
+        assertEquals(2, options.size());
+        assertEquals(20L, options.get(0).getLong("id"));
+        assertEquals(List.of("一车间", "二车间"), options.get(0).getJSONArray("workshops")
+                .toJavaList(JSONObject.class).stream().map(row -> row.getString("name")).toList());
+        assertTrue(options.get(1).getJSONArray("workshops").isEmpty());
+        verify(processes, never()).updateById(any(MesProProcessDO.class));
+    }
+    @Test void matchesNestedRequestMapsFromHttpConversion() throws Exception {
+        var request = request();
+        request.setRecognitionJson(new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                JSON.toJSONString(request.getRecognitionJson()),
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}));
+        when(processes.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(MesProProcessDO.builder().id(10L).code("GX-10").name("热合").build()));
+        var parameters = MesSimpleParserPublishService.parameters(groups().getJSONObject(0).getJSONArray("parameters"));
+        when(crafts.selectList(any())).thenReturn(List.of(craft(1, parameters)));
+
+        var candidate = service.matches(request).get(0).getJSONArray("candidates").getJSONObject(0);
+
+        assertEquals(10L, candidate.getLong("processId"));
+        var match = candidate.getJSONArray("groups").getJSONObject(0).getJSONArray("crafts").getJSONObject(0);
+        assertEquals(1L, match.getLong("id"));
+        assertEquals(185, match.getJSONArray("parameters").getJSONObject(0).getIntValue("upperLimit"));
+    }
     @Test void differentNamesDoNotBecomeReuseCandidates() {
         when(processes.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(MesProProcessDO.builder().id(10L).name("热合检查").build()));
         when(crafts.selectList(any())).thenReturn(List.of());

@@ -76,6 +76,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteFlowConfigServiceImplTest {
+    @org.mockito.Mock
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @InjectMocks
     private MesProRouteFlowConfigServiceImpl service;

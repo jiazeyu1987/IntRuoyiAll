@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.worker.MesMdWorkstationWorkerSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.tool.MesMdWorkstationToolSaveReqVO;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.MesMdWorkstationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.machine.MesMdWorkstationMachineSaveReqVO;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid;
 
@@ -27,6 +31,8 @@ public class MesProRouteWorkstationService {
     @Resource private MesMdWorkshopService workshopService;
     @Resource @Lazy private MesMdWorkstationService workstationService;
     @Resource private MesMdWorkstationMachineService machineService;
+    @Resource private cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService workerService;
+    @Resource private cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationToolService toolService;
     @Resource private MesDvMachineryProcessMapper machineryProcessMapper;
 
     public MesMdWorkshopDO requireWorkshop(Long workshopId) {
@@ -36,6 +42,38 @@ public class MesProRouteWorkstationService {
             throw invalid("所选车间不存在或已停用，请重新选择");
         }
         return workshop;
+    }
+
+    /** 换工序时生成独立工作站，旧版本和执行记录继续引用原工作站。 */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Long forPublishedProcess(Long versionId, int sort, Long workstationId, Long processId, String processName) {
+        var source = workstationService.validateWorkstationExists(workstationId);
+        if (Objects.equals(source.getProcessId(), processId)) return workstationId;
+        requireWorkshop(source.getWorkshopId());
+        if (StrUtil.isBlank(processName)) throw invalid("替换工序缺少名称");
+        var request = BeanUtils.toBean(source, MesMdWorkstationSaveReqVO.class);
+        request.setId(null);
+        String suffix = versionId + "-" + sort;
+        request.setCode("WSV-" + suffix);
+        request.setName(StrUtil.sub(processName, 0, 90) + "工作站-" + suffix);
+        request.setProcessId(processId);
+        Long targetId = workstationService.createWorkstation(request);
+        for (var resource : machineService.getWorkstationMachineListByWorkstationId(workstationId)) {
+            var copy = BeanUtils.toBean(resource, MesMdWorkstationMachineSaveReqVO.class);
+            copy.setId(null); copy.setWorkstationId(targetId);
+            machineService.createWorkstationMachine(copy);
+        }
+        for (var resource : workerService.getWorkstationWorkerListByWorkstationId(workstationId)) {
+            var copy = BeanUtils.toBean(resource, MesMdWorkstationWorkerSaveReqVO.class);
+            copy.setId(null); copy.setWorkstationId(targetId);
+            workerService.createWorkstationWorker(copy);
+        }
+        for (var resource : toolService.getWorkstationToolListByWorkstationId(workstationId)) {
+            var copy = BeanUtils.toBean(resource, MesMdWorkstationToolSaveReqVO.class);
+            copy.setId(null); copy.setWorkstationId(targetId);
+            toolService.createWorkstationTool(copy);
+        }
+        return targetId;
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)

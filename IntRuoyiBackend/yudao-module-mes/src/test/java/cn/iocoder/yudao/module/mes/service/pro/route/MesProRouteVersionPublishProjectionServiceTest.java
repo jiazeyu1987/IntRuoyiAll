@@ -66,6 +66,9 @@ class MesProRouteVersionPublishProjectionServiceTest {
     private MesProRouteVersionPublishProjectionServiceImpl service;
 
     @Mock
+    private MesProRouteWorkstationService routeWorkstationService;
+
+    @Mock
     private MesProRouteMapper routeMapper;
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
@@ -104,6 +107,9 @@ class MesProRouteVersionPublishProjectionServiceTest {
 
     @BeforeEach
     void setUpIds() {
+        lenient().when(routeWorkstationService.forPublishedProcess(any(), org.mockito.ArgumentMatchers.anyInt(),
+                any(), any(), org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenAnswer(call -> call.getArgument(2));
         AtomicLong routeProcessIds = new AtomicLong(3000L);
         AtomicLong routeBindingIds = new AtomicLong(6000L);
         lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of());
@@ -175,7 +181,7 @@ class MesProRouteVersionPublishProjectionServiceTest {
     }
 
     @Test
-    void projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding() {
+    void projectCandidate_shouldPublishResolvedWorkstationInProjectionAndSnapshot() {
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(2402L)
                 .routeId(9401L)
@@ -213,6 +219,7 @@ class MesProRouteVersionPublishProjectionServiceTest {
                         """)
                 .build();
 
+        when(routeWorkstationService.forPublishedProcess(2402L, 1, 980010L, 922985L, null)).thenReturn(980011L);
         service.projectCandidate(candidate);
 
         ArgumentCaptor<MesProRouteProcessDO> processCaptor =
@@ -220,7 +227,11 @@ class MesProRouteVersionPublishProjectionServiceTest {
         verify(routeProcessMapper).insert(processCaptor.capture());
         assertEquals(9401L, processCaptor.getValue().getRouteId());
         assertEquals(922985L, processCaptor.getValue().getProcessId());
-        assertEquals(980010L, processCaptor.getValue().getWorkstationId());
+        assertEquals(980011L, processCaptor.getValue().getWorkstationId());
+        var node = com.alibaba.fastjson.JSON.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes").getJSONObject(0);
+        assertEquals(980011L, node.getLong("routeProcessWorkstationId"));
+        assertEquals(922757L, node.getLong("workstationId"));
     }
 
     @Test

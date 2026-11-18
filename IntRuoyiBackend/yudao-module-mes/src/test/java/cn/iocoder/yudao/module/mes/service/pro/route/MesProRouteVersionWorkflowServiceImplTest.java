@@ -23,6 +23,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionWorkflowServiceImplTest {
+    @org.mockito.Mock
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @InjectMocks
     private MesProRouteVersionWorkflowServiceImpl service;

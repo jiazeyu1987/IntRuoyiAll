@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.craft.vo;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.content.MesProProcessContentSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachinerySaveReqVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -18,6 +19,7 @@ public class MesSharedChangeReqVO {
     @Size(max=1000) private String reason;
     private String impactToken;
     @Valid private MesProProcessSaveReqVO process;
+    @Valid private List<@NotNull MesProProcessContentSaveReqVO> processContents;
     @Valid private MesDvMachinerySaveReqVO device;
     @Valid private MesProCraftSaveReqVO craft;
     @Valid @NotNull private List<NodeSelection> nodes = new ArrayList<>();

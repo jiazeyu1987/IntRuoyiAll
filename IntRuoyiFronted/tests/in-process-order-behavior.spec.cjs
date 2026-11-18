@@ -16,17 +16,35 @@ Function('module', 'exports', ts.transpileModule(statusSource, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
 }).outputText)(statusModule, statusModule.exports)
 const { resolveInProcessOrderStatus } = statusModule.exports
+const routeIdModule = { exports: {} }
+Function('module', 'exports', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/utils/routeQueryId.ts'), 'utf8'), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
+}).outputText)(routeIdModule, routeIdModule.exports)
 function setup(api) {
   const calls = []
+  const navigations = []
   const filter = { state: { conditions: [] }, applied: 0, updateState(next) { Object.assign(this.state, next) }, async applyQuickFilter() { this.applied++ } }
   const deps = {
     ref, reactive, computed, resolveInProcessOrderStatus, defineOptions() {}, onMounted() {}, onActivated() {},
+    parsePositiveRouteQueryId: routeIdModule.exports.parsePositiveRouteQueryId,
+    useRouter: () => ({ push: target => { navigations.push(target); return Promise.resolve() } }),
     useTableQuickFilter: () => filter,
     useUserTableColumns: (key, defaults) => ({ columns: ref(defaults), isColumnVisible: () => true }),
     getInProcessOrderPage: query => { calls.push(query); return api(query) }
   }
-  return { calls, filter, ...Function(...Object.keys(deps), `${js}; return { getList, list, total, loadError, loading, queryParams, updateQuickFilterState, statusColumnFilter }`)(...Object.values(deps)) }
+  return { calls, filter, navigations, ...Function(...Object.keys(deps), `${js}; return { openDetail, getList, list, total, loadError, loading, queryParams, updateQuickFilterState, statusColumnFilter }`)(...Object.values(deps)) }
 }
+
+test('details opens the active order page with its exact identity, not the batch execution page', async () => {
+  const s = setup(async () => ({ list: [], total: 0 }))
+  await s.openDetail({ id: '9223372036854775800', workOrderCode: 'ORDER-1', batchCode: 'LOT-1' })
+  assert.deepEqual(s.navigations, [{
+    name: 'MesInProcessOrderDetail',
+    params: { activeOrderId: '9223372036854775800' }
+  }])
+  assert.throws(() => s.openDetail({ id: '' }), /活跃订单记录ID/)
+  assert.equal(s.navigations.length, 1)
+})
 
 test('completed cycles retain each real release stage in the table and status filter', () => {
   const s = setup(async () => ({ list: [], total: 0 }))

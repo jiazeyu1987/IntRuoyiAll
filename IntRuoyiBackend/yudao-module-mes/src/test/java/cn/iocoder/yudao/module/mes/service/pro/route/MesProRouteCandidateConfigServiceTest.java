@@ -35,6 +35,9 @@ import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteCandidateConfigServiceTest {
+    @org.mockito.Mock
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @Mock
     private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
@@ -52,6 +55,22 @@ class MesProRouteCandidateConfigServiceTest {
     private MesProRouteMapper routeMapper;
     @Mock
     private cn.iocoder.yudao.module.mes.service.pro.lossreason.MesProLossReasonService lossReasonService;
+
+    @Test
+    void sharedEmptyCollectionsRemainIndependentJsonArrays() {
+        nameDraft("DRAFT");
+        List<Object> empty = List.of();
+        service.saveConfigSnapshots(2002L, "original-hash", Map.of("extensions",
+                Map.of("first", empty, "second", empty, "nested", Map.of("third", empty))));
+        ArgumentCaptor<MesProRouteVersionDO> saved = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(saved.capture(), any());
+        JSONObject extension = JSON.parseObject(saved.getValue().getRouteSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONObject("extensions");
+        assertEquals(List.of(), extension.getJSONArray("first"));
+        assertEquals(List.of(), extension.getJSONArray("second"));
+        assertEquals(List.of(), extension.getJSONObject("nested").getJSONArray("third"));
+        assertFalse(saved.getValue().getRouteSnapshotJson().contains("$ref"));
+    }
 
     @Test
     void lossCoefficient_isSavedIndependentlyInDraftSnapshot() {

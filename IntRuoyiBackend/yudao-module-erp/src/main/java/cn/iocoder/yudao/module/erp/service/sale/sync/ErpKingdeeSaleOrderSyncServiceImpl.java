@@ -71,6 +71,14 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeSaleOrderSyncResult syncAllWithUpdates() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncSaleOrders(properties, saleOrderClient.fetchAllSaleOrders(properties), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeSaleOrderSyncResult syncSaleOrdersFullSkipExisting() {
         return syncSaleOrdersFullSkipExisting(null, null);
     }

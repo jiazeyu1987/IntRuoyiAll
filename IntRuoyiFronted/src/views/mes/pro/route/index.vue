@@ -798,22 +798,28 @@ const openRouteVersionWorkspace = async (row: ProRouteVO, noticeMessage = '') =>
   await loadRouteVersions(row.id)
 }
 
+let routeVersionLoadSequence = 0
 const loadRouteVersions = async (routeId = routeVersionRoute.value?.id) => {
   if (!routeId) {
     throw new Error('加载工艺路线版本失败：缺少路线编号')
   }
+  const sequence = ++routeVersionLoadSequence
+  routeVersions.value = []
   routeVersionLoading.value = true
   routeVersionErrorMessage.value = ''
   try {
-    routeVersions.value = await ProRouteApi.getRouteVersionList(routeId)
+    const versions = await ProRouteApi.getRouteVersionList(routeId)
+    if (sequence !== routeVersionLoadSequence) return
+    routeVersions.value = versions
   } catch (error) {
+    if (sequence !== routeVersionLoadSequence) return
     routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(
       error,
       '加载工艺路线版本失败，请查看后端返回错误'
     )
     message.error(routeVersionErrorMessage.value)
   } finally {
-    routeVersionLoading.value = false
+    if (sequence === routeVersionLoadSequence) routeVersionLoading.value = false
   }
 }
 

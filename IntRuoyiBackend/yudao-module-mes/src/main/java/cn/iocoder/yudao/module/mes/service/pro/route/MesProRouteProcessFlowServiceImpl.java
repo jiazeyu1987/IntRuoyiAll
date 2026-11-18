@@ -174,7 +174,9 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         MesProRouteProcessFlowGraphRespVO respVO = new MesProRouteProcessFlowGraphRespVO();
         respVO.setRouteId(routeId);
         respVO.setGraphVersion(graphVersion);
-        respVO.setNodes(buildNodes(routeProcesses, layouts));
+        respVO.setNodes(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidateVersion.getLifecycleStatus())
+                ? buildNodes(routeProcesses, layouts)
+                : buildFrozenNodes(candidateVersion, flowGraph, layouts));
         respVO.setEdges(edges.stream().map(this::toEdgeRespVO).toList());
         respVO.setBoundaryEdges(boundaryEdges.stream().map(this::toBoundaryEdgeRespVO).toList());
 
@@ -190,6 +192,51 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                 validateEdges(routeProcesses, edges, boundaryEdges);
         return mark(respVO, messages.isEmpty(), messages.isEmpty() ? STATUS_VALID : STATUS_INVALID,
                 graphVersion, messages);
+    }
+
+    private List<MesProRouteProcessFlowNodeRespVO> buildFrozenNodes(
+            MesProRouteVersionDO version, JSONObject flowGraph, List<MesProRouteProcessFlowLayoutDO> layouts) {
+        JSONObject configs = JSON.parseObject(version.getRouteSnapshotJson()).getJSONObject(SNAPSHOT_CONFIGS_KEY);
+        JSONArray productionConfigs = configs.getJSONArray("productionProcessConfigs");
+        Map<Long, JSONObject> processConfigs = new HashMap<>();
+        if (productionConfigs != null) {
+            for (int i = 0; i < productionConfigs.size(); i++) {
+                JSONObject config = productionConfigs.getJSONObject(i);
+                if (config == null || config.getLong("routeProcessId") == null
+                        || processConfigs.putIfAbsent(config.getLong("routeProcessId"), config) != null) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+                }
+            }
+        }
+        Map<Long, MesProRouteProcessFlowLayoutDO> layoutMap = layouts.stream().collect(Collectors.toMap(
+                MesProRouteProcessFlowLayoutDO::getRouteProcessId, item -> item));
+        List<MesProRouteProcessFlowNodeRespVO> result = new ArrayList<>();
+        JSONArray nodes = flowGraph.getJSONArray("nodes");
+        for (int i = 0; i < nodes.size(); i++) {
+            JSONObject stored = nodes.getJSONObject(i);
+            MesProRouteProcessFlowNodeRespVO node = stored.toJavaObject(MesProRouteProcessFlowNodeRespVO.class);
+            if (node.getRouteProcessId() == null) node.setRouteProcessId(stored.getLong("clientRouteProcessId"));
+            // 拓扑与生产配置属于同一版本；冻结版本不再关联当前工序或工作站资料。
+            if (productionConfigs != null) {
+                JSONObject config = processConfigs.get(node.getRouteProcessId());
+                if (config == null || !Objects.equals(node.getProcessId(), config.getLong("processId"))) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+                }
+                if (config.containsKey("processCode")) node.setProcessCode(config.getString("processCode"));
+                node.setProcessName(config.getString("processName"));
+            }
+            if (StrUtil.isBlank(node.getProcessCode()) || StrUtil.isBlank(node.getProcessName())) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+            }
+            MesProRouteProcessFlowLayoutDO layout = layoutMap.get(node.getRouteProcessId());
+            if (layout != null) {
+                node.setX(layout.getX());
+                node.setY(layout.getY());
+            }
+            result.add(node);
+        }
+        result.sort(Comparator.comparing(MesProRouteProcessFlowNodeRespVO::getSort));
+        return result;
     }
 
     private JSONObject resolveCandidateFlowGraphSnapshot(MesProRouteVersionDO candidateVersion) {
@@ -387,7 +434,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                     validateRouteProcessDraftChanges(reqVO, candidateVersion);
             Map<String, Object> configSnapshots = new LinkedHashMap<>();
             configSnapshots.put("flowGraph", buildCandidateFlowGraphSnapshot(
-                    reqVO, nextVersion, routeProcessDraftValidation.routeProcesses()));
+                    reqVO, nextVersion, routeProcessDraftValidation.routeProcesses(), candidateVersion));
             configSnapshots.put(SCHEDULE_CONFIGS_KEY,
                     buildCandidateScheduleConfigSnapshot(candidateVersion, routeProcessDraftValidation.routeProcesses()));
             MesProRouteProductionProcessConfigSaveReqVO productionConfig = reqVO.getProductionProcessConfig();
@@ -559,14 +606,21 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
 
     private Map<String, Object> buildCandidateFlowGraphSnapshot(MesProRouteProcessFlowSaveReqVO reqVO,
                                                                 Long nextVersion,
-                                                                List<MesProRouteProcessDO> routeProcesses) {
+                                                                List<MesProRouteProcessDO> routeProcesses,
+                                                                MesProRouteVersionDO candidateVersion) {
+        Map<Long, JSONObject> previousNodes = new HashMap<>();
+        JSONArray existingNodes = resolveCandidateFlowGraphSnapshot(candidateVersion).getJSONArray("nodes");
+        for (int i = 0; i < existingNodes.size(); i++) {
+            JSONObject previous = existingNodes.getJSONObject(i);
+            previousNodes.put(previous.getLong("routeProcessId"), previous);
+        }
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("routeId", reqVO.getRouteId());
         snapshot.put("graphVersion", nextVersion);
         snapshot.put("nodes", routeProcesses.stream()
                 .sorted(Comparator.comparing(
                         MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo)))
-                .map(this::buildCandidateFlowNodeSnapshot)
+                .map(routeProcess -> buildCandidateFlowNodeSnapshot(routeProcess, previousNodes.get(routeProcess.getId())))
                 .toList());
         snapshot.put("edges", safeList(reqVO.getEdges()));
         snapshot.put("boundaryEdges", safeList(reqVO.getBoundaryEdges()));
@@ -577,8 +631,18 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         return snapshot;
     }
 
-    private Map<String, Object> buildCandidateFlowNodeSnapshot(MesProRouteProcessDO routeProcess) {
+    private Map<String, Object> buildCandidateFlowNodeSnapshot(MesProRouteProcessDO routeProcess, JSONObject previous) {
         Map<String, Object> node = new LinkedHashMap<>();
+        if (previous != null && Objects.equals(previous.getLong("processId"), routeProcess.getProcessId())) {
+            for (String field : List.of("processCode", "processName")) {
+                if (previous.containsKey(field)) node.put(field, previous.get(field));
+            }
+        } else {
+            MesProProcessDO process = processService.getProcess(routeProcess.getProcessId());
+            if (process == null) throw exception(PRO_PROCESS_NOT_EXISTS);
+            node.put("processCode", process.getCode());
+            node.put("processName", process.getName());
+        }
         node.put("routeProcessId", routeProcess.getId());
         node.put("processId", routeProcess.getProcessId());
         node.put("routeProcessWorkstationId", routeProcess.getWorkstationId());

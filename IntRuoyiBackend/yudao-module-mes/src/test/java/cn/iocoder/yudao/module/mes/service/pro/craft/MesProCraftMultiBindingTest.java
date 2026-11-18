@@ -67,7 +67,8 @@ class MesProCraftMultiBindingTest {
         target=new MesProCraftBindingTargetReqVO();target.setRouteVersionId(101L); target.setRouteProcessId(11L); target.setExpectedRouteSnapshotSha256("original-hash");
     }
     private void setVersionConfig(JSONObject config) {
-        version.setRouteSnapshotJson(JSON.toJSONString(Map.of("configSnapshots",Map.of("productionProcessConfigs",List.of(config)))));
+        version.setRouteSnapshotJson(JSON.toJSONString(Map.of("configSnapshots",Map.of("productionProcessConfigs",List.of(config),
+                "flowGraph", Map.of("nodes", List.of(Map.of("routeProcessId",11L,"processId",22L,"processName","清洗")))))));
     }
     @AfterEach void clear() { TenantContextHolder.clear(); }
     @SuppressWarnings("unchecked") private JSONObject savedConfig() {
@@ -167,12 +168,16 @@ class MesProCraftMultiBindingTest {
         service.bindExistingCandidate(target); JSONObject saved=savedConfig();
         setVersionConfig(saved); version.setLifecycleStatus("ACTIVE");
         when(versions.selectActiveListWithExistingRoutes()).thenReturn(List.of(version));
-        when(versions.selectOpenCandidateByRouteId(100L)).thenReturn(new MesProRouteVersionDO());
-        var open=versions.selectOpenCandidateByRouteId(100L);open.setRouteSnapshotJson("{\"configSnapshots\":{}}");
+        when(versions.selectMaxVersionNoByRouteId(100L)).thenReturn("V2");
+        var open = new MesProRouteVersionDO(); open.setRouteId(100L);
+        open.setRouteSnapshotJson("{\"configSnapshots\":{}}");
+        when(versions.selectList(any(LambdaQueryWrapperX.class))).thenReturn(List.of(open));
         MesProCraftSaveReqVO request=new MesProCraftSaveReqVO();request.setId(2L);request.setName("修改后工艺");request.setProcessId(22L);
         request.setExpectedFingerprint(catalog.get(1).getFingerprint());request.setParameters(parameters("DEVICE_32",4));request.setReason("标准更新");
         Map<String,Object> preview=service.preview(request);
         assertEquals(1,((JSONArray)preview.get("routes")).size());
+        assertEquals("V3", ((JSONArray)preview.get("routes")).getJSONObject(0).getString("nextVersionNo"));
+        assertEquals("清洗", ((JSONArray)preview.get("routes")).getJSONObject(0).getJSONArray("nodes").getJSONObject(0).getString("processName"));
         assertFalse(((List<?>)preview.get("blockers")).isEmpty());
     }
 }

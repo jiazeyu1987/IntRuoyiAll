@@ -7,7 +7,7 @@
       :rules="formRules"
       label-width="120px"
       v-loading="formLoading"
-      :disabled="isDetail"
+      :disabled="isDetail || formLoading"
     >
       <el-row>
         <el-col :span="8">
@@ -227,6 +227,7 @@ const open = async (type: string, id?: number) => {
   dialogVisible.value = true
   formType.value = type
   resetForm()
+  sharedFingerprint.value = ''
   if (id) {
     formLoading.value = true
     try {
@@ -236,6 +237,9 @@ const open = async (type: string, id?: number) => {
         Object.assign(formData.value, source.data)
         sharedFingerprint.value = source.fingerprint
       }
+    } catch (error) {
+      dialogVisible.value = false
+      throw error
     } finally {
       formLoading.value = false
     }

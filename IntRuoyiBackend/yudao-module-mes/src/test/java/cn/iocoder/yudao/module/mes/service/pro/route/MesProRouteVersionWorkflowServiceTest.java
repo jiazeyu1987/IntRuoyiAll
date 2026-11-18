@@ -44,6 +44,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionWorkflowServiceTest {
+    @org.mockito.Mock
+    private MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
+
 
     @Mock
     private cn.iocoder.yudao.module.mes.service.audit.MesVersionOperateLogService versionOperateLogService;

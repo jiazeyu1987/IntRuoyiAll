@@ -157,6 +157,29 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
     }
 
     @Test
+    void syncAllWithUpdates_readsFullHistoryAndUpdatesExistingSourceRecord() {
+        ErpKingdeeSaleOrder saleOrder = buildSaleOrder();
+        when(saleOrderClient.fetchAllSaleOrders(kingdeeProperties)).thenReturn(List.of(saleOrder));
+        when(syncRecordMapper.selectBySourceKey(ErpKingdeeSaleOrder.FORM_ID, "348963"))
+                .thenReturn(new ErpKingdeeSaleOrderSyncRecordDO().setId(301L).setSaleOrderId(501L));
+        when(saleOrderService.getSaleOrder(501L))
+                .thenReturn(new cn.iocoder.yudao.module.erp.dal.dataobject.sale.ErpSaleOrderDO()
+                        .setId(501L)
+                        .setStatus(ErpAuditStatus.PROCESS.getStatus()));
+        when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
+                .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
+        when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
+
+        ErpKingdeeSaleOrderSyncResult result = syncService.syncAllWithUpdates();
+
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        assertEquals(0, result.getSkippedCount());
+        verify(saleOrderService, never()).createSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+        verify(saleOrderService).updateSaleOrder(any(ErpSaleOrderSaveReqVO.class));
+    }
+
+    @Test
     void syncSaleOrdersModifiedBetween_usesModifyTimeWindowAndUpdatesExistingSourceRecord() {
         LocalDateTime windowStart = LocalDateTime.of(2026, 6, 12, 8, 0);
         LocalDateTime windowEnd = LocalDateTime.of(2026, 6, 12, 9, 0);

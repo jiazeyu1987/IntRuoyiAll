@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -186,11 +187,15 @@ public class ErpKingdeeProductionPickListServiceImpl
     private void upsertItems(Long pickListId, ErpKingdeeProductionPickList pickList,
                              LocalDateTime now) {
         productionPickListItemMapper.deleteByProductionPickListId(pickListId);
+        List<ErpKingdeeProductionPickListItemDO> records = new ArrayList<>(pickList.getLines().size());
         for (ErpKingdeeProductionPickList.Line line : pickList.getLines()) {
             String sourceLineKey = pickList.getFid() + "|" + line.getEntryId();
             ErpKingdeeProductionPickListItemDO record =
                     buildItemRecord(pickListId, pickList, line, sourceLineKey, now);
-            productionPickListItemMapper.insert(record);
+            records.add(record);
+        }
+        if (!records.isEmpty() && !Boolean.TRUE.equals(productionPickListItemMapper.insertBatch(records, 1000))) {
+            throw new IllegalStateException("Production pick list item batch insert failed: fid=" + pickList.getFid());
         }
     }
 

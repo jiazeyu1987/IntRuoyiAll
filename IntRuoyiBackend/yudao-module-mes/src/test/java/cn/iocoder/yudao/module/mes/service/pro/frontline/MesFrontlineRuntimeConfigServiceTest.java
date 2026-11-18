@@ -69,6 +69,8 @@ class MesFrontlineRuntimeConfigServiceTest {
     @Mock
     private MesFrontlineProcessMaterialService processMaterialService;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteDeviceIdentitySnapshotService deviceIdentitySnapshots;
     private MesFrontlineRuntimeConfigServiceImpl service;
 
     @BeforeEach
@@ -76,6 +78,9 @@ class MesFrontlineRuntimeConfigServiceTest {
         service = new MesFrontlineRuntimeConfigServiceImpl(contextService, templateResolver, employeeProfileMapper,
                 processDeviceMapper, deviceMapper, parameterRuleMapper, processSnapshotMapper,
                 defectReasonMapper, sessionSnapshotService, activeOrderProcessService, processMaterialService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "deviceIdentitySnapshots", deviceIdentitySnapshots);
+        lenient().when(deviceIdentitySnapshots.require(any(), anyCollection())).thenReturn(java.util.Map.of(7001L,
+            new cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteDeviceIdentitySnapshotService.Identity(7001L, "D-001", "冻结设备")));
         org.mockito.Mockito.lenient().when(sessionSnapshotService.issue(any()))
                 .thenReturn(new MesFrontlineSessionSnapshotReference("snapshot-001", "hash-001"));
         org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
@@ -445,8 +450,9 @@ class MesFrontlineRuntimeConfigServiceTest {
         verify(parameterRuleMapper, never()).selectList(any());
     }
 
-    @Test
-    void getRuntimeConfig_usesFrozenActiveOrderDeviceAndLossReasonSnapshotsWithoutCurrentProcessConfig() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"ENABLED", "REPAIRING", "DISABLED"})
+    void getRuntimeConfig_usesFrozenActiveOrderDeviceAndLossReasonSnapshotsWithoutCurrentProcessConfig(String status) {
         when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
@@ -456,7 +462,7 @@ class MesFrontlineRuntimeConfigServiceTest {
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
         when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
-                teamDevice(7001L, 9999L, "D-001", "冻结设备", "ENABLED", true)));
+                teamDevice(7001L, 9999L, "D-NEW", "台账已改名", status, !"DISABLED".equals(status))));
         String frozenJson = JsonUtils.toJsonString(List.of(MesDeviceParameterSnapshotRule.builder()
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
@@ -493,10 +499,13 @@ class MesFrontlineRuntimeConfigServiceTest {
         MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, 8101L, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
 
-        assertEquals(1, config.devices().size());
-        assertEquals("冻结设备", config.devices().get(0).deviceName());
-        assertEquals("DEFAULT", config.devices().get(0).deviceGroupKey());
-        assertEquals(1, config.devices().get(0).parameters().size());
+        assertEquals("ENABLED".equals(status) ? 1 : 0, config.devices().size());
+        if ("ENABLED".equals(status)) {
+            assertEquals("冻结设备", config.devices().get(0).deviceName());
+            assertEquals("D-001", config.devices().get(0).deviceCode());
+            assertEquals("DEFAULT", config.devices().get(0).deviceGroupKey());
+            assertEquals(1, config.devices().get(0).parameters().size());
+        }
         assertEquals(2, config.defectReasons().size());
         assertEquals(MesFrontlineDefectReasonOption.OTHER_LOSS, config.defectReasons().get(1));
         assertEquals(8301L, config.defectReasons().get(0).reasonId());

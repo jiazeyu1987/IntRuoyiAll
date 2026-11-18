@@ -228,6 +228,7 @@ const syncRouteQueryAfterLatestSubmitStatus = async (latestVersion: ProRouteVers
 const loadRoute = async () => {
   if (!isCurrentRouteEditPage.value) {
     routeLoadError.value = ''
+    loadedRouteRequestKey.value = undefined
     return
   }
   if (routeIdInvalidError.value) {

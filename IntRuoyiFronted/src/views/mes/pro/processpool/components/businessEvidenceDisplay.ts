@@ -390,6 +390,14 @@ const labels: Record<string, string> = {
 }
 
 const enums: Record<string, Record<string, string>> = {
+  verificationStatus: { VALID: '核验通过', INCOMPLETE: '证据不完整', MISMATCH: '核验不一致' },
+  disposition: { concession_release: '让步放行', rework: '返工', void: '作废' },
+  actionCode: {
+    PRODUCTION_SUBMIT: '生产提交', TEAM_LEADER_REVIEW: '组长复核',
+    PQC_SUBMIT: 'PQC检验提交', PQC_RELEASE: '生产放行', MARKET_RELEASE: '上市放行',
+    FIELD_CHANGE: '正式记录补正', PQC_PATROL_ROUND_CORRECTION: '巡检轮次补正',
+    QA_DISPOSITION: '质量保证处置'
+  },
   state: { PRESENT: '存在记录' },
   purpose: { ONLINE_FILE_PREVIEW: '在线文件预览' },
   source: { real_word_import: '正式Word文件导入' },

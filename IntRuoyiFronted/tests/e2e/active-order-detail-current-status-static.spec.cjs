@@ -31,6 +31,7 @@ assert.match(edhrPage, /<ActiveOrderSubmissionDetailPanel/, 'eDHR 详情页必�
 assert.match(activeOrderPage, /<ActiveOrderSubmissionDetailPanel/, '生产组长活跃订单详情页必须复用活跃订单详情公共面板。')
 assert.match(detailPanel, /data-active-order-current-status/, '公共详情面板必须有当前状态展示节点。')
 assert.match(detailPanel, /detail\.activeOrderStatus\?\.statusLabel/, '公共详情面板必须展示后端返回的状态文本。')
-assert.match(detailPanel, /team-leader-workbench__active-order-detail-record-boundary[\s\S]*grid-template-columns:\s*1fr auto 1fr/, '当前状态必须位于详情批记录栏中间。')
+const summary = detailPanel.slice(detailPanel.indexOf('class="team-leader-workbench__active-order-detail-summary"'), detailPanel.indexOf('<el-tabs'))
+assert.match(summary, /工艺路线[\s\S]*data-active-order-detail-record-boundary[\s\S]*data-active-order-current-status[\s\S]*工序数/, '批记录状态必须位于顶部摘要的工艺路线与工序数之间。')
 
 console.log('PASS active-order-detail-current-status-static')

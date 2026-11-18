@@ -124,4 +124,26 @@ class KingdeePurchaseOrderSyncJobTest {
         verify(service, never()).syncPurchaseOrdersModifiedBetween(any(), any());
     }
 
+
+    @Test
+    void unboundedFullSync_updatesExistingAcrossFullHistory() {
+        var service = mock(ErpKingdeePurchaseOrderSyncService.class);
+        var runtime = mock(ErpKingdeeSyncRuntimeService.class);
+        var result = new ErpKingdeePurchaseOrderSyncResult();
+        result.addUpdated(501L);
+        when(service.syncAllWithUpdates()).thenReturn(result);
+        when(runtime.executeSync(any(), any())).thenAnswer(invocation -> {
+            ErpKingdeeSyncCommand command = invocation.getArgument(0);
+            assertEquals(ErpKingdeeSyncTriggerTypeEnum.FULL, command.getTriggerType());
+            Assertions.assertNull(command.getInitialWindowStart());
+            ErpKingdeeSyncTask task = invocation.getArgument(1);
+            var completed = task.run(ErpKingdeeSyncContext.builder().windowEnd(command.getWindowEnd()).build());
+            assertEquals(1, completed.getUpdatedCount());
+            return completed;
+        });
+        new KingdeePurchaseOrderSyncJob(service, runtime).executeFullSync();
+        verify(service).syncAllWithUpdates();
+        verify(service, never()).syncPurchaseOrdersFullSkipExisting(any(), any());
+        verify(service, never()).syncPurchaseOrders();
+    }
 }

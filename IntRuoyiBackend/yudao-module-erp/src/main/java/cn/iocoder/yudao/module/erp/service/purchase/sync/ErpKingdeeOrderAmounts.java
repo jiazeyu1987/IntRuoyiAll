@@ -36,14 +36,24 @@ public class ErpKingdeeOrderAmounts {
         return price.multiply(priceUnitQuantity).divide(quantity, 6, java.math.RoundingMode.HALF_UP);
     }
 
-    public void validate(int itemCount) {
+    /** Validate source completeness while preserving independently reported amounts. */
+    public void validateSourceSnapshot(int itemCount) {
         if (productAmount == null || taxAmount == null || totalAmount == null || discountAmount == null
                 || lines == null || lines.size() != itemCount) {
             throw new IllegalStateException("ERP order financial snapshot is incomplete");
         }
         for (Line line : lines) {
-            if (line.getNetAmount() == null || line.getTaxAmount() == null || line.getTotalAmount() == null
-                    || line.getNetAmount().add(line.getTaxAmount()).compareTo(line.getTotalAmount()) != 0) {
+            if (line == null || line.getNetAmount() == null || line.getTaxAmount() == null
+                    || line.getTotalAmount() == null) {
+                throw new IllegalStateException("ERP order entry financial snapshot is incomplete");
+            }
+        }
+    }
+
+    public void validate(int itemCount) {
+        validateSourceSnapshot(itemCount);
+        for (Line line : lines) {
+            if (line.getNetAmount().add(line.getTaxAmount()).compareTo(line.getTotalAmount()) != 0) {
                 throw new IllegalStateException("ERP order entry financial amounts do not balance");
             }
         }

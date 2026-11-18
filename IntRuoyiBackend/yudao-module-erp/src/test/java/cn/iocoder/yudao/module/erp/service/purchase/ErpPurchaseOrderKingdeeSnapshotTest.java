@@ -38,6 +38,10 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
     private ErpPurchaseOrderServiceImpl service;
 
     @BeforeEach void setUp() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), "purchase-snapshot-test"),
+                ErpPurchaseOrderDO.class);
         service = new ErpPurchaseOrderServiceImpl();
         ReflectionTestUtils.setField(service, "purchaseOrderMapper", orderMapper);
         ReflectionTestUtils.setField(service, "purchaseOrderItemMapper", itemMapper);
@@ -62,9 +66,13 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
         return req;
     }
 
-    private void stubCreate() {
+    private void stubCreate(boolean kingdee) {
         when(unitService.getProductUnitMap(Set.of(20L))).thenReturn(Map.of(20L, new ErpProductUnitDO().setId(20L)));
-        when(productService.validProductList(Set.of(10L))).thenReturn(List.of(new ErpProductDO().setId(10L).setUnitId(99L)));
+        if (kingdee) {
+            when(productService.getProduct(10L)).thenReturn(new ErpProductDO().setId(10L).setUnitId(99L));
+        } else {
+            when(productService.validProductList(Set.of(10L))).thenReturn(List.of(new ErpProductDO().setId(10L).setUnitId(99L)));
+        }
         when(noRedisDAO.generate(ErpNoRedisDAO.PURCHASE_ORDER_NO_PREFIX)).thenReturn("test-order");
         when(orderMapper.insert(any(ErpPurchaseOrderDO.class))).thenAnswer(call -> {
             call.getArgument(0, ErpPurchaseOrderDO.class).setId(100L); return 1;
@@ -72,7 +80,7 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
     }
 
     @Test void kingdeeSnapshotPreservesTransactionUnitAndActualDiscountedAmounts() {
-        stubCreate();
+        stubCreate(true);
         var req = request();
         var snapshot = new ErpKingdeeOrderAmounts();
         snapshot.setProductAmount(new BigDecimal("8.85"));
@@ -102,7 +110,7 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
     }
 
     @Test void manualOrderStillCalculatesAmountsFromPriceAndQuantity() {
-        stubCreate();
+        stubCreate(false);
         var req = request();
         req.setDiscountPercent(BigDecimal.TEN);
         service.createPurchaseOrder(req);
@@ -114,11 +122,113 @@ class ErpPurchaseOrderKingdeeSnapshotTest {
             items.iterator().next().getProductUnitId().equals(20L)));
     }
 
+    @Test void discrepantSourceAmountsArePreservedOnCreateAndUpdate() {
+        stubCreate(true);
+        var req = request();
+        var source = new ErpKingdeeOrderAmounts();
+        source.setProductAmount(BigDecimal.ZERO);
+        source.setTaxAmount(BigDecimal.ZERO);
+        source.setTotalAmount(new BigDecimal("448.25"));
+        source.setDiscountAmount(BigDecimal.ZERO);
+        var line = new ErpKingdeeOrderAmounts.Line();
+        line.setNetAmount(BigDecimal.ZERO);
+        line.setTaxAmount(BigDecimal.ZERO);
+        line.setTotalAmount(new BigDecimal("448.25"));
+        source.setLines(List.of(line));
+        req.setKingdeeAmounts(source);
+        assertEquals(100L, service.createPurchaseOrder(req));
+        var inserted = ArgumentCaptor.forClass(ErpPurchaseOrderDO.class);
+        verify(orderMapper).insert(inserted.capture());
+        when(orderMapper.selectById(100L)).thenReturn(new ErpPurchaseOrderDO().setId(100L).setStatus(10));
+        when(itemMapper.selectListByOrderId(100L)).thenReturn(List.of());
+        req.setId(100L);
+        service.updatePurchaseOrder(req);
+        var updated = ArgumentCaptor.forClass(ErpPurchaseOrderDO.class);
+        verify(orderMapper).updateById(updated.capture());
+        for (var header : List.of(inserted.getValue(), updated.getValue())) {
+            assertEquals(BigDecimal.ZERO, header.getTotalProductPrice());
+            assertEquals(BigDecimal.ZERO, header.getTotalTaxPrice());
+            assertEquals(new BigDecimal("448.25"), header.getTotalPrice());
+            assertEquals(BigDecimal.ZERO, header.getDiscountPrice());
+        }
+        verify(itemMapper, times(2)).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items ->
+                items.size() == 1 && items.iterator().next().getTotalPrice().compareTo(BigDecimal.ZERO) == 0
+                        && items.iterator().next().getTaxPrice().compareTo(BigDecimal.ZERO) == 0));
+        assertEquals(new BigDecimal("448.25"), source.getLines().get(0).getTotalAmount());
+    }
+
     @Test void adminJsonCannotSupplyTrustedKingdeeAmounts() {
         var req = JsonUtils.parseObject("{\"kingdeeAmounts\":{\"totalAmount\":1},\"remark\":\"manual\"}", ErpPurchaseOrderSaveReqVO.class);
         assertNull(req.getKingdeeAmounts());
         assertEquals("manual", req.getRemark());
         req.setKingdeeAmounts(new ErpKingdeeOrderAmounts());
         assertFalse(JsonUtils.toJsonString(req).contains("kingdeeAmounts"));
+    }
+
+    @Test void trustedSourceDraftPreservesNullReferencesOnCreateAndUpdate() {
+        var req = request();
+        req.setSupplierId(null);
+        req.getItems().get(0).setProductId(null);
+        req.getItems().get(0).setProductUnitId(null);
+        req.getItems().get(0).setProductPrice(BigDecimal.ZERO);
+        req.getItems().get(0).setCount(BigDecimal.ZERO);
+        var source = new ErpKingdeeOrderAmounts();
+        source.setProductAmount(BigDecimal.ZERO);
+        source.setTaxAmount(BigDecimal.ZERO);
+        source.setTotalAmount(BigDecimal.ZERO);
+        source.setDiscountAmount(BigDecimal.ZERO);
+        var line = new ErpKingdeeOrderAmounts.Line();
+        line.setNetAmount(BigDecimal.ZERO);
+        line.setTaxAmount(BigDecimal.ZERO);
+        line.setTotalAmount(BigDecimal.ZERO);
+        source.setLines(List.of(line));
+        req.setKingdeeAmounts(source);
+        when(noRedisDAO.generate(ErpNoRedisDAO.PURCHASE_ORDER_NO_PREFIX)).thenReturn("draft-order");
+        when(orderMapper.insert(any(ErpPurchaseOrderDO.class))).thenAnswer(call -> {
+            call.getArgument(0, ErpPurchaseOrderDO.class).setId(100L); return 1;
+        });
+        assertEquals(100L, service.createPurchaseOrder(req));
+        when(orderMapper.selectById(100L)).thenReturn(new ErpPurchaseOrderDO().setId(100L).setStatus(10));
+        when(itemMapper.selectListByOrderId(100L)).thenReturn(List.of());
+        req.setId(100L);
+        service.updatePurchaseOrder(req);
+        verifyNoInteractions(supplierService, productService, unitService);
+        verify(itemMapper, times(2)).insertBatch(org.mockito.ArgumentMatchers.<java.util.Collection<ErpPurchaseOrderItemDO>>argThat(items -> {
+            var item = items.iterator().next();
+            return items.size() == 1 && item.getProductId() == null && item.getProductUnitId() == null
+                    && item.getCount().signum() == 0 && item.getTotalPrice().signum() == 0;
+        }));
+        var clear = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.Wrapper.class);
+        verify(orderMapper).update(org.mockito.ArgumentMatchers.<ErpPurchaseOrderDO>isNull(), clear.capture());
+        var wrapper = (com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<?>) clear.getValue();
+        assertTrue(wrapper.getSqlSet().contains("supplier_id="));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(null));
+    }
+
+    @Test void manualOrderStillRejectsMissingUnit() {
+        var req = request();
+        req.getItems().get(0).setProductUnitId(null);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.createPurchaseOrder(req));
+        verifyNoInteractions(orderMapper, itemMapper, unitService);
+    }
+
+    @Test void methodValidationAllowsNullSourceSupplierButRejectsManualNullSupplier() throws Exception {
+        var req = request();
+        req.setSupplierId(null);
+        req.setOrderTime(java.time.LocalDateTime.of(2023, 2, 13, 0, 0));
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator().forExecutables();
+            for (String name : List.of("createPurchaseOrder", "updatePurchaseOrder")) {
+                var method = ErpPurchaseOrderService.class.getMethod(name, ErpPurchaseOrderSaveReqVO.class);
+                req.setKingdeeAmounts(null);
+                var manual = validator.validateParameters(service, method, new Object[]{req});
+                assertEquals(1, manual.size());
+                assertEquals("供应商编号不能为空", manual.iterator().next().getMessage());
+                req.setKingdeeAmounts(new ErpKingdeeOrderAmounts());
+                assertTrue(validator.validateParameters(service, method, new Object[]{req}).isEmpty());
+            }
+        }
+        assertFalse(JsonUtils.toJsonString(req).contains("supplierSpecifiedOrTrustedSource"));
     }
 }

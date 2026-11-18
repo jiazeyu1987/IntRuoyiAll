@@ -316,8 +316,8 @@ class MesProRouteProcessFlowServiceImplTest {
                               "routeId": 9012,
                               "graphVersion": 18,
                               "nodes": [
-                                {"routeProcessId": 211, "processId": 2001, "sort": 1, "keyFlag": true, "checkFlag": false},
-                                {"routeProcessId": 212, "processId": 2002, "sort": 2, "keyFlag": false, "checkFlag": false}
+                                {"routeProcessId": 211, "processId": 2001, "processCode": "PROC-2001", "processName": "审批中首工序", "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 212, "processId": 2002, "processCode": "PROC-2002", "processName": "审批中末工序", "sort": 2, "keyFlag": false, "checkFlag": false}
                               ],
                               "edges": [
                                 {"sourceRouteProcessId": 211, "targetRouteProcessId": 212, "relationType": "NORMAL"}
@@ -335,11 +335,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(processService.getProcessList(List.of(2001L, 2002L))).thenReturn(List.of(
-                processDefinition(2001L, "PROC-2001", "审批中首工序"),
-                processDefinition(2002L, "PROC-2002", "审批中末工序")
-        ));
-
         MesProRouteProcessFlowGraphRespVO graph = flowService.getGraph(routeId, candidateRouteVersionId);
 
         assertTrue(graph.getValid());
@@ -351,6 +346,8 @@ class MesProRouteProcessFlowServiceImplTest {
         assertEquals(10, graph.getNodes().get(0).getX());
         assertEquals(212L, graph.getNodes().get(1).getRouteProcessId());
         assertEquals("PROC-2002", graph.getNodes().get(1).getProcessCode());
+        assertEquals("审批中首工序", graph.getNodes().get(0).getProcessName());
+        org.mockito.Mockito.verifyNoInteractions(processService, workstationService);
         assertEquals(1, graph.getEdges().size());
         assertEquals(2, graph.getBoundaryEdges().size());
         verify(routeProcessMapper, never()).selectListByRouteId(routeId);
@@ -374,6 +371,9 @@ class MesProRouteProcessFlowServiceImplTest {
                         {
                           "routeId": 9020,
                           "configSnapshots": {
+                            "productionProcessConfigs": [
+                              {"routeProcessId": 321, "processId": 3001, "processCode": "PROC-3001", "processName": "历史版本工序"}
+                            ],
                             "flowGraph": {
                               "routeId": 9020,
                               "graphVersion": 23,
@@ -390,10 +390,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(processService.getProcessList(List.of(3001L))).thenReturn(List.of(
-                processDefinition(3001L, "PROC-3001", "历史版本工序")
-        ));
-
         MesProRouteProcessFlowGraphRespVO graph = flowService.getGraph(routeId, routeVersionId);
 
         assertEquals("UNINITIALIZED", graph.getValidationStatus());
@@ -401,11 +397,27 @@ class MesProRouteProcessFlowServiceImplTest {
         assertEquals(1, graph.getNodes().size());
         assertEquals(321L, graph.getNodes().get(0).getRouteProcessId());
         assertEquals("PROC-3001", graph.getNodes().get(0).getProcessCode());
+        assertEquals("历史版本工序", graph.getNodes().get(0).getProcessName());
+        org.mockito.Mockito.verifyNoInteractions(processService, workstationService);
         assertEquals(30, graph.getNodes().get(0).getX());
         verify(routeProcessMapper, never()).selectListByRouteId(routeId);
         verify(flowEdgeMapper, never()).selectListByRouteId(routeId);
         verify(boundaryEdgeMapper, never()).selectListByRouteId(routeId);
         verify(flowLayoutMapper, never()).selectListByRouteId(routeId);
+    }
+
+    @Test
+    void getGraph_shouldRejectFrozenVersionWithMissingProcessSnapshot() {
+        when(routeMapper.selectById(9020L)).thenReturn(route(9020L));
+        when(routeVersionMapper.selectById(9920L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(9920L).routeId(9020L).active(false).lifecycleStatus("SUPERSEDED")
+                .routeSnapshotJson("""
+                    {"configSnapshots":{"flowGraph":{"graphVersion":23,
+                    "nodes":[{"routeProcessId":321,"processId":3001,"sort":1}]}}}
+                    """).build());
+        AssertUtils.assertServiceException(() -> flowService.getGraph(9020L, 9920L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, 9920L);
+        org.mockito.Mockito.verifyNoInteractions(processService, workstationService);
     }
 
     @Test
@@ -1445,7 +1457,8 @@ class MesProRouteProcessFlowServiceImplTest {
 
     private static JSONObject mergeCandidateConfigs(MesProRouteVersionDO candidate, Map<String, Object> snapshots) {
         JSONObject merged = JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots");
-        snapshots.forEach((key, value) -> merged.put(key, JSON.parse(JSON.toJSONString(value))));
+        snapshots.forEach((key, value) -> merged.put(key, JSON.parse(JSON.toJSONString(value,
+                com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect))));
         return merged;
     }
 
