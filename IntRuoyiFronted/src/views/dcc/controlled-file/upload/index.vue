@@ -768,7 +768,6 @@
             <el-button link type="primary" @click="preflightDetailsVisible = true">查看校验详情</el-button>
           </div>
           <el-form-item>
-            <el-button v-if="!isExternalReview" :loading="submitLoading" :disabled="uploadSubmitted || hasUnreadyAttachmentUploads" @click="saveUploadDraft">保存申请草稿</el-button>
             <el-button
               type="primary"
               :loading="submitLoading"
