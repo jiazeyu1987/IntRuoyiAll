@@ -4612,6 +4612,43 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertServiceException(() -> workflowService.validateSourceUploadContext(99L, preview), PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
     }
 
+    @Test void uploadPreviewExplainsMissingFileTypePermission() {
+        prepareManagerSubmission();
+        when(categoryPermissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
+        var preview = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO();
+        preview.setCategoryId(10L);preview.setDccProjectCodeId(3000L);preview.setFileTypeTaxonomyId(8803L);
+        preview.setFileName("CUSTOM-REPORT");preview.setUploadContext("NEW_UPLOAD");
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> workflowService.validateSourceUploadContext(99L, preview));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), error.getCode());
+        assertEquals("当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权", error.getMessage());
+        verify(projectAccessService).assertProjectEditorOrOwner(99L, 3000L);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test void uploadSubmitExplainsMissingFileTypePermission() {
+        prepareManagerSubmission();
+        when(categoryPermissionSupport.hasEditableProjectCategory(99L, 3000L, 10L)).thenReturn(false);
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> workflowService.submitControlledFile(99L, buildSubmitReqVO("A/1")));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), error.getCode());
+        assertEquals("当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权", error.getMessage());
+        verify(projectAccessService).assertProjectEditorOrOwner(99L, 3000L);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test void uploadSubmitKeepsProjectPermissionDenial() {
+        prepareManagerSubmission();
+        when(categoryPermissionSupport.hasEditableProjectCategory(99L, 3000L, 10L)).thenReturn(false);
+        doThrow(exception(DCC_PROJECT_ACCESS_DENIED)).when(projectAccessService)
+                .assertProjectEditorOrOwner(99L, 3000L);
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> workflowService.submitControlledFile(99L, buildSubmitReqVO("A/1")));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getMsg(), error.getMessage());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
     @Test void normalNewUploadPreviewAndSubmitDoNotRequireProjectTemplateNames() {
         var request=buildSubmitReqVO("A/1");prepareManagerSubmission();
         request.setFileName("CUSTOM-REPORT");

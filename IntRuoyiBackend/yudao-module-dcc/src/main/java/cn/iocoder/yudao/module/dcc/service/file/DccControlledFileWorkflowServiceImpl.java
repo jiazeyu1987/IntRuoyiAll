@@ -1011,7 +1011,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccFileCategoryDO category = validateCategory(request.getCategoryId());
         if ("EXTERNAL_REVIEW".equals(request.getUploadContext())) {
             if (!categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
-                    DccFileCategoryPermissionActionEnum.UPLOAD)) throw exception(DCC_PROJECT_ACCESS_DENIED);
+                    DccFileCategoryPermissionActionEnum.UPLOAD)) throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                    "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
             return;
         }
         if ("CHECKIN".equals(request.getUploadContext())) {
@@ -1036,7 +1037,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             if (!categoryPermissionSupport.isLibrary(file.getDccProjectCodeId())
                     && !categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
-                    DccFileCategoryPermissionActionEnum.UPLOAD)) throw exception(DCC_PROJECT_ACCESS_DENIED);
+                    DccFileCategoryPermissionActionEnum.UPLOAD)) throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                    "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
             if (!categoryPermissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.UPLOAD))
                 throw exception(DCC_PROJECT_ACCESS_DENIED);
             return;
@@ -1050,7 +1052,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccProjectCodeDO project = validateEnabledProjectCode(request.getDccProjectCodeId(), true);
         projectAccessService.assertProjectEditorOrOwner(userId, project.getId());
         if (!project.isLibrary() && !categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
-                DccFileCategoryPermissionActionEnum.UPLOAD)) throw exception(DCC_PROJECT_ACCESS_DENIED);
+                DccFileCategoryPermissionActionEnum.UPLOAD)) throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
         if (!categoryPermissionSupport.hasEditableProjectCategory(userId, project.getId(), category.getId()))
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         if (!Objects.equals(request.getCategoryId(),fileTypeTaxonomyAdminService.resolveActiveCategoryId(request.getFileTypeTaxonomyId()))) {
@@ -3093,8 +3096,14 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .equals(StrUtil.trim(reqVO.getChangeType()))
                 && reqVO.getRevisionSourceControlledFileId() != null;
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
-        if (!categoryPermissionSupport.hasEditableProjectCategory(userId, projectCode.getId(), category.getId()))
+        if (!categoryPermissionSupport.hasEditableProjectCategory(userId, projectCode.getId(), category.getId())) {
+            if (controlledUploadSubmit) {
+                projectAccessService.assertProjectEditorOrOwner(userId, projectCode.getId());
+                throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                        "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
+            }
             throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
         if (controlledUploadSubmit) {
             if (existingRevisionSubmit) {
                 projectAccessService.assertProjectEditorOrOwner(userId, projectCode.getId());
@@ -3103,7 +3112,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             if (!projectCode.isLibrary() && !categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
                     DccFileCategoryPermissionActionEnum.UPLOAD)) {
-                throw exception(DCC_PROJECT_ACCESS_DENIED);
+                throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(),
+                        "当前用户没有所选文件类型的上传权限，请联系文控管理员配置该文件类型的编辑授权");
             }
         }
         if (controlledUploadSubmit
